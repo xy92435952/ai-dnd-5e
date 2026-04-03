@@ -83,15 +83,8 @@ fi
 echo ""
 echo "[4/8] 检查项目代码..."
 if [ ! -f "$APP_DIR/app/backend/main.py" ]; then
-    echo ""
-    echo "  ⚠ 项目代码未找到！"
-    echo ""
-    echo "  请先上传代码到 $APP_DIR/app/"
-    echo "  在本地执行："
-    echo "    scp -r D:/program/game/ root@$(curl -s ifconfig.me 2>/dev/null || echo '你的IP'):$APP_DIR/app/"
-    echo ""
-    echo "  上传完成后重新运行: bash $APP_DIR/app/deploy.sh"
-    exit 0
+    echo "  克隆项目代码..."
+    git clone https://github.com/xy92435952/ai-dnd-5e.git $APP_DIR/app
 fi
 echo "  项目代码: $APP_DIR/app/"
 
