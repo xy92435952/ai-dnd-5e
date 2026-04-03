@@ -328,7 +328,7 @@ def route_by_mode(state: DMAgentState) -> str:
 
 
 async def combat_dm(state: DMAgentState) -> dict:
-    llm = get_llm(temperature=0.72, max_tokens=4000)
+    llm = get_llm(temperature=0.72, max_tokens=2000)
 
     # Build recent history from messages
     history_text = ""
@@ -364,7 +364,7 @@ async def combat_dm(state: DMAgentState) -> dict:
 
 
 async def explore_dm(state: DMAgentState) -> dict:
-    llm = get_llm(temperature=0.82, max_tokens=4000)
+    llm = get_llm(temperature=0.82, max_tokens=2000)
 
     history_text = ""
     for msg in (state.get("messages") or [])[-10:]:

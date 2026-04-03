@@ -107,18 +107,24 @@ async def narrate_action(
     )
 
     try:
+        import asyncio
         llm = get_llm(temperature=0.9, max_tokens=200)
-        resp = await llm.ainvoke([
-            SystemMessage(content=NARRATOR_SYSTEM),
-            HumanMessage(content=prompt),
-        ])
+        resp = await asyncio.wait_for(
+            llm.ainvoke([
+                SystemMessage(content=NARRATOR_SYSTEM),
+                HumanMessage(content=prompt),
+            ]),
+            timeout=8.0,  # 8秒超时，避免拖慢游戏
+        )
         narrative = resp.content.strip()
         if narrative and len(narrative) > 5:
             return narrative
+    except asyncio.TimeoutError:
+        logger.warning("Combat narration timed out (8s)")
     except Exception as e:
         logger.warning(f"Combat narration failed: {e}")
 
-    # Fallback: 返回空字符串，让调用方使用原有机械描述
+    # Fallback: 返回空字符串，让调用方使��原有机械描述
     return ""
 
 
@@ -141,28 +147,31 @@ async def narrate_batch(actions: list[dict]) -> list[str]:
     prompt = BATCH_TEMPLATE.format(actions="\n".join(action_lines))
 
     try:
+        import asyncio, re
         llm = get_llm(temperature=0.9, max_tokens=150 * len(actions))
-        resp = await llm.ainvoke([
-            SystemMessage(content=NARRATOR_SYSTEM),
-            HumanMessage(content=prompt),
-        ])
+        resp = await asyncio.wait_for(
+            llm.ainvoke([
+                SystemMessage(content=NARRATOR_SYSTEM),
+                HumanMessage(content=prompt),
+            ]),
+            timeout=10.0,
+        )
         text = resp.content.strip()
-        # 解析 "1. xxx\n2. yyy" 格式
         lines = []
         for line in text.split("\n"):
             line = line.strip()
             if line and len(line) > 3:
-                # 去掉序号前缀 "1. " / "1、" / "1："
-                import re
                 cleaned = re.sub(r'^\d+[\.\、\：\:]\s*', '', line)
                 if cleaned:
                     lines.append(cleaned)
 
-        # 补齐或截断到 actions 长度
         while len(lines) < len(actions):
             lines.append("")
         return lines[:len(actions)]
 
+    except asyncio.TimeoutError:
+        logger.warning("Batch combat narration timed out (10s)")
+        return [""] * len(actions)
     except Exception as e:
         logger.warning(f"Batch combat narration failed: {e}")
         return [""] * len(actions)
