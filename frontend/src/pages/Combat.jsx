@@ -298,10 +298,10 @@ export default function Combat() {
       }
 
       if (!atkResult.hit) {
-        // 未命中 — 显示 MISS 日志，流程结束
-        const missText = atkResult.is_fumble
+        // 未命中 — 显示 LLM 叙事或 fallback 日志
+        const missText = atkResult.narration || (atkResult.is_fumble
           ? `\uD83D\uDC80 大失手！${atkResult.attacker_name} 对 ${atkResult.target_name} 攻击失手。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`
-          : `${atkResult.attacker_name} 攻击 ${atkResult.target_name}，未命中。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`
+          : `${atkResult.attacker_name} 攻击 ${atkResult.target_name}，未命中。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`)
         addLog({ role: 'player', content: missText, log_type: 'combat',
           dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: false, is_crit: false, is_fumble: atkResult.is_fumble } },
         })
@@ -1508,11 +1508,17 @@ function CombatLogEntry({ log }) {
   const isCompanion = log.role?.startsWith('companion_')
   const color = isPlayer ? 'var(--blue-light)' : isEnemy ? 'var(--red-light)' : isCompanion ? 'var(--green-light)' : 'var(--text-dim)'
   const atk = log.dice_result?.attack
+  const dmg = log.dice_result?.damage
+  const dmgTotal = dmg ? (typeof dmg === 'object' ? dmg.total : dmg) : null
 
   return (
-    <div className="text-xs space-y-0.5">
-      <div className="flex items-start gap-1.5">
-        <span className="flex-shrink-0 mt-0.5" style={{ display: 'flex' }}>
+    <div style={{
+      padding: '6px 8px', marginBottom: 4, borderRadius: 6,
+      background: isPlayer ? 'rgba(58,122,170,0.08)' : isEnemy ? 'rgba(196,64,64,0.08)' : isCompanion ? 'rgba(74,138,74,0.08)' : 'transparent',
+      borderLeft: `2px solid ${color}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+        <span style={{ flexShrink: 0, marginTop: 2, display: 'flex' }}>
           {isPlayer
             ? <ShieldIcon size={12} color="var(--blue-light)" />
             : isEnemy
@@ -1521,13 +1527,17 @@ function CombatLogEntry({ log }) {
                 ? <SwordIcon size={12} color="var(--green-light)" />
                 : <DiceD20Icon size={12} color="var(--text-dim)" />}
         </span>
-        <p style={{ color, lineHeight: 1.5 }}>{log.content}</p>
+        <p style={{ color, lineHeight: 1.6, fontSize: '0.8rem', fontStyle: 'normal' }}>{log.content}</p>
       </div>
       {atk?.d20 !== undefined && (
-        <p className="pl-5" style={{ color: 'var(--parchment-dark)', opacity: 0.7 }}>
-          d20({atk.d20}) + {atk.attack_bonus} = {atk.attack_total} vs AC{atk.target_ac}
+        <p style={{
+          paddingLeft: 20, marginTop: 2,
+          color: 'var(--parchment-dark)', opacity: 0.6, fontSize: '0.7rem',
+          fontFamily: 'var(--font-mono, monospace)',
+        }}>
+          d20({atk.d20})+{atk.attack_bonus}={atk.attack_total} vs AC{atk.target_ac}
           {atk.hit
-            ? ` → 命中${log.dice_result?.damage ? ` (${typeof log.dice_result.damage === 'object' ? log.dice_result.damage.total : log.dice_result.damage}伤害)` : ''}`
+            ? ` → 命中${dmgTotal ? ` (${dmgTotal}伤害)` : ''}`
             : ' → 未命中'}
           {atk.is_crit ? ' 暴击！' : ''}{atk.is_fumble ? ' 大失手' : ''}
         </p>

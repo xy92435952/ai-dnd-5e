@@ -16,6 +16,7 @@ from api.deps import get_session_or_404, entity_snapshot, serialize_combat
 from services.combat_service import CombatService
 from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
+from services.combat_narrator import narrate_action, narrate_batch
 from sqlalchemy.orm.attributes import flag_modified
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -940,11 +941,22 @@ async def combat_action(
         vulnerabilities = t_enemy_data.get("vulnerabilities", [])
         damage = svc.apply_damage_with_resistance(damage, damage_type, resistances, immunities, vulnerabilities)
 
-    narration = svc._build_narration(player_name, target_name, attack_result_dict, damage)
+    mechanical_narration = svc._build_narration(player_name, target_name, attack_result_dict, damage)
     if ranged_penalty:
-        narration = f"（相邻敌人，远程劣势）{narration}"
+        mechanical_narration = f"（相邻敌人，远程劣势）{mechanical_narration}"
     if extra_damage_notes:
-        narration += f"（{', '.join(extra_damage_notes)}）"
+        mechanical_narration += f"（{', '.join(extra_damage_notes)}）"
+
+    # LLM vivid narration for old-path attack
+    vivid = await narrate_action(
+        actor_name=player_name, actor_class=_normalize_class(player.char_class),
+        target_name=target_name, action_type="attack",
+        hit=attack_result_dict["hit"], is_crit=attack_result_dict["is_crit"],
+        is_fumble=attack_result_dict["is_fumble"], damage=damage,
+        damage_type=p_derived.get("damage_type", ""),
+        extra_details=", ".join(extra_damage_notes) if extra_damage_notes else "",
+    )
+    narration = vivid if vivid else mechanical_narration
 
     # 更新 HP
     conc_log      = None
@@ -1248,6 +1260,25 @@ async def attack_roll(
     ts["pending_attack"] = pending_attack
     _save_ts(combat, player_id, ts)
 
+    # Generate vivid narration for miss / fumble (hit narration done in damage-roll)
+    miss_narration = ""
+    if not attack_roll_result["hit"]:
+        vivid = await narrate_action(
+            actor_name=player_name, actor_class=p_class, target_name=target_name,
+            action_type="attack", hit=False,
+            is_fumble=attack_roll_result["is_fumble"],
+        )
+        if vivid:
+            miss_narration = vivid
+        else:
+            miss_narration = svc._build_narration(player_name, target_name, attack_roll_result, 0)
+        # Log miss
+        db.add(GameLog(
+            session_id=session_id, role="player",
+            content=miss_narration, log_type="combat",
+            dice_result={"attack": attack_roll_result},
+        ))
+
     await db.commit()
 
     return {
@@ -1268,6 +1299,7 @@ async def attack_roll(
         "damage_dice":      damage_dice,
         "pending_attack_id": pending_id,
         "turn_state":       ts,
+        "narration":        miss_narration,
     }
 
 
@@ -1414,12 +1446,22 @@ async def damage_roll(
 
     total_damage = damage
 
-    # Build narration
-    narration = svc._build_narration(player_name, target_name, attack_roll_result, total_damage)
+    # Build narration (mechanical fallback)
+    mechanical_narration = svc._build_narration(player_name, target_name, attack_roll_result, total_damage)
     if pending.get("ranged_penalty"):
-        narration = f"（相邻敌人，远程劣势）{narration}"
+        mechanical_narration = f"（相邻敌人，远程劣势）{mechanical_narration}"
     if extra_damage_notes:
-        narration += f"（{', '.join(extra_damage_notes)}）"
+        mechanical_narration += f"（{', '.join(extra_damage_notes)}）"
+
+    # LLM vivid narration (async, fallback to mechanical)
+    damage_type = p_derived.get("damage_type", "")
+    vivid = await narrate_action(
+        actor_name=player_name, actor_class=p_class, target_name=target_name,
+        action_type="attack", hit=True, is_crit=is_crit,
+        damage=total_damage, damage_type=damage_type,
+        extra_details=", ".join(extra_damage_notes) if extra_damage_notes else "",
+    )
+    narration = vivid if vivid else mechanical_narration
 
     # ── Apply HP ──
     conc_log      = None
@@ -1607,6 +1649,7 @@ async def use_reaction(
     enemies = list(state.get("enemies", []))
     narration = ""
     reaction_effect = {}
+    reaction_target_name = ""
 
     if req.reaction_type == "shield":
         # Shield spell: AC+5 until next turn, costs 1st level slot
@@ -1677,11 +1720,22 @@ async def use_reaction(
             state["enemies"] = enemies
             session.game_state = dict(state); flag_modified(session, "game_state")
 
+        reaction_target_name = target_name
         narration = f"🔥 {player.name} 使用「地狱斥责」！2d10={rebuke_damage} 火焰伤害反击 {target_name}！"
         reaction_effect = {"damage_dealt": rebuke_damage, "target": target_name}
 
     else:
         raise HTTPException(400, f"未知反应类型：{req.reaction_type}")
+
+    # LLM vivid narration for reactions
+    vivid = await narrate_action(
+        actor_name=player.name, actor_class=p_class,
+        target_name=reaction_target_name,
+        action_type="reaction",
+        extra_details=narration,
+    )
+    if vivid:
+        narration = vivid
 
     db.add(GameLog(
         session_id=session_id, role="player",
@@ -1833,6 +1887,15 @@ async def grapple_shove(
         ts["action_used"] = True
     _save_ts(combat, player_id, ts)
 
+    # LLM vivid narration for grapple/shove
+    vivid = await narrate_action(
+        actor_name=player.name, actor_class=_normalize_class(player.char_class),
+        target_name=target_name, action_type=req.action_type,
+        hit=result["success"],
+    )
+    if vivid:
+        narration = vivid
+
     db.add(GameLog(
         session_id=session_id, role="player",
         content=narration, log_type="combat",
@@ -1943,7 +2006,14 @@ async def divine_smite(
     session.game_state = dict(state); flag_modified(session, "game_state")
 
     undead_note = "（对亡灵/邪魔额外+1d8）" if req.target_is_undead else ""
-    narration = f"✨ {player.name} 释放神圣斩击！{smite['dice']}辐光伤害{undead_note}，对 {target_name} 造成 {smite['damage']} 点伤害！"
+    mechanical_narration = f"✨ {player.name} 释放神圣斩击！{smite['dice']}辐光伤害{undead_note}，对 {target_name} 造成 {smite['damage']} 点伤害！"
+
+    vivid = await narrate_action(
+        actor_name=player.name, actor_class=_normalize_class(player.char_class),
+        target_name=target_name, action_type="smite",
+        damage=smite["damage"], damage_type="辐光",
+    )
+    narration = vivid if vivid else mechanical_narration
 
     db.add(GameLog(
         session_id  = session_id,
@@ -2129,6 +2199,16 @@ async def use_class_feature(
 
     else:
         raise HTTPException(400, f"未知职业特性：{feature}")
+
+    # LLM vivid narration for class features
+    vivid = await narrate_action(
+        actor_name=player.name, actor_class=p_class,
+        target_name="",
+        action_type="class_feature",
+        extra_details=narration,
+    )
+    if vivid:
+        narration = vivid
 
     db.add(GameLog(
         session_id  = session_id,
@@ -2360,9 +2440,20 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     if not all_narrations:
         all_narrations.append(f"{actor_name} 没有找到目标，跳过回合。")
 
-    narration = " | ".join(all_narrations) if len(all_narrations) > 1 else all_narrations[0]
+    mechanical_narration = " | ".join(all_narrations) if len(all_narrations) > 1 else all_narrations[0]
     # Use first_attack_roll for the response (backward compat)
     result_obj = first_attack_roll
+
+    # ── LLM vivid narration for AI turn ──
+    ai_actor_class = ai_class if achar else (e.get("name", "怪物") if e else "")
+    batch_actions = [{
+        "actor_name": actor_name,
+        "actor_class": ai_actor_class,
+        "target_name": target_name or "目标",
+        "mechanical_desc": mechanical_narration,
+    }]
+    vivid_results = await narrate_batch(batch_actions)
+    narration = vivid_results[0] if vivid_results[0] else mechanical_narration
 
     # ── 专注中断检定（敌方命中友方角色时）────────────────
     conc_log = None
@@ -2972,18 +3063,32 @@ async def spell_confirm(
     level_str = f"（{spell_level}环）" if not is_cantrip else "（戏法）"
     if is_aoe and aoe_results:
         targets_summary = "、".join(r.get("target_name", "?") for r in aoe_results[:4])
-        narration = (
+        mechanical_narration = (
             f"✨ {caster.name} 施放了【{spell_name}】{level_str}，"
             f"命中 {targets_summary}{'等' if len(aoe_results) > 4 else ''}！"
             + (f"（单目标最高 {result_damage} 点伤害）" if result_damage else "")
             + (f"（每人恢复 {result_heal} HP）" if result_heal else "")
         )
     else:
-        narration = (
+        mechanical_narration = (
             f"✨ {caster.name} 施放了【{spell_name}】{level_str}"
             + (f"，造成 {result_damage} 点伤害！" if result_damage else "")
             + (f"，恢复 {result_heal} HP！" if result_heal else "")
         )
+
+    # LLM vivid narration for spells
+    spell_target = targets_summary if (is_aoe and aoe_results) else (target_ids[0] if target_ids else "")
+    vivid = await narrate_action(
+        actor_name=caster.name,
+        actor_class=_normalize_class(caster.char_class),
+        target_name=spell_target if isinstance(spell_target, str) else str(spell_target),
+        action_type="spell",
+        spell_name=spell_name,
+        damage=result_damage,
+        heal_amount=result_heal,
+        damage_type=spell.get("damage_type", ""),
+    )
+    narration = vivid if vivid else mechanical_narration
 
     db.add(GameLog(
         session_id=session_id,
