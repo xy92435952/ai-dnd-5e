@@ -1262,11 +1262,8 @@ function CompanionCard({ char, isPlayer }) {
           {isPlayer && <span className="tag tag-ok">你</span>}
           <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{char.race} {char.char_class} Lv{char.level}</span>
         </div>
-        {!isPlayer && char.personality && (
-          <p style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{char.personality}</p>
-        )}
-        {!isPlayer && char.catchphrase && (
-          <p style={{ fontSize: '0.75rem', marginTop: '2px', fontStyle: 'italic', color: 'var(--green-light)' }}>"{char.catchphrase}"</p>
+        {!isPlayer && (char.personality || char.catchphrase || char.backstory) && (
+          <CompanionBio personality={char.personality} catchphrase={char.catchphrase} backstory={char.backstory} speechStyle={char.speech_style} combatPref={char.combat_preference} />
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
           <div style={{ flex: 1, height: '6px', borderRadius: '3px', overflow: 'hidden', background: 'var(--wood)' }}>
@@ -1275,6 +1272,50 @@ function CompanionCard({ char, isPlayer }) {
           <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{hpCur}/{hpMax} HP</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+function CompanionBio({ personality, catchphrase, backstory, speechStyle, combatPref }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div style={{ marginTop: 4 }}>
+      {/* 预览行：个性描述截断 + 口头禅 */}
+      {!expanded && (
+        <>
+          {personality && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {personality}
+            </p>
+          )}
+          {catchphrase && (
+            <p style={{ fontSize: '0.75rem', marginTop: 2, fontStyle: 'italic', color: 'var(--emerald-light)' }}>
+              「{catchphrase}」
+            </p>
+          )}
+        </>
+      )}
+
+      {/* 展开后：完整信息 */}
+      {expanded && (
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.7, marginTop: 4 }}>
+          {personality && <p style={{ marginBottom: 6 }}><span style={{ color: 'var(--amber)', fontWeight: 600 }}>性格：</span>{personality}</p>}
+          {backstory && <p style={{ marginBottom: 6 }}><span style={{ color: 'var(--amber)', fontWeight: 600 }}>背景：</span>{backstory}</p>}
+          {speechStyle && <p style={{ marginBottom: 6 }}><span style={{ color: 'var(--amber)', fontWeight: 600 }}>说话风格：</span>{speechStyle}</p>}
+          {combatPref && <p style={{ marginBottom: 6 }}><span style={{ color: 'var(--amber)', fontWeight: 600 }}>战斗偏好：</span>{combatPref}</p>}
+          {catchphrase && <p style={{ fontStyle: 'italic', color: 'var(--emerald-light)' }}>「{catchphrase}」</p>}
+        </div>
+      )}
+
+      {/* 展开/收起按钮 */}
+      <button onClick={() => setExpanded(!expanded)} style={{
+        marginTop: 4, padding: '2px 8px', borderRadius: 4, fontSize: '0.7rem',
+        background: 'transparent', border: '1px solid var(--bark)',
+        color: 'var(--amber)', cursor: 'pointer', fontFamily: 'inherit',
+        transition: 'all 0.2s',
+      }}>
+        {expanded ? '收起 ▲' : '展开介绍 ▼'}
+      </button>
     </div>
   )
 }
