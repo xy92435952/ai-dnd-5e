@@ -252,20 +252,30 @@ async def run_party_generator(
     party_size: int,
     module_data: dict,
 ) -> list[dict]:
-    graph = build_party_generator_graph()
-    result = await graph.ainvoke({
-        "player_class": player_class,
-        "player_race": player_race,
-        "player_level": player_level,
-        "party_size": party_size,
-        "module_data": module_data,
-        "role_assignments": "",
-        "companions_needed": 0,
-        "module_setting": "",
-        "module_tone": "",
-        "level": player_level,
-        "llm_output": "",
-        "companions": [],
-        "error": "",
-    })
-    return result.get("companions", [])
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # 最多重试 3 次（LLM 输出的 JSON 有时无法解析）
+    for attempt in range(3):
+        graph = build_party_generator_graph()
+        result = await graph.ainvoke({
+            "player_class": player_class,
+            "player_race": player_race,
+            "player_level": player_level,
+            "party_size": party_size,
+            "module_data": module_data,
+            "role_assignments": "",
+            "companions_needed": 0,
+            "module_setting": "",
+            "module_tone": "",
+            "level": player_level,
+            "llm_output": "",
+            "companions": [],
+            "error": "",
+        })
+        companions = result.get("companions", [])
+        if companions:
+            return companions
+        logger.warning(f"Party generation attempt {attempt+1} returned 0 companions, error={result.get('error','')}")
+
+    return []
