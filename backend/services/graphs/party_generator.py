@@ -172,7 +172,7 @@ async def generate_companions(state: PartyGeneratorState) -> dict:
         role_assignments=state["role_assignments"],
     )
     resp = await llm.ainvoke([
-        SystemMessage(content=GEN_SYSTEM),
+        SystemMessage(content=GEN_SYSTEM + "\n\n重要：JSON字符串值中不要使用未转义的双引号，用中文引号「」代替。确保输出是合法的JSON数组。"),
         HumanMessage(content=user_msg),
     ])
     return {"llm_output": resp.content}
@@ -181,7 +181,16 @@ async def generate_companions(state: PartyGeneratorState) -> dict:
 async def calc_derived_stats(state: PartyGeneratorState) -> dict:
     try:
         text = _strip_code_block(state.get("llm_output", "[]"))
-        companions = json.loads(text)
+        try:
+            companions = json.loads(text)
+        except json.JSONDecodeError:
+            # 修复 LLM 输出中未转义的引号
+            from services.graphs.module_parser import _try_parse_json
+            try:
+                parsed = _try_parse_json(text)
+                companions = parsed if isinstance(parsed, list) else parsed.get("companions", []) if isinstance(parsed, dict) else []
+            except Exception:
+                companions = []
         if not isinstance(companions, list):
             companions = []
 
