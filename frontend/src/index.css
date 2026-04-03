@@ -1,274 +1,296 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 /* ═══════════════════════════════════════════════════════════
-   AI 跑团 — 桌游奇幻主题 (Tavern Fantasy Theme)
+   AI 跑团 — Enchanted Grimoire Theme
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  /* 基础色板 */
-  --bg:            #1a120b;
-  --bg2:           #231a10;
-  --wood:          #2e1f0e;
-  --wood-light:    #4a3520;
-  --parchment:     #e8d5a8;
-  --parchment-dark:#c4a66a;
-  --gold:          #c9a84c;
-  --gold-bright:   #f0d060;
-  --gold-dim:      #8a6a30;
-  --red:           #8b2020;
-  --red-light:     #c44040;
-  --green:         #2a5a2a;
-  --green-light:   #4a8a4a;
-  --blue:          #1a3a5a;
-  --blue-light:    #3a7aaa;
-  --text:          #e8d5a8;
-  --text-dim:      #8a7a60;
-  --text-bright:   #fff8e0;
+  /* Core palette */
+  --void: #0a0806;
+  --obsidian: #12100c;
+  --mahogany: #1e150d;
+  --bark: #2e1f0e;
+  --bark-light: #4a3520;
+  --amber: #c9a84c;
+  --flame: #e8a020;
+  --parchment: #e8d5a8;
+  --parchment-dark: #c4a66a;
+  --blood: #8b2020;
+  --blood-light: #c44040;
+  --emerald: #2a7a3a;
+  --emerald-light: #4a9a5a;
+  --sapphire: #2a5a8a;
+  --sapphire-light: #3a7aaa;
+  --amethyst: #7c3aed;
+  --amethyst-light: #9d6af0;
+  --ivory: #f5eedd;
 
-  /* 兼容旧变量名 */
-  --color-parchment: var(--parchment);
-  --color-gold:      var(--gold);
-  --color-dark-bg:   var(--bg);
-  --color-panel-bg:  var(--bg2);
-  --color-border:    var(--wood-light);
+  /* Legacy aliases */
+  --bg: var(--void);
+  --bg2: var(--obsidian);
+  --wood: var(--bark);
+  --wood-light: var(--bark-light);
+  --gold: var(--amber);
+  --gold-bright: var(--flame);
+  --gold-dim: #8a6a30;
+  --red: var(--blood);
+  --red-light: var(--blood-light);
+  --green: var(--emerald);
+  --green-light: var(--emerald-light);
+  --blue: var(--sapphire);
+  --blue-light: var(--sapphire-light);
+  --text: var(--parchment);
+  --text-dim: #8a7a60;
+  --text-bright: #fff8e0;
+
+  /* Typography */
+  --font-display: 'Cinzel Decorative', serif;
+  --font-body: 'Noto Serif SC', Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Gradients */
+  --gold-gradient: linear-gradient(135deg, #c9a84c, #e8a020, #c9a84c);
+  --wood-gradient: linear-gradient(180deg, #2e1f0e, #1e150d);
+
+  /* Radius */
+  --radius: 8px;
+  --radius-lg: 14px;
 }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Georgia', 'Noto Serif SC', 'Times New Roman', serif;
+  background: var(--void);
+  color: var(--parchment);
+  font-family: var(--font-body);
   min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-/* 木纹纹理背景 */
+/* Leather texture background */
 body::before {
   content: '';
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(0,0,0,0.03) 60px, rgba(0,0,0,0.03) 61px),
+    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(0,0,0,0.04) 60px, rgba(0,0,0,0.04) 61px),
     repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(139,92,40,0.02) 40px, rgba(139,92,40,0.02) 41px),
-    radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.06) 0%, transparent 60%);
+    radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 60%);
 }
 
 #root { min-height: 100vh; position: relative; z-index: 1; }
 
-/* ── 滚动条 ─── */
+/* ── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--wood-light); border-radius: 3px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb { background: var(--bark-light); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
 
-/* ── 面板（通用卡片）─── */
+/* ── Panel ─── */
 .panel {
-  background: linear-gradient(135deg, var(--wood) 0%, rgba(46,31,14,0.8) 100%);
-  border: 1px solid var(--wood-light);
-  border-radius: 10px;
+  background: var(--obsidian);
+  border: 1px solid var(--bark);
+  border-radius: var(--radius-lg);
   position: relative;
 }
 .panel::before {
   content: '';
   position: absolute; top: 0; left: 0;
   width: 100%; height: 3px;
-  border-radius: 10px 10px 0 0;
-  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   pointer-events: none;
 }
 
-/* ── 按钮系统 ─── */
+/* Ornate gold corner decoration */
+.ornate { position: relative; }
+.ornate::before, .ornate::after {
+  content: ''; position: absolute; width: 20px; height: 20px;
+  border-color: var(--amber); pointer-events: none;
+}
+.ornate::before { top: -1px; left: -1px; border-top: 2px solid; border-left: 2px solid; border-top-left-radius: 4px; }
+.ornate::after { bottom: -1px; right: -1px; border-bottom: 2px solid; border-right: 2px solid; border-bottom-right-radius: 4px; }
+
+/* ── Buttons ─── */
 .btn-fantasy {
-  background: linear-gradient(135deg, var(--wood), var(--wood-light));
-  border: 1px solid var(--wood-light);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: var(--radius);
+  background: var(--wood-gradient);
+  border: 1px solid var(--bark);
   color: var(--parchment);
-  padding: 0.5rem 1.25rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  font-weight: 600;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.25s;
 }
 .btn-fantasy:hover {
-  border-color: var(--gold-dim);
-  color: var(--gold);
+  border-color: var(--amber);
+  box-shadow: 0 0 12px rgba(201,168,76,0.2);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
-.btn-fantasy:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
-}
+.btn-fantasy:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
 .btn-gold {
-  background: linear-gradient(135deg, var(--gold), var(--gold-dim));
-  border: 1px solid var(--gold);
-  color: var(--bg);
-  padding: 0.5rem 1.25rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  font-weight: 700;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: var(--radius);
+  background: var(--gold-gradient);
+  border: none;
+  color: var(--void); font-family: var(--font-body); font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; transition: all 0.25s;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.15);
 }
-.btn-gold:hover {
-  box-shadow: 0 0 16px rgba(201,168,76,0.4);
-  transform: translateY(-1px) scale(1.02);
-}
+.btn-gold:hover { box-shadow: 0 0 20px rgba(232,160,32,0.4); transform: translateY(-1px); }
 
 .btn-danger {
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red-light);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: var(--radius);
+  background: transparent; border: 1px solid var(--blood);
+  color: var(--blood-light);
+  font-family: var(--font-body); font-size: 0.8rem;
+  cursor: pointer; transition: all 0.2s;
 }
-.btn-danger:hover {
-  background: rgba(139,32,32,0.2);
-}
+.btn-danger:hover { background: var(--blood); color: var(--ivory); }
 
-/* ── 标签系统 ─── */
+/* ── Tags / Pills ─── */
 .tag {
-  font-size: 10px; padding: 2px 8px; border-radius: 10px;
-  border: 1px solid; display: inline-flex; align-items: center; gap: 3px;
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 10px; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 600; font-family: var(--font-mono);
+  border: 1px solid;
 }
-.tag-ok    { border-color: var(--green); color: var(--green-light); background: rgba(42,90,42,0.15); }
-.tag-level { border-color: var(--blue); color: var(--blue-light); background: rgba(26,58,90,0.15); }
-.tag-info  { border-color: var(--wood-light); color: var(--text-dim); }
+.tag-ok    { background: rgba(42,122,58,0.25); color: var(--emerald-light); border-color: rgba(42,122,58,0.4); }
+.tag-level { background: rgba(42,90,138,0.25); color: var(--sapphire-light); border-color: rgba(42,90,138,0.4); }
+.tag-info  { background: rgba(200,200,200,0.1); color: #aaa; border-color: rgba(200,200,200,0.15); }
 
-/* ── 输入框 ─── */
+/* ── Inputs ─── */
 .input-fantasy {
-  width: 100%; padding: 8px 12px; border-radius: 6px;
-  background: rgba(10,8,6,0.6); border: 1px solid var(--wood-light);
-  color: var(--parchment); font-family: inherit; font-size: 13px;
-  outline: none; transition: border-color 0.2s;
+  width: 100%; padding: 10px 14px; border-radius: var(--radius);
+  background: rgba(30,21,13,0.8); border: 1px solid var(--bark);
+  color: var(--parchment); font-family: var(--font-body); font-size: 0.9rem;
+  outline: none; transition: border 0.2s;
 }
-.input-fantasy:focus { border-color: var(--gold-dim); }
-.input-fantasy::placeholder { color: var(--text-dim); }
+.input-fantasy:focus { border-color: var(--amber); box-shadow: 0 0 8px rgba(201,168,76,0.15); }
+.input-fantasy::placeholder { color: rgba(232,213,168,0.35); }
 
-/* ── 对话气泡 ─── */
+/* ── Chat Bubbles ─── */
 .bubble-dm {
   background: linear-gradient(135deg, #d4b87a, #c4a060);
   color: #2a1a08; border: 1px solid #a08040;
-  border-radius: 8px; padding: 12px 16px;
+  border-radius: var(--radius); padding: 12px 16px;
   clip-path: polygon(0 2%, 2% 0, 98% 1%, 100% 2%, 99% 98%, 98% 100%, 2% 99%, 0 98%);
-  font-size: 13px; line-height: 1.9;
+  font-size: 0.87rem; line-height: 1.9;
 }
-
 .bubble-player {
   background: linear-gradient(135deg, #1a4a6a, #2a5a7a);
-  color: #d0e8ff; border: 1px solid #3a7aaa;
-  border-radius: 8px; padding: 10px 14px;
-  font-size: 13px; line-height: 1.7;
+  color: #d0e8ff; border: 1px solid var(--sapphire-light);
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 0.87rem; line-height: 1.7;
 }
-
 .bubble-ally {
   background: linear-gradient(135deg, #1a3a1a, #2a4a2a);
-  color: #c0e8c0; border: 1px solid #4a8a4a;
-  border-radius: 8px; padding: 10px 14px;
-  font-size: 13px; line-height: 1.7;
+  color: #c0e8c0; border: 1px solid var(--emerald);
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 0.87rem; line-height: 1.7;
 }
 
-/* ── 酒馆桌面容器 ─── */
+/* ── Tavern Table ─── */
 .tavern-table {
-  background: radial-gradient(ellipse at center, #3a2a16 0%, #2a1a0a 50%, var(--bg) 100%);
+  background: radial-gradient(ellipse at center, #3a2a16 0%, #2a1a0a 50%, var(--void) 100%);
   border-radius: 16px; padding: 20px;
-  border: 2px solid var(--wood-light);
+  border: 2px solid var(--bark);
   position: relative;
   box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 0 30px rgba(0,0,0,0.4);
 }
 
-/* ── 角色头像 ─── */
+/* ── Portraits ─── */
 .portrait {
   width: 48px; height: 48px; border-radius: 50%;
-  border: 2px solid var(--wood-light);
+  border: 2px solid var(--bark);
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; position: relative; cursor: pointer;
   transition: all 0.2s; flex-shrink: 0;
 }
-.portrait:hover { border-color: var(--gold); transform: scale(1.1); }
-.portrait-player { background: linear-gradient(135deg, #1a3a5a, #2a5a8a); border-color: var(--blue-light); }
-.portrait-ally   { background: linear-gradient(135deg, #1a3a1a, #2a5a2a); border-color: var(--green); }
+.portrait:hover { border-color: var(--amber); transform: scale(1.08); }
+.portrait-player { background: linear-gradient(135deg, #1a3a5a, #2a5a8a); border-color: var(--sapphire-light); }
+.portrait-ally   { background: linear-gradient(135deg, #1a3a1a, #2a5a2a); border-color: var(--emerald); }
 .portrait-dm     { background: linear-gradient(135deg, #3a2a1a, #5a4a2a); border-color: var(--gold-dim); }
-.portrait-enemy  { background: linear-gradient(135deg, #3a1a1a, #5a2a2a); border-color: var(--red); }
+.portrait-enemy  { background: linear-gradient(135deg, #3a1a1a, #5a2a2a); border-color: var(--blood); }
 
-/* ── 骰子徽章 ─── */
+/* ── Dice Badge ─── */
 .dice-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(100,60,20,0.3); border: 1px solid var(--wood-light);
-  border-radius: 20px; padding: 4px 14px; font-size: 12px; color: var(--parchment);
+  background: rgba(100,60,20,0.3); border: 1px solid var(--bark);
+  border-radius: 20px; padding: 4px 14px;
+  font-size: 0.8rem; font-family: var(--font-mono); color: var(--parchment);
 }
 
-/* ── 分隔线 ─── */
-.divider-fantasy {
-  border: none; border-top: 1px solid var(--wood-light);
-  margin: 16px 0; position: relative;
+/* ── Scroll Input Bar ─── */
+.scroll-input-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 30px;
+  background: linear-gradient(90deg, #3a2a18, #4a3a24, #3a2a18);
+  border: 1px solid var(--bark);
 }
 
-/* ── 战斗网格 ─── */
+/* ── Combat Grid Cells ─── */
 .battle-cell {
   background: rgba(60,45,25,0.3); border: 1px solid rgba(74,53,32,0.3);
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; cursor: pointer; transition: all 0.15s; border-radius: 2px;
 }
 .battle-cell:hover { background: rgba(201,168,76,0.1); border-color: rgba(201,168,76,0.3); }
-.battle-cell-player { background: rgba(26,58,90,0.4); border-color: var(--blue-light); box-shadow: inset 0 0 8px rgba(58,122,170,0.3); }
-.battle-cell-ally   { background: rgba(42,90,42,0.3); border-color: var(--green); }
-.battle-cell-enemy  { background: rgba(139,32,32,0.3); border-color: var(--red-light); box-shadow: inset 0 0 8px rgba(196,64,64,0.3); }
+.battle-cell-player { background: rgba(42,90,138,0.35); border-color: var(--sapphire-light); box-shadow: inset 0 0 8px rgba(58,122,170,0.3); }
+.battle-cell-ally   { background: rgba(42,122,58,0.25); border-color: var(--emerald); }
+.battle-cell-enemy  { background: rgba(139,32,32,0.3); border-color: var(--blood-light); box-shadow: inset 0 0 8px rgba(196,64,64,0.3); }
 
-/* ── 行动按钮 ─── */
+/* ── Action Buttons ─── */
 .action-btn {
-  width: 100%; padding: 8px 10px; border-radius: 6px; cursor: pointer;
-  font-family: inherit; font-size: 12px; font-weight: 600;
-  border: 1px solid var(--wood-light); transition: all 0.2s;
+  width: 100%; padding: 8px 10px; border-radius: var(--radius); cursor: pointer;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 600;
+  border: 1px solid var(--bark); transition: all 0.2s;
   display: flex; align-items: center; gap: 6px;
-  background: linear-gradient(135deg, rgba(30,20,10,0.6), rgba(46,31,14,0.8));
-  color: var(--parchment);
+  background: var(--wood-gradient); color: var(--parchment);
 }
-.action-btn:hover { border-color: var(--gold-dim); color: var(--gold); transform: translateY(-1px); }
+.action-btn:hover { border-color: var(--amber); color: var(--flame); transform: translateY(-1px); }
 .action-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-.action-btn-attack { border-left: 3px solid var(--red-light); }
-.action-btn-spell  { border-left: 3px solid #8a5af6; }
-.action-btn-move   { border-left: 3px solid var(--blue-light); }
+.action-btn-attack { border-left: 3px solid var(--blood-light); }
+.action-btn-spell  { border-left: 3px solid var(--amethyst); }
+.action-btn-move   { border-left: 3px solid var(--sapphire-light); }
 .action-btn-end {
-  background: linear-gradient(135deg, var(--gold-dim), var(--gold));
-  color: var(--bg); border-color: var(--gold); font-weight: 700;
+  background: var(--gold-gradient); color: var(--void);
+  border-color: var(--amber); font-weight: 700;
 }
 .action-btn-end:hover { box-shadow: 0 0 12px rgba(201,168,76,0.4); }
 
-/* ── 先攻条目 ─── */
+/* ── Initiative Entry ─── */
 .init-entry {
   display: flex; align-items: center; gap: 6px; padding: 6px 8px;
-  border-radius: 6px; margin-bottom: 3px; font-size: 11px;
+  border-radius: var(--radius); margin-bottom: 3px; font-size: 0.75rem;
   transition: all 0.2s; border: 1px solid transparent;
 }
 .init-entry-active {
-  background: rgba(201,168,76,0.12); border-color: var(--gold-dim);
+  background: rgba(201,168,76,0.12); border-color: var(--amber);
+  transform: scale(1.02);
 }
 
-/* ── 技能按钮 ─── */
+/* ── Skill Button ─── */
 .skill-btn {
-  padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer;
-  font-family: inherit; font-weight: 600; transition: all 0.2s;
-  background: linear-gradient(135deg, var(--wood), var(--wood-light));
-  border: 1px solid var(--wood-light); color: var(--parchment-dark);
+  padding: 6px 14px; border-radius: var(--radius); font-size: 0.75rem; cursor: pointer;
+  font-family: var(--font-body); font-weight: 600; transition: all 0.2s;
+  background: var(--wood-gradient);
+  border: 1px solid var(--bark); color: var(--parchment-dark);
 }
-.skill-btn:hover { border-color: var(--gold-dim); color: var(--gold); transform: translateY(-1px); }
+.skill-btn:hover { border-color: var(--amber); color: var(--flame); transform: translateY(-1px); }
 
-/* ── 卷轴输入栏 ─── */
-.scroll-input-bar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border-radius: 30px;
-  background: linear-gradient(90deg, #3a2a18, #4a3a24, #3a2a18);
-  border: 1px solid var(--wood-light);
-}
-
-/* ── 能力值卡片 ─── */
+/* ── Ability Card ─── */
 .ability-card {
-  text-align: center; padding: 10px 8px; border-radius: 8px;
-  background: rgba(10,8,6,0.4); border: 1px solid var(--wood-light);
+  text-align: center; padding: 10px 8px; border-radius: var(--radius);
+  background: var(--obsidian); border: 1px solid var(--bark);
   transition: border-color 0.2s;
 }
-.ability-card:hover { border-color: var(--gold-dim); }
+.ability-card:hover { border-color: var(--amber); }
+
+/* ── Ember particles (for login page) ─── */
+@keyframes ember-float {
+  0% { transform: translateY(0) scale(1); opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { transform: translateY(-120vh) scale(0); opacity: 0; }
+}
