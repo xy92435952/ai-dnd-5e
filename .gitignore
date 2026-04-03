@@ -38,3 +38,5 @@ backend/_*.json
 .claude/plans/
 *.db-shm
 *.db-wal
+dify_workflows/
+docs/
