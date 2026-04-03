@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 跑团 - 暗黑奇幻风格</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0806;
+    color: #d4c5a0;
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* --- Ambient particles --- */
+  .particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
+  .particles span {
+    position: absolute;
+    width: 3px; height: 3px;
+    background: radial-gradient(circle, #c9a84c, transparent);
+    border-radius: 50%;
+    animation: float-up linear infinite;
+    opacity: 0;
+  }
+  @keyframes float-up {
+    0% { opacity: 0; transform: translateY(100vh) scale(0); }
+    10% { opacity: 0.8; }
+    90% { opacity: 0.3; }
+    100% { opacity: 0; transform: translateY(-10vh) scale(1.5); }
+  }
+  .particles span:nth-child(1) { left: 10%; animation-duration: 8s; animation-delay: 0s; }
+  .particles span:nth-child(2) { left: 25%; animation-duration: 12s; animation-delay: 2s; }
+  .particles span:nth-child(3) { left: 40%; animation-duration: 10s; animation-delay: 4s; }
+  .particles span:nth-child(4) { left: 55%; animation-duration: 9s; animation-delay: 1s; }
+  .particles span:nth-child(5) { left: 70%; animation-duration: 11s; animation-delay: 3s; }
+  .particles span:nth-child(6) { left: 85%; animation-duration: 7s; animation-delay: 5s; }
+  .particles span:nth-child(7) { left: 50%; animation-duration: 13s; animation-delay: 6s; }
+  .particles span:nth-child(8) { left: 15%; animation-duration: 9s; animation-delay: 7s; }
+
+  /* --- Parchment texture overlay --- */
+  body::before {
+    content: '';
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: repeating-conic-gradient(#1a150e 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+
+  /* --- Style banner --- */
+  .style-banner {
+    text-align: center;
+    padding: 8px 20px;
+    background: linear-gradient(90deg, transparent, rgba(201,168,76,0.15), transparent);
+    border-bottom: 1px solid rgba(201,168,76,0.2);
+    font-size: 13px;
+    color: #8a7a55;
+    letter-spacing: 2px;
+  }
+
+  /* --- Header --- */
+  .header {
+    text-align: center;
+    padding: 50px 20px 30px;
+    position: relative;
+  }
+  .header::before, .header::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    width: 120px; height: 2px;
+    background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+  }
+  .header::before { left: calc(50% - 200px); }
+  .header::after { right: calc(50% - 200px); }
+
+  .header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 48px;
+    font-weight: 900;
+    color: #c9a84c;
+    text-shadow: 0 0 40px rgba(201,168,76,0.3), 0 2px 4px rgba(0,0,0,0.8);
+    letter-spacing: 6px;
+  }
+  .header .subtitle {
+    margin-top: 12px;
+    font-size: 14px;
+    color: #8a7a55;
+    letter-spacing: 4px;
+  }
+
+  /* --- Ornate divider --- */
+  .divider {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; margin: 10px 0 25px; color: #5a4a2a;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, #5a4a2a, transparent);
+  }
+  .divider span { font-size: 18px; }
+
+  /* --- Tabs --- */
+  .tabs {
+    display: flex; justify-content: center; gap: 4px; margin-bottom: 30px;
+  }
+  .tab {
+    padding: 10px 36px;
+    background: rgba(30,25,18,0.8);
+    border: 1px solid #3a3020;
+    color: #8a7a55;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 2px;
+  }
+  .tab:first-child { border-radius: 6px 0 0 6px; }
+  .tab:last-child { border-radius: 0 6px 6px 0; }
+  .tab.active {
+    background: linear-gradient(180deg, #2a2010, #1a150a);
+    border-color: #c9a84c;
+    color: #c9a84c;
+    box-shadow: 0 0 20px rgba(201,168,76,0.15);
+  }
+
+  /* --- Ornate card frame --- */
+  .card {
+    position: relative;
+    background: linear-gradient(160deg, #1a150e, #12100a, #1a150e);
+    border: 1px solid #3a3020;
+    border-radius: 4px;
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(201,168,76,0.08);
+  }
+  /* Corner ornaments */
+  .card::before, .card::after {
+    content: '';
+    position: absolute; width: 20px; height: 20px;
+    border-color: #c9a84c;
+    border-style: solid;
+    opacity: 0.5;
+  }
+  .card::before { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
+  .card::after { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+  /* --- Upload area --- */
+  .upload-area {
+    border: 2px dashed #3a3020;
+    border-radius: 6px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(20,16,10,0.5);
+    margin-bottom: 24px;
+  }
+  .upload-area:hover {
+    border-color: #c9a84c;
+    background: rgba(201,168,76,0.05);
+    box-shadow: 0 0 30px rgba(201,168,76,0.08);
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-title { font-size: 16px; color: #c9a84c; margin-bottom: 6px; }
+  .upload-sub { font-size: 12px; color: #6a5a3a; }
+
+  /* --- Module card content --- */
+  .module-title {
+    font-size: 20px; font-weight: 700; color: #e8d5a0;
+    margin-bottom: 8px;
+  }
+  .module-desc {
+    font-size: 14px; color: #9a8a6a; line-height: 1.7;
+    margin-bottom: 16px;
+  }
+  .module-meta {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
+  }
+  .badge {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .badge-ready {
+    background: linear-gradient(135deg, #1a2a1a, #0a1a0a);
+    border: 1px solid #3a6a3a;
+    color: #6aba6a;
+    box-shadow: 0 0 8px rgba(106,186,106,0.15);
+  }
+  .badge-level {
+    background: linear-gradient(135deg, #2a2010, #1a150a);
+    border: 1px solid #5a4a2a;
+    color: #c9a84c;
+  }
+  .badge-party {
+    background: linear-gradient(135deg, #1a1a2a, #0a0a1a);
+    border: 1px solid #3a3a6a;
+    color: #8a8aba;
+  }
+
+  .card-actions {
+    display: flex; gap: 12px;
+  }
+  .btn {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 3px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 2px;
+  }
+  .btn-primary {
+    background: linear-gradient(180deg, #c9a84c, #a08030);
+    color: #1a1008;
+    font-weight: 700;
+    box-shadow: 0 2px 12px rgba(201,168,76,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(180deg, #d9b85c, #b09040);
+    box-shadow: 0 4px 20px rgba(201,168,76,0.5);
+    transform: translateY(-1px);
+  }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid #5a2020;
+    color: #9a4a4a;
+  }
+  .btn-danger:hover { border-color: #8a3030; color: #ca5a5a; }
+
+  /* --- Save slot --- */
+  .save-card { padding: 20px 28px; }
+  .save-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .save-name { font-size: 17px; color: #e8d5a0; font-weight: 600; }
+  .save-date { font-size: 12px; color: #6a5a3a; }
+  .save-info { font-size: 13px; color: #8a7a5a; margin-bottom: 14px; }
+  .btn-continue {
+    background: linear-gradient(180deg, #3a3020, #2a2010);
+    border: 1px solid #5a4a2a;
+    color: #c9a84c;
+    padding: 8px 24px;
+    border-radius: 3px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 1px;
+  }
+  .btn-continue:hover {
+    border-color: #c9a84c;
+    box-shadow: 0 0 15px rgba(201,168,76,0.2);
+  }
+
+  /* --- Preview strip --- */
+  .preview-section {
+    margin-top: 50px;
+    padding-top: 30px;
+    border-top: 1px solid #2a2010;
+  }
+  .preview-title {
+    text-align: center; font-size: 13px; color: #6a5a3a;
+    letter-spacing: 3px; margin-bottom: 20px;
+  }
+  .preview-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .preview-card {
+    background: linear-gradient(160deg, #14110a, #0e0c08);
+    border: 1px solid #2a2010;
+    border-radius: 4px;
+    padding: 16px;
+    min-height: 200px;
+  }
+  .preview-label {
+    font-size: 11px; color: #c9a84c; letter-spacing: 2px;
+    margin-bottom: 12px; text-align: center;
+    border-bottom: 1px solid #2a2010; padding-bottom: 8px;
+  }
+  .mock-line {
+    height: 8px; border-radius: 4px; margin-bottom: 8px;
+    background: rgba(201,168,76,0.08);
+  }
+  .mock-line.short { width: 60%; }
+  .mock-line.medium { width: 80%; }
+  .mock-line.accent { background: rgba(201,168,76,0.2); width: 40%; }
+  .mock-grid {
+    display: grid; grid-template-columns: repeat(6,1fr); gap: 3px;
+    margin-top: 10px;
+  }
+  .mock-cell {
+    aspect-ratio: 1; border-radius: 2px;
+    background: rgba(201,168,76,0.05); border: 1px solid rgba(201,168,76,0.08);
+  }
+  .mock-cell.entity { background: rgba(201,168,76,0.2); }
+  .mock-cell.enemy { background: rgba(180,50,50,0.3); }
+  .mock-chat-bubble {
+    padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; font-size: 10px;
+  }
+  .mock-chat-dm { background: rgba(201,168,76,0.08); color: #8a7a55; margin-right: 30%; }
+  .mock-chat-player { background: rgba(80,100,140,0.15); color: #8a9ab5; margin-left: 30%; }
+
+  @media (max-width: 600px) {
+    .header h1 { font-size: 32px; }
+    .header::before, .header::after { display: none; }
+    .preview-grid { grid-template-columns: 1fr; }
+    .card { padding: 20px; }
+    .card-actions { flex-direction: column; }
+    .btn { width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<div class="particles">
+  <span></span><span></span><span></span><span></span>
+  <span></span><span></span><span></span><span></span>
+</div>
+
+<div class="style-banner">风格预览 1 / 3 &mdash; 暗黑奇幻 Dark Fantasy</div>
+
+<div class="container">
+  <header class="header">
+    <h1>AI 跑团</h1>
+    <p class="subtitle">DnD 5e &middot; AI地下城主 &middot; 单人冒险</p>
+  </header>
+
+  <div class="divider"><span>&#9830;</span></div>
+
+  <div class="tabs">
+    <div class="tab active">模组库</div>
+    <div class="tab">存档</div>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-area">
+    <div class="upload-icon">&#9876;</div>
+    <div class="upload-title">点击上传模组文件</div>
+    <div class="upload-sub">支持 PDF &middot; DOCX &middot; Markdown &middot; TXT</div>
+  </div>
+
+  <!-- Module card -->
+  <div class="card">
+    <div class="module-title">银谷镇的秘密</div>
+    <div class="module-desc">一个宁静的矿业小镇近日怪事频发，矿工失踪、夜间传来诡异的低语。冒险者们受雇前来调查，却发现小镇地下隐藏着远古的秘密...</div>
+    <div class="module-meta">
+      <span class="badge badge-ready">&#10003; 已就绪</span>
+      <span class="badge badge-level">Lv 2-4</span>
+      <span class="badge badge-party">推荐4人</span>
+    </div>
+    <div class="card-actions">
+      <button class="btn btn-primary">开始 &rarr;</button>
+      <button class="btn btn-danger">删除</button>
+    </div>
+  </div>
+
+  <!-- Save slot (hidden tab content shown for demo) -->
+  <div style="margin-top:10px;">
+    <div class="divider"><span>&#9830;</span></div>
+    <p style="text-align:center; font-size:12px; color:#6a5a3a; letter-spacing:2px; margin-bottom:16px;">存档预览</p>
+    <div class="card save-card">
+      <div class="save-header">
+        <span class="save-name">艾拉 &middot; 风行者 的冒险</span>
+        <span class="save-date">2026-03-28</span>
+      </div>
+      <div class="save-info">模组：银谷镇的秘密 &middot; 半精灵 游侠 Lv3 &middot; 第二章</div>
+      <button class="btn-continue">继续冒险 &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Preview strip -->
+  <div class="preview-section">
+    <div class="preview-title">&#8212; 页面风格预览 &#8212;</div>
+    <div class="preview-grid">
+      <div class="preview-card">
+        <div class="preview-label">冒险界面 Adventure</div>
+        <div class="mock-chat-dm">地下城主：你推开沉重的橡木门...</div>
+        <div class="mock-chat-player">我举起火把查看四周</div>
+        <div class="mock-chat-dm">火光照亮了古老的石壁...</div>
+        <div style="margin-top:12px;">
+          <div class="mock-line accent"></div>
+          <div class="mock-line medium"></div>
+          <div class="mock-line short"></div>
+        </div>
+      </div>
+      <div class="preview-card">
+        <div class="preview-label">战斗界面 Combat</div>
+        <div class="mock-grid">
+          <div class="mock-cell"></div><div class="mock-cell"></div><div class="mock-cell"></div>
+          <div class="mock-cell"></div><div class="mock-cell enemy"></div><div class="mock-cell"></div>
+          <div class="mock-cell"></div><div class="mock-cell"></div><div class="mock-cell entity"></div>
+          <div class="mock-cell"></div><div class="mock-cell"></div><div class="mock-cell"></div>
+          <div class="mock-cell entity"></div><div class="mock-cell"></div><div class="mock-cell"></div>
+          <div class="mock-cell"></div><div class="mock-cell"></div><div class="mock-cell enemy"></div>
+          <div class="mock-cell"></div><div class="mock-cell"></div><div class="mock-cell"></div>
+          <div class="mock-cell"></div><div class="mock-cell entity"></div><div class="mock-cell"></div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="mock-line accent" style="width:50%;"></div>
+          <div class="mock-line short"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

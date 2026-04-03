@@ -1,0 +1,30 @@
+fastapi>=0.115.5
+uvicorn[standard]>=0.32.1
+sqlalchemy>=2.0.36
+aiosqlite>=0.20.0
+python-multipart>=0.0.18
+httpx>=0.28.0
+python-dotenv>=1.0.1
+pydantic>=2.10.3
+pydantic-settings>=2.6.1
+
+# 文件解析
+pymupdf==1.25.1
+python-docx==1.1.2
+markdown==3.7
+
+# 工具
+aiofiles==24.1.0
+
+# LangGraph + LLM
+langgraph>=0.4
+langgraph-checkpoint-sqlite>=3.0
+langchain-openai>=0.3
+langchain-core>=0.3
+
+# 本地 RAG 向量库
+chromadb>=0.6
+
+# 用户认证
+pyjwt>=2.8
+bcrypt>=4.0

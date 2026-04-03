@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Desktop_Commander__list_directory",
+      "Bash(pip install:*)",
+      "Bash(timeout 10 python -c \":*)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s -X POST http://localhost:8000/modules/upload -F \"file=@D:/program/game/test_module_silver_hollow.txt\")",
+      "Bash(python -m json.tool)",
+      "Bash(python -c \":*)",
+      "Bash(timeout 120 python -c \":*)",
+      "Bash(curl -s http://localhost:8000/modules)",
+      "Bash(curl -v http://localhost:8000/modules)",
+      "Bash(curl -s http://localhost:8000/modules/)",
+      "Bash(MODULE_ID=\"9ee2c889-6bf2-4897-99a9-16d805acb8d4\" __NEW_LINE_18f1a0a8775e4e72__ curl -s -X POST http://localhost:8000/characters/create -H \"Content-Type: application/json\" -d '{\"\"\"\"module_id\"\"\"\":\"\"\"\"'$MODULE_ID'\"\"\"\",\"\"\"\"name\"\"\"\":\"\"\"\"Arthas\"\"\"\",\"\"\"\"race\"\"\"\":\"\"\"\"Human\"\"\"\",\"\"\"\"char_class\"\"\"\":\"\"\"\"Fighter\"\"\"\",\"\"\"\"level\"\"\"\":3,\"\"\"\"background\"\"\"\":\"\"\"\"Soldier\"\"\"\",\"\"\"\"ability_scores\"\"\"\":{\"\"\"\"str\"\"\"\":16,\"\"\"\"dex\"\"\"\":13,\"\"\"\"con\"\"\"\":14,\"\"\"\"int\"\"\"\":10,\"\"\"\"wis\"\"\"\":12,\"\"\"\"cha\"\"\"\":8},\"\"\"\"proficient_skills\"\"\"\":[]}')",
+      "Bash(MODULE_ID=\"9ee2c889-6bf2-4897-99a9-16d805acb8d4\" CHAR_ID=\"a03095b3-3e77-4836-a24a-e183bc5c927c\" __NEW_LINE_e541f8eb63dc0178__ curl -s -X POST http://localhost:8000/characters/generate-party -H \"Content-Type: application/json\" -d \"{\"\"module_id\"\":\"\"$MODULE_ID\"\",\"\"player_character_id\"\":\"\"$CHAR_ID\"\",\"\"party_size\"\":4}\")",
+      "Bash(curl -v -X POST http://localhost:8001/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"210fc8dd-7e6b-4dc7-967f-be49bf6ba1c5\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"hello\"\"\"\"}')",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(taskkill /F /IM python.exe)",
+      "Bash(find D:/program/game/backend -name \"__pycache__\" -type d -exec rm -rf {} +)",
+      "Bash(curl -s -X POST http://localhost:8000/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"210fc8dd-7e6b-4dc7-967f-be49bf6ba1c5\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"test\"\"\"\"}')",
+      "Bash(python _fix_logs.py)",
+      "Bash(curl -s http://localhost:8000/game/sessions/)",
+      "Bash(curl -s \"http://localhost:8000/game/sessions/210fc8dd-7e6b-4dc7-967f-be49bf6ba1c5\")",
+      "Bash(curl -s \"http://localhost:8000/game/sessions/fdb2393b-666a-4671-824d-d324e4e03b85\")",
+      "Bash(curl -s -X POST http://localhost:8000/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"fdb2393b-666a-4671-824d-d324e4e03b85\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"我走向酒馆门口，推开大门走进去，看看里面有什么人\"\"\"\"}')",
+      "Bash(sleep 5 curl -s -X POST http://localhost:8000/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"fdb2393b-666a-4671-824d-d324e4e03b85\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"我观察酒馆里的人\"\"\"\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"fdb2393b-666a-4671-824d-d324e4e03b85\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"我推开银鹿酒馆的大门，走进去看看里面\"\"\"\"}')",
+      "Bash(curl -s http://localhost:8002/health)",
+      "Bash(curl -s -X POST http://localhost:8002/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"fdb2393b-666a-4671-824d-d324e4e03b85\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"我推开酒馆大门走进去\"\"\"\"}')",
+      "Bash(sleep 5 curl -s -X POST http://localhost:8002/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"fdb2393b-666a-4671-824d-d324e4e03b85\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"test\"\"\"\"}')",
+      "Bash(curl -s -X POST http://localhost:8002/game/action -H \"Content-Type: application/json\" -d '{\"\"\"\"session_id\"\"\"\":\"\"\"\"fdb2393b-666a-4671-824d-d324e4e03b85\"\"\"\",\"\"\"\"action_text\"\"\"\":\"\"\"\"我环顾酒馆内部，寻找可以交谈的人\"\"\"\"}')"
+    ]
+  }
+}

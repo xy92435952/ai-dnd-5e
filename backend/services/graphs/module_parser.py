@@ -1,0 +1,421 @@
+"""
+WF1 — 模组解析 LangGraph 图
+4 节点线性链：extract → validate → gen_chunks → validate_chunks
+"""
+
+import json
+import re
+from typing import TypedDict
+
+from langgraph.graph import StateGraph, END
+from langchain_core.messages import SystemMessage, HumanMessage
+
+from services.llm import get_llm
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# State
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class ModuleParserState(TypedDict):
+    module_text: str
+    llm_extract_output: str
+    module_data: dict
+    module_data_json: str
+    llm_chunk_output: str
+    rag_chunks: list
+    error: str
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Prompts
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EXTRACT_SYSTEM = """你是一个专业的DnD 5e模组分析专家。
+从模组文本中提取关键信息，以严格的JSON格式返回。
+怪物数据必须尽可能完整，这些数据将直接用于战斗规则计算。
+只返回JSON，不要有任何额外文字或markdown代码块标记。"""
+
+EXTRACT_USER = """请分析以下DnD模组文本，提取信息并以JSON格式返回：
+{{
+  "name": "模组名称",
+  "setting": "世界观背景描述（200字以内）",
+  "level_min": 推荐最低等级,
+  "level_max": 推荐最高等级,
+  "recommended_party_size": 推荐队伍人数,
+  "class_restrictions": ["限制职业，空数组表示无限制"],
+  "tone": "模组基调（黑暗/轻松/悬疑/史诗等）",
+  "plot_summary": "主线剧情摘要（300字以内）",
+  "scenes": [
+    {{"name": "场景名", "description": "场景描述", "order": 序号}}
+  ],
+  "npcs": [
+    {{
+      "name": "NPC姓名",
+      "role": "身份职责",
+      "personality": "性格描述",
+      "alignment": "阵营",
+      "attitude": "对玩家的初始态度（友好/中立/敌对）"
+    }}
+  ],
+  "monsters": [
+    {{
+      "name": "怪物名称",
+      "type": "怪物类型（类人生物/野兽/亡灵等）",
+      "cr": CR值数字,
+      "xp": 经验值,
+      "hp": 平均HP,
+      "hp_dice": "如 2d8+2",
+      "ac": 护甲等级,
+      "ac_source": "护甲来源（天然护甲/皮甲等）",
+      "speed": 速度(英尺),
+      "ability_scores": {{
+        "str": 值, "dex": 值, "con": 值,
+        "int": 值, "wis": 值, "cha": 值
+      }},
+      "saving_throws": {{"str": 加值, "dex": 加值}},
+      "skills": {{"感知": 加值, "隐匿": 加值}},
+      "resistances": ["抗性伤害类型"],
+      "immunities": ["免疫伤害类型或条件"],
+      "senses": "感官描述（黑暗视觉60尺等）",
+      "languages": ["语言"],
+      "special_abilities": [
+        {{"name": "能力名", "description": "效果描述"}}
+      ],
+      "actions": [
+        {{
+          "name": "行动名称",
+          "type": "melee_attack|ranged_attack|spell|special",
+          "attack_bonus": 攻击加值或null,
+          "reach_or_range": "触及5尺或射程80/320尺",
+          "damage_dice": "1d6+3",
+          "damage_type": "伤害类型",
+          "extra_effects": "附加效果描述"
+        }}
+      ],
+      "legendary_actions": [],
+      "typical_count": 典型出现数量,
+      "tactics": "战斗倾向和战术描述"
+    }}
+  ],
+  "key_rewards": ["重要奖励物品"],
+  "magic_items": [
+    {{
+      "name": "物品名",
+      "type": "武器/防具/饰品/消耗品",
+      "rarity": "普通/非凡/稀有/珍稀/传说",
+      "base_item": "基础物品（如长剑）",
+      "bonus": 强化值,
+      "properties": "特殊属性描述"
+    }}
+  ]
+}}
+
+模组文本：
+{module_text}"""
+
+CHUNK_SYSTEM = """你是专业的 RAG 知识库工程师，专门处理 DnD 5e 模组内容。
+将结构化模组数据转化为适合语义检索的知识块（chunks）。
+只输出 JSON 数组，不加任何前缀、解释或 Markdown 代码块。"""
+
+CHUNK_USER = """将以下模组数据生成 RAG chunks，输出格式为 JSON 数组。
+
+## 输出格式（严格 JSON 数组）
+[
+  {{
+    "chunk_id": "唯一标识，如 setting / scene_0 / npc_姓名 / monsters / magic_item_名",
+    "source_type": "setting | scene | npc | monsters_overview | magic_item",
+    "content": "完整内容文本，包含所有关键细节，供 RAG 直接展示给 DM",
+    "summary": "2-3句简洁描述，概括核心信息",
+    "tags": ["标签1", "标签2", "标签3"],
+    "entities": ["人名/地名/物品名等命名实体"],
+    "searchable_questions": [
+      "玩家可能提出的问题1？",
+      "玩家可能提出的问题2？",
+      "玩家可能提出的问题3？"
+    ]
+  }}
+]
+
+## 生成规则
+- setting + plot_summary → 合并为 1 个 chunk（source_type: "setting"）
+- 每个 scene → 1 个 chunk（source_type: "scene"）
+- 每个 NPC → 1 个 chunk（source_type: "npc"）
+- 所有 monsters → 合并为 1 个 chunk（source_type: "monsters_overview"）
+- 每个 magic_item → 1 个 chunk（source_type: "magic_item"）
+- searchable_questions 必须是中文自然语言问题，覆盖玩家最可能询问的场景（3-5个）
+- content 字段要包含原始数据中的关键描述，不要过度精简
+- 最多生成 20 个 chunks（优先场景和 NPC）
+
+## 模组数据
+{module_data_json}"""
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Validation helpers (ported from Dify Code nodes)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def _mod(score: int) -> int:
+    return (score - 10) // 2
+
+
+def _fill_monster_defaults(m: dict) -> dict:
+    scores = m.get('ability_scores', {})
+    if not scores:
+        cr = m.get('cr', 1)
+        base = min(10 + int(cr * 1.5), 20)
+        scores = {'str': base, 'dex': 10, 'con': base - 2,
+                  'int': 8, 'wis': 10, 'cha': 8}
+        m['ability_scores'] = scores
+
+    if not m.get('actions'):
+        cr = m.get('cr', 1)
+        prof = 2 + (int(cr) // 4)
+        atk_bonus = prof + _mod(scores.get('str', 10))
+        m['actions'] = [{
+            'name': '近战攻击',
+            'type': 'melee_attack',
+            'attack_bonus': atk_bonus,
+            'reach_or_range': '触及5尺',
+            'damage_dice': f'1d{6 + int(cr) * 2}+{_mod(scores.get("str", 10))}',
+            'damage_type': '钝击',
+            'extra_effects': ''
+        }]
+
+    if not m.get('saving_throws'):
+        m['saving_throws'] = {}
+
+    defaults = {
+        'type': '怪物', 'xp': max(10, int(m.get('cr', 1) * 100)),
+        'hp_dice': f"{max(1, m.get('hp', 10) // 5)}d8",
+        'ac_source': '天然护甲', 'speed': 30, 'skills': {},
+        'resistances': [], 'immunities': [], 'senses': '普通视觉',
+        'languages': [], 'special_abilities': [], 'legendary_actions': [],
+        'typical_count': 1, 'tactics': '直接攻击最近的目标'
+    }
+    for k, v in defaults.items():
+        if k not in m or m[k] is None:
+            m[k] = v
+    return m
+
+
+def _strip_code_block(text: str) -> str:
+    """去除 LLM 输出中的 Markdown 代码块包裹（```json ... ```）"""
+    text = text.strip()
+    text = re.sub(r'^```(?:json)?\s*\n?', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\n?\s*```\s*$', '', text, flags=re.MULTILINE)
+    return text.strip()
+
+
+def _try_parse_json(text: str) -> dict:
+    """尝试解析 JSON，失败时尝试修复常见问题后重试。"""
+    text = _strip_code_block(text)
+
+    # 第一次尝试：直接解析
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 修复：LLM 在 JSON 字符串值内使用了未转义的 ASCII 双引号
+    # 策略：逐字符扫描，在 JSON 字符串内部将未转义的 " 替换为中文引号「」
+    fixed = _fix_unescaped_quotes(text)
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+
+    # 兜底：截取到最后一个 }
+    try:
+        start = text.index('{')
+        end = text.rindex('}')
+        chunk = text[start:end + 1]
+        fixed2 = _fix_unescaped_quotes(chunk)
+        return json.loads(fixed2)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    raise json.JSONDecodeError("All JSON repair attempts failed", text, 0)
+
+
+def _fix_unescaped_quotes(text: str) -> str:
+    """
+    修复 JSON 字符串值中未转义的双引号。
+    逐字符状态机：追踪是否在字符串内部，将字符串内部的未转义 " 替换为「」
+    """
+    result = []
+    in_string = False
+    escape_next = False
+    i = 0
+
+    while i < len(text):
+        ch = text[i]
+
+        if escape_next:
+            result.append(ch)
+            escape_next = False
+            i += 1
+            continue
+
+        if ch == '\\' and in_string:
+            escape_next = True
+            result.append(ch)
+            i += 1
+            continue
+
+        if ch == '"':
+            if not in_string:
+                # 开始一个字符串
+                in_string = True
+                result.append(ch)
+            else:
+                # 可能是字符串结束，也可能是未转义的内部引号
+                # 向前看：字符串结束后应紧跟 , : ] } 或空白
+                j = i + 1
+                while j < len(text) and text[j] in ' \t\n\r':
+                    j += 1
+                if j >= len(text) or text[j] in ',:]}\n':
+                    # 这是字符串结尾
+                    in_string = False
+                    result.append(ch)
+                else:
+                    # 这是字符串内部的未转义引号，替换为中文引号
+                    result.append('\u201c')
+            i += 1
+            continue
+
+        result.append(ch)
+        i += 1
+
+    return ''.join(result)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Graph nodes
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async def extract_structured_data(state: ModuleParserState) -> dict:
+    llm = get_llm(temperature=0.2, max_tokens=8000)
+    user_msg = EXTRACT_USER.format(module_text=state["module_text"])
+    resp = await llm.ainvoke([
+        SystemMessage(content=EXTRACT_SYSTEM + "\n\n重要：JSON字符串值中不要使用未转义的双引号，用中文引号「」代替。"),
+        HumanMessage(content=user_msg),
+    ])
+    return {"llm_extract_output": resp.content}
+
+
+async def validate_and_fill(state: ModuleParserState) -> dict:
+    try:
+        data = _try_parse_json(state["llm_extract_output"])
+
+        top_defaults = {
+            'level_min': 1, 'level_max': 5, 'recommended_party_size': 4,
+            'class_restrictions': [], 'scenes': [], 'npcs': [],
+            'monsters': [], 'key_rewards': [], 'magic_items': [],
+            'tone': '标准冒险'
+        }
+        for k, v in top_defaults.items():
+            if k not in data or data[k] is None:
+                data[k] = v
+
+        data['level_min'] = max(1, min(20, int(data['level_min'])))
+        data['level_max'] = max(data['level_min'], min(20, int(data['level_max'])))
+        data['recommended_party_size'] = max(1, min(6, int(data['recommended_party_size'])))
+        data['monsters'] = [_fill_monster_defaults(m) for m in data.get('monsters', [])]
+
+        return {
+            "module_data": data,
+            "module_data_json": json.dumps(data, ensure_ascii=False),
+            "error": "",
+        }
+    except Exception as e:
+        return {
+            "module_data": {},
+            "module_data_json": "{}",
+            "error": f"解析失败: {e}",
+        }
+
+
+async def generate_rag_chunks(state: ModuleParserState) -> dict:
+    if not state.get("module_data"):
+        return {"llm_chunk_output": "[]"}
+
+    llm = get_llm(temperature=0.3, max_tokens=4000)
+    user_msg = CHUNK_USER.format(module_data_json=state["module_data_json"])
+    resp = await llm.ainvoke([
+        SystemMessage(content=CHUNK_SYSTEM + "\n\n重要：JSON字符串值中不要使用未转义的双引号，用中文引号「」代替。"),
+        HumanMessage(content=user_msg),
+    ])
+    return {"llm_chunk_output": resp.content}
+
+
+async def validate_rag_chunks(state: ModuleParserState) -> dict:
+    try:
+        text = _strip_code_block(state.get("llm_chunk_output", "[]"))
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            # 尝试修复未转义引号
+            parsed = _try_parse_json(text)
+        # 支持两种格式：直接数组 [...] 或包裹对象 {"chunks": [...]}
+        if isinstance(parsed, dict):
+            chunks = parsed.get("chunks", parsed.get("rag_chunks", list(parsed.values())[0] if parsed else []))
+            if not isinstance(chunks, list):
+                chunks = []
+        elif isinstance(parsed, list):
+            chunks = parsed
+        else:
+            chunks = []
+
+        validated = []
+        for i, chunk in enumerate(chunks):
+            if not isinstance(chunk, dict) or not chunk.get('content'):
+                continue
+            chunk.setdefault('chunk_id', f'chunk_{i}')
+            chunk.setdefault('source_type', 'unknown')
+            chunk.setdefault('summary', chunk['content'][:100])
+            chunk.setdefault('tags', [])
+            chunk.setdefault('entities', [])
+            chunk.setdefault('searchable_questions', [])
+            for field in ('tags', 'entities', 'searchable_questions'):
+                if not isinstance(chunk[field], list):
+                    chunk[field] = []
+            validated.append(chunk)
+
+        return {"rag_chunks": validated}
+    except Exception:
+        return {"rag_chunks": []}
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Build graph
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def build_module_parser_graph():
+    g = StateGraph(ModuleParserState)
+    g.add_node("extract_structured_data", extract_structured_data)
+    g.add_node("validate_and_fill", validate_and_fill)
+    g.add_node("generate_rag_chunks", generate_rag_chunks)
+    g.add_node("validate_rag_chunks", validate_rag_chunks)
+
+    g.set_entry_point("extract_structured_data")
+    g.add_edge("extract_structured_data", "validate_and_fill")
+    g.add_edge("validate_and_fill", "generate_rag_chunks")
+    g.add_edge("generate_rag_chunks", "validate_rag_chunks")
+    g.add_edge("validate_rag_chunks", END)
+
+    return g.compile()
+
+
+async def run_module_parser(module_text: str) -> tuple[dict, list]:
+    graph = build_module_parser_graph()
+    result = await graph.ainvoke({
+        "module_text": module_text,
+        "llm_extract_output": "",
+        "module_data": {},
+        "module_data_json": "",
+        "llm_chunk_output": "",
+        "rag_chunks": [],
+        "error": "",
+    })
+    return result.get("module_data", {}), result.get("rag_chunks", [])

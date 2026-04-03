@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.db
+venv/
+
+# ChromaDB
+chromadb_data/
+
+# LangGraph memory
+langgraph_memory.db
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Test files
+backend/_*.txt
+backend/_*.json
+
+# Claude
+.claude/plans/
+*.db-shm
+*.db-wal

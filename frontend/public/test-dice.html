@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DiceBox Test</title>
+  <style>
+    body { background: #111; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+    #dice-box { width: 500px; height: 300px; border: 1px solid #333; border-radius: 12px; }
+    button { margin: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    #log { margin-top: 20px; font-size: 12px; white-space: pre-wrap; max-width: 600px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h2>@3d-dice/dice-box-threejs Test</h2>
+  <div id="dice-box"></div>
+  <div>
+    <button onclick="rollDice('1d20@15')">Roll d20 (land on 15)</button>
+    <button onclick="rollDice('1d6@4')">Roll d6 (land on 4)</button>
+    <button onclick="rollDice('2d8@5,3')">Roll 2d8 (land on 5,3)</button>
+    <button onclick="clearDice()">Clear</button>
+  </div>
+  <div id="log"></div>
+
+  <script type="module">
+    import DiceBox from '/node_modules/@3d-dice/dice-box-threejs/dist/dice-box-threejs.es.js';
+
+    const log = (msg) => { document.getElementById('log').textContent += msg + '\n'; console.log(msg); };
+
+    log('Creating DiceBox...');
+    let box;
+    try {
+      box = new DiceBox('#dice-box', {
+        theme_colorset: 'bronze',
+        theme_material: 'metal',
+        theme_surface: 'green-felt',
+        gravity_multiplier: 500,
+        baseScale: 100,
+        strength: 2,
+        shadows: true,
+        sounds: false,
+        light_intensity: 0.8,
+        onRollComplete: (results) => {
+          log('Roll complete: ' + JSON.stringify(results));
+        }
+      });
+      log('Initializing...');
+      await box.initialize();
+      log('Ready!');
+    } catch (e) {
+      log('Init ERROR: ' + e.message);
+      log(e.stack);
+    }
+
+    window.rollDice = async (notation) => {
+      if (!box) { log('Box not ready'); return; }
+      log('Rolling: ' + notation);
+      try {
+        box.clearDice();
+        const result = await box.roll(notation);
+        log('Result: ' + JSON.stringify(result));
+      } catch (e) {
+        log('Roll ERROR: ' + e.message);
+      }
+    };
+
+    window.clearDice = () => {
+      if (box) box.clearDice();
+      log('Cleared');
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,550 @@
+app:
+  description: >-
+    解析上传的DnD模组文本，提取结构化模组信息，并生成用于 RAG 检索的增强 chunks。
+    v0.4：在原有结构化提取基础上，合并 chunk 增强步骤（原 WF5），
+    一次调用同时输出 module_data（结构化）和 rag_chunks（RAG知识块）。
+  icon: "📖"
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: DnD模组解析器
+  use_icon_as_answer_icon: false
+kind: app
+version: '0.4'
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - remote_url
+        - local_file
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        sourceType: start
+        targetType: llm
+      id: edge-start-llm
+      source: node-start
+      sourceHandle: source
+      target: node-llm-extract
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: llm
+        targetType: code
+      id: edge-llm-code
+      source: node-llm-extract
+      sourceHandle: source
+      target: node-code-validate
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: llm
+      id: edge-code-llm-chunk
+      source: node-code-validate
+      sourceHandle: source
+      target: node-llm-chunk-enricher
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: llm
+        targetType: code
+      id: edge-llm-chunk-code-rag
+      source: node-llm-chunk-enricher
+      sourceHandle: source
+      target: node-code-rag-chunks
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        sourceType: code
+        targetType: end
+      id: edge-code-rag-end
+      source: node-code-rag-chunks
+      sourceHandle: source
+      target: node-end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 接收模组原始文本
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 模组文本内容
+          max_length: 100000
+          options: []
+          required: true
+          type: paragraph
+          variable: module_text
+      height: 116
+      id: node-start
+      position:
+        x: 80
+        y: 300
+      positionAbsolute:
+        x: 80
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 从模组文本提取完整结构化信息，怪物需包含完整 stat block
+        model:
+          completion_params:
+            temperature: 0.2
+            max_tokens: 4000
+          mode: chat
+          name: gpt-4o
+          provider: openai
+        prompt_template:
+        - role: system
+          text: >-
+            你是一个专业的DnD 5e模组分析专家。
+            从模组文本中提取关键信息，以严格的JSON格式返回。
+            怪物数据必须尽可能完整，这些数据将直接用于战斗规则计算。
+            只返回JSON，不要有任何额外文字或markdown代码块标记。
+        - role: user
+          text: >-
+            请分析以下DnD模组文本，提取信息并以JSON格式返回：
+            {
+              "name": "模组名称",
+              "setting": "世界观背景描述（200字以内）",
+              "level_min": 推荐最低等级,
+              "level_max": 推荐最高等级,
+              "recommended_party_size": 推荐队伍人数,
+              "class_restrictions": ["限制职业，空数组表示无限制"],
+              "tone": "模组基调（黑暗/轻松/悬疑/史诗等）",
+              "plot_summary": "主线剧情摘要（300字以内）",
+              "scenes": [
+                {"name": "场景名", "description": "场景描述", "order": 序号}
+              ],
+              "npcs": [
+                {
+                  "name": "NPC姓名",
+                  "role": "身份职责",
+                  "personality": "性格描述",
+                  "alignment": "阵营",
+                  "attitude": "对玩家的初始态度（友好/中立/敌对）"
+                }
+              ],
+              "monsters": [
+                {
+                  "name": "怪物名称",
+                  "type": "怪物类型（类人生物/野兽/亡灵等）",
+                  "cr": CR值数字,
+                  "xp": 经验值,
+                  "hp": 平均HP,
+                  "hp_dice": "如 2d8+2",
+                  "ac": 护甲等级,
+                  "ac_source": "护甲来源（天然护甲/皮甲等）",
+                  "speed": 速度(英尺),
+                  "ability_scores": {
+                    "str": 值, "dex": 值, "con": 值,
+                    "int": 值, "wis": 值, "cha": 值
+                  },
+                  "saving_throws": {"str": 加值, "dex": 加值},
+                  "skills": {"感知": 加值, "隐匿": 加值},
+                  "resistances": ["抗性伤害类型"],
+                  "immunities": ["免疫伤害类型或条件"],
+                  "senses": "感官描述（黑暗视觉60尺等）",
+                  "languages": ["语言"],
+                  "special_abilities": [
+                    {"name": "能力名", "description": "效果描述"}
+                  ],
+                  "actions": [
+                    {
+                      "name": "行动名称",
+                      "type": "melee_attack|ranged_attack|spell|special",
+                      "attack_bonus": 攻击加值或null,
+                      "reach_or_range": "触及5尺或射程80/320尺",
+                      "damage_dice": "1d6+3",
+                      "damage_type": "伤害类型",
+                      "extra_effects": "附加效果描述"
+                    }
+                  ],
+                  "legendary_actions": [],
+                  "typical_count": 典型出现数量,
+                  "tactics": "战斗倾向和战术描述"
+                }
+              ],
+              "key_rewards": ["重要奖励物品"],
+              "magic_items": [
+                {
+                  "name": "物品名",
+                  "type": "武器/防具/饰品/消耗品",
+                  "rarity": "普通/非凡/稀有/珍稀/传说",
+                  "base_item": "基础物品（如长剑）",
+                  "bonus": 强化值,
+                  "properties": "特殊属性描述"
+                }
+              ]
+            }
+
+            模组文本：
+            {{#node-start.module_text#}}
+        selected: false
+        title: 提取模组结构化信息
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 98
+      id: node-llm-extract
+      position:
+        x: 400
+        y: 300
+      positionAbsolute:
+        x: 400
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: |
+          import json
+
+          def mod(score):
+              return (score - 10) // 2
+
+          def fill_monster_defaults(m):
+              """补全怪物缺失字段，并从ability_scores推导加值"""
+              scores = m.get('ability_scores', {})
+              if not scores:
+                  cr = m.get('cr', 1)
+                  base = min(10 + int(cr * 1.5), 20)
+                  scores = {'str': base, 'dex': 10, 'con': base - 2,
+                            'int': 8, 'wis': 10, 'cha': 8}
+                  m['ability_scores'] = scores
+
+              if not m.get('actions'):
+                  cr = m.get('cr', 1)
+                  prof = 2 + (int(cr) // 4)
+                  atk_bonus = prof + mod(scores.get('str', 10))
+                  m['actions'] = [{
+                      'name': '近战攻击',
+                      'type': 'melee_attack',
+                      'attack_bonus': atk_bonus,
+                      'reach_or_range': '触及5尺',
+                      'damage_dice': f'1d{6 + int(cr) * 2}+{mod(scores.get("str", 10))}',
+                      'damage_type': '钝击',
+                      'extra_effects': ''
+                  }]
+
+              if not m.get('saving_throws'):
+                  m['saving_throws'] = {}
+
+              defaults = {
+                  'type': '怪物',
+                  'xp': max(10, int(m.get('cr', 1) * 100)),
+                  'hp_dice': f"{max(1, m.get('hp', 10) // 5)}d8",
+                  'ac_source': '天然护甲',
+                  'speed': 30,
+                  'skills': {},
+                  'resistances': [],
+                  'immunities': [],
+                  'senses': '普通视觉',
+                  'languages': [],
+                  'special_abilities': [],
+                  'legendary_actions': [],
+                  'typical_count': 1,
+                  'tactics': '直接攻击最近的目标'
+              }
+              for k, v in defaults.items():
+                  if k not in m or m[k] is None:
+                      m[k] = v
+
+              return m
+
+          def main(llm_output: str) -> dict:
+              try:
+                  text = llm_output.strip()
+                  if text.startswith('```'):
+                      lines = text.split('\n')
+                      text = '\n'.join(lines[1:])
+                      if text.endswith('```'):
+                          text = text[:-3].strip()
+
+                  data = json.loads(text)
+
+                  top_defaults = {
+                      'level_min': 1, 'level_max': 5,
+                      'recommended_party_size': 4,
+                      'class_restrictions': [], 'scenes': [],
+                      'npcs': [], 'monsters': [], 'key_rewards': [],
+                      'magic_items': [], 'tone': '标准冒险'
+                  }
+                  for k, v in top_defaults.items():
+                      if k not in data or data[k] is None:
+                          data[k] = v
+
+                  data['level_min'] = max(1, min(20, int(data['level_min'])))
+                  data['level_max'] = max(data['level_min'], min(20, int(data['level_max'])))
+                  data['recommended_party_size'] = max(1, min(6, int(data['recommended_party_size'])))
+
+                  data['monsters'] = [fill_monster_defaults(m) for m in data.get('monsters', [])]
+
+                  return {
+                      'module_data': json.dumps(data, ensure_ascii=False),
+                      'success': True,
+                      'error_msg': ''
+                  }
+              except Exception as e:
+                  return {
+                      'module_data': '{}',
+                      'success': False,
+                      'error_msg': f'解析失败: {str(e)}'
+                  }
+        code_language: python3
+        desc: 验证JSON结构，补全怪物缺失字段，推导缺失的攻击加值
+        outputs:
+          module_data:
+            type: string
+          success:
+            type: string
+          error_msg:
+            type: string
+        selected: false
+        title: 验证并补全数据
+        type: code
+        variables:
+        - value_selector:
+          - node-llm-extract
+          - text
+          variable: llm_output
+      height: 54
+      id: node-code-validate
+      position:
+        x: 720
+        y: 300
+      positionAbsolute:
+        x: 720
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: >-
+          将结构化模组数据转化为适合语义检索的 RAG chunks。
+          每个场景/NPC/怪物组/魔法物品生成一个 chunk，
+          附带摘要、标签、命名实体和可检索问题。
+        model:
+          completion_params:
+            temperature: 0.3
+            max_tokens: 4000
+          mode: chat
+          name: gpt-4o
+          provider: openai
+        prompt_template:
+        - role: system
+          text: |
+            你是专业的 RAG 知识库工程师，专门处理 DnD 5e 模组内容。
+            将结构化模组数据转化为适合语义检索的知识块（chunks）。
+            只输出 JSON 数组，不加任何前缀、解释或 Markdown 代码块。
+        - role: user
+          text: |
+            将以下模组数据生成 RAG chunks，输出格式为 JSON 数组。
+
+            ## 输出格式（严格 JSON 数组）
+            [
+              {
+                "chunk_id": "唯一标识，如 setting / scene_0 / npc_姓名 / monsters / magic_item_名",
+                "source_type": "setting | scene | npc | monsters_overview | magic_item",
+                "content": "完整内容文本，包含所有关键细节，供 RAG 直接展示给 DM",
+                "summary": "2-3句简洁描述，概括核心信息",
+                "tags": ["标签1", "标签2", "标签3"],
+                "entities": ["人名/地名/物品名等命名实体"],
+                "searchable_questions": [
+                  "玩家可能提出的问题1？",
+                  "玩家可能提出的问题2？",
+                  "玩家可能提出的问题3？"
+                ]
+              }
+            ]
+
+            ## 生成规则
+            - setting + plot_summary → 合并为 1 个 chunk（source_type: "setting"）
+            - 每个 scene → 1 个 chunk（source_type: "scene"）
+            - 每个 NPC → 1 个 chunk（source_type: "npc"）
+            - 所有 monsters → 合并为 1 个 chunk（source_type: "monsters_overview"）
+            - 每个 magic_item → 1 个 chunk（source_type: "magic_item"）
+            - searchable_questions 必须是中文自然语言问题，覆盖玩家最可能询问的场景（3-5个）
+            - content 字段要包含原始数据中的关键描述，不要过度精简
+            - 最多生成 20 个 chunks（优先场景和 NPC）
+
+            ## 模组数据
+            {{#node-code-validate.module_data#}}
+        selected: false
+        title: 生成 RAG Chunks
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 98
+      id: node-llm-chunk-enricher
+      position:
+        x: 1040
+        y: 300
+      positionAbsolute:
+        x: 1040
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        code: |
+          import json, re
+
+          def main(llm_output: str) -> dict:
+              try:
+                  text = llm_output.strip()
+                  # 去掉 markdown 代码块
+                  text = re.sub(r'^```(?:json)?\s*', '', text)
+                  text = re.sub(r'\s*```$', '', text)
+                  text = text.strip()
+
+                  chunks = json.loads(text)
+                  if not isinstance(chunks, list):
+                      chunks = []
+
+                  validated = []
+                  for i, chunk in enumerate(chunks):
+                      if not isinstance(chunk, dict):
+                          continue
+                      if not chunk.get('content'):
+                          continue
+                      # 补全缺失字段
+                      chunk.setdefault('chunk_id', f'chunk_{i}')
+                      chunk.setdefault('source_type', 'unknown')
+                      chunk.setdefault('summary', chunk['content'][:100])
+                      chunk.setdefault('tags', [])
+                      chunk.setdefault('entities', [])
+                      chunk.setdefault('searchable_questions', [])
+                      # 确保列表类型
+                      for field in ('tags', 'entities', 'searchable_questions'):
+                          if not isinstance(chunk[field], list):
+                              chunk[field] = []
+                      validated.append(chunk)
+
+                  return {
+                      'rag_chunks': json.dumps(validated, ensure_ascii=False),
+                      'chunks_count': len(validated),
+                  }
+              except Exception as e:
+                  return {
+                      'rag_chunks': '[]',
+                      'chunks_count': 0,
+                  }
+        code_language: python3
+        desc: 解析 LLM 输出的 chunk 数组，验证结构，补全缺失字段
+        outputs:
+          rag_chunks:
+            type: string
+          chunks_count:
+            type: number
+        selected: false
+        title: 验证 RAG Chunks
+        type: code
+        variables:
+        - value_selector:
+          - node-llm-chunk-enricher
+          - text
+          variable: llm_output
+      height: 54
+      id: node-code-rag-chunks
+      position:
+        x: 1360
+        y: 300
+      positionAbsolute:
+        x: 1360
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        desc: 返回完整模组结构化数据（含增强怪物 stat block）和 RAG chunks
+        outputs:
+        - value_selector:
+          - node-code-validate
+          - module_data
+          variable: module_data
+        - value_selector:
+          - node-code-validate
+          - success
+          variable: success
+        - value_selector:
+          - node-code-validate
+          - error_msg
+          variable: error_msg
+        - value_selector:
+          - node-code-rag-chunks
+          - rag_chunks
+          variable: rag_chunks
+        - value_selector:
+          - node-code-rag-chunks
+          - chunks_count
+          variable: chunks_count
+        selected: false
+        title: 结束
+        type: end
+      height: 98
+      id: node-end
+      position:
+        x: 1680
+        y: 300
+      positionAbsolute:
+        x: 1680
+        y: 300
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.7
