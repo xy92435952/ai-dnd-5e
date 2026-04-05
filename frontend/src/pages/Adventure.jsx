@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { gameApi, charactersApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
-import DiceRollerOverlay from '../components/DiceRollerOverlay'
+import DiceRollerOverlay, { rollDice3D } from '../components/DiceRollerOverlay'
 import { BackIcon, SaveIcon, RestIcon, JournalIcon, BookIcon, DiceD20Icon, SwordIcon, ShieldIcon, HeartIcon, ScrollIcon, ClassIcon } from '../components/Icons'
 
 // ── 常量 ──────────────────────────────────────────────────
@@ -80,8 +80,11 @@ export default function Adventure() {
     if (!pendingCheck || checkRolling) return
     setCheckRolling(true)
     try {
-      const result = await gameApi.skillCheck({ session_id: sessionId, character_id: pendingCheck.character_id || player?.id, skill: pendingCheck.check_type, dc: pendingCheck.dc })
-      showDice({ faces: 20, result: result.d20, label: `${pendingCheck.check_type}检定` })
+      // 前端掷 3D 骰子
+      const { total: d20 } = await rollDice3D(20)
+      showDice({ faces: 20, result: d20, label: `${pendingCheck.check_type}检定` })
+      // 将物理结果传给后端
+      const result = await gameApi.skillCheck({ session_id: sessionId, character_id: pendingCheck.character_id || player?.id, skill: pendingCheck.check_type, dc: pendingCheck.dc, d20_value: d20 })
       const checkSummary = `${pendingCheck.check_type}检定 (DC ${pendingCheck.dc})：d20=${result.d20} ${result.modifier >= 0 ? '+' : ''}${result.modifier}${result.proficient ? ' [熟练]' : ''} = ${result.total} → ${result.success ? '✅ 成功' : '❌ 失败'}`
       addLog('dice', checkSummary, 'dice', { dice_result: result })
       setPendingCheck(null)
