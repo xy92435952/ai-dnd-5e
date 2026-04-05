@@ -454,15 +454,12 @@ export default function Combat() {
     const currentSmiteTarget = smitePrompt?.targetId
     setSmitePrompt(null)
     try {
-      const result = await gameApi.smite(sessionId, slotLevel)
+      // 先掷 3D 骰子（斩击骰：2d8 + 每环 +1d8）
+      const smiteDiceCount = 2 + (slotLevel - 1)  // 基础2d8 + 每环+1d8
+      const { total: smiteTotal, rolls: smiteRolls } = await rollDice3D(8, smiteDiceCount)
+      showDice({ faces: 8, result: smiteTotal, label: '神圣斩击', count: smiteDiceCount })
 
-      // 播放斩击骰子动画（smite_dice 格式如 "3d8"）
-      if (result.smite_dice && result.smite_damage) {
-        const smiteMatch = result.smite_dice.match(/(\d*)d(\d+)/)
-        const smiteCount = smiteMatch ? parseInt(smiteMatch[1] || '1') : 1
-        const faces = smiteMatch ? parseInt(smiteMatch[2]) : 8
-        showDice({ faces, result: result.smite_damage, label: '神圣斩击', count: smiteCount })
-      }
+      const result = await gameApi.smite(sessionId, slotLevel, false, smiteRolls)
 
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)
@@ -486,11 +483,21 @@ export default function Combat() {
     setIsProcessing(true)
     setError('')
     try {
-      const result = await gameApi.classFeature(sessionId, featureName)
-      // 骰子动画
-      if (result.dice_roll) {
-        showDice({ faces: result.dice_roll.faces, result: result.dice_roll.result, label: result.dice_roll.label })
+      // 需要前端掷骰的职业特性
+      const FEATURE_DICE = {
+        second_wind: { faces: 10, count: 1, label: '活力恢复' },
+        ki_flurry: { faces: 20, count: 1, label: '疾风连击' },
+        portent: { faces: 20, count: 1, label: '预言骰' },
+        bardic_inspiration: { faces: 6, count: 1, label: '灵感骰' },  // 实际 die 从 subclass 获取
+        shadow_step: { faces: 20, count: 1, label: '暗影步' },
       }
+      const featureDice = FEATURE_DICE[featureName]
+      if (featureDice) {
+        const { total, rolls } = await rollDice3D(featureDice.faces, featureDice.count)
+        showDice({ faces: featureDice.faces, result: total, label: featureDice.label, count: featureDice.count })
+      }
+
+      const result = await gameApi.classFeature(sessionId, featureName)
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.turn_state) setTurnState(result.turn_state)
       if (result.class_resources) setClassResources(result.class_resources)
@@ -520,10 +527,12 @@ export default function Combat() {
     processingRef.current = true
     setIsProcessing(true)
     try {
-      const result = await gameApi.useReaction(sessionId, reactionType, targetId)
-      if (result.dice_roll) {
-        showDice({ faces: result.dice_roll.faces, result: result.dice_roll.result, label: result.dice_roll.label, count: result.dice_roll.count || 1 })
+      // 地狱斥责等反应法术需要掷骰
+      if (reactionType === 'hellish_rebuke') {
+        const { total, rolls } = await rollDice3D(10, 2)
+        showDice({ faces: 10, result: total, label: '地狱斥责 2d10', count: 2 })
       }
+      const result = await gameApi.useReaction(sessionId, reactionType, targetId)
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.turn_state) setTurnState(result.turn_state)
       // Resume AI turns after reaction
@@ -551,11 +560,12 @@ export default function Combat() {
     setIsProcessing(true)
     setError('')
     try {
+      // 战技优越骰 3D 动画
+      const sdFaces = parseInt((playerSubclassEffects?.superiority_die || 'd8').replace('d', '')) || 8
+      const { total: sdTotal, rolls: sdRolls } = await rollDice3D(sdFaces)
+      showDice({ faces: sdFaces, result: sdTotal, label: `战技·${maneuverName}` })
+
       const result = await gameApi.maneuver(sessionId, maneuverName, selectedTarget)
-      // 战技骰子动画
-      if (result.dice_roll) {
-        showDice({ faces: result.dice_roll.faces, result: result.dice_roll.result, label: result.dice_roll.label })
-      }
       addLog({ role: 'player', content: result.narration || result.description, log_type: 'combat',
         dice_result: result.superiority_die_roll ? { type: 'maneuver', value: result.superiority_die_roll, die: result.superiority_die } : null })
       if (result.turn_state) setTurnState(result.turn_state)

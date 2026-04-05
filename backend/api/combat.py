@@ -506,6 +506,7 @@ class DeathSaveRequest(BaseModel):
 class SmiteRequest(BaseModel):
     slot_level:       int = 1           # 使用的法术位等级
     target_is_undead: bool = False      # 目标是否为亡灵/邪魔
+    damage_values:    Optional[list[int]] = None  # 前端骰子物理结果
 
 
 class ClassFeatureRequest(BaseModel):
@@ -2159,6 +2160,10 @@ async def divine_smite(
 
     # 计算斩击伤害
     smite = svc.calc_divine_smite_damage(req.slot_level, req.target_is_undead)
+
+    # 前端骰子物理结果覆盖
+    if req.damage_values:
+        smite["damage"] = sum(req.damage_values)
 
     # 找到最近一次攻击的目标（从 combat log 中推断，或从 turn state）
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
