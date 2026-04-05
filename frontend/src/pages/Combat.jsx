@@ -122,15 +122,16 @@ export default function Combat() {
       // 同步回合状态
       if (pid) setTurnState(data.turn_states?.[pid] || null)
 
-      // 先攻骰子动画（仅第1轮首次加载时展示）
+      // 先攻骰子动画（仅第1轮首次加载时展示）— 玩家点击投掷
       if (data.round_number === 1 && !initiativeShown && pid) {
         const playerEntry = (data.turn_order || []).find(t => t.is_player)
         if (playerEntry && playerEntry.initiative != null) {
-          // 从先攻值反推 d20 结果（先攻 = d20 + DEX mod）
-          // turn_order 可能存有 d20 字段，否则直接显示先攻总值
+          setInitiativeShown(true)
+          // 让玩家投掷先攻骰子（纯表演，结果已由后端决定）
+          const { total: initD20 } = await rollDice3D(20)
+          // 显示后端的实际先攻值（因为先攻已经在战斗初始化时计算好了）
           const d20Val = playerEntry.d20 || playerEntry.initiative
           showDice({ faces: 20, result: d20Val, label: '先攻检定' })
-          setInitiativeShown(true)
         }
       }
 
@@ -894,37 +895,41 @@ export default function Combat() {
           addLog({ role: 'player', content: confirmResult.narration, log_type: 'combat' })
           setSelectedTarget(null)
 
-          // 野蛮魔法涌动显示 + 骰子动画
+          // 野蛮魔法涌动 — 玩家掷检测骰
           if (confirmResult.wild_magic_check) {
             const wmc = confirmResult.wild_magic_check
-            // 延迟显示（等法术骰子动画结束）
-            setTimeout(() => {
-              if (wmc.triggered && confirmResult.wild_magic_surge) {
-                // 涌动触发！先显示 d20=1 检测骰
-                if (!wmc.forced) {
-                  showDice({ faces: 20, result: wmc.d20, label: '🌀 野蛮魔法涌动！' })
-                }
+            if (wmc.forced) {
+              // 混沌之潮反噬 — 不掷骰，直接涌动
+              addLog({
+                role: 'system',
+                content: `🌀 混沌反噬！${confirmResult.wild_magic_surge?.effect || '野蛮魔法涌动！'}`,
+                log_type: 'system',
+              })
+              if (wmc.surge_roll) {
+                // 掷涌动效果骰
+                const { total: surgeD20 } = await rollDice3D(20)
+                showDice({ faces: 20, result: surgeD20, label: `涌动效果 #${wmc.surge_roll}` })
+              }
+            } else {
+              // 玩家掷野蛮魔法检测 d20
+              const { total: surgeCheck } = await rollDice3D(20)
+              const triggered = surgeCheck === 1
+              showDice({ faces: 20, result: surgeCheck, label: triggered ? '🌀 野蛮魔法涌动！' : '野蛮魔法检测' })
+
+              if (triggered && confirmResult.wild_magic_surge) {
                 addLog({
                   role: 'system',
-                  content: `🌀 野蛮魔法涌动！${wmc.forced ? '（混沌之潮反噬）' : `d20=${wmc.d20}`} — ${confirmResult.wild_magic_surge.effect}`,
+                  content: `🌀 野蛮魔法涌动！d20=${surgeCheck} — ${confirmResult.wild_magic_surge.effect}`,
                   log_type: 'system',
                 })
-                // 延迟后显示涌动效果骰（d20 涌动表）
-                if (wmc.surge_roll) {
-                  setTimeout(() => {
-                    showDice({ faces: 20, result: wmc.surge_roll, label: `涌动效果 #${wmc.surge_roll}` })
-                  }, 3500)
-                }
-              } else if (!wmc.triggered) {
-                // 未触发，显示检测骰子
-                showDice({ faces: 20, result: wmc.d20, label: '野蛮魔法检测' })
+              } else {
                 addLog({
                   role: 'system',
-                  content: `🎲 野蛮魔法检测: d20=${wmc.d20}（安全，未触发涌动）`,
+                  content: `🎲 野蛮魔法检测: d20=${surgeCheck}（安全，未触发涌动）`,
                   log_type: 'system',
                 })
               }
-            }, totalValue > 0 ? 3000 : 500)
+            }
           }
 
           if (confirmResult.combat_over) { setCombatOver(confirmResult.outcome) }
