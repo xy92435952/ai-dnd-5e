@@ -151,6 +151,7 @@ class ContextBuilder:
                 "proficient_saves": char.proficient_saves or [],
                 "is_player":        char.is_player,
                 "personality":      char.personality or "",
+                "gold":             (getattr(char, "equipment", {}) or {}).get("gold", 0),
                 # 装备和主动效果（后续扩展字段，暂为空）
                 "equipped":         getattr(char, "equipment", {}) or {},
                 "active_effects":   getattr(char, "active_effects", {}) or {},

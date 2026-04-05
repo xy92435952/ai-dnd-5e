@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统架构图 · AI跑团平台 LangGraph + 用户认证</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070d19;
+    --bg2: #0d1525;
+    --bg3: #111c30;
+    --border: rgba(255,255,255,0.07);
+    --blue: #2563eb;
+    --blue-glow: rgba(37,99,235,0.25);
+    --cyan: #06b6d4;
+    --cyan-glow: rgba(6,182,212,0.2);
+    --purple: #8b5cf6;
+    --purple-glow: rgba(139,92,246,0.2);
+    --green: #10b981;
+    --green-glow: rgba(16,185,129,0.2);
+    --orange: #f59e0b;
+    --orange-glow: rgba(245,158,11,0.2);
+    --red: #ef4444;
+    --red-glow: rgba(239,68,68,0.2);
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --text-bright: #f8fafc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes drift {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(100px, 80px); }
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 48px 48px 64px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 56px;
+    animation: fadeDown 0.8s ease both;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(6,182,212,0.1);
+    border: 1px solid rgba(6,182,212,0.25);
+    border-radius: 99px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .header-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--cyan);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--cyan); }
+    50% { opacity: 0.4; box-shadow: none; }
+  }
+
+  h1 {
+    font-family: 'Sora', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-bright);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+
+  .header-sub {
+    font-size: 14px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    font-weight: 400;
+  }
+
+  /* Connectors */
+  .connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin: 0 auto;
+    height: 52px;
+    position: relative;
+  }
+
+  .connector-line {
+    width: 2px;
+    flex: 1;
+    background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.15), transparent);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .connector-line::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, transparent, var(--cyan), transparent);
+    animation: flow-down 2s linear infinite;
+  }
+
+  @keyframes flow-down {
+    from { top: -100%; }
+    to   { top: 100%; }
+  }
+
+  .connector-label {
+    position: absolute;
+    left: calc(50% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    white-space: nowrap;
+    background: rgba(13,21,37,0.8);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .connector-arrow {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid rgba(255,255,255,0.2);
+    margin-top: -1px;
+  }
+
+  /* Layer cards */
+  .layer {
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    padding: 24px 28px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .layer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    border-radius: 4px 0 0 4px;
+  }
+
+  .layer::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    opacity: 0.04;
+    pointer-events: none;
+  }
+
+  .layer-purple::before { background: linear-gradient(to bottom, var(--purple), transparent); }
+  .layer-purple::after  { background: var(--purple); box-shadow: 0 0 80px var(--purple); }
+  .layer-purple { box-shadow: 0 0 0 1px rgba(139,92,246,0.1), 0 20px 60px rgba(0,0,0,0.4); }
+
+  .layer-blue::before { background: linear-gradient(to bottom, var(--blue), transparent); }
+  .layer-blue::after  { background: var(--blue); box-shadow: 0 0 80px var(--blue); }
+  .layer-blue { box-shadow: 0 0 0 1px rgba(37,99,235,0.1), 0 20px 60px rgba(0,0,0,0.4); }
+
+  .layer-cyan::before { background: linear-gradient(to bottom, var(--cyan), transparent); }
+  .layer-cyan::after  { background: var(--cyan); box-shadow: 0 0 80px var(--cyan); }
+  .layer-cyan { box-shadow: 0 0 0 1px rgba(6,182,212,0.15), 0 20px 60px rgba(0,0,0,0.4); }
+
+  .layer-green::before { background: linear-gradient(to bottom, var(--green), transparent); }
+  .layer-green::after  { background: var(--green); box-shadow: 0 0 80px var(--green); }
+  .layer-green { box-shadow: 0 0 0 1px rgba(16,185,129,0.1), 0 20px 60px rgba(0,0,0,0.4); }
+
+  .layer-orange::before { background: linear-gradient(to bottom, var(--orange), transparent); }
+  .layer-orange::after  { background: var(--orange); box-shadow: 0 0 80px var(--orange); }
+  .layer-orange { box-shadow: 0 0 0 1px rgba(245,158,11,0.1), 0 20px 60px rgba(0,0,0,0.4); }
+
+  .layer-red::before { background: linear-gradient(to bottom, var(--red), transparent); }
+  .layer-red::after  { background: var(--red); box-shadow: 0 0 80px var(--red); }
+  .layer-red { box-shadow: 0 0 0 1px rgba(239,68,68,0.1), 0 20px 60px rgba(0,0,0,0.4); }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .layer-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .layer-title {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-bright);
+    letter-spacing: -0.01em;
+  }
+
+  .layer-title-en {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+    margin-left: 6px;
+  }
+
+  .layer-tag {
+    margin-left: auto;
+    font-size: 10.5px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    border: 1px solid;
+  }
+
+  /* Frontend grid */
+  .frontend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .page-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(139,92,246,0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: all 0.2s;
+  }
+
+  .page-card:hover {
+    background: rgba(139,92,246,0.08);
+    border-color: rgba(139,92,246,0.3);
+  }
+
+  .page-card-icon { font-size: 18px; margin-bottom: 6px; }
+  .page-card-name { font-size: 12.5px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
+  .page-card-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+  .tech-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .pill {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-dim);
+  }
+
+  /* API grid */
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .api-routes {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(37,99,235,0.12);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .api-route {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .api-route:last-child { border-bottom: none; }
+
+  .method {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    min-width: 36px;
+    text-align: center;
+  }
+  .method-post { background: rgba(16,185,129,0.15); color: #10b981; }
+  .method-get  { background: rgba(37,99,235,0.15); color: #60a5fa; }
+  .method-del  { background: rgba(239,68,68,0.15); color: #f87171; }
+  .method-patch { background: rgba(245,158,11,0.15); color: #fbbf24; }
+
+  .api-path { color: var(--text-dim); flex: 1; }
+
+  .api-features {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(37,99,235,0.12);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+  }
+
+  .feature-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* LangGraph flow */
+  .langgraph-section {
+    margin-bottom: 16px;
+  }
+
+  .langgraph-flow {
+    background: rgba(6,182,212,0.03);
+    border: 1px solid rgba(6,182,212,0.12);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 14px;
+    overflow: auto;
+  }
+
+  .flow-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: max-content;
+    padding: 4px 0;
+  }
+
+  .flow-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .node-box {
+    padding: 9px 14px;
+    border-radius: 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    position: relative;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: default;
+  }
+
+  .node-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+
+  .node-start, .node-end {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--text-bright);
+  }
+
+  .node-llm {
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.35);
+    color: #fcd34d;
+  }
+
+  .node-python {
+    background: rgba(139,92,246,0.15);
+    border: 1px solid rgba(139,92,246,0.35);
+    color: #c4b5fd;
+  }
+
+  .node-branch {
+    background: rgba(6,182,212,0.12);
+    border: 1px dashed rgba(6,182,212,0.5);
+    color: #67e8f9;
+    animation: branch-pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes branch-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(6,182,212,0.2); }
+    50% { box-shadow: 0 0 0 6px rgba(6,182,212,0); }
+  }
+
+  .node-memory {
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.3);
+    color: #6ee7b7;
+  }
+
+  .node-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0 4px;
+    margin-bottom: 16px;
+  }
+
+  .arrow-line {
+    width: 28px;
+    height: 1.5px;
+    background: linear-gradient(to right, rgba(6,182,212,0.3), rgba(6,182,212,0.6));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arrow-line::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(to right, transparent, var(--cyan), transparent);
+    animation: arrow-flow 1.8s linear infinite;
+  }
+
+  @keyframes arrow-flow {
+    from { left: -100%; }
+    to   { left: 100%; }
+  }
+
+  .arrow-head {
+    width: 0; height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 6px solid rgba(6,182,212,0.6);
+  }
+
+  .lg-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .lg-info-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(6,182,212,0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .lg-info-icon { font-size: 16px; flex-shrink: 0; }
+  .lg-info-text { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+  .lg-info-text strong { color: var(--text); font-weight: 600; }
+
+  /* RAG grid */
+  .rag-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .rag-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(16,185,129,0.12);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .rag-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Sora', sans-serif;
+    color: var(--green);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rag-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+
+  .rag-item::before {
+    content: '\2192';
+    color: var(--green);
+    font-size: 11px;
+    margin-top: 1px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  /* AI Model grid */
+  .ai-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .ai-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(245,158,11,0.12);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .ai-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Sora', sans-serif;
+    color: var(--orange);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .temp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .temp-item {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.12);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .temp-name { color: var(--text-dim); margin-bottom: 2px; }
+  .temp-val { color: var(--orange); font-weight: 600; font-size: 13px; }
+
+  /* Rules engine grid */
+  .rules-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .rules-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(239,68,68,0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: all 0.2s;
+  }
+
+  .rules-card:hover {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.3);
+  }
+
+  .rules-card-icon { font-size: 18px; margin-bottom: 6px; }
+  .rules-card-name { font-size: 12.5px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
+  .rules-card-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+  /* Graph label */
+  .graph-label {
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  /* Branch container */
+  .branch-container {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 16px;
+  }
+
+  .branch-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .branch-label {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cyan);
+    padding: 2px 8px;
+    background: rgba(6,182,212,0.08);
+    border: 1px solid rgba(6,182,212,0.2);
+    border-radius: 4px;
+  }
+
+  /* Legend */
+  .legend {
+    position: fixed;
+    bottom: 28px;
+    right: 36px;
+    background: rgba(13,21,37,0.92);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 11px;
+    z-index: 100;
+  }
+
+  .legend-title {
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    color: var(--text-dim);
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .layer:nth-child(1)  { animation-delay: 0.1s; }
+  .layer:nth-child(3)  { animation-delay: 0.2s; }
+  .layer:nth-child(5)  { animation-delay: 0.3s; }
+  .layer:nth-child(7)  { animation-delay: 0.4s; }
+  .layer:nth-child(9)  { animation-delay: 0.5s; }
+  .layer:nth-child(11) { animation-delay: 0.6s; }
+
+  @media print {
+    body { background: #070d19; }
+    .legend { position: relative; bottom: auto; right: auto; margin-top: 32px; }
+    .connector-line::after, .arrow-line::after { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-badge">DnD 5e AI TRPG · LangGraph Migration</div>
+    <h1>系统架构图</h1>
+    <div class="header-sub">AI跑团平台 &nbsp;·&nbsp; LangGraph + 完整5e角色系统 + 用户认证 &nbsp;·&nbsp; Phase 14 v5.0 &nbsp;·&nbsp; Frontend-Driven Dice + Reaction UI + AI Spellcasting + Control Spells</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- LAYER 1: FRONTEND                         -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="layer layer-purple">
+    <div class="layer-header">
+      <div class="layer-icon" style="background:rgba(139,92,246,0.15);">&#x1F5A5;&#xFE0F;</div>
+      <div>
+        <span class="layer-title">用户界面层</span>
+        <span class="layer-title-en">Frontend Layer (Phase 14: rollDice3D + Reaction UI)</span>
+      </div>
+      <div class="layer-tag" style="color:var(--purple);border-color:rgba(139,92,246,0.3);background:rgba(139,92,246,0.08);">
+        localhost:3000
+      </div>
+    </div>
+
+    <div class="frontend-grid">
+      <div class="page-card">
+        <div class="page-card-icon">&#x1F3E0;</div>
+        <div class="page-card-name">Home.jsx</div>
+        <div class="page-card-desc">模组上传/选择<br>存档列表 · 新建入口</div>
+      </div>
+      <div class="page-card">
+        <div class="page-card-icon">&#x1F9D9;</div>
+        <div class="page-card-name">CharacterCreate.jsx</div>
+        <div class="page-card-desc">6-7步创角向导<br>战斗风格/装备/法术/专长</div>
+      </div>
+      <div class="page-card">
+        <div class="page-card-icon">&#x2728;</div>
+        <div class="page-card-name">Adventure.jsx</div>
+        <div class="page-card-desc">主跑团界面<br>对话日志 · 技能检定</div>
+      </div>
+      <div class="page-card">
+        <div class="page-card-icon">&#x2694;&#xFE0F;</div>
+        <div class="page-card-name">Combat.jsx</div>
+        <div class="page-card-desc">网格战斗地图 20x20<br>行动配额 · 反应弹窗 · rollDice3D</div>
+      </div>
+      <div class="page-card">
+        <div class="page-card-icon">&#x1F4DC;</div>
+        <div class="page-card-name">CharacterSheet.jsx</div>
+        <div class="page-card-desc">角色详情/编辑<br>属性 · 技能 · 装备</div>
+      </div>
+      <div class="page-card">
+        <div class="page-card-icon">&#x1F511;</div>
+        <div class="page-card-name">Login.jsx</div>
+        <div class="page-card-desc">登录/注册<br>JWT 认证 · bcrypt</div>
+      </div>
+    </div>
+
+    <div class="tech-pills">
+      <span class="pill">React 19</span>
+      <span class="pill">Vite 8</span>
+      <span class="pill">React Router v7</span>
+      <span class="pill">Zustand 5</span>
+      <span class="pill">Tailwind CSS v4</span>
+      <span class="pill">axios</span>
+      <span class="pill">React Query v5</span>
+      <span class="pill">@3d-dice/dice-box</span>
+      <span class="pill">Icons.jsx</span>
+    </div>
+  </div>
+
+  <!-- Connector 1 -->
+  <div class="connector">
+    <div class="connector-line"></div>
+    <div class="connector-label">HTTP / Vite Proxy &#x2192; :8000</div>
+    <div class="connector-arrow"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- LAYER 2: API GATEWAY                      -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="layer layer-blue">
+    <div class="layer-header">
+      <div class="layer-icon" style="background:rgba(37,99,235,0.15);">&#x26A1;</div>
+      <div>
+        <span class="layer-title">API 网关层</span>
+        <span class="layer-title-en">FastAPI Gateway (仅改 import)</span>
+      </div>
+      <div class="layer-tag" style="color:#60a5fa;border-color:rgba(37,99,235,0.3);background:rgba(37,99,235,0.08);">
+        localhost:8000
+      </div>
+    </div>
+
+    <div class="api-grid">
+      <div class="api-routes">
+        <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);margin-bottom:10px;letter-spacing:0.04em;">API ENDPOINTS</div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/auth/register</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/auth/login</span></div>
+        <div class="api-route"><span class="method method-get">GET</span><span class="api-path">/auth/me</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/modules/upload</span></div>
+        <div class="api-route"><span class="method method-get">GET</span><span class="api-path">/modules</span></div>
+        <div class="api-route"><span class="method method-del">DEL</span><span class="api-path">/modules/{id}</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/characters</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/characters/generate-party</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/game/action</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/game/combat/{id}/action</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/game/combat/{id}/spell</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/game/sessions/{id}/checkpoint</span></div>
+        <div class="api-route"><span class="method method-del">DEL</span><span class="api-path">/game/sessions/{id}</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/game/combat/{id}/maneuver</span></div>
+        <div class="api-route"><span class="method method-post">POST</span><span class="api-path">/game/combat/{id}/class-feature</span></div>
+        <div class="api-route"><span class="method method-get">GET</span><span class="api-path">/health</span></div>
+      </div>
+
+      <div class="api-features">
+        <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);margin-bottom:4px;letter-spacing:0.04em;">MIDDLEWARE & FEATURES</div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:#06b6d4;"></div>
+          <span style="font-size:12.5px;">ContextBuilder &rarr; AI &rarr; StateApplicator 管线</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:#8b5cf6;"></div>
+          <span style="font-size:12.5px;">CORS 跨域支持（前后端分离）</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:#10b981;"></div>
+          <span style="font-size:12.5px;">BackgroundTasks 异步模组解析</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:#f59e0b;"></div>
+          <span style="font-size:12.5px;">Pydantic v2 请求/响应验证</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:#ef4444;"></div>
+          <span style="font-size:12.5px;">SQLAlchemy 2.0 Async ORM</span>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot" style="background:#60a5fa;"></div>
+          <span style="font-size:12.5px;">自动 API 文档（/docs · /redoc）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 2 -->
+  <div class="connector">
+    <div class="connector-line"></div>
+    <div class="connector-label">Python 直接调用 · LangGraphClient</div>
+    <div class="connector-arrow"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- LAYER 3: LANGGRAPH (CORE)                 -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="layer layer-cyan">
+    <div class="layer-header">
+      <div class="layer-icon" style="background:rgba(6,182,212,0.15);">&#x1F578;&#xFE0F;</div>
+      <div>
+        <span class="layer-title">LangGraph 编排层</span>
+        <span class="layer-title-en">AI Agent Orchestration · CORE (NEW)</span>
+      </div>
+      <div class="layer-tag" style="color:var(--cyan);border-color:rgba(6,182,212,0.35);background:rgba(6,182,212,0.08);">
+        StateGraph · SqliteSaver
+      </div>
+    </div>
+
+    <!-- Graph 1: Module Parser -->
+    <div class="langgraph-section">
+      <div class="graph-label">GRAPH 1 · MODULE PARSER (WF1) &mdash; 4 nodes linear</div>
+      <div class="langgraph-flow">
+        <div class="flow-track">
+          <div class="flow-node">
+            <div class="node-box node-start">&#x25B6; START</div>
+            <div class="node-label">module_text</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-llm">extract_data<br><span style="font-size:10px;opacity:0.8;">LLM t=0.2</span></div>
+            <div class="node-label">提取结构化JSON</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">validate_fill<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">验证+补全怪物</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-llm">gen_chunks<br><span style="font-size:10px;opacity:0.8;">LLM t=0.3</span></div>
+            <div class="node-label">生成RAG chunks</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">validate_chunks<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">验证chunk结构</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-end">&#x25A0; END</div>
+            <div class="node-label">(dict, list)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Graph 2: DM Agent -->
+    <div class="langgraph-section">
+      <div class="graph-label">GRAPH 2 · DM AGENT (WF3) &mdash; conditional branch + SqliteSaver memory</div>
+      <div class="langgraph-flow">
+        <div class="flow-track">
+          <div class="flow-node">
+            <div class="node-box node-start">&#x25B6; START</div>
+            <div class="node-label">player_action</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">pre_roll_dice<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">d20[16] d6[12] ...</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-branch">&#x2B95; route_by_mode<br><span style="font-size:10px;opacity:0.8;">combat_active?</span></div>
+            <div class="node-label">条件分支</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="node-box node-llm" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.12);color:#fca5a5;">combat_dm<br><span style="font-size:10px;opacity:0.8;">LLM t=0.72</span></div>
+            <div style="font-size:10px;color:var(--text-dim);">-- OR --</div>
+            <div class="node-box node-llm" style="border-color:rgba(16,185,129,0.35);background:rgba(16,185,129,0.12);color:#6ee7b7;">explore_dm<br><span style="font-size:10px;opacity:0.8;">LLM t=0.82</span></div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">parse_validate<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">JSON验证+降级</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-memory">&#x1F4BE; SqliteSaver<br><span style="font-size:10px;opacity:0.8;">messages[]</span></div>
+            <div class="node-label">thread=session_id</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-end">&#x25A0; END</div>
+            <div class="node-label">ApplyResult</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Graph 3: Party Generator -->
+    <div class="langgraph-section">
+      <div class="graph-label">GRAPH 3 · PARTY GENERATOR (WF2) &mdash; 3 nodes linear</div>
+      <div class="langgraph-flow">
+        <div class="flow-track">
+          <div class="flow-node">
+            <div class="node-box node-start">&#x25B6; START</div>
+            <div class="node-label">player_class</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">analyze_roles<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">角色缺口分析</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-llm">gen_companions<br><span style="font-size:10px;opacity:0.8;">LLM t=0.85</span></div>
+            <div class="node-label">生成角色数组</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">calc_derived<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">HP/AC/先攻</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-end">&#x25A0; END</div>
+            <div class="node-label">list[dict]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Graph 4: AI Combat Agent -->
+    <div class="langgraph-section">
+      <div class="graph-label">GRAPH 4 &middot; AI COMBAT DECISION AGENT &mdash; LLM tactical AI for enemies &amp; companions</div>
+      <div class="langgraph-flow">
+        <div class="flow-track">
+          <div class="flow-node">
+            <div class="node-box node-start">&#x25B6; START</div>
+            <div class="node-label">combat_state</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">build_context<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">grid/HP/abilities</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-branch">&#x2B95; actor_type<br><span style="font-size:10px;opacity:0.8;">enemy/ally?</span></div>
+            <div class="node-label">prompt routing</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="node-box node-llm" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.12);color:#fca5a5;">enemy_tactics<br><span style="font-size:10px;opacity:0.8;">LLM</span></div>
+            <div style="font-size:10px;color:var(--text-dim);">-- OR --</div>
+            <div class="node-box node-llm" style="border-color:rgba(16,185,129,0.35);background:rgba(16,185,129,0.12);color:#6ee7b7;">ally_tactics<br><span style="font-size:10px;opacity:0.8;">LLM</span></div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-python">parse_action<br><span style="font-size:10px;opacity:0.8;">Python</span></div>
+            <div class="node-label">validate+execute</div>
+          </div>
+          <div class="flow-arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+          <div class="flow-node">
+            <div class="node-box node-end">&#x25A0; END</div>
+            <div class="node-label">action_result</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LangGraph footer -->
+    <div class="lg-footer">
+      <div class="lg-info-card">
+        <div class="lg-info-icon">&#x1F4BE;</div>
+        <div class="lg-info-text">
+          <strong>AsyncSqliteSaver</strong><br>
+          langgraph_memory.db · 对话状态持久化 · 断点续传
+        </div>
+      </div>
+      <div class="lg-info-card">
+        <div class="lg-info-icon">&#x1F511;</div>
+        <div class="lg-info-text">
+          <strong>Thread ID = Session ID</strong><br>
+          每个游戏会话独立线程 · 跨轮次记忆保持
+        </div>
+      </div>
+      <div class="lg-info-card">
+        <div class="lg-info-icon">&#x1F504;</div>
+        <div class="lg-info-text">
+          <strong>LangGraphClient</strong><br>
+          Drop-in 替换 DifyClient · 方法签名完全一致
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 3 -->
+  <div class="connector">
+    <div class="connector-line"></div>
+    <div class="connector-label">向量检索 · RAG retrieve()</div>
+    <div class="connector-arrow"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- LAYER 4: RAG                              -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="layer layer-green">
+    <div class="layer-header">
+      <div class="layer-icon" style="background:rgba(16,185,129,0.15);">&#x1F4DA;</div>
+      <div>
+        <span class="layer-title">RAG 知识库层</span>
+        <span class="layer-title-en">Retrieval-Augmented Generation (NEW: ChromaDB)</span>
+      </div>
+      <div class="layer-tag" style="color:var(--green);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);">
+        ChromaDB · 本地持久化
+      </div>
+    </div>
+
+    <div class="rag-grid">
+      <div class="rag-card">
+        <div class="rag-card-title">&#x1F4E5; WF1 Chunk 上传</div>
+        <div class="rag-item">collection: module_chunks</div>
+        <div class="rag-item">metadata: {module_id, chunk_id, source_type}</div>
+        <div class="rag-item">doc_id: {module_id}_{chunk_id}</div>
+        <div class="rag-item">upsert 语义 · 删除按 module_id 过滤</div>
+        <div class="rag-item">复用 _format_chunk_content() 格式</div>
+      </div>
+
+      <div class="rag-card">
+        <div class="rag-card-title">&#x1F50D; 语义检索</div>
+        <div class="rag-item">collection.query(query_texts=...)</div>
+        <div class="rag-item">where={"module_id": module_id} 隔离</div>
+        <div class="rag-item">n_results=top_k（默认3）</div>
+        <div class="rag-item">score_threshold 过滤低质量结果</div>
+        <div class="rag-item">结果拼接 \n---\n 返回 ContextBuilder</div>
+      </div>
+
+      <div class="rag-card">
+        <div class="rag-card-title">&#x1F9EC; Embedding</div>
+        <div class="rag-item">默认: all-MiniLM-L6-v2（内置）</div>
+        <div class="rag-item">可选: OpenAI embeddings（中文优化）</div>
+        <div class="rag-item">持久化: ./chromadb_data</div>
+        <div class="rag-item">零外部依赖 · 纯本地运行</div>
+        <div class="rag-item">替代 Dify KB API · 无网络延迟</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 4 -->
+  <div class="connector">
+    <div class="connector-line"></div>
+    <div class="connector-label">HTTPS API · OpenAI 兼容协议</div>
+    <div class="connector-arrow"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- LAYER 5: AI MODELS                        -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="layer layer-orange">
+    <div class="layer-header">
+      <div class="layer-icon" style="background:rgba(245,158,11,0.15);">&#x1F916;</div>
+      <div>
+        <span class="layer-title">AI 模型层</span>
+        <span class="layer-title-en">LLM via langchain-openai</span>
+      </div>
+      <div class="layer-tag" style="color:var(--orange);border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);">
+        OpenAI-Compatible API
+      </div>
+    </div>
+
+    <div class="ai-grid">
+      <div class="ai-card">
+        <div class="ai-card-title">&#x1F310; API 接入</div>
+        <div class="rag-item" style="color:var(--text-dim);">AiHubMix / OpenRouter / OpenAI 等</div>
+        <div class="rag-item" style="color:var(--text-dim);">base_url: .env 可配置</div>
+        <div class="rag-item" style="color:var(--text-dim);">OpenAI 兼容接口协议</div>
+        <div class="rag-item" style="color:var(--text-dim);">get_llm() 工厂函数统一管理</div>
+        <div class="rag-item" style="color:var(--text-dim);">超时设置: 120s</div>
+      </div>
+
+      <div class="ai-card">
+        <div class="ai-card-title">&#x26A1; 主力模型</div>
+        <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);border-radius:8px;padding:10px;margin-bottom:10px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--orange);font-weight:600;margin-bottom:4px;">Claude Sonnet 4.6 / GPT-4o / Qwen</div>
+          <div style="font-size:11px;color:var(--text-dim);">LLM_MODEL=claude-sonnet-4-6 (.env 切换)</div>
+        </div>
+        <div class="rag-item" style="color:var(--text-dim);">中文优化 · 结构化 JSON 输出</div>
+        <div class="rag-item" style="color:var(--text-dim);">一行 .env 切换模型/提供商</div>
+      </div>
+
+      <div class="ai-card">
+        <div class="ai-card-title">&#x1F321;&#xFE0F; Temperature 配置</div>
+        <div class="temp-grid">
+          <div class="temp-item">
+            <div class="temp-name">WF1 extract</div>
+            <div class="temp-val">0.2</div>
+          </div>
+          <div class="temp-item">
+            <div class="temp-name">WF1 chunks</div>
+            <div class="temp-val">0.3</div>
+          </div>
+          <div class="temp-item">
+            <div class="temp-name">WF3 combat</div>
+            <div class="temp-val">0.72</div>
+          </div>
+          <div class="temp-item">
+            <div class="temp-name">WF3 explore</div>
+            <div class="temp-val">0.82</div>
+          </div>
+          <div class="temp-item">
+            <div class="temp-name">WF2 party</div>
+            <div class="temp-val">0.85</div>
+          </div>
+          <div class="temp-item">
+            <div class="temp-name">checkpoint</div>
+            <div class="temp-val">0.3</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector 5 -->
+  <div class="connector">
+    <div class="connector-line"></div>
+    <div class="connector-label">本地规则计算 · 无 AI 调用</div>
+    <div class="connector-arrow"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- LAYER 6: RULES ENGINE                     -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="layer layer-red">
+    <div class="layer-header">
+      <div class="layer-icon" style="background:rgba(239,68,68,0.15);">&#x1F3B2;</div>
+      <div>
+        <span class="layer-title">5e 规则引擎层</span>
+        <span class="layer-title-en">Local Rules Engine (不变)</span>
+      </div>
+      <div class="layer-tag" style="color:var(--red);border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);">
+        纯 Python · 零 IO
+      </div>
+    </div>
+
+    <div class="rules-grid">
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F4CA;</div>
+        <div class="rules-card-name">dnd_rules.py</div>
+        <div class="rules-card-desc">骰子/检定/先攻/属性<br>种族加成 · 法术位表</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x2694;&#xFE0F;</div>
+        <div class="rules-card-name">combat_service.py</div>
+        <div class="rules-card-desc">攻击/伤害/治疗/条件<br>AI目标选择 · 专注中断</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x2728;</div>
+        <div class="rules-card-name">spell_service.py</div>
+        <div class="rules-card-desc">99+ SRD 法术注册表<br>升环/法术位/AoE</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F9E0;</div>
+        <div class="rules-card-name">ai_combat_agent.py</div>
+        <div class="rules-card-desc">LLM战术AI决策<br>敌人/队友双prompt · 难度缩放</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F43B;</div>
+        <div class="rules-card-name">wild_shape_forms</div>
+        <div class="rules-card-desc">8种野性形态(含元素)<br>孢子德鲁伊 · CR限制</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F300;</div>
+        <div class="rules-card-name">wild_magic_surge</div>
+        <div class="rules-card-desc">20种涌动效果表<br>混沌之潮重置 · d20检定</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F4AC;</div>
+        <div class="rules-card-name">combat_narrator.py</div>
+        <div class="rules-card-desc">LLM 战斗叙事渲染<br>单次/批量 AI 旁白</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F3AF;</div>
+        <div class="rules-card-name">subclass_effects</div>
+        <div class="rules-card-desc">53子职业机械效果<br>12职业全覆盖 · calc_derived</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F4BE;</div>
+        <div class="rules-card-name">SQLite + ORM</div>
+        <div class="rules-card-desc">Module/Character/Session<br>CombatState/GameLog/User</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-title">图例</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--purple);"></div>用户界面层 Frontend (rollDice3D Frontend-Driven + Reaction Modal + Class Spell Filter)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--blue);"></div>API 网关层 FastAPI (/maneuver /class-feature)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cyan);"></div>LangGraph 编排层 (+ AI Combat Agent)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div>RAG 知识库层 ChromaDB</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--orange);"></div>AI 模型层 LLM</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red);"></div>5e 规则引擎层 (不变)</div>
+  <div style="border-top:1px solid var(--border);margin:10px 0 8px;"></div>
+  <div style="font-size:10px;color:var(--text-dim);line-height:1.6;">
+    Phase 14 v5.0 &nbsp;&middot;&nbsp; 2026-04-05<br>
+    AI跑团平台 &middot; Frontend-Driven Dice &middot; Reaction UI &middot; AI Spellcasting &middot; Control Spells
+  </div>
+</div>
+
+</body>
+</html>

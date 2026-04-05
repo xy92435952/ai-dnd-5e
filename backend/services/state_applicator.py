@@ -113,6 +113,10 @@ class StateApplicator:
             for enemy_delta in delta.get("enemies", []):
                 self._apply_enemy_delta(enemy_delta, session)
 
+        # ── 金币变化 ──
+        for gold_delta in delta.get("gold_changes", []):
+            await self._apply_gold_change(gold_delta, char_map)
+
         # ── 战斗触发 ──
         if delta.get("combat_trigger"):
             ar.combat_triggered  = True
@@ -200,6 +204,34 @@ class StateApplicator:
         if delta.get("inspiration_gained"):
             # 预留字段，Character 模型后续可加 has_inspiration
             pass
+
+    # ─────────────────────────────────────────────
+    # 金币变化
+    # ─────────────────────────────────────────────
+
+    async def _apply_gold_change(
+        self,
+        delta: dict,
+        char_map: dict[str, Character],
+    ) -> None:
+        char_id = str(delta.get("id", ""))
+        char = char_map.get(char_id)
+        if not char:
+            logger.warning(f"gold_changes 包含未知角色 ID: {char_id}")
+            return
+
+        amount = int(delta.get("amount", 0))
+        if amount == 0:
+            return
+
+        equipment = dict(char.equipment or {})
+        current_gold = equipment.get("gold", 0)
+        new_gold = max(0, current_gold + amount)
+        equipment["gold"] = new_gold
+        char.equipment = equipment
+
+        reason = delta.get("reason", "")
+        logger.info(f"角色 {char.name} 金币变化: {current_gold} → {new_gold} ({'+' if amount > 0 else ''}{amount}, {reason})")
 
     # ─────────────────────────────────────────────
     # 敌人状态变化（存储在 Session.game_state.enemies）

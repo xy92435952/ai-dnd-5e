@@ -32,10 +32,13 @@ export const useGameStore = create((set, get) => ({
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
 
-  // 骰子动画状态（Phase 3）
-  diceRoll: null,   // { faces: 20, result: 17, label: '攻击检定' } | null
-  showDice: (roll) => set({ diceRoll: roll }),
+  // 骰子动画状态
+  diceRoll: null,      // { faces, result, label, _ts } — 结果展示覆盖层
+  dicePrompt: null,    // { faces, count } — "点击投掷"提示状态
+  showDice: (roll) => set({ diceRoll: { ...roll, _ts: Date.now() } }),
+  showDicePrompt: (config) => set({ dicePrompt: { ...config, _ts: Date.now() } }),
   hideDice: () => set({ diceRoll: null }),
+  hideDicePrompt: () => set({ dicePrompt: null }),
 
   // 重置游戏状态
   resetGame: () => set({

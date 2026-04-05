@@ -74,10 +74,22 @@ class CombatService:
                 dmg_mod = 0
             else:
                 dmg_mod = raw_mod
-            damage_roll = roll_dice(f"1d{hit_die}+{dmg_mod}")
+            # Great Weapon Fighting: 近战非远程，使用双手/大型武器时，重掷 1/2
+            style_effects = attacker_derived.get("style_effects", {})
+            use_gwf = (not is_ranged and not is_offhand
+                       and style_effects.get("reroll_low", False))
+            if use_gwf:
+                from services.dnd_rules import roll_dice_gwf
+                damage_roll = roll_dice_gwf(f"1d{hit_die}+{dmg_mod}")
+            else:
+                damage_roll = roll_dice(f"1d{hit_die}+{dmg_mod}")
             damage      = damage_roll["total"]
             if attack_roll["is_crit"]:
-                extra = roll_dice(f"1d{hit_die}")
+                if use_gwf:
+                    from services.dnd_rules import roll_dice_gwf
+                    extra = roll_dice_gwf(f"1d{hit_die}")
+                else:
+                    extra = roll_dice(f"1d{hit_die}")
                 damage += extra["total"]
 
         narration = CombatService._build_narration(
@@ -166,8 +178,9 @@ class CombatService:
         """
         被攻击时的优/劣势修正（攻击方获得的优/劣势）
         """
-        ADV_TO_ATTACKER = {"paralyzed", "petrified", "stunned", "unconscious", "prone"}
-        DIS_TO_ATTACKER = {"invisible"}
+        ADV_TO_ATTACKER = {"paralyzed", "petrified", "stunned", "unconscious", "prone",
+                           "blinded", "restrained"}  # 5e: blinded/restrained → attacker has advantage
+        DIS_TO_ATTACKER = {"invisible", "dodging"}  # dodging: Dodge action gives disadvantage to attackers
         adv = any(c in ADV_TO_ATTACKER for c in conditions)
         dis = any(c in DIS_TO_ATTACKER for c in conditions)
         return adv, dis
@@ -180,14 +193,20 @@ class CombatService:
         专注中断检定（5e PHB p.203）
         DC = max(10, floor(damage / 2))
         character_dict 需包含: concentration, derived, proficient_saves
+        War Caster 专长：专注豁免具有优势
         返回 None（不需要检定）或 {required, dc, spell_name, broke, roll_result}
         """
         if not character_dict.get("concentration") or damage <= 0:
             return None
 
         from services.dnd_rules import roll_saving_throw
-        dc          = max(10, damage // 2)
-        roll_result = roll_saving_throw(character_dict, "con", dc)
+        dc = max(10, damage // 2)
+
+        # War Caster 专长：专注豁免具有优势
+        derived = character_dict.get("derived", {})
+        feat_effects = derived.get("feat_effects", {})
+        has_war_caster = bool(feat_effects.get("War Caster")) or derived.get("subclass_effects", {}).get("concentration_advantage", False)
+        roll_result = roll_saving_throw(character_dict, "con", dc, advantage=has_war_caster)
 
         return {
             "required":    True,
@@ -195,6 +214,7 @@ class CombatService:
             "spell_name":  character_dict["concentration"],
             "broke":       not roll_result["success"],
             "roll_result": roll_result,
+            "war_caster":  has_war_caster,
         }
 
     # ── 额外攻击 (Extra Attack, 5e PHB) ────────────────────
@@ -219,11 +239,19 @@ class CombatService:
         return (level + 1) // 2  # 1 at L1, 2 at L3, 3 at L5, etc.
 
     @staticmethod
-    def check_sneak_attack(attacker_class: str, has_advantage: bool, ally_adjacent_to_target: bool) -> bool:
-        """Check if sneak attack conditions are met"""
+    def check_sneak_attack(attacker_class: str, has_advantage: bool, ally_adjacent_to_target: bool,
+                           swashbuckler: bool = False, no_other_enemy_adjacent: bool = False) -> bool:
+        """Check if sneak attack conditions are met.
+        Swashbuckler: can sneak attack if no other creature is adjacent to target (Rakish Audacity).
+        """
         if attacker_class not in ('Rogue', '游荡者'):
             return False
-        return has_advantage or ally_adjacent_to_target
+        if has_advantage or ally_adjacent_to_target:
+            return True
+        # Swashbuckler Rakish Audacity: sneak attack if no other enemy adjacent to target
+        if swashbuckler and no_other_enemy_adjacent:
+            return True
+        return False
 
     # ── 神圣斩击 (Divine Smite, 5e PHB) ──────────────────
 

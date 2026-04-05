@@ -66,9 +66,10 @@ export const charactersApi = {
 // ── 游戏 ──────────────────────────────────────────────────
 export const gameApi = {
   // 会话管理
-  createSession: (data) => api.post('/game/sessions', data),
-  listSessions:  () => api.get('/game/sessions'),
-  getSession:    (id) => api.get(`/game/sessions/${id}`),
+  createSession:  (data) => api.post('/game/sessions', data),
+  listSessions:   () => api.get('/game/sessions'),
+  getSession:     (id) => api.get(`/game/sessions/${id}`),
+  deleteSession:  (id) => api.delete(`/game/sessions/${id}`),
 
   // 主行动（探索 + 战斗统一入口）
   action: (data) => api.post('/game/action', data),
@@ -96,16 +97,18 @@ export const gameApi = {
       is_ranged:   isRanged,
       is_offhand:  isOffhand,
     }),
-  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false) =>
+  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null) =>
     api.post(`/game/combat/${sessionId}/attack-roll`, {
       entity_id:   entityId,
       target_id:   targetId,
       action_type: actionType,
       is_offhand:  isOffhand,
+      ...(d20Value != null ? { d20_value: d20Value } : {}),
     }),
-  damageRoll: (sessionId, pendingAttackId) =>
+  damageRoll: (sessionId, pendingAttackId, damageValues = null) =>
     api.post(`/game/combat/${sessionId}/damage-roll`, {
       pending_attack_id: pendingAttackId,
+      ...(damageValues ? { damage_values: damageValues } : {}),
     }),
   aiTurn:       (sessionId) => api.post(`/game/combat/${sessionId}/ai-turn`),
   endCombat:    (sessionId) => api.post(`/game/combat/${sessionId}/end`),
@@ -127,9 +130,10 @@ export const gameApi = {
       target_id: targetId || null,
       target_ids: targetIds || [],
     }),
-  spellConfirm: (sessionId, pendingSpellId) =>
+  spellConfirm: (sessionId, pendingSpellId, damageValues = null) =>
     api.post(`/game/combat/${sessionId}/spell-confirm`, {
       pending_spell_id: pendingSpellId,
+      ...(damageValues ? { damage_values: damageValues } : {}),
     }),
   addCondition: (sessionId, entityId, condition, isEnemy = false, rounds = null) =>
     api.post(`/game/combat/${sessionId}/condition/add`, {
@@ -138,8 +142,11 @@ export const gameApi = {
     }),
   removeCondition: (sessionId, entityId, condition, isEnemy = false) =>
     api.post(`/game/combat/${sessionId}/condition/remove`, { entity_id: entityId, condition, is_enemy: isEnemy }),
-  deathSave: (sessionId, characterId) =>
-    api.post(`/game/combat/${sessionId}/death-save`, { character_id: characterId }),
+  deathSave: (sessionId, characterId, d20Value = null) =>
+    api.post(`/game/combat/${sessionId}/death-save`, {
+      character_id: characterId,
+      ...(d20Value != null ? { d20_value: d20Value } : {}),
+    }),
   endTurn: (sessionId) =>
     api.post(`/game/combat/${sessionId}/end-turn`),
 
@@ -155,6 +162,13 @@ export const gameApi = {
     api.post(`/game/combat/${sessionId}/class-feature`, {
       feature_name: featureName,
       ...params,
+    }),
+
+  // 战技 (Battle Master Maneuvers)
+  maneuver: (sessionId, maneuverName, targetId) =>
+    api.post(`/game/combat/${sessionId}/maneuver`, {
+      maneuver_name: maneuverName,
+      target_id: targetId,
     }),
 
   // 反应 (Reaction)

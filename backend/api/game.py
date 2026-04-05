@@ -24,6 +24,59 @@ from services.state_applicator import StateApplicator
 
 router = APIRouter(prefix="/game", tags=["game"])
 
+import logging as _logging
+_game_logger = _logging.getLogger(__name__)
+
+
+# ── 开场白生成 ────────────────────────────────────────────
+
+_OPENING_PROMPT = """你是一位经验丰富的 DnD 5e 地下城主，现在要为一场新冒险生成开场白。
+
+## 你拥有的信息
+- 模组名称：{module_name}
+- 世界观/背景设定：{setting}
+- 基调：{tone}
+- 第一个场景的描述：{first_scene_desc}
+
+## 开场白要求
+1. **绝对不能剧透**——不要透露主线剧情走向、Boss身份、关键NPC的秘密、任何悬念的答案
+2. **营造悬念**——用感官细节（异常的气味、远处的声响、不自然的沉寂）暗示"有什么不对劲"
+3. **建立氛围**——让玩家感受到冒险的世界观基调（阴森/奇幻/史诗/诡异）
+4. **引导行动**——结尾自然地让玩家产生"我想往前探索"的冲动，但不要直接列出选项
+5. **第二人称叙述**——"你踏入..."、"你注意到..."
+6. **200-300字**，中文，沉浸式文学风格
+7. 不要使用 Markdown 格式，纯文本即可
+
+直接输出开场白文本，不要有任何前缀、解释或标签。"""
+
+
+async def _generate_opening(parsed: dict, raw_scene: str) -> str:
+    """用 LLM 生成不剧透、有悬念的开场白。失败时回退到原始场景描述。"""
+    try:
+        from services.llm import get_llm
+        llm = get_llm(temperature=0.85, max_tokens=600)
+
+        prompt = _OPENING_PROMPT.format(
+            module_name     = parsed.get("name", "未知模组"),
+            setting         = parsed.get("setting", "一个神秘的奇幻世界"),
+            tone            = parsed.get("tone", "冒险"),
+            first_scene_desc = raw_scene or "冒险的起点",
+        )
+
+        from langchain_core.messages import SystemMessage, HumanMessage
+        resp = await llm.ainvoke([
+            SystemMessage(content="你是一位经验丰富的 DnD 5e 地下城主，擅长用沉浸式的文学语言描述场景。"),
+            HumanMessage(content=prompt),
+        ])
+        text = resp.content.strip()
+        if len(text) > 30:
+            return text
+    except Exception as e:
+        _game_logger.warning(f"开场白生成失败，使用原始场景描述: {e}")
+
+    # Fallback
+    return raw_scene or f"你站在{parsed.get('setting', '一个神秘的地方')}的入口处。冒险即将开始。"
+
 
 # ── Schemas ───────────────────────────────────────────────
 
@@ -44,6 +97,7 @@ class SkillCheckRequest(BaseModel):
     character_id: str
     skill:        str
     dc:           int
+    d20_value:    Optional[int] = None  # Frontend 3D dice result
 
 
 # ── Session 管理 ──────────────────────────────────────────
@@ -58,7 +112,10 @@ async def create_session(req: CreateSessionRequest, db: AsyncSession = Depends(g
 
     parsed     = module.parsed_content or {}
     scenes     = parsed.get("scenes", [])
-    first_scene = scenes[0]["description"] if scenes else f"你站在{parsed.get('setting', '一个神秘的地方')}的入口处。"
+    raw_scene  = scenes[0]["description"] if scenes else ""
+
+    # 用 AI 生成不剧透的开场白
+    first_scene = await _generate_opening(parsed, raw_scene)
 
     session = Session(
         user_id              = user_id,
@@ -148,6 +205,39 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_user_id)):
+    """删除游戏存档及关联数据"""
+    result = await db.execute(select(Session).where(Session.id == session_id))
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(404, "存档不存在")
+
+    # 校验所有权
+    if session.user_id and session.user_id != user_id:
+        raise HTTPException(403, "无权删除他人的存档")
+
+    # 删除关联的战斗状态
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(CombatState).where(CombatState.session_id == session_id))
+
+    # 删除关联的游戏日志
+    await db.execute(sql_delete(GameLog).where(GameLog.session_id == session_id))
+
+    # 删除关联的 AI 队友角色（非玩家角色）
+    companion_ids = (session.game_state or {}).get("companion_ids", [])
+    for cid in companion_ids:
+        companion = await db.get(Character, cid)
+        if companion and not companion.is_player:
+            await db.delete(companion)
+
+    # 删除会话本身
+    await db.delete(session)
+    await db.commit()
+
+    return {"ok": True}
+
+
 # ── 主跑团循环（统一入口：战斗 + 探索） ─────────────────
 
 @router.post("/action")
@@ -177,7 +267,7 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
             .where(CombatState.session_id == session.id)
             .order_by(CombatState.created_at.desc())
         )
-        combat_state = cs_res.scalar_one_or_none()
+        combat_state = cs_res.scalars().first()
 
     # ── 记录玩家行动 ──
     db.add(GameLog(
@@ -262,6 +352,18 @@ async def skill_check(req: SkillCheckRequest, db: AsyncSession = Depends(get_db)
         dc    = req.dc,
     )
 
+    # Frontend dice override: use 3D physics result
+    if req.d20_value is not None:
+        d20_ov = req.d20_value
+        modifier_ov = result["modifier"]
+        total_ov = d20_ov + modifier_ov
+        result = {
+            **result,
+            "d20": d20_ov,
+            "total": total_ov,
+            "success": total_ov >= req.dc,
+        }
+
     db.add(GameLog(
         session_id  = req.session_id,
         role        = "system",
@@ -301,29 +403,23 @@ async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
     module_summary = (module.parsed_content or {}).get("plot_summary", "") if module else ""
 
     try:
-        dm_resp = await dify_client.call_dm_agent(
-            player_action   = (
+        from services.llm import get_llm
+        from langchain_core.messages import SystemMessage as _SM, HumanMessage as _HM
+        llm = get_llm(temperature=0.8, max_tokens=800)
+        resp = await llm.ainvoke([
+            _SM(content="你是一位文笔出众的 DnD 5e 编年史作者，擅长将冒险记录改写为史诗般的战役日志。"),
+            _HM(content=(
+                f"## 模组背景\n{module_summary}\n\n"
+                f"## 冒险记录\n{log_text[-3000:]}\n\n"
                 "请以第三人称叙事风格，为这段冒险旅程写一篇简短的战役日志（300字左右）。"
-                "包含：英雄们的行动、遭遇的危险、关键事件。语气史诗而充满感情。"
-                "只返回日志正文，不要JSON格式。"
-            ),
-            game_state      = f"## 冒险记录\n{log_text[-3000:]}",
-            module_context  = module_summary,
-            campaign_memory = "",
-            retrieved_context = "",
-            conversation_id = None,   # 独立新对话，不影响游戏会话
-        )
-        # 从 wrapped result 中提取叙事文本
-        journal_text = dm_resp.get("narrative", "")
-        if not journal_text:
-            try:
-                import json as _json
-                result_data = _json.loads(dm_resp.get("result", "{}"))
-                journal_text = result_data.get("narrative", "")
-            except Exception:
-                pass
-        if not journal_text:
-            journal_text = dm_resp.get("companion_reactions", "") or "日志生成失败"
+                "包含：英雄们的行动、遭遇的危险、关键事件和转折。"
+                "语气史诗而充满感情，像一部奇幻小说的章节摘要。"
+                "直接输出日志正文，不要有任何前缀、标签或JSON格式。"
+            )),
+        ])
+        journal_text = resp.content.strip()
+        if not journal_text or len(journal_text) < 20:
+            journal_text = "日志生成失败"
     except Exception as e:
         journal_text = f"（AI日志生成失败：{e}）\n\n以下为原始记录节选：\n\n{log_text[:800]}"
 
@@ -440,7 +536,7 @@ async def take_rest(
             restored_dice = max(1, char.level // 2)
             char.hit_dice_remaining = min(char.level, (char.hit_dice_remaining or 0) + restored_dice)
             # Reset class resources
-            char.class_resources = get_class_resource_defaults(cls_key, char.level)
+            char.class_resources = get_class_resource_defaults(cls_key, char.level, subclass=char.subclass)
             results.append({
                 "name":              char.name,
                 "hp_recovered":      hp_max - old_hp,
@@ -469,13 +565,67 @@ async def take_rest(
             if caster_t == "pact":
                 char.spell_slots = slots_max
 
-            # 短休重置部分职业资源
-            class_res = dict(char.class_resources or {})
-            if cls_key == "Fighter":
-                class_res["second_wind_used"] = False
+            # ── 短休资源恢复 ──
+            cls_key_sr = _normalize_class(char.char_class)
+            class_res_sr = dict(char.class_resources or {})
+            changed = False
+
+            # Fighter: Second Wind + Action Surge reset
+            if cls_key_sr == "Fighter":
+                class_res_sr["second_wind_used"] = False
                 if char.level >= 2:
-                    class_res["action_surge_used"] = False
-            char.class_resources = class_res
+                    class_res_sr["action_surge_used"] = False
+                # Battle Master: Superiority Dice reset
+                sub_eff = (char.derived or {}).get("subclass_effects", {})
+                if sub_eff.get("battle_master"):
+                    sd_max = sub_eff.get("superiority_dice_max", 4)
+                    class_res_sr["superiority_dice_remaining"] = sd_max
+                changed = True
+
+            # Monk: Ki Points reset to max
+            elif cls_key_sr == "Monk" and char.level >= 2:
+                ki_max = (char.derived or {}).get("subclass_effects", {}).get("ki_max", char.level)
+                class_res_sr["ki_remaining"] = ki_max
+                changed = True
+
+            # Bard: Bardic Inspiration reset (only at level 5+ with Font of Inspiration)
+            elif cls_key_sr == "Bard" and char.level >= 5:
+                cha_mod = (char.derived or {}).get("ability_modifiers", {}).get("cha", 3)
+                class_res_sr["bardic_inspiration_remaining"] = max(1, cha_mod)
+                changed = True
+
+            # Cleric: Channel Divinity reset
+            elif cls_key_sr == "Cleric":
+                class_res_sr["channel_divinity_used"] = False
+                changed = True
+
+            # Paladin: Channel Divinity reset
+            elif cls_key_sr == "Paladin":
+                class_res_sr["channel_divinity_used"] = False
+                changed = True
+
+            # Druid: Wild Shape uses do NOT reset on short rest (only long rest)
+            # But Circle of Land: Natural Recovery (recover spell slots)
+            elif cls_key_sr == "Druid":
+                sub_eff = (char.derived or {}).get("subclass_effects", {})
+                if sub_eff.get("circle_of_land") and sub_eff.get("natural_recovery"):
+                    # Recover spell slots up to half druid level (rounded up)
+                    max_slot_level = (char.level + 1) // 2
+                    slots_max_dr = (char.derived or {}).get("spell_slots_max", {})
+                    current_slots_dr = dict(char.spell_slots or {})
+                    recovery_budget = (char.level + 1) // 2  # total slot levels to recover
+                    for lv in range(1, min(max_slot_level + 1, 6)):
+                        sk = ["1st","2nd","3rd","4th","5th"][lv-1]
+                        cap = slots_max_dr.get(sk, 0)
+                        cur = current_slots_dr.get(sk, 0)
+                        if cur < cap and recovery_budget >= lv:
+                            current_slots_dr[sk] = cur + 1
+                            recovery_budget -= lv
+                    char.spell_slots = current_slots_dr
+                changed = True
+
+            if changed:
+                char.class_resources = class_res_sr
 
             results.append({
                 "name":              char.name,
@@ -486,6 +636,7 @@ async def take_rest(
                 "slots_restored":    slots_max if caster_t == "pact" else {},
                 "hit_dice_remaining": char.hit_dice_remaining,
                 "no_hit_dice":       hd_remaining <= 0,
+                "class_resources":   class_res_sr if changed else None,
             })
 
     rest_label = "长休" if rest_type == "long" else "短休"
@@ -660,6 +811,11 @@ async def _init_combat(
         positions[str(c.id)] = {"x": 2, "y": 3 + i}
     for i, e in enumerate(enemies):
         positions[e["id"]] = {"x": 17, "y": 8 + i}
+
+    # 清理旧战斗状态（防止残留导致 MultipleResultsFound）
+    old_combats = await db.execute(select(CombatState).where(CombatState.session_id == session.id))
+    for old in old_combats.scalars().all():
+        await db.delete(old)
 
     combat = CombatState(
         session_id         = session.id,

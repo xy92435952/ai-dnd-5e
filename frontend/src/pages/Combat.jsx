@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { gameApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
-import DiceRollerOverlay from '../components/DiceRollerOverlay'
+import DiceRollerOverlay, { rollDice3D } from '../components/DiceRollerOverlay'
 import {
   ShieldIcon, SwordIcon, SkullIcon, DiceD20Icon,
   AttackIcon, SpellIcon, MoveIcon, DefendIcon, DashIcon,
@@ -53,6 +53,10 @@ export default function Combat() {
   const [playerClass, setPlayerClass] = useState('')
   const [playerLevel, setPlayerLevel] = useState(1)
   const [classResources, setClassResources] = useState({})
+  const [playerSubclass, setPlayerSubclass] = useState('')
+  const [playerSubclassEffects, setPlayerSubclassEffects] = useState({})
+  const [maneuverModalOpen, setManeuverModalOpen] = useState(false)
+  const [reactionPrompt, setReactionPrompt] = useState(null)
 
   // 先攻骰子动画标记（仅第一轮第一次显示）
   const [initiativeShown, setInitiativeShown] = useState(false)
@@ -112,6 +116,8 @@ export default function Combat() {
       if (session.player?.char_class)   setPlayerClass(session.player.char_class)
       if (session.player?.level)        setPlayerLevel(session.player.level)
       if (session.player?.class_resources) setClassResources(session.player.class_resources || {})
+      if (session.player?.subclass) setPlayerSubclass(session.player.subclass)
+      if (session.player?.derived?.subclass_effects) setPlayerSubclassEffects(session.player.derived.subclass_effects)
 
       // 同步回合状态
       if (pid) setTurnState(data.turn_states?.[pid] || null)
@@ -134,7 +140,7 @@ export default function Combat() {
       setLogs(combatLogs)
 
       if (!isPlayerTurn(data)) {
-        aiTimer.current = setTimeout(() => triggerAiTurn(data), 1000)
+        aiTimer.current = setTimeout(() => triggerAiTurn(), 1000)
       }
     } catch (e) {
       setError(e.message)
@@ -148,73 +154,131 @@ export default function Combat() {
     } catch (_) { /* 静默失败 */ }
   }
 
-  // 玩家实际可用法术（自己习得的法术 + 戏法）
+  // 玩家实际可用法术（已习得/已准备的法术 + 戏法，按职业过滤）
   const playerAvailableSpells = useMemo(() => {
     const known = new Set([...playerKnownSpells, ...playerCantrips])
-    if (known.size === 0) return spells
-    return spells.filter(s => known.has(s.name))
-  }, [spells, playerKnownSpells, playerCantrips])
+    if (known.size > 0) {
+      return spells.filter(s => known.has(s.name))
+    }
+    // 没有习得法术时，按职业过滤（而非显示全部）
+    if (playerClass) {
+      const classKey = playerClass.replace(/[\u4e00-\u9fff]/g, '') || playerClass  // 处理中文职业名
+      const classMap = {
+        'Fighter': 'Fighter', '战士': 'Fighter',
+        'Wizard': 'Wizard', '法师': 'Wizard',
+        'Sorcerer': 'Sorcerer', '术士': 'Sorcerer',
+        'Cleric': 'Cleric', '牧师': 'Cleric',
+        'Bard': 'Bard', '吟游诗人': 'Bard',
+        'Druid': 'Druid', '德鲁伊': 'Druid',
+        'Warlock': 'Warlock', '邪术师': 'Warlock',
+        'Paladin': 'Paladin', '圣武士': 'Paladin',
+        'Ranger': 'Ranger', '游侠': 'Ranger',
+      }
+      const mappedClass = classMap[playerClass] || playerClass
+      return spells.filter(s => s.classes?.includes(mappedClass))
+    }
+    return spells
+  }, [spells, playerKnownSpells, playerCantrips, playerClass])
 
   // ── AI 回合处理 ────────────────────────────────────────
-  const triggerAiTurn = useCallback(async (latestCombat) => {
+  const triggerAiTurn = useCallback(async () => {
+    // 严格串行：整个 AI 循环期间保持锁定
     if (processingRef.current) return
     processingRef.current = true
     setIsProcessing(true)
+
     try {
-      const result = await gameApi.aiTurn(sessionId)
+      // 循环处理所有连续的 AI 回合，直到轮到玩家或战斗结束
+      // 安全上限：最多处理 20 个 AI 回合（防止无限循环）
+      let aiTurnCount = 0
+      const AI_TURN_LIMIT = 20
+      let lastTurnIndex = -1
 
-      // AI 回合：如果玩家被攻击且有专注检定，显示豁免骰子动画
-      if (result.concentration_check && result.concentration_check.d20) {
-        showDice({
-          faces: 20,
-          result: result.concentration_check.d20,
-          label: `CON豁免 DC${result.concentration_check.dc || 10}`,
-        })
-      }
+      while (aiTurnCount < AI_TURN_LIMIT) {
+        aiTurnCount++
 
-      setCombat(prev => {
-        if (!prev) return prev
-        const updated = applyHpUpdate(prev, result.target_id, result.target_new_hp)
-        return {
-          ...updated,
-          current_turn_index: result.next_turn_index,
-          round_number: result.round_number,
+        // 1. 从服务端获取最新状态，确认当前轮到谁
+        let fresh
+        try {
+          fresh = await gameApi.getCombat(sessionId)
+        } catch (_) { break }
+
+        if (!fresh) break
+        setCombat(fresh)
+
+        // 防死循环：如果 turn_index 没变，说明回合未推进
+        if (fresh.current_turn_index === lastTurnIndex) {
+          console.warn('AI turn index not advancing, breaking loop')
+          break
         }
-      })
+        lastTurnIndex = fresh.current_turn_index
 
-      addLog({
-        role: result.actor_id?.startsWith('enemy') ? 'enemy' : `companion_${result.actor_name}`,
-        content: result.narration,
-        log_type: 'combat',
-        dice_result: result.attack_result?.d20
-          ? { attack: result.attack_result, damage: result.damage }
-          : null,
-      })
+        const currentEntry = fresh.turn_order?.[fresh.current_turn_index]
+        if (!currentEntry || currentEntry.is_player) {
+          // 轮到玩家了，加载玩家的回合状态
+          if (currentEntry?.is_player) {
+            const pid = currentEntry.character_id
+            setTurnState(fresh.turn_states?.[pid] || null)
+          }
+          break
+        }
 
-      if (result.combat_over) {
-        setCombatOver(result.outcome)
-        return
-      }
+        // 2. 执行 AI 回合
+        let result
+        try {
+          result = await gameApi.aiTurn(sessionId)
+        } catch (e) {
+          addLog({ role: 'system', content: `AI行动错误: ${e.message}`, log_type: 'system' })
+          break  // 出错直接退出，不再重试
+        }
 
-      setCombat(prev => {
-        if (!prev) return prev
-        const nextTurn = prev.turn_order?.[result.next_turn_index]
-        if (nextTurn && !nextTurn.is_player) {
-          aiTimer.current = setTimeout(() => {
-            processingRef.current = false
-            setIsProcessing(false)
-            triggerAiTurn(prev)
-          }, 600)
-        } else {
+        // 3. 更新前端状态
+        if (result.concentration_check?.d20) {
+          showDice({
+            faces: 20,
+            result: result.concentration_check.d20,
+            label: `CON豁免 DC${result.concentration_check.dc || 10}`,
+          })
+        }
+
+        setCombat(prev => {
+          if (!prev) return prev
+          const updated = applyHpUpdate(prev, result.target_id, result.target_new_hp)
+          return {
+            ...updated,
+            current_turn_index: result.next_turn_index,
+            round_number: result.round_number,
+            ...(result.entity_positions ? { entity_positions: result.entity_positions } : {}),
+          }
+        })
+
+        addLog({
+          role: result.actor_id?.startsWith('enemy') ? 'enemy' : `companion_${result.actor_name}`,
+          content: result.narration,
+          log_type: 'combat',
+          dice_result: result.attack_result?.d20
+            ? { attack: result.attack_result, damage: result.damage }
+            : null,
+        })
+
+        // 反应提示：敌人攻击玩家时可用反应
+        if (result.reaction_prompt && result.player_can_react) {
+          setReactionPrompt(result.reaction_prompt)
+          // 暂停 AI 循环等待玩家决定
           processingRef.current = false
           setIsProcessing(false)
-          // 玩家新回合：清空本地 turnState（服务端已重置）
-          setTurnState(null)
+          break  // Exit the while loop to let player react
         }
-        return prev
-      })
-    } catch (e) {
-      addLog({ role: 'system', content: `AI行动错误: ${e.message}`, log_type: 'system' })
+
+        if (result.combat_over) {
+          setCombatOver(result.outcome)
+          break
+        }
+
+        // 4. 等待一下再处理下一个 AI（避免太快）
+        await new Promise(r => setTimeout(r, 600))
+      }
+    } finally {
       processingRef.current = false
       setIsProcessing(false)
     }
@@ -237,29 +301,34 @@ export default function Combat() {
 
       if (result.combat_over) { setCombatOver(result.outcome); return }
 
-      // 使用 setCombat 回调确保获取最新 state（避免闭包过期引用）
+      // 更新本地状态
       setCombat(prev => {
         if (!prev) return prev
-        const updated = {
+        return {
           ...prev,
           current_turn_index: result.next_turn_index,
           round_number: result.round_number,
         }
-        // 判断下一个回合是否为 AI（非玩家）
-        const nextTurn = updated.turn_order?.[result.next_turn_index]
-        if (nextTurn && !nextTurn.is_player) {
-          aiTimer.current = setTimeout(() => {
-            processingRef.current = false
-            setIsProcessing(false)
-            triggerAiTurn(updated) // 传入最新的 combat state
-          }, 600)
-        } else {
-          processingRef.current = false
-          setIsProcessing(false)
-          setTurnState(null)
-        }
-        return updated
       })
+
+      // 释放锁，然后检查是否需要启动 AI 循环
+      processingRef.current = false
+      setIsProcessing(false)
+
+      // 从服务端获取最新状态来判断下一个是谁
+      try {
+        const fresh = await gameApi.getCombat(sessionId)
+        if (fresh) {
+          setCombat(fresh)
+          const nextEntry = fresh.turn_order?.[fresh.current_turn_index]
+          if (nextEntry && !nextEntry.is_player) {
+            aiTimer.current = setTimeout(() => triggerAiTurn(), 600)
+          } else if (nextEntry?.is_player) {
+            // 玩家新回合：加载回合状态
+            setTurnState(fresh.turn_states?.[nextEntry.character_id] || null)
+          }
+        }
+      } catch (_) {}
     } catch (e) {
       setError(e.message)
       processingRef.current = false
@@ -275,16 +344,16 @@ export default function Combat() {
     setAttackPhase('rolling_d20')
     setError('')
     try {
-      // Step 1: 攻击检定（仅 d20）
+      // Step 1: 3D骰子掷d20 → 传给后端
+      const { total: d20 } = await rollDice3D(20)
+      showDice({ faces: 20, result: d20, label: '攻击检定' })
+
       const atkResult = await gameApi.attackRoll(
         sessionId, playerId, selectedTarget,
-        isRanged ? 'ranged' : 'melee', false,
+        isRanged ? 'ranged' : 'melee', false, d20,
       )
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
-
-      // 播放 d20 动画
-      showDice({ faces: 20, result: atkResult.d20, label: '攻击检定' })
       setAttackPhase('hit_result')
 
       // Extra Attack 提示
@@ -325,12 +394,15 @@ export default function Combat() {
       setTimeout(async () => {
         try {
           setAttackPhase('rolling_damage')
-          const dmgResult = await gameApi.damageRoll(sessionId, atkResult.pending_attack_id)
 
-          // 伤害骰动画
-          const diceMatch = (atkResult.damage_dice || '1d8').match(/d(\d+)/)
-          const damageFaces = diceMatch ? parseInt(diceMatch[1]) : 8
-          showDice({ faces: damageFaces, result: dmgResult.total_damage, label: '伤害骰' })
+          // 3D骰子掷伤害骰 → 传给后端
+          const dmgDiceMatch = (atkResult.damage_dice || '1d8').match(/(\d*)d(\d+)/)
+          const dmgCount = dmgDiceMatch ? parseInt(dmgDiceMatch[1] || '1') : 1
+          const damageFaces = dmgDiceMatch ? parseInt(dmgDiceMatch[2]) : 8
+          const { total: dmgTotal, rolls: dmgRolls } = await rollDice3D(damageFaces, dmgCount)
+          showDice({ faces: damageFaces, result: dmgTotal, label: '伤害骰', count: dmgCount })
+
+          const dmgResult = await gameApi.damageRoll(sessionId, atkResult.pending_attack_id, dmgRolls)
 
           // 更新 HP
           setCombat(prev => {
@@ -386,9 +458,10 @@ export default function Combat() {
 
       // 播放斩击骰子动画（smite_dice 格式如 "3d8"）
       if (result.smite_dice && result.smite_damage) {
-        const facesMatch = result.smite_dice.match(/d(\d+)/)
-        const faces = facesMatch ? parseInt(facesMatch[1]) : 8
-        showDice({ faces, result: result.smite_damage, label: '神圣斩击' })
+        const smiteMatch = result.smite_dice.match(/(\d*)d(\d+)/)
+        const smiteCount = smiteMatch ? parseInt(smiteMatch[1] || '1') : 1
+        const faces = smiteMatch ? parseInt(smiteMatch[2]) : 8
+        showDice({ faces, result: result.smite_damage, label: '神圣斩击', count: smiteCount })
       }
 
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
@@ -414,6 +487,10 @@ export default function Combat() {
     setError('')
     try {
       const result = await gameApi.classFeature(sessionId, featureName)
+      // 骰子动画
+      if (result.dice_roll) {
+        showDice({ faces: result.dice_roll.faces, result: result.dice_roll.result, label: result.dice_roll.label })
+      }
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.turn_state) setTurnState(result.turn_state)
       if (result.class_resources) setClassResources(result.class_resources)
@@ -437,6 +514,67 @@ export default function Combat() {
     }
   }
 
+  // ── 反应 (Reaction) ─────────────────────────────────────
+  const handleReaction = async (reactionType, targetId = null) => {
+    setReactionPrompt(null)
+    processingRef.current = true
+    setIsProcessing(true)
+    try {
+      const result = await gameApi.useReaction(sessionId, reactionType, targetId)
+      if (result.dice_roll) {
+        showDice({ faces: result.dice_roll.faces, result: result.dice_roll.result, label: result.dice_roll.label, count: result.dice_roll.count || 1 })
+      }
+      addLog({ role: 'player', content: result.narration, log_type: 'combat' })
+      if (result.turn_state) setTurnState(result.turn_state)
+      // Resume AI turns after reaction
+      processingRef.current = false
+      setIsProcessing(false)
+      triggerAiTurn()
+    } catch (e) {
+      setError(e.message)
+      processingRef.current = false
+      setIsProcessing(false)
+      triggerAiTurn()
+    }
+  }
+
+  const skipReaction = () => {
+    setReactionPrompt(null)
+    // Resume AI turns
+    triggerAiTurn()
+  }
+
+  // ── 战技 (Battle Master Maneuver) ───────────────────────
+  const handleManeuver = async (maneuverName) => {
+    if (isProcessing || !selectedTarget) return
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const result = await gameApi.maneuver(sessionId, maneuverName, selectedTarget)
+      // 战技骰子动画
+      if (result.dice_roll) {
+        showDice({ faces: result.dice_roll.faces, result: result.dice_roll.result, label: result.dice_roll.label })
+      }
+      addLog({ role: 'player', content: result.narration || result.description, log_type: 'combat',
+        dice_result: result.superiority_die_roll ? { type: 'maneuver', value: result.superiority_die_roll, die: result.superiority_die } : null })
+      if (result.turn_state) setTurnState(result.turn_state)
+      if (result.class_resources) setClassResources(result.class_resources)
+      setCombat(prev => {
+        if (!prev) return prev
+        if (result.target_new_hp !== undefined && result.target_new_hp !== null) {
+          return applyHpUpdate(prev, selectedTarget, result.target_new_hp)
+        }
+        return prev
+      })
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }
+
   // ── 副手攻击（Two-Weapon Fighting，两步流程）──────────────
   const handleOffhandAttack = async () => {
     if (!selectedTarget || !isPlayerTurn(combat) || isProcessing) return
@@ -445,13 +583,15 @@ export default function Combat() {
     setAttackPhase('rolling_d20')
     setError('')
     try {
-      // Step 1: 副手攻击检定
+      // Step 1: 3D骰子掷d20 → 传给后端
+      const { total: d20 } = await rollDice3D(20)
+      showDice({ faces: 20, result: d20, label: '副手攻击' })
+
       const atkResult = await gameApi.attackRoll(
-        sessionId, playerId, selectedTarget, 'melee', true,
+        sessionId, playerId, selectedTarget, 'melee', true, d20,
       )
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
-      showDice({ faces: 20, result: atkResult.d20, label: '副手攻击' })
       setAttackPhase('hit_result')
 
       if (!atkResult.hit) {
@@ -476,11 +616,15 @@ export default function Combat() {
       setTimeout(async () => {
         try {
           setAttackPhase('rolling_damage')
-          const dmgResult = await gameApi.damageRoll(sessionId, atkResult.pending_attack_id)
 
-          const diceMatch = (atkResult.damage_dice || '1d8').match(/d(\d+)/)
-          const damageFaces = diceMatch ? parseInt(diceMatch[1]) : 8
-          showDice({ faces: damageFaces, result: dmgResult.total_damage, label: '副手伤害' })
+          // 3D骰子掷副手伤害骰 → 传给后端
+          const ohDiceMatch = (atkResult.damage_dice || '1d8').match(/(\d*)d(\d+)/)
+          const ohCount = ohDiceMatch ? parseInt(ohDiceMatch[1] || '1') : 1
+          const damageFaces = ohDiceMatch ? parseInt(ohDiceMatch[2]) : 8
+          const { total: ohTotal, rolls: ohRolls } = await rollDice3D(damageFaces, ohCount)
+          showDice({ faces: damageFaces, result: ohTotal, label: '副手伤害', count: ohCount })
+
+          const dmgResult = await gameApi.damageRoll(sessionId, atkResult.pending_attack_id, ohRolls)
 
           setCombat(prev => prev ? applyHpUpdate(prev, dmgResult.target_id, dmgResult.target_new_hp) : prev)
           if (dmgResult.turn_state) setTurnState(dmgResult.turn_state)
@@ -697,16 +841,20 @@ export default function Combat() {
       // Step 2: 延迟后自动掷伤害/治疗骰
       setTimeout(async () => {
         try {
-          const confirmResult = await gameApi.spellConfirm(sessionId, rollResult.pending_spell_id)
-
-          // 播放骰子动画
-          const totalValue = confirmResult.damage || confirmResult.heal || 0
-          if (totalValue > 0) {
-            const diceStr = rollResult.damage_dice || rollResult.heal_dice || '1d6'
-            const facesMatch = diceStr.match(/d(\d+)/)
-            const faces = facesMatch ? parseInt(facesMatch[1]) : 6
-            showDice({ faces, result: totalValue, label: spell.name })
+          // 3D骰子掷法术骰 → 传给后端
+          const diceStr = rollResult.damage_dice || rollResult.heal_dice || ''
+          const diceMatch = diceStr.match(/(\d*)d(\d+)/)
+          const diceCount = diceMatch ? parseInt(diceMatch[1] || '1') : 1
+          const diceFaces = diceMatch ? parseInt(diceMatch[2]) : 6
+          let spellRolls = null
+          if (diceStr) {
+            const { total: spellTotal, rolls: spellDiceRolls } = await rollDice3D(diceFaces, diceCount)
+            spellRolls = spellDiceRolls
+            showDice({ faces: diceFaces, result: spellTotal, label: spell.name, count: diceCount })
           }
+
+          const confirmResult = await gameApi.spellConfirm(sessionId, rollResult.pending_spell_id, spellRolls)
+          const totalValue = confirmResult.damage || confirmResult.heal || 0
 
           // 更新 HP（单目标）
           if (confirmResult.target_new_hp != null) {
@@ -736,6 +884,39 @@ export default function Combat() {
           addLog({ role: 'player', content: confirmResult.narration, log_type: 'combat' })
           setSelectedTarget(null)
 
+          // 野蛮魔法涌动显示 + 骰子动画
+          if (confirmResult.wild_magic_check) {
+            const wmc = confirmResult.wild_magic_check
+            // 延迟显示（等法术骰子动画结束）
+            setTimeout(() => {
+              if (wmc.triggered && confirmResult.wild_magic_surge) {
+                // 涌动触发！先显示 d20=1 检测骰
+                if (!wmc.forced) {
+                  showDice({ faces: 20, result: wmc.d20, label: '🌀 野蛮魔法涌动！' })
+                }
+                addLog({
+                  role: 'system',
+                  content: `🌀 野蛮魔法涌动！${wmc.forced ? '（混沌之潮反噬）' : `d20=${wmc.d20}`} — ${confirmResult.wild_magic_surge.effect}`,
+                  log_type: 'system',
+                })
+                // 延迟后显示涌动效果骰（d20 涌动表）
+                if (wmc.surge_roll) {
+                  setTimeout(() => {
+                    showDice({ faces: 20, result: wmc.surge_roll, label: `涌动效果 #${wmc.surge_roll}` })
+                  }, 3500)
+                }
+              } else if (!wmc.triggered) {
+                // 未触发，显示检测骰子
+                showDice({ faces: 20, result: wmc.d20, label: '野蛮魔法检测' })
+                addLog({
+                  role: 'system',
+                  content: `🎲 野蛮魔法检测: d20=${wmc.d20}（安全，未触发涌动）`,
+                  log_type: 'system',
+                })
+              }
+            }, totalValue > 0 ? 3000 : 500)
+          }
+
           if (confirmResult.combat_over) { setCombatOver(confirmResult.outcome) }
         } catch (e2) {
           setError(e2.message)
@@ -757,9 +938,12 @@ export default function Combat() {
     processingRef.current = true
     setIsProcessing(true)
     try {
-      const result = await gameApi.deathSave(sessionId, playerId)
-      const { d20, outcome, death_saves: ds } = result
+      // 3D骰子掷d20 → 传给后端
+      const { total: d20 } = await rollDice3D(20)
       showDice({ faces: 20, result: d20, label: '濒死豁免' })
+
+      const result = await gameApi.deathSave(sessionId, playerId, d20)
+      const { outcome, death_saves: ds } = result
 
       setCombat(prev => {
         if (!prev || !prev.entities[playerId]) return prev
@@ -845,6 +1029,16 @@ export default function Combat() {
       {/* 骰子动画浮层 */}
       <DiceRollerOverlay />
 
+      {/* 战技选择 Modal */}
+      {maneuverModalOpen && (
+        <ManeuverModal
+          diceType={playerSubclassEffects?.superiority_die || 'd8'}
+          remaining={classResources?.superiority_dice_remaining ?? 0}
+          onUse={handleManeuver}
+          onClose={() => setManeuverModalOpen(false)}
+        />
+      )}
+
       {/* 法术选择 Modal */}
       {spellModalOpen && (
         <SpellModal
@@ -882,6 +1076,57 @@ export default function Combat() {
             <button className="btn-fantasy text-xs py-1 w-full"
               onClick={() => setSmitePrompt(null)}>
               不使用
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 反应提示 Modal */}
+      {reactionPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="panel p-5" style={{ background: 'var(--bg2)', borderColor: 'var(--red)', maxWidth: 420, width: '90%', border: '2px solid var(--red)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 24 }}>⚡</span>
+              <div>
+                <p style={{ color: 'var(--red-light)', fontWeight: 700, fontSize: 15, margin: 0 }}>你被攻击了！是否使用反应？</p>
+                <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '4px 0 0' }}>
+                  攻击者: {reactionPrompt.attacker_name} | 攻击骰: {reactionPrompt.attack_roll} | 你的AC: {reactionPrompt.player_ac}
+                  {reactionPrompt.incoming_damage > 0 && ` | 伤害: ${reactionPrompt.incoming_damage}`}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+              {(reactionPrompt.available_reactions || []).map(r => (
+                <button key={r.id} className="panel" style={{
+                  padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                  border: '1px solid var(--wood-light)', background: 'var(--bg)', textAlign: 'left',
+                  transition: 'border-color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--red-light)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--wood-light)'}
+                onClick={() => handleReaction(r.id, reactionPrompt.attacker_id)}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ color: 'var(--text-bright)', fontWeight: 600, fontSize: 13, margin: 0 }}>
+                      {r.name}
+                    </p>
+                    <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '2px 0 0' }}>
+                      {r.effect}
+                      {r.cost && <span style={{ color: 'var(--gold-dim)', marginLeft: 6 }}>({r.cost})</span>}
+                    </p>
+                  </div>
+                  {r.slots_remaining != null && (
+                    <span style={{ color: 'var(--gold)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                      {r.slots_remaining}槽
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <button className="btn-fantasy" style={{ width: '100%', fontSize: 12, opacity: 0.7 }}
+              onClick={skipReaction}>
+              不使用反应
             </button>
           </div>
         </div>
@@ -1322,6 +1567,118 @@ export default function Combat() {
                     </>
                   )}
 
+                  {/* ── Battle Master: 战技 ── */}
+                  {(playerClass === 'Fighter' || playerClass === '战士') && playerSubclassEffects?.battle_master && (classResources?.superiority_dice_remaining ?? 0) > 0 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#f59e0b' }}
+                      disabled={actionUsed} onClick={() => setManeuverModalOpen(true)}>
+                      🎯 战技 ({classResources.superiority_dice_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Samurai: 战意 ── */}
+                  {(playerClass === 'Fighter' || playerClass === '战士') && playerSubclassEffects?.samurai && (classResources?.fighting_spirit_remaining ?? 0) > 0 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#ef4444' }}
+                      disabled={bonusUsed} onClick={() => handleClassFeature('fighting_spirit')}>
+                      ⚔️ 战意 ({classResources.fighting_spirit_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Bard: 灵感骰 ── */}
+                  {(playerClass === 'Bard' || playerClass === '吟游诗人') && (classResources?.bardic_inspiration_remaining ?? 0) > 0 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#a855f7' }}
+                      disabled={bonusUsed} onClick={() => handleClassFeature('bardic_inspiration')}>
+                      🎵 灵感骰 ({playerSubclassEffects?.inspiration_die || 'd6'} × {classResources.bardic_inspiration_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Monk: 疾风连击 ── */}
+                  {(playerClass === 'Monk' || playerClass === '武僧') && playerLevel >= 2 && (classResources?.ki_remaining ?? 0) >= 1 && !bonusUsed && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#06b6d4' }}
+                      onClick={() => handleClassFeature('ki_flurry')}>
+                      👊 疾风连击 (气:{classResources.ki_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Monk: 震慑打击 ── */}
+                  {(playerClass === 'Monk' || playerClass === '武僧') && playerLevel >= 5 && (classResources?.ki_remaining ?? 0) >= 1 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#eab308' }}
+                      onClick={() => handleClassFeature('ki_stunning_strike')}>
+                      💥 震慑打击 (气:{classResources.ki_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Shadow Monk: 暗影步 ── */}
+                  {(playerClass === 'Monk' || playerClass === '武僧') && playerSubclassEffects?.shadow_monk && (classResources?.ki_remaining ?? 0) >= 2 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#6366f1' }}
+                      onClick={() => handleClassFeature('shadow_step')}>
+                      🌑 暗影步 (气:{classResources.ki_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Paladin: 引导神力 ── */}
+                  {(playerClass === 'Paladin' || playerClass === '圣武士') && !classResources?.channel_divinity_used && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#fbbf24' }}
+                      onClick={() => handleClassFeature('channel_divinity')}>
+                      ✨ 引导神力
+                    </button>
+                  )}
+
+                  {/* ── Paladin: 圣手 ── */}
+                  {(playerClass === 'Paladin' || playerClass === '圣武士') && (classResources?.lay_on_hands_remaining ?? 0) > 0 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#34d399' }}
+                      onClick={() => handleClassFeature('lay_on_hands')}>
+                      🤲 圣手 ({classResources.lay_on_hands_remaining}HP)
+                    </button>
+                  )}
+
+                  {/* ── War Cleric: 战争牧师 ── */}
+                  {(playerClass === 'Cleric' || playerClass === '牧师') && playerSubclassEffects?.war_domain && (classResources?.war_priest_remaining ?? 0) > 0 && !bonusUsed && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#dc2626' }}
+                      onClick={() => handleClassFeature('war_priest_attack')}>
+                      ⚔️ 战争牧师 ({classResources.war_priest_remaining})
+                    </button>
+                  )}
+
+                  {/* ── Tempest Cleric: 毁灭之怒 ── */}
+                  {(playerClass === 'Cleric' || playerClass === '牧师') && playerSubclassEffects?.tempest_domain && !classResources?.channel_divinity_used && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#3b82f6' }}
+                      onClick={() => handleClassFeature('destructive_wrath')}>
+                      ⚡ 毁灭之怒
+                    </button>
+                  )}
+
+                  {/* ── Moon Druid: 野性形态 ── */}
+                  {(playerClass === 'Druid' || playerClass === '德鲁伊') && playerSubclassEffects?.circle_of_moon && (classResources?.wild_shape_remaining ?? 0) > 0 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#84cc16', background: classResources?.wild_shape_active ? 'rgba(132,204,22,0.15)' : undefined }}
+                      onClick={() => handleClassFeature('wild_shape')}>
+                      🐻 {classResources?.wild_shape_active ? `形态: ${classResources.wild_shape_active}` : `野性形态 (${classResources.wild_shape_remaining})`}
+                    </button>
+                  )}
+
+                  {/* ── Spores Druid: 共生实体 ── */}
+                  {(playerClass === 'Druid' || playerClass === '德鲁伊') && playerSubclassEffects?.circle_of_spores && (classResources?.wild_shape_remaining ?? 0) > 0 && !classResources?.symbiotic_entity_active && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#a3e635' }}
+                      onClick={() => handleClassFeature('symbiotic_entity')}>
+                      🍄 共生实体
+                    </button>
+                  )}
+
+                  {/* ── Wild Magic Sorcerer: 混沌之潮 ── */}
+                  {(playerClass === 'Sorcerer' || playerClass === '术士') && playerSubclassEffects?.wild_magic && !classResources?.tides_of_chaos_used && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#f472b6' }}
+                      onClick={() => handleClassFeature('tides_of_chaos')}>
+                      🌀 混沌之潮
+                    </button>
+                  )}
+
+                  {/* ── Divination Wizard: 预言骰 ── */}
+                  {(playerClass === 'Wizard' || playerClass === '法师') && playerSubclassEffects?.portent && (classResources?.portent_remaining ?? 0) > 0 && (
+                    <button className="action-btn" style={{ width: 'auto', borderColor: '#818cf8' }}
+                      onClick={() => handleClassFeature('portent')}>
+                      🔮 预言骰 ({classResources.portent_remaining}) {classResources?.portent_value ? `[${classResources.portent_value}]` : ''}
+                    </button>
+                  )}
+
                   {/* Attack count display for Extra Attack */}
                   {ts && ts.attacks_max > 1 && (
                     <span className="text-xs px-2 py-1 rounded" style={{
@@ -1496,6 +1853,49 @@ function SpellModal({ spells, cantrips, slots, onCast, onClose }) {
           </button>
           <button className="btn-fantasy px-4 py-2 text-sm" onClick={onClose}>取消</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 战技选择 Modal ────────────────────────────────────────────
+const MANEUVERS = [
+  { id: 'precision', name: '精准攻击', desc: '将优越骰加到攻击检定上', icon: '🎯', needsTarget: false },
+  { id: 'trip', name: '绊摔', desc: '目标力量豁免失败则倒地 + 优越骰伤害', icon: '🦶', needsTarget: true },
+  { id: 'disarm', name: '缴械', desc: '目标力量豁免失败则掉落武器 + 优越骰伤害', icon: '🤚', needsTarget: true },
+  { id: 'riposte', name: '反击', desc: '敌人攻击未中时用反应攻击 + 优越骰伤害', icon: '⚔️', needsTarget: false },
+  { id: 'menacing', name: '威慑攻击', desc: '目标感知豁免失败则恐惧 + 优越骰伤害', icon: '😱', needsTarget: true },
+  { id: 'pushing', name: '推力攻击', desc: '将目标推开15尺 + 优越骰伤害', icon: '💨', needsTarget: true },
+  { id: 'goading', name: '引诱攻击', desc: '目标攻击你以外的生物有劣势 + 优越骰伤害', icon: '🤬', needsTarget: true },
+]
+
+function ManeuverModal({ diceType, remaining, onUse, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="panel p-5" style={{ background: 'var(--bg2)', borderColor: 'var(--gold)', maxWidth: 400, width: '90%' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <p style={{ color: 'var(--gold)', fontWeight: 700, fontSize: 15, margin: 0 }}>战技选择</p>
+          <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>优越骰: {diceType} × {remaining}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {MANEUVERS.map(m => (
+            <button key={m.id} className="panel" style={{
+              padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+              border: '1px solid var(--wood-light)', background: 'var(--bg)', textAlign: 'left',
+              transition: 'border-color 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--wood-light)'}
+            onClick={() => { onUse(m.id); onClose() }}>
+              <span style={{ fontSize: 20 }}>{m.icon}</span>
+              <div>
+                <p style={{ color: 'var(--text-bright)', fontWeight: 600, fontSize: 13, margin: 0 }}>{m.name}</p>
+                <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: 0 }}>{m.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+        <button className="btn-fantasy" style={{ width: '100%', marginTop: 12, fontSize: 12 }} onClick={onClose}>取消</button>
       </div>
     </div>
   )

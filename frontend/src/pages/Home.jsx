@@ -58,6 +58,13 @@ export default function Home() {
     catch (err) { alert(err.message) }
   }
 
+  const handleDeleteSession = async (id, e) => {
+    e.stopPropagation()
+    if (!confirm('确定要删除这个存档吗？删除后无法恢复。')) return
+    try { await gameApi.deleteSession(id); setSessions(prev => prev.filter(s => s.id !== id)) }
+    catch (err) { alert(err.message) }
+  }
+
   const handleSelectModule = (module) => {
     if (module.parse_status !== 'done') return
     setSelectedModule(module)
@@ -224,7 +231,24 @@ export default function Home() {
                       {s.updated_at ? new Date(s.updated_at).toLocaleString() : ''}
                     </p>
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--gold-dim)' }}>继续 →</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--gold-dim)' }}>继续 →</span>
+                    <button
+                      onClick={(e) => handleDeleteSession(s.id, e)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-dim)', padding: '4px', borderRadius: 4,
+                        transition: 'color 0.2s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dim)'}
+                      title="删除存档"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

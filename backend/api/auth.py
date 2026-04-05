@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from database import get_db
 from models.user import User
 from config import settings
+from api.deps import get_current_user as get_user_id_from_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -119,7 +120,18 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me")
-async def get_current_user_info(user: dict = Depends(lambda: None)):
-    """获取当前用户信息（需要在 header 中带 token）"""
-    # 实际由 get_current_user 依赖处理
-    pass
+async def get_me(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_user_id_from_token),
+):
+    """获取当前用户信息"""
+    result = await db.execute(select(User).where(User.id == user["user_id"]))
+    u = result.scalar_one_or_none()
+    if not u:
+        raise HTTPException(404, "用户不存在")
+    return {
+        "user_id": u.id,
+        "username": u.username,
+        "display_name": u.display_name,
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+    }

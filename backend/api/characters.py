@@ -22,6 +22,7 @@ from services.dnd_rules import (
     CLASS_ARMOR_PROFICIENCY, CLASS_WEAPON_PROFICIENCY,
     RACIAL_DARKVISION, EXHAUSTION_EFFECTS,
     HIT_DICE, roll_dice,
+    get_class_resource_defaults,
     SHOP_GEAR, get_item_zh,
 )
 from services.langgraph_client import langgraph_client as dify_client
@@ -257,6 +258,9 @@ async def create_character(
     # 12. 初始化法术位（当前剩余 = 满血）
     spell_slots = dict(derived.get("spell_slots_max", {}))
 
+    # Initialize class resources (ki, superiority dice, portent, etc.)
+    class_resources = get_class_resource_defaults(cls_key, req.level, subclass=req.subclass)
+
     character = Character(
         is_player         = True,
         name              = req.name,
@@ -276,6 +280,7 @@ async def create_character(
         proficient_skills = chosen_skills,
         proficient_saves  = save_profs,
         multiclass_info   = req.multiclass_info,
+        class_resources   = class_resources,
         # Phase 12 新增
         fighting_style    = fighting_style,
         equipment         = equipment_data,

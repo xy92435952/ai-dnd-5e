@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import get_db
-from models import Character, Session, GameLog, CombatState
+from models import Character, Session, GameLog, CombatState, Module
 from api.deps import get_session_or_404, entity_snapshot, serialize_combat
 from services.combat_service import CombatService
 from services.spell_service import spell_service
@@ -51,8 +51,39 @@ def _save_ts(combat: CombatState, entity_id: str, ts: dict) -> None:
     flag_modified(combat, "turn_states")
 
 
-def _reset_ts(combat: CombatState, entity_id: str) -> None:
-    _save_ts(combat, entity_id, dict(_DEFAULT_TS))
+def _reset_ts(combat: CombatState, entity_id: str,
+              attacks_max: int = 1, movement_max: int = 6) -> None:
+    ts = dict(_DEFAULT_TS)
+    ts["attacks_max"] = attacks_max
+    ts["movement_max"] = movement_max
+    _save_ts(combat, entity_id, ts)
+
+
+async def _calc_entity_turn_limits(db, session, entity_id: str) -> tuple:
+    """计算实体的每回合攻击次数和移动格数。返回 (attacks_max, movement_max)。"""
+    # 检查是否为角色（玩家/队友）
+    char = await db.get(Character, entity_id)
+    if char:
+        derived = char.derived or {}
+        cls = _normalize_class(char.char_class)
+        level = char.level or 1
+        attacks_max = svc.get_attack_count(derived, level, cls)
+        speed = 30  # 默认 30ft
+        if char.equipment:
+            # 重甲对某些种族减速，暂不处理
+            pass
+        movement_max = speed // 5  # 转为格数
+        return attacks_max, movement_max
+
+    # 检查是否为敌人
+    state = session.game_state or {}
+    for e in state.get("enemies", []):
+        if str(e.get("id")) == str(entity_id):
+            speed = e.get("speed", 30)
+            movement_max = max(speed, 20) // 5
+            return 1, movement_max  # 怪物默认 1 次攻击
+
+    return 1, 6  # 兜底默认值
 
 
 def _chebyshev_dist(pos_a: dict, pos_b: dict) -> int:
@@ -79,6 +110,59 @@ def _check_attack_range(atk_pos: dict, tgt_pos: dict, is_ranged: bool, weapon_ra
         if dist > 1:
             return False, dist, f"目标不在近战范围内（距离{dist*5}ft，需要5ft内）。请先移动到目标旁边"
         return True, dist, None
+
+
+def _ai_move_toward(actor_pos: dict, target_pos: dict, move_budget: int,
+                     positions: dict, actor_id: str) -> dict | None:
+    """
+    AI 自动向目标移动，最多 move_budget 格。
+    返回新位置 dict {x, y}，或 None 表示无法/不需要移动。
+    使用简单贪心：每步走向目标，跳过被占据的格子。
+    """
+    if not actor_pos or not target_pos or move_budget <= 0:
+        return None
+
+    occupied = set()
+    for eid, pos in positions.items():
+        if str(eid) != str(actor_id):
+            occupied.add((pos.get("x", -1), pos.get("y", -1)))
+
+    cx, cy = actor_pos["x"], actor_pos["y"]
+    tx, ty = target_pos["x"], target_pos["y"]
+    steps_taken = 0
+
+    for _ in range(move_budget):
+        # 已经相邻（Chebyshev ≤ 1），停止
+        if max(abs(cx - tx), abs(cy - ty)) <= 1:
+            break
+
+        # 计算方向
+        dx = 0 if cx == tx else (1 if tx > cx else -1)
+        dy = 0 if cy == ty else (1 if ty > cy else -1)
+
+        # 尝试对角移动 → 水平 → 垂直
+        candidates = [(cx + dx, cy + dy)]
+        if dx != 0 and dy != 0:
+            candidates += [(cx + dx, cy), (cx, cy + dy)]
+        elif dx != 0:
+            candidates += [(cx + dx, cy + 1), (cx + dx, cy - 1)]
+        else:
+            candidates += [(cx + 1, cy + dy), (cx - 1, cy + dy)]
+
+        moved = False
+        for nx, ny in candidates:
+            if 0 <= nx < 20 and 0 <= ny < 12 and (nx, ny) not in occupied:
+                cx, cy = nx, ny
+                steps_taken += 1
+                moved = True
+                break
+
+        if not moved:
+            break
+
+    if steps_taken == 0:
+        return None
+    return {"x": cx, "y": cy, "steps": steps_taken}
 
 
 def _has_adjacent_enemy(entity_id: str, enemies: list, positions: dict) -> bool:
@@ -147,13 +231,14 @@ async def _do_concentration_check(
 
     r          = check["roll_result"]
     spell_name = check["spell_name"]
+    wc_tag = "（战争施法者·优势）" if check.get("war_caster") else ""
     if check["broke"]:
         char.concentration = None
         msg = (f"💔 {char.name} 失去了【{spell_name}】的专注！"
-               f" CON豁免 DC{check['dc']}：d20={r['d20']}+{r['modifier']}={r['total']} ❌")
+               f" CON豁免{wc_tag} DC{check['dc']}：d20={r['d20']}+{r['modifier']}={r['total']} ❌")
     else:
         msg = (f"🧘 {char.name} 维持了【{spell_name}】的专注。"
-               f" CON豁免 DC{check['dc']}：d20={r['d20']}+{r['modifier']}={r['total']} ✅")
+               f" CON豁免{wc_tag} DC{check['dc']}：d20={r['d20']}+{r['modifier']}={r['total']} ✅")
 
     return GameLog(
         session_id  = session_id,
@@ -415,6 +500,7 @@ class CombatActionRequest(BaseModel):
 
 class DeathSaveRequest(BaseModel):
     character_id: str
+    d20_value: Optional[int] = None  # Frontend 3D dice result
 
 
 class SmiteRequest(BaseModel):
@@ -443,10 +529,12 @@ class AttackRollRequest(BaseModel):
     target_id:   str
     action_type: str = "melee"       # "melee" | "ranged"
     is_offhand:  bool = False
+    d20_value:   Optional[int] = None  # Frontend 3D dice result
 
 
 class DamageRollRequest(BaseModel):
     pending_attack_id: str
+    damage_values: Optional[list[int]] = None  # Frontend 3D dice results [3, 5, 2]
 
 
 class SpellRequest(BaseModel):
@@ -467,6 +555,12 @@ class SpellRollRequest(BaseModel):
 
 class SpellConfirmRequest(BaseModel):
     pending_spell_id: str
+    damage_values: Optional[list[int]] = None  # Frontend 3D spell dice results
+
+
+class ManeuverRequest(BaseModel):
+    maneuver_name: str
+    target_id: str
 
 
 # ── 获取战斗状态 ──────────────────────────────────────────
@@ -475,7 +569,7 @@ class SpellConfirmRequest(BaseModel):
 async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
     """获取当前战斗状态（含完整实体数据）"""
     result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = result.scalar_one_or_none()
+    combat = result.scalars().first()
     if not combat:
         raise HTTPException(404, "当前没有进行中的战斗")
 
@@ -529,7 +623,7 @@ async def combat_action(
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -878,6 +972,17 @@ async def combat_action(
     class_res = player.class_resources or {} if player else {}
     is_raging = class_res.get("raging", False)
 
+    # ── Assassinate: first round, advantage vs targets that haven't acted ──
+    assassinate_active = False
+    p_sub_effects = p_derived.get("subclass_effects", {})
+    if p_sub_effects.get("assassinate") and combat.round_number == 1:
+        # Check if target hasn't acted yet (its turn_order index > current_turn_index)
+        turn_order = list(combat.turn_order or [])
+        target_turn_idx = next((i for i, t in enumerate(turn_order) if t.get("character_id") == resolved_target_id), None)
+        if target_turn_idx is not None and target_turn_idx >= combat.current_turn_index:
+            atk_adv = True
+            assassinate_active = True
+
     attack_result_obj = svc.resolve_melee_attack(
         attacker_derived = attack_attacker_derived,
         target_derived   = attack_target_derived,
@@ -888,6 +993,15 @@ async def combat_action(
     attack_result_dict = attack_result_obj.attack_roll
     damage             = attack_result_obj.damage
     damage_roll        = attack_result_obj.damage_roll
+
+    # Assassinate auto-crit: if assassinate is active and hit, force crit
+    if assassinate_active and attack_result_dict["hit"] and not attack_result_dict["is_crit"]:
+        attack_result_dict["is_crit"] = True
+        # Add extra crit damage (one extra die)
+        hit_die = p_derived.get("hit_die", 8)
+        extra_crit = roll_dice(f"1d{hit_die}")
+        damage += extra_crit["total"]
+        extra_damage_notes.append(f"暗杀暴击+{extra_crit['total']}")
     extra_damage_notes = []
 
     # ── GWM / Sharpshooter +10 damage ──
@@ -909,6 +1023,12 @@ async def combat_action(
         damage += rage_bonus
         extra_damage_notes.append(f"狂暴+{rage_bonus}")
 
+    # ── Zealot Divine Fury (first hit per turn while raging) ──
+    if attack_result_dict["hit"] and is_raging and p_sub_effects.get("divine_fury") and ts.get("attacks_made", 0) <= 1:
+        fury_roll = roll_dice(f"1d6+{p_level // 2}")
+        damage += fury_roll["total"]
+        extra_damage_notes.append(f"神圣狂怒+{fury_roll['total']}")
+
     # ── Sneak Attack ──
     sneak_attack_applied = False
     sneak_attack_damage  = 0
@@ -923,7 +1043,14 @@ async def combat_action(
                 ally_list.append({"id": c.id, "hp_current": c.hp_current})
         ally_adj = _has_ally_adjacent_to(resolved_target_id, player_id, ally_list, positions)
 
-        if svc.check_sneak_attack(p_class, has_adv, ally_adj) and ts.get("attacks_made", 0) == 0:
+        # Swashbuckler: check if no other enemy is adjacent to target
+        is_swashbuckler = p_sub_effects.get("swashbuckler", False)
+        no_other_enemy_adj = False
+        if is_swashbuckler:
+            other_enemies_adj = [e for e in enemies if e["id"] != resolved_target_id and e.get("hp_current", 0) > 0]
+            no_other_enemy_adj = not _has_ally_adjacent_to(player_id, resolved_target_id, other_enemies_adj, positions)
+
+        if svc.check_sneak_attack(p_class, has_adv, ally_adj, swashbuckler=is_swashbuckler, no_other_enemy_adjacent=no_other_enemy_adj) and ts.get("attacks_made", 0) == 0:
             # Sneak attack only once per turn
             sa_dice = svc.calc_sneak_attack_dice(p_level)
             sa_roll = roll_dice(f"{sa_dice}d6")
@@ -976,6 +1103,13 @@ async def combat_action(
                 target_new_hp     = tchar3.hp_current
                 conc_log          = await _do_concentration_check(tchar3, damage, session_id)
 
+    # ── Dark One's Blessing: Warlock gains temp HP on kill ──
+    if target_new_hp is not None and target_new_hp <= 0 and target_is_enemy:
+        if p_sub_effects.get("dark_ones_blessing"):
+            cha_mod_val = p_derived.get("ability_modifiers", {}).get("cha", 0)
+            temp_hp = cha_mod_val + p_level
+            extra_damage_notes.append(f"黑暗祝福+{temp_hp}临时HP")
+
     # 更新攻击计数
     ts["attacks_made"] = ts.get("attacks_made", 0) + 1
     if ts["attacks_made"] >= max_attacks:
@@ -1004,6 +1138,11 @@ async def combat_action(
     combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     await db.commit()
     return {
@@ -1048,7 +1187,7 @@ async def attack_roll(
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -1200,6 +1339,24 @@ async def attack_roll(
         crit_threshold = crit_threshold,
     )
 
+    # Frontend dice override: use 3D physics result instead of server roll
+    if req.d20_value is not None:
+        d20_ov = req.d20_value
+        atk_bonus_ov = attack_roll_result["attack_bonus"]
+        new_total_ov = d20_ov + atk_bonus_ov
+        target_ac_ov = attack_roll_result["target_ac"]
+        is_crit_ov = d20_ov >= crit_threshold
+        is_fumble_ov = d20_ov == 1
+        hit_ov = (not is_fumble_ov) and (is_crit_ov or new_total_ov >= target_ac_ov)
+        attack_roll_result = {
+            **attack_roll_result,
+            "d20": d20_ov,
+            "attack_total": new_total_ov,
+            "hit": hit_ov,
+            "is_crit": is_crit_ov,
+            "is_fumble": is_fumble_ov,
+        }
+
     # ── Compute damage dice expression (使用装备武器的 damage_dice) ──
     equipment = player.equipment or {}
     equipped_weapons = equipment.get("weapons", [])
@@ -1320,7 +1477,7 @@ async def damage_roll(
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -1376,6 +1533,13 @@ async def damage_roll(
     damage = damage_roll_result["total"]
     damage_rolls = damage_roll_result.get("rolls", [])
 
+    # Frontend dice override: use 3D physics results
+    if req.damage_values:
+        damage_rolls = req.damage_values
+        damage_roll_result["rolls"] = req.damage_values
+        damage_roll_result["total"] = sum(req.damage_values) + dmg_mod
+        damage = damage_roll_result["total"]
+
     # Crit: double dice
     crit_extra = 0
     if is_crit:
@@ -1408,6 +1572,15 @@ async def damage_roll(
         damage += rage_bonus
         extra_damage_notes.append(f"狂暴+{rage_bonus}")
 
+    # Zealot Divine Fury (first hit per turn while raging)
+    p_sub_effects = p_derived.get("subclass_effects", {})
+    if pending.get("is_raging") and p_sub_effects.get("divine_fury"):
+        ts_check_fury = _get_ts(combat, attacker_entity_id)
+        if ts_check_fury.get("attacks_made", 1) <= 1:
+            fury_roll = roll_dice(f"1d6+{p_level // 2}")
+            damage += fury_roll["total"]
+            extra_damage_notes.append(f"神圣狂怒+{fury_roll['total']}")
+
     # Sneak Attack
     sneak_attack_applied = False
     sneak_attack_damage  = 0
@@ -1423,10 +1596,17 @@ async def damage_roll(
                 ally_list.append({"id": c.id, "hp_current": c.hp_current})
         ally_adj = _has_ally_adjacent_to(target_id, attacker_entity_id, ally_list, positions)
 
+        # Swashbuckler: check if no other enemy is adjacent to attacker
+        is_swashbuckler = p_sub_effects.get("swashbuckler", False)
+        no_other_enemy_adj = False
+        if is_swashbuckler:
+            other_enemies_adj = [e for e in enemies if e["id"] != target_id and e.get("hp_current", 0) > 0]
+            no_other_enemy_adj = not _has_ally_adjacent_to(attacker_entity_id, target_id, other_enemies_adj, positions)
+
         # Sneak attack only once per turn — check by looking at ts
         ts_check = _get_ts(combat, attacker_entity_id)
         attacks_before = ts_check.get("attacks_made", 1) - 1  # was incremented in attack-roll
-        if svc.check_sneak_attack(p_class, has_adv, ally_adj) and attacks_before == 0:
+        if svc.check_sneak_attack(p_class, has_adv, ally_adj, swashbuckler=is_swashbuckler, no_other_enemy_adjacent=no_other_enemy_adj) and attacks_before == 0:
             sa_dice_count = svc.calc_sneak_attack_dice(p_level)
             sa_roll = roll_dice(f"{sa_dice_count}d6")
             sneak_attack_damage = sa_roll["total"]
@@ -1487,6 +1667,13 @@ async def damage_roll(
             target_new_hp = tchar.hp_current
             conc_log = await _do_concentration_check(tchar, total_damage, session_id)
 
+    # ── Dark One's Blessing: Warlock gains temp HP on kill ──
+    if target_new_hp is not None and target_new_hp <= 0 and target_is_enemy:
+        if p_sub_effects.get("dark_ones_blessing"):
+            cha_mod_val = p_derived.get("ability_modifiers", {}).get("cha", 0)
+            temp_hp = cha_mod_val + p_level
+            extra_damage_notes.append(f"黑暗祝福+{temp_hp}临时HP")
+
     # ── Clear pending_attack ──
     ts = _get_ts(combat, attacker_entity_id)
     ts.pop("pending_attack", None)
@@ -1513,6 +1700,11 @@ async def damage_roll(
     combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     await db.commit()
 
@@ -1560,7 +1752,7 @@ async def end_player_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -1586,10 +1778,11 @@ async def end_player_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     if next_index == 0:
         combat.round_number += 1
 
-    # ── 重置下一实体的回合状态 ────────────────────────────
+    # ── 重置下一实体的回合状态（根据角色实际数据）────────
     if turn_order:
         next_entity_id = turn_order[next_index]["character_id"]
-        _reset_ts(combat, next_entity_id)
+        next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
+        _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
 
     # ── 检查战斗结束 ──────────────────────────────────────
     state   = session.game_state or {}
@@ -1598,6 +1791,11 @@ async def end_player_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     for tl in tick_logs:
         db.add(tl)
@@ -1629,7 +1827,7 @@ async def use_reaction(
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -1744,12 +1942,18 @@ async def use_reaction(
     ))
     await db.commit()
 
+    # 反应骰子动画
+    reaction_dice = None
+    if req.reaction_type == "hellish_rebuke":
+        reaction_dice = {"faces": 10, "result": reaction_effect.get("damage_dealt", 0), "label": "地狱斥责 2d10", "count": 2}
+
     return {
         "action": "reaction",
         "reaction_type": req.reaction_type,
         "narration": narration,
         "turn_state": ts,
         "reaction_effect": reaction_effect,
+        "dice_roll": reaction_dice,
     }
 
 
@@ -1771,7 +1975,7 @@ async def grapple_shove(
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -1958,7 +2162,7 @@ async def divine_smite(
 
     # 找到最近一次攻击的目标（从 combat log 中推断，或从 turn state）
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
 
     state   = session.game_state or {}
     enemies = list(state.get("enemies", []))
@@ -1973,7 +2177,7 @@ async def divine_smite(
         .order_by(GameLog.created_at.desc())
         .limit(1)
     )
-    last_log = log_result.scalar_one_or_none()
+    last_log = log_result.scalars().first()
 
     # 从最近的攻击结果中提取 target_id
     last_target_id = None
@@ -2027,6 +2231,11 @@ async def divine_smite(
     combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     await db.commit()
     return {
@@ -2068,7 +2277,7 @@ async def use_class_feature(
         raise HTTPException(404, "玩家角色不存在")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -2081,6 +2290,7 @@ async def use_class_feature(
 
     feature = req.feature_name
     narration = ""
+    dice_roll = None  # {faces, result, label} for frontend dice animation
 
     # ── Second Wind (Fighter) ─────────────────────────────
     if feature == "second_wind":
@@ -2103,6 +2313,7 @@ async def use_class_feature(
         _save_ts(combat, player_id, ts)
 
         narration = f"🛡️ {player.name} 使用「活力恢复」！1d10+{p_level}={heal_amt}，恢复 {player.hp_current - old_hp} HP（{player.hp_current}/{hp_max}）"
+        dice_roll = {"faces": 10, "result": heal_amt, "label": f"活力恢复 1d10+{p_level}"}
 
     # ── Action Surge (Fighter) ────────────────────────────
     elif feature == "action_surge":
@@ -2197,6 +2408,207 @@ async def use_class_feature(
             player.conditions = conditions
         narration = f"🫥 {player.name} 使用「灵巧动作-隐匿」！下次攻击获得优势！"
 
+    # ── Fighting Spirit (Samurai Fighter) ────────────────
+    elif feature == "fighting_spirit":
+        if not (p_class == "Fighter"):
+            raise HTTPException(400, "非战士无法使用战意")
+        fs_rem = class_res.get("fighting_spirit_remaining", 0)
+        if fs_rem <= 0:
+            raise HTTPException(400, "战意次数已用完")
+        class_res["fighting_spirit_remaining"] = fs_rem - 1
+        # Grant advantage on all attacks this turn + temp HP = fighter level
+        ts["fighting_spirit_active"] = True
+        _save_ts(combat, player_id, ts)
+        player.class_resources = class_res
+        narration = f"⚔️ {player.name} 集中精神，燃起不屈的战意！本回合所有攻击获得优势，获得 {player.level} 点临时生命值。"
+
+    # ── Bardic Inspiration (Bard) ─────────────────────────
+    elif feature == "bardic_inspiration":
+        if not (p_class == "Bard"):
+            raise HTTPException(400, "非吟游诗人无法使用灵感骰")
+        bi_rem = class_res.get("bardic_inspiration_remaining", 0)
+        if bi_rem <= 0:
+            raise HTTPException(400, "灵感骰次数已用完")
+        class_res["bardic_inspiration_remaining"] = bi_rem - 1
+        derived = player.derived or {}
+        die = derived.get("subclass_effects", {}).get("inspiration_die", "d6")
+        bi_faces = int(die.replace("d", "")) if die.startswith("d") else 6
+        bi_roll = roll_dice(die)
+        player.class_resources = class_res
+        narration = f"🎵 {player.name} 演奏了一段鼓舞人心的旋律！一名盟友获得 {die} 灵感骰（{bi_roll['rolls'][0]}）。"
+        dice_roll = {"faces": bi_faces, "result": bi_roll["rolls"][0], "label": f"灵感骰 {die}"}
+
+    # ── Ki: Flurry of Blows (Monk, 1 ki) ─────────────────
+    elif feature == "ki_flurry":
+        if not (p_class == "Monk"):
+            raise HTTPException(400, "非武僧无法使用疾风连击")
+        ki = class_res.get("ki_remaining", 0)
+        if ki < 1:
+            raise HTTPException(400, "气不足")
+        class_res["ki_remaining"] = ki - 1
+        ts["bonus_action_used"] = True
+        _save_ts(combat, player_id, ts)
+        # Roll 2 unarmed attacks
+        d = player.derived or {}
+        atk_mod = d.get("attack_bonus", 2)
+        martial_die = "1d4" if player.level < 5 else ("1d6" if player.level < 11 else ("1d8" if player.level < 17 else "1d10"))
+        results = []
+        for i in range(2):
+            atk = roll_dice("1d20")
+            hit_total = atk["rolls"][0] + atk_mod
+            results.append(f"攻击{i+1}: d20={atk['rolls'][0]}+{atk_mod}={hit_total}")
+        player.class_resources = class_res
+        narration = f"👊 {player.name} 以气驱动疾风连击！{' | '.join(results)}"
+        dice_roll = {"faces": 20, "result": roll_dice("1d20")["rolls"][0], "label": "疾风连击"}
+
+    # ── Ki: Stunning Strike (Monk, 1 ki) ──────────────────
+    elif feature == "ki_stunning_strike":
+        if not (p_class == "Monk"):
+            raise HTTPException(400, "非武僧无法使用震慑打击")
+        ki = class_res.get("ki_remaining", 0)
+        if ki < 1:
+            raise HTTPException(400, "气不足")
+        class_res["ki_remaining"] = ki - 1
+        player.class_resources = class_res
+        ki_dc = 8 + derived.get("proficiency_bonus", 2) + derived.get("ability_modifiers", {}).get("wis", 0)
+        narration = f"💥 {player.name} 将气灌注于一击之中！目标必须进行 DC{ki_dc} 体质豁免，失败则被震慑至你的下一回合结束。"
+        dice_roll = {"faces": 20, "result": ki_dc, "label": f"震慑打击 DC{ki_dc}"}
+
+    # ── Shadow Step (Shadow Monk, 2 ki) ───────────────────
+    elif feature == "shadow_step":
+        if not (p_class == "Monk"):
+            raise HTTPException(400, "非武僧无法使用暗影步")
+        ki = class_res.get("ki_remaining", 0)
+        if ki < 2:
+            raise HTTPException(400, "气不足（需要2点）")
+        class_res["ki_remaining"] = ki - 2
+        player.class_resources = class_res
+        narration = f"🌑 {player.name} 融入阴影之中，瞬间出现在另一片黑暗处！下一次近战攻击获得优势。"
+        dice_roll = {"faces": 20, "result": roll_dice("1d20")["rolls"][0], "label": "暗影步"}
+
+    # ── Channel Divinity (Paladin) ────────────────────────
+    elif feature == "channel_divinity":
+        if not (p_class == "Paladin"):
+            raise HTTPException(400, "非圣武士无法引导神力")
+        if class_res.get("channel_divinity_used"):
+            raise HTTPException(400, "引导神力已使用（每次短休恢复）")
+        class_res["channel_divinity_used"] = True
+        sub_effects = (player.derived or {}).get("subclass_effects", {})
+        if sub_effects.get("devotion"):
+            narration = f"✨ {player.name} 引导神力——神圣武器！武器散发圣光，攻击加上魅力修正，持续1分钟。"
+        elif sub_effects.get("vengeance"):
+            narration = f"⚔️ {player.name} 引导神力——仇敌誓约！标记一个目标，对其攻击获得优势，持续1分钟。"
+            ts["vow_of_enmity_active"] = True
+            _save_ts(combat, player_id, ts)
+        elif sub_effects.get("ancients"):
+            narration = f"🌿 {player.name} 引导神力——自然之怒！藤蔓缠绕目标使其束缚！"
+        elif sub_effects.get("glory"):
+            narration = f"🌟 {player.name} 引导神力——鼓舞冲锋！30尺内盟友移动速度+10尺，持续10分钟。"
+        else:
+            narration = f"✨ {player.name} 引导神力！"
+        player.class_resources = class_res
+
+    # ── Lay on Hands (Paladin) ────────────────────────────
+    elif feature == "lay_on_hands":
+        if not (p_class == "Paladin"):
+            raise HTTPException(400, "非圣武士无法使用圣手")
+        pool = class_res.get("lay_on_hands_remaining", 0)
+        if pool <= 0:
+            raise HTTPException(400, "圣手治疗池已耗尽")
+        # Heal 5 HP (or remaining pool, whichever is less)
+        heal_amount = min(5, pool)
+        class_res["lay_on_hands_remaining"] = pool - heal_amount
+        hp_max = (player.derived or {}).get("hp_max", player.hp_current)
+        player.hp_current = min(hp_max, player.hp_current + heal_amount)
+        player.class_resources = class_res
+        narration = f"🤲 {player.name} 将圣光注入伤口，恢复了 {heal_amount} 点生命值！（剩余治疗池: {pool - heal_amount}）"
+        dice_roll = {"faces": 20, "result": heal_amount, "label": f"圣手治疗 +{heal_amount}HP"}
+
+    # ── War Priest Attack (War Cleric) ────────────────────
+    elif feature == "war_priest_attack":
+        if not (p_class == "Cleric"):
+            raise HTTPException(400, "非牧师无法使用战争牧师")
+        wp_rem = class_res.get("war_priest_remaining", 0)
+        if wp_rem <= 0:
+            raise HTTPException(400, "战争牧师额外攻击次数已用完")
+        class_res["war_priest_remaining"] = wp_rem - 1
+        ts["bonus_action_used"] = True
+        _save_ts(combat, player_id, ts)
+        player.class_resources = class_res
+        narration = f"⚔️ {player.name} 以战神之名发动额外攻击！本回合可用附赠动作进行一次武器攻击。"
+
+    # ── Destructive Wrath (Tempest Cleric) ────────────────
+    elif feature == "destructive_wrath":
+        if not (p_class == "Cleric"):
+            raise HTTPException(400, "非牧师无法使用毁灭之怒")
+        if class_res.get("channel_divinity_used"):
+            raise HTTPException(400, "引导神力已使用")
+        class_res["channel_divinity_used"] = True
+        ts["destructive_wrath_active"] = True
+        _save_ts(combat, player_id, ts)
+        player.class_resources = class_res
+        narration = f"⚡ {player.name} 引导神力——毁灭之怒！下一次闪电或雷鸣伤害将自动取最大值！"
+
+    # ── Wild Shape (Moon Druid) ───────────────────────────
+    elif feature == "wild_shape":
+        if not (p_class == "Druid"):
+            raise HTTPException(400, "非德鲁伊无法使用野性形态")
+        ws_rem = class_res.get("wild_shape_remaining", 0)
+        if ws_rem <= 0:
+            raise HTTPException(400, "野性形态次数已用完")
+        class_res["wild_shape_remaining"] = ws_rem - 1
+        sub_effects = (player.derived or {}).get("subclass_effects", {})
+        max_cr = sub_effects.get("wild_shape_max_cr", 0.25)
+        # Default to Bear form
+        from services.dnd_rules import WILD_SHAPE_FORMS
+        form_name = "Bear" if max_cr >= 1 else "Wolf"
+        form = WILD_SHAPE_FORMS.get(form_name, {})
+        class_res["wild_shape_active"] = form_name
+        class_res["wild_shape_hp"] = form.get("hp", 20)
+        player.class_resources = class_res
+        narration = f"🐻 {player.name} 的身体扭曲变化，化身为{form_name}！获得 {form.get('hp',20)} 点额外生命值，AC {form.get('ac',12)}。"
+        dice_roll = {"faces": 20, "result": form.get("hp", 20), "label": f"野性形态·{form_name}"}
+
+    # ── Symbiotic Entity (Spores Druid) ───────────────────
+    elif feature == "symbiotic_entity":
+        if not (p_class == "Druid"):
+            raise HTTPException(400, "非德鲁伊无法激活共生实体")
+        ws_rem = class_res.get("wild_shape_remaining", 0)
+        if ws_rem <= 0:
+            raise HTTPException(400, "需要消耗一次野性形态")
+        class_res["wild_shape_remaining"] = ws_rem - 1
+        temp_hp = (player.derived or {}).get("subclass_effects", {}).get("symbiotic_temp_hp", 4 * player.level)
+        class_res["symbiotic_entity_active"] = True
+        player.class_resources = class_res
+        narration = f"🍄 {player.name} 激活共生实体！孢子覆盖全身，获得 {temp_hp} 点临时生命值，近战附加毒素伤害。"
+        dice_roll = {"faces": 20, "result": temp_hp, "label": f"共生实体 +{temp_hp}临时HP"}
+
+    # ── Tides of Chaos (Wild Magic Sorcerer) ──────────────
+    elif feature == "tides_of_chaos":
+        if not (p_class == "Sorcerer"):
+            raise HTTPException(400, "非术士无法使用混沌之潮")
+        if class_res.get("tides_of_chaos_used"):
+            raise HTTPException(400, "混沌之潮已使用（每次长休恢复）")
+        class_res["tides_of_chaos_used"] = True
+        ts["tides_of_chaos_active"] = True  # Next d20 roll gets advantage
+        _save_ts(combat, player_id, ts)
+        player.class_resources = class_res
+        narration = f"🌀 {player.name} 引导体内不稳定的魔法能量！下一次攻击/检定/豁免获得优势。但这可能触发野蛮魔法涌动..."
+
+    # ── Portent (Divination Wizard) ───────────────────────
+    elif feature == "portent":
+        if not (p_class == "Wizard"):
+            raise HTTPException(400, "非法师无法使用预言骰")
+        p_rem = class_res.get("portent_remaining", 0)
+        if p_rem <= 0:
+            raise HTTPException(400, "预言骰已用完（每次长休恢复）")
+        class_res["portent_remaining"] = p_rem - 1
+        portent_roll = roll_dice("1d20")
+        class_res["portent_value"] = portent_roll["rolls"][0]
+        player.class_resources = class_res
+        narration = f"🔮 {player.name} 预见了命运的走向——预言骰: {portent_roll['rolls'][0]}！可以用此值替换任意一次d20检定。"
+        dice_roll = {"faces": 20, "result": portent_roll["rolls"][0], "label": "预言骰"}
+
     else:
         raise HTTPException(400, f"未知职业特性：{feature}")
 
@@ -2227,6 +2639,7 @@ async def use_class_feature(
         "class_resources": class_res,
         "hp_current":      player.hp_current,
         "hp_max":          derived.get("hp_max", player.hp_current),
+        "dice_roll":       dice_roll,
     }
 
 
@@ -2240,7 +2653,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -2259,7 +2672,8 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     is_enemy   = actor_id in [e["id"] for e in enemies]
 
     # ── 回合开始：重置施动者回合状态 ────────────────────────
-    _reset_ts(combat, actor_id)
+    ai_atk_max, ai_move_max = await _calc_entity_turn_limits(db, session, actor_id)
+    _reset_ts(combat, actor_id, attacks_max=ai_atk_max, movement_max=ai_move_max)
 
     # ── 获取施动者数据 ─────────────────────────────────────
     actor_derived = {}
@@ -2284,30 +2698,442 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         combat.current_turn_index = next_index
         if next_index == 0:
             combat.round_number += 1
+        if turn_order:
+            _ne = turn_order[next_index]["character_id"]
+            _na, _nm = await _calc_entity_turn_limits(db, session, _ne)
+            _reset_ts(combat, _ne, attacks_max=_na, movement_max=_nm)
         await db.commit()
         return {
             "actor_name": actor_name, "narration": f"{actor_name} 已倒下，跳过回合。",
             "attack_result": {}, "damage": 0, "target_id": None, "target_new_hp": None,
             "next_turn_index": next_index, "round_number": combat.round_number,
             "combat_over": False, "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
         }
 
-    # ── 选择目标（使用 CombatService）────────────────────
+    # ── 计算下一回合索引（多处提前返回需要使用）────────────
+    next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
+
+    # ── AI 决策：选择目标和行动 ─────────────────────────────
+    from services.ai_combat_agent import get_ai_decision, calc_difficulty
+
     player = await db.get(Character, session.player_character_id)
     companions_alive = []
     for cid in state.get("companion_ids", []):
         c = await db.get(Character, cid)
         if c and c.hp_current > 0:
-            companions_alive.append({"id": c.id, "hp_current": c.hp_current, "derived": c.derived or {}})
+            companions_alive.append({
+                "id": c.id, "name": c.name, "char_class": c.char_class, "level": c.level,
+                "hp_current": c.hp_current, "hp_max": (c.derived or {}).get("hp_max", c.hp_current),
+                "ac": (c.derived or {}).get("ac", 10), "derived": c.derived or {},
+                "conditions": c.conditions or [], "concentration": c.concentration,
+                "known_spells": c.known_spells or [], "cantrips": c.cantrips or [],
+                "spell_slots": c.spell_slots or {}, "is_player": c.is_player,
+                "equipment": c.equipment or {},
+            })
 
     enemies_alive = [e for e in enemies if e.get("hp_current", 0) > 0]
 
-    target_data = svc.choose_ai_target(
-        actor_is_enemy = is_enemy,
-        player         = {"id": player.id, "hp_current": player.hp_current, "derived": player.derived or {}} if player else None,
-        allies         = companions_alive,
-        enemies_alive  = enemies_alive,
+    # 构建角色快照列表（玩家+队友）
+    all_characters = []
+    if player and player.hp_current > 0:
+        all_characters.append({
+            "id": player.id, "name": player.name, "char_class": player.char_class, "level": player.level,
+            "hp_current": player.hp_current, "hp_max": (player.derived or {}).get("hp_max", player.hp_current),
+            "ac": (player.derived or {}).get("ac", 10), "derived": player.derived or {},
+            "conditions": player.conditions or [], "concentration": player.concentration,
+            "is_player": True,
+        })
+    all_characters.extend(companions_alive)
+
+    # 构建行动者数据
+    actor_full = dict(actor_derived)
+    actor_full["id"] = actor_id
+    actor_full["name"] = actor_name
+    if is_enemy and e:
+        actor_full.update({
+            "hp_current": e.get("hp_current", 0), "hp_max": e.get("hp_max", e.get("derived", {}).get("hp_max", 10)),
+            "ac": e.get("ac", e.get("derived", {}).get("ac", 10)),
+            "actions": e.get("actions", []), "speed": e.get("speed", 30),
+            "tactics": e.get("tactics", ""), "type": e.get("type", ""),
+        })
+    elif achar:
+        actor_full.update({
+            "hp_current": achar.hp_current, "hp_max": (achar.derived or {}).get("hp_max", achar.hp_current),
+            "ac": (achar.derived or {}).get("ac", 10), "char_class": achar.char_class, "level": achar.level,
+            "known_spells": achar.known_spells or [], "cantrips": achar.cantrips or [],
+            "spell_slots": achar.spell_slots or [], "speed": 30,
+            "equipment": achar.equipment or {}, "personality": achar.personality or "",
+            "actions": [{"name": w.get("name","武器"), "type": "melee_attack",
+                         "damage_dice": w.get("damage","1d8"), "attack_bonus": actor_derived.get("attack_bonus",2)}
+                        for w in (achar.equipment or {}).get("weapons", [])],
+            "prepared_spells": achar.prepared_spells or [],
+        })
+
+    # 获取模组难度
+    _module = await db.get(Module, session.module_id) if session.module_id else None
+    _parsed = (_module.parsed_content or {}) if _module else {}
+    _difficulty = calc_difficulty(_parsed)
+
+    # 获取战术/性格
+    _tactics = actor_full.get("tactics", "") if is_enemy else ""
+    _personality = ""
+    if not is_enemy and achar:
+        _personality = f"{achar.personality or ''} 战斗偏好: {actor_derived.get('combat_preference', '平衡')}"
+
+    # 调用 AI 决策
+    decision = await get_ai_decision(
+        actor=actor_full,
+        actor_is_enemy=is_enemy,
+        all_characters=all_characters,
+        all_enemies=enemies_alive,
+        positions=dict(combat.entity_positions or {}),
+        module_difficulty=_difficulty,
+        module_tactics=_tactics,
+        actor_personality=_personality,
     )
+
+    # 从决策中获取目标
+    decided_target_id = decision.get("target_id")
+    decided_action = decision.get("action_type", "attack")
+    decided_reason = decision.get("reason", "")
+
+    # ── 处理非攻击决策 ──
+    if decided_action == "dodge":
+        ts_dodge = _get_ts(combat, actor_id)
+        ts_dodge["dodging"] = True
+        _save_ts(combat, actor_id, ts_dodge)
+        combat.current_turn_index = next_index
+        if next_index == 0:
+            combat.round_number += 1
+        if turn_order:
+            _ne = turn_order[next_index]["character_id"]
+            _na, _nm = await _calc_entity_turn_limits(db, session, _ne)
+            _reset_ts(combat, _ne, attacks_max=_na, movement_max=_nm)
+        await db.commit()
+        return {
+            "actor_name": actor_name, "actor_id": actor_id,
+            "narration": f"🛡️ {actor_name} 采取闪避动作。{decided_reason}",
+            "attack_result": {}, "damage": 0, "target_id": None, "target_new_hp": None,
+            "next_turn_index": next_index, "round_number": combat.round_number,
+            "combat_over": False, "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
+        }
+
+    if decided_action == "dash":
+        # 双倍移动，不攻击
+        if decided_target_id:
+            dash_tgt_pos = positions.get(str(decided_target_id))
+            dash_ts = _get_ts(combat, actor_id)
+            dash_budget = (dash_ts["movement_max"] - dash_ts["movement_used"]) + dash_ts["movement_max"]
+            dash_result = _ai_move_toward(positions.get(str(actor_id)), dash_tgt_pos, dash_budget, positions, actor_id)
+            if dash_result:
+                positions[str(actor_id)] = {"x": dash_result["x"], "y": dash_result["y"]}
+                combat.entity_positions = positions
+        combat.current_turn_index = next_index
+        if next_index == 0:
+            combat.round_number += 1
+        if turn_order:
+            _ne = turn_order[next_index]["character_id"]
+            _na, _nm = await _calc_entity_turn_limits(db, session, _ne)
+            _reset_ts(combat, _ne, attacks_max=_na, movement_max=_nm)
+        await db.commit()
+        return {
+            "actor_name": actor_name, "actor_id": actor_id,
+            "narration": f"🏃 {actor_name} 全力冲刺！{decided_reason}",
+            "attack_result": {}, "damage": 0, "target_id": None, "target_new_hp": None,
+            "next_turn_index": next_index, "round_number": combat.round_number,
+            "combat_over": False, "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
+        }
+
+    if decided_action == "disengage":
+        ts_dis = _get_ts(combat, actor_id)
+        ts_dis["disengaged"] = True
+        _save_ts(combat, actor_id, ts_dis)
+        combat.current_turn_index = next_index
+        if next_index == 0:
+            combat.round_number += 1
+        if turn_order:
+            _ne = turn_order[next_index]["character_id"]
+            _na, _nm = await _calc_entity_turn_limits(db, session, _ne)
+            _reset_ts(combat, _ne, attacks_max=_na, movement_max=_nm)
+        await db.commit()
+        return {
+            "actor_name": actor_name, "actor_id": actor_id,
+            "narration": f"🚪 {actor_name} 脱离战斗！{decided_reason}",
+            "attack_result": {}, "damage": 0, "target_id": None, "target_new_hp": None,
+            "next_turn_index": next_index, "round_number": combat.round_number,
+            "combat_over": False, "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
+        }
+
+    # ── AI 施法分支 ──
+    if decided_action == "spell" and decision.get("action_name"):
+        # AI 施法
+        spell_name = decision["action_name"]
+        spell_level = decision.get("spell_level") or 1
+        spell_target = decided_target_id
+
+        spell_data = spell_service.get(spell_name)
+        if spell_data:
+            from services.dnd_rules import roll_dice as _ai_roll
+            derived_ai = actor_derived
+            spell_mod = 0
+            spell_abil = derived_ai.get("spell_ability")
+            if spell_abil:
+                spell_mod = derived_ai.get("ability_modifiers", {}).get(spell_abil, 0)
+            spell_save_dc = derived_ai.get("spell_save_dc", 13)
+            bonus_healing_ai = derived_ai.get("bonus_healing", False)
+
+            is_cantrip = spell_data.get("level", 0) == 0
+            is_aoe = spell_data.get("aoe", False)
+            spell_type = spell_data.get("type", "damage")
+
+            # Consume spell slot (if not cantrip and has character)
+            if not is_cantrip and achar:
+                slots = dict(achar.spell_slots or {})
+                slot_key = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th"][min(spell_level-1, 8)]
+                if slots.get(slot_key, 0) > 0:
+                    slots[slot_key] = slots[slot_key] - 1
+                    achar.spell_slots = slots
+                else:
+                    # No slot available, fall through to attack
+                    spell_data = None
+
+        if spell_data:
+            # Resolve spell effect
+            ai_spell_damage = 0
+            ai_spell_heal = 0
+            ai_spell_narration_parts = []
+            target_new_hp = None
+            target_name = ""
+
+            if spell_type == "damage":
+                total_dmg, dice_detail = spell_service.resolve_damage(spell_name, spell_level, spell_mod)
+
+                if is_aoe:
+                    # Hit all targets (enemies for companions, characters for enemies)
+                    targets_list = []
+                    if is_enemy:
+                        # Enemy casts AoE on players
+                        for c in all_characters:
+                            if c.get("hp_current", 0) > 0:
+                                targets_list.append(c)
+                    else:
+                        # Companion casts AoE on enemies
+                        for en in enemies_alive:
+                            targets_list.append(en)
+
+                    save_ability = spell_data.get("save")
+                    half_on_save = spell_data.get("half_on_save", True)
+
+                    for tgt in targets_list[:4]:  # Max 4 targets
+                        dmg_this = total_dmg
+                        if save_ability:
+                            t_derived = tgt.get("derived", {})
+                            t_save_mod = t_derived.get("saving_throws", {}).get(save_ability,
+                                t_derived.get("ability_modifiers", {}).get(save_ability, 0))
+                            save_roll = _ai_roll("1d20")["rolls"][0]
+                            if save_roll + t_save_mod >= spell_save_dc:
+                                if half_on_save:
+                                    dmg_this = dmg_this // 2
+                                else:
+                                    dmg_this = 0
+
+                        tid = str(tgt.get("id", ""))
+                        # Apply damage
+                        if not is_enemy:  # Companion hits enemy
+                            for e2 in enemies:
+                                if str(e2.get("id")) == tid:
+                                    e2["hp_current"] = svc.apply_damage(e2.get("hp_current", 0), dmg_this, e2.get("derived", {}).get("hp_max", 10))
+                        else:  # Enemy hits character
+                            tc = await db.get(Character, tid)
+                            if tc:
+                                tc.hp_current = svc.apply_damage(tc.hp_current, dmg_this, (tc.derived or {}).get("hp_max", tc.hp_current))
+                        ai_spell_damage += dmg_this
+
+                    state["enemies"] = enemies
+                    session.game_state = dict(state)
+                    flag_modified(session, "game_state")
+                else:
+                    # Single target damage
+                    if spell_target:
+                        target_enemy_sp = next((e2 for e2 in enemies if str(e2.get("id")) == str(spell_target)), None)
+                        if target_enemy_sp:
+                            save_ability = spell_data.get("save")
+                            if save_ability:
+                                t_saves = target_enemy_sp.get("derived", {}).get("saving_throws", {})
+                                t_mod = t_saves.get(save_ability, 0)
+                                sr = _ai_roll("1d20")["rolls"][0]
+                                if sr + t_mod >= spell_save_dc:
+                                    if spell_data.get("half_on_save"):
+                                        total_dmg = total_dmg // 2
+                                    else:
+                                        total_dmg = 0
+                            target_enemy_sp["hp_current"] = svc.apply_damage(target_enemy_sp.get("hp_current", 0), total_dmg, target_enemy_sp.get("derived", {}).get("hp_max", 10))
+                            target_new_hp = target_enemy_sp["hp_current"]
+                            target_name = target_enemy_sp.get("name", "敌人")
+                            state["enemies"] = enemies
+                            session.game_state = dict(state)
+                            flag_modified(session, "game_state")
+                        else:
+                            tc = await db.get(Character, spell_target)
+                            if tc:
+                                tc.hp_current = svc.apply_damage(tc.hp_current, total_dmg, (tc.derived or {}).get("hp_max", tc.hp_current))
+                                target_new_hp = tc.hp_current
+                                target_name = tc.name
+                        ai_spell_damage = total_dmg
+
+            elif spell_type == "heal":
+                total_heal, dice_detail = spell_service.resolve_heal(spell_name, spell_level, spell_mod, bonus_healing_ai)
+                # Heal target
+                if spell_target:
+                    tc = await db.get(Character, spell_target)
+                    if tc:
+                        hp_max_t = (tc.derived or {}).get("hp_max", tc.hp_current)
+                        tc.hp_current = min(hp_max_t, tc.hp_current + total_heal)
+                        target_new_hp = tc.hp_current
+                        target_name = tc.name
+                ai_spell_heal = total_heal
+
+            elif spell_type in ("control", "utility"):
+                # Apply condition to target
+                condition_map = {
+                    "Hold Person": "paralyzed",
+                    "定身术": "paralyzed",
+                    "Entangle": "restrained",
+                    "纠缠术": "restrained",
+                    "Web": "restrained",
+                    "蛛网": "restrained",
+                    "Sleep": "unconscious",
+                    "睡眠术": "unconscious",
+                    "Command": "commanded",
+                    "命令术": "commanded",
+                    "Faerie Fire": "faerie_fire",
+                    "妖火": "faerie_fire",
+                    "Blindness/Deafness": "blinded",
+                    "目盲/耳聋": "blinded",
+                    "Fear": "frightened",
+                    "恐惧术": "frightened",
+                    "Silence": "silenced",
+                    "沉默术": "silenced",
+                }
+                condition = condition_map.get(spell_name, "hexed")
+                save_ability = spell_data.get("save")
+
+                if spell_target and save_ability:
+                    # Target makes save
+                    target_enemy_ctrl = next((e2 for e2 in enemies if str(e2.get("id")) == str(spell_target)), None)
+                    if target_enemy_ctrl:
+                        t_scores = target_enemy_ctrl.get("ability_scores", {})
+                        t_mod = (t_scores.get(save_ability, 10) - 10) // 2
+                        sr = _ai_roll("1d20")["rolls"][0]
+                        if sr + t_mod < spell_save_dc:
+                            conds = target_enemy_ctrl.get("conditions", [])
+                            if condition not in conds:
+                                conds.append(condition)
+                                target_enemy_ctrl["conditions"] = conds
+                            ai_spell_narration_parts.append(f"{target_enemy_ctrl.get('name')} 未通过豁免，陷入{condition}状态！")
+                        else:
+                            ai_spell_narration_parts.append(f"{target_enemy_ctrl.get('name')} 通过了豁免！")
+                        target_name = target_enemy_ctrl.get("name", "敌人")
+                        state["enemies"] = enemies
+                        session.game_state = dict(state)
+                        flag_modified(session, "game_state")
+                    else:
+                        tc = await db.get(Character, spell_target)
+                        if tc:
+                            t_derived = tc.derived or {}
+                            t_mod = t_derived.get("saving_throws", {}).get(save_ability, 0)
+                            sr = _ai_roll("1d20")["rolls"][0]
+                            if sr + t_mod < spell_save_dc:
+                                conds = list(tc.conditions or [])
+                                if condition not in conds:
+                                    conds.append(condition)
+                                    tc.conditions = conds
+                                ai_spell_narration_parts.append(f"{tc.name} 未通过豁免，陷入{condition}状态！")
+                            else:
+                                ai_spell_narration_parts.append(f"{tc.name} 通过了豁免！")
+                            target_name = tc.name
+
+            # Concentration
+            if spell_data.get("concentration") and achar:
+                achar.concentration = spell_name
+
+            # Build narration
+            level_str = f"{spell_level}环" if not is_cantrip else "戏法"
+            spell_narr = f"✨ {actor_name} 施放了【{spell_name}】（{level_str}）！"
+            if ai_spell_damage > 0:
+                spell_narr += f"造成 {ai_spell_damage} 点伤害！"
+            if ai_spell_heal > 0:
+                spell_narr += f"恢复 {ai_spell_heal} HP！"
+            if ai_spell_narration_parts:
+                spell_narr += " ".join(ai_spell_narration_parts)
+            if decided_reason:
+                spell_narr += f"（{decided_reason}）"
+
+            # LLM narration
+            ai_class_sp = _normalize_class(achar.char_class) if achar else actor_name
+            vivid = await narrate_action(
+                actor_name=actor_name, actor_class=ai_class_sp,
+                target_name=target_name or "目标", action_type="spell",
+                spell_name=spell_name, damage=ai_spell_damage, heal_amount=ai_spell_heal,
+            )
+            if vivid:
+                spell_narr = vivid
+
+            # Log
+            db.add(GameLog(
+                session_id=session_id, role="enemy" if is_enemy else f"companion_{actor_name}",
+                content=spell_narr, log_type="combat",
+            ))
+
+            # Advance turn
+            combat.current_turn_index = next_index
+            if next_index == 0:
+                combat.round_number += 1
+            if turn_order:
+                ne_id = turn_order[next_index]["character_id"]
+                n_atk, n_mv = await _calc_entity_turn_limits(db, session, ne_id)
+                _reset_ts(combat, ne_id, attacks_max=n_atk, movement_max=n_mv)
+
+            flag_modified(session, "game_state")
+            await db.commit()
+            return {
+                "actor_name": actor_name, "actor_id": actor_id,
+                "narration": spell_narr,
+                "attack_result": {}, "damage": ai_spell_damage,
+                "target_id": str(spell_target) if spell_target else None,
+                "target_new_hp": target_new_hp,
+                "next_turn_index": next_index, "round_number": combat.round_number,
+                "combat_over": False, "outcome": None,
+                "entity_positions": dict(combat.entity_positions or {}),
+            }
+
+    # ── 攻击/法术：查找目标数据 ──
+    # Fallback 目标选择（当 AI 决策失败或 target_id 无效时）
+    target_data = None
+    if decided_target_id:
+        # 在敌人和角色中查找目标
+        for t in enemies_alive:
+            if str(t.get("id")) == str(decided_target_id):
+                target_data = t
+                break
+        if not target_data:
+            for t in all_characters:
+                if str(t.get("id")) == str(decided_target_id):
+                    target_data = t
+                    break
+
+    if not target_data:
+        # AI 决策失败或 target_id 无效，回退到旧逻辑
+        target_data = svc.choose_ai_target(
+            actor_is_enemy=is_enemy,
+            player={"id": player.id, "hp_current": player.hp_current, "derived": player.derived or {}} if player else None,
+            allies=companions_alive,
+            enemies_alive=enemies_alive,
+        )
 
     # ── 解析攻击（含 Extra Attack / Sneak Attack / Rage for AI）──
     target_id       = None
@@ -2366,6 +3192,82 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         if target_char_for_shield and "shield_spell" in (target_char_for_shield.conditions or []):
             ai_target_derived["ac"] = ai_target_derived.get("ac", 10) + 5
 
+        # ── AI 距离检查 + 自动移动 ─────────────────────────
+        ai_is_ranged = False
+        # 判断 AI 是否使用远程武器（从装备中检测）
+        if achar and achar.equipment:
+            ai_weapons = (achar.equipment or {}).get("weapons", [])
+            for w in ai_weapons:
+                wp = (w.get("properties") or "")
+                if isinstance(wp, list):
+                    wp = ",".join(wp)
+                if "远程" in wp or "ranged" in wp.lower() or w.get("type", "") in ("简易远程武器", "军用远程武器"):
+                    ai_is_ranged = True
+                    break
+        # 怪物默认近战（无 Character 对象时）
+        if not achar:
+            # 检查怪物数据中的 actions 判断是否远程
+            for e in enemies:
+                if str(e.get("id")) == str(actor_id):
+                    for act in e.get("actions", []):
+                        if "远程" in act.get("type", "") or "ranged" in act.get("type", "").lower():
+                            ai_is_ranged = True
+                    break
+
+        in_range, ai_dist, _ = _check_attack_range(ai_atk_pos, ai_tgt_pos, ai_is_ranged)
+        if not in_range and ai_atk_pos and ai_tgt_pos:
+            # 尝试自动移动靠近目标
+            actor_ts_pre = _get_ts(combat, actor_id)
+            move_remaining = actor_ts_pre["movement_max"] - actor_ts_pre["movement_used"]
+            move_result = _ai_move_toward(ai_atk_pos, ai_tgt_pos, move_remaining, positions, actor_id)
+            if move_result:
+                new_pos = {"x": move_result["x"], "y": move_result["y"]}
+                positions[str(actor_id)] = new_pos
+                combat.entity_positions = positions
+                actor_ts_pre["movement_used"] += move_result["steps"]
+                _save_ts(combat, actor_id, actor_ts_pre)
+                all_narrations.append(f"🏃 {actor_name} 向目标移动了 {move_result['steps']*5}ft")
+                # 重新检查距离
+                in_range, ai_dist, _ = _check_attack_range(new_pos, ai_tgt_pos, ai_is_ranged)
+                # 更新掩体计算
+                if in_range:
+                    ai_cover = svc.get_cover_bonus(ai_grid, new_pos, ai_tgt_pos)
+                    if ai_cover > 0:
+                        ai_target_derived["ac"] = target_derived.get("ac", 10) + ai_cover
+
+        if not in_range:
+            # 仍然不在攻击范围内，跳过攻击
+            all_narrations.append(f"{actor_name} 无法到达目标（距离 {ai_dist*5}ft）")
+            narrate_text = await narrate_batch(
+                [{"actor": actor_name, "action": "移动", "target": "", "result": "移动但无法接近目标"}]
+            )
+            if narrate_text and narrate_text[0]:
+                all_narrations.append(narrate_text[0])
+
+            # 推进回合
+            combat.current_turn_index = next_index
+            if next_index == 0:
+                combat.round_number += 1
+            if turn_order:
+                _ne = turn_order[next_index]["character_id"]
+                _na, _nm = await _calc_entity_turn_limits(db, session, _ne)
+                _reset_ts(combat, _ne, attacks_max=_na, movement_max=_nm)
+            flag_modified(session, "game_state")
+            flag_modified(combat, "entity_positions")
+            flag_modified(combat, "turn_states")
+            await db.commit()
+            return {
+                "actor_name": actor_name,
+                "actor_id": actor_id,
+                "narration": "\n".join(all_narrations),
+                "attack_result": {}, "damage": 0,
+                "target_id": str(target_id) if target_id else None,
+                "target_new_hp": None,
+                "next_turn_index": next_index, "round_number": combat.round_number,
+                "combat_over": False, "outcome": None,
+                "entity_positions": dict(combat.entity_positions or {}),
+            }
+
         # 「被协助」→ 攻击优势
         actor_ts   = _get_ts(combat, actor_id)
         extra_adv  = actor_ts.get("being_helped", False)
@@ -2388,6 +3290,11 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
             if result_obj.attack_roll["hit"] and achar and ai_class_res.get("raging", False):
                 rage_bonus = svc.get_rage_bonus(ai_level)
                 atk_damage += rage_bonus
+                # Zealot Divine Fury (first hit per turn while raging)
+                ai_sub_effects = actor_derived.get("subclass_effects", {})
+                if ai_sub_effects.get("divine_fury") and atk_idx == 0:
+                    fury_roll = roll_dice(f"1d6+{ai_level // 2}")
+                    atk_damage += fury_roll["total"]
 
             # AI Sneak Attack (first hit only)
             if result_obj.attack_roll["hit"] and achar and ai_class == "Rogue" and atk_idx == 0:
@@ -2401,7 +3308,14 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
                     ally_list_sa += [{"id": ca["id"], "hp_current": ca.get("hp_current", 0)} for ca in companions_alive]
                     ally_adj = _has_ally_adjacent_to(target_id, actor_id, ally_list_sa, positions)
                     has_adv = extra_adv if atk_idx == 0 else False
-                    if svc.check_sneak_attack(ai_class, has_adv, ally_adj):
+                    # Swashbuckler AI companion
+                    ai_sub_sa = actor_derived.get("subclass_effects", {})
+                    ai_swash = ai_sub_sa.get("swashbuckler", False)
+                    ai_no_other = False
+                    if ai_swash:
+                        other_enemies_sa = [e for e in enemies if e["id"] != target_id and e.get("hp_current", 0) > 0]
+                        ai_no_other = not _has_ally_adjacent_to(actor_id, target_id, other_enemies_sa, positions)
+                    if svc.check_sneak_attack(ai_class, has_adv, ally_adj, swashbuckler=ai_swash, no_other_enemy_adjacent=ai_no_other):
                         sa_dice = svc.calc_sneak_attack_dice(ai_level)
                         sa_roll = roll_dice(f"{sa_dice}d6")
                         atk_damage += sa_roll["total"]
@@ -2424,7 +3338,12 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
                             t_res = dict(tchar.class_resources or {})
                             if t_res.get("raging", False):
                                 dmg_type = actor_derived.get("damage_type", "钝击")
-                                if dmg_type in ("钝击", "穿刺", "挥砍", "bludgeoning", "piercing", "slashing"):
+                                t_sub_effects = (tchar.derived or {}).get("subclass_effects", {})
+                                if t_sub_effects.get("bear_totem"):
+                                    # Bear Totem: resist ALL damage except psychic
+                                    if dmg_type not in ("心灵", "psychic"):
+                                        final_dmg = final_dmg // 2
+                                elif dmg_type in ("钝击", "穿刺", "挥砍", "bludgeoning", "piercing", "slashing"):
                                     final_dmg = final_dmg // 2
                         tchar.hp_current  = svc.apply_damage(tchar.hp_current, final_dmg, (tchar.derived or {}).get("hp_max", tchar.hp_current))
                         target_new_hp     = tchar.hp_current
@@ -2432,6 +3351,14 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
 
             total_damage += atk_damage
             all_narrations.append(svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, atk_damage))
+
+            # Dark One's Blessing: AI Warlock gains temp HP on kill
+            if target_new_hp is not None and target_new_hp <= 0 and not is_enemy and achar:
+                ai_sub_eff = actor_derived.get("subclass_effects", {})
+                if ai_sub_eff.get("dark_ones_blessing"):
+                    cha_val = actor_derived.get("ability_modifiers", {}).get("cha", 0)
+                    _temp_hp = cha_val + ai_level
+                    all_narrations.append(f"{actor_name} 获得 {_temp_hp} 临时HP（黑暗祝福）")
 
             # If target is dead, stop attacking
             if target_new_hp is not None and target_new_hp <= 0:
@@ -2450,7 +3377,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         "actor_name": actor_name,
         "actor_class": ai_actor_class,
         "target_name": target_name or "目标",
-        "mechanical_desc": mechanical_narration,
+        "mechanical_desc": f"{mechanical_narration}" + (f"（战术：{decided_reason}）" if decided_reason and not decision.get("_fallback") else ""),
     }]
     vivid_results = await narrate_batch(batch_actions)
     narration = vivid_results[0] if vivid_results[0] else mechanical_narration
@@ -2500,15 +3427,21 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     if next_index == 0:
         combat.round_number += 1
 
-    # 重置下一实体的回合状态（关键！否则玩家回合会残留上轮的 action_used=true）
+    # 重置下一实体的回合状态（根据角色实际数据）
     if turn_order:
         next_entity_id = turn_order[next_index]["character_id"]
-        _reset_ts(combat, next_entity_id)
+        next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
+        _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
 
     player_check         = await db.get(Character, session.player_character_id)
     combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     # ── Reaction info (P0-6): check if player was targeted and can react ──
     player_targeted = (is_enemy and target_id == session.player_character_id)
@@ -2617,6 +3550,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         "round_number":         combat.round_number,
         "combat_over":          combat_over,
         "outcome":              outcome,
+        "entity_positions":     dict(combat.entity_positions or {}),
     }
 
 
@@ -2627,7 +3561,7 @@ async def end_combat(session_id: str, db: AsyncSession = Depends(get_db)):
     session = await get_session_or_404(session_id, db)
     session.combat_active = False
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if combat:
         await db.delete(combat)
     db.add(GameLog(session_id=session_id, role="system",
@@ -2646,7 +3580,7 @@ async def combat_move(session_id: str, req: MoveRequest, db: AsyncSession = Depe
         raise HTTPException(400, "当前不在战斗中")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat = combat_result.scalar_one_or_none()
+    combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -2764,7 +3698,7 @@ async def spell_roll(
 
     # ── 检查行动配额 ──
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat_obj = combat_result.scalar_one_or_none()
+    combat_obj = combat_result.scalars().first()
     spell_ts = _get_ts(combat_obj, req.caster_id) if combat_obj else dict(_DEFAULT_TS)
     if spell_ts["action_used"] and spell["level"] != 0:
         raise HTTPException(400, "本回合行动已用尽")
@@ -2799,7 +3733,7 @@ async def spell_roll(
                 target_names.append(tc.name)
 
     # ── 距离检查（法术射程）──
-    positions = dict(combat.entity_positions or {})
+    positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
     caster_pos = positions.get(str(req.caster_id))
     spell_range_ft = spell.get("range", 0)
     if isinstance(spell_range_ft, str):
@@ -2883,7 +3817,7 @@ async def spell_confirm(
     session = await get_session_or_404(session_id, db)
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat_obj = combat_result.scalar_one_or_none()
+    combat_obj = combat_result.scalars().first()
     if not combat_obj:
         raise HTTPException(404, "战斗状态不存在")
 
@@ -2948,6 +3882,13 @@ async def spell_confirm(
     if is_aoe:
         if spell_type == "damage":
             result_damage, dice_detail = spell_service.resolve_damage(spell_name, spell_level, spell_mod)
+            # Frontend dice override for spell damage
+            if req.damage_values:
+                result_damage = sum(req.damage_values) + spell_mod
+                dice_detail["total"] = result_damage
+                if "base_roll" in dice_detail:
+                    dice_detail["base_roll"]["rolls"] = req.damage_values
+                    dice_detail["base_roll"]["total"] = sum(req.damage_values)
             save_ability = spell.get("save")
             half_on_save = spell.get("half_on_save", True)
 
@@ -3007,6 +3948,13 @@ async def spell_confirm(
 
         elif spell_type == "heal":
             result_heal, dice_detail = spell_service.resolve_heal(spell_name, spell_level, spell_mod, bonus_healing)
+            # Frontend dice override for spell heal
+            if req.damage_values:
+                result_heal = sum(req.damage_values) + spell_mod
+                dice_detail["total"] = result_heal
+                if "base_roll" in dice_detail:
+                    dice_detail["base_roll"]["rolls"] = req.damage_values
+                    dice_detail["base_roll"]["total"] = sum(req.damage_values)
             for tid in target_ids:
                 tc = await db.get(Character, tid)
                 if tc:
@@ -3024,6 +3972,13 @@ async def spell_confirm(
         tid = target_ids[0] if target_ids else None
         if spell_type == "damage" and tid:
             result_damage, dice_detail = spell_service.resolve_damage(spell_name, spell_level, spell_mod)
+            # Frontend dice override for spell damage
+            if req.damage_values:
+                result_damage = sum(req.damage_values) + spell_mod
+                dice_detail["total"] = result_damage
+                if "base_roll" in dice_detail:
+                    dice_detail["base_roll"]["rolls"] = req.damage_values
+                    dice_detail["base_roll"]["total"] = sum(req.damage_values)
             target_enemy = next((e for e in enemies if e["id"] == tid), None)
             if target_enemy:
                 target_enemy["hp_current"] = svc.apply_damage(
@@ -3047,6 +4002,13 @@ async def spell_confirm(
 
         elif spell_type == "heal" and tid:
             result_heal, dice_detail = spell_service.resolve_heal(spell_name, spell_level, spell_mod, bonus_healing)
+            # Frontend dice override for spell heal
+            if req.damage_values:
+                result_heal = sum(req.damage_values) + spell_mod
+                dice_detail["total"] = result_heal
+                if "base_roll" in dice_detail:
+                    dice_detail["base_roll"]["rolls"] = req.damage_values
+                    dice_detail["base_roll"]["total"] = sum(req.damage_values)
             tc = await db.get(Character, tid)
             if tc:
                 tc.hp_current = svc.apply_heal(
@@ -3054,6 +4016,77 @@ async def spell_confirm(
                     (tc.derived or {}).get("hp_max", tc.hp_current),
                 )
                 target_new_hp = tc.hp_current
+
+        elif spell_type in ("control", "utility") and tid:
+            # Control/utility spells apply conditions
+            _SPELL_CONDITIONS = {
+                "Hold Person": ("paralyzed", "wis"),
+                "定身术": ("paralyzed", "wis"),
+                "Entangle": ("restrained", "str"),
+                "纠缠术": ("restrained", "str"),
+                "Web": ("restrained", "dex"),
+                "蛛网": ("restrained", "dex"),
+                "Sleep": ("unconscious", None),
+                "睡眠术": ("unconscious", None),
+                "Command": ("commanded", "wis"),
+                "命令术": ("commanded", "wis"),
+                "Faerie Fire": ("faerie_fire", "dex"),
+                "妖火": ("faerie_fire", "dex"),
+                "Blindness/Deafness": ("blinded", "con"),
+                "目盲/耳聋": ("blinded", "con"),
+                "Fear": ("frightened", "wis"),
+                "恐惧术": ("frightened", "wis"),
+                "Silence": ("silenced", None),
+                "沉默术": ("silenced", None),
+                "Hex": ("hexed", None),
+                "妖术": ("hexed", None),
+                "Bane": ("baned", "cha"),
+                "灾祸术": ("baned", "cha"),
+            }
+            condition_info = _SPELL_CONDITIONS.get(spell_name, ("affected", spell.get("save")))
+            condition_name, save_abil = condition_info
+
+            saved = False
+            save_detail = None
+            if save_abil:
+                target_enemy = next((e for e in enemies if e["id"] == tid), None)
+                target_char_ctrl = None if target_enemy else await db.get(Character, tid)
+                if target_enemy:
+                    t_scores = target_enemy.get("ability_scores", {})
+                    t_mod = (t_scores.get(save_abil, 10) - 10) // 2
+                elif target_char_ctrl:
+                    t_mod = (target_char_ctrl.derived or {}).get("saving_throws", {}).get(save_abil, 0)
+                else:
+                    t_mod = 0
+
+                from services.dnd_rules import roll_dice as _ctrl_roll
+                sr = _ctrl_roll("1d20")["rolls"][0]
+                save_total = sr + t_mod
+                saved = save_total >= spell_save_dc
+                save_detail = {"ability": save_abil, "dc": spell_save_dc, "d20": sr, "modifier": t_mod, "total": save_total, "success": saved}
+
+            if not saved:
+                # Apply condition
+                target_enemy2 = next((e for e in enemies if e["id"] == tid), None)
+                if target_enemy2:
+                    conds = target_enemy2.get("conditions", [])
+                    if condition_name not in conds:
+                        conds.append(condition_name)
+                        target_enemy2["conditions"] = conds
+                    state["enemies"] = enemies
+                    session.game_state = dict(state)
+                    flag_modified(session, "game_state")
+                else:
+                    tc_ctrl = await db.get(Character, tid)
+                    if tc_ctrl:
+                        conds = list(tc_ctrl.conditions or [])
+                        if condition_name not in conds:
+                            conds.append(condition_name)
+                            tc_ctrl.conditions = conds
+
+            # Also handle spells that do damage + control (like Tasha's Hideous Laughter does 0 damage but applies condition)
+            result_damage = 0
+            dice_detail = {}
 
     # ── 专注 ──
     if spell.get("concentration"):
@@ -3075,6 +4108,14 @@ async def spell_confirm(
             + (f"，造成 {result_damage} 点伤害！" if result_damage else "")
             + (f"，恢复 {result_heal} HP！" if result_heal else "")
         )
+
+    # Control spell narration
+    if spell_type in ("control", "utility") and 'save_detail' in dir():
+        if save_detail:
+            saved_str = "通过" if save_detail["success"] else "未通过"
+            mechanical_narration += f"\n{save_detail['ability'].upper()} 豁免 DC{save_detail['dc']}: d20={save_detail['d20']}+{save_detail['modifier']}={save_detail['total']} — {saved_str}！"
+            if not save_detail["success"]:
+                mechanical_narration += f"\n目标陷入【{condition_name}】状态！"
 
     # LLM vivid narration for spells
     spell_target = targets_summary if (is_aoe and aoe_results) else (target_ids[0] if target_ids else "")
@@ -3110,11 +4151,79 @@ async def spell_confirm(
         spell_ts["action_used"] = True
     _save_ts(combat_obj, caster_entity_id, spell_ts)
 
+    # ── 野蛮魔法涌动检测（Wild Magic Surge）──
+    wild_magic_surge = None
+    wild_magic_check = None
+    if not is_cantrip:
+        caster_sub_effects = (caster.derived or {}).get("subclass_effects", {})
+        if caster_sub_effects.get("wild_magic"):
+            from services.dnd_rules import roll_dice as _roll_surge, roll_wild_magic_surge
+
+            forced_surge = (caster.class_resources or {}).get("tides_of_chaos_used", False)
+
+            if forced_surge:
+                # 使用混沌之潮后施法必定触发涌动
+                wild_magic_surge = roll_wild_magic_surge()
+                wild_magic_check = {"d20": "自动", "triggered": True, "forced": True,
+                                    "surge_roll": wild_magic_surge.get("index", 0) + 1}  # d20 table index
+                surge_narration = f"🌀 混沌反噬！混沌之潮的代价降临——{wild_magic_surge['effect']}"
+                narration += f"\n\n{surge_narration}"
+                db.add(GameLog(
+                    session_id=session_id, role="system",
+                    content=surge_narration, log_type="system",
+                ))
+                # 重置混沌之潮（可以再次使用）
+                class_res = dict(caster.class_resources or {})
+                class_res["tides_of_chaos_used"] = False
+                caster.class_resources = class_res
+            else:
+                # 正常检测：掷 d20，1 则触发
+                surge_check = _roll_surge("1d20")
+                d20_val = surge_check["rolls"][0]
+                if d20_val == 1:
+                    wild_magic_surge = roll_wild_magic_surge()
+                    wild_magic_check = {"d20": d20_val, "triggered": True, "forced": False,
+                                        "surge_roll": wild_magic_surge.get("index", 0) + 1}
+                    surge_narration = f"🌀 野蛮魔法涌动！d20={d20_val}——{caster.name} 体内的混沌能量失控！{wild_magic_surge['effect']}"
+                    narration += f"\n\n{surge_narration}"
+                    db.add(GameLog(
+                        session_id=session_id, role="system",
+                        content=surge_narration, log_type="system",
+                        dice_result={"type": "wild_magic_surge", "d20": d20_val, **wild_magic_surge},
+                    ))
+                else:
+                    # 未触发，但仍告知玩家检测发生了
+                    wild_magic_check = {"d20": d20_val, "triggered": False, "forced": False}
+                    db.add(GameLog(
+                        session_id=session_id, role="system",
+                        content=f"🎲 野蛮魔法检测: d20={d20_val}（未触发涌动，需要1）",
+                        log_type="system",
+                    ))
+
+            # 应用有机械效果的涌动
+            if wild_magic_surge:
+                mech = wild_magic_surge.get("mechanical", {})
+                if mech.get("type") == "heal":
+                    heal_roll = _roll_surge(mech["dice"])
+                    caster.hp_current = min(
+                        (caster.derived or {}).get("hp_max", caster.hp_current),
+                        caster.hp_current + heal_roll["total"],
+                    )
+                elif mech.get("type") == "condition":
+                    conds = list(caster.conditions or [])
+                    conds.append(mech["condition"])
+                    caster.conditions = conds
+
     # ── 检查战斗结束 ──
     player_check = await db.get(Character, session.player_character_id)
     combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     await db.commit()
 
@@ -3133,6 +4242,8 @@ async def spell_confirm(
         "is_aoe": is_aoe,
         "combat_over": combat_over,
         "outcome": outcome,
+        "wild_magic_surge": wild_magic_surge,
+        "wild_magic_check": wild_magic_check,
     }
 
 
@@ -3160,7 +4271,7 @@ async def cast_spell(session_id: str, req: SpellRequest, db: AsyncSession = Depe
 
     # ── 检查行动配额 ──────────────────────────────────────
     combat_result2 = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
-    combat_obj     = combat_result2.scalar_one_or_none()
+    combat_obj     = combat_result2.scalars().first()
     spell_ts       = _get_ts(combat_obj, req.caster_id) if combat_obj else dict(_DEFAULT_TS)
     if spell_ts["action_used"] and spell["level"] != 0:
         raise HTTPException(400, "本回合行动已用尽")
@@ -3375,6 +4486,11 @@ async def cast_spell(session_id: str, req: SpellRequest, db: AsyncSession = Depe
     combat_over, outcome = svc.check_combat_over(enemies, player_check2.hp_current if player_check2 else 0)
     if combat_over:
         session.combat_active = False
+        # 清理战斗状态记录，防止下次战斗残留旧数据
+        try:
+            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
+            if _old_cs: await db.delete(_old_cs)
+        except Exception: pass
 
     round_number = combat_obj.round_number if combat_obj else 1
     next_index   = combat_obj.current_turn_index if combat_obj else 0
@@ -3516,7 +4632,7 @@ async def death_saving_throw(
     if saves.get("stable"):
         raise HTTPException(400, "该角色已稳定，无需再投")
 
-    d20    = random.randint(1, 20)
+    d20    = req.d20_value if req.d20_value is not None else random.randint(1, 20)
     result = {}
 
     if d20 == 20:
@@ -3573,3 +4689,230 @@ async def death_saving_throw(
         "death_saves": saves,
         **result,
     }
+
+
+
+# ── 战技（Battle Master Maneuvers）──────────────────────────
+
+@router.post("/combat/{session_id}/maneuver")
+async def use_maneuver(session_id: str, req: ManeuverRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Battle Master maneuver: consume 1 superiority die and apply effect.
+    Maneuvers: precision, trip, disarm, riposte, menacing, pushing, goading
+    """
+    session = await get_session_or_404(session_id, db)
+    result_db = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat = result_db.scalars().first()
+    if not combat:
+        raise HTTPException(404, "当前没有进行中的战斗")
+
+    turn_order = combat.turn_order or []
+    if not turn_order:
+        raise HTTPException(400, "无回合顺序")
+
+    current_entry = turn_order[combat.current_turn_index % len(turn_order)]
+    actor_id = str(current_entry.get("character_id", ""))
+
+    # Verify actor is a Battle Master
+    actor_char = await db.get(Character, actor_id)
+    if not actor_char:
+        raise HTTPException(404, "当前行动角色不存在")
+    derived = actor_char.derived or {}
+    sub_effects = derived.get("subclass_effects", {})
+    if not sub_effects.get("battle_master"):
+        raise HTTPException(400, "当前角色不是战争大师，无法使用战技")
+
+    # Check superiority dice remaining
+    class_resources = dict(actor_char.class_resources or {})
+    sd_remaining = class_resources.get("superiority_dice_remaining", 0)
+    if sd_remaining <= 0:
+        raise HTTPException(400, "优势骰已耗尽（短休后恢复）")
+
+    # Validate maneuver name
+    valid_maneuvers = sub_effects.get("maneuvers", [])
+    if req.maneuver_name not in valid_maneuvers:
+        raise HTTPException(400, f"无效战技: {req.maneuver_name}，可用: {valid_maneuvers}")
+
+    # Consume 1 superiority die
+    class_resources["superiority_dice_remaining"] = sd_remaining - 1
+    actor_char.class_resources = class_resources
+
+    # Roll superiority die
+    sd_die = sub_effects.get("superiority_die", "d8")
+    sd_roll = roll_dice(sd_die)
+    sd_value = sd_roll["total"]
+
+    # Resolve target
+    game_state = session.game_state or {}
+    enemies = game_state.get("enemies", [])
+    target_enemy = None
+    target_char = None
+    target_name = "Unknown"
+    target_is_enemy = False
+
+    for e in enemies:
+        if str(e.get("id")) == req.target_id:
+            target_enemy = e
+            target_name = e.get("name", "Enemy")
+            target_is_enemy = True
+            break
+    if not target_enemy:
+        target_char = await db.get(Character, req.target_id)
+        if target_char:
+            target_name = target_char.name
+
+    maneuver_result = {
+        "maneuver": req.maneuver_name,
+        "superiority_die_roll": sd_value,
+        "superiority_die": sd_die,
+        "dice_remaining": sd_remaining - 1,
+        "actor": actor_char.name,
+        "target": target_name,
+    }
+
+    actor_derived = derived
+    prof = actor_derived.get("proficiency_bonus", 2)
+    # Maneuver save DC = 8 + prof + max(STR, DEX)
+    spell_dc = 8 + prof + max(
+        actor_derived.get("ability_modifiers", {}).get("str", 0),
+        actor_derived.get("ability_modifiers", {}).get("dex", 0),
+    )
+
+    if req.maneuver_name == "precision":
+        maneuver_result["effect"] = f"下次攻击骰+{sd_value}"
+        maneuver_result["attack_bonus"] = sd_value
+        msg = f"⚔️ {actor_char.name} 使用精准打击，攻击骰+{sd_value}"
+
+    elif req.maneuver_name == "trip":
+        save_roll = random.randint(1, 20)
+        target_str_mod = 0
+        if target_enemy:
+            t_scores = target_enemy.get("ability_scores", {})
+            target_str_mod = (t_scores.get("str", 10) - 10) // 2
+        elif target_char:
+            target_str_mod = (target_char.derived or {}).get("ability_modifiers", {}).get("str", 0)
+        save_total = save_roll + target_str_mod
+        tripped = save_total < spell_dc
+        maneuver_result["save_roll"] = save_roll
+        maneuver_result["save_total"] = save_total
+        maneuver_result["dc"] = spell_dc
+        maneuver_result["tripped"] = tripped
+        maneuver_result["extra_damage"] = sd_value
+        if tripped:
+            msg = f"⚔️ {actor_char.name} 使用绊摔攻击！{target_name} 摔倒（俯卧），额外伤害{sd_value}"
+            if target_enemy:
+                t_conds = target_enemy.get("conditions", [])
+                if "prone" not in t_conds:
+                    t_conds.append("prone")
+                    target_enemy["conditions"] = t_conds
+                    session.game_state = game_state
+            elif target_char:
+                t_conds = list(target_char.conditions or [])
+                if "prone" not in t_conds:
+                    t_conds.append("prone")
+                    target_char.conditions = t_conds
+        else:
+            msg = f"⚔️ {actor_char.name} 使用绊摔攻击，{target_name} 站稳了！额外伤害{sd_value}"
+
+    elif req.maneuver_name == "disarm":
+        save_roll = random.randint(1, 20)
+        target_str_mod = 0
+        if target_enemy:
+            t_scores = target_enemy.get("ability_scores", {})
+            target_str_mod = (t_scores.get("str", 10) - 10) // 2
+        elif target_char:
+            target_str_mod = (target_char.derived or {}).get("ability_modifiers", {}).get("str", 0)
+        save_total = save_roll + target_str_mod
+        disarmed = save_total < spell_dc
+        maneuver_result["save_roll"] = save_roll
+        maneuver_result["save_total"] = save_total
+        maneuver_result["dc"] = spell_dc
+        maneuver_result["disarmed"] = disarmed
+        if disarmed:
+            msg = f"⚔️ {actor_char.name} 使用缴械打击！{target_name} 武器脱手！"
+        else:
+            msg = f"⚔️ {actor_char.name} 使用缴械打击，{target_name} 握紧了武器"
+
+    elif req.maneuver_name == "riposte":
+        maneuver_result["extra_damage"] = sd_value
+        maneuver_result["effect"] = "反击攻击"
+        msg = f"⚔️ {actor_char.name} 使用反击！额外伤害+{sd_value}"
+
+    elif req.maneuver_name == "menacing":
+        save_roll = random.randint(1, 20)
+        target_wis_mod = 0
+        if target_enemy:
+            t_scores = target_enemy.get("ability_scores", {})
+            target_wis_mod = (t_scores.get("wis", 10) - 10) // 2
+        elif target_char:
+            target_wis_mod = (target_char.derived or {}).get("ability_modifiers", {}).get("wis", 0)
+        save_total = save_roll + target_wis_mod
+        frightened = save_total < spell_dc
+        maneuver_result["save_roll"] = save_roll
+        maneuver_result["save_total"] = save_total
+        maneuver_result["dc"] = spell_dc
+        maneuver_result["frightened"] = frightened
+        maneuver_result["extra_damage"] = sd_value
+        if frightened:
+            msg = f"⚔️ {actor_char.name} 使用威吓攻击！{target_name} 陷入恐惧，额外伤害{sd_value}"
+            if target_enemy:
+                t_conds = target_enemy.get("conditions", [])
+                if "frightened" not in t_conds:
+                    t_conds.append("frightened")
+                    target_enemy["conditions"] = t_conds
+                    session.game_state = game_state
+            elif target_char:
+                t_conds = list(target_char.conditions or [])
+                if "frightened" not in t_conds:
+                    t_conds.append("frightened")
+                    target_char.conditions = t_conds
+        else:
+            msg = f"⚔️ {actor_char.name} 使用威吓攻击，{target_name} 不为所动！额外伤害{sd_value}"
+
+    elif req.maneuver_name == "pushing":
+        maneuver_result["push_distance"] = 15
+        maneuver_result["extra_damage"] = sd_value
+        msg = f"⚔️ {actor_char.name} 使用推击！{target_name} 被推开15尺，额外伤害{sd_value}"
+
+    elif req.maneuver_name == "goading":
+        save_roll = random.randint(1, 20)
+        target_wis_mod = 0
+        if target_enemy:
+            t_scores = target_enemy.get("ability_scores", {})
+            target_wis_mod = (t_scores.get("wis", 10) - 10) // 2
+        elif target_char:
+            target_wis_mod = (target_char.derived or {}).get("ability_modifiers", {}).get("wis", 0)
+        save_total = save_roll + target_wis_mod
+        goaded = save_total < spell_dc
+        maneuver_result["save_roll"] = save_roll
+        maneuver_result["save_total"] = save_total
+        maneuver_result["dc"] = spell_dc
+        maneuver_result["goaded"] = goaded
+        maneuver_result["extra_damage"] = sd_value
+        if goaded:
+            msg = f"⚔️ {actor_char.name} 使用激怒攻击！{target_name} 攻击其他目标时有劣势，额外伤害{sd_value}"
+        else:
+            msg = f"⚔️ {actor_char.name} 使用激怒攻击，{target_name} 不受影响！额外伤害{sd_value}"
+
+    else:
+        msg = f"⚔️ {actor_char.name} 使用了未知战技"
+
+    # Log
+    db.add(GameLog(
+        session_id  = session_id,
+        role        = "system",
+        content     = msg,
+        log_type    = "combat",
+        dice_result = maneuver_result,
+    ))
+
+    flag_modified(actor_char, "class_resources")
+    if target_is_enemy:
+        flag_modified(session, "game_state")
+
+    await db.commit()
+    # Add dice_roll for frontend animation
+    sd_faces = int(sd_die.replace("d", "")) if sd_die.startswith("d") else 8
+    maneuver_result["dice_roll"] = {"faces": sd_faces, "result": sd_value, "label": f"战技·{req.maneuver_name}"}
+    maneuver_result["narration"] = msg
+    return maneuver_result
