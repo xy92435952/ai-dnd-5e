@@ -79,8 +79,14 @@ async def _calc_entity_turn_limits(db, session, entity_id: str) -> tuple:
     state = session.game_state or {}
     for e in state.get("enemies", []):
         if str(e.get("id")) == str(entity_id):
-            speed = e.get("speed", 30)
-            movement_max = max(speed, 20) // 5
+            raw_speed = e.get("speed", 30)
+            # speed 可能是字符串如 "30ft" 或数字 30
+            if isinstance(raw_speed, str):
+                import re as _re
+                m = _re.search(r'(\d+)', str(raw_speed))
+                raw_speed = int(m.group(1)) if m else 30
+            speed = max(int(raw_speed or 30), 20)
+            movement_max = speed // 5
             return 1, movement_max  # 怪物默认 1 次攻击
 
     return 1, 6  # 兜底默认值
