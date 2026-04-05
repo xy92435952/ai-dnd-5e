@@ -165,6 +165,9 @@ export default function DiceRollerOverlay() {
   // ── 阶段1：等待玩家点击投掷 ──
   useEffect(() => {
     if (!dicePrompt) return
+    // 取消任何正在进行的 dismiss 定时器
+    clearTimeout(hideTimerRef.current)
+    if (diceBoxInstance) { try { diceBoxInstance.clear() } catch {} }
     setVisible(true)
     setPhase('waiting')
     setRollResult(null)
@@ -174,6 +177,8 @@ export default function DiceRollerOverlay() {
   useEffect(() => {
     if (!diceRoll) return
     const myId = ++animIdRef.current
+    // 取消之前的 dismiss 定时器
+    clearTimeout(hideTimerRef.current)
     setVisible(true)
     setPhase('result')
     setRollResult(diceRoll)
@@ -187,19 +192,24 @@ export default function DiceRollerOverlay() {
 
   // ── 点击投掷处理 ──
   const handleThrow = async () => {
-    if (phase !== 'waiting' || !dicePrompt) return
+    if (phase !== 'waiting') return
+
+    // 保存当前 prompt 数据（因为马上要清除状态）
+    const currentPrompt = _pendingRollConfig || dicePrompt
+    if (!currentPrompt) return
 
     setPhase('rolling')
-    const { faces, count } = dicePrompt
+    const { faces, count } = currentPrompt
     hideDicePrompt()  // 清除 prompt 状态
 
-    const result = await _executeRoll(faces, count)
+    const result = await _executeRoll(faces, count || 1)
 
     // 将结果传回给 rollDice3D 的调用方
     if (_pendingRollResolve) {
-      _pendingRollResolve(result)
+      const resolve = _pendingRollResolve
       _pendingRollResolve = null
       _pendingRollConfig = null
+      resolve(result)
     }
   }
 
