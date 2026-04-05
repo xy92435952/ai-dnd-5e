@@ -744,21 +744,24 @@ async def _init_combat(
             for m in (module.parsed_content or {}).get("monsters", [])
         }
         for ie in initial_enemies:
-            name = ie.get("name", "未知怪物")
+            # DM 有时返回字符串列表 ["骷髅", "骷髅"] 而非 dict 列表
+            if isinstance(ie, str):
+                ie = {"name": ie}
+            name = ie.get("name", "未知怪物") if isinstance(ie, dict) else str(ie)
             base = parsed_monsters.get(name)
             if base:
                 enemy = _build_enemy_from_module(base)
                 # 允许 DM 覆盖 HP（如场景中出现受伤怪物）
-                if ie.get("hp_current"):
+                if isinstance(ie, dict) and ie.get("hp_current"):
                     enemy["hp_current"] = ie["hp_current"]
             else:
                 # 模组中没有这个怪物，用 DM 给的基础信息
                 enemy = {
                     "id":         f"enemy_{uuid.uuid4().hex[:8]}",
                     "name":       name,
-                    "hp_current": ie.get("hp", 20),
-                    "hp_max":     ie.get("hp", 20),
-                    "ac":         ie.get("ac", 13),
+                    "hp_current": ie.get("hp", 20) if isinstance(ie, dict) else 20,
+                    "hp_max":     ie.get("hp", 20) if isinstance(ie, dict) else 20,
+                    "ac":         ie.get("ac", 13) if isinstance(ie, dict) else 13,
                     "conditions": [],
                     "dead":       False,
                     "attack_bonus": ie.get("attack_bonus", 3),
