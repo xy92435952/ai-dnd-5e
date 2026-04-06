@@ -11,8 +11,9 @@ class Settings(BaseSettings):
     # ChromaDB（本地 RAG 向量库）
     chromadb_path: str = "./chromadb_data"
 
-    # LangGraph 对话记忆（独立 SQLite 文件）
-    langgraph_db_path: str = "./langgraph_memory.db"
+    # LangGraph 对话记忆
+    langgraph_db_path: str = "./langgraph_memory.db"       # SQLite（本地开发）
+    langgraph_db_url: str = ""                              # PostgreSQL（生产环境，留空则用 SQLite）
 
     database_url: str = "sqlite+aiosqlite:///./ai_trpg.db"
     upload_dir: str = "./uploads"

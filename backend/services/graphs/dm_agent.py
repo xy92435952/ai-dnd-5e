@@ -1,7 +1,7 @@
 """
 WF3 — DM Agent LangGraph 图
 条件分支：pre_roll_dice → [combat_dm | explore_dm] → parse_validate
-SqliteSaver 持久化对话记忆
+支持 SQLite（本地开发）和 PostgreSQL（生产环境）持久化对话记忆
 """
 
 import json
@@ -13,7 +13,6 @@ from typing import TypedDict, Optional, Annotated
 logger = logging.getLogger(__name__)
 
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 
 from services.llm import get_llm
@@ -541,16 +540,31 @@ async def parse_validate(state: DMAgentState) -> dict:
 # Build graph
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-_memory_saver: Optional[AsyncSqliteSaver] = None
+_memory_saver = None
 
 
-async def get_memory_saver() -> AsyncSqliteSaver:
-    global _memory_saver
+_pg_conn = None  # 保持 PostgreSQL 连接引用
+
+async def get_memory_saver():
+    """根据配置自动选择 PostgreSQL 或 SQLite 作为 LangGraph 记忆存储"""
+    global _memory_saver, _pg_conn
     if _memory_saver is None:
-        import aiosqlite
-        conn = await aiosqlite.connect(settings.langgraph_db_path)
-        _memory_saver = AsyncSqliteSaver(conn)
-        await _memory_saver.setup()
+        if settings.langgraph_db_url:
+            # 生产环境：PostgreSQL（使用 psycopg AsyncConnection）
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+            from psycopg import AsyncConnection
+            _pg_conn = await AsyncConnection.connect(settings.langgraph_db_url, autocommit=True)
+            _memory_saver = AsyncPostgresSaver(conn=_pg_conn)
+            await _memory_saver.setup()
+            logger.info("LangGraph memory: PostgreSQL")
+        else:
+            # 本地开发：SQLite
+            from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+            import aiosqlite
+            conn = await aiosqlite.connect(settings.langgraph_db_path)
+            _memory_saver = AsyncSqliteSaver(conn)
+            await _memory_saver.setup()
+            logger.info("LangGraph memory: SQLite")
     return _memory_saver
 
 

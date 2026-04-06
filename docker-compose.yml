@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL 数据库 ──────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-trpg-postgres
+    environment:
+      POSTGRES_USER: ai_trpg
+      POSTGRES_PASSWORD: ai_trpg_dev
+      POSTGRES_DB: ai_trpg
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_trpg"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── 后端 FastAPI ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-trpg-backend
+    ports:
+      - "8002:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://ai_trpg:ai_trpg_dev@postgres:5432/ai_trpg
+      - LANGGRAPH_DB_URL=postgresql://ai_trpg:ai_trpg_dev@postgres:5432/ai_trpg
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/chromadb_data:/app/chromadb_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── 前端 Nginx ────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ai-trpg-frontend
+    ports:
+      - "3080:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

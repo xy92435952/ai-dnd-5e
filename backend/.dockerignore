@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+.env
+*.db
+*.db-shm
+*.db-wal
+chromadb_data
+uploads
+.venv
+venv

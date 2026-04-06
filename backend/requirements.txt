@@ -1,7 +1,9 @@
 fastapi>=0.115.5
 uvicorn[standard]>=0.32.1
 sqlalchemy>=2.0.36
-aiosqlite>=0.20.0
+aiosqlite>=0.20.0      # 本地开发 SQLite 兼容
+asyncpg>=0.30.0        # PostgreSQL 异步驱动（SQLAlchemy 生产环境）
+psycopg[binary]>=3.1   # PostgreSQL 驱动（LangGraph checkpoint 需要）
 python-multipart>=0.0.18
 httpx>=0.28.0
 python-dotenv>=1.0.1
@@ -18,7 +20,8 @@ aiofiles==24.1.0
 
 # LangGraph + LLM
 langgraph>=0.4
-langgraph-checkpoint-sqlite>=3.0
+langgraph-checkpoint-sqlite>=3.0    # 本地开发
+langgraph-checkpoint-postgres>=2.0  # 生产环境
 langchain-openai>=0.3
 langchain-core>=0.3
 
