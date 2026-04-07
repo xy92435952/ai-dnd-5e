@@ -47,12 +47,64 @@ ROLE_MAP = {
     'utility': ['rogue', 'ranger', 'bard', '游荡者', '游侠', '吟游诗人'],
 }
 
-ROLE_FILL = {
-    'tank': {'class': 'Fighter', 'subclass': 'Champion', 'role_desc': '坚守前线的护盾'},
-    'healer': {'class': 'Cleric', 'subclass': 'Life Domain', 'role_desc': '支撑队伍的治愈者'},
-    'arcane_dps': {'class': 'Wizard', 'subclass': 'Evocation', 'role_desc': '强力的奥术输出'},
-    'utility': {'class': 'Rogue', 'subclass': 'Thief', 'role_desc': '灵活的探索专家'},
+import random as _rng
+
+# 每个角色有多个候选，随机选择增加多样性
+ROLE_FILL_POOL = {
+    'tank': [
+        {'class': 'Fighter', 'subclass': 'Champion', 'role_desc': '纯粹的战斗机器，暴击范围扩展'},
+        {'class': 'Fighter', 'subclass': 'Battle Master', 'role_desc': '战术大师，用战技控制战场'},
+        {'class': 'Barbarian', 'subclass': 'Berserker', 'role_desc': '狂暴战士，近战伤害爆表'},
+        {'class': 'Barbarian', 'subclass': 'Totem Warrior', 'role_desc': '图腾守护者，全伤害抗性坦克'},
+        {'class': 'Paladin', 'subclass': 'Devotion', 'role_desc': '圣骑士，近战+治疗+神圣斩击'},
+        {'class': 'Paladin', 'subclass': 'Vengeance', 'role_desc': '复仇骑士，锁定高价值目标'},
+        {'class': 'Fighter', 'subclass': 'Samurai', 'role_desc': '武士，意志坚定的攻击优势'},
+    ],
+    'healer': [
+        {'class': 'Cleric', 'subclass': 'Life', 'role_desc': '最强治疗者，治疗法术增强'},
+        {'class': 'Cleric', 'subclass': 'Light', 'role_desc': '光明牧师，治疗+火焰输出'},
+        {'class': 'Cleric', 'subclass': 'War', 'role_desc': '战争牧师，前排治疗+近战'},
+        {'class': 'Cleric', 'subclass': 'Tempest', 'role_desc': '暴风牧师，雷电+治疗'},
+        {'class': 'Druid', 'subclass': 'Land', 'role_desc': '大地德鲁伊，自然法术+治疗'},
+        {'class': 'Druid', 'subclass': 'Moon', 'role_desc': '月亮德鲁伊，变身坦克+治疗'},
+        {'class': 'Bard', 'subclass': 'Lore', 'role_desc': '知识诗人，万能辅助+切割话语'},
+    ],
+    'arcane_dps': [
+        {'class': 'Wizard', 'subclass': 'Evocation', 'role_desc': '塑能法师，AoE爆炸伤害'},
+        {'class': 'Wizard', 'subclass': 'Divination', 'role_desc': '预言法师，操控命运的骰子'},
+        {'class': 'Wizard', 'subclass': 'Abjuration', 'role_desc': '防护法师，护盾+反制'},
+        {'class': 'Sorcerer', 'subclass': 'Draconic', 'role_desc': '龙血术士，元素爆发'},
+        {'class': 'Sorcerer', 'subclass': 'Wild Magic', 'role_desc': '狂野术士，不可预测的混沌力量'},
+        {'class': 'Warlock', 'subclass': 'Fiend', 'role_desc': '恶魔契约师，击杀回血+火球'},
+        {'class': 'Warlock', 'subclass': 'Hexblade', 'role_desc': '魔剑邪术师，近战+施法混合'},
+    ],
+    'martial_dps': [
+        {'class': 'Monk', 'subclass': 'Open Hand', 'role_desc': '虚空之手武僧，连击+控制'},
+        {'class': 'Monk', 'subclass': 'Shadow', 'role_desc': '暗影武僧，暗杀+传送'},
+        {'class': 'Ranger', 'subclass': 'Hunter', 'role_desc': '猎手游侠，远程精准射击'},
+        {'class': 'Ranger', 'subclass': 'Gloom Stalker', 'role_desc': '暗域猎手，首轮爆发'},
+        {'class': 'Fighter', 'subclass': 'Eldritch Knight', 'role_desc': '魔战士，剑术+法术'},
+        {'class': 'Barbarian', 'subclass': 'Zealot', 'role_desc': '狂热者，永不倒下的圣战士'},
+    ],
+    'utility': [
+        {'class': 'Rogue', 'subclass': 'Thief', 'role_desc': '窃贼，机关+物品大师'},
+        {'class': 'Rogue', 'subclass': 'Assassin', 'role_desc': '刺客，先手暴击一击必杀'},
+        {'class': 'Rogue', 'subclass': 'Swashbuckler', 'role_desc': '剑客，单挑之王'},
+        {'class': 'Rogue', 'subclass': 'Arcane Trickster', 'role_desc': '奥法骗徒，魔法+潜行'},
+        {'class': 'Bard', 'subclass': 'Valor', 'role_desc': '英勇诗人，战斗+辅助'},
+        {'class': 'Bard', 'subclass': 'Swords', 'role_desc': '剑术诗人，华丽的战斗风格'},
+        {'class': 'Ranger', 'subclass': 'Swarmkeeper', 'role_desc': '虫群之主，独特战场控制'},
+    ],
 }
+
+def _pick_role_fill(role: str, exclude_classes: set = None) -> dict:
+    """从角色池中随机选一个，避免与已有角色重复职业"""
+    pool = ROLE_FILL_POOL.get(role, ROLE_FILL_POOL['utility'])
+    if exclude_classes:
+        filtered = [p for p in pool if p['class'] not in exclude_classes]
+        if filtered:
+            pool = filtered
+    return _rng.choice(pool)
 
 HIT_DICE = {
     'Barbarian': 12, 'Fighter': 10, 'Paladin': 10, 'Ranger': 10,
@@ -135,13 +187,15 @@ async def analyze_roles(state: PartyGeneratorState) -> dict:
         if any(c.lower() in pc_lower or pc_lower in c.lower() for c in classes):
             covered_roles.add(role)
 
-    priority_roles = ['healer', 'tank', 'arcane_dps', 'utility']
+    priority_roles = ['healer', 'tank', 'arcane_dps', 'utility', 'martial_dps']
     needed_roles = [r for r in priority_roles if r not in covered_roles]
 
     assigned = []
+    used_classes = {state["player_class"]}  # 避免和玩家重复职业
     for i in range(companions_needed):
         role = needed_roles[i] if i < len(needed_roles) else priority_roles[i % len(priority_roles)]
-        fill = ROLE_FILL.get(role, ROLE_FILL['utility'])
+        fill = _pick_role_fill(role, exclude_classes=used_classes)
+        used_classes.add(fill['class'])
         assigned.append({
             'slot': i + 1,
             'needed_role': role,

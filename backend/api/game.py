@@ -217,6 +217,12 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db), us
     if session.user_id and session.user_id != user_id:
         raise HTTPException(403, "无权删除他人的存档")
 
+    # 清除所有角色对该 session 的引用（解除外键约束）
+    from sqlalchemy import update as sql_update
+    await db.execute(
+        sql_update(Character).where(Character.session_id == session_id).values(session_id=None)
+    )
+
     # 删除关联的战斗状态
     from sqlalchemy import delete as sql_delete
     await db.execute(sql_delete(CombatState).where(CombatState.session_id == session_id))
@@ -274,20 +280,300 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
         session_id = req.session_id,
         role       = "player",
         content    = req.action_text,
-        log_type   = "narrative",
+        log_type   = "narrative" if not session.combat_active else "combat",
     ))
 
-    # ── 构建 WF3 输入（ContextBuilder 负责序列化 + RAG 检索）──
+    # ═══════════════════════════════════════════════════════
+    # 自然语言战斗：解析 → 引擎执行 → DM 叙事
+    # ═══════════════════════════════════════════════════════
+    if session.combat_active and combat_state and player:
+        from services.action_parser import parse_combat_action
+        from api.combat import _get_ts, _save_ts, _check_attack_range, _ai_move_toward, _chebyshev_dist, _calc_entity_turn_limits
+        from services.combat_service import CombatService
+        from services.combat_narrator import narrate_action
+
+        svc = CombatService()
+        positions = dict(combat_state.entity_positions or {})
+        state = session.game_state or {}
+        enemies = list(state.get("enemies", []))
+        p_derived = player.derived or {}
+        player_id = str(player.id)
+
+        # 获取玩家回合状态
+        ts = _get_ts(combat_state, player_id)
+        move_remaining = ts["movement_max"] - ts["movement_used"]
+
+        # 构建 game_state 给解析器
+        gs_for_parser = {
+            "characters": [{"id": c.id, "name": c.name, "hp_current": c.hp_current,
+                            "hp_max": (c.derived or {}).get("hp_max", c.hp_current),
+                            "is_player": c.is_player} for c in characters if c.hp_current > 0],
+            "enemies": [{"id": e["id"], "name": e.get("name","?"),
+                         "hp_current": e.get("hp_current",0), "hp_max": e.get("hp_max",0)}
+                        for e in enemies if e.get("hp_current", 0) > 0],
+        }
+
+        # Step 1: AI 解析自然语言 → 结构化行动列表
+        parsed = await parse_combat_action(
+            player_input=req.action_text,
+            game_state=gs_for_parser,
+            player_id=player_id,
+            player_data={"name": player.name, "hp_current": player.hp_current,
+                         "hp_max": p_derived.get("hp_max", player.hp_current),
+                         "ac": p_derived.get("ac", 10)},
+            positions=positions,
+            move_remaining=move_remaining,
+        )
+
+        # Step 2: 逐个执行行动
+        action_results = []
+        dice_display = []
+        total_damage = 0
+        target_new_hp = None
+        action_used = False
+
+        for action in parsed["actions"]:
+            atype = action.get("type", "")
+
+            if atype == "move" and not action_used:
+                # 移动到目标旁边或指定位置
+                move_target_id = action.get("target_id")
+                move_target_pos = action.get("target_pos")
+
+                if move_target_id:
+                    dest = positions.get(str(move_target_id))
+                elif move_target_pos:
+                    dest = move_target_pos
+                else:
+                    continue
+
+                if dest:
+                    cur_pos = positions.get(player_id)
+                    if cur_pos:
+                        result = _ai_move_toward(cur_pos, dest, move_remaining, positions, player_id)
+                        if result:
+                            new_pos = {"x": result["x"], "y": result["y"]}
+                            positions[player_id] = new_pos
+                            combat_state.entity_positions = positions
+                            ts["movement_used"] += result["steps"]
+                            move_remaining -= result["steps"]
+                            _save_ts(combat_state, player_id, ts)
+                            action_results.append(f"移动了 {result['steps']*5}ft")
+
+            elif atype == "attack" and not action_used:
+                # 攻击
+                target_id = action.get("target_id")
+                is_ranged = action.get("is_ranged", False)
+
+                # 如果没指定目标，找最近的敌人
+                if not target_id:
+                    player_pos = positions.get(player_id, {})
+                    closest_dist = 999
+                    for e in enemies:
+                        if e.get("hp_current", 0) > 0:
+                            epos = positions.get(str(e["id"]), {})
+                            d = _chebyshev_dist(player_pos, epos)
+                            if d < closest_dist:
+                                closest_dist = d
+                                target_id = e["id"]
+
+                if target_id:
+                    # 距离检查
+                    atk_pos = positions.get(player_id)
+                    tgt_pos = positions.get(str(target_id))
+                    in_range, dist, _ = _check_attack_range(atk_pos, tgt_pos, is_ranged)
+
+                    if not in_range:
+                        action_results.append(f"目标不在攻击范围内（距离{dist*5}ft）")
+                    else:
+                        # 执行攻击
+                        target_enemy = next((e for e in enemies if str(e["id"]) == str(target_id)), None)
+                        if target_enemy:
+                            target_derived = target_enemy.get("derived", {})
+                            if not target_derived.get("ac"):
+                                target_derived["ac"] = target_enemy.get("ac", 13)
+
+                            attack_result = svc.resolve_melee_attack(
+                                attacker_derived=p_derived,
+                                target_derived=target_derived,
+                                is_ranged=is_ranged,
+                            )
+
+                            d20 = attack_result.attack_roll.get("d20", 0)
+                            hit = attack_result.attack_roll.get("hit", False)
+                            is_crit = attack_result.attack_roll.get("is_crit", False)
+                            damage = attack_result.damage
+
+                            dice_display.append({
+                                "label": "攻击检定", "dice_face": 20, "raw": d20,
+                                "total": attack_result.attack_roll.get("attack_total", d20),
+                                "against": f"AC {target_derived.get('ac', 13)}",
+                                "outcome": "暴击" if is_crit else ("命中" if hit else "未命中"),
+                            })
+
+                            if hit:
+                                target_enemy["hp_current"] = svc.apply_damage(
+                                    target_enemy.get("hp_current", 0), damage,
+                                    target_enemy.get("derived", {}).get("hp_max", 10),
+                                )
+                                target_new_hp = target_enemy["hp_current"]
+                                total_damage += damage
+                                dice_display.append({
+                                    "label": "伤害", "dice_face": p_derived.get("hit_die", 8),
+                                    "raw": damage, "total": damage,
+                                })
+                                crit_str = "暴击！" if is_crit else ""
+                                action_results.append(f"{crit_str}攻击命中 {target_enemy.get('name','敌人')}，造成 {damage} 点伤害")
+                                if target_new_hp <= 0:
+                                    target_enemy["dead"] = True
+                                    action_results.append(f"{target_enemy.get('name','敌人')} 被击倒！")
+                            else:
+                                action_results.append(f"攻击 {target_enemy.get('name','敌人')} 未命中（d20={d20}）")
+
+                            state["enemies"] = enemies
+                            session.game_state = dict(state)
+                            from sqlalchemy.orm.attributes import flag_modified
+                            flag_modified(session, "game_state")
+                    action_used = True
+
+            elif atype == "creative" and not action_used:
+                # 创意行动 — 需要检定
+                check_type = action.get("check_type", "str")
+                dc = action.get("dc", 15)
+                description = action.get("description", "创意行动")
+
+                # 掷检定
+                check_result = roll_skill_check(
+                    character={"derived": p_derived, "proficient_skills": player.proficient_skills or []},
+                    skill=check_type,
+                    dc=dc,
+                )
+                d20 = check_result.get("d20", 10)
+                total = check_result.get("total", 10)
+                success = check_result.get("success", False)
+
+                dice_display.append({
+                    "label": f"{description} 检定", "dice_face": 20, "raw": d20,
+                    "modifier": f"+{check_result.get('modifier',0)}",
+                    "total": total, "against": f"DC {dc}",
+                    "outcome": "成功" if success else "失败",
+                })
+
+                if success:
+                    # 成功时应用伤害（如果有）
+                    dmg_dice = action.get("damage_dice")
+                    if dmg_dice:
+                        dmg_roll = roll_dice(dmg_dice)
+                        creative_dmg = dmg_roll["total"]
+                        total_damage += creative_dmg
+                        target_id = action.get("target_id")
+                        if target_id:
+                            target_enemy = next((e for e in enemies if str(e["id"]) == str(target_id)), None)
+                            if target_enemy:
+                                target_enemy["hp_current"] = svc.apply_damage(
+                                    target_enemy.get("hp_current", 0), creative_dmg,
+                                    target_enemy.get("derived", {}).get("hp_max", 10),
+                                )
+                                target_new_hp = target_enemy["hp_current"]
+                                state["enemies"] = enemies
+                                session.game_state = dict(state)
+                                flag_modified(session, "game_state")
+                        dice_display.append({"label": "伤害", "raw": creative_dmg, "total": creative_dmg})
+                    action_results.append(f"{description} — 成功！（d20={d20}+{check_result.get('modifier',0)}={total} vs DC{dc}）" +
+                                          (f" {action.get('effect_on_success','')}" if action.get('effect_on_success') else ""))
+                else:
+                    action_results.append(f"{description} — 失败（d20={d20}+{check_result.get('modifier',0)}={total} vs DC{dc}）" +
+                                          (f" {action.get('effect_on_fail','')}" if action.get('effect_on_fail') else ""))
+                action_used = True
+
+            elif atype == "dodge" and not action_used:
+                ts["dodging"] = True
+                _save_ts(combat_state, player_id, ts)
+                action_results.append("采取闪避动作，攻击你的敌人获得劣势")
+                action_used = True
+
+            elif atype == "dash" and not action_used:
+                ts["movement_max"] *= 2
+                _save_ts(combat_state, player_id, ts)
+                action_results.append("冲刺！移动力翻倍")
+                action_used = True
+
+            elif atype == "disengage" and not action_used:
+                ts["disengaged"] = True
+                _save_ts(combat_state, player_id, ts)
+                action_results.append("脱离接战，移动不触发借机攻击")
+                action_used = True
+
+        # 标记行动已使用
+        if action_used:
+            ts["action_used"] = True
+            _save_ts(combat_state, player_id, ts)
+
+        # Step 3: DM 叙事包装
+        mechanical_summary = " | ".join(action_results) if action_results else "未执行有效行动"
+        narrative = await narrate_action(
+            actor_name=player.name,
+            actor_class=player.char_class,
+            target_name="",
+            action_type="creative" if any(a.get("type") == "creative" for a in parsed["actions"]) else "attack",
+            extra_details=f"玩家行动: {req.action_text}\n结果: {mechanical_summary}",
+            damage=total_damage,
+        )
+        if not narrative:
+            narrative = mechanical_summary
+
+        # 检查战斗结束
+        combat_over = False
+        outcome = None
+        alive_enemies = [e for e in enemies if e.get("hp_current", 0) > 0]
+        if not alive_enemies:
+            combat_over = True
+            outcome = "victory"
+            session.combat_active = False
+
+        # 写日志
+        db.add(GameLog(
+            session_id=req.session_id, role="dm", content=narrative,
+            log_type="combat", dice_result=dice_display if dice_display else None,
+        ))
+
+        # 构建 combat_update
+        combat_update = {
+            "entity_positions": dict(combat_state.entity_positions or {}),
+            "turn_states": dict(combat_state.turn_states or {}),
+            "current_turn_index": combat_state.current_turn_index,
+            "round_number": combat_state.round_number,
+        }
+
+        await db.commit()
+
+        return {
+            "type":               "combat_action",
+            "narrative":          narrative,
+            "companion_reactions": "",
+            "dice_display":       dice_display,
+            "player_choices":     [],
+            "needs_check":        {"required": False},
+            "combat_triggered":   False,
+            "combat_ended":       combat_over,
+            "combat_end_result":  outcome,
+            "combat_update":      combat_update,
+            "action_results":     action_results,
+            "errors":             [],
+        }
+
+    # ═══════════════════════════════════════════════════════
+    # 探索模式：原有 DM Agent 流程
+    # ═══════════════════════════════════════════════════════
+
     builder = ContextBuilder(
         session      = session,
         module       = module,
         characters   = characters,
         combat_state = combat_state,
-        # rag_service = DifyRagService()  ← 长团启用 RAG 时取消注释并导入
     )
     inputs = await builder.build(player_action=req.action_text)
 
-    # ── 调用 DM Agent（LangGraph，thread_id = session.id 实现跨轮次记忆）──
     try:
         dm_result = await dify_client.call_dm_agent(
             **inputs,
@@ -299,7 +585,6 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
     if not dm_result.get("success", True):
         raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
 
-    # ── 应用状态变化 ──
     applicator = StateApplicator(db)
     ar = await applicator.apply(
         session      = session,
@@ -308,7 +593,6 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
         combat_state = combat_state,
     )
 
-    # ── 处理战斗触发（DM代理判定需要进入战斗）──
     if ar.combat_triggered:
         await _init_combat(
             session         = session,
@@ -326,10 +610,11 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
         "companion_reactions":ar.companion_reactions,
         "dice_display":       ar.dice_display,
         "player_choices":     ar.player_choices,
-        "needs_check":        ar.needs_check,        # 探索检定声明（required=false 表示不需要掷骰）
+        "needs_check":        ar.needs_check,
         "combat_triggered":   ar.combat_triggered,
         "combat_ended":       ar.combat_ended,
         "combat_end_result":  ar.combat_end_result,
+        "combat_update":      combat_update,
         "errors":             ar.errors,
     }
 

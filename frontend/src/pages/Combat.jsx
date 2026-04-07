@@ -58,6 +58,9 @@ export default function Combat() {
   const [maneuverModalOpen, setManeuverModalOpen] = useState(false)
   const [reactionPrompt, setReactionPrompt] = useState(null)
 
+  // 自然语言战斗输入
+  const [combatInput, setCombatInput] = useState('')
+
   // 先攻骰子动画标记（仅第一轮第一次显示）
   const [initiativeShown, setInitiativeShown] = useState(false)
 
@@ -336,6 +339,85 @@ export default function Combat() {
       setIsProcessing(false)
     }
   }, [combat, sessionId, isProcessing, addLog, triggerAiTurn])
+
+  // ── 自然语言战斗行动 ──────────────────────────────────
+  const handleCombatAction = async () => {
+    if (!combatInput.trim() || !playerTurn || isProcessing || actionUsed) return
+    const text = combatInput.trim()
+    setCombatInput('')
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+
+    try {
+      addLog({ role: 'player', content: text, log_type: 'combat' })
+
+      const resp = await gameApi.action({ session_id: sessionId, action_text: text })
+
+      // 叙事日志
+      if (resp.narrative) {
+        addLog({ role: 'dm', content: resp.narrative, log_type: 'combat' })
+      }
+      if (resp.companion_reactions) {
+        addLog({ role: 'companion', content: resp.companion_reactions, log_type: 'companion' })
+      }
+
+      // 逐个显示骰子 3D 动画
+      if (resp.dice_display?.length > 0) {
+        for (const dice of resp.dice_display) {
+          const faces = dice.dice_face || 20
+          const result = dice.raw || dice.total || 0
+          const label = dice.label || '检定'
+          if (result > 0) {
+            await rollDice3D(faces)  // 3D 动画
+            showDice({ faces, result, label })  // 数值覆盖
+            await new Promise(r => setTimeout(r, 2000))  // 等待展示
+          }
+        }
+      }
+
+      // 更新战斗状态
+      if (resp.combat_update) {
+        setCombat(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            entity_positions: resp.combat_update.entity_positions || prev.entity_positions,
+            turn_states: resp.combat_update.turn_states || prev.turn_states,
+            current_turn_index: resp.combat_update.current_turn_index ?? prev.current_turn_index,
+            round_number: resp.combat_update.round_number ?? prev.round_number,
+          }
+        })
+        if (resp.combat_update.turn_states && playerId) {
+          setTurnState(resp.combat_update.turn_states[playerId] || null)
+        }
+      }
+
+      // 战斗结束
+      if (resp.combat_ended) {
+        setCombatOver(resp.combat_end_result)
+      }
+
+      // 刷新完整状态
+      try {
+        const fresh = await gameApi.getCombat(sessionId)
+        if (fresh) setCombat(fresh)
+      } catch (_) {}
+
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }
+
+  const handleCombatInputKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleCombatAction()
+    }
+  }
 
   // ── 玩家攻击（两步流程：attack-roll → dice动画 → damage-roll）──
   const handleAttack = async () => {
@@ -1721,6 +1803,49 @@ export default function Combat() {
                       <SwordIcon size={11} color="var(--green-light)" style={{ display: 'inline', verticalAlign: 'middle' }} /> 选择协助队友
                     </p>
                   )}
+                </div>
+
+                {/* ── 自然语言战斗输入 ── */}
+                <div style={{
+                  display: 'flex', gap: 8, alignItems: 'flex-end',
+                  padding: '8px 0', borderTop: '1px solid var(--wood-light)',
+                  marginTop: 8, width: '100%',
+                }}>
+                  <textarea
+                    value={combatInput}
+                    onChange={e => setCombatInput(e.target.value)}
+                    onKeyDown={handleCombatInputKeyDown}
+                    disabled={!playerTurn || isProcessing || actionUsed}
+                    rows={1}
+                    placeholder={actionUsed ? "本回合行动已使用，请结束回合" : "描述你的创意行动... 例如：我把火把扔向蛛网"}
+                    style={{
+                      flex: 1, resize: 'none', padding: '8px 12px',
+                      background: 'var(--bg)', color: 'var(--text)',
+                      border: '1px solid var(--wood-light)', borderRadius: 8,
+                      fontSize: 13, fontFamily: 'inherit',
+                      outline: 'none', minHeight: 36,
+                      opacity: (!playerTurn || isProcessing || actionUsed) ? 0.4 : 1,
+                    }}
+                    onFocus={e => e.target.style.borderColor = 'var(--gold)'}
+                    onBlur={e => e.target.style.borderColor = 'var(--wood-light)'}
+                  />
+                  <button
+                    onClick={handleCombatAction}
+                    disabled={!combatInput.trim() || !playerTurn || isProcessing || actionUsed}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8,
+                      background: combatInput.trim() && playerTurn && !isProcessing && !actionUsed
+                        ? 'linear-gradient(135deg, #78350f, #92400e)'
+                        : 'var(--bg2)',
+                      border: `1px solid ${combatInput.trim() && playerTurn ? 'var(--gold)' : 'var(--wood-light)'}`,
+                      color: combatInput.trim() && playerTurn ? '#fff' : 'var(--text-dim)',
+                      cursor: combatInput.trim() && playerTurn && !isProcessing ? 'pointer' : 'not-allowed',
+                      fontSize: 13, fontWeight: 700,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {isProcessing ? '⏳' : '⚔️ 执行'}
+                  </button>
                 </div>
               </div>
             ) : (

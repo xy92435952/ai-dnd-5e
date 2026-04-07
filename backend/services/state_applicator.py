@@ -117,6 +117,19 @@ class StateApplicator:
         for gold_delta in delta.get("gold_changes", []):
             await self._apply_gold_change(gold_delta, char_map)
 
+        # ── 位置变化（自然语言战斗中的移动）──
+        if combat_state:
+            for pc in delta.get("position_changes", []):
+                eid = str(pc.get("id", ""))
+                new_pos = pc.get("position")
+                if eid and new_pos and isinstance(new_pos, dict):
+                    positions = dict(combat_state.entity_positions or {})
+                    x, y = new_pos.get("x", 0), new_pos.get("y", 0)
+                    if 0 <= x < 20 and 0 <= y < 12:
+                        positions[eid] = {"x": x, "y": y}
+                        combat_state.entity_positions = positions
+                        logger.info(f"位置变化: {eid[:8]} → ({x},{y}) | {pc.get('reason','')}")
+
         # ── 战斗触发 ──
         if delta.get("combat_trigger"):
             ar.combat_triggered  = True

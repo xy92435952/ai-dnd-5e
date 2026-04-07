@@ -1,8 +1,8 @@
 # 软件技术文档
 
 **项目：** AI 跑团平台（DnD 5e）
-**版本：** Phase 14 v8.0
-**日期：** 2026-04-05（项目启动：2026-02-10）
+**版本：** v0.8
+**日期：** 2026-04-06（项目启动：2026-02-10）
 
 ---
 
@@ -42,7 +42,7 @@
        │         └────────────────────────────────┘
        ▼
 ┌─────────────────────────────────────────────────┐
-│            数据层 (SQLite + SQLAlchemy 2.0)       │
+│       数据层 (PostgreSQL / SQLite + SQLAlchemy 2.0) │
 │          AsyncSession + 连接池 + 事务管理          │
 └─────────────────────────────────────────────────┘
 ```
@@ -70,7 +70,8 @@
 | Python | 3.11+ | 后端运行时 |
 | FastAPI | 0.115+ | Web 框架 |
 | SQLAlchemy | 2.0 | ORM |
-| SQLite | 3 | 关系型数据库 |
+| PostgreSQL | 16+ | 生产环境关系型数据库 |
+| SQLite | 3 | 本地开发关系型数据库 |
 | LangGraph | latest | AI 工作流编排 |
 | ChromaDB | latest | 向量数据库 |
 | Claude Sonnet 4.6 | — | LLM（via AiHubMix OpenAI 兼容 API） |
@@ -84,7 +85,7 @@ ai-dnd-5e/
 ├── backend/
 │   ├── main.py                   # FastAPI 应用入口，CORS，路由挂载
 │   ├── config.py                 # 环境变量配置（API Key, DB URL, JWT Secret）
-│   ├── database.py               # SQLAlchemy 引擎 + AsyncSession 工厂
+│   ├── database.py               # SQLAlchemy 引擎 + AsyncSession 工厂（自动检测 PostgreSQL/SQLite）
 │   │
 │   ├── api/                      # API 路由层
 │   │   ├── __init__.py
@@ -946,11 +947,31 @@ Combat.jsx (主页面, ~1500行)
 
 ---
 
+## 8. 数据库与部署 (v0.8)
+
+### 8.1 PostgreSQL 迁移
+
+| 项目 | 说明 |
+|------|------|
+| 自动检测 | `database.py` 根据 `DATABASE_URL` 前缀自动选择 PostgreSQL (asyncpg) 或 SQLite (aiosqlite) |
+| 连接池 | PostgreSQL 模式下使用 `pool_size` + `max_overflow` 连接池配置 |
+| 兼容性 | 所有 ORM 模型和查询保持不变，通过 SQLAlchemy 2.0 抽象层屏蔽差异 |
+
+### 8.2 Docker 容器化部署
+
+| 组件 | 说明 |
+|------|------|
+| docker-compose | 前端 + 后端 + PostgreSQL 容器编排 |
+| SSL | HTTPS 证书配置，生产环境加密通信 |
+| 自定义域名 | 域名绑定 + 反向代理 |
+
+---
+
 ## 附录 A: 环境变量
 
 | 变量 | 说明 | 示例 |
 |------|------|------|
-| `DATABASE_URL` | SQLite 数据库路径 | `sqlite+aiosqlite:///./app.db` |
+| `DATABASE_URL` | 数据库连接字符串 | `postgresql+asyncpg://user:pass@host/db` 或 `sqlite+aiosqlite:///./app.db` |
 | `JWT_SECRET` | JWT 签名密钥 | 随机字符串 |
 | `AIHUBMIX_API_KEY` | AiHubMix API 密钥 | `sk-...` |
 | `AIHUBMIX_BASE_URL` | AiHubMix API 基础 URL | `https://api.aihubmix.com/v1` |
@@ -966,7 +987,8 @@ Combat.jsx (主页面, ~1500行)
 | fastapi | Web 框架 |
 | uvicorn | ASGI 服务器 |
 | sqlalchemy[asyncio] | ORM（异步） |
-| aiosqlite | SQLite 异步驱动 |
+| asyncpg | PostgreSQL 异步驱动 |
+| aiosqlite | SQLite 异步驱动（本地开发） |
 | python-jose[cryptography] | JWT 处理 |
 | passlib[bcrypt] | 密码哈希 |
 | langchain / langgraph | AI 编排 |
