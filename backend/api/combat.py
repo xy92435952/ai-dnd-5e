@@ -513,6 +513,7 @@ class SmiteRequest(BaseModel):
     slot_level:       int = 1           # 使用的法术位等级
     target_is_undead: bool = False      # 目标是否为亡灵/邪魔
     damage_values:    Optional[list[int]] = None  # 前端骰子物理结果
+    target_id:        Optional[str] = None        # 斩击目标（前端传入）
 
 
 class ClassFeatureRequest(BaseModel):
@@ -2171,34 +2172,33 @@ async def divine_smite(
     if req.damage_values:
         smite["damage"] = sum(req.damage_values)
 
-    # 找到最近一次攻击的目标（从 combat log 中推断，或从 turn state）
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()
 
     state   = session.game_state or {}
     enemies = list(state.get("enemies", []))
 
-    # 获取最近攻击日志中的目标（简化：对第一个存活敌人施加）
-    target_new_hp = None
-    target_name   = "目标"
-    log_result = await db.execute(
-        select(GameLog)
-        .where(GameLog.session_id == session_id)
-        .where(GameLog.log_type == "combat")
-        .order_by(GameLog.created_at.desc())
-        .limit(1)
-    )
-    last_log = log_result.scalars().first()
-
-    # 从最近的攻击结果中提取 target_id
-    last_target_id = None
-    if last_log and last_log.dice_result:
-        last_target_id = last_log.dice_result.get("target_id")
+    # 确定斩击目标：优先用前端传入的 target_id
+    smite_target_id = req.target_id
+    if not smite_target_id:
+        # Fallback：从 pending_attack 或最近日志推断
+        if combat:
+            all_ts = dict(combat.turn_states or {})
+            player_ts = all_ts.get(str(session.player_character_id), {})
+            smite_target_id = player_ts.get("last_attack_target")
+        if not smite_target_id:
+            # 最后兜底：第一个存活敌人
+            for e in enemies:
+                if e.get("hp_current", 0) > 0:
+                    smite_target_id = e["id"]
+                    break
 
     # 对目标施加伤害
+    target_new_hp = None
+    target_name   = "目标"
     smite_applied = False
     for e in enemies:
-        if last_target_id and e["id"] != last_target_id:
+        if str(e.get("id")) != str(smite_target_id):
             continue
         if e.get("hp_current", 0) <= 0:
             continue
@@ -2212,7 +2212,6 @@ async def divine_smite(
         break
 
     if not smite_applied:
-        # 退回法术位
         current_slots[slot_key] = available
         player.spell_slots = current_slots
         raise HTTPException(400, "没有可施加斩击的目标")

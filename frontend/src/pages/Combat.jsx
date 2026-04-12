@@ -542,7 +542,7 @@ export default function Combat() {
       const { total: smiteTotal, rolls: smiteRolls } = await rollDice3D(8, smiteDiceCount)
       showDice({ faces: 8, result: smiteTotal, label: '神圣斩击', count: smiteDiceCount })
 
-      const result = await gameApi.smite(sessionId, slotLevel, false, smiteRolls)
+      const result = await gameApi.smite(sessionId, slotLevel, false, smiteRolls, currentSmiteTarget)
 
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)

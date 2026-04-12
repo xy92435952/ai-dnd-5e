@@ -151,11 +151,12 @@ export const gameApi = {
     api.post(`/game/combat/${sessionId}/end-turn`),
 
   // 神圣斩击 (Paladin Divine Smite)
-  smite: (sessionId, slotLevel, targetIsUndead = false, damageValues = null) =>
+  smite: (sessionId, slotLevel, targetIsUndead = false, damageValues = null, targetId = null) =>
     api.post(`/game/combat/${sessionId}/smite`, {
       slot_level: slotLevel,
       target_is_undead: targetIsUndead,
       ...(damageValues ? { damage_values: damageValues } : {}),
+      ...(targetId ? { target_id: targetId } : {}),
     }),
 
   // 职业特性 (Class Features)
