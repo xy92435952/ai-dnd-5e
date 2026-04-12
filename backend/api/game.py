@@ -602,6 +602,7 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
             db              = db,
         )
 
+    combat_update = None
     await db.commit()
 
     return {

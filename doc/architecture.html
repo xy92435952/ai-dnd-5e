@@ -750,7 +750,7 @@
   <div class="header">
     <div class="header-badge">DnD 5e AI TRPG · LangGraph Migration</div>
     <h1>系统架构图</h1>
-    <div class="header-sub">AI跑团平台 &nbsp;·&nbsp; LangGraph + 完整5e角色系统 + 用户认证 &nbsp;·&nbsp; v0.8 &nbsp;·&nbsp; PostgreSQL + Docker + SSL + Frontend-Driven Dice + Reaction UI</div>
+    <div class="header-sub">AI跑团平台 &nbsp;·&nbsp; LangGraph + 完整5e角色系统 + 用户认证 &nbsp;·&nbsp; v0.9 &nbsp;·&nbsp; Natural Language Combat + Action Parser + AI Companion Overhaul</div>
   </div>
 
   <!-- ══════════════════════════════════════════ -->
@@ -1256,7 +1256,12 @@
       <div class="rules-card">
         <div class="rules-card-icon">&#x1F9E0;</div>
         <div class="rules-card-name">ai_combat_agent.py</div>
-        <div class="rules-card-desc">LLM战术AI决策<br>敌人/队友双prompt · 难度缩放</div>
+        <div class="rules-card-desc">LLM战术AI决策<br>敌人/12+职业队友策略 · 难度缩放</div>
+      </div>
+      <div class="rules-card">
+        <div class="rules-card-icon">&#x1F4DD;</div>
+        <div class="rules-card-name">action_parser.py</div>
+        <div class="rules-card-desc">自然语言→结构化行动<br>AI解析自由文本战斗指令</div>
       </div>
       <div class="rules-card">
         <div class="rules-card-icon">&#x1F43B;</div>
@@ -1299,8 +1304,8 @@
   <div class="legend-item"><div class="legend-dot" style="background:var(--red);"></div>5e 规则引擎层 (不变)</div>
   <div style="border-top:1px solid var(--border);margin:10px 0 8px;"></div>
   <div style="font-size:10px;color:var(--text-dim);line-height:1.6;">
-    v0.8 &nbsp;&middot;&nbsp; 2026-04-06<br>
-    AI跑团平台 &middot; PostgreSQL + Docker &middot; Frontend-Driven Dice &middot; Reaction UI &middot; AI Spellcasting
+    v0.9 &nbsp;&middot;&nbsp; 2026-04-07<br>
+    AI跑团平台 &middot; Natural Language Combat &middot; Action Parser &middot; AI Companion Overhaul &middot; Party Diversity
   </div>
 </div>
 

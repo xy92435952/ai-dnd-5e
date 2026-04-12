@@ -1,8 +1,8 @@
 # MVP 完成报告
 
 **项目名称：** AI 跑团平台（DnD 5e）
-**版本：** v0.8
-**日期：** 2026-04-06
+**版本：** v0.9
+**日期：** 2026-04-07
 **阶段：** Phase 1-15 全部完成
 
 ---
@@ -15,7 +15,7 @@
 | **定位** | 基于 D&D 5e 规则的 AI 单人跑团平台 |
 | **目标用户** | D&D 爱好者、TRPG 新手、无法凑齐线下团的玩家 |
 | **核心价值** | 无需真人 DM，AI 驱动的沉浸式跑团体验 |
-| **MVP 范围** | Phase 1-15 全部完成，涵盖用户系统、角色创建、AI DM、网格战斗、法术系统、子职业机械效果、前端骰子驱动、反应系统UI、AI施法、控制法术、短休资源、PostgreSQL数据库迁移、Docker容器化部署 |
+| **MVP 范围** | Phase 1-15 全部完成，涵盖用户系统、角色创建、AI DM、网格战斗、法术系统、子职业机械效果、前端骰子驱动、反应系统UI、AI施法、控制法术、短休资源、PostgreSQL数据库迁移、Docker容器化部署、自然语言战斗系统 |
 
 ---
 
@@ -132,6 +132,17 @@
 | SSL 部署 | [x] | HTTPS 证书配置 |
 | 自定义域名 | [x] | 生产环境域名绑定 |
 
+### 2.8 v0.9 新增功能
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 自然语言战斗系统 | [x] | 玩家输入自由文本战斗指令（如"把火把扔向蜘蛛网"），AI 解析意图 → 引擎执行真实骰子判定 |
+| Action Parser | [x] | action_parser.py — AI 将自然语言翻译为结构化行动列表 [{type:"move",...}, {type:"attack",...}] |
+| AI 队友行为大改 | [x] | 12+ 职业角色细分战斗策略，施法职业不再近战，牧师优先治疗 |
+| 队伍生成多样性 | [x] | 34 种职业/子职业组合，5 个角色池（原 4 个固定选项），随机选择避免重复 |
+| LangGraph 连接池 | [x] | psycopg_pool 替换单连接，空闲超时自动重连 |
+| 删除会话 FK 修复 | [x] | 删除会话前先清除角色 session_id 外键引用 |
+
 ---
 
 ## 3. 技术架构摘要
@@ -140,7 +151,7 @@
 |------|---------|
 | **前端** | React 19 + Vite 8 + Tailwind CSS v4 + Zustand 5 + Fantastic Dice |
 | **后端** | Python FastAPI + PostgreSQL / SQLite + SQLAlchemy 2.0 |
-| **AI 编排** | LangGraph StateGraph（3 个 Graph + AI Combat Agent） |
+| **AI 编排** | LangGraph StateGraph（3 个 Graph + AI Combat Agent + Action Parser） |
 | **RAG** | ChromaDB 本地向量库 |
 | **LLM** | Claude Sonnet 4.6 via AiHubMix（OpenAI 兼容 API） |
 | **认证** | JWT（python-jose）+ bcrypt |
@@ -231,12 +242,13 @@
 | v0.6 | Phase 13 AI战斗决策Agent+53子职业实装+Fantastic Dice+金币系统+开场白生成 | 2026.4.3 |
 | v0.7 | Phase 14 前端骰子物理绑定+反应系统UI+控制法术+短休资源+AI队友施法+法术按职业过滤 | 2026.4.5 |
 | v0.8 | Phase 15 SQLite→PostgreSQL迁移+Docker容器化+SSL部署+自定义域名 | 2026.4.6 |
+| v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复 | 2026.4.7 |
 
 ---
 
 ## 7. 里程碑总结
 
-Phase 1-15 (v0.8) 已实现一个功能完整的 AI 单人跑团平台：
+Phase 1-15 (v0.9) 已实现一个功能完整的 AI 单人跑团平台：
 
 - **完整的用户流程**：注册 → 上传模组 → 创建角色 → AI 生成队友 → 开始冒险 → 进入战斗 → 存档/继续
 - **忠实的 5e 规则**：12 职业 53 子职业的机械效果、SRD 法术库、完整的攻击/豁免/条件系统
@@ -245,5 +257,6 @@ Phase 1-15 (v0.8) 已实现一个功能完整的 AI 单人跑团平台：
 - **生产级部署**：PostgreSQL 数据库、Docker 容器化、SSL 证书、自定义域名
 - **v0.7 亮点**：前端骰子值绑定（骰面=显示=后端）、5 种反应 UI、22 种控制法术条件映射、AI 施法、短休资源恢复
 - **v0.8 亮点**：SQLite→PostgreSQL 无缝迁移（database.py 自动检测）、Docker 容器化部署、SSL 加密
+- **v0.9 亮点**：自然语言战斗（Action Parser 解析自由文本→结构化行动）、AI 队友 12+ 职业细分策略、34 种队伍组合多样性、psycopg_pool 连接池
 
 下一步将进入 v1.0，重点实现多人联机和模组市场。
