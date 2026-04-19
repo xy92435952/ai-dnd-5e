@@ -18,7 +18,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Session, Character, SessionMember, User
+from models import Session, Character, SessionMember, User, Module
 
 
 # ── 常量 ─────────────────────────────────────────────
@@ -327,6 +327,154 @@ async def start_game(
     return session
 
 
+# ── 补满 AI 队友 ─────────────────────────────────────
+
+async def list_ai_companions(
+    db: AsyncSession,
+    session_id: str,
+) -> List[dict]:
+    """列出该房间的 AI 队友（session_id 匹配 + is_player=False）。"""
+    result = await db.execute(
+        select(Character)
+        .where(Character.session_id == session_id, Character.is_player == False)
+        .order_by(Character.id.asc())
+    )
+    out = []
+    for c in result.scalars().all():
+        out.append({
+            "id": c.id,
+            "name": c.name,
+            "race": c.race,
+            "char_class": c.char_class,
+            "level": c.level,
+            "hp_max": (c.derived or {}).get("hp_max"),
+        })
+    return out
+
+
+async def fill_with_ai_companions(
+    db: AsyncSession,
+    actor_user_id: str,
+    session_id: str,
+) -> dict:
+    """房主触发：根据 max_players 与已认领人数差额，生成 AI 队友补位。
+
+    要求：
+    - 房主权限
+    - 游戏未开始
+    - 至少 1 名成员已认领角色（以其作为 party 生成参考）
+
+    返回：{"generated": N, "companions": [...], "already_full": bool}
+    """
+    # 延迟导入，避免循环依赖（services 模块之间）
+    from services.langgraph_client import langgraph_client
+    from services.dnd_rules import (
+        apply_racial_bonuses, calc_derived,
+        CLASS_SAVE_PROFICIENCIES, CLASS_SKILL_CHOICES,
+    )
+
+    # 与 characters.py 中 generate_party 使用相同的技能池与规范化
+    try:
+        from api.characters import ALL_SKILLS, _normalize_class
+    except Exception:
+        # 回退：简化版
+        ALL_SKILLS = []
+        def _normalize_class(c: str) -> str:
+            return c or "Fighter"
+
+    session = await db.get(Session, session_id)
+    if not session or not session.is_multiplayer:
+        raise HTTPException(404, "房间不存在")
+    if session.host_user_id != actor_user_id:
+        raise HTTPException(403, "只有房主可以补 AI 队友")
+    if _is_game_started(session):
+        raise HTTPException(409, "游戏已经开始，无法补位")
+
+    members = await _list_members_raw(db, session_id)
+    claimed = [m for m in members if m.character_id]
+    if not claimed:
+        raise HTTPException(400, "至少需要一位玩家创建并认领角色作为参考")
+
+    existing_ai = await list_ai_companions(db, session_id)
+    target_total = session.max_players or 4
+    need = target_total - len(claimed) - len(existing_ai)
+    if need <= 0:
+        return {"generated": 0, "companions": existing_ai, "already_full": True}
+
+    # 取第一位已认领角色作为 party 生成参考
+    ref_char = await db.get(Character, claimed[0].character_id)
+    if not ref_char:
+        raise HTTPException(500, "参考角色加载失败")
+
+    module = await db.get(Module, session.module_id)
+    if not module:
+        raise HTTPException(404, "模组不存在")
+
+    companions_data = await langgraph_client.generate_party(
+        player_class=ref_char.char_class,
+        player_race=ref_char.race,
+        player_level=ref_char.level,
+        party_size=need,
+        module_data=module.parsed_content or {},
+    )
+
+    new_ids = []
+    for c in companions_data[:need]:
+        base_scores = c.get("ability_scores", {
+            "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10,
+        })
+        companion_race = c.get("race", "人类")
+        companion_class = c.get("class", "Fighter")
+        companion_level = c.get("level", ref_char.level)
+
+        final_scores = apply_racial_bonuses(base_scores, companion_race)
+        cls_key = _normalize_class(companion_class)
+        save_profs = CLASS_SAVE_PROFICIENCIES.get(cls_key, [])
+        ai_skills = c.get("proficient_skills", [])
+        skill_config = CLASS_SKILL_CHOICES.get(cls_key, {"count": 2, "options": ALL_SKILLS})
+        if not ai_skills:
+            ai_skills = (skill_config["options"] or [])[:skill_config["count"]]
+
+        derived = calc_derived(
+            companion_class, companion_level, final_scores, c.get("subclass"),
+            race=companion_race, proficient_skills=ai_skills,
+        )
+        spell_slots = dict(derived.get("spell_slots_max", {}))
+
+        companion = Character(
+            session_id=session_id,
+            is_player=False,
+            user_id=None,
+            name=c.get("name", "未知冒险者"),
+            race=companion_race,
+            char_class=companion_class,
+            subclass=c.get("subclass"),
+            level=companion_level,
+            background=c.get("background"),
+            alignment=c.get("alignment", "中立善良"),
+            ability_scores=final_scores,
+            derived=derived,
+            hp_current=derived["hp_max"],
+            spell_slots=spell_slots,
+            known_spells=c.get("known_spells", []),
+            cantrips=c.get("cantrips", []),
+            proficient_skills=ai_skills,
+            proficient_saves=save_profs,
+            personality=c.get("personality_traits", ""),
+            speech_style=c.get("speech_style", ""),
+            combat_preference=c.get("combat_preference", ""),
+            backstory=c.get("backstory", ""),
+            catchphrase=c.get("catchphrase", ""),
+        )
+        db.add(companion)
+        await db.flush()
+        new_ids.append(companion.id)
+
+    await db.commit()
+    companions = await list_ai_companions(db, session_id)
+    return {"generated": len(new_ids), "companions": companions, "already_full": False}
+
+
 # ── 查询 ─────────────────────────────────────────────
 
 async def list_members(
@@ -366,6 +514,7 @@ async def get_room_info(
     if not session or not session.is_multiplayer:
         raise HTTPException(404, "房间不存在")
     members = await list_members(db, session_id)
+    ai_companions = await list_ai_companions(db, session_id)
     mp = (session.game_state or {}).get("multiplayer", {})
     return {
         "session_id": session.id,
@@ -377,6 +526,7 @@ async def get_room_info(
         "is_multiplayer": session.is_multiplayer,
         "game_started": _is_game_started(session),
         "members": members,
+        "ai_companions": ai_companions,
         "current_speaker_user_id": mp.get("current_speaker_user_id"),
         "speak_round": mp.get("speak_round", 0),
         "created_at": session.created_at,

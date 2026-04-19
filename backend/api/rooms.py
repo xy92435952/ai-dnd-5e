@@ -105,6 +105,25 @@ async def start_game(
     return {"started": True, "session_id": session.id}
 
 
+@router.post("/{session_id}/fill-ai")
+async def fill_ai_companions(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    """房主补满 AI 队友：按 max_players - 真人玩家数 - 已有 AI 数 生成缺口。"""
+    result = await room_service.fill_with_ai_companions(
+        db, actor_user_id=user_id, session_id=session_id,
+    )
+    # 广播：AI 队友已生成（客户端刷新房间信息）
+    await ws_manager.broadcast(session_id, {
+        "type": "ai_companions_filled",
+        "generated": result["generated"],
+        "ai_companions": result["companions"],
+    })
+    return result
+
+
 @router.post("/{session_id}/kick")
 async def kick_member(
     session_id: str,

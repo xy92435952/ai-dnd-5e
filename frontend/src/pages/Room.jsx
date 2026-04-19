@@ -43,6 +43,7 @@ export default function Room() {
       case 'member_kicked':
       case 'member_online':
       case 'member_offline':
+      case 'ai_companions_filled':
         refresh(); break
       case 'game_started':
         nav(`/adventure/${sessionId}`); break
@@ -98,6 +99,18 @@ export default function Room() {
     finally { setBusy(false) }
   }
 
+  const onFillAi = async () => {
+    setBusy(true); setError('')
+    try {
+      const r = await roomsApi.fillAi(sessionId)
+      if (r.already_full) {
+        setError('队伍已满，无需补位')
+      }
+      await refresh()
+    } catch (e) { setError(e.message) }
+    finally { setBusy(false) }
+  }
+
   if (!room) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1 }}>
@@ -109,6 +122,9 @@ export default function Room() {
   }
 
   const canStart = isHost && (room.members || []).some(m => m.character_id)
+  const aiCompanions = room.ai_companions || []
+  const claimedCount = (room.members || []).filter(m => m.character_id).length
+  const slotsAvailable = Math.max(0, (room.max_players || 4) - claimedCount - aiCompanions.length)
 
   return (
     <div style={{ minHeight: '100vh', padding: 28, maxWidth: 900, margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -184,12 +200,60 @@ export default function Room() {
         ))}
       </div>
 
+      {/* AI 队友列表 */}
+      {aiCompanions.length > 0 && (
+        <>
+          <Divider>❧ AI 队友 ❧</Divider>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginTop: 12 }}>
+            {aiCompanions.map((c) => (
+              <div
+                key={c.id}
+                className="panel-ornate"
+                style={{ padding: 10, display: 'flex', gap: 10, alignItems: 'center', opacity: 0.92 }}
+              >
+                <Portrait cls={classKey(c.char_class || 'fighter')} size="sm" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-heading)', color: 'var(--parchment)', fontSize: 13, fontWeight: 600 }}>
+                      {c.name}
+                    </span>
+                    <span className="tag" style={{ fontSize: 9, background: 'rgba(139,110,230,.25)', border: '1px solid rgba(139,110,230,.6)', color: '#d4c2ff' }}>
+                      ✦ AI
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    {c.race} · {c.char_class} · Lv{c.level}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* 我没角色 → 创建按钮 */}
       {myMember && !myMember.character_id && (
         <div style={{ marginTop: 22, textAlign: 'center' }}>
           <button onClick={onCreateChar} disabled={busy} className="btn-gold" style={{ padding: '12px 32px', fontSize: 14 }}>
             ✦ 创建你的英雄 ✦
           </button>
+        </div>
+      )}
+
+      {/* 房主：补满 AI 队友 */}
+      {isHost && slotsAvailable > 0 && claimedCount >= 1 && (
+        <div style={{ marginTop: 14, textAlign: 'center' }}>
+          <button
+            onClick={onFillAi}
+            disabled={busy}
+            className="btn-ghost"
+            style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '.14em' }}
+          >
+            {busy ? '✦ 召唤中… ✦' : `✦ 召唤 ${slotsAvailable} 位 AI 队友 ✦`}
+          </button>
+          <div style={{ fontSize: 10, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
+            根据第一位玩家的职业生成互补角色
+          </div>
         </div>
       )}
 

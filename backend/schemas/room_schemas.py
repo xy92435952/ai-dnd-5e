@@ -44,6 +44,18 @@ class MemberInfo(BaseModel):
         from_attributes = True
 
 
+class AiCompanionInfo(BaseModel):
+    id: str
+    name: str
+    race: Optional[str] = None
+    char_class: Optional[str] = None
+    level: Optional[int] = None
+    hp_max: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
 class RoomInfo(BaseModel):
     session_id: str
     room_code: Optional[str]
@@ -54,6 +66,7 @@ class RoomInfo(BaseModel):
     is_multiplayer: bool
     game_started: bool  # 派生字段：current_scene 非空且 combat 已初始化
     members: List[MemberInfo] = []
+    ai_companions: List[AiCompanionInfo] = []
     current_speaker_user_id: Optional[str] = None
     speak_round: int = 0
     created_at: Optional[datetime] = None

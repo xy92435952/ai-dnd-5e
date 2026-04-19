@@ -218,6 +218,7 @@ export const roomsApi = {
     api.post(`/game/rooms/${sessionId}/transfer`, { new_host_user_id: newHostUserId }),
   claimChar:  (sessionId, characterId) =>
     api.post(`/game/rooms/${sessionId}/claim-character`, { character_id: characterId }),
+  fillAi:     (sessionId) => api.post(`/game/rooms/${sessionId}/fill-ai`),
   get:        (sessionId) => api.get(`/game/rooms/${sessionId}`),
   members:    (sessionId) => api.get(`/game/rooms/${sessionId}/members`),
 }
