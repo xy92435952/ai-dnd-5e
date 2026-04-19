@@ -16,7 +16,17 @@ from api.deps import get_current_user as get_user_id_from_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-JWT_SECRET = settings.llm_api_key[:32] + "_jwt_secret"  # 用 API key 前缀派生
+# JWT secret 优先使用 .env 配置的独立密钥（生产必需）；留空时降级派生（仅开发）
+if settings.jwt_secret:
+    JWT_SECRET = settings.jwt_secret
+elif settings.is_production:
+    raise RuntimeError(
+        "生产环境必须在 .env 中设置 JWT_SECRET（≥32 字节强随机值）。"
+        "生成方式：python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+    )
+else:
+    # 开发环境兜底（不安全，仅本地用）
+    JWT_SECRET = (settings.llm_api_key[:32] or "dev_fallback_secret") + "_jwt_dev"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 7
 

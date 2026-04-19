@@ -178,6 +178,7 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """获取会话完整状态（用于恢复游戏）"""
     session       = await get_session_or_404(session_id, db)
     player        = await db.get(Character, session.player_character_id)
+    module        = await db.get(Module, session.module_id) if session.module_id else None
     companion_ids = (session.game_state or {}).get("companion_ids", [])
     companions    = []
     for cid in companion_ids:
@@ -196,8 +197,11 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     return {
         "session_id":     session.id,
         "save_name":      session.save_name,
+        "module_id":      session.module_id,
+        "module_name":    module.name if module else None,
         "current_scene":  session.current_scene,
         "combat_active":  session.combat_active,
+        "game_state":     session.game_state or {},
         "player":         char_brief(player) if player else None,
         "companions":     companions,
         "logs":           [serialize_log(l) for l in logs],
@@ -247,17 +251,46 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db), us
 # ── 主跑团循环（统一入口：战斗 + 探索） ─────────────────
 
 @router.post("/action")
-async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get_db)):
+async def player_action(
+    req: PlayerActionRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """
     玩家行动统一入口。
     战斗模式和探索模式都走这里，由 WF3 全能DM代理内部分流处理。
     返回 state_delta 由 StateApplicator 写库，前端通过 action_type 判断渲染方式。
+
+    多人联机模式：
+      - 探索阶段：仅当前发言者（multiplayer.current_speaker_user_id）能调用
+      - 战斗阶段：仅当前回合归属玩家能调用
+      - player 角色根据 user_id 在 SessionMember 中查找（不再用 session.player_character_id）
     """
     session = await get_session_or_404(req.session_id, db)
     module  = await db.get(Module, session.module_id)
 
-    # ── 加载本次会话所有角色 ──
-    player = await db.get(Character, session.player_character_id)
+    # ── 多人联机：解析当前用户对应的角色 ──
+    if session.is_multiplayer:
+        from models import SessionMember
+        member_q = await db.execute(
+            select(SessionMember).where(
+                SessionMember.session_id == session.id,
+                SessionMember.user_id == user_id,
+            )
+        )
+        member = member_q.scalar_one_or_none()
+        if not member or not member.character_id:
+            raise HTTPException(403, "你在该房间没有绑定角色")
+        # 探索阶段：必须是当前发言者
+        if not session.combat_active:
+            mp = (session.game_state or {}).get("multiplayer", {})
+            speaker = mp.get("current_speaker_user_id")
+            if speaker and speaker != user_id:
+                raise HTTPException(403, "现在不是你的发言时机，请等待 / 发言")
+        player = await db.get(Character, member.character_id)
+    else:
+        player = await db.get(Character, session.player_character_id)
+
     companion_ids = (session.game_state or {}).get("companion_ids", [])
     characters: list[Character] = [player] if player else []
     for cid in companion_ids:
@@ -604,6 +637,21 @@ async def player_action(req: PlayerActionRequest, db: AsyncSession = Depends(get
 
     combat_update = None
     await db.commit()
+
+    # 多人联机：广播 DM 响应到房间所有人
+    if session.is_multiplayer:
+        from services.ws_manager import ws_manager
+        try:
+            await ws_manager.broadcast(session.id, {
+                "type": "dm_responded",
+                "by_user_id": user_id,
+                "action_type": ar.action_type,
+                "narrative": ar.narrative,
+                "combat_triggered": ar.combat_triggered,
+                "combat_ended": ar.combat_ended,
+            })
+        except Exception:
+            pass
 
     return {
         "type":               ar.action_type,

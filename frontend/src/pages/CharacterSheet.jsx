@@ -5,6 +5,9 @@ import {
   BackIcon, ShieldIcon, HeartIcon, SwordIcon, DiceD20Icon,
   BookIcon, ClassIcon, MagicIcon, DefendIcon,
 } from '../components/Icons'
+import Portrait from '../components/Portrait'
+import { classKey } from '../components/Crests'
+import { Divider } from '../components/Ornaments'
 
 // ── 常量 ──────────────────────────────────────────────────
 const ABILITY_LABELS = {
@@ -118,43 +121,43 @@ export default function CharacterSheet() {
   const fmtMod = (v) => v >= 0 ? `+${v}` : `${v}`
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
       {/* Header */}
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 20px', borderBottom: '1px solid var(--wood-light)',
-        background: 'var(--bg2)', flexShrink: 0,
+        padding: '10px 20px',
+        borderBottom: '1px solid var(--bark-light)',
+        background: 'rgba(10,6,2,.55)',
+        backdropFilter: 'blur(6px)',
+        flexShrink: 0,
       }}>
-        <button className="btn-fantasy" style={{ fontSize: 12, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 4 }}
-          onClick={() => navigate(-1)}>
-          <BackIcon size={14} /> 返回
+        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => navigate(-1)}>
+          ⬅ 返回
         </button>
-        <h2 style={{ color: 'var(--gold)', fontSize: 16, fontWeight: 700, margin: 0 }}>
-          角色卡
-        </h2>
+        <div className="display-title" style={{ fontSize: 16 }}>☙ 角色卡 ❧</div>
         <div style={{ width: 80 }} />
       </header>
 
       {/* Main content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
-        {error && <p style={{ color: 'var(--red-light)', fontSize: 12, marginBottom: 12 }}>{error}</p>}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+        {error && (
+          <p style={{ color: '#ffaaaa', fontSize: 12, marginBottom: 12, padding: 8, background: 'rgba(139,32,32,.2)', border: '1px solid var(--blood)', borderRadius: 4 }}>{error}</p>
+        )}
 
         {/* ── Identity Section ── */}
-        <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className="portrait portrait-player" style={{ width: 56, height: 56 }}>
-              <ClassIcon className={char.char_class} size={28} color="var(--blue-light)" />
-            </div>
+        <div className="panel-ornate" style={{ padding: 20, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <Portrait cls={classKey(char.char_class)} size="lg" />
             <div style={{ flex: 1 }}>
-              <h1 style={{ color: 'var(--gold)', fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>{char.name}</h1>
-              <p style={{ color: 'var(--parchment)', fontSize: 13, margin: 0 }}>
-                {char.race} {char.char_class} Lv{char.level}
-                {char.subclass && <span style={{ color: 'var(--text-dim)' }}> ({char.subclass})</span>}
-              </p>
+              <div className="display-title" style={{ fontSize: 24, marginBottom: 4 }}>{char.name}</div>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>
+                {char.race} · {char.char_class} · Lv{char.level}
+                {char.subclass && ` · ${char.subclass}`}
+              </div>
               {char.background && (
-                <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '2px 0 0' }}>
-                  背景: {char.background}
-                  {char.alignment && ` | ${char.alignment}`}
+                <p style={{ color: 'var(--parchment-dark)', fontSize: 12, margin: 0, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
+                  {char.background}
+                  {char.alignment && ` · ${char.alignment}`}
                 </p>
               )}
             </div>

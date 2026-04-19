@@ -1,9 +1,9 @@
 # MVP 完成报告
 
 **项目名称：** AI 跑团平台（DnD 5e）
-**版本：** v0.9
-**日期：** 2026-04-07
-**阶段：** Phase 1-15 全部完成
+**版本：** v0.9-multiplayer beta
+**日期：** 2026-04-17
+**阶段：** Phase 1-16 全部完成（多人联机阶段 A 已上线）
 
 ---
 
@@ -142,6 +142,9 @@
 | 队伍生成多样性 | [x] | 34 种职业/子职业组合，5 个角色池（原 4 个固定选项），随机选择避免重复 |
 | LangGraph 连接池 | [x] | psycopg_pool 替换单连接，空闲超时自动重连 |
 | 删除会话 FK 修复 | [x] | 删除会话前先清除角色 session_id 外键引用 |
+| Divine Smite target 修复 | [x] | SmiteRequest 接受前端 target_id，不再依赖日志猜测目标 |
+| combat_update 未定义修复 | [x] | 探索模式路径初始化 combat_update=None，修复 UnboundLocalError |
+| 战斗端点 target_id 审计 | [x] | 全部 10 个战斗端点确认使用前端显式 target_id，无日志猜测 |
 
 ---
 
@@ -257,6 +260,6 @@ Phase 1-15 (v0.9) 已实现一个功能完整的 AI 单人跑团平台：
 - **生产级部署**：PostgreSQL 数据库、Docker 容器化、SSL 证书、自定义域名
 - **v0.7 亮点**：前端骰子值绑定（骰面=显示=后端）、5 种反应 UI、22 种控制法术条件映射、AI 施法、短休资源恢复
 - **v0.8 亮点**：SQLite→PostgreSQL 无缝迁移（database.py 自动检测）、Docker 容器化部署、SSL 加密
-- **v0.9 亮点**：自然语言战斗（Action Parser 解析自由文本→结构化行动）、AI 队友 12+ 职业细分策略、34 种队伍组合多样性、psycopg_pool 连接池
+- **v0.9 亮点**：自然语言战斗（Action Parser 解析自由文本→结构化行动）、AI 队友 12+ 职业细分策略、34 种队伍组合多样性、psycopg_pool 连接池、全部战斗端点 target_id 审计通过
 
 下一步将进入 v1.0，重点实现多人联机和模组市场。

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { modulesApi, charactersApi, gameApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
@@ -10,6 +10,8 @@ import {
   BackIcon, ClassIcon, SwordIcon, ShieldIcon, WandIcon,
   BookIcon, ScrollIcon,
 } from '../components/Icons'
+import Portrait from '../components/Portrait'
+import { classKey } from '../components/Crests'
 
 // ── 常量 ──────────────────────────────────────────────────
 const POINT_BUY_TOTAL = 27
@@ -380,42 +382,65 @@ export default function CharacterCreate() {
   })()
 
   return (
-    <div style={{ minHeight: '100vh', padding: '16px', maxWidth: '768px', margin: '0 auto' }}>
+    <div className="create-scene" style={{ maxWidth: 980, margin: '0 auto', position: 'relative', zIndex: 1 }}>
       <InfoModal type={modal.type} itemKey={modal.itemKey} onClose={closeModal} />
 
-      {/* 顶部 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-        <button className="btn-fantasy" style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-          onClick={() => navigate('/')}>
-          <BackIcon size={16} /> 返回
-        </button>
-        <div>
-          <h2 style={{ color: 'var(--gold)', fontWeight: 600, fontSize: '1.1rem', margin: 0 }}>{module.name}</h2>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>推荐等级 Lv {module.level_min}--{module.level_max}</p>
+      {/* 顶部 · 标题 + 英雄预览卡 */}
+      <div className="create-header">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <button
+            className="btn-ghost"
+            style={{ fontSize: 12, padding: '6px 12px', alignSelf: 'flex-start', marginTop: 4 }}
+            onClick={() => navigate('/')}
+          >⬅ 返回</button>
+          <div>
+            <div className="eyebrow">◈ 英雄铸造 · Character Forge ◈</div>
+            <div
+              className="display-title"
+              style={{ fontSize: 22, letterSpacing: '.08em', marginTop: 2,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 420 }}
+              title={module.name}
+            >{module.name}</div>
+            <p style={{ fontSize: 11, color: 'var(--parchment-dark)', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
+              推荐等级 Lv {module.level_min}-{module.level_max}
+            </p>
+          </div>
         </div>
+
+        {/* 右侧实时英雄预览 */}
+        {form.char_class && (
+          <div className="hero-preview">
+            <Portrait cls={classKey(form.char_class)} size="md" />
+            <div>
+              <div className="name">{form.name || '未命名英雄'}</div>
+              <div className="sub">{form.race || '—'} · {form.char_class || '—'} · Lv {form.level}</div>
+              <div className="align">{form.alignment || ''}{form.background ? ` · ${form.background}` : ''}</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 步骤指示器 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '32px', overflowX: 'auto' }}>
-        {STEPS.map((label, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-            <div style={{
-              width: '28px', height: '28px', borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.75rem', fontWeight: 'bold',
-              ...(step > i+1
-                ? { background: 'var(--green)', color: 'var(--green-light)' }
-                : step === i+1
-                ? { background: 'var(--gold)', color: 'var(--bg)' }
-                : { background: 'var(--wood)', border: '1px solid var(--wood-light)', color: 'var(--text-dim)' }),
-            }}>
-              {step > i+1 ? '\u2713' : i+1}
-            </div>
-            <span style={{ fontSize: '0.75rem', color: step === i+1 ? 'var(--gold)' : 'var(--text-dim)' }}>{label}</span>
-            {i < STEPS.length-1 && <span style={{ opacity: 0.2, margin: '0 2px', color: 'var(--text-dim)' }}>--</span>}
-          </div>
-        ))}
+      {/* 步骤指示器 · 新版 */}
+      <div className="create-steps">
+        {STEPS.map((label, i) => {
+          const n = i + 1
+          const done = step > n
+          const cur = step === n
+          return (
+            <React.Fragment key={i}>
+              <div className={`step-dot ${done ? 'done' : cur ? 'cur' : ''}`}>
+                <div className="dot">{done ? '✓' : n}</div>
+                <div className="lbl">{label}</div>
+              </div>
+              {i < STEPS.length - 1 && <div className={`step-line ${done ? 'done' : ''}`} />}
+            </React.Fragment>
+          )
+        })}
       </div>
+
+      {/* 主内容 · 羊皮纸卷轴 */}
+      <div className="create-scroll">
+        <div className="scroll-ornament top">✦ ❧ ✦</div>
 
       {error && (
         <div className="panel" style={{ padding: '12px', marginBottom: '16px', borderColor: 'var(--red)' }}>
@@ -425,111 +450,145 @@ export default function CharacterCreate() {
 
       {/* ══ Step 1: 基础信息 ══ */}
       {step === 1 && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: '0 0 20px' }}>创建你的角色</h3>
+        <div className="step-pane">
+          <div className="step-title">✧ 第一章 · 身世与血脉 ✧</div>
+          <div className="step-sub">姓名决定传说，血脉决定起点，职业决定道路。</div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <Field label="角色名">
-              <input className="input-fantasy"
-                placeholder="输入角色名..." value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            </Field>
+          <div className="create-field">
+            <label className="lbl">英雄之名</label>
+            <input className="input-fantasy"
+              placeholder="输入你的名字…" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <Field label="种族">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Select value={form.race} options={options.races} placeholder="选择种族"
-                    onChange={v => setForm(f => ({ ...f, race: v }))} />
-                  {raceEnKey && <InfoBtn onClick={() => openModal('race', raceEnKey)} />}
-                </div>
-                {form.race && Object.keys(racialBonuses).length > 0 && (
-                  <p style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--green-light)' }}>
-                    种族加值：{Object.entries(racialBonuses).map(([k,v]) =>
-                      `${ABILITY_ZH[k]||k} +${v}`).join('、')}
-                  </p>
-                )}
-              </Field>
-
-              <Field label="职业">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Select value={form.char_class} options={options.classes} placeholder="选择职业"
-                    onChange={v => setForm(f => ({ ...f, char_class: v }))} />
-                  {classInfo && <InfoBtn onClick={() => openModal('class', classEnKey)} />}
-                </div>
-                {saveProfs.length > 0 && (
-                  <p style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--text-dim)' }}>
-                    豁免熟练：{saveProfs.map(k => ABILITY_ZH[k]||k).join('、')}
-                  </p>
-                )}
-              </Field>
+          {/* 种族 · 卡片网格 */}
+          <div className="create-field">
+            <label className="lbl">血脉 · 种族</label>
+            <div className="race-grid">
+              {options.races.map(r => {
+                const sel = form.race === r
+                const enKey = Object.keys(RACE_INFO).find(k => RACE_INFO[k].zh === r) || r
+                const info = RACE_INFO[enKey]
+                const bonus = options.racial_ability_bonuses?.[r] || options.racial_ability_bonuses?.[enKey] || {}
+                return (
+                  <div key={r}
+                    className={`race-card ${sel ? 'sel' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, race: r }))}>
+                    <div className="race-name">{r}</div>
+                    <div className="race-meta">{info?.size || '—'} · 速度 {info?.speed || 30}</div>
+                    {Object.keys(bonus).length > 0 && (
+                      <div className="race-bonus">
+                        {Object.entries(bonus).map(([k, v]) => (
+                          <span key={k}>{ABILITY_ZH[k] || k} +{v}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-
-            {/* 子职业 */}
-            {showSubclass && subclassOptions.length > 0 && (
-              <Field label={`${classInfo.subclass_label}（${classInfo.subclass_unlock}级解锁）`}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
-                  {subclassOptions.map(sc => {
-                    const sel = form.subclass === sc.name
-                    return (
-                      <div key={sc.name}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          gap: '8px', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          border: `1px solid ${sel ? 'var(--gold)' : 'var(--wood-light)'}`,
-                          background: sel ? 'rgba(201,168,76,0.12)' : 'transparent',
-                        }}
-                        onClick={() => setForm(f => ({ ...f, subclass: sel ? '' : sc.name }))}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden',
-                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            color: sel ? 'var(--gold)' : 'var(--text-bright)',
-                          }}>{sc.zh}</div>
-                        </div>
-                        <InfoBtn onClick={e => { e.stopPropagation(); openModal('class', classEnKey) }} />
-                      </div>
-                    )
-                  })}
-                </div>
-                {!form.subclass && <p style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--text-dim)', opacity: 0.5 }}>可跳过，稍后决定</p>}
-              </Field>
+            {form.race && RACE_INFO[raceEnKey]?.description && (
+              <div className="hint"><em>"{RACE_INFO[raceEnKey].description.slice(0, 80)}…"</em>
+                {raceEnKey && (
+                  <button
+                    onClick={() => openModal('race', raceEnKey)}
+                    style={{ marginLeft: 6, background: 'none', border: 'none',
+                      color: 'var(--amber)', cursor: 'pointer', fontSize: 11 }}
+                  >【详情】</button>
+                )}
+              </div>
             )}
+          </div>
 
-            {/* 战斗风格（Fighter/Paladin/Ranger） */}
-            {hasFightingStyle && (
-              <Field label="战斗风格">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
-                  {(options.fighting_style_classes?.[classEnKey]?.styles || []).map(style => {
-                    const sel = fightingStyle === style
-                    const info = options.fighting_styles?.[style] || {}
-                    return (
-                      <div key={style}
-                        style={{
-                          padding: '8px 12px', borderRadius: '6px', cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          border: `1px solid ${sel ? 'var(--gold)' : 'var(--wood-light)'}`,
-                          background: sel ? 'rgba(201,168,76,0.12)' : 'transparent',
-                        }}
-                        onClick={() => setFightingStyle(sel ? '' : style)}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {style.toLowerCase().includes('defense') || style.toLowerCase().includes('protection')
-                            ? <ShieldIcon size={14} color={sel ? 'var(--gold)' : 'var(--text-dim)'} />
-                            : style.toLowerCase().includes('dueling') || style.toLowerCase().includes('great')
-                            ? <SwordIcon size={14} color={sel ? 'var(--gold)' : 'var(--text-dim)'} />
-                            : <WandIcon size={14} color={sel ? 'var(--gold)' : 'var(--text-dim)'} />}
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600,
-                            color: sel ? 'var(--gold)' : 'var(--text-bright)' }}>
-                            {sel && '\u2713 '}{info.zh || style}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '2px' }}>{info.desc}</div>
-                      </div>
-                    )
-                  })}
+          {/* 职业 · 纹章卡片网格 */}
+          <div className="create-field">
+            <label className="lbl">使命 · 职业</label>
+            <div className="class-grid">
+              {options.classes.map(c => {
+                const sel = form.char_class === c
+                const enKey = CLASS_ZH_TO_EN[c] || c
+                const info = CLASS_INFO[enKey]
+                return (
+                  <div key={c}
+                    className={`class-card ${sel ? 'sel' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, char_class: c, subclass: '' }))}>
+                    <Portrait cls={classKey(c)} size="sm" style={{ margin: '0 auto 6px' }} />
+                    <div className="class-name">{c}</div>
+                    <div className="class-prim">{info?.primary_ability || info?.hit_die ? `d${info.hit_die}` : ''}</div>
+                  </div>
+                )
+              })}
+            </div>
+            {classInfo && (
+              <div className="class-details">
+                <div className="row">
+                  <span className="tag tag-gold">生命骰 d{classInfo.hit_die}</span>
+                  <span className="tag">主属性 {classInfo.primary_ability}</span>
+                  {saveProfs.length > 0 && (
+                    <span className="tag">豁免 {saveProfs.map(k => ABILITY_ZH[k] || k).join('/')}</span>
+                  )}
                 </div>
-              </Field>
+                {classInfo.description && (
+                  <p className="desc"><em>"{classInfo.description.slice(0, 120)}"</em></p>
+                )}
+                <div className="row-muted">
+                  {classInfo.armor_proficiency && `护甲：${classInfo.armor_proficiency}`}
+                  {classEnKey && (
+                    <button
+                      onClick={() => openModal('class', classEnKey)}
+                      style={{ marginLeft: 10, background: 'none', border: 'none',
+                        color: 'var(--amber)', cursor: 'pointer', fontSize: 11 }}
+                    >【完整特性】</button>
+                  )}
+                </div>
+              </div>
             )}
+          </div>
+
+          {/* 子职业 · 胶囊 */}
+          {showSubclass && subclassOptions.length > 0 && (
+            <div className="create-field">
+              <label className="lbl">
+                {classInfo.subclass_label}（Lv{classInfo.subclass_unlock} 解锁）
+              </label>
+              <div className="sub-grid">
+                {subclassOptions.map(sc => {
+                  const sel = form.subclass === sc.name
+                  return (
+                    <div key={sc.name}
+                      className={`sub-chip ${sel ? 'sel' : ''}`}
+                      onClick={() => setForm(f => ({ ...f, subclass: sel ? '' : sc.name }))}>
+                      {sc.zh}
+                    </div>
+                  )
+                })}
+              </div>
+              {!form.subclass && (
+                <div className="hint">可跳过，稍后决定</div>
+              )}
+            </div>
+          )}
+
+          {/* 战斗风格 */}
+          {hasFightingStyle && (
+            <div className="create-field">
+              <label className="lbl">战斗风格</label>
+              <div className="fstyle-grid">
+                {(options.fighting_style_classes?.[classEnKey]?.styles || []).map(style => {
+                  const sel = fightingStyle === style
+                  const info = options.fighting_styles?.[style] || {}
+                  return (
+                    <div key={style}
+                      className={`fstyle-card ${sel ? 'sel' : ''}`}
+                      onClick={() => setFightingStyle(sel ? '' : style)}>
+                      <div className="n">{info.zh || style}</div>
+                      <div className="d">{info.desc}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
             {/* 等级 + 阵营 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -639,117 +698,116 @@ export default function CharacterCreate() {
               )}
             </div>
 
-            <button className="btn-gold" disabled={!step1Valid}
-              style={{ width: '100%', padding: '12px', marginTop: '8px', fontSize: '0.95rem' }}
-              onClick={() => setStep(2)}>
-              下一步：分配能力值 &rarr;
-            </button>
-          </div>
         </div>
       )}
 
       {/* ══ Step 2: 能力值 ══ */}
       {step === 2 && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: '0 0 20px' }}>分配能力值</h3>
+        <div className="step-pane">
+          <div className="step-title">✧ 第二章 · 天赋与禀性 ✧</div>
+          <div className="step-sub">六项能力决定你能做什么、擅长什么。</div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {['pointbuy','standard'].map(m => (
-                <button key={m}
-                  className={scoreMethod === m ? 'btn-gold' : 'btn-fantasy'}
-                  style={{ flex: 1, padding: '8px', fontSize: '0.875rem' }}
-                  onClick={() => { setScoreMethod(m); setStandardAssigned({}) }}>
-                  {m==='pointbuy' ? '点数购买' : '标准数组'}
-                </button>
-              ))}
-            </div>
-
-            {scoreMethod === 'pointbuy' && (
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: '0.875rem', color: pointsLeft === 0 ? 'var(--green-light)' : 'var(--gold)' }}>
-                  剩余点数：<strong style={{
-                    fontSize: 18,
-                    color: pointsLeft === 0 ? 'var(--green-light)' : pointsLeft <= 3 ? 'var(--gold)' : 'var(--gold)',
-                  }}>{pointsLeft}</strong> / {POINT_BUY_TOTAL}
-                  {pointsLeft === 0 && <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--green-light)' }}>{'\u2713'} 已分配完毕</span>}
-                </p>
-                <div style={{ height: 4, background: 'var(--wood)', borderRadius: 2, margin: '6px auto', maxWidth: 200 }}>
-                  <div style={{
-                    height: '100%', borderRadius: 2,
-                    width: `${((POINT_BUY_TOTAL - pointsLeft) / POINT_BUY_TOTAL) * 100}%`,
-                    background: pointsLeft === 0 ? 'var(--green-light)' : 'var(--gold)',
-                    transition: 'width 0.2s ease',
-                  }} />
-                </div>
+          {/* 方法切换 · 大按钮 */}
+          <div className="method-tabs">
+            {[
+              ['pointbuy', '点数购买', `更自由 · ${POINT_BUY_TOTAL} 点`],
+              ['standard', '标准数组', `经典 · ${STANDARD_ARRAY.join('/')}`],
+            ].map(([k, n, d]) => (
+              <div key={k}
+                className={`method-tab ${scoreMethod === k ? 'sel' : ''}`}
+                onClick={() => { setScoreMethod(k); setStandardAssigned({}) }}>
+                <div className="n">{n}</div>
+                <div className="d">{d}</div>
               </div>
-            )}
-            {scoreMethod === 'standard' && (
-              <p style={{ fontSize: '0.75rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                数组：{STANDARD_ARRAY.join(' / ')} -- 点击分配给对应能力
-              </p>
-            )}
+            ))}
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {ABILITY_KEYS.map(key => {
-                const base  = baseScores[key]
-                const bonus = racialBonuses[key] || 0
-                const final = finalScores[key]
-                const mod   = modifier(final)
-                return (
-                  <div key={key} className="ability-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ textAlign: 'center', width: '48px', flexShrink: 0 }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{ABILITY_ZH[key]||key}</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-bright)' }}>{final}</div>
-                        <div style={{ fontSize: '0.75rem', color: mod>=0 ? 'var(--green-light)' : 'var(--red-light)' }}>
-                          {modStr(mod)}
-                        </div>
-                      </div>
-                      {bonus > 0 && (
-                        <span className="tag tag-ok" style={{ flexShrink: 0 }}>
-                          基础{base} +{bonus}
-                        </span>
-                      )}
-                      {scoreMethod === 'pointbuy' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                          <button className="btn-fantasy" style={{ padding: '2px', fontSize: '0.75rem' }}
-                            onClick={() => adjustScore(key,1)}
-                            disabled={base>=15 || pointsLeft<(SCORE_COSTS[base+1]-SCORE_COSTS[base])}>{'\u25B2'}</button>
-                          <button className="btn-fantasy" style={{ padding: '2px', fontSize: '0.75rem' }}
-                            onClick={() => adjustScore(key,-1)} disabled={base<=8}>{'\u25BC'}</button>
-                        </div>
-                      )}
-                      {scoreMethod === 'standard' && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
-                          {STANDARD_ARRAY.map((val,idx) => {
-                            const usedByOther = Object.entries(standardAssigned).some(([a,i]) => a!==key && i===idx)
-                            const selected    = standardAssigned[key] === idx
-                            return (
-                              <button key={idx} disabled={usedByOther}
-                                className="skill-btn"
-                                style={{
-                                  padding: '2px 8px',
-                                  borderColor: selected ? 'var(--gold)' : 'var(--wood-light)',
-                                  color: selected ? 'var(--gold)' : usedByOther ? 'var(--wood-light)' : 'var(--parchment)',
-                                  background: selected ? 'rgba(201,168,76,0.15)' : 'transparent',
-                                  cursor: usedByOther ? 'not-allowed' : 'pointer',
-                                  opacity: usedByOther ? 0.4 : 1,
-                                }}
-                                onClick={() => assignStandard(key,idx)}>{val}</button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+          {/* 点数进度条 */}
+          {scoreMethod === 'pointbuy' && (
+            <div className="points-bar">
+              <div className="label">剩余点数</div>
+              <div className="points-big" style={{ color: pointsLeft === 0 ? 'var(--emerald-light)' : 'var(--amber)' }}>
+                {pointsLeft}
+              </div>
+              <div className="track">
+                <div className="fill" style={{
+                  width: `${((POINT_BUY_TOTAL - pointsLeft) / POINT_BUY_TOTAL) * 100}%`,
+                  background: pointsLeft === 0 ? 'var(--emerald-light)' : 'var(--gold-gradient)',
+                }} />
+              </div>
+              <div className="label">
+                {pointsLeft === 0 ? '✓ 已分配完毕' : `${POINT_BUY_TOTAL - pointsLeft} / ${POINT_BUY_TOTAL}`}
+              </div>
             </div>
+          )}
 
-            {form.char_class && (
-              <DerivedPreview scores={finalScores} charClass={classEnKey} level={form.level} />
-            )}
+          {/* 六项能力 · 牌匾 */}
+          <div className="ability-grid">
+            {ABILITY_KEYS.map(key => {
+              const base  = baseScores[key]
+              const bonus = racialBonuses[key] || 0
+              const final = finalScores[key]
+              const mod   = modifier(final)
+              return (
+                <div key={key} className="ability-plaque">
+                  <div className="plaque-top">
+                    <div className="ab-name">{ABILITY_ZH[key] || key}</div>
+                    <div className="ab-key">{key.toUpperCase()}</div>
+                  </div>
+                  <div className="plaque-main">
+                    <div className="score">{final}</div>
+                    <div className="mod">{modStr(mod)}</div>
+                  </div>
+                  {bonus > 0 && (
+                    <div className="bonus-badge">基础 {base} · 种族 +{bonus}</div>
+                  )}
+                  {scoreMethod === 'pointbuy' && (
+                    <div className="adj">
+                      <button onClick={() => adjustScore(key, -1)} disabled={base <= 8}>−</button>
+                      <div className="val">{base}</div>
+                      <button onClick={() => adjustScore(key, 1)}
+                        disabled={base >= 15 || pointsLeft < (SCORE_COSTS[base + 1] - SCORE_COSTS[base])}>+</button>
+                    </div>
+                  )}
+                  {scoreMethod === 'standard' && (
+                    <div className="array-row">
+                      {STANDARD_ARRAY.map((v, idx) => {
+                        const used = Object.entries(standardAssigned).some(([a, i]) => a !== key && i === idx)
+                        const sel = standardAssigned[key] === idx
+                        return (
+                          <button key={idx}
+                            disabled={used}
+                            className={`arr ${sel ? 'sel' : ''}`}
+                            onClick={() => assignStandard(key, idx)}>
+                            {v}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* 派生属性预览 · 条带 */}
+          {form.char_class && (() => {
+            const prof = 2 + Math.floor((form.level - 1) / 4)
+            const conMod = modifier(finalScores.con || 10)
+            const dexMod = modifier(finalScores.dex || 10)
+            const strMod = modifier(finalScores.str || 10)
+            const hitDie = CLASS_INFO[classEnKey]?.hit_die || 8
+            const hp = hitDie + conMod + Math.max(0, form.level - 1) * (Math.floor(hitDie / 2) + 1 + conMod)
+            return (
+              <div className="derived-row">
+                <div className="der"><div className="t">最大生命</div><div className="v">{Math.max(1, hp)}</div></div>
+                <div className="der"><div className="t">先攻</div><div className="v">{modStr(dexMod)}</div></div>
+                <div className="der"><div className="t">熟练</div><div className="v">+{prof}</div></div>
+                <div className="der"><div className="t">攻击</div><div className="v">{modStr(prof + Math.max(strMod, dexMod))}</div></div>
+                <div className="der"><div className="t">AC</div><div className="v">{10 + dexMod}</div></div>
+              </div>
+            )
+          })()}
 
             {/* 双职业要求提示（在能力值页也显示） */}
             {form.multiclassEnabled && form.multiclass_class && Object.keys(multiReqs).length > 0 && (
@@ -772,148 +830,117 @@ export default function CharacterCreate() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-fantasy" style={{ flex: 1, padding: '8px' }} onClick={() => setStep(1)}>
-                <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />返回
-              </button>
-              <button className="btn-gold" style={{ flex: 1, padding: '8px' }} disabled={!step2Valid}
-                onClick={() => setStep(3)}>下一步：技能熟练 &rarr;</button>
-            </div>
-          </div>
         </div>
       )}
 
       {/* ══ Step 3: 技能熟练 ══ */}
       {step === 3 && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: '0 0 4px' }}>选择技能熟练</h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>
-              {form.char_class} 可选 <strong style={{ color: 'var(--text-bright)' }}>{skillConfig.count}</strong> 项 · 已选{' '}
-              <strong style={{ color: chosenSkills.length===skillConfig.count ? 'var(--green-light)' : 'var(--gold)' }}>
-                {chosenSkills.length}
-              </strong>
-            </p>
+        <div className="step-pane">
+          <div className="step-title">✧ 第三章 · 所学所长 ✧</div>
+          <div className="step-sub">
+            {form.char_class} 可选择 <b style={{ color: 'var(--amber)' }}>{skillConfig.count}</b> 项技能熟练 · 已选{' '}
+            <b style={{ color: chosenSkills.length === skillConfig.count ? 'var(--emerald-light)' : 'var(--amber)' }}>
+              {chosenSkills.length}
+            </b>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {saveProfs.length > 0 && (
-              <div style={{
-                fontSize: '0.75rem', padding: '8px', borderRadius: '6px',
-                background: 'rgba(26,58,90,0.15)', border: '1px solid var(--blue)',
-              }}>
-                <span style={{ color: 'var(--blue-light)' }}>职业豁免熟练（自动获得）：</span>
-                <span style={{ marginLeft: '4px', color: 'var(--text)', opacity: 0.8 }}>{saveProfs.map(k => ABILITY_ZH[k]||k).join('、')}</span>
-              </div>
-            )}
+          {/* 豁免熟练提示 */}
+          {saveProfs.length > 0 && (
+            <div className="create-note">
+              <span className="lead">职业豁免熟练</span>
+              （由 {form.char_class} 自动获得）：
+              {saveProfs.map(k => ABILITY_ZH[k] || k).join(' · ')}
+            </div>
+          )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-              {skillConfig.options.map(skill => {
-                const selected  = chosenSkills.includes(skill)
-                const disabled  = !selected && chosenSkills.length >= skillConfig.count
-                const skillData = SKILL_INFO[skill]
-                return (
-                  <div key={skill} style={{ position: 'relative' }}>
-                    <button disabled={disabled} onClick={() => toggleSkill(skill)}
-                      className="skill-btn"
-                      style={{
-                        width: '100%', textAlign: 'left', padding: '8px',
-                        borderColor: selected ? 'var(--gold)' : 'var(--wood-light)',
-                        background: selected ? 'rgba(201,168,76,0.12)' : undefined,
-                        color: disabled ? 'var(--wood-light)' : selected ? 'var(--gold)' : 'var(--parchment)',
-                        cursor: disabled ? 'not-allowed' : 'pointer',
-                        paddingRight: skillData ? '1.75rem' : undefined,
-                        opacity: disabled ? 0.4 : 1,
-                      }}>
-                      {selected && '\u2713 '}{skill}
-                      {skillData && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginLeft: '4px' }}>
-                          {ABILITY_ZH[skillData.ability]?.slice(0,1)}
-                        </span>
-                      )}
-                    </button>
+          {/* 技能 · 4 列网格 */}
+          <div className="skill-grid">
+            {skillConfig.options.map(skill => {
+              const sel = chosenSkills.includes(skill)
+              const dis = !sel && chosenSkills.length >= skillConfig.count
+              const skillData = SKILL_INFO[skill]
+              return (
+                <div key={skill}
+                  className={`skill-card ${sel ? 'sel' : ''} ${dis ? 'dis' : ''}`}
+                  onClick={() => !dis && toggleSkill(skill)}>
+                  <div className="s-check">{sel ? '✓' : '○'}</div>
+                  <div className="s-name">
+                    {skill}
                     {skillData && (
-                      <div style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)' }}>
-                        <InfoBtn onClick={e => { e.stopPropagation(); openModal('skill', skill) }} />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); openModal('skill', skill) }}
+                        style={{
+                          marginLeft: 6, background: 'none', border: 'none',
+                          color: 'var(--amber)', cursor: 'pointer', fontSize: 10,
+                          padding: 0,
+                        }}
+                      >ⓘ</button>
                     )}
                   </div>
-                )
-              })}
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-fantasy" style={{ flex: 1, padding: '8px' }} onClick={() => setStep(2)}>
-                <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />返回
-              </button>
-              <button className="btn-gold" style={{ flex: 1, padding: '8px' }} disabled={!step3Valid}
-                onClick={() => setStep(4)}>下一步：装备选择 &rarr;</button>
-            </div>
+                  <div className="s-ab">{ABILITY_ZH[skillData?.ability] || skillData?.ability || ''}</div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
 
       {/* ══ Step 4: 装备选择 ══ */}
       {step === 4 && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ScrollIcon size={20} color="var(--gold)" /> 选择起始装备
-            </h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>选择你的出发装备方案</p>
+        <div className="step-pane">
+          <div className="step-title">✧ 第四章 · 起始装备 ✧</div>
+          <div className="step-sub">这是你踏上旅程时所携之物。</div>
+
+          {/* 装备方案 · 大卡片 */}
+          <div className="equip-list">
+            {(options.starting_equipment?.[classEnKey] || []).map((opt, idx) => {
+              const sel = equipChoice === idx
+              return (
+                <div key={idx}
+                  className={`equip-card ${sel ? 'sel' : ''}`}
+                  onClick={() => setEquipChoice(idx)}>
+                  <div className="equip-head">
+                    <div className={`radio ${sel ? 'on' : ''}`}>{sel && <div className="dot" />}</div>
+                    <div className="equip-name">{opt.label}</div>
+                  </div>
+                  <div className="equip-items">
+                    {opt.items.map((item, j) => {
+                      const glyph = item.slot === 'weapon' ? '⚔' :
+                                    item.slot === 'armor' ? '🛡' :
+                                    item.slot === 'offhand' ? '◈' : '◇'
+                      return (
+                        <span key={j} className="item-chip">
+                          {glyph} {getItemZh(item.name)}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {(options.starting_equipment?.[classEnKey] || []).map((opt, idx) => (
-              <label key={idx} style={{
-                display: 'block', padding: '12px 16px', borderRadius: '8px', cursor: 'pointer',
-                border: `1px solid ${equipChoice === idx ? 'var(--gold)' : 'var(--wood-light)'}`,
-                background: equipChoice === idx ? 'rgba(201,168,76,0.1)' : 'rgba(10,8,6,0.3)',
-                transition: 'all 0.2s',
-              }} onClick={() => setEquipChoice(idx)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input type="radio" checked={equipChoice === idx} readOnly style={{ accentColor: 'var(--gold)' }} />
-                  <span style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{opt.label}</span>
-                </div>
-                <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {opt.items.map((item, j) => (
-                    <span key={j} className="tag" style={{
-                      borderColor: item.slot === 'weapon' ? 'var(--red)' :
-                                    item.slot === 'armor' ? 'var(--blue)' :
-                                    item.slot === 'offhand' ? '#5b21b6' : 'var(--wood-light)',
-                      color: item.slot === 'weapon' ? 'var(--red-light)' :
-                             item.slot === 'armor' ? 'var(--blue-light)' :
-                             item.slot === 'offhand' ? '#c4b5fd' : 'var(--text-dim)',
-                      background: item.slot === 'weapon' ? 'rgba(139,32,32,0.15)' :
-                                  item.slot === 'armor' ? 'rgba(26,58,90,0.15)' :
-                                  item.slot === 'offhand' ? 'rgba(91,33,182,0.15)' : 'rgba(74,53,32,0.15)',
-                    }}>
-                      {getItemZh(item.name)}
-                    </span>
-                  ))}
-                </div>
-              </label>
-            ))}
-
-            {/* 背景特性预览 */}
-            {form.background && options.background_features?.[form.background] && (
-              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(42,90,42,0.12)', border: '1px solid var(--green)' }}>
-                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--green-light)', marginBottom: '4px', margin: '0 0 4px' }}>
-                  背景特性：{options.background_features[form.background].feature}
-                </p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', margin: 0 }}>
-                  {options.background_features[form.background].feature_desc}
-                </p>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '0.7rem' }}>
-                  {options.background_features[form.background].skills?.length > 0 && (
-                    <span style={{ color: 'var(--green-light)' }}>技能：{options.background_features[form.background].skills.join('、')}</span>
-                  )}
-                  {options.background_features[form.background].tools?.length > 0 && (
-                    <span style={{ color: 'var(--blue-light)' }}>工具：{options.background_features[form.background].tools.join('、')}</span>
-                  )}
-                </div>
+          {/* 背景特性 · 金边卡 */}
+          {form.background && options.background_features?.[form.background] && (
+            <div className="bg-feat">
+              <div className="bf-title">◈ 背景特性 · {options.background_features[form.background].feature} ◈</div>
+              <div className="bf-desc">
+                {options.background_features[form.background].feature_desc}
               </div>
-            )}
+              <div className="bf-tags">
+                {(options.background_features[form.background].skills || []).map(s => (
+                  <span key={s} className="tag tag-gold">⚔ {s}</span>
+                ))}
+                {(options.background_features[form.background].tools || []).map(t => (
+                  <span key={t} className="tag">◈ {t}</span>
+                ))}
+                {options.background_features[form.background].languages > 0 && (
+                  <span className="tag">◈ 额外语言 × {options.background_features[form.background].languages}</span>
+                )}
+              </div>
+            </div>
+          )}
 
             {/* 语言选择（如有额外名额） */}
             {(() => {
@@ -954,45 +981,20 @@ export default function CharacterCreate() {
               )
             })()}
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-fantasy" style={{ flex: 1, padding: '8px' }} onClick={() => setStep(3)}>
-                <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />返回
-              </button>
-              {isSpellcaster ? (
-                <button className="btn-gold" style={{ flex: 1, padding: '8px' }}
-                  onClick={() => setStep(5)}>下一步：法术选择 &rarr;</button>
-              ) : needsASI ? (
-                <button className="btn-gold" style={{ flex: 1, padding: '8px' }}
-                  onClick={() => setStep(5)}>下一步：专长/属性提升 &rarr;</button>
-              ) : (
-                <button className="btn-gold" style={{ flex: 1, padding: '8px' }} disabled={saving}
-                  onClick={handleSaveAndContinue}>
-                  {saving ? '生成队伍中...' : '确认并生成队伍 \u2192'}</button>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
       {/* ══ Step 5: 法术选择（施法职业）══ */}
       {step === 5 && isSpellcaster && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BookIcon size={20} color="var(--gold)" />
-              {options.spell_preparation_type?.[classEnKey] === 'spellbook' ? '法术书' :
-               options.spell_preparation_type?.[classEnKey] === 'prepared' ? '准备法术' : '已知法术'}
-            </h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>
-              {options.spell_preparation_type?.[classEnKey] === 'spellbook'
-                ? `${classInfo?.zh || classEnKey} -- 选择法术录入法术书（每日可准备一部分）`
-                : options.spell_preparation_type?.[classEnKey] === 'prepared'
-                ? `${classInfo?.zh || classEnKey} -- 从职业法术表中选择准备法术（长休后可更换）`
-                : `${classInfo?.zh || classEnKey} -- 选择永久掌握的法术`}
-            </p>
+        <div className="step-pane">
+          <div className="step-title">✧ 第五章 · 秘术与祷言 ✧</div>
+          <div className="step-sub">
+            {options.spell_preparation_type?.[classEnKey] === 'spellbook'
+              ? `${classInfo?.zh || classEnKey} — 选择法术录入法术书（每日可准备一部分）`
+              : options.spell_preparation_type?.[classEnKey] === 'prepared'
+              ? `${classInfo?.zh || classEnKey} — 从职业法术表中选择准备法术（长休后可更换）`
+              : `${classInfo?.zh || classEnKey} — 选择永久掌握的法术`}
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {cantripCount > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -1051,34 +1053,16 @@ export default function CharacterCreate() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-fantasy" style={{ flex: 1, padding: '8px' }} onClick={() => setStep(4)}>
-                <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />返回
-              </button>
-              {needsASI ? (
-                <button className="btn-gold" style={{ flex: 1, padding: '8px' }} disabled={!step4Valid}
-                  onClick={() => setStep(featStep)}>下一步：专长/属性提升 &rarr;</button>
-              ) : (
-                <button className="btn-gold" style={{ flex: 1, padding: '8px' }} disabled={!step4Valid || saving}
-                  onClick={handleSaveAndContinue}>
-                  {saving ? '生成队伍中...' : '确认并生成队伍 \u2192'}</button>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
       {/* ══ Feat/ASI Step ══ */}
       {step === featStep && needsASI && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: '0 0 4px' }}>专长 / 属性提升</h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', margin: 0 }}>
-              Lv{form.level} 可选择 {asiCount} 次属性提升(ASI)或专长
-            </p>
+        <div className="step-pane">
+          <div className="step-title">✧ 第六章 · 淬炼与专长 ✧</div>
+          <div className="step-sub">
+            Lv{form.level} — {asiCount} 次属性提升 (ASI) 或专长选择
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {Array.from({ length: asiCount }, (_, i) => {
               const feat = chosenFeats[i]
               const isASI = feat?.name === '__ASI__'
@@ -1131,65 +1115,179 @@ export default function CharacterCreate() {
               )
             })}
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn-fantasy" style={{ flex: 1, padding: '8px' }}
-                onClick={() => setStep(isSpellcaster ? spellStep : 4)}>
-                <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />返回
-              </button>
-              <button className="btn-gold" style={{ flex: 1, padding: '8px' }} disabled={saving}
-                onClick={handleSaveAndContinue}>
-                {saving ? '生成队伍中...' : '确认并生成队伍 \u2192'}</button>
-            </div>
-          </div>
         </div>
       )}
 
       {/* ══ Party Step: 确认队伍 ══ */}
       {step === partyStep && (
-        <div className="panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <h3 style={{ color: 'var(--gold)', fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>你的冒险队伍</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>队伍人数</span>
-              {[2,3,4].map(n => (
-                <button key={n}
-                  className={partySize === n ? 'btn-gold' : 'btn-fantasy'}
-                  style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-                  onClick={() => setPartySize(n)}>{n}人</button>
+        <div className="step-pane">
+          <div className="step-title">✧ 终章 · 同伴相逢 ✧</div>
+          <div className="step-sub">你的冒险不会独自前行。AI 已为你组建了最合拍的队伍。</div>
+
+          {/* 玩家英雄大卡 */}
+          {(() => {
+            const hero = useGameStore.getState().playerCharacter
+            const derived = hero?.derived || {}
+            const mods = derived.ability_modifiers || {}
+            const scores = hero?.ability_scores || finalScores
+            const prof = derived.proficiency_bonus || (2 + Math.floor((form.level - 1) / 4))
+            const hpMax = derived.hp_max || 1
+            const ac = derived.ac || 10
+            const dexMod = mods.dex != null ? mods.dex : modifier(scores.dex || 10)
+            return (
+              <div className="final-hero-card">
+                <div className="fh-left">
+                  <Portrait cls={classKey(form.char_class)} size="xl" />
+                </div>
+                <div className="fh-right">
+                  <div className="fh-name">{form.name || '未命名英雄'}</div>
+                  <div className="fh-sub">
+                    {form.race || '—'} · {form.char_class || '—'}
+                    {form.subclass ? ` · ${form.subclass}` : ''} · Lv {form.level}
+                  </div>
+                  <div className="fh-align">
+                    {form.alignment || ''}
+                    {form.background ? ` · 背景：${form.background}` : ''}
+                  </div>
+
+                  <div className="fh-stats">
+                    {ABILITY_KEYS.map(k => {
+                      const score = scores[k] || finalScores[k] || 10
+                      const m = mods[k] != null ? mods[k] : modifier(score)
+                      return (
+                        <div key={k} className="fh-stat">
+                          <div className="n">{ABILITY_ZH[k]}</div>
+                          <div className="v">{score}</div>
+                          <div className="m">{modStr(m)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="fh-derived">
+                    <span>HP {hpMax}</span>
+                    <span>AC {ac}</span>
+                    <span>熟练 +{prof}</span>
+                    <span>先攻 {modStr(dexMod)}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* 队伍人数选择 */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            margin: '18px 0',
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            color: 'var(--parchment-dark)', letterSpacing: '.15em',
+          }}>
+            <span>队伍人数</span>
+            {[2, 3, 4].map(n => (
+              <button key={n}
+                className={partySize === n ? 'btn-gold' : 'btn-ghost'}
+                style={{ padding: '4px 12px', fontSize: 11 }}
+                onClick={() => setPartySize(n)}>{n} 人</button>
+            ))}
+          </div>
+
+          {/* 队友 · 金色饰带 */}
+          <div className="companions-title">
+            <span className="orn">❦</span>
+            <span className="t">你的队友</span>
+            <span className="orn">❦</span>
+          </div>
+
+          {generatingParty ? (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <p style={{
+                color: 'var(--amber)', animation: 'pulse 2s infinite',
+                fontFamily: 'var(--font-script)', fontStyle: 'italic',
+              }}>✦ AI 正在为你召唤伙伴… ✦</p>
+              <p style={{ fontSize: 12, color: 'var(--parchment-dark)', marginTop: 8 }}>
+                根据你的职业分析队伍需求
+              </p>
+            </div>
+          ) : (
+            <div className="companions-grid">
+              {companions.map(c => (
+                <div key={c.id} className="companion-card">
+                  <Portrait cls={classKey(c.char_class)} size="md" />
+                  <div className="cc-info">
+                    <div className="cc-name">{c.name}</div>
+                    <div className="cc-sub">{c.race} · {c.char_class} · Lv {c.level || 1}</div>
+                    {c.personality && (
+                      <div className="cc-role" style={{
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      }}>{c.personality}</div>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
+          )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <CompanionCard char={useGameStore.getState().playerCharacter} isPlayer />
+          {!generatingParty && companions.length > 0 && (
+            <div style={{ textAlign: 'center', marginTop: 16 }}>
+              <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 16px' }}
+                onClick={() => handleGenerateParty()}>
+                🔄 重新生成队伍
+              </button>
+            </div>
+          )}
 
-            {generatingParty ? (
-              <div style={{ textAlign: 'center', padding: '32px 0' }}>
-                <p style={{ color: 'var(--gold)', animation: 'pulse 2s infinite' }}>AI正在生成你的队友...</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '8px' }}>根据你的职业分析队伍需求</p>
-              </div>
-            ) : (
-              companions.map(c => <CompanionCard key={c.id} char={c} />)
-            )}
-
-            {!generatingParty && companions.length > 0 && (
-              <button className="btn-fantasy" style={{ width: '100%', fontSize: '0.875rem', padding: '8px', opacity: 0.7 }}
-                onClick={() => handleGenerateParty()}>重新生成队伍</button>
-            )}
-
-            {error && (
-              <p style={{ color: 'var(--red-light)', fontSize: '0.875rem' }}>! {error}</p>
-            )}
-
-            <button className="btn-gold"
-              disabled={companions.length===0 || generatingParty || saving}
-              onClick={handleStartAdventure}
-              style={{ width: '100%', padding: '12px', fontSize: '1.1rem' }}>
-              {saving ? '准备中...' : '开始冒险!'}
-            </button>
-          </div>
+          {error && (
+            <p style={{
+              color: '#ffaaaa', fontSize: 12, marginTop: 12, padding: 8,
+              background: 'rgba(139,32,32,.2)', border: '1px solid var(--blood)', borderRadius: 4,
+              textAlign: 'center',
+            }}>! {error}</p>
+          )}
         </div>
       )}
+
+        <div className="scroll-ornament bottom">✦ ❧ ✦</div>
+      </div>{/* end create-scroll */}
+
+      {/* 底部全局导航条 */}
+      <div className="create-nav">
+        <button
+          className="btn-ghost"
+          disabled={step === 1}
+          onClick={() => setStep(s => Math.max(1, s - 1))}
+        >◀ 上一步</button>
+        <div className="step-counter">
+          {step} / {STEPS.length}
+          <span style={{
+            marginLeft: 8, fontSize: 10,
+            color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)',
+          }}>
+            {STEPS[step - 1] || ''}
+          </span>
+        </div>
+        {step === partyStep ? (
+          <button
+            className="btn-gold"
+            disabled={companions.length === 0 || generatingParty || saving}
+            onClick={handleStartAdventure}
+            style={{ padding: '10px 28px', fontSize: 13, letterSpacing: '.18em' }}
+          >{saving ? '✦ 准备中… ✦' : '✦ 开始冒险 ✦'}</button>
+        ) : step === partyStep - 1 ? (
+          // 倒数第二步 → 触发创建角色 + 生成队伍（自动跳 partyStep）
+          <button
+            className="btn-gold"
+            disabled={saving || !step1Valid || !step2Valid || !step3Valid || !step4Valid}
+            onClick={handleSaveAndContinue}
+            style={{ padding: '10px 20px', fontSize: 12, letterSpacing: '.12em' }}
+          >{saving ? '✦ 生成队伍中… ✦' : '✦ 确认并生成队伍 ▶ ✦'}</button>
+        ) : (
+          <button
+            className="btn-gold"
+            onClick={() => setStep(s => Math.min(STEPS.length, s + 1))}
+          >{STEPS[step] || '下一步'} ▶</button>
+        )}
+      </div>
     </div>
   )
 }

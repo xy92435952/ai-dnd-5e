@@ -40,6 +40,35 @@ export const useGameStore = create((set, get) => ({
   hideDice: () => set({ diceRoll: null }),
   hideDicePrompt: () => set({ dicePrompt: null }),
 
+  // ── 多人联机状态（v0.9）──
+  isMultiplayer: false,
+  roomCode: null,
+  hostUserId: null,
+  members: [],          // [{user_id, username, display_name, role, character_id, character_name, is_online}]
+  currentSpeakerUserId: null,  // 探索阶段：当前发言权
+  myUserId: null,
+  setMultiplayer: (info) => set({
+    isMultiplayer: !!info?.isMultiplayer,
+    roomCode: info?.roomCode || null,
+    hostUserId: info?.hostUserId || null,
+  }),
+  setMembers: (members) => set({ members: members || [] }),
+  setCurrentSpeaker: (uid) => set({ currentSpeakerUserId: uid }),
+  setMyUserId: (uid) => set({ myUserId: uid }),
+  // 工具方法
+  isMyTurn: () => {
+    const s = get()
+    if (!s.isMultiplayer) return true
+    if (s.combatActive) {
+      const cs = s.combatState
+      if (!cs?.turn_order?.length) return true
+      const cur = cs.turn_order[cs.current_turn_index || 0]
+      const myChar = s.members.find(m => m.user_id === s.myUserId)?.character_id
+      return cur?.character_id === myChar
+    }
+    return s.currentSpeakerUserId === s.myUserId
+  },
+
   // 重置游戏状态
   resetGame: () => set({
     playerCharacter: null,
@@ -48,5 +77,10 @@ export const useGameStore = create((set, get) => ({
     logs: [],
     combatActive: false,
     combatState: null,
+    isMultiplayer: false,
+    roomCode: null,
+    hostUserId: null,
+    members: [],
+    currentSpeakerUserId: null,
   }),
 }))

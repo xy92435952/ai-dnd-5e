@@ -1,0 +1,738 @@
+/* ═══════════════════════════════════════════════════════════
+   BG3 Theme — 博德之门3 风格叠加层
+   深石板 + 烫金浮雕边框 + 青绿魔法辉光 + 宝石按钮
+   ═══════════════════════════════════════════════════════════ */
+
+[data-theme="bg3"] {
+  --void: #0a0806;
+  --obsidian: #14100a;
+  --mahogany: #1c1610;
+  --bark: #2a211a;
+  --bark-light: #4a3a28;
+  --bark-soft: #6a5238;
+
+  /* 博德之门3 标志性色系：暖金 + 青绿魔法 */
+  --amber: #d4a84a;
+  --flame: #f0c040;
+  --ember: #b86818;
+
+  --parchment: #e8d4a0;
+  --parchment-dark: #b89a68;
+  --ivory: #f5e8c0;
+
+  --blood: #7a1818;
+  --blood-light: #c42828;
+  --blood-deep: #3a0808;
+
+  --emerald: #2a6a5a;
+  --emerald-light: #5aa898;
+
+  /* BG3 的 "arcane teal"——选项栏、选中高亮、法术触发用 */
+  --arcane: #2ea8b8;
+  --arcane-light: #5fd8e8;
+  --arcane-glow: #7fe8f8;
+
+  --sapphire: #345f8c;
+  --sapphire-light: #4e86b8;
+
+  --amethyst: #7a4fc4;
+  --amethyst-light: #a890e8;
+
+  --font-display: 'Cinzel Decorative', serif;
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+  --font-script: 'IM Fell English', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --gold-gradient: linear-gradient(135deg, #8a5a18 0%, #d4a84a 35%, #f0d060 50%, #d4a84a 65%, #8a5a18 100%);
+  --ember-gradient: linear-gradient(135deg, #6a2010, #c85a28, #f0a040);
+  --wood-gradient: linear-gradient(180deg, #2a211a 0%, #14100a 100%);
+  --parchment-gradient: linear-gradient(180deg, #e8d3a0 0%, #c8a970 100%);
+
+  --stone-gradient:
+    linear-gradient(180deg, rgba(48,40,32,.95) 0%, rgba(26,20,14,.98) 50%, rgba(14,10,6,1) 100%);
+
+  --accent: var(--amber);
+  --accent-bright: var(--arcane-light);
+  --accent-soft: var(--arcane);
+}
+
+/* ── BG3 石板面板：深石底 + 双层金属边 + 顶/底浮雕 ─── */
+[data-theme="bg3"] .panel,
+[data-theme="bg3"] .panel-ornate {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(212,168,74,.10) 0%, transparent 55%),
+    var(--stone-gradient);
+  border: 1px solid #1a1208;
+  box-shadow:
+    /* 外发光 */
+    0 0 0 1px rgba(138,90,24,.4),
+    0 0 0 2px rgba(10,6,4,1),
+    0 0 0 3px rgba(138,90,24,.35),
+    /* 内发光 顶部金 */
+    inset 0 1px 0 rgba(240,208,96,.3),
+    inset 0 2px 8px -2px rgba(240,208,96,.12),
+    /* 内阴影底部 */
+    inset 0 -2px 12px -2px rgba(0,0,0,.8),
+    /* 投影 */
+    0 10px 32px -8px rgba(0,0,0,.9);
+  border-radius: 4px;
+  position: relative;
+}
+[data-theme="bg3"] .panel::before,
+[data-theme="bg3"] .panel-ornate::before {
+  display: none;
+}
+/* 顶部金色浮雕细条 */
+[data-theme="bg3"] .panel::after,
+[data-theme="bg3"] .panel-ornate::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 8%; right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(240,208,96,.6), transparent);
+  pointer-events: none;
+}
+
+/* ── 宝石按钮 · BG3风格 ────────────────────────────── */
+[data-theme="bg3"] .btn-gold {
+  padding: 10px 26px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,230,150,.5) 0%, transparent 40%),
+    linear-gradient(180deg, #d4a84a 0%, #8a5a18 50%, #5a3a10 100%);
+  border: 1px solid #2a1808;
+  border-radius: 3px;
+  color: #1a0e04;
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-weight: 700;
+  font-size: 12px;
+  text-shadow: 0 1px 0 rgba(255,230,150,.4);
+  box-shadow:
+    0 0 0 1px rgba(240,208,96,.5),
+    inset 0 1px 0 rgba(255,240,180,.55),
+    inset 0 -1px 2px rgba(0,0,0,.4),
+    0 2px 0 #2a1808,
+    0 4px 12px -2px rgba(0,0,0,.6),
+    0 0 18px -4px rgba(240,208,96,.3);
+}
+[data-theme="bg3"] .btn-gold::before { display: none; }
+[data-theme="bg3"] .btn-gold:hover {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,240,180,.7) 0%, transparent 45%),
+    linear-gradient(180deg, #f0c864 0%, #a07a28 50%, #5a3a10 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(240,208,96,.8),
+    inset 0 1px 0 rgba(255,240,180,.7),
+    inset 0 -1px 2px rgba(0,0,0,.4),
+    0 3px 0 #2a1808,
+    0 0 30px -4px rgba(240,208,96,.6),
+    0 0 60px -8px rgba(47,168,184,.3);
+}
+
+/* ── 青绿arcane按钮（施法/检定等） ────────────── */
+[data-theme="bg3"] .btn-arcane {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 22px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(127,232,248,.4) 0%, transparent 40%),
+    linear-gradient(180deg, #3ec8d8 0%, #2a7a88 50%, #14444e 100%);
+  border: 1px solid #0a2028;
+  border-radius: 3px;
+  color: #04181c;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(200,255,255,.4);
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(127,232,248,.5),
+    inset 0 1px 0 rgba(200,255,255,.5),
+    inset 0 -1px 2px rgba(0,0,0,.4),
+    0 2px 0 #0a2028,
+    0 0 24px -4px rgba(47,168,184,.5);
+  transition: var(--transition);
+}
+[data-theme="bg3"] .btn-arcane:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(127,232,248,.8),
+    inset 0 1px 0 rgba(200,255,255,.7),
+    0 3px 0 #0a2028,
+    0 0 40px -2px rgba(47,168,184,.9);
+}
+
+/* ── 六边形/环形肖像框（BG3最标志性） ──────────── */
+[data-theme="bg3"] .portrait {
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(255,240,180,.2) 0%, transparent 45%),
+    radial-gradient(circle at 35% 30%, var(--c-light,#4a8aaa) 0%, var(--c-dark,#1a3a5a) 75%);
+  box-shadow:
+    /* 最外：金色浮雕环 */
+    0 0 0 2px #1a0e04,
+    0 0 0 4px var(--c-border, #d4a84a),
+    0 0 0 5px rgba(240,208,96,.8),
+    0 0 0 6px #1a0e04,
+    0 0 0 7px rgba(90,58,16,.9),
+    /* 发光 */
+    0 0 18px -2px var(--c-border, #d4a84a),
+    0 0 40px -8px rgba(47,168,184,.3),
+    /* 内光 */
+    inset 0 -8px 14px -4px rgba(0,0,0,.7),
+    inset 0 4px 10px -2px rgba(255,255,255,.2);
+}
+[data-theme="bg3"] .portrait.is-active {
+  box-shadow:
+    0 0 0 2px #1a0e04,
+    0 0 0 4px var(--arcane-light),
+    0 0 0 5px #1a0e04,
+    0 0 0 6px rgba(240,208,96,.7),
+    0 0 24px 2px var(--arcane-light),
+    0 0 60px -4px rgba(47,168,184,.8),
+    inset 0 -8px 14px -4px rgba(0,0,0,.7);
+  animation: bg3ActivePulse 2s ease-in-out infinite;
+}
+@keyframes bg3ActivePulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.15) saturate(1.1); }
+}
+
+/* ── 对话气泡·BG3 ─── */
+[data-theme="bg3"] .bubble-dm {
+  font-family: var(--font-body);
+  color: var(--parchment);
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(240,208,96,.1) 0%, transparent 55%),
+    linear-gradient(180deg, #2a2014 0%, #16110a 100%);
+  border: 1px solid #4a3820;
+  box-shadow:
+    0 0 0 1px rgba(10,6,4,1),
+    0 0 0 2px rgba(138,90,24,.35),
+    inset 0 1px 0 rgba(240,208,96,.2),
+    inset 0 -1px 6px rgba(0,0,0,.5),
+    0 8px 24px -6px rgba(0,0,0,.7);
+  border-radius: 4px;
+  text-shadow: none;
+  position: relative;
+}
+[data-theme="bg3"] .bubble-dm::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(138,90,24,.3);
+  border-radius: 2px;
+  pointer-events: none;
+}
+[data-theme="bg3"] .bubble-dm::after { display: none; }
+
+[data-theme="bg3"] .bubble-player {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(47,168,184,.2) 0%, transparent 60%),
+    linear-gradient(180deg, #0c2a32 0%, #081820 100%);
+  border: 1px solid #2a7a88;
+  border-radius: 4px;
+  color: #c8eff4;
+  box-shadow:
+    0 0 0 1px rgba(10,6,4,1),
+    0 0 0 2px rgba(47,168,184,.3),
+    inset 0 1px 0 rgba(127,232,248,.2),
+    0 0 24px -8px rgba(47,168,184,.5),
+    0 8px 22px -8px rgba(0,0,0,.7);
+}
+[data-theme="bg3"] .bubble-player::before {
+  background: #081820;
+  border-right-color: #2a7a88;
+  border-top-color: #2a7a88;
+}
+
+[data-theme="bg3"] .bubble-ally {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(95,168,120,.15) 0%, transparent 60%),
+    linear-gradient(180deg, #1a2a1c 0%, #0e1a10 100%);
+  border: 1px solid #3a6a48;
+  border-radius: 4px;
+  color: #cfe8cf;
+  box-shadow:
+    0 0 0 1px rgba(10,6,4,1),
+    0 0 0 2px rgba(90,168,120,.3),
+    0 0 24px -8px rgba(90,168,120,.4);
+}
+
+/* ── 输入卷轴·BG3 ── */
+[data-theme="bg3"] .scroll-input {
+  background: linear-gradient(180deg, #1a1208 0%, #0a0604 100%);
+  border: 1px solid #4a3820;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px rgba(10,6,4,1),
+    0 0 0 2px rgba(138,90,24,.35),
+    inset 0 2px 8px -2px rgba(0,0,0,.8);
+}
+[data-theme="bg3"] .scroll-input .send {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(127,232,248,.5) 0%, transparent 40%),
+    linear-gradient(180deg, #3ec8d8 0%, #14444e 100%);
+  border: 1px solid #0a2028;
+  box-shadow:
+    0 0 0 1px rgba(127,232,248,.6),
+    inset 0 1px 0 rgba(200,255,255,.5),
+    0 0 20px -2px rgba(47,168,184,.6);
+  color: #04181c;
+  border-radius: 3px;
+}
+
+/* ── 标签·BG3 ── */
+[data-theme="bg3"] .tag {
+  border-radius: 2px;
+  text-transform: uppercase;
+  font-size: 9px;
+  padding: 3px 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 1px 0 rgba(0,0,0,.5);
+}
+[data-theme="bg3"] .tag-magic {
+  background: linear-gradient(180deg, rgba(47,168,184,.3), rgba(20,68,78,.5));
+  border-color: var(--arcane);
+  color: var(--arcane-light);
+}
+[data-theme="bg3"] .tag-gold {
+  background: linear-gradient(180deg, rgba(212,168,74,.25), rgba(90,58,16,.4));
+  border-color: var(--amber);
+  color: var(--flame);
+}
+
+/* ── 战斗地图·BG3 ── */
+[data-theme="bg3"] .battle-grid {
+  background:
+    radial-gradient(ellipse at center, rgba(47,168,184,.04) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent, transparent 48px, rgba(138,90,24,.1) 48px, rgba(138,90,24,.1) 49px),
+    repeating-linear-gradient(90deg, transparent, transparent 48px, rgba(138,90,24,.1) 48px, rgba(138,90,24,.1) 49px),
+    linear-gradient(135deg, #1a1410, #0a0604);
+  border: 1px solid #1a0e04;
+  box-shadow:
+    0 0 0 1px rgba(138,90,24,.5),
+    0 0 0 2px #0a0604,
+    0 0 0 3px rgba(138,90,24,.35),
+    inset 0 0 80px rgba(0,0,0,.7),
+    0 10px 40px -8px rgba(0,0,0,.9);
+  border-radius: 2px;
+}
+[data-theme="bg3"] .battle-cell { border-radius: 0; border: 1px solid rgba(138,90,24,.12); background: transparent; }
+[data-theme="bg3"] .battle-cell:hover {
+  background: rgba(47,168,184,.12);
+  border-color: var(--arcane);
+  box-shadow: inset 0 0 12px rgba(47,168,184,.3);
+}
+[data-theme="bg3"] .battle-cell.player {
+  background: radial-gradient(circle, rgba(47,168,184,.35), transparent 70%);
+  border-color: var(--arcane-light);
+  box-shadow: inset 0 0 14px rgba(47,168,184,.3);
+}
+[data-theme="bg3"] .battle-cell.reach {
+  background: rgba(47,168,184,.12);
+  border: 1px dashed rgba(127,232,248,.5);
+}
+[data-theme="bg3"] .battle-cell.target {
+  background: radial-gradient(circle, rgba(240,208,96,.35), transparent 70%);
+  border: 1px solid var(--flame);
+  box-shadow: inset 0 0 16px rgba(240,208,96,.4);
+}
+[data-theme="bg3"] .battle-cell.enemy {
+  background: radial-gradient(circle, rgba(196,40,40,.4), transparent 70%);
+  border-color: var(--blood-light);
+  box-shadow: inset 0 0 14px rgba(196,40,40,.4);
+}
+
+[data-theme="bg3"] .unit-token {
+  border: 2px solid rgba(10,6,4,1);
+  box-shadow:
+    0 0 0 1px var(--amber),
+    0 0 12px rgba(240,208,96,.4),
+    inset 0 -4px 6px rgba(0,0,0,.5);
+}
+
+/* ── 行动按钮·BG3 宝石触感 ── */
+[data-theme="bg3"] .action-btn {
+  background: linear-gradient(180deg, #2a211a 0%, #14100a 100%);
+  border: 1px solid #0a0604;
+  border-left: 3px solid var(--bark-light);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(240,208,96,.12),
+    inset 0 -2px 6px rgba(0,0,0,.4),
+    0 0 0 1px rgba(138,90,24,.3);
+  color: var(--parchment);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 12px;
+}
+[data-theme="bg3"] .action-btn:hover {
+  background: linear-gradient(180deg, #3a2c22 0%, #1a1410 100%);
+  border-left-color: var(--arcane-light);
+  color: var(--arcane-light);
+  box-shadow:
+    inset 0 1px 0 rgba(127,232,248,.2),
+    0 0 0 1px rgba(47,168,184,.5),
+    0 0 16px -4px rgba(47,168,184,.5);
+  transform: none;
+}
+[data-theme="bg3"] .action-btn.attack:hover  { border-left-color: var(--blood-light); color: #f4a0a0; box-shadow: 0 0 0 1px rgba(196,40,40,.5), 0 0 16px -4px rgba(196,40,40,.5); }
+[data-theme="bg3"] .action-btn.spell:hover   { border-left-color: var(--amethyst-light); color: #d4c4ff; box-shadow: 0 0 0 1px rgba(122,79,196,.5), 0 0 16px -4px rgba(122,79,196,.5); }
+[data-theme="bg3"] .action-btn.end {
+  background: linear-gradient(180deg, #d4a84a 0%, #8a5a18 100%);
+  color: #1a0e04;
+  border-left: 3px solid #f0c864;
+  box-shadow:
+    inset 0 1px 0 rgba(255,240,180,.5),
+    0 0 0 1px rgba(240,208,96,.6),
+    0 0 20px -4px rgba(240,208,96,.5);
+  font-weight: 700;
+}
+
+/* ── HP条·BG3 ── */
+[data-theme="bg3"] .hp-bar {
+  background: linear-gradient(180deg, #0a0604, #1a1208);
+  border: 1px solid #0a0604;
+  border-radius: 2px;
+  height: 10px;
+  box-shadow:
+    inset 0 1px 3px rgba(0,0,0,.8),
+    0 0 0 1px rgba(138,90,24,.4),
+    inset 0 -1px 0 rgba(240,208,96,.1);
+}
+[data-theme="bg3"] .hp-bar > .fill {
+  border-radius: 1px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 2px rgba(0,0,0,.4);
+}
+[data-theme="bg3"] .hp-bar.high > .fill { background: linear-gradient(180deg, #6ac484, #2a6a3a); }
+[data-theme="bg3"] .hp-bar.mid > .fill  { background: linear-gradient(180deg, #f0c864, #8a5a10); }
+[data-theme="bg3"] .hp-bar.low > .fill  { background: linear-gradient(180deg, #f04838, #7a1010); }
+
+/* ── 法术位宝石·BG3 ── */
+[data-theme="bg3"] .slot-gem {
+  width: 12px; height: 12px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background:
+    linear-gradient(135deg, #7fe8f8 0%, #2a7a88 50%, #14444e 100%);
+  box-shadow:
+    0 0 0 1px #0a0604,
+    0 0 0 2px rgba(127,232,248,.5),
+    inset 0 1px 0 rgba(200,255,255,.6),
+    inset 0 -1px 2px rgba(0,0,0,.4),
+    0 0 8px rgba(47,168,184,.6);
+}
+[data-theme="bg3"] .slot-gem.used {
+  background: linear-gradient(135deg, #3a4548, #1a2024);
+  box-shadow: 0 0 0 1px #0a0604, 0 0 0 2px rgba(60,80,90,.4);
+  opacity: .5;
+}
+
+/* ── 骰子徽章·BG3 ── */
+[data-theme="bg3"] .dice-badge {
+  background: linear-gradient(180deg, #2a211a, #14100a);
+  border: 1px solid var(--amber);
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px #0a0604,
+    inset 0 1px 0 rgba(240,208,96,.2),
+    0 0 14px -4px rgba(240,208,96,.5);
+  padding: 5px 14px;
+}
+[data-theme="bg3"] .dice-badge.crit {
+  border-color: var(--arcane-light);
+  box-shadow: 0 0 0 1px #0a0604, 0 0 22px -4px var(--arcane-light);
+  color: var(--arcane-light);
+}
+
+/* ── 先攻条目·BG3 ── */
+[data-theme="bg3"] .init-row.active {
+  background: linear-gradient(90deg, rgba(47,168,184,.25), transparent);
+  border: 1px solid rgba(47,168,184,.6);
+  box-shadow:
+    inset 3px 0 0 var(--arcane-light),
+    0 0 20px -4px rgba(47,168,184,.6);
+}
+[data-theme="bg3"] .init-row.active::before {
+  background: var(--arcane-light);
+  box-shadow: 0 0 12px var(--arcane-light);
+}
+[data-theme="bg3"] .init-num {
+  background: linear-gradient(180deg, #3a2c20, #14100a);
+  border: 1px solid #0a0604;
+  box-shadow: 0 0 0 1px rgba(138,90,24,.4), inset 0 1px 0 rgba(240,208,96,.2);
+}
+
+/* ── 技能快捷芯片·BG3 ── */
+[data-theme="bg3"] .skill-chip {
+  background: linear-gradient(180deg, rgba(47,168,184,.08), rgba(20,68,78,.15));
+  border: 1px solid rgba(47,168,184,.4);
+  border-radius: 2px;
+  color: var(--arcane-light);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: .1em;
+  padding: 6px 14px;
+  box-shadow: inset 0 1px 0 rgba(127,232,248,.1);
+}
+[data-theme="bg3"] .skill-chip:hover {
+  background: linear-gradient(180deg, rgba(47,168,184,.25), rgba(20,68,78,.3));
+  border-color: var(--arcane-light);
+  color: var(--arcane-glow);
+  box-shadow: inset 0 1px 0 rgba(127,232,248,.3), 0 0 18px -4px rgba(47,168,184,.6);
+}
+
+/* ── 输入·BG3 ── */
+[data-theme="bg3"] .input-fantasy {
+  background: linear-gradient(180deg, #0a0604, #14100a);
+  border: 1px solid #4a3820;
+  border-radius: 3px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.8), 0 0 0 1px rgba(138,90,24,.35);
+  color: var(--parchment);
+  font-family: var(--font-body);
+}
+[data-theme="bg3"] .input-fantasy:focus {
+  border-color: var(--arcane-light);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.8), 0 0 0 1px rgba(47,168,184,.8), 0 0 22px -4px rgba(47,168,184,.7);
+}
+
+/* ── 能力值格·BG3 ── */
+[data-theme="bg3"] .ability-card {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(240,208,96,.15), transparent 55%),
+    linear-gradient(180deg, #2a211a 0%, #0e0a06 100%);
+  border: 1px solid #0a0604;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px rgba(138,90,24,.5),
+    inset 0 1px 0 rgba(240,208,96,.25),
+    inset 0 -2px 8px rgba(0,0,0,.5);
+}
+[data-theme="bg3"] .ability-card .label { color: var(--amber); }
+
+/* ── 检定卡紫色浮雕 → 改成青绿 arcane ── */
+[data-theme="bg3"] .panel-ornate[style*="amethyst"],
+[data-theme="bg3"] .check-prompt {
+  /* 已由行内 style 控制，hover 会覆盖 */
+}
+
+/* ── BG3 标志"分支式引导线" · 可选装饰 ── */
+[data-theme="bg3"] .divider::before,
+[data-theme="bg3"] .divider::after {
+  background: linear-gradient(90deg, transparent, rgba(240,208,96,.7) 20%, rgba(240,208,96,.7) 80%, transparent);
+  height: 1px;
+  box-shadow: 0 1px 0 rgba(10,6,4,.8);
+}
+
+/* ── 场景背景 · BG3 石室感 ── */
+[data-theme="bg3"] body,
+body[data-theme="bg3"] {
+  background-color: var(--void);
+}
+body[data-theme="bg3"].bg-parchment {
+  background-color: #06040a;
+  background-image:
+    /* 顶部金色教堂穹顶光源 */
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(240,208,96,.25) 0%, rgba(240,208,96,.06) 35%, transparent 60%),
+    /* 底部青绿魔法池 */
+    radial-gradient(ellipse 80% 50% at 50% 110%, rgba(47,168,184,.18) 0%, rgba(47,168,184,.04) 40%, transparent 70%),
+    /* 侧面紫罗兰暗涌 */
+    radial-gradient(ellipse at 10% 50%, rgba(122,79,196,.10) 0%, transparent 45%),
+    radial-gradient(ellipse at 90% 50%, rgba(196,40,40,.06) 0%, transparent 45%),
+    /* 深蓝灰石底 */
+    linear-gradient(180deg, #0e0a10 0%, #06040a 50%, #0a0808 100%);
+}
+
+/* 让所有内容落在大气层之上 */
+[data-theme="bg3"] .showcase-shell,
+[data-theme="bg3"] .tweaks-panel { position: relative; z-index: 2; }
+
+/* ── 面板四角金色浮雕小三角 ── */
+[data-theme="bg3"] .panel-ornate {
+  position: relative;
+}
+[data-theme="bg3"] .corner-stud {
+  position: absolute;
+  width: 10px; height: 10px;
+  background: radial-gradient(circle at 35% 35%, #f0d060, #8a5a18 70%);
+  border: 1px solid #1a0e04;
+  border-radius: 50%;
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,.5), 0 0 6px rgba(240,208,96,.4);
+  pointer-events: none;
+}
+
+/* ── 滚动条·BG3 ── */
+[data-theme="bg3"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4a3820, #1a0e04);
+  border: 1px solid rgba(240,208,96,.3);
+}
+[data-theme="bg3"] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--amber), #5a3a10);
+  box-shadow: 0 0 8px rgba(240,208,96,.5);
+}
+
+/* ── 显示标题·BG3 特殊字重/阴影 ── */
+[data-theme="bg3"] .display-title {
+  background: linear-gradient(180deg, #f0d060 0%, #d4a84a 50%, #8a5a18 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 #0a0604) drop-shadow(0 2px 6px rgba(240,208,96,.25));
+  animation: none;
+}
+
+/* 展示标题下浮雕分隔 */
+[data-theme="bg3"] .showcase-header .title {
+  text-shadow: 0 2px 0 #0a0604, 0 4px 30px rgba(240,208,96,.35);
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.8));
+}
+
+/* ── frame 边框·BG3 ── */
+[data-theme="bg3"] .frame {
+  border: 1px solid #0a0604;
+  box-shadow:
+    0 0 0 1px rgba(138,90,24,.5),
+    0 0 0 2px #0a0604,
+    0 0 0 3px rgba(138,90,24,.3),
+    0 20px 60px -16px rgba(0,0,0,.95);
+  border-radius: 4px;
+}
+[data-theme="bg3"] .frame-label {
+  background: linear-gradient(180deg, rgba(240,208,96,.12), rgba(10,6,4,.5));
+  border-bottom: 1px solid rgba(138,90,24,.5);
+}
+
+/* ── 场景标签·BG3 ── */
+[data-theme="bg3"] .scene-btn {
+  background: linear-gradient(180deg, #2a211a, #0e0a06);
+  border: 1px solid #0a0604;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(138,90,24,.4), inset 0 1px 0 rgba(240,208,96,.12);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 11px;
+}
+[data-theme="bg3"] .scene-btn:hover {
+  color: var(--arcane-light);
+  box-shadow: 0 0 0 1px rgba(47,168,184,.7), 0 0 18px -4px rgba(47,168,184,.5), inset 0 1px 0 rgba(127,232,248,.15);
+}
+[data-theme="bg3"] .scene-btn.active {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,230,150,.4) 0%, transparent 45%),
+    linear-gradient(180deg, #d4a84a 0%, #8a5a18 100%);
+  color: #1a0e04;
+  border-color: #2a1808;
+  box-shadow:
+    0 0 0 1px rgba(240,208,96,.7),
+    inset 0 1px 0 rgba(255,240,180,.55),
+    0 0 20px -4px rgba(240,208,96,.6);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   BG3 大气背景层 — god-rays / rune-circles / dust / vignette
+   （从 design v0.10 prototype index.html 抽取）
+   ═══════════════════════════════════════════════════════════ */
+
+.bg-atmosphere {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* 神圣光束 */
+.god-rays {
+  position: absolute; inset: -5% 0 0 0;
+  overflow: hidden;
+  mix-blend-mode: screen;
+}
+.god-rays span {
+  position: absolute;
+  top: -30%;
+  left: var(--l);
+  width: 140px;
+  height: 160vh;
+  background: linear-gradient(180deg,
+    rgba(240,208,96,0) 0%,
+    rgba(240,208,96,.22) 18%,
+    rgba(240,208,96,.08) 55%,
+    transparent 90%);
+  transform: rotate(var(--r));
+  transform-origin: 50% 0%;
+  opacity: var(--d);
+  filter: blur(14px);
+  animation: rayFlicker 7s ease-in-out infinite;
+}
+.god-rays span:nth-child(2) { animation-duration: 9s; animation-delay: -2s; }
+.god-rays span:nth-child(3) {
+  animation-duration: 11s; animation-delay: -4s;
+  background: linear-gradient(180deg,
+    rgba(127,232,248,0) 0%,
+    rgba(127,232,248,.14) 22%,
+    transparent 85%);
+}
+.god-rays span:nth-child(4) { animation-duration: 8s; animation-delay: -1s; }
+.god-rays span:nth-child(5) { animation-duration: 13s; animation-delay: -5s; }
+@keyframes rayFlicker {
+  0%,100% { opacity: var(--d); transform: rotate(var(--r)) translateX(0); }
+  50%     { opacity: calc(var(--d) * 1.4); transform: rotate(calc(var(--r) + .4deg)) translateX(4px); }
+}
+
+/* 旋转符文阵 */
+.rune-circle {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%,-50%);
+  opacity: .38;
+  pointer-events: none;
+}
+.rune-outer {
+  width: min(120vmin, 1300px);
+  height: min(120vmin, 1300px);
+  animation: runeSpin 180s linear infinite;
+}
+.rune-inner {
+  width: min(80vmin, 900px);
+  height: min(80vmin, 900px);
+  animation: runeSpinReverse 240s linear infinite;
+  opacity: .28;
+}
+@keyframes runeSpin {
+  from { transform: translate(-50%,-50%) rotate(0); }
+  to   { transform: translate(-50%,-50%) rotate(360deg); }
+}
+@keyframes runeSpinReverse {
+  from { transform: translate(-50%,-50%) rotate(360deg); }
+  to   { transform: translate(-50%,-50%) rotate(0); }
+}
+
+/* 漂浮尘埃 */
+.dust { position: absolute; inset: 0; }
+.dust span {
+  position: absolute;
+  width: 2px; height: 2px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,240,200,.9), rgba(255,240,200,0) 70%);
+  animation: dustFloat linear infinite;
+  filter: blur(.3px);
+}
+@keyframes dustFloat {
+  0%   { transform: translate(0,0); opacity: 0; }
+  10%  { opacity: 1; }
+  50%  { transform: translate(40px, -80px); }
+  90%  { opacity: 1; }
+  100% { transform: translate(0, -180px); opacity: 0; }
+}
+
+/* 暗角 */
+.vignette {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(0,0,0,.55) 85%, rgba(0,0,0,.85) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.35) 0%, transparent 20%, transparent 80%, rgba(0,0,0,.55) 100%);
+}

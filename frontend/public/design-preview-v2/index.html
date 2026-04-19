@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>龙与编年史 · 视觉重构</title>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/ornaments.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/bg3.css">
+<link rel="stylesheet" href="styles/gamefeel.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  #root { min-height: 100vh; }
+
+  /* ═══ BG3 大气背景 ═══ */
+  .bg-atmosphere {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .god-rays { position: absolute; inset: -5% 0 0 0; overflow: hidden; mix-blend-mode: screen; }
+  .god-rays span {
+    position: absolute;
+    top: -30%;
+    left: var(--l);
+    width: 140px;
+    height: 160vh;
+    background: linear-gradient(180deg,
+      rgba(240,208,96,0) 0%,
+      rgba(240,208,96,.22) 18%,
+      rgba(240,208,96,.08) 55%,
+      transparent 90%);
+    transform: rotate(var(--r));
+    transform-origin: 50% 0%;
+    opacity: var(--d);
+    filter: blur(14px);
+    animation: rayFlicker 7s ease-in-out infinite;
+  }
+  .god-rays span:nth-child(2) { animation-duration: 9s; animation-delay: -2s; }
+  .god-rays span:nth-child(3) { animation-duration: 11s; animation-delay: -4s; background: linear-gradient(180deg, rgba(127,232,248,0) 0%, rgba(127,232,248,.14) 22%, transparent 85%); }
+  .god-rays span:nth-child(4) { animation-duration: 8s; animation-delay: -1s; }
+  .god-rays span:nth-child(5) { animation-duration: 13s; animation-delay: -5s; }
+  @keyframes rayFlicker {
+    0%,100% { opacity: var(--d); transform: rotate(var(--r)) translateX(0); }
+    50%     { opacity: calc(var(--d) * 1.4); transform: rotate(calc(var(--r) + .4deg)) translateX(4px); }
+  }
+
+  .rune-circle {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%,-50%);
+    opacity: .38;
+    pointer-events: none;
+  }
+  .rune-outer {
+    width: min(120vmin, 1300px);
+    height: min(120vmin, 1300px);
+    animation: runeSpin 180s linear infinite;
+  }
+  .rune-inner {
+    width: min(80vmin, 900px);
+    height: min(80vmin, 900px);
+    animation: runeSpinReverse 240s linear infinite;
+    opacity: .28;
+  }
+  @keyframes runeSpin { from { transform: translate(-50%,-50%) rotate(0); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+  @keyframes runeSpinReverse { from { transform: translate(-50%,-50%) rotate(360deg); } to { transform: translate(-50%,-50%) rotate(0); } }
+
+  .dust { position: absolute; inset: 0; }
+  .dust span {
+    position: absolute;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,240,200,.9), rgba(255,240,200,0) 70%);
+    animation: dustFloat linear infinite;
+    filter: blur(.3px);
+  }
+  @keyframes dustFloat {
+    0%   { transform: translate(0,0); opacity: 0; }
+    10%  { opacity: 1; }
+    50%  { transform: translate(40px, -80px); }
+    90%  { opacity: 1; }
+    100% { transform: translate(0, -180px); opacity: 0; }
+  }
+
+  .vignette {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(0,0,0,.55) 85%, rgba(0,0,0,.85) 100%),
+      linear-gradient(180deg, rgba(0,0,0,.35) 0%, transparent 20%, transparent 80%, rgba(0,0,0,.55) 100%);
+  }
+  .showcase-shell {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 28px 24px 120px;
+  }
+  .showcase-header {
+    text-align: center;
+    margin-bottom: 28px;
+    position: relative;
+  }
+  .showcase-header .title {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 900;
+    background: var(--gold-gradient);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+    text-shadow: 0 4px 30px rgba(212,168,71,.25);
+    letter-spacing: .1em;
+    animation: shimmer 10s linear infinite;
+  }
+  .theme-tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    margin-top: 14px;
+    background: rgba(10,6,2,.7);
+    border: 1px solid var(--bark-light);
+    border-radius: 24px;
+  }
+  .theme-tab {
+    padding: 8px 18px;
+    background: transparent;
+    border: none;
+    color: var(--parchment-dark);
+    font-family: var(--font-heading);
+    font-size: 12px;
+    letter-spacing: .15em;
+    cursor: pointer;
+    border-radius: 20px;
+    transition: var(--transition);
+  }
+  .theme-tab.active {
+    background: var(--gold-gradient);
+    color: var(--void);
+    font-weight: 700;
+    box-shadow: 0 4px 14px -2px rgba(212,168,71,.4);
+  }
+  .frame {
+    margin-top: 22px;
+    border: 1px solid var(--bark-light);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    background: var(--void);
+    box-shadow: 0 14px 60px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(212,168,71,.12);
+    position: relative;
+  }
+  /* 透明款 — 去掉底板 让背景穿透 */
+  .frame.frame-transparent {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .frame.frame-transparent .frame-label {
+    background: transparent;
+    border-bottom: 1px solid rgba(212,168,71,.25);
+    margin-bottom: 12px;
+  }
+  .frame.frame-transparent .frame-body { height: auto; min-height: 500px; }
+  /* 子场景的铺底也去掉 */
+  .frame.frame-transparent .scene-shell,
+  .frame.frame-transparent aside,
+  .frame.frame-transparent header { background: transparent !important; }
+  .frame-label {
+    padding: 10px 20px;
+    background: linear-gradient(180deg, rgba(212,168,71,.08), transparent);
+    border-bottom: 1px solid var(--bark-light);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .frame-label .name {
+    font-family: var(--font-display);
+    font-size: 14px;
+    color: var(--amber);
+    letter-spacing: .12em;
+  }
+  .frame-label .note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--parchment-dark);
+  }
+  .frame-body {
+    height: 760px;
+    overflow: hidden;
+    position: relative;
+  }
+  .scene-nav {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 22px 0 0;
+    flex-wrap: wrap;
+  }
+  .scene-btn {
+    padding: 8px 18px;
+    background: linear-gradient(180deg, rgba(58,36,22,.55), rgba(18,10,6,.85));
+    border: 1px solid var(--bark-light);
+    color: var(--parchment);
+    font-family: var(--font-heading);
+    font-size: 12px;
+    letter-spacing: .1em;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: var(--transition);
+  }
+  .scene-btn:hover { border-color: var(--amber); color: var(--amber); }
+  .scene-btn.active {
+    background: var(--gold-gradient);
+    color: var(--void);
+    font-weight: 700;
+    border-color: transparent;
+    box-shadow: 0 0 16px -4px rgba(212,168,71,.5);
+  }
+  .tweaks-panel {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    width: 280px;
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(26,18,10,.98), rgba(10,6,2,.98));
+    border: 1px solid var(--amber);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px -6px rgba(0,0,0,.8), 0 0 28px -6px rgba(212,168,71,.4);
+    z-index: 1000;
+    font-family: var(--font-body);
+    display: none;
+  }
+  .tweaks-panel.open { display: block; }
+  .tweaks-panel h4 {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    color: var(--amber);
+    letter-spacing: .15em;
+    text-align: center;
+  }
+  .tweak-row { margin-bottom: 10px; }
+  .tweak-row label {
+    display: block;
+    font-size: 10px;
+    color: var(--parchment-dark);
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+  }
+  .tweak-row .options { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tweak-row button {
+    flex: 1;
+    padding: 6px 8px;
+    background: transparent;
+    border: 1px solid var(--bark-light);
+    color: var(--parchment);
+    font-family: var(--font-heading);
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: var(--transition);
+    letter-spacing: .08em;
+  }
+  .tweak-row button.active {
+    background: var(--gold-gradient);
+    color: var(--void);
+    border-color: transparent;
+    font-weight: 700;
+  }
+  .intro-card {
+    padding: 24px 28px;
+    margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+  }
+  .intro-card .bit { text-align: center; padding: 12px 8px; }
+  .intro-card .bit .kicker {
+    font-family: var(--font-display);
+    font-size: 12px;
+    color: var(--amber);
+    letter-spacing: .2em;
+  }
+  .intro-card .bit .line {
+    font-family: var(--font-script);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--parchment-dark);
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body class="bg-parchment" data-theme="bg3">
+
+<!-- BG3 大气背景层 -->
+<div class="bg-atmosphere" aria-hidden="true">
+  <!-- 神圣光束 -->
+  <div class="god-rays">
+    <span style="--r:-14deg;--l:18%;--d:.28;"></span>
+    <span style="--r:-6deg;--l:32%;--d:.20;"></span>
+    <span style="--r:4deg;--l:52%;--d:.34;"></span>
+    <span style="--r:12deg;--l:70%;--d:.22;"></span>
+    <span style="--r:20deg;--l:84%;--d:.18;"></span>
+  </div>
+  <!-- 旋转符文圈 -->
+  <svg class="rune-circle rune-outer" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <filter id="glowA" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g filter="url(#glowA)" stroke="rgba(240,208,96,.55)" fill="none">
+      <circle cx="400" cy="400" r="380" stroke-width="1"/>
+      <circle cx="400" cy="400" r="360" stroke-width=".6" stroke-dasharray="2 10"/>
+      <circle cx="400" cy="400" r="300" stroke-width="1"/>
+      <circle cx="400" cy="400" r="290" stroke-width=".6" stroke-dasharray="18 6 2 6"/>
+      <!-- 十二宫分隔 -->
+      <g stroke-width=".8" opacity=".7">
+        <line x1="400" y1="20" x2="400" y2="60"/>
+        <line x1="400" y1="740" x2="400" y2="780"/>
+        <line x1="20" y1="400" x2="60" y2="400"/>
+        <line x1="740" y1="400" x2="780" y2="400"/>
+        <line x1="130" y1="130" x2="158" y2="158"/>
+        <line x1="670" y1="130" x2="642" y2="158"/>
+        <line x1="130" y1="670" x2="158" y2="642"/>
+        <line x1="670" y1="670" x2="642" y2="642"/>
+      </g>
+      <!-- 符文点缀 -->
+      <g font-family="Cinzel Decorative, serif" font-size="18" fill="rgba(240,208,96,.7)" stroke="none" text-anchor="middle">
+        <text x="400" y="50">✦</text><text x="400" y="760">✦</text>
+        <text x="50" y="408">✦</text><text x="750" y="408">✦</text>
+        <text x="145" y="155">❖</text><text x="655" y="155">❖</text>
+        <text x="145" y="655">❖</text><text x="655" y="655">❖</text>
+      </g>
+    </g>
+  </svg>
+  <svg class="rune-circle rune-inner" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
+    <g stroke="rgba(127,232,248,.45)" fill="none" filter="url(#glowA)">
+      <circle cx="300" cy="300" r="260" stroke-width=".8" stroke-dasharray="4 6"/>
+      <circle cx="300" cy="300" r="220" stroke-width=".5"/>
+      <!-- 五芒星联结 -->
+      <polygon points="300,60 538,456 115,216 485,216 62,456" stroke-width=".6" opacity=".55"/>
+    </g>
+  </svg>
+  <!-- 漂浮尘埃 -->
+  <div class="dust" id="dust"></div>
+  <!-- 余烬 -->
+  <div class="embers" id="embers"></div>
+  <!-- 暗角 -->
+  <div class="vignette"></div>
+</div>
+
+<div id="root" style="position: relative; z-index: 2;"></div>
+
+<div class="tweaks-panel" id="tweaksPanel">
+  <h4>✦ Tweaks ✦</h4>
+  <div class="tweak-row">
+    <label>主题风格</label>
+    <div class="options" id="tw-theme">
+      <button data-v="bg3" class="active">BG3 风格</button>
+      <button data-v="dragon">龙与史诗</button>
+      <button data-v="grimoire">古籍魔典</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>背景纹理</label>
+    <div class="options" id="tw-bg">
+      <button data-v="bg-parchment" class="active">暗羊皮</button>
+      <button data-v="bg-starfield">星空</button>
+      <button data-v="bg-manuscript">手抄</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>余烬粒子</label>
+    <div class="options" id="tw-embers">
+      <button data-v="on" class="active">开</button>
+      <button data-v="off">关</button>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="tweak-defaults">
+/*EDITMODE-BEGIN*/{
+  "theme": "bg3",
+  "bg": "bg-parchment",
+  "embers": "on"
+}/*EDITMODE-END*/
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="crests.jsx"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="pixel-sprites.jsx"></script>
+<script type="text/babel" src="scene-adventure.jsx"></script>
+<script type="text/babel" src="scene-combat.jsx"></script>
+<script type="text/babel" src="scenes-other.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const SCENES = [
+  { key: 'adventure', label: '⚔ 对话冒险', note: '核心重构 · 羊皮纸气泡、蜡封、职业纹章', Component: () => <AdventureScene /> },
+  { key: 'combat',    label: '⚡ 战斗面板', note: '核心重构 · 先攻顺序、行动配额、战场地图', Component: () => <CombatScene /> },
+  { key: 'gallery',   label: '❖ 职业纹章图鉴', note: '替换原有通用头像的 12 种职业纹章', Component: () => <ClassGallery /> },
+  { key: 'sheet',     label: '☙ 角色卡', note: '英雄详情 · 能力、法术、装备、特性', Component: () => <CharacterSheet /> },
+  { key: 'home',      label: '🏰 主页', note: '模组选择 + 存档档案', Component: () => <HomeScene /> },
+  { key: 'create',    label: '✦ 创建角色', note: '职业选择预览', Component: () => <CreateScene /> },
+  { key: 'room',      label: '☰ 多人房间', note: '联机大厅', Component: () => <RoomScene /> },
+  { key: 'login',     label: '⚜ 登录', note: '入口门面', Component: () => <LoginScene /> },
+];
+
+function App() {
+  const [scene, setScene] = useState(() => localStorage.getItem('dnd_scene') || 'adventure');
+  useEffect(() => { localStorage.setItem('dnd_scene', scene); }, [scene]);
+  const current = SCENES.find(s => s.key === scene) || SCENES[0];
+  const Comp = current.Component;
+  return (
+    <div className="showcase-shell">
+      <header className="showcase-header">
+        <div style={{ fontSize: 42 }}>⚜</div>
+        <div className="title">龙与编年史</div>
+        <div className="eyebrow" style={{ marginTop: 6 }}>✦ AI 地下城 · 视觉系统重构 · 3 套主题 ✦</div>
+        <div style={{ fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)', marginTop: 10, fontSize: 14, maxWidth: 640, margin: '10px auto 0', lineHeight: 1.7 }}>
+          ~ 针对"对话框 · 战斗 · 职业头像"三大痛点的视觉与交互改造。<br/>
+          点击右下角 <b style={{ color: 'var(--amber)' }}>Tweaks</b> 切换主题或在顶栏切换页面。 ~
+        </div>
+      </header>
+
+      {/* 三栏思路介绍 */}
+      <div className="panel-ornate intro-card">
+        <div className="bit">
+          <div className="kicker">❶ 职业纹章头像</div>
+          <div className="line">告别无辨识度的通用图标。<br/>每个职业一套 SVG 纹章 + 专属配色 + 烫金外框。</div>
+        </div>
+        <div className="bit">
+          <div className="kicker">❷ 羊皮纸对话流</div>
+          <div className="line">DM 气泡做成卷轴羊皮纸 + 蜡封；<br/>检定卡、骰子徽章、职业肖像统一。</div>
+        </div>
+        <div className="bit">
+          <div className="kicker">❸ 精雕战斗面板</div>
+          <div className="line">先攻条 + 地图格 + 行动配额三栏式；<br/>高亮当前行动者、可达格与目标格。</div>
+        </div>
+      </div>
+
+      <div className="scene-nav">
+        {SCENES.map(s => (
+          <button key={s.key} className={`scene-btn ${s.key === scene ? 'active' : ''}`} onClick={() => setScene(s.key)}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={`frame ${(scene === 'adventure' || scene === 'combat') ? '' : 'frame-transparent'}`}>
+        <div className="frame-label">
+          <span className="name">{current.label}</span>
+          <span className="note">{current.note}</span>
+        </div>
+        <div className="frame-body">
+          <Comp />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<script>
+  // 余烬粒子
+  const embersEl = document.getElementById('embers');
+  function spawnEmbers() {
+    embersEl.innerHTML = '';
+    for (let i = 0; i < 40; i++) {
+      const e = document.createElement('div');
+      e.className = 'ember';
+      e.style.left = (Math.random() * 100) + '%';
+      e.style.animationDuration = (8 + Math.random() * 12) + 's';
+      e.style.animationDelay = (-Math.random() * 20) + 's';
+      e.style.opacity = (0.3 + Math.random() * 0.7);
+      e.style.transform = `scale(${0.6 + Math.random() * 1.4})`;
+      embersEl.appendChild(e);
+    }
+  }
+  spawnEmbers();
+
+  // 漂浮尘埃
+  const dustEl = document.getElementById('dust');
+  for (let i = 0; i < 60; i++) {
+    const d = document.createElement('span');
+    d.style.left = (Math.random() * 100) + '%';
+    d.style.top = (Math.random() * 100) + '%';
+    d.style.animationDuration = (12 + Math.random() * 18) + 's';
+    d.style.animationDelay = (-Math.random() * 30) + 's';
+    d.style.opacity = (0.4 + Math.random() * 0.5);
+    d.style.transform = `scale(${0.5 + Math.random() * 1.8})`;
+    dustEl.appendChild(d);
+  }
+
+  // ── Tweaks 面板交互 ──
+  const defaults = JSON.parse(
+    document.getElementById('tweak-defaults').textContent
+      .replace(/\/\*EDITMODE-(?:BEGIN|END)\*\//g, '').trim()
+  );
+  const state = { ...defaults };
+
+  function apply(key, value) {
+    state[key] = value;
+    if (key === 'theme') document.body.setAttribute('data-theme', value);
+    if (key === 'bg') {
+      document.body.classList.remove('bg-parchment', 'bg-starfield', 'bg-manuscript');
+      document.body.classList.add(value);
+    }
+    if (key === 'embers') {
+      embersEl.style.display = value === 'on' ? 'block' : 'none';
+    }
+    // update buttons
+    document.querySelectorAll(`#tw-${key} button`).forEach(b => {
+      b.classList.toggle('active', b.dataset.v === value);
+    });
+    // persist
+    try {
+      window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: value } }, '*');
+    } catch {}
+  }
+
+  // apply defaults on load
+  Object.entries(defaults).forEach(([k, v]) => apply(k, v));
+
+  ['theme', 'bg', 'embers'].forEach(k => {
+    document.querySelectorAll(`#tw-${k} button`).forEach(btn => {
+      btn.addEventListener('click', () => apply(k, btn.dataset.v));
+    });
+  });
+
+  // ── edit mode protocol ──
+  const panel = document.getElementById('tweaksPanel');
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === '__activate_edit_mode') panel.classList.add('open');
+    if (d.type === '__deactivate_edit_mode') panel.classList.remove('open');
+  });
+  window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+  // 也在本地提供一个小按钮用于在 edit mode 外也能打开
+  setTimeout(() => {
+    if (!panel.classList.contains('open')) {
+      // auto-open so reviewer can see it
+      panel.classList.add('open');
+    }
+  }, 400);
+</script>
+</body>
+</html>

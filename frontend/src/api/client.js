@@ -191,6 +191,35 @@ export const gameApi = {
   // 法术列表
   getSpells:         () => api.get('/game/spells'),
   getSpellsByClass:  (cls) => api.get(`/game/spells/class/${cls}`),
+
+  // v0.10 新增：技能栏 + 命中率预测
+  getSkillBar: (sessionId, entityId) =>
+    api.get(`/game/combat/${sessionId}/skill-bar`, entityId ? { params: { entity_id: entityId } } : undefined),
+  predict: (sessionId, attackerId, targetId, actionKey = 'atk', isRanged = false) =>
+    api.post(`/game/combat/${sessionId}/predict`, {
+      attacker_id: attackerId,
+      target_id: targetId,
+      action_key: actionKey,
+      is_ranged: isRanged,
+    }),
+}
+
+// ── 多人联机房间 ─────────────────────────────────────────
+export const roomsApi = {
+  create:     (moduleId, saveName, maxPlayers = 4) =>
+    api.post('/game/rooms/create', { module_id: moduleId, save_name: saveName, max_players: maxPlayers }),
+  join:       (roomCode) =>
+    api.post('/game/rooms/join', { room_code: roomCode }),
+  leave:      (sessionId) => api.post(`/game/rooms/${sessionId}/leave`),
+  start:      (sessionId) => api.post(`/game/rooms/${sessionId}/start`),
+  kick:       (sessionId, userId) =>
+    api.post(`/game/rooms/${sessionId}/kick`, { user_id: userId }),
+  transfer:   (sessionId, newHostUserId) =>
+    api.post(`/game/rooms/${sessionId}/transfer`, { new_host_user_id: newHostUserId }),
+  claimChar:  (sessionId, characterId) =>
+    api.post(`/game/rooms/${sessionId}/claim-character`, { character_id: characterId }),
+  get:        (sessionId) => api.get(`/game/rooms/${sessionId}`),
+  members:    (sessionId) => api.get(`/game/rooms/${sessionId}/members`),
 }
 
 // ── 角色额外操作 ─────────────────────────────────────────

@@ -10,6 +10,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8002',
         changeOrigin: true,
+        ws: true,                // 多人联机 WebSocket 代理
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

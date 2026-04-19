@@ -1,0 +1,175 @@
+/* ═══════════════════════════════════════════════════════════
+   AI跑团 — 设计系统 tokens (3 variants)
+   ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Noto+Serif+SC:wght@400;500;600;700&family=UnifrakturCook:wght@700&family=MedievalSharp&family=Pirata+One&family=IM+Fell+English:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* ── VARIANT A: Dragon Epic / 龙与史诗 ────────────────────
+   温暖金棕、深红、纹章、英雄史诗感 */
+[data-theme="dragon"] {
+  --void: #0f0a06;
+  --obsidian: #1a120a;
+  --mahogany: #261811;
+  --bark: #3a2416;
+  --bark-light: #5a3a22;
+  --bark-soft: #6a4a30;
+  --amber: #d4a847;
+  --flame: #f0b840;
+  --ember: #c85a28;
+  --parchment: #ead5a8;
+  --parchment-dark: #c4a06a;
+  --ivory: #faf1dd;
+  --blood: #8a1a1a;
+  --blood-light: #c83838;
+  --blood-deep: #5a0a0a;
+  --emerald: #3a7a48;
+  --emerald-light: #5fa878;
+  --sapphire: #345f8c;
+  --sapphire-light: #4e86b8;
+  --amethyst: #8a4fd4;
+  --amethyst-light: #b48df0;
+
+  --font-display: 'Cinzel Decorative', serif;
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+  --font-script: 'IM Fell English', 'Cormorant Garamond', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --gold-gradient: linear-gradient(135deg, #b88530 0%, #e8be50 45%, #f0c860 50%, #b88530 100%);
+  --ember-gradient: linear-gradient(135deg, #8a2010, #c85a28, #f0a040);
+  --wood-gradient: linear-gradient(180deg, #3a2416 0%, #261811 100%);
+  --parchment-gradient: linear-gradient(180deg, #e8d3a0 0%, #d4b97a 100%);
+
+  --accent: var(--amber);
+  --accent-bright: var(--flame);
+  --accent-soft: var(--ember);
+}
+
+/* ── VARIANT B: Grimoire Arcane / 古籍魔典 ────────────────
+   羊皮纸手抄本、烫金花饰、紫罗兰秘术 */
+[data-theme="grimoire"] {
+  --void: #0a0512;
+  --obsidian: #120a1e;
+  --mahogany: #1a1028;
+  --bark: #241838;
+  --bark-light: #3a2a54;
+  --bark-soft: #4a3a6a;
+  --amber: #e8c860;
+  --flame: #ffd870;
+  --ember: #c4a03a;
+  --parchment: #efe2bc;
+  --parchment-dark: #c8b48a;
+  --ivory: #fbf5e0;
+  --blood: #7a1a4a;
+  --blood-light: #b83878;
+  --blood-deep: #4a0a28;
+  --emerald: #2a6a5a;
+  --emerald-light: #4fa098;
+  --sapphire: #4a5fc8;
+  --sapphire-light: #7a8ee8;
+  --amethyst: #a070e8;
+  --amethyst-light: #c8a0ff;
+
+  --font-display: 'UnifrakturCook', 'Cinzel Decorative', serif;
+  --font-heading: 'Cinzel Decorative', serif;
+  --font-body: 'IM Fell English', 'Noto Serif SC', Georgia, serif;
+  --font-script: 'IM Fell English', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --gold-gradient: linear-gradient(135deg, #a07828 0%, #e8c860 45%, #f8dc78 50%, #a07828 100%);
+  --ember-gradient: linear-gradient(135deg, #4a2a6a, #8a4fd4, #c8a0ff);
+  --wood-gradient: linear-gradient(180deg, #241838 0%, #1a1028 100%);
+  --parchment-gradient: linear-gradient(180deg, #f2e5bf 0%, #d8c898 100%);
+
+  --accent: var(--amber);
+  --accent-bright: var(--amethyst-light);
+  --accent-soft: var(--amethyst);
+}
+
+/* ── VARIANT C: Parchment Day / 白日手稿 ──────────────────
+   浅色羊皮纸主题，老抄本风格（可选第三条方案） */
+[data-theme="parchment"] {
+  --void: #2a1f12;
+  --obsidian: #3a2c1a;
+  --mahogany: #d4ba82;
+  --bark: #b89868;
+  --bark-light: #a88258;
+  --bark-soft: #8a6a40;
+  --amber: #8a5a20;
+  --flame: #c47820;
+  --ember: #8a3a10;
+  --parchment: #f5e6c0;
+  --parchment-dark: #5a4020;
+  --ivory: #fdf6e0;
+  --blood: #7a1818;
+  --blood-light: #a83030;
+  --blood-deep: #4a0a0a;
+  --emerald: #2a5a30;
+  --emerald-light: #4a7a4a;
+  --sapphire: #1a3a6a;
+  --sapphire-light: #3a5a8a;
+  --amethyst: #5a2a8a;
+  --amethyst-light: #7a4aaa;
+
+  --font-display: 'MedievalSharp', 'Cinzel Decorative', serif;
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'IM Fell English', 'Cormorant Garamond', Georgia, serif;
+  --font-script: 'IM Fell English', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --gold-gradient: linear-gradient(135deg, #6a3a10 0%, #a86820 45%, #c47820 50%, #6a3a10 100%);
+  --ember-gradient: linear-gradient(135deg, #6a1a0a, #a83818, #c47820);
+  --wood-gradient: linear-gradient(180deg, #d4ba82 0%, #b89868 100%);
+  --parchment-gradient: linear-gradient(180deg, #faecc8 0%, #e6d09a 100%);
+
+  --accent: var(--amber);
+  --accent-bright: var(--flame);
+  --accent-soft: var(--ember);
+}
+
+:root {
+  --radius: 6px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --transition: 0.28s cubic-bezier(.4,0,.2,1);
+}
+
+/* reset */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--parchment);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--bark-light), var(--bark)); border-radius: 4px; border: 1px solid var(--bark); }
+::-webkit-scrollbar-thumb:hover { background: var(--amber); }
+
+/* selection */
+::selection { background: var(--amber); color: var(--void); }
+
+/* keyframes */
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes breathe { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+@keyframes floatUp { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes gentleGlow {
+  0%,100% { box-shadow: 0 0 20px -4px rgba(212,168,71,.25), inset 0 0 22px -6px rgba(212,168,71,.1); }
+  50%     { box-shadow: 0 0 34px -4px rgba(212,168,71,.45), inset 0 0 30px -6px rgba(212,168,71,.18); }
+}
+@keyframes emberRise {
+  0%   { transform: translateY(0) scale(1); opacity: 0; }
+  20%  { opacity: .9; }
+  100% { transform: translateY(-140vh) scale(.4); opacity: 0; }
+}
+@keyframes runeRotate { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+@keyframes bubbleIn { 0% { opacity: 0; transform: translateY(6px) scale(.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }

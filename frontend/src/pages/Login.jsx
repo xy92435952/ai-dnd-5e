@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../api/client'
-import { SwordIcon } from '../components/Icons'
+import { Divider } from '../components/Ornaments'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -22,12 +22,13 @@ export default function Login() {
         ? await authApi.register(username.trim(), password, displayName.trim() || username.trim())
         : await authApi.login(username.trim(), password)
 
-      // 存储 token 和用户信息
       localStorage.setItem('token', result.token)
       localStorage.setItem('user', JSON.stringify({
+        user_id: result.user_id,
         id: result.user_id,
         username: result.username,
         displayName: result.display_name,
+        display_name: result.display_name,
       }))
 
       navigate('/')
@@ -40,83 +41,99 @@ export default function Login() {
 
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', padding: 20,
+      minHeight: '100vh',
+      display: 'grid', placeItems: 'center',
+      padding: 24,
+      position: 'relative', zIndex: 1,
     }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        {/* 标题 */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{
-            fontSize: '2.5rem', fontWeight: 900, color: 'var(--gold)',
-            textShadow: '0 2px 8px rgba(201,168,76,0.3)', letterSpacing: '0.15em',
-            fontFamily: 'Georgia, "Noto Serif SC", serif',
-          }}>
-            <SwordIcon size={32} color="var(--gold)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />
-            AI 跑团
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 6 }}>
-            DnD 5e · AI地下城主 · 单人冒险
-          </p>
+      {/* 局部装饰符文环（除背景层外的额外点缀） */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: .18 }}>
+        <div className="rune-ring" style={{ position: 'absolute', top: '10%', left: '-60px', width: 240, height: 240 }} />
+        <div className="rune-ring" style={{ position: 'absolute', bottom: '-80px', right: '5%', width: 320, height: 320, animationDuration: '90s' }} />
+      </div>
+
+      <div className="panel-ornate" style={{
+        padding: '42px 48px',
+        width: 420, maxWidth: '92vw',
+        position: 'relative', textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>⚜</div>
+        <div className="display-title" style={{ fontSize: 26, letterSpacing: '.15em' }}>龙与编年史</div>
+        <div className="eyebrow" style={{ marginTop: 8 }}>✦ AI 地下城 · D&D 5e ✦</div>
+        <div style={{
+          fontFamily: 'var(--font-script)', fontStyle: 'italic',
+          fontSize: 13, color: 'var(--parchment-dark)',
+          margin: '14px 0 22px', lineHeight: 1.8,
+        }}>
+          "推开厚重的橡木门，<br />你的传奇将由此开启..."
         </div>
 
-        {/* 表单卡片 */}
-        <div className="panel" style={{ padding: 28 }}>
-          <h2 style={{ color: 'var(--gold)', fontSize: 18, fontWeight: 700, margin: '0 0 20px', textAlign: 'center' }}>
-            {isRegister ? '创建账号' : '登录'}
-          </h2>
+        <Divider>❧</Divider>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--parchment-dark)', marginBottom: 4 }}>用户名</label>
-              <input className="input-fantasy" type="text" value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="输入用户名" autoFocus autoComplete="username" />
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 18 }}>
+          <input
+            className="input-fantasy"
+            type="text"
+            placeholder="英雄之名"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            autoFocus
+            autoComplete="username"
+          />
+          <input
+            className="input-fantasy"
+            type="password"
+            placeholder="秘语密印"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete={isRegister ? 'new-password' : 'current-password'}
+          />
+          {isRegister && (
+            <input
+              className="input-fantasy"
+              type="text"
+              placeholder="显示名称（可选）"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+            />
+          )}
+
+          {error && (
+            <div style={{
+              fontSize: 12, color: '#ffaaaa',
+              padding: '8px 10px',
+              background: 'rgba(139,32,32,0.25)',
+              border: '1px solid var(--blood)',
+              borderRadius: 6,
+              fontFamily: 'var(--font-mono)',
+            }}>
+              {error}
             </div>
+          )}
 
-            <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--parchment-dark)', marginBottom: 4 }}>密码</label>
-              <input className="input-fantasy" type="password" value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="输入密码" autoComplete={isRegister ? "new-password" : "current-password"} />
-            </div>
+          <button
+            type="submit"
+            className="btn-gold"
+            disabled={loading}
+            style={{ padding: '14px', marginTop: 6, fontSize: 14, letterSpacing: '.2em' }}
+          >
+            {loading ? '✦ 启动符文中… ✦' : isRegister ? '✦ 创建英雄档案 ✦' : '✦ 进入传说 ✦'}
+          </button>
 
-            {isRegister && (
-              <div>
-                <label style={{ display: 'block', fontSize: 12, color: 'var(--parchment-dark)', marginBottom: 4 }}>显示名称（可选）</label>
-                <input className="input-fantasy" type="text" value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  placeholder="你在游戏中的名字" />
-              </div>
-            )}
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => { setIsRegister(!isRegister); setError('') }}
+          >
+            {isRegister ? '已有英雄档案？点击登录' : '创建新的英雄档案'}
+          </button>
+        </form>
 
-            {error && (
-              <p style={{ color: 'var(--red-light)', fontSize: 13, margin: 0, padding: '6px 10px',
-                background: 'rgba(139,32,32,0.15)', borderRadius: 6, border: '1px solid var(--red)' }}>
-                {error}
-              </p>
-            )}
-
-            <button type="submit" className="btn-gold" disabled={loading}
-              style={{ padding: '10px', fontSize: 15, marginTop: 4 }}>
-              {loading ? '处理中...' : isRegister ? '注册' : '登录'}
-            </button>
-          </form>
-
-          {/* 切换登录/注册 */}
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <button onClick={() => { setIsRegister(!isRegister); setError('') }}
-              style={{
-                background: 'none', border: 'none', color: 'var(--gold-dim)',
-                cursor: 'pointer', fontSize: 13, fontFamily: 'inherit',
-                textDecoration: 'underline',
-              }}>
-              {isRegister ? '已有账号？点击登录' : '没有账号？点击注册'}
-            </button>
-          </div>
-        </div>
-
-        {/* 测试账号提示 */}
-        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 11, color: 'var(--text-dim)', opacity: 0.6 }}>
+        <p style={{
+          textAlign: 'center', marginTop: 18,
+          fontSize: 11, color: 'var(--parchment-dark)', opacity: .55,
+          fontFamily: 'var(--font-mono)',
+        }}>
           测试账号：test / 123456
         </p>
       </div>

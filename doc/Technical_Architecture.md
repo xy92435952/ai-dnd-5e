@@ -2,7 +2,7 @@
 
 **项目：** AI 跑团平台（DnD 5e）
 **版本：** v0.9
-**日期：** 2026-04-07（项目启动：2026-02-10）
+**日期：** 2026-04-12（项目启动：2026-02-10）
 
 ---
 
@@ -373,7 +373,7 @@ Session (1) ──── (*) GameLog
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `.../divine-smite` | 神圣斩击（Paladin） |
+| POST | `.../divine-smite` | 神圣斩击（Paladin）— SmiteRequest 接受前端 target_id |
 | POST | `.../sneak-attack` | 偷袭（Rogue） |
 | POST | `.../rage` | 狂暴（Barbarian） |
 | POST | `.../action-surge` | 行动奔涌（Fighter） |
@@ -381,6 +381,8 @@ Session (1) ──── (*) GameLog
 | POST | `.../cunning-action` | 灵巧动作（Rogue） |
 | POST | `.../wild-magic-surge` | 野蛮魔法涌动检测（Wild Magic Sorcerer） |
 | POST | `.../maneuver` | 战技使用（Battle Master） |
+
+> **target_id 审计 (v0.9 post)：** 全部 10 个战斗端点（attack, spell, divine-smite, sneak-attack, grapple, maneuver 等）已确认使用前端显式传入的 `target_id`，不存在基于日志猜测目标的逻辑。`combat_update` 变量在探索模式路径中初始化为 `None`，修复了 `UnboundLocalError`。
 
 ---
 
@@ -994,6 +996,7 @@ Combat.jsx (主页面, ~1500行)
 |------|------|
 | 自动检测 | `database.py` 根据 `DATABASE_URL` 前缀自动选择 PostgreSQL (asyncpg) 或 SQLite (aiosqlite) |
 | 连接池 | PostgreSQL 模式下使用 `pool_size` + `max_overflow` 连接池配置 |
+| LangGraph 连接池 | LangGraph checkpoint 使用 `psycopg_pool` 替换单 psycopg 连接，支持空闲超时自动重连（修复 "connection is closed" 错误） |
 | 兼容性 | 所有 ORM 模型和查询保持不变，通过 SQLAlchemy 2.0 抽象层屏蔽差异 |
 
 ### 8.2 Docker 容器化部署
@@ -1031,6 +1034,7 @@ Combat.jsx (主页面, ~1500行)
 | python-jose[cryptography] | JWT 处理 |
 | passlib[bcrypt] | 密码哈希 |
 | langchain / langgraph | AI 编排 |
+| psycopg_pool | LangGraph checkpoint 连接池（空闲超时自动重连） |
 | chromadb | 向量数据库 |
 | openai | LLM API 客户端（AiHubMix 兼容） |
 | python-multipart | 文件上传 |

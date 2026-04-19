@@ -1,0 +1,94 @@
+/* ═══════════════════════════════════════════════════════════
+   Compat shim — 旧类名 → design v0.10 新视觉
+   让未深度迁移的页面也能享受到一部分新视觉系统的收益。
+   仅追加 / 覆盖样式，不引入新 class。
+   ═══════════════════════════════════════════════════════════ */
+
+/* btn-fantasy（旧）→ 等同 btn-ghost（新） */
+.btn-fantasy {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--bark-light);
+  border-radius: var(--radius);
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-fantasy:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(212,168,71,.06);
+  transform: translateY(-1px);
+}
+.btn-fantasy:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* tag-level（旧）→ 等同 tag-blue（新） */
+.tag-level {
+  color: var(--sapphire-light) !important;
+  border-color: var(--sapphire) !important;
+  background: rgba(74,95,200,.12) !important;
+}
+
+/* skill-btn（旧）→ 等同 skill-chip（新） */
+.skill-btn {
+  display: inline-block;
+  padding: 6px 12px;
+  background: rgba(58,36,22,.4);
+  border: 1px solid var(--bark-light);
+  border-radius: var(--radius);
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.skill-btn:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(212,168,71,.08);
+  transform: translateY(-1px);
+}
+.skill-btn.selected,
+.skill-btn.active {
+  background: var(--gold-gradient);
+  color: var(--void);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+/* gold-dim 旧变量兜底（部分页面引用） */
+:root { --gold-dim: var(--parchment-dark); }
+:root { --text-dim: var(--parchment-dark); }
+:root { --text-bright: var(--ivory); }
+:root { --wood-light: var(--bark-light); }
+:root { --red: var(--blood); }
+:root { --red-light: var(--blood-light); }
+:root { --green: var(--emerald); }
+:root { --green-light: var(--emerald-light); }
+:root { --blue: var(--sapphire); }
+:root { --blue-light: var(--sapphire-light); }
+:root { --gold: var(--amber); }
+:root { --bg: var(--void); }
+:root { --bg2: var(--obsidian); }
+:root { --wood: var(--bark); }
+
+/* 旧版页面里的根 background-image 与新背景层会双层叠加，
+   隐藏 body 上的旧背景，只保留新设计的 atmosphere 层 */
+body.bg-parchment,
+body.bg-starfield,
+body.bg-manuscript {
+  background-image: none !important;
+  background-color: var(--void);
+}
+
+/* DiceRollerOverlay 浮层基础（沿用旧实现，跟新背景叠加） */

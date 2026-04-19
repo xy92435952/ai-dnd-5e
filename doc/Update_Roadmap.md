@@ -1,8 +1,8 @@
 # 更新路线图
 
 **项目：** AI 跑团平台（DnD 5e）
-**当前版本：** v0.9（Phase 1-15 完成）
-**日期：** 2026-04-07（项目启动：2026-02-10）
+**当前版本：** v0.9-multiplayer beta（Phase 1-16 完成）
+**日期：** 2026-04-17（项目启动：2026-02-10）
 
 ---
 
@@ -37,7 +37,7 @@ v0.1-v0.9        v1.0             后续版本
 | v0.6 | Phase 13 AI战斗决策Agent+53子职业实装+Fantastic Dice+金币系统+开场白生成 | 2026.4.3 |
 | v0.7 | Phase 14 前端骰子物理绑定+反应系统UI+控制法术+短休资源+AI队友施法+法术按职业过滤 | 2026.4.5 |
 | v0.8 | Phase 15 SQLite→PostgreSQL迁移+Docker容器化+SSL部署+自定义域名 | 2026.4.6 |
-| v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复 | 2026.4.7 |
+| v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复+target_id审计 | 2026.4.7 |
 
 **完成日期：** 2026-04-07
 
@@ -128,45 +128,79 @@ v0.1-v0.9        v1.0             后续版本
 | Action Parser | action_parser.py — AI 将自然语言翻译为结构化行动列表 | ✅ 已完成 |
 | AI 队友行为大改 | 12+ 职业角色细分战斗策略，施法职业不近战，牧师优先治疗 | ✅ 已完成 |
 | 队伍生成多样性 | 34 种职业/子职业组合，5 个角色池随机选择，避免重复 | ✅ 已完成 |
-| LangGraph 连接池 | psycopg_pool 替换单连接，空闲超时自动重连 | ✅ 已完成 |
-| 删除会话 FK 修复 | 删除会话前先清除角色 session_id 外键引用 | ✅ 已完成 |
+| LangGraph 连接池 | psycopg_pool 替换单连接，空闲超时自动重连（修复 "connection is closed" 错误） | ✅ 已完成 |
+| 删除会话 FK 修复 | 删除会话前先清除角色 session_id 外键引用（修复 PostgreSQL 外键约束报错） | ✅ 已完成 |
+| Divine Smite target 修复 | SmiteRequest 接受前端 target_id，不再依赖日志猜测目标 | ✅ 已完成 |
+| combat_update 未定义修复 | 探索模式路径初始化 combat_update=None，修复 UnboundLocalError | ✅ 已完成 |
+| 战斗端点 target_id 审计 | 全部 10 个战斗端点确认使用前端显式 target_id，无日志猜测 | ✅ 已完成 |
 
 ---
 
-## v1.0: 多人联机 + 模组市场（TBD）
+## Phase 16 ✅ 多人联机 MVP（v0.9-multiplayer beta，2026-04-17）
 
-### WebSocket 实时通信
+### 阶段 A 已完成
+
+| 任务 | 实现 |
+|------|------|
+| Alembic 迁移框架 | `backend/alembic/`，`baseline_v08` + `multiplayer` 两个版本 |
+| SessionMember 表 | session/user/character 多对多绑定 + 心跳字段 |
+| Session/Character 多人字段 | `is_multiplayer`, `room_code`, `host_user_id`, `max_players`, `Character.user_id` |
+| 房间 CRUD API | `/game/rooms/{create,join,leave,start,kick,transfer,claim-character,members}` 共 8 端点 |
+| 房间码生成 | 6 位 8 进制数字（去除 0/1 易混字符），DB 唯一性校验 |
+| WebSocket 端点 | `/ws/sessions/{id}?token=jwt`，JSON 协议 |
+| WSManager 广播器 | 进程内房间字典，无需 Redis；同用户多端登录踢旧连接 |
+| Combat owner 校验 | `assert_can_act` 中间件 + 7 个核心端点接入（attack-roll/damage-roll/move/end-turn/spell-roll/spell-confirm/spell/smite/death-save） |
+| 战斗状态广播 | turn_changed / entity_moved 事件 |
+| /game/action 多人适配 | 探索阶段限当前发言者 + DM 响应广播 |
+| 轮流发言机制 | `_advance_speaker()` 在 `speak_done` 事件中推进 |
+| 前端 useWebSocket Hook | 自动重连（指数退避，最大 30s）+ 15s 心跳 + 鉴权失败不重连 |
+| 前端房间页面 | `/lobby`（创建/加入）+ `/room/:id`（成员列表/认领角色/开始游戏） |
+| Combat/Adventure 适配 | 当前回合/发言指示器 + WS 事件→自动刷新 + Vite 代理 ws:true |
+| 文档 | `doc/PRD_Multiplayer.md`（详细设计）+ `backend/alembic/README.md`（迁移说明） |
+
+### 阶段 B 待办（v0.9.x）
 
 | 任务 | 说明 |
 |------|------|
-| FastAPI WebSocket 端点 | `/ws/session/{id}` 实时连接 |
-| 消息协议设计 | JSON 消息类型：chat / dice / combat_update / state_sync |
-| 连接管理器 | 房间概念，广播/单播/断线重连 |
-| 认证集成 | WebSocket 握手阶段 JWT 验证 |
-| 心跳机制 | 30 秒 ping/pong 保活 |
+| 反应窗口 UI | 借机攻击/Shield 法术/Uncanny Dodge 多人投票选择 |
+| 创造性行动投票 | 自由探索的创造性提案需队伍同意 |
+| 队长（房主）特权 | 重骰/跳过/长休决定 |
+| 队员私聊 | whisper / IC vs OOC 分离 |
+| 跳过超时发言 | 当前发言者 30s 不行动自动跳过 |
 
-### 15.2 多玩家会话
-
-| 任务 | 说明 |
-|------|------|
-| 会话房间系统 | 创建房间 → 生成邀请码 → 加入房间 |
-| 玩家角色绑定 | 每个玩家控制自己的角色，AI 补位 |
-| 回合同步 | 轮到谁行动时只有该玩家可操作 |
-| 聊天系统 | 玩家间文字聊天（IC / OOC 分离） |
-| 权限模型 | 房主（DM 权限）vs 玩家 |
-
-### 15.3 实时战斗地图同步
+### 阶段 C 待办（v0.9.x）
 
 | 任务 | 说明 |
 |------|------|
-| 位置广播 | 移动操作实时同步到所有客户端 |
-| 动画同步 | 攻击/法术特效所有人同时看到 |
-| 战争迷雾 | 可选：每个玩家只看到自己视野范围 |
-| 冲突处理 | 乐观锁 + 服务端权威模式 |
+| 公开房间列表 | 找团功能 |
+| 邀请链接 | URL 带 token，免输房间码 |
+| 文字聊天 + 表情 | 房间内实时聊天 |
+| 房间录像/回放 | GameLog 时间轴回放 |
 
 ---
 
-## Phase 16: 内容生态（2026 Q3-Q4）
+## v1.0: 模组市场（TBD）
+
+### 模组市场（社区上传）
+
+| 任务 | 说明 |
+|------|------|
+| 公共模组库 | 玩家上传/下载/评分 |
+| 内容审核 | 自动+人工审核流程 |
+| 标签系统 | 模组难度/主题/玩家数过滤 |
+| 收藏与订阅 | 关注作者，新模组通知 |
+
+### 战斗体验提升
+
+| 任务 | 说明 |
+|------|------|
+| 战争迷雾（可选） | 每个玩家只看到自己视野范围 |
+| 攻击/法术动画同步 | 多人模式下所有客户端同时播放特效 |
+| 冲突处理 | 乐观锁 + 服务端权威 |
+
+---
+
+## Phase 17: 内容生态（2026 Q3-Q4）
 
 ### 16.1 模组市场
 
@@ -328,7 +362,7 @@ v0.1-v0.9        v1.0             后续版本
 | v0.6 | Phase 13 AI战斗决策Agent+53子职业实装+Fantastic Dice+金币系统+开场白生成 | 2026.4.3 | ✅ 已发布 |
 | v0.7 | Phase 14 前端骰子物理绑定+反应系统UI+控制法术+短休资源+AI队友施法+法术按职业过滤 | 2026.4.5 | ✅ 已发布 |
 | v0.8 | Phase 15 SQLite→PostgreSQL迁移+Docker容器化+SSL部署+自定义域名 | 2026.4.6 | ✅ 已发布 |
-| v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复 | 2026.4.7 | ✅ 已发布 |
+| v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复+target_id审计 | 2026.4.7 | ✅ 已发布 |
 | v1.0 | 正式版（预计：多人联机+模组市场） | TBD | 计划中 |
 
 ---
@@ -358,6 +392,9 @@ v0.1-v0.9        v1.0             后续版本
 - [x] 队伍生成覆盖 34 种职业/子职业组合，无重复
 - [x] psycopg_pool 连接池正常运行，空闲重连生效
 - [x] 删除会话不再因 FK 约束报错
+- [x] Divine Smite 使用前端显式 target_id，不再依赖日志猜测
+- [x] 探索模式路径 combat_update 正确初始化，无 UnboundLocalError
+- [x] 全部 10 个战斗端点通过 target_id 审计，无日志猜测逻辑
 
 ### v1.0 成功标准
 - [ ] 2-4 玩家同时在线游玩无卡顿

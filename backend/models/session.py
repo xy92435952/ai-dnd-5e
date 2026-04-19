@@ -27,6 +27,12 @@ class Session(Base):
     # 存档名
     save_name = Column(String(100), nullable=True)
 
+    # ── 多人联机字段（v0.9 起）────────────────────────────
+    is_multiplayer = Column(Boolean, default=False, nullable=False)
+    room_code      = Column(String(6), nullable=True, unique=True, index=True)
+    host_user_id   = Column(String, ForeignKey("users.id"), nullable=True)
+    max_players    = Column(Integer, default=4, nullable=False)
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

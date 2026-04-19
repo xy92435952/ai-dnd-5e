@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "_comment": "Sprite index v2 — 每个 kind 带 size（D&D 体型：S/M/L/H）。前端 Sprite 组件按 size 缩放：S=0.75x / M=1x / L=1.5x / H=2x。所有 PNG 均 32x48 基础分辨率（2x upscale of 16x24）。",
+  "sprites": {
+    "paladin":       { "kind": "class", "fallback": "paladin",       "size": "M" },
+    "fighter":       { "kind": "class", "fallback": "fighter",       "size": "M" },
+    "rogue":         { "kind": "class", "fallback": "rogue",         "size": "M" },
+    "wizard":        { "kind": "class", "fallback": "wizard",        "size": "M" },
+    "cleric":        { "kind": "class", "fallback": "paladin",       "size": "M" },
+    "ranger":        { "kind": "class", "fallback": "fighter",       "size": "M" },
+    "barbarian":     { "kind": "class", "fallback": "fighter",       "size": "M" },
+    "bard":          { "kind": "class", "fallback": "wizard",        "size": "M" },
+    "druid":         { "kind": "class", "fallback": "wizard",        "size": "M" },
+    "sorcerer":      { "kind": "class", "fallback": "wizard",        "size": "M" },
+    "warlock":       { "kind": "class", "fallback": "wizard",        "size": "M" },
+    "monk":          { "kind": "class", "fallback": "fighter",       "size": "M" },
+
+    "cultist":       { "kind": "humanoid", "fallback": "cultist",    "size": "M" },
+    "bandit":        { "kind": "humanoid", "fallback": "cultist",    "size": "M" },
+    "goblin":        { "kind": "humanoid", "fallback": "cultist",    "size": "S" },
+    "kobold":        { "kind": "humanoid", "fallback": "cultist",    "size": "S" },
+    "orc_warrior":   { "kind": "humanoid", "fallback": "cultist",    "size": "M" },
+    "hobgoblin":     { "kind": "humanoid", "fallback": "cultist",    "size": "M" },
+
+    "skeleton_warrior": { "kind": "undead", "fallback": "skeleton_mage", "size": "M" },
+    "skeleton_mage":    { "kind": "undead", "fallback": "skeleton_mage", "size": "M" },
+    "zombie":           { "kind": "undead", "fallback": "skeleton_mage", "size": "M" },
+    "ghoul":            { "kind": "undead", "fallback": "skeleton_mage", "size": "M" },
+    "vampire_spawn":    { "kind": "undead", "fallback": "skeleton_mage", "size": "M" },
+    "lich":             { "kind": "undead", "fallback": "skeleton_mage", "size": "M" },
+
+    "wolf":          { "kind": "beast", "fallback": "shadow_wolf",   "size": "M" },
+    "dire_wolf":     { "kind": "beast", "fallback": "shadow_wolf",   "size": "L" },
+    "shadow_wolf":   { "kind": "beast", "fallback": "shadow_wolf",   "size": "M" },
+    "bear":          { "kind": "beast", "fallback": "shadow_wolf",   "size": "L" },
+    "giant_spider":  { "kind": "beast", "fallback": "shadow_wolf",   "size": "L" },
+    "owlbear":       { "kind": "beast", "fallback": "shadow_wolf",   "size": "L" },
+    "giant_rat":     { "kind": "beast", "fallback": "shadow_wolf",   "size": "S" },
+
+    "ogre":          { "kind": "giant",  "fallback": "cultist",      "size": "L" },
+    "troll":         { "kind": "giant",  "fallback": "cultist",      "size": "L" },
+    "mind_flayer":   { "kind": "aberration", "fallback": "skeleton_mage", "size": "M" },
+    "beholder":      { "kind": "aberration", "fallback": "skeleton_mage", "size": "L" },
+
+    "young_dragon_red": { "kind": "dragon", "fallback": "shadow_wolf", "size": "L" },
+    "demon_minor":   { "kind": "fiend",  "fallback": "cultist",      "size": "M" },
+    "fiend":         { "kind": "fiend",  "fallback": "cultist",      "size": "M" },
+    "elemental_fire": { "kind": "elemental", "fallback": "wizard",   "size": "L" },
+
+    "unknown_humanoid": { "kind": "humanoid", "fallback": "cultist",    "size": "M" },
+    "unknown_beast":    { "kind": "beast",    "fallback": "shadow_wolf", "size": "M" },
+    "unknown_monster":  { "kind": "monstrosity", "fallback": "cultist", "size": "M" }
+  },
+  "sizes": {
+    "S": 0.75,
+    "M": 1.0,
+    "L": 1.5,
+    "H": 2.0,
+    "G": 3.0
+  },
+  "fallbacks": {
+    "humanoid":    "cultist",
+    "undead":      "skeleton_mage",
+    "beast":       "shadow_wolf",
+    "giant":       "cultist",
+    "aberration":  "skeleton_mage",
+    "dragon":      "shadow_wolf",
+    "fiend":       "cultist",
+    "elemental":   "wizard",
+    "monstrosity": "cultist",
+    "class":       "paladin",
+    "default":     "paladin"
+  }
+}

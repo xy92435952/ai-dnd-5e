@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from models.character import Character
 from models.session import Session, CombatState, GameLog
@@ -144,6 +145,38 @@ class StateApplicator:
         # ── 场景推进 ──
         if delta.get("scene_advance") and delta.get("new_scene_hint"):
             session.current_scene = delta["new_scene_hint"]
+
+        # ── 场景氛围（v0.10）──
+        scene_vibe = delta.get("scene_vibe")
+        if scene_vibe and isinstance(scene_vibe, dict):
+            gs = dict(session.game_state or {})
+            gs["scene_vibe"] = {
+                "location": scene_vibe.get("location"),
+                "time_of_day": scene_vibe.get("time_of_day"),
+                "tension": scene_vibe.get("tension"),
+            }
+            session.game_state = gs
+            flag_modified(session, "game_state")
+
+        # ── 线索追加（v0.10）──
+        clues_add = delta.get("clues_add", [])
+        if clues_add and isinstance(clues_add, list):
+            cs = dict(session.campaign_state or {})
+            clues = list(cs.get("clues", []))
+            from datetime import datetime
+            now_iso = datetime.utcnow().isoformat() + "Z"
+            for clue in clues_add:
+                if not isinstance(clue, dict) or not clue.get("text"):
+                    continue
+                clues.append({
+                    "text": str(clue["text"])[:80],
+                    "category": clue.get("category", "general"),
+                    "found_at": now_iso,
+                    "is_new": True,
+                })
+            cs["clues"] = clues
+            session.campaign_state = cs
+            flag_modified(session, "campaign_state")
 
         # ── 写入会话历史 ──
         self._append_session_history(session, ar)

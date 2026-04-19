@@ -40,3 +40,21 @@ backend/_*.json
 *.db-wal
 dify_workflows/
 docs/
+
+# v0.10 backups
+*.legacy.jsx.bak
+*.legacy.bak
+combat_test_output/
+
+# Design previews (large, ~2MB each; 保留 prototype 但可选)
+# 如需减小仓库体积，取消下行注释：
+# frontend/public/design-preview*/
+
+# OS
+nul
+*.log
+/tmp/
+
+# Logs
+uvicorn.log
+

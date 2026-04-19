@@ -1,0 +1,519 @@
+/* ═══════════════════════════════════════════════════════════
+   COMPONENTS — 气泡、角色卡、战斗格、骰子徽章、头像
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 对话气泡 ─────────────────────────────────────────
+   重点优化区域。DM = 羊皮纸卷轴、玩家 = 蓝水晶、队友 = 翡翠苔藓 */
+.bubble {
+  position: relative;
+  padding: 16px 22px;
+  border-radius: var(--radius-lg);
+  font-size: 15px;
+  line-height: 1.75;
+  animation: bubbleIn .35s cubic-bezier(.4,0,.2,1);
+  max-width: 85%;
+}
+
+.bubble-dm {
+  font-family: var(--font-script);
+  color: #2a1a08;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255,240,200,.5) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(180,130,70,.2) 0%, transparent 60%),
+    var(--parchment-gradient);
+  border: 1px solid #a08040;
+  box-shadow:
+    0 1px 0 rgba(255,240,200,.5) inset,
+    0 -1px 0 rgba(120,80,40,.25) inset,
+    0 10px 24px -10px rgba(0,0,0,.6);
+  position: relative;
+  text-shadow: 0 1px 0 rgba(255,248,220,.4);
+}
+/* 羊皮纸撕边 */
+.bubble-dm::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(138,92,40,.25);
+  border-radius: calc(var(--radius-lg) - 6px);
+  pointer-events: none;
+}
+/* 蜡封 */
+.bubble-dm::after {
+  content: '';
+  position: absolute;
+  top: -8px; left: 24px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f06040, #8a1010 70%);
+  box-shadow: 0 2px 4px rgba(0,0,0,.5), inset -1px -1px 3px rgba(0,0,0,.4);
+}
+
+.bubble-player {
+  font-family: var(--font-body);
+  color: #e8f2ff;
+  background:
+    linear-gradient(135deg, rgba(74,120,180,.25) 0%, transparent 60%),
+    linear-gradient(180deg, #1e3658 0%, #162640 100%);
+  border: 1px solid var(--sapphire-light);
+  box-shadow:
+    0 1px 0 rgba(150,200,255,.25) inset,
+    0 0 20px -6px rgba(78,134,184,.4),
+    0 8px 20px -8px rgba(0,0,0,.5);
+}
+/* 玩家气泡尖角 */
+.bubble-player::before {
+  content: '';
+  position: absolute;
+  right: -7px; top: 18px;
+  width: 12px; height: 12px;
+  background: #162640;
+  border-right: 1px solid var(--sapphire-light);
+  border-top: 1px solid var(--sapphire-light);
+  transform: rotate(45deg);
+}
+
+.bubble-ally {
+  font-family: var(--font-body);
+  color: #e4f5e4;
+  background:
+    linear-gradient(135deg, rgba(90,168,120,.18) 0%, transparent 60%),
+    linear-gradient(180deg, #1e3a24 0%, #162918 100%);
+  border: 1px solid var(--emerald-light);
+  box-shadow:
+    0 1px 0 rgba(150,230,170,.15) inset,
+    0 0 18px -6px rgba(95,168,120,.35),
+    0 8px 20px -8px rgba(0,0,0,.5);
+  font-style: italic;
+}
+
+.bubble-system {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--amber);
+  text-align: center;
+  padding: 4px 0;
+  opacity: .75;
+}
+
+/* 骰子掷出的徽章 */
+.dice-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 14px;
+  background: linear-gradient(180deg, rgba(58,36,22,.8), rgba(26,18,10,.9));
+  border: 1px solid var(--amber);
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--parchment);
+  box-shadow: 0 0 14px -4px rgba(212,168,71,.4), inset 0 0 8px rgba(212,168,71,.1);
+}
+.dice-badge .result {
+  color: var(--amber);
+  font-weight: 700;
+  font-size: 14px;
+}
+.dice-badge .vs { color: var(--parchment-dark); opacity: .7; }
+.dice-badge.crit  { border-color: var(--emerald-light); color: var(--emerald-light); box-shadow: 0 0 18px -4px rgba(95,168,120,.6); }
+.dice-badge.fumble{ border-color: var(--blood-light); color: var(--blood-light); box-shadow: 0 0 18px -4px rgba(200,56,56,.6); }
+
+/* ── 职业纹章肖像 ──────────────────────────────────────
+   纯CSS/SVG，每个职业一个辨识符号
+   直径 48px (sm) / 64px (md) / 96px (lg) */
+.portrait {
+  position: relative;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: var(--transition);
+  overflow: hidden;
+  background: radial-gradient(circle at 35% 30%, var(--c-light,#4a8aaa) 0%, var(--c-dark,#1a3a5a) 70%);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.4),
+    0 0 0 3px var(--c-border, var(--amber)),
+    0 0 0 4px rgba(0,0,0,.5),
+    0 0 18px -6px var(--c-border, var(--amber)),
+    inset 0 -6px 10px -4px rgba(0,0,0,.6),
+    inset 0 6px 10px -4px rgba(255,255,255,.15);
+}
+.portrait::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 40% 20%, rgba(255,255,255,.25) 0%, transparent 45%);
+  pointer-events: none;
+}
+/* 职业符号 */
+.portrait svg.crest {
+  width: 62%; height: 62%;
+  color: var(--c-glyph, #fff);
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
+  z-index: 1;
+}
+.portrait:hover { transform: scale(1.06); }
+
+/* 职业配色 */
+.portrait-fighter   { --c-light:#c46a48; --c-dark:#6a1818; --c-border:#c85a28; --c-glyph:#ffe8c0; }
+.portrait-wizard    { --c-light:#9d6af0; --c-dark:#3a1a6a; --c-border:#a070e8; --c-glyph:#f0e0ff; }
+.portrait-cleric    { --c-light:#f0d070; --c-dark:#8a6020; --c-border:#f0b840; --c-glyph:#fff5d0; }
+.portrait-rogue     { --c-light:#606880; --c-dark:#1a1e2a; --c-border:#8a94aa; --c-glyph:#d0d5e0; }
+.portrait-paladin   { --c-light:#e8d070; --c-dark:#6a5020; --c-border:#d4a847; --c-glyph:#fff8dd; }
+.portrait-ranger    { --c-light:#6aaa6a; --c-dark:#1a4a1a; --c-border:#5fa878; --c-glyph:#e0f5d8; }
+.portrait-barbarian { --c-light:#c8605a; --c-dark:#4a0a0a; --c-border:#c83838; --c-glyph:#ffd8c0; }
+.portrait-bard      { --c-light:#d870aa; --c-dark:#4a1a3a; --c-border:#b83878; --c-glyph:#ffd0e8; }
+.portrait-druid     { --c-light:#8aaa6a; --c-dark:#2a4a1a; --c-border:#6a8a4a; --c-glyph:#e4f0c8; }
+.portrait-sorcerer  { --c-light:#f07040; --c-dark:#6a1a1a; --c-border:#e04820; --c-glyph:#fff0d0; }
+.portrait-warlock   { --c-light:#7a4ab8; --c-dark:#1a0a3a; --c-border:#5a2a9a; --c-glyph:#d8c8ff; }
+.portrait-monk      { --c-light:#d4a870; --c-dark:#5a3a20; --c-border:#b88848; --c-glyph:#fff0d0; }
+/* 非职业 */
+.portrait-dm    { --c-light:#d4a847; --c-dark:#5a3a10; --c-border:#f0b840; --c-glyph:#fff5d0; }
+.portrait-enemy { --c-light:#8a2020; --c-dark:#2a0a0a; --c-border:#c83838; --c-glyph:#ffc0c0; }
+
+.portrait-sm { width: 44px; height: 44px; }
+.portrait-sm::before { border-radius: 50%; }
+.portrait-lg { width: 96px; height: 96px; }
+.portrait-xl { width: 140px; height: 140px; }
+
+/* 濒死/低HP遮罩 */
+.portrait.is-wounded::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 40%, rgba(138,26,26,.55) 100%);
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
+/* 头像下方 HP 小条 */
+.portrait-hp {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bark);
+  margin-top: 4px;
+  overflow: hidden;
+}
+.portrait-hp > span {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, #c83838, #e8a020);
+  transition: width .5s ease;
+}
+
+/* ── 角色卡（侧栏） ──────────────────────────────────── */
+.char-card {
+  position: relative;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: linear-gradient(180deg, rgba(58,36,22,.55) 0%, rgba(18,10,6,.85) 100%);
+  border: 1px solid var(--bark-light);
+  border-radius: var(--radius-lg);
+  transition: var(--transition);
+}
+.char-card:hover { border-color: var(--amber); box-shadow: 0 0 14px -4px rgba(212,168,71,.35); }
+.char-card-active {
+  border-color: var(--amber);
+  box-shadow: 0 0 22px -6px rgba(240,184,64,.5), inset 0 0 22px -8px rgba(240,184,64,.15);
+}
+.char-card-row { display: flex; align-items: center; gap: 10px; }
+.char-card-name { font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--parchment); line-height: 1.2; }
+.char-card-sub { font-family: var(--font-mono); font-size: 10px; color: var(--parchment-dark); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
+
+/* HP 长条 */
+.hp-bar {
+  height: 8px;
+  background: linear-gradient(180deg, #120a04, #24140a);
+  border: 1px solid var(--bark-light);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.hp-bar > .fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #c83838 0%, #e06040 40%, #e8a020 100%);
+  box-shadow: 0 0 8px rgba(224,96,64,.3);
+  transition: width .5s ease;
+  position: relative;
+}
+.hp-bar > .fill::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,.08) 4px, rgba(255,255,255,.08) 5px);
+}
+.hp-bar.high > .fill { background: linear-gradient(90deg, #3a7a48, #6aaa6a); box-shadow: 0 0 8px rgba(95,168,120,.35); }
+.hp-bar.mid > .fill  { background: linear-gradient(90deg, #c47820, #e8a020); box-shadow: 0 0 8px rgba(232,160,32,.35); }
+.hp-bar.low > .fill  { background: linear-gradient(90deg, #8a1a1a, #c83838); box-shadow: 0 0 8px rgba(200,56,56,.4); }
+
+/* 法术位宝石点 */
+.spell-slots { display: flex; gap: 4px; flex-wrap: wrap; }
+.slot-gem {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #d8b0ff, #7c3aed 60%, #2a0a4a 90%);
+  box-shadow: 0 0 6px rgba(160,112,232,.7), inset 0 -2px 2px rgba(0,0,0,.4);
+}
+.slot-gem.used {
+  background: radial-gradient(circle at 30% 30%, #5a4a7a, #2a1a4a 60%);
+  box-shadow: none;
+  opacity: .4;
+}
+
+/* ── 战斗格（地图）───────────────────────────────────── */
+.battle-grid {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+  background:
+    radial-gradient(ellipse at center, rgba(212,168,71,.06) 0%, transparent 70%),
+    linear-gradient(135deg, #2a1a0a, #1a0e06);
+  border: 2px solid var(--bark-light);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 0 0 60px rgba(0,0,0,.6),
+    0 0 30px -8px rgba(0,0,0,.8);
+  position: relative;
+}
+.battle-cell {
+  aspect-ratio: 1;
+  background: rgba(58,36,22,.35);
+  border: 1px solid rgba(90,58,34,.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: .12s;
+  position: relative;
+  border-radius: 2px;
+}
+.battle-cell:hover {
+  background: rgba(212,168,71,.12);
+  border-color: rgba(212,168,71,.5);
+  box-shadow: inset 0 0 10px rgba(212,168,71,.2);
+}
+.battle-cell.player {
+  background: radial-gradient(circle, rgba(74,120,180,.5) 0%, rgba(30,54,88,.3) 70%);
+  border-color: var(--sapphire-light);
+  box-shadow: inset 0 0 12px rgba(78,134,184,.4);
+}
+.battle-cell.ally {
+  background: radial-gradient(circle, rgba(95,168,120,.4) 0%, rgba(30,60,40,.3) 70%);
+  border-color: var(--emerald-light);
+}
+.battle-cell.enemy {
+  background: radial-gradient(circle, rgba(200,56,56,.4) 0%, rgba(58,16,16,.3) 70%);
+  border-color: var(--blood-light);
+  box-shadow: inset 0 0 12px rgba(200,56,56,.35);
+}
+.battle-cell.reach {
+  background: rgba(212,168,71,.14);
+  border-color: rgba(212,168,71,.5);
+  border-style: dashed;
+}
+.battle-cell.target {
+  background: radial-gradient(circle, rgba(240,184,64,.35) 0%, transparent 70%);
+  border-color: var(--amber);
+  animation: breathe 1.4s ease-in-out infinite;
+}
+.battle-cell.wall {
+  background: repeating-linear-gradient(45deg, #4a3020, #4a3020 3px, #2a1810 3px, #2a1810 6px);
+  border-color: var(--bark-light);
+}
+
+/* 战斗格里的单位 */
+.unit-token {
+  width: 78%; height: 78%;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ivory);
+  position: relative;
+  box-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+
+/* 行动面板 */
+.action-btn {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(58,36,22,.75), rgba(18,10,6,.9));
+  border: 1px solid var(--bark-light);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: left;
+}
+.action-btn:hover { border-color: var(--amber); color: var(--amber); transform: translateX(2px); }
+.action-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.action-btn.attack  { border-left-color: var(--blood-light); }
+.action-btn.spell   { border-left-color: var(--amethyst-light); }
+.action-btn.move    { border-left-color: var(--sapphire-light); }
+.action-btn.bonus   { border-left-color: var(--emerald-light); }
+.action-btn.reaction{ border-left-color: var(--flame); }
+.action-btn.end     {
+  border-color: var(--amber);
+  border-left-color: var(--amber);
+  background: var(--gold-gradient);
+  color: var(--void);
+  font-weight: 700;
+}
+.action-btn.end:hover { box-shadow: 0 0 18px -4px rgba(240,184,64,.6); }
+
+/* ── 先攻顺序条目 ────────────────────────────────────── */
+.init-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: var(--transition);
+  position: relative;
+}
+.init-row.active {
+  background: linear-gradient(90deg, rgba(240,184,64,.2), rgba(240,184,64,0));
+  border-color: var(--amber);
+  box-shadow: 0 0 14px -4px rgba(240,184,64,.5), inset 2px 0 0 var(--amber);
+}
+.init-row.active::before {
+  content: '';
+  position: absolute; left: -4px; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--amber);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--amber);
+}
+.init-row.dead { opacity: .35; filter: grayscale(.6); }
+.init-num {
+  width: 28px; height: 28px;
+  background: linear-gradient(180deg, #4a3020, #2a1810);
+  border: 1px solid var(--bark-light);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--amber);
+}
+
+/* 行动配额点 */
+.quota-dots { display: inline-flex; gap: 3px; }
+.quota-dots .d {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #d4a847, #8a5a20);
+  box-shadow: 0 0 6px rgba(212,168,71,.5);
+}
+.quota-dots .d.used { background: #2a1810; box-shadow: none; opacity: .4; }
+
+/* ── 卷轴输入 ────────────────────────────────────────── */
+.scroll-input {
+  display: flex; align-items: flex-end; gap: 10px;
+  padding: 8px 8px 8px 20px;
+  background:
+    radial-gradient(ellipse at 0% 50%, rgba(138,92,40,.4) 0%, transparent 25%),
+    radial-gradient(ellipse at 100% 50%, rgba(138,92,40,.4) 0%, transparent 25%),
+    linear-gradient(180deg, rgba(58,36,22,.8), rgba(26,18,10,.95));
+  border: 1px solid var(--bark-light);
+  border-radius: 32px;
+  box-shadow:
+    inset 0 2px 6px -2px rgba(0,0,0,.6),
+    0 4px 16px -6px rgba(0,0,0,.5);
+}
+.scroll-input textarea {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--parchment);
+  font-family: var(--font-body);
+  font-size: 15px;
+  resize: none;
+  padding: 8px 0;
+  max-height: 96px;
+  line-height: 1.5;
+}
+.scroll-input textarea::placeholder { color: var(--parchment-dark); opacity: .5; font-style: italic; }
+.scroll-input .send {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--gold-gradient);
+  border: 1px solid rgba(0,0,0,.3);
+  color: var(--void);
+  font-size: 18px;
+  cursor: pointer;
+  display: grid; place-items: center;
+  box-shadow:
+    0 1px 0 rgba(255,230,180,.4) inset,
+    0 4px 12px -2px rgba(212,168,71,.4);
+  transition: var(--transition);
+}
+.scroll-input .send:hover { transform: scale(1.06); box-shadow: 0 0 18px -2px rgba(240,184,64,.5); }
+
+/* ── 技能快捷按钮 ────────────────────────────────────── */
+.skill-chip {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--bark-light);
+  border-radius: 20px;
+  color: var(--parchment-dark);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.skill-chip:hover { border-color: var(--amber); color: var(--amber); background: rgba(212,168,71,.08); }
+
+/* ── 3D骰子胶囊（保留原有 3D 骰子由主代码提供，这里只是占位） */
+.dice-wrap {
+  display: inline-grid; place-items: center;
+  width: 52px; height: 52px;
+  background: radial-gradient(circle at 30% 30%, #f0b840, #8a5020);
+  border-radius: 8px;
+  transform: rotate(8deg);
+  box-shadow: 0 6px 18px -4px rgba(0,0,0,.6), inset 0 -4px 8px rgba(0,0,0,.3), inset 0 3px 4px rgba(255,230,180,.4);
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--void);
+}
+
+/* ── 能力值格 ───────────────────────────────────────── */
+.ability-card {
+  position: relative;
+  text-align: center;
+  padding: 14px 10px 12px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(212,168,71,.10), transparent 50%),
+    linear-gradient(180deg, rgba(58,36,22,.55), rgba(18,10,6,.9));
+  border: 1px solid var(--bark-light);
+  border-radius: var(--radius);
+}
+.ability-card .label {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--amber);
+  opacity: .8;
+}
+.ability-card .score {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--parchment);
+  line-height: 1;
+  margin: 4px 0 2px;
+}
+.ability-card .mod {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--emerald-light);
+}
+.ability-card .mod.neg { color: var(--blood-light); }

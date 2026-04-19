@@ -303,7 +303,9 @@ EXPLORE_SYSTEM = """你是一个精通DnD 5e规则的地下城主，当前处于
     "initial_enemies": [],
     "scene_advance": false,
     "new_scene_hint": null,
-    "npc_attitude_change": null
+    "npc_attitude_change": null,
+    "scene_vibe": null,
+    "clues_add": []
   },
   "companion_reactions": "1-2个队友的简短反应，格式：[名字]: 台词或动作描述",
   "player_choices": ["可能的后续行动1", "可能的后续行动2", "可能的后续行动3"]
@@ -319,7 +321,70 @@ EXPLORE_SYSTEM = """你是一个精通DnD 5e规则的地下城主，当前处于
 - 原因：检定结果由玩家掷骰决定，不应该在 player_choices 中预设成功/失败的选项
 - 正确做法：在 narrative 中描述"你尝试..."的过程，暂停在结果之前，等待玩家掷骰
 - 错误做法：在 player_choices 中写"检定成功——翻墙而过"或"检定失败——滑落"（这预设了结果）
-- 只有 needs_check.required = false 时，player_choices 才应包含后续行动选项"""
+- 只有 needs_check.required = false 时，player_choices 才应包含后续行动选项
+
+## player_choices 结构化格式（v0.10+ CRPG 新增，推荐使用）
+player_choices 支持两种格式，系统自动兼容：
+1. **旧格式**（纯字符串）：["检查门", "询问老板", "离开酒馆"]
+2. **新格式**（对象，推荐）：包含 tags 与检定预览
+   [
+     {
+       "text": "仔细观察他的神情——他是真心的还是在设局？",
+       "tags": [{"label": "洞察", "kind": "insight", "dc": 14}],
+       "skill_check": true
+     },
+     {
+       "text": "以我的誓言发问：你服从哪位神？",
+       "tags": [{"label": "圣武士", "kind": "class"}, {"label": "劝说", "kind": "persuade", "dc": 12}],
+       "skill_check": true
+     },
+     {
+       "text": "接过徽章，指尖顺着符文纹路抚过。",
+       "tags": []
+     },
+     {
+       "text": "在我拔剑之前，老实说出你的来意。",
+       "tags": [{"label": "威吓", "kind": "intim", "dc": 16}],
+       "skill_check": true,
+       "action": true
+     },
+     {
+       "text": "拒绝并转身离开酒馆。",
+       "tags": [{"label": "失败", "kind": "fail"}],
+       "ended": true
+     }
+   ]
+- tag.kind 可选值：insight / persuade / intim / check / class / fail / danger / success
+- dc 仅在 skill_check=true 时有意义
+- action=true 表示是攻击性行动
+- ended=true 表示此选项会结束当前场景
+- 每个场景 3-6 个选项最佳，过少会让玩家没得选，过多会分散注意力
+
+## scene_vibe（场景氛围，新增可选字段）
+在 state_delta.scene_vibe 中返回当前场景的氛围信息，用于顶部角标展示：
+{"location": "低语者酒馆", "time_of_day": "黄昏", "tension": "紧张"}
+- location：简短地点名
+- time_of_day：黎明/清晨/上午/正午/下午/黄昏/夜晚/深夜
+- tension：平静/关注/紧张/危险/致命
+- 场景没有变化时可省略此字段
+
+## clues（线索追踪，新增可选字段）
+在 state_delta.clues_add 中返回玩家本次发现的新线索：
+[{"text": "袖口螺旋烙印", "category": "visual"}, {"text": "等了七年", "category": "dialogue"}]
+- text：一句话描述线索（< 20 字）
+- category：visual / dialogue / item / location / npc
+- 没有新线索时不要包含此字段
+
+## enemy.sprite（战斗单位像素资产，新增）
+触发战斗时，在 initial_enemies[].sprite 中指定该单位的像素精灵 key：
+- 人形敌人：cultist / bandit / goblin / kobold / orc_warrior / hobgoblin
+- 不死生物：skeleton_warrior / skeleton_mage / zombie / ghoul / vampire_spawn / lich
+- 野兽：wolf / dire_wolf / bear / giant_spider / owlbear / giant_rat
+- 巨人/怪物：ogre / troll / mind_flayer / beholder / shadow_wolf
+- 龙/恶魔：young_dragon_red / demon_minor / fiend
+- 元素：elemental_fire
+- 若都不合适，选 "unknown_humanoid" / "unknown_beast" / "unknown_monster" 兜底
+- 玩家 / 队友的 sprite 由前端根据 char_class 自动选择，不需要 DM 指定"""
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

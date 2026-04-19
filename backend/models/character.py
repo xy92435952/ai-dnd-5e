@@ -9,6 +9,11 @@ class Character(Base):
 
     id         = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String, ForeignKey("sessions.id"), nullable=True)
+    # 多人联机：标识此角色由哪个真人玩家操控（v0.9 起）
+    # is_player=True 且 user_id 非空 → 真人玩家角色
+    # is_player=True 且 user_id 为空 → 单人模式玩家角色（向后兼容）
+    # is_player=False                → AI 队友（user_id 必为空）
+    user_id    = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     is_player  = Column(Boolean, default=True)
     name       = Column(String(100), nullable=False)
 

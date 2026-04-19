@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { gameApi } from '../api/client'
+import { gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
+import { useWebSocket } from '../hooks/useWebSocket'
 import DiceRollerOverlay, { rollDice3D } from '../components/DiceRollerOverlay'
+import Sprite from '../components/Sprite'
 import {
   ShieldIcon, SwordIcon, SkullIcon, DiceD20Icon,
   AttackIcon, SpellIcon, MoveIcon, DefendIcon, DashIcon,
@@ -17,6 +19,15 @@ export default function Combat() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const { showDice } = useGameStore()
+
+  // ── 多人联机相关 ──
+  const [room, setRoom] = useState(null)  // null = 单人模式；非空 = 多人房间信息
+  const myUserId = useMemo(() => {
+    const u = JSON.parse(localStorage.getItem('user') || 'null')
+    return u?.user_id || null
+  }, [])
+  // 我控制的角色 id（多人：从 SessionMember 推；单人：=playerId）
+  const [myCharacterId, setMyCharacterId] = useState(null)
 
   const [combat, setCombat] = useState(null)
   const [logs, setLogs] = useState([])
@@ -64,10 +75,44 @@ export default function Combat() {
   // 先攻骰子动画标记（仅第一轮第一次显示）
   const [initiativeShown, setInitiativeShown] = useState(false)
 
+  // v0.10 新增 — 完整 session 数据（供底部 HUD 展示）
+  const [session, setSession] = useState(null)
+  // v0.10 — 后端 /skill-bar 返回的技能栏
+  const [skillBarV10, setSkillBarV10] = useState(null)
+  // v0.10 — /predict 预测结果
+  const [prediction, setPrediction] = useState(null)
+  // v0.10 — 伤害飘字（id, kind, val, x, y）
+  const [floats, setFloats] = useState([])
+
   const logsEndRef = useRef(null)
   const gridContainerRef = useRef(null)
   const aiTimer = useRef(null)
   const processingRef = useRef(false)
+
+  // v0.10 — 加载技能栏（玩家信息就绪时一次性拉取）
+  useEffect(() => {
+    if (!sessionId || !playerId) return
+    gameApi.getSkillBar(sessionId, playerId)
+      .then((data) => { if (data?.bar) setSkillBarV10(data.bar) })
+      .catch(() => {})
+  }, [sessionId, playerId, playerSpellSlots])
+
+  // v0.10 — 选中目标时获取命中率预测（带轻微去抖）
+  useEffect(() => {
+    if (!selectedTarget || !playerId || !sessionId) { setPrediction(null); return }
+    const timer = setTimeout(() => {
+      const actionKey =
+        playerClass?.includes('Paladin') || playerClass?.includes('圣武') ? 'smite' :
+        playerClass?.includes('Rogue')   || playerClass?.includes('游荡') ? 'sneak' :
+        playerClass?.includes('Wizard')  || playerClass?.includes('法师') ? 'firebolt' :
+        playerClass?.includes('Cleric')  || playerClass?.includes('牧师') ? 'sacred_flame' :
+        'atk'
+      gameApi.predict(sessionId, playerId, selectedTarget, actionKey, isRanged)
+        .then(setPrediction)
+        .catch(() => setPrediction(null))
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [selectedTarget, playerId, sessionId, playerClass, isRanged])
 
   // 自动滚动地图到玩家位置
   useEffect(() => {
@@ -110,7 +155,9 @@ export default function Combat() {
       const data = await gameApi.getCombat(sessionId)
       setCombat(data)
 
-      const session = await gameApi.getSession(sessionId)
+      const sessionData = await gameApi.getSession(sessionId)
+      const session = sessionData
+      setSession(sessionData)
       const pid = session.player?.id
       setPlayerId(pid)
       if (session.player?.spell_slots)  setPlayerSpellSlots(session.player.spell_slots)
@@ -157,6 +204,66 @@ export default function Combat() {
       setSpells(list || [])
     } catch (_) { /* 静默失败 */ }
   }
+
+  // ── 多人联机：检测房间 + 设置我控制的角色 ──
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const r = await roomsApi.get(sessionId)
+        if (!mounted) return
+        if (r?.is_multiplayer) {
+          setRoom(r)
+          const me = (r.members || []).find(m => m.user_id === myUserId)
+          if (me?.character_id) setMyCharacterId(me.character_id)
+        }
+      } catch (_) {
+        // 单人会话，roomsApi.get 会 404 — 静默忽略
+      }
+    })()
+    return () => { mounted = false }
+  }, [sessionId, myUserId])
+
+  // ── 多人联机：WS 事件 → 增量刷新战斗状态 ──
+  const onWsEvent = useCallback((event) => {
+    switch (event.type) {
+      case 'combat_update':
+      case 'turn_changed':
+      case 'entity_moved':
+      case 'dm_responded':
+        // 简单粗暴：任意状态变化都重载
+        loadCombat()
+        break
+      case 'member_offline':
+      case 'member_online':
+        // 刷新房间成员状态
+        roomsApi.get(sessionId).then(r => r?.is_multiplayer && setRoom(r)).catch(() => {})
+        break
+      default:
+        break
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
+
+  useWebSocket(room ? sessionId : null, onWsEvent)
+
+  // ── 多人联机：判断当前回合是否归我 ──
+  const isMyTurnMP = useMemo(() => {
+    if (!room) return true  // 单人模式：永远轮到我
+    if (!combat?.turn_order?.length) return false
+    const cur = combat.turn_order[combat.current_turn_index || 0]
+    return cur?.character_id === myCharacterId
+  }, [room, combat, myCharacterId])
+
+  // 当前回合归属玩家昵称（用于 UI 顶部指示）
+  const currentTurnLabel = useMemo(() => {
+    if (!room || !combat?.turn_order?.length) return ''
+    const cur = combat.turn_order[combat.current_turn_index || 0]
+    if (!cur) return ''
+    const m = (room.members || []).find(mb => mb.character_id === cur.character_id)
+    if (m) return `当前回合：${m.display_name}（${cur.name}）`
+    return `当前回合：${cur.name}（AI 托管）`
+  }, [room, combat])
 
   // 玩家实际可用法术（已习得/已准备的法术 + 戏法，按职业过滤）
   const playerAvailableSpells = useMemo(() => {
@@ -1120,23 +1227,482 @@ export default function Combat() {
     })
   )
 
-  return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
+  // ═══════════════════════════════════════════════════════════
+  // 新 iso 战场渲染（design v0.10）
+  // 保留所有业务 handler / state；只重构视觉布局
+  // ═══════════════════════════════════════════════════════════
 
-      {/* 骰子动画浮层 */}
+  // Sprite key 派生
+  const spriteKind = (ent) => {
+    if (!ent) return 'paladin'
+    if (ent.sprite) return ent.sprite
+    if (ent.is_enemy) return 'cultist'
+    return (ent.char_class || 'fighter').toLowerCase()
+  }
+
+  // 相机窗口（iso 视图显示 12x8 区域，居中在玩家）
+  const GRID_W_TOTAL = 20, GRID_H_TOTAL = 12
+  const VIEW_W = 12, VIEW_H = 8
+  const playerPosV10 = combat?.entity_positions?.[playerId]
+  const cam = (() => {
+    const cx = Math.max(0, Math.min(GRID_W_TOTAL - VIEW_W, (playerPosV10?.x ?? 10) - VIEW_W / 2))
+    const cy = Math.max(0, Math.min(GRID_H_TOTAL - VIEW_H, (playerPosV10?.y ?? 6) - VIEW_H / 2))
+    return { x0: Math.floor(cx), y0: Math.floor(cy) }
+  })()
+
+  // 当前回合实体
+  const currentTurnEntryV10 = combat?.turn_order?.[combat?.current_turn_index ?? 0]
+  const isPlayerTurn_v10 = !!currentTurnEntryV10?.is_player
+
+  // 走格索引
+  const walls = new Set()
+  const hazards = new Set()
+  for (const [k, v] of Object.entries(combat?.grid_data || {})) {
+    if (v === 'wall') walls.add(k)
+    else if (v === 'hazard' || v === 'difficult') hazards.add(k)
+  }
+
+  const selectedTargetEntity = selectedTarget ? entities[selectedTarget] : null
+  const targetCell = selectedTarget ? combat?.entity_positions?.[selectedTarget] : null
+
+  // 先攻条（横向紧凑）
+  const initiativeChips = (combat?.turn_order || []).map((t, i) => {
+    const ent = entities[t.character_id]
+    const hp = ent?.hp_current ?? 0
+    const hpMax = ent?.hp_max ?? 1
+    const pct = Math.max(0, Math.min(100, (hp / hpMax) * 100))
+    const isCur = i === (combat?.current_turn_index ?? 0)
+    const dead = hp <= 0
+    return { ent, t, i, pct, isCur, dead, low: pct < 34 }
+  })
+
+  // 默认的技能栏（本地 fallback，若后端 /skill-bar 返回成功则替换）
+  const defaultSkillBar = [
+    { k: 'atk',   label: '攻击',     glyph: '⚔', cost: '动作', key: '1', kind: 'attack',  available: true },
+    { k: 'spell', label: '法术',     glyph: '✧', cost: '动作', key: '2', kind: 'spell',   available: true },
+    { k: 'shove', label: '推撞',     glyph: '↦', cost: '动作', key: '3', kind: 'attack',  available: true },
+    { k: 'help',  label: '协助',     glyph: '☉', cost: '动作', key: '4', kind: 'bonus',   available: true },
+    { k: 'dash',  label: '冲刺',     glyph: '»', cost: '动作', key: '5', kind: 'move',    available: true },
+    { k: 'disg',  label: '脱离',     glyph: '↶', cost: '动作', key: '6', kind: 'move',    available: true },
+    { k: 'dodge', label: '闪避',     glyph: '⊙', cost: '动作', key: '7', kind: 'bonus',   available: true },
+    { k: 'death', label: '濒死',     glyph: '☠', cost: '—',   key: '8', kind: 'empty',   available: false },
+    { k: 'empty', label: '',         glyph: '',  cost: '',    key: '9', kind: 'empty',   available: false },
+    { k: 'pot',   label: '药剂',     glyph: '⚱', cost: '动作', key: '0', kind: 'bonus',   available: true },
+  ]
+  const skillBar = skillBarV10 && skillBarV10.length ? skillBarV10 : defaultSkillBar
+
+  // 技能点击路由到现有 handler
+  const onSkillClick = async (s) => {
+    if (!s.available || isProcessing || !isPlayerTurn_v10) return
+    try {
+      switch (s.k) {
+        case 'atk':
+          if (!selectedTarget) { setError('请先选择目标'); return }
+          await handleAttack(); break
+        case 'smite':
+          setError('神圣斩击将在命中后自动提示'); break
+        case 'spell': case 'bless': case 'heal': case 'shield':
+        case 'firebolt': case 'sacred_flame':
+          setSpellModalOpen(true); break
+        case 'shove':
+          if (!selectedTarget) { setError('请先选择目标'); return }
+          await gameApi.combatAction(sessionId, '推撞', selectedTarget, false)
+          const fresh1 = await gameApi.getCombat(sessionId); setCombat(fresh1); break
+        case 'help':
+          setHelpMode(true); break
+        case 'dash':       await handleDash?.(); break
+        case 'disg':       await handleDisengage?.(); break
+        case 'dodge':      await handleDodge?.(); break
+        case 'lay':          await handleClassFeature?.('lay_on_hands'); break
+        case 'second_wind':  await handleClassFeature?.('second_wind'); break
+        case 'action_surge': await handleClassFeature?.('action_surge'); break
+        case 'rage':         await handleClassFeature?.('rage'); break
+        case 'cunning_action': await handleClassFeature?.('cunning_action_dash'); break
+        case 'portent':      await handleClassFeature?.('portent'); break
+        case 'ki_flurry':    await handleClassFeature?.('ki_flurry'); break
+        case 'divine_sense': await handleClassFeature?.('divine_sense'); break
+        case 'pot': case 'pot_heal':
+          await gameApi.combatAction(sessionId, '饮用治疗药剂', null, false)
+          const fresh2 = await gameApi.getCombat(sessionId); setCombat(fresh2); break
+        default: break
+      }
+    } catch (e) { setError(e.message) }
+  }
+
+  // 移动：点击格子触发
+  const handleMoveTo = async (x, y) => {
+    if (!moveMode || isProcessing || !isPlayerTurn_v10) return
+    try {
+      const result = await gameApi.move(sessionId, playerId, x, y)
+      if (result) {
+        setCombat(prev => prev ? { ...prev, entity_positions: result.entity_positions || prev.entity_positions } : prev)
+        if (result.turn_state) setTurnState(result.turn_state)
+      }
+      setMoveMode(false)
+    } catch (e) { setError(e.message) }
+  }
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      background: 'linear-gradient(180deg, #06040a 0%, #0a0604 100%)',
+      position: 'relative', zIndex: 1,
+    }}>
       <DiceRollerOverlay />
 
-      {/* 战技选择 Modal */}
-      {maneuverModalOpen && (
-        <ManeuverModal
-          diceType={playerSubclassEffects?.superiority_die || 'd8'}
-          remaining={classResources?.superiority_dice_remaining ?? 0}
-          onUse={handleManeuver}
-          onClose={() => setManeuverModalOpen(false)}
-        />
+      {/* ── 多人联机：当前回合指示器 ── */}
+      {room && currentTurnLabel && (
+        <div style={{
+          background: isMyTurnMP
+            ? 'linear-gradient(90deg, rgba(74,138,74,0.4), rgba(74,138,74,0.15))'
+            : 'linear-gradient(90deg, rgba(58,122,170,0.3), rgba(58,122,170,0.1))',
+          borderBottom: '1px solid var(--amber)',
+          padding: '5px 16px', color: 'var(--amber)',
+          fontSize: 12, fontWeight: 'bold',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          zIndex: 5, flexShrink: 0,
+        }}>
+          <span>{currentTurnLabel}</span>
+          <span style={{ fontSize: 11, opacity: 0.8 }}>
+            {isMyTurnMP ? '你的回合' : '观战中…'} · 房间 {room.room_code}
+          </span>
+        </div>
       )}
 
-      {/* 法术选择 Modal */}
+      {/* ── 回合横幅 ── */}
+      <div className="turn-banner">
+        <span className="round-tag">R {combat?.round_number || 1}</span>
+        <span style={{ color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '.2em', marginRight: 8 }}>轮到</span>
+        <span className="active-name">{currentTurnEntryV10?.name || '—'}</span>
+        {combatOver && (
+          <span style={{ marginLeft: 14, color: combatOver === 'victory' ? 'var(--emerald-light)' : 'var(--blood-light)', fontFamily: 'var(--font-display)', fontSize: 13 }}>
+            · {combatOver === 'victory' ? '🏆 胜利' : '💀 全灭'} ·
+          </span>
+        )}
+      </div>
+
+      {/* ── 横向先攻条 ── */}
+      <div className="init-ribbon">
+        {initiativeChips.map(({ ent, t, i, pct, isCur, dead, low }) => (
+          <div
+            key={t.character_id}
+            className={`unit-chip ${t.is_enemy ? 'enemy' : ''} ${isCur ? 'active' : ''} ${dead ? 'dead' : ''} ${low ? 'low' : ''}`}
+            onClick={() => !dead && setSelectedTarget(t.character_id)}
+            style={{ cursor: dead ? 'default' : 'pointer' }}
+          >
+            <div className="init-no">{t.initiative ?? '?'}</div>
+            <div className="avatar">
+              {(ent?.name || t.name || '?').slice(0, 1)}{dead && '×'}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment)', letterSpacing: '.08em', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {(ent?.name || t.name || '?').slice(0, 4)}
+            </div>
+            <div className="hp-tick"><div className="fill" style={{ width: `${pct}%` }} /></div>
+            {ent?.conditions?.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 1, marginTop: 2 }}>
+                {ent.conditions.slice(0, 3).map((c, ci) => (
+                  <span key={ci} style={{ fontSize: 8, color: '#f4a0a0' }} title={c}>⚠</span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <div style={{ flex: 1 }} />
+      </div>
+
+      {/* ── 战场 + 目标卡 + 伤害飘字 ── */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'grid', placeItems: 'center', padding: '20px 20px 0', minHeight: 0 }}>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at 30% 40%, rgba(47,168,184,.08), transparent 60%), radial-gradient(ellipse at 80% 60%, rgba(196,40,40,.1), transparent 55%)' }} />
+
+        <div className="iso-battlefield">
+          <div className="iso-grid" style={{
+            gridTemplateColumns: `repeat(${VIEW_W}, 54px)`,
+            gridTemplateRows: `repeat(${VIEW_H}, 54px)`,
+          }}>
+            {Array.from({ length: VIEW_H }).flatMap((_, dy) =>
+              Array.from({ length: VIEW_W }).map((_, dx) => {
+                const x = cam.x0 + dx, y = cam.y0 + dy
+                const key = `${x}_${y}`
+                const isWall = walls.has(key)
+                const isHazard = hazards.has(key)
+                // 找该格上的实体
+                const entryEntry = Object.entries(combat?.entity_positions || {})
+                  .find(([, pos]) => pos?.x === x && pos?.y === y)
+                const [entId] = entryEntry || []
+                const ent = entId ? entities[entId] : null
+                const isTarget = entId && entId === selectedTarget
+                const isCurTurn = entId && entId === currentTurnEntryV10?.character_id
+
+                let klass = ''
+                if (isWall) klass = 'wall'
+                else if (isTarget) klass = 'target'
+                else if (isHazard) klass = 'hazard'
+
+                return (
+                  <div
+                    key={key}
+                    className={`iso-cell ${klass}`}
+                    onClick={() => {
+                      if (ent && !isWall) {
+                        setSelectedTarget(entId)
+                      } else if (moveMode && !isWall) {
+                        // 走现有移动流程
+                        handleMoveTo?.(x, y)
+                      }
+                    }}
+                  >
+                    {ent && (
+                      <div className={`iso-unit ${ent.is_enemy ? 'enemy' : (entId === playerId ? 'player' : 'ally')} ${isCurTurn ? 'active' : ''} ${(ent.hp_current / (ent.hp_max || 1)) < .34 ? 'low' : ''}`}
+                        style={{
+                          '--c-light': ent.is_enemy ? '#f04848' : (entId === playerId ? '#6ae884' : '#7fc8f8'),
+                          '--c-dark':  ent.is_enemy ? '#3a0a0a' : (entId === playerId ? '#1a4a28' : '#143a5e'),
+                          '--c-glow':  ent.is_enemy ? '#f04848' : (entId === playerId ? '#6ae884' : '#5fb8f8'),
+                        }}>
+                        <div className="base" />
+                        <div className="sprite-wrap">
+                          <Sprite kind={spriteKind(ent)} size={44} dead={ent.hp_current <= 0} />
+                        </div>
+                        <div className="micro-hp">
+                          <div className="fill" style={{ width: `${Math.max(0, Math.min(100, (ent.hp_current / (ent.hp_max || 1)) * 100))}%` }} />
+                        </div>
+                        {isTarget && <div className="target-ring" />}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* 目标卡（含命中率预测） */}
+        {selectedTargetEntity && (
+          <div style={{ position: 'absolute', top: 20, right: 20, width: 230 }}>
+            <div className="target-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="name">◈ {selectedTargetEntity.name}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', letterSpacing: '.15em' }}>TARGET</span>
+              </div>
+              <div style={{ height: 8, background: '#0a0604', border: '1px solid rgba(196,40,40,.5)', marginTop: 6 }}>
+                <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, (selectedTargetEntity.hp_current / (selectedTargetEntity.hp_max || 1)) * 100))}%`, background: 'linear-gradient(90deg, #f04040, #8a1818)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.3)' }} />
+              </div>
+              <div className="hit-pred">
+                <span>HP <b style={{ color: '#f4a0a0' }}>{selectedTargetEntity.hp_current}/{selectedTargetEntity.hp_max}</b> · AC <b style={{ color: 'var(--parchment)' }}>{selectedTargetEntity.ac}</b></span>
+              </div>
+              {prediction && (
+                <div style={{ borderTop: '1px solid rgba(138,90,24,.3)', marginTop: 8, paddingTop: 8 }}>
+                  <div className="hit-pred">
+                    <span>命中</span>
+                    <span className="pct">{Math.round((prediction.hit_rate || 0) * 100)}%</span>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--parchment-dark)', letterSpacing: '.08em', marginTop: 3 }}>
+                    预期 <span style={{ color: 'var(--amber)', fontWeight: 700 }}>{prediction.expected_damage} {prediction.damage_type}</span>
+                  </div>
+                  {prediction.modifiers?.length > 0 && (
+                    <div style={{ fontSize: 9, color: 'var(--parchment-dark)', marginTop: 2 }}>{prediction.modifiers.join(' · ')}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 伤害飘字 */}
+        {floats.map(f => (
+          <span key={f.id} className={`float-text ${f.kind}`} style={{ left: `${f.x}%`, top: `${f.y}%` }}>{f.val}</span>
+        ))}
+
+        {combatOver && (
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            padding: '24px 40px', background: 'rgba(10,6,4,.95)',
+            border: `2px solid ${combatOver === 'victory' ? 'var(--emerald)' : 'var(--blood)'}`,
+            textAlign: 'center', zIndex: 10,
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>{combatOver === 'victory' ? '🏆' : '💀'}</div>
+            <div className="display-title" style={{ fontSize: 22, color: combatOver === 'victory' ? 'var(--emerald-light)' : 'var(--blood-light)' }}>
+              {combatOver === 'victory' ? '战斗胜利' : '全队阵亡'}
+            </div>
+            <button onClick={async () => { await gameApi.endCombat?.(sessionId); navigate(`/adventure/${sessionId}`) }} className="btn-gold" style={{ marginTop: 16 }}>
+              返回冒险 ►
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ═══ 底部 HUD ═══ */}
+      <div className="combat-hud" style={{ flexShrink: 0 }}>
+        {/* 左 · 当前角色 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="action-pips">
+            <div className={`pip action ${turnState?.action_used ? 'used' : ''}`}><span>⚔</span></div>
+            <div className={`pip bonus ${turnState?.bonus_action_used ? 'used' : ''}`}><span>✦</span></div>
+            <div className={`pip react ${turnState?.reaction_used ? 'used' : ''}`}><span>⚡</span></div>
+          </div>
+          <div className="hud-portrait">
+            <div className="big">{(session?.player?.name || 'P').slice(0, 1)}</div>
+            <div className="stats">
+              <div className="name">{session?.player?.name || '玩家'}</div>
+              <div className="sub">{playerClass || '?'} {playerSubclass ? `· ${playerSubclass} ` : ''}· Lv {playerLevel}</div>
+              <div className={`hp-segmented ${(() => {
+                const hp = session?.player?.hp_current ?? 0, hpMax = session?.player?.derived?.hp_max ?? 1
+                return hp / hpMax < .34 ? 'low' : hp / hpMax < .67 ? 'mid' : ''
+              })()}`}>
+                {(() => {
+                  const hp = session?.player?.hp_current ?? 0
+                  const hpMax = session?.player?.derived?.hp_max ?? 1
+                  const segs = 12
+                  const filled = Math.round((hp / hpMax) * segs)
+                  return Array.from({ length: segs }).map((_, i) => (
+                    <div key={i} className={`seg ${i >= filled ? 'empty' : ''}`} />
+                  ))
+                })()}
+              </div>
+              <div className="hp-text">
+                <span><span className="cur">{session?.player?.hp_current ?? 0}</span> / {session?.player?.derived?.hp_max ?? 0}</span>
+                <span>移动 <b style={{ color: 'var(--arcane-light)' }}>{(turnState?.movement_max ?? 6) - (turnState?.movement_used ?? 0)}/{turnState?.movement_max ?? 6}</b></span>
+              </div>
+              <div className="stat-line">
+                <span>AC <span className="v">{session?.player?.derived?.ac ?? 10}</span></span>
+                <span>先攻 <span className="v">{(() => { const m = session?.player?.derived?.initiative ?? 0; return (m >= 0 ? '+' : '') + m })()}</span></span>
+                {session?.player?.derived?.spell_save_dc && (
+                  <span>DC <span className="v">{session.player.derived.spell_save_dc}</span></span>
+                )}
+              </div>
+              {session?.player?.conditions?.length > 0 && (
+                <div className="conditions">
+                  {session.player.conditions.slice(0, 6).map((c, i) => (
+                    <span key={i} className="cond-icon" title={c}>⚠</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 中 · 技能快捷栏 + 日志 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+          <div className="skill-bar">
+            {skillBar.map(s => (
+              <div
+                key={s.k}
+                className={`slot-key ${s.kind} ${!s.available ? 'used' : ''}`}
+                onClick={() => onSkillClick(s)}
+                title={s.reason || s.label}
+                style={{ cursor: s.available && isPlayerTurn_v10 ? 'pointer' : 'not-allowed' }}
+              >
+                <span className="hot">{s.key}</span>
+                <span className="glyph">{s.glyph}</span>
+                {s.cost && <span className="cost">{String(s.cost).split('·')[0]}</span>}
+              </div>
+            ))}
+          </div>
+          <div className="slot-label-bar">
+            {skillBar.map(s => <span key={s.k}>{s.label || '—'}</span>)}
+          </div>
+
+          <div className="combat-log" style={{ marginTop: 4 }}>
+            {logs.slice(-8).map((log, i) => (
+              <div key={log.id || i} className={`log-entry ${
+                log.dice_result?.is_crit ? 'crit' :
+                log.dice_result?.is_fumble ? 'miss' :
+                log.log_type === 'combat' ? 'dmg' : 'normal'
+              }`}>
+                <span className="roll">
+                  {log.dice_result ? `d20=${log.dice_result.d20 || log.dice_result.total}` : '日志'}
+                </span>
+                <span>{(log.content || '').slice(0, 80)}</span>
+              </div>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+
+        {/* 右 · 法术位 + 结束回合 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{
+            padding: '8px 10px',
+            background: 'linear-gradient(180deg, #1a1208, #0a0604)',
+            border: '1px solid rgba(138,90,24,.5)',
+            boxShadow: 'inset 0 1px 0 rgba(240,208,96,.15)',
+          }}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 10, color: 'var(--amber)', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>
+              ✦ 法术位
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {Object.entries(playerSpellSlots || {}).filter(([lvl, cur]) => cur > 0 || /^(1st|2nd|3rd)$/.test(lvl)).slice(0, 4).map(([lvl, cur]) => {
+                const max = session?.player?.derived?.spell_slots_max?.[lvl] || cur
+                return (
+                  <div key={lvl} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.08em', width: 24 }}>{lvl}</span>
+                    <div className="spell-slots">
+                      {Array.from({ length: Math.max(max, cur) }).map((_, i) => (
+                        <div key={i} className={`slot-gem ${i >= cur ? 'used' : ''}`} />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {session?.player?.concentration && (
+              <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(138,90,24,.3)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', letterSpacing: '.1em' }}>
+                专注 <span style={{ color: 'var(--flame)' }}>{session.player.concentration}</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="end-turn-mega"
+            onClick={handleEndTurn}
+            disabled={isProcessing || !isPlayerTurn_v10}
+          >☰ 结束回合</button>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+            <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+              onClick={() => setMoveMode(m => !m)}
+              disabled={isProcessing || !isPlayerTurn_v10}>
+              {moveMode ? '✓ 移动' : '► 移动'}
+            </button>
+            <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+              onClick={() => setIsRanged(r => !r)}
+              disabled={isProcessing || !isPlayerTurn_v10}>
+              {isRanged ? '✓ 远程' : '⊙ 远程'}
+            </button>
+            <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+              onClick={() => navigate(`/adventure/${sessionId}`)}>
+              ⏎ 返回
+            </button>
+            <button className="btn-danger" style={{ fontSize: 9, padding: '5px 8px' }}
+              onClick={async () => { if (confirm('强制结束战斗？')) { await gameApi.endCombat?.(sessionId); navigate(`/adventure/${sessionId}`) } }}>
+              终止
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Smite prompt（保留原版弹窗） ── */}
+      {smitePrompt?.show && (
+        <div className="fixed inset-0" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
+          <div style={{ padding: 18, width: 320, background: 'var(--obsidian)', border: '1px solid var(--amber)' }}>
+            <p style={{ color: 'var(--amber)', fontFamily: 'var(--font-display)', fontSize: 14, marginBottom: 10 }}>
+              命中！是否使用神圣斩击？
+            </p>
+            <p style={{ color: 'var(--parchment-dark)', fontSize: 12, marginBottom: 12 }}>
+              消耗 1 环法术位造成 +2d8 辐光伤害（每升一环 +1d8）
+            </p>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[1, 2, 3, 4, 5].filter(l => (playerSpellSlots[['1st','2nd','3rd','4th','5th'][l-1]] || 0) > 0).map(l => (
+                <button key={l} className="btn-gold" style={{ flex: 1, padding: 8, fontSize: 11 }} onClick={() => handleSmite(l)}>
+                  {l}环
+                </button>
+              ))}
+              <button className="btn-ghost" style={{ padding: 8, fontSize: 11 }} onClick={() => setSmitePrompt(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 法术弹窗（保留） ── */}
       {spellModalOpen && (
         <SpellModal
           spells={playerAvailableSpells}
@@ -1147,734 +1713,44 @@ export default function Combat() {
         />
       )}
 
-      {/* 神圣斩击选择 Modal */}
-      {smitePrompt?.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="panel p-4 w-80" style={{ background: 'var(--bg2)', borderColor: 'var(--gold)' }}>
-            <p className="font-bold text-sm mb-3" style={{ color: 'var(--gold)' }}>
-              命中！是否使用神圣斩击？
-            </p>
-            <p className="text-xs mb-3" style={{ color: 'var(--text-dim)' }}>
-              消耗法术位追加辐光伤害（2d8 + 每环+1d8）
-            </p>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {[1,2,3,4,5].map(lvl => {
-                const slotKey = ['1st','2nd','3rd','4th','5th'][lvl-1]
-                const avail = playerSpellSlots[slotKey] || 0
-                return avail > 0 ? (
-                  <button key={lvl} className="btn-fantasy text-xs py-1 px-3"
-                    style={{ borderColor: 'var(--gold)' }}
-                    onClick={() => handleSmite(lvl)}>
-                    {lvl}环 ({avail}槽)
-                  </button>
-                ) : null
-              })}
-            </div>
-            <button className="btn-fantasy text-xs py-1 w-full"
-              onClick={() => setSmitePrompt(null)}>
-              不使用
-            </button>
-          </div>
-        </div>
+      {/* ── 战技弹窗（保留） ── */}
+      {maneuverModalOpen && (
+        <ManeuverModal
+          diceType={playerSubclassEffects?.superiority_die || 'd8'}
+          remaining={classResources?.superiority_dice_remaining ?? 0}
+          onUse={handleManeuver}
+          onClose={() => setManeuverModalOpen(false)}
+        />
       )}
 
-      {/* 反应提示 Modal */}
+      {/* ── 反应弹窗（保留） ── */}
       {reactionPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}>
-          <div className="panel p-5" style={{ background: 'var(--bg2)', borderColor: 'var(--red)', maxWidth: 420, width: '90%', border: '2px solid var(--red)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 24 }}>⚡</span>
-              <div>
-                <p style={{ color: 'var(--red-light)', fontWeight: 700, fontSize: 15, margin: 0 }}>你被攻击了！是否使用反应？</p>
-                <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '4px 0 0' }}>
-                  攻击者: {reactionPrompt.attacker_name} | 攻击骰: {reactionPrompt.attack_roll} | 你的AC: {reactionPrompt.player_ac}
-                  {reactionPrompt.incoming_damage > 0 && ` | 伤害: ${reactionPrompt.incoming_damage}`}
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {(reactionPrompt.available_reactions || []).map(r => (
-                <button key={r.id} className="panel" style={{
-                  padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-                  border: '1px solid var(--wood-light)', background: 'var(--bg)', textAlign: 'left',
-                  transition: 'border-color 0.2s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--red-light)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--wood-light)'}
-                onClick={() => handleReaction(r.id, reactionPrompt.attacker_id)}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ color: 'var(--text-bright)', fontWeight: 600, fontSize: 13, margin: 0 }}>
-                      {r.name}
-                    </p>
-                    <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '2px 0 0' }}>
-                      {r.effect}
-                      {r.cost && <span style={{ color: 'var(--gold-dim)', marginLeft: 6 }}>({r.cost})</span>}
-                    </p>
-                  </div>
-                  {r.slots_remaining != null && (
-                    <span style={{ color: 'var(--gold)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {r.slots_remaining}槽
-                    </span>
-                  )}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
+          <div style={{ padding: 20, width: 360, background: 'var(--obsidian)', border: '1px solid var(--flame)' }}>
+            <p style={{ color: 'var(--flame)', fontFamily: 'var(--font-display)', fontSize: 14, marginBottom: 8 }}>⚡ 反应触发</p>
+            <p style={{ color: 'var(--parchment)', fontSize: 12, marginBottom: 12 }}>{reactionPrompt.context || '选择反应'}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(reactionPrompt.options || []).map((opt, i) => (
+                <button key={i} className="btn-gold" style={{ padding: 8, fontSize: 12, textAlign: 'left' }}
+                  onClick={() => handleReaction(opt.type, opt.target_id)}>
+                  {opt.label}
                 </button>
               ))}
+              <button className="btn-ghost" style={{ padding: 6, fontSize: 11 }} onClick={() => setReactionPrompt(null)}>
+                放弃反应
+              </button>
             </div>
-
-            <button className="btn-fantasy" style={{ width: '100%', fontSize: 12, opacity: 0.7 }}
-              onClick={skipReaction}>
-              不使用反应
-            </button>
           </div>
         </div>
       )}
 
-      {/* 顶部栏 */}
-      <div className="flex items-center justify-between px-4 py-2 border-b flex-shrink-0"
-        style={{ borderColor: 'var(--wood-light)', background: 'var(--bg2)' }}>
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold px-2 py-1 rounded" style={{ background: 'var(--red)', color: 'var(--red-light)' }}>
-            <SwordIcon size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-            战斗
-          </span>
-          <span className="font-semibold" style={{ color: 'var(--gold)' }}>第 {round_number} 轮</span>
-        </div>
-        <div className="text-sm" style={{ color: playerTurn ? 'var(--blue-light)' : 'var(--red-light)' }}>
-          {isProcessing
-            ? <span className="animate-pulse">AI行动中...</span>
-            : `当前行动：${currentTurnEntry?.name || '?'}`}
-        </div>
-        <div className="flex items-center gap-2">
-          {playerId && (
-            <button className="btn-fantasy text-xs py-1" onClick={() => navigate(`/character/${playerId}`)}>
-              <ShieldIcon size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-              角色
-            </button>
-          )}
-          <button className="btn-fantasy text-xs py-1" onClick={handleEndCombat}>
-            <BackIcon size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-            强制结束
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* 左侧：先攻顺序 */}
-        <div className="w-44 flex-shrink-0 border-r overflow-y-auto p-2 space-y-1"
-          style={{ borderColor: 'var(--wood-light)', background: 'var(--bg2)' }}>
-          <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>先攻顺序</p>
-          {turn_order.map((entry, idx) => {
-            const ent = entities[entry.character_id]
-            const isCurrent = idx === current_turn_index
-            const isDead = ent && ent.hp_current <= 0
-            const hpPct = ent ? Math.max(0, ent.hp_current / ent.hp_max * 100) : 0
-            const entTs = combat.turn_states?.[entry.character_id]
-
-            return (
-              <div key={`${entry.character_id}-${idx}`}
-                className={`init-entry ${isCurrent ? 'init-entry-active' : ''}`}
-                style={{ opacity: isDead ? 0.3 : 1 }}>
-                <div className="flex items-center gap-1.5">
-                  <span style={{ display: 'flex', alignItems: 'center' }}>
-                    {entry.is_player
-                      ? <ShieldIcon size={14} color="var(--blue-light)" />
-                      : ent?.is_enemy
-                        ? <SkullIcon size={14} color="var(--red-light)" />
-                        : <SwordIcon size={14} color="var(--green-light)" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold truncate"
-                      style={{ color: isCurrent ? 'var(--gold)' : 'var(--parchment)' }}>{entry.name}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-dim)' }}>先攻 {entry.initiative}</p>
-                  </div>
-                </div>
-                {ent && (
-                  <div className="mt-1.5">
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--wood)' }}>
-                      <div className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${hpPct}%`,
-                          background: hpPct > 50 ? 'var(--green-light)' : hpPct > 25 ? 'var(--gold)' : 'var(--red-light)',
-                        }} />
-                    </div>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{ent.hp_current}/{ent.hp_max} HP</p>
-                    {/* 状态条件 */}
-                    {ent.conditions?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {ent.conditions.map(c => {
-                          const dur = ent.condition_durations?.[c]
-                          return (
-                            <span key={c} style={{
-                              fontSize: 9, padding: '1px 4px', borderRadius: 3,
-                              background: 'rgba(139,32,32,0.3)', color: 'var(--red-light)', lineHeight: 1.4,
-                              border: '1px solid var(--red)',
-                            }}>
-                              {c}{dur != null ? ` ${dur}r` : ' \u221e'}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {/* 被协助徽章 */}
-                    {entTs?.being_helped && (
-                      <span style={{
-                        fontSize: 9, padding: '1px 4px', borderRadius: 3, marginTop: 2, display: 'inline-block',
-                        background: 'rgba(26,58,90,0.3)', color: 'var(--blue-light)',
-                        border: '1px solid var(--blue)',
-                      }}>被协助</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* 中间：网格地图 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* 模式提示条 */}
-          {(moveMode || helpMode) && (
-            <div className="text-center py-1 text-xs font-semibold"
-              style={{ background: helpMode ? 'var(--blue)' : 'var(--green)', color: helpMode ? 'var(--blue-light)' : 'var(--green-light)' }}>
-              {helpMode
-                ? '协助模式：点击地图上的队友选择协助对象'
-                : `移动模式：点击空格子移动（剩余 ${movementLeft} 格）-- 再次点击「移动」取消`}
-            </div>
-          )}
-
-          <div ref={gridContainerRef} className="flex-1 overflow-auto p-2 flex items-center justify-center">
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${GRID_COLS}, ${CELL}px)`,
-              gridTemplateRows: `repeat(${GRID_ROWS}, ${CELL}px)`,
-              gap: '1px',
-              background: 'var(--wood)',
-              border: '2px solid var(--wood-light)',
-              borderRadius: 4,
-              flexShrink: 0,
-            }}>
-              {grid.flat().map((cell) => {
-                const isDead = cell.entity && cell.entity.hp_current <= 0
-                const isSelected = selectedTarget === cell.entityId
-                const isTargetable = playerTurn && !isProcessing && !moveMode && !helpMode &&
-                  cell.entity?.is_enemy && cell.entity?.hp_current > 0
-                const isHelpable = helpMode && playerTurn && !isProcessing &&
-                  cell.entity && !cell.entity.is_enemy && cell.entity.id !== playerId && cell.entity.hp_current > 0
-                const isMoveTarget = moveMode && playerTurn && !isProcessing && !cell.entity
-                const hpPct = cell.entity
-                  ? Math.max(0, cell.entity.hp_current / cell.entity.hp_max * 100) : 0
-
-                // Movement range highlighting
-                const reachable = moveMode && playerPos && !cell.entity
-                  ? _chebyshev(playerPos, { x: cell.x, y: cell.y }) <= movementLeft
-                  : false
-                const outOfRange = moveMode && playerPos && !cell.entity && !reachable
-
-                // Determine cell CSS class
-                let cellClass = 'battle-cell'
-                if (cell.entity?.is_player) cellClass += ' battle-cell-player'
-                else if (cell.entity?.is_enemy) cellClass += ' battle-cell-enemy'
-                else if (cell.entity) cellClass += ' battle-cell-ally'
-
-                const cellBg = isSelected ? 'rgba(196,64,64,0.35)'
-                  : isHelpable ? 'rgba(58,122,170,0.2)'
-                  : reachable ? 'rgba(201,168,76,0.08)'
-                  : isMoveTarget ? 'rgba(74,138,74,0.15)'
-                  : undefined // let CSS class handle default
-
-                return (
-                  <div key={`${cell.x}-${cell.y}`}
-                    className={cellClass}
-                    onClick={() => {
-                      if (moveMode && outOfRange) {
-                        setError('超出移动范围！')
-                        return
-                      }
-                      handleCellClick(cell.x, cell.y)
-                    }}
-                    style={{
-                      width: CELL, height: CELL,
-                      ...(cellBg ? { background: cellBg } : {}),
-                      ...(outOfRange ? { opacity: 0.35 } : {}),
-                      cursor: reachable ? 'crosshair'
-                        : isMoveTarget || isTargetable || isHelpable ? 'crosshair'
-                        : outOfRange ? 'not-allowed'
-                        : cell.entity ? 'pointer' : 'default',
-                      position: 'relative',
-                      border: isSelected ? '1px solid var(--red-light)'
-                        : isHelpable ? '1px solid rgba(58,122,170,0.6)'
-                        : reachable ? '1px solid rgba(201,168,76,0.35)'
-                        : isMoveTarget ? '1px solid rgba(74,138,74,0.4)'
-                        : isTargetable ? '1px solid rgba(196,64,64,0.5)' : undefined,
-                      transition: 'background 0.1s, opacity 0.15s',
-                      boxSizing: 'border-box',
-                    }}>
-                    {cell.entity && (
-                      <>
-                        <span style={{ fontSize: 22, lineHeight: 1, opacity: isDead ? 0.25 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {isDead
-                            ? <SkullIcon size={20} color="var(--text-dim)" />
-                            : cell.entity.is_player
-                              ? <ShieldIcon size={20} color="var(--blue-light)" />
-                              : cell.entity.is_enemy
-                                ? <SkullIcon size={20} color="var(--red-light)" />
-                                : <SwordIcon size={20} color="var(--green-light)" />}
-                        </span>
-                        {!isDead && (
-                          <div style={{
-                            position: 'absolute', bottom: 3, left: 4, right: 4,
-                            height: 3, background: 'var(--wood)', borderRadius: 2,
-                          }}>
-                            <div style={{
-                              height: '100%', borderRadius: 2,
-                              width: `${hpPct}%`,
-                              background: hpPct > 50 ? 'var(--green-light)' : hpPct > 25 ? 'var(--gold)' : 'var(--red-light)',
-                            }} />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* 行动栏 */}
-          <div className="border-t flex-shrink-0 p-3" style={{ borderColor: 'var(--wood-light)', background: 'var(--bg2)' }}>
-            {error && <p className="text-xs mb-2" style={{ color: 'var(--red-light)' }}>
-              <span style={{ marginRight: 4 }}>!</span>{error}
-            </p>}
-
-            {/* 濒死豁免面板 */}
-            {playerDying && !combatOver && (
-              <div className="panel mb-3 p-3" style={{ borderColor: 'var(--red)' }}>
-                <p className="text-sm font-bold mb-2" style={{ color: 'var(--red-light)' }}>
-                  <SkullIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                  {playerEntity?.name} 濒死中
-                </p>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="flex gap-1">
-                    {[0,1,2].map(i => (
-                      <div key={i} className="w-4 h-4 rounded-full border"
-                        style={{
-                          borderColor: 'var(--green-light)',
-                          background: i < (playerEntity?.death_saves?.successes || 0) ? 'var(--green-light)' : 'transparent',
-                        }} />
-                    ))}
-                    <span className="text-xs ml-1" style={{ color: 'var(--green-light)' }}>成功</span>
-                  </div>
-                  <div className="flex gap-1">
-                    {[0,1,2].map(i => (
-                      <div key={i} className="w-4 h-4 rounded-full border"
-                        style={{
-                          borderColor: 'var(--red-light)',
-                          background: i < (playerEntity?.death_saves?.failures || 0) ? 'var(--red-light)' : 'transparent',
-                        }} />
-                    ))}
-                    <span className="text-xs ml-1" style={{ color: 'var(--red-light)' }}>失败</span>
-                  </div>
-                </div>
-                <button className="btn-fantasy w-full py-2 text-sm"
-                  style={{ borderColor: 'var(--red-light)', color: 'var(--red-light)' }}
-                  disabled={isProcessing} onClick={handleDeathSave}>
-                  <DiceD20Icon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                  {isProcessing ? '检定中...' : '进行濒死豁免'}
-                </button>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>3次成功=稳定，3次失败=阵亡，自然20=立即复活</p>
-              </div>
-            )}
-
-            {combatOver ? (
-              <div className="text-center py-1">
-                <p className="text-lg font-bold mb-3"
-                  style={{ color: combatOver === 'victory' ? 'var(--gold)' : 'var(--red-light)' }}>
-                  {combatOver === 'victory'
-                    ? <><SwordIcon size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />胜利！所有敌人已被击倒！</>
-                    : <><SkullIcon size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />队伍全灭，冒险结束...</>}
-                </p>
-                <button className="btn-gold px-6 py-2"
-                  onClick={() => navigate(`/adventure/${sessionId}`)}>
-                  <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                  返回探索
-                </button>
-              </div>
-            ) : playerTurn && !isProcessing ? (
-              <div>
-                {/* 目标信息 */}
-                {selectedEntity && (
-                  <p className="text-xs mb-2" style={{ color: 'var(--red-light)' }}>
-                    <SkullIcon size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                    目标：{selectedEntity.name}（{selectedEntity.hp_current}/{selectedEntity.hp_max} HP · AC {selectedEntity.ac}）
-                  </p>
-                )}
-
-                {/* 行动配额显示 */}
-                {ts && (
-                  <div className="flex gap-3 mb-2 text-xs" style={{ color: 'var(--text-dim)' }}>
-                    <span style={{ color: actionUsed ? 'var(--wood-light)' : 'var(--gold)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <AttackIcon size={12} /> 行动{actionUsed ? '（已用）' : ''}
-                    </span>
-                    <span style={{ color: movementLeft <= 0 ? 'var(--wood-light)' : 'var(--green-light)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <MoveIcon size={12} /> 移动 {movementUsed}/{movementMax} 格
-                    </span>
-                    {disengaged && (
-                      <span style={{ color: 'var(--blue-light)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <DisengageIcon size={12} /> 脱离接战
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* 行动按钮区 */}
-                <div className="flex gap-2 flex-wrap items-center mb-2">
-                  {/* 远程/近战切换 */}
-                  <button className="action-btn"
-                    style={{ width: 'auto', borderColor: isRanged ? 'var(--blue-light)' : 'var(--wood-light)' }}
-                    onClick={() => setIsRanged(r => !r)}>
-                    {isRanged
-                      ? <><AttackIcon size={14} color="var(--blue-light)" /> 远程</>
-                      : <><AttackIcon size={14} /> 近战</>}
-                  </button>
-
-                  {/* 攻击 (支持 Extra Attack：attacks_made < attacks_max 时仍可攻击) */}
-                  <button className="action-btn action-btn-attack"
-                    style={{ width: 'auto', opacity: actionUsed ? 0.35 : 1 }}
-                    disabled={!selectedTarget || actionUsed} onClick={handleAttack}>
-                    <AttackIcon size={14} color="var(--red-light)" /> 攻击{!selectedTarget && <span className="ml-1 text-xs" style={{ color: 'var(--text-dim)' }}>（先选目标）</span>}
-                  </button>
-
-                  {/* 副手攻击（双武器战斗：主手已攻击 + 附赠行动未用） */}
-                  {actionUsed && !bonusUsed && (
-                    <button className="action-btn action-btn-attack"
-                      style={{ width: 'auto', opacity: selectedTarget ? 1 : 0.35 }}
-                      disabled={!selectedTarget} onClick={handleOffhandAttack}>
-                      <OffhandIcon size={14} color="var(--red-light)" /> 副手攻击{!selectedTarget && <span className="ml-1 text-xs" style={{ color: 'var(--text-dim)' }}>（选目标）</span>}
-                    </button>
-                  )}
-
-                  {/* 移动 */}
-                  <button
-                    className="action-btn action-btn-move"
-                    style={{
-                      width: 'auto',
-                      borderColor: moveMode ? 'var(--green-light)' : undefined,
-                      opacity: movementLeft <= 0 ? 0.35 : 1,
-                    }}
-                    disabled={movementLeft <= 0}
-                    onClick={handleMoveClick}
-                  >
-                    <MoveIcon size={14} color="var(--blue-light)" /> {moveMode ? '取消移动' : `移动（${movementLeft}格）`}
-                  </button>
-
-                  {/* 闪避 */}
-                  <button className="action-btn"
-                    style={{ width: 'auto', opacity: actionUsed ? 0.35 : 1 }}
-                    disabled={actionUsed} onClick={handleDodge}>
-                    <DefendIcon size={14} /> 闪避
-                  </button>
-
-                  {/* 冲刺 */}
-                  <button className="action-btn"
-                    style={{ width: 'auto', borderColor: 'var(--gold-dim)', opacity: actionUsed ? 0.35 : 1 }}
-                    disabled={actionUsed} onClick={handleDash}>
-                    <DashIcon size={14} color="var(--gold)" /> 冲刺
-                  </button>
-
-                  {/* 脱离接战 */}
-                  <button className="action-btn"
-                    style={{ width: 'auto', borderColor: 'var(--blue-light)', opacity: actionUsed ? 0.35 : 1 }}
-                    disabled={actionUsed} onClick={handleDisengage}>
-                    <DisengageIcon size={14} color="var(--blue-light)" /> 脱离
-                  </button>
-
-                  {/* 协助 */}
-                  <button className="action-btn"
-                    style={{ width: 'auto', borderColor: helpMode ? 'var(--blue-light)' : 'var(--wood-light)', opacity: actionUsed ? 0.35 : 1 }}
-                    disabled={actionUsed}
-                    onClick={() => { setHelpMode(h => !h); setMoveMode(false) }}>
-                    <HelpIcon size={14} color={helpMode ? 'var(--blue-light)' : undefined} /> 协助{helpMode ? '（选队友）' : ''}
-                  </button>
-
-                  {/* 法术 */}
-                  <button className="action-btn action-btn-spell"
-                    style={{ width: 'auto', opacity: actionUsed ? 0.35 : 1 }}
-                    disabled={actionUsed}
-                    onClick={() => { setSpellModalOpen(true); setMoveMode(false); setHelpMode(false) }}>
-                    <SpellIcon size={14} color="#8a5af6" /> 法术
-                  </button>
-                </div>
-
-                {/* 职业特性按钮 */}
-                <div className="flex gap-2 flex-wrap items-center mb-2">
-                  {/* Fighter: Second Wind */}
-                  {(playerClass === 'Fighter' || playerClass === '战士') && !classResources?.second_wind_used && (
-                    <button className="action-btn"
-                      style={{ width: 'auto', borderColor: 'var(--green-light)', opacity: bonusUsed ? 0.35 : 1 }}
-                      disabled={bonusUsed}
-                      onClick={() => handleClassFeature('second_wind')}>
-                      <HeartIcon size={14} color="var(--green-light)" /> 活力恢复
-                    </button>
-                  )}
-
-                  {/* Fighter: Action Surge */}
-                  {(playerClass === 'Fighter' || playerClass === '战士') && playerLevel >= 2 && !classResources?.action_surge_used && (
-                    <button className="action-btn"
-                      style={{ width: 'auto', borderColor: 'var(--gold)' }}
-                      onClick={() => handleClassFeature('action_surge')}>
-                      <AttackIcon size={14} color="var(--gold)" /> 行动奔涌
-                    </button>
-                  )}
-
-                  {/* Barbarian: Rage */}
-                  {(playerClass === 'Barbarian' || playerClass === '野蛮人') && (
-                    <button className="action-btn"
-                      style={{
-                        width: 'auto',
-                        borderColor: classResources?.raging ? 'var(--red-light)' : 'var(--gold)',
-                        background: classResources?.raging ? 'rgba(196,64,64,0.2)' : undefined,
-                        opacity: (!classResources?.raging && bonusUsed) ? 0.35 : 1,
-                      }}
-                      disabled={!classResources?.raging && bonusUsed}
-                      onClick={() => handleClassFeature('rage')}>
-                      <SwordIcon size={14} color={classResources?.raging ? 'var(--red-light)' : 'var(--gold)'} />
-                      {classResources?.raging ? '结束狂暴' : `狂暴 (${classResources?.rage_remaining ?? '?'})`}
-                    </button>
-                  )}
-
-                  {/* Rogue: Cunning Action */}
-                  {(playerClass === 'Rogue' || playerClass === '游荡者') && playerLevel >= 2 && !bonusUsed && (
-                    <>
-                      <button className="action-btn"
-                        style={{ width: 'auto', borderColor: 'var(--green-light)' }}
-                        onClick={() => handleClassFeature('cunning_action_dash')}>
-                        <DashIcon size={14} color="var(--green-light)" /> 灵巧冲刺
-                      </button>
-                      <button className="action-btn"
-                        style={{ width: 'auto', borderColor: 'var(--blue-light)' }}
-                        onClick={() => handleClassFeature('cunning_action_disengage')}>
-                        <DisengageIcon size={14} color="var(--blue-light)" /> 灵巧脱离
-                      </button>
-                      <button className="action-btn"
-                        style={{ width: 'auto', borderColor: '#8a5af6' }}
-                        onClick={() => handleClassFeature('cunning_action_hide')}>
-                        <DefendIcon size={14} color="#8a5af6" /> 灵巧隐匿
-                      </button>
-                    </>
-                  )}
-
-                  {/* ── Battle Master: 战技 ── */}
-                  {(playerClass === 'Fighter' || playerClass === '战士') && playerSubclassEffects?.battle_master && (classResources?.superiority_dice_remaining ?? 0) > 0 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#f59e0b' }}
-                      disabled={actionUsed} onClick={() => setManeuverModalOpen(true)}>
-                      🎯 战技 ({classResources.superiority_dice_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Samurai: 战意 ── */}
-                  {(playerClass === 'Fighter' || playerClass === '战士') && playerSubclassEffects?.samurai && (classResources?.fighting_spirit_remaining ?? 0) > 0 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#ef4444' }}
-                      disabled={bonusUsed} onClick={() => handleClassFeature('fighting_spirit')}>
-                      ⚔️ 战意 ({classResources.fighting_spirit_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Bard: 灵感骰 ── */}
-                  {(playerClass === 'Bard' || playerClass === '吟游诗人') && (classResources?.bardic_inspiration_remaining ?? 0) > 0 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#a855f7' }}
-                      disabled={bonusUsed} onClick={() => handleClassFeature('bardic_inspiration')}>
-                      🎵 灵感骰 ({playerSubclassEffects?.inspiration_die || 'd6'} × {classResources.bardic_inspiration_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Monk: 疾风连击 ── */}
-                  {(playerClass === 'Monk' || playerClass === '武僧') && playerLevel >= 2 && (classResources?.ki_remaining ?? 0) >= 1 && !bonusUsed && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#06b6d4' }}
-                      onClick={() => handleClassFeature('ki_flurry')}>
-                      👊 疾风连击 (气:{classResources.ki_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Monk: 震慑打击 ── */}
-                  {(playerClass === 'Monk' || playerClass === '武僧') && playerLevel >= 5 && (classResources?.ki_remaining ?? 0) >= 1 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#eab308' }}
-                      onClick={() => handleClassFeature('ki_stunning_strike')}>
-                      💥 震慑打击 (气:{classResources.ki_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Shadow Monk: 暗影步 ── */}
-                  {(playerClass === 'Monk' || playerClass === '武僧') && playerSubclassEffects?.shadow_monk && (classResources?.ki_remaining ?? 0) >= 2 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#6366f1' }}
-                      onClick={() => handleClassFeature('shadow_step')}>
-                      🌑 暗影步 (气:{classResources.ki_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Paladin: 引导神力 ── */}
-                  {(playerClass === 'Paladin' || playerClass === '圣武士') && !classResources?.channel_divinity_used && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#fbbf24' }}
-                      onClick={() => handleClassFeature('channel_divinity')}>
-                      ✨ 引导神力
-                    </button>
-                  )}
-
-                  {/* ── Paladin: 圣手 ── */}
-                  {(playerClass === 'Paladin' || playerClass === '圣武士') && (classResources?.lay_on_hands_remaining ?? 0) > 0 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#34d399' }}
-                      onClick={() => handleClassFeature('lay_on_hands')}>
-                      🤲 圣手 ({classResources.lay_on_hands_remaining}HP)
-                    </button>
-                  )}
-
-                  {/* ── War Cleric: 战争牧师 ── */}
-                  {(playerClass === 'Cleric' || playerClass === '牧师') && playerSubclassEffects?.war_domain && (classResources?.war_priest_remaining ?? 0) > 0 && !bonusUsed && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#dc2626' }}
-                      onClick={() => handleClassFeature('war_priest_attack')}>
-                      ⚔️ 战争牧师 ({classResources.war_priest_remaining})
-                    </button>
-                  )}
-
-                  {/* ── Tempest Cleric: 毁灭之怒 ── */}
-                  {(playerClass === 'Cleric' || playerClass === '牧师') && playerSubclassEffects?.tempest_domain && !classResources?.channel_divinity_used && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#3b82f6' }}
-                      onClick={() => handleClassFeature('destructive_wrath')}>
-                      ⚡ 毁灭之怒
-                    </button>
-                  )}
-
-                  {/* ── Moon Druid: 野性形态 ── */}
-                  {(playerClass === 'Druid' || playerClass === '德鲁伊') && playerSubclassEffects?.circle_of_moon && (classResources?.wild_shape_remaining ?? 0) > 0 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#84cc16', background: classResources?.wild_shape_active ? 'rgba(132,204,22,0.15)' : undefined }}
-                      onClick={() => handleClassFeature('wild_shape')}>
-                      🐻 {classResources?.wild_shape_active ? `形态: ${classResources.wild_shape_active}` : `野性形态 (${classResources.wild_shape_remaining})`}
-                    </button>
-                  )}
-
-                  {/* ── Spores Druid: 共生实体 ── */}
-                  {(playerClass === 'Druid' || playerClass === '德鲁伊') && playerSubclassEffects?.circle_of_spores && (classResources?.wild_shape_remaining ?? 0) > 0 && !classResources?.symbiotic_entity_active && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#a3e635' }}
-                      onClick={() => handleClassFeature('symbiotic_entity')}>
-                      🍄 共生实体
-                    </button>
-                  )}
-
-                  {/* ── Wild Magic Sorcerer: 混沌之潮 ── */}
-                  {(playerClass === 'Sorcerer' || playerClass === '术士') && playerSubclassEffects?.wild_magic && !classResources?.tides_of_chaos_used && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#f472b6' }}
-                      onClick={() => handleClassFeature('tides_of_chaos')}>
-                      🌀 混沌之潮
-                    </button>
-                  )}
-
-                  {/* ── Divination Wizard: 预言骰 ── */}
-                  {(playerClass === 'Wizard' || playerClass === '法师') && playerSubclassEffects?.portent && (classResources?.portent_remaining ?? 0) > 0 && (
-                    <button className="action-btn" style={{ width: 'auto', borderColor: '#818cf8' }}
-                      onClick={() => handleClassFeature('portent')}>
-                      🔮 预言骰 ({classResources.portent_remaining}) {classResources?.portent_value ? `[${classResources.portent_value}]` : ''}
-                    </button>
-                  )}
-
-                  {/* Attack count display for Extra Attack */}
-                  {ts && ts.attacks_max > 1 && (
-                    <span className="text-xs px-2 py-1 rounded" style={{
-                      background: 'rgba(196,159,64,0.15)',
-                      color: 'var(--gold)',
-                      border: '1px solid var(--gold-dim)',
-                    }}>
-                      攻击 {ts.attacks_made || 0}/{ts.attacks_max}
-                    </span>
-                  )}
-                </div>
-
-                {/* 结束回合按钮 */}
-                <div className="flex items-center gap-2">
-                  <button
-                    className="action-btn action-btn-end"
-                    style={{ width: 'auto', padding: '8px 20px' }}
-                    onClick={handleEndTurn}
-                  >
-                    结束回合
-                  </button>
-                  {!selectedTarget && !moveMode && !helpMode && (
-                    <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                      点击地图上的 <SkullIcon size={11} color="var(--red-light)" style={{ display: 'inline', verticalAlign: 'middle' }} /> 选择攻击/法术目标，
-                      <SwordIcon size={11} color="var(--green-light)" style={{ display: 'inline', verticalAlign: 'middle' }} /> 选择协助队友
-                    </p>
-                  )}
-                </div>
-
-                {/* ── 自然语言战斗输入 ── */}
-                <div style={{
-                  display: 'flex', gap: 8, alignItems: 'flex-end',
-                  padding: '8px 0', borderTop: '1px solid var(--wood-light)',
-                  marginTop: 8, width: '100%',
-                }}>
-                  <textarea
-                    value={combatInput}
-                    onChange={e => setCombatInput(e.target.value)}
-                    onKeyDown={handleCombatInputKeyDown}
-                    disabled={!playerTurn || isProcessing || actionUsed}
-                    rows={1}
-                    placeholder={actionUsed ? "本回合行动已使用，请结束回合" : "描述你的创意行动... 例如：我把火把扔向蛛网"}
-                    style={{
-                      flex: 1, resize: 'none', padding: '8px 12px',
-                      background: 'var(--bg)', color: 'var(--text)',
-                      border: '1px solid var(--wood-light)', borderRadius: 8,
-                      fontSize: 13, fontFamily: 'inherit',
-                      outline: 'none', minHeight: 36,
-                      opacity: (!playerTurn || isProcessing || actionUsed) ? 0.4 : 1,
-                    }}
-                    onFocus={e => e.target.style.borderColor = 'var(--gold)'}
-                    onBlur={e => e.target.style.borderColor = 'var(--wood-light)'}
-                  />
-                  <button
-                    onClick={handleCombatAction}
-                    disabled={!combatInput.trim() || !playerTurn || isProcessing || actionUsed}
-                    style={{
-                      padding: '8px 16px', borderRadius: 8,
-                      background: combatInput.trim() && playerTurn && !isProcessing && !actionUsed
-                        ? 'linear-gradient(135deg, #78350f, #92400e)'
-                        : 'var(--bg2)',
-                      border: `1px solid ${combatInput.trim() && playerTurn ? 'var(--gold)' : 'var(--wood-light)'}`,
-                      color: combatInput.trim() && playerTurn ? '#fff' : 'var(--text-dim)',
-                      cursor: combatInput.trim() && playerTurn && !isProcessing ? 'pointer' : 'not-allowed',
-                      fontSize: 13, fontWeight: 700,
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {isProcessing ? '⏳' : '⚔️ 执行'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm animate-pulse" style={{ color: 'var(--gold)' }}>
-                {isProcessing ? 'AI正在行动...' : '等待其他角色回合...'}
-              </p>
-            )}
-
-            {/* 地图图例 */}
-            <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--gold-dim)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--wood)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><ShieldIcon size={12} color="var(--blue-light)" /> 玩家</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><SwordIcon size={12} color="var(--green-light)" /> 队友</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><SkullIcon size={12} color="var(--red-light)" /> 敌人</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 右侧：战斗日志 */}
-        <div className="w-64 flex-shrink-0 border-l flex flex-col"
-          style={{ borderColor: 'var(--wood-light)', background: 'var(--bg2)' }}>
-          <p className="text-xs uppercase tracking-wider p-2 border-b flex-shrink-0"
-            style={{ borderColor: 'var(--wood-light)', color: 'var(--text-dim)' }}>战斗日志</p>
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {logs.map((log, i) => <CombatLogEntry key={log.id || i} log={log} />)}
-            <div ref={logsEndRef} />
-          </div>
-        </div>
-
-      </div>
+      {/* 错误提示 */}
+      {error && (
+        <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+          padding: '8px 16px', background: 'rgba(139,32,32,.9)', color: '#fff',
+          border: '1px solid var(--blood)', borderRadius: 4, zIndex: 999, fontSize: 12,
+        }}>⚠ {error}</div>
+      )}
     </div>
   )
 }
