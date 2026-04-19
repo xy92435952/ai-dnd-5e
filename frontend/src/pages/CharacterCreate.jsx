@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { modulesApi, charactersApi, gameApi } from '../api/client'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { modulesApi, charactersApi, gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
 import {
   RACE_INFO, CLASS_INFO, SKILL_INFO, BACKGROUND_INFO,
@@ -145,6 +145,10 @@ function InfoBtn({ onClick }) {
 export default function CharacterCreate() {
   const { moduleId } = useParams()
   const navigate     = useNavigate()
+  const [searchParams] = useSearchParams()
+  // 多人模式：URL 含 ?roomSession=xxx 表示是从 Room 页进来的
+  const roomSessionId = searchParams.get('roomSession') || null
+  const isMultiplayerCreate = !!roomSessionId
   const { setPlayerCharacter, setCompanions, setSelectedModule } = useGameStore()
 
   const [module,  setModule]  = useState(null)
@@ -328,7 +332,6 @@ export default function CharacterCreate() {
         known_spells:      chosenSpells,
         cantrips:          chosenCantrips,
         multiclass_info:   multiclassInfo,
-        // Phase 12 新增
         fighting_style:    fightingStyle || null,
         equipment_choice:  equipChoice,
         bonus_languages:   bonusLanguages,
@@ -336,6 +339,20 @@ export default function CharacterCreate() {
       })
       setSavedCharId(char.id)
       setPlayerCharacter(char)
+
+      if (isMultiplayerCreate) {
+        // 多人模式：角色创建完 → 认领到房间 → 返回房间页
+        try {
+          await roomsApi.claimChar(roomSessionId, char.id)
+        } catch (e) {
+          // 认领失败不阻止返回，让用户在房间页手动认领
+          console.warn('claim char failed:', e?.message)
+        }
+        navigate(`/room/${roomSessionId}`)
+        return
+      }
+
+      // 单人模式：继续生成队伍流程
       setStep(partyStep)
       await handleGenerateParty(char.id)
     } catch (e) { setError(e.message) }
@@ -377,7 +394,8 @@ export default function CharacterCreate() {
     const s = ['基础信息', '能力值', '技能熟练', '装备选择']
     if (isSpellcaster) s.push('法术选择')
     if (needsASI) s.push('专长/属性提升')
-    s.push('确认队伍')
+    // 多人模式：不需要 AI 生成队伍，最后一步是"回到房间"
+    s.push(isMultiplayerCreate ? '加入房间' : '确认队伍')
     return s
   })()
 
@@ -1266,7 +1284,8 @@ export default function CharacterCreate() {
             {STEPS[step - 1] || ''}
           </span>
         </div>
-        {step === partyStep ? (
+        {step === partyStep && !isMultiplayerCreate ? (
+          // 单人：最后一步是确认队伍 → 开始冒险
           <button
             className="btn-gold"
             disabled={companions.length === 0 || generatingParty || saving}
@@ -1274,13 +1293,18 @@ export default function CharacterCreate() {
             style={{ padding: '10px 28px', fontSize: 13, letterSpacing: '.18em' }}
           >{saving ? '✦ 准备中… ✦' : '✦ 开始冒险 ✦'}</button>
         ) : step === partyStep - 1 ? (
-          // 倒数第二步 → 触发创建角色 + 生成队伍（自动跳 partyStep）
+          // 倒数第二步 = "装备选择"（或施法的"法术选择"等）
+          // 单人：触发创建 + 生成队伍
+          // 多人：触发创建 + 认领到房间 + 返回房间页
           <button
             className="btn-gold"
             disabled={saving || !step1Valid || !step2Valid || !step3Valid || !step4Valid}
             onClick={handleSaveAndContinue}
             style={{ padding: '10px 20px', fontSize: 12, letterSpacing: '.12em' }}
-          >{saving ? '✦ 生成队伍中… ✦' : '✦ 确认并生成队伍 ▶ ✦'}</button>
+          >{saving
+            ? (isMultiplayerCreate ? '✦ 加入房间中… ✦' : '✦ 生成队伍中… ✦')
+            : (isMultiplayerCreate ? '✦ 确认并返回房间 ✦' : '✦ 确认并生成队伍 ▶ ✦')
+          }</button>
         ) : (
           <button
             className="btn-gold"
