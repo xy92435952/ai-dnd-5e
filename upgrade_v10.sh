@@ -185,15 +185,24 @@ fi
 
 # ───── 8. 重启后端 ─────
 log "8. 重启后端"
+# 清理 Python .pyc 缓存，避免 uvicorn --workers 多进程模式下旧模块被缓存
+find "$REPO_DIR/backend" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+echo "  · 已清理 __pycache__"
+
 if systemctl list-units --all | grep -q "ai-trpg-backend"; then
-    sudo systemctl restart ai-trpg-backend
+    sudo systemctl stop ai-trpg-backend 2>/dev/null || true
+    sleep 1
+    sudo systemctl start ai-trpg-backend
     echo "  ✓ systemd 已重启 ai-trpg-backend"
-elif systemctl list-units --all | grep -q "ai-trpg"; then
-    sudo systemctl restart ai-trpg
+elif systemctl list-units --all | grep -q "ai-trpg.service"; then
+    # 用 stop + start 代替 restart，确保多 worker 全部退出后再起
+    sudo systemctl stop ai-trpg
+    sleep 2
+    sudo systemctl start ai-trpg
     echo "  ✓ systemd 已重启 ai-trpg"
 else
-    pkill -f 'uvicorn main:app' 2>/dev/null || true
-    sleep 1
+    pkill -9 -f 'uvicorn main:app' 2>/dev/null || true
+    sleep 2
     cd "$REPO_DIR/backend"
     source "$VENV_DIR/bin/activate" 2>/dev/null || source ".venv/bin/activate" 2>/dev/null
     nohup python3 -m uvicorn main:app --host 127.0.0.1 --port 8000 \
