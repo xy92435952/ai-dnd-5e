@@ -1,8 +1,8 @@
 # 更新路线图
 
 **项目：** AI 跑团平台（DnD 5e）
-**当前版本：** v0.9-multiplayer beta（Phase 1-16 完成）
-**日期：** 2026-04-17（项目启动：2026-02-10）
+**当前版本：** v0.10.1（多人联机 + 视觉重写 + 多人流程打磨）
+**日期：** 2026-04-21（项目启动：2026-02-10）
 
 ---
 
@@ -38,6 +38,8 @@ v0.1-v0.9        v1.0             后续版本
 | v0.7 | Phase 14 前端骰子物理绑定+反应系统UI+控制法术+短休资源+AI队友施法+法术按职业过滤 | 2026.4.5 |
 | v0.8 | Phase 15 SQLite→PostgreSQL迁移+Docker容器化+SSL部署+自定义域名 | 2026.4.6 |
 | v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复+target_id审计 | 2026.4.7 |
+| v0.10 | Design v0.10 视觉重写（BG3 风格+像素精灵+对话历史+战斗 UI 重做）+ 多人联机 MVP + 腾讯云 OpenCloudOS 9 部署 + 法阵背景升级 | 2026.4.20 |
+| v0.10.1 | 多人流程打磨：角色创建向导分支（多人完成后返回房间不再生成 AI）+ 房主一键补满 AI 队友 `/fill-ai` | 2026.4.21 |
 
 **完成日期：** 2026-04-07
 
@@ -197,6 +199,82 @@ v0.1-v0.9        v1.0             后续版本
 | 战争迷雾（可选） | 每个玩家只看到自己视野范围 |
 | 攻击/法术动画同步 | 多人模式下所有客户端同时播放特效 |
 | 冲突处理 | 乐观锁 + 服务端权威 |
+
+---
+
+## v0.10: Design v0.10 视觉重写 + 生产部署（2026-04-19 ~ 2026-04-20）-- 已完成
+
+**视觉重写（BG3 风格）**
+
+- 全新 UI 系统：木纹 + 羊皮纸 + 金色描边 + 法阵背景 `AtmosphereBG.jsx`
+- 39 张像素精灵 PNG（`scripts/generate_sprite_pngs.py`，Pillow 生成 + 色相偏移变体）
+- 战斗 UI 重做：先攻面板 / 网格地图 / 行动配额面板三栏布局
+- 对话历史面板（Adventure.jsx）
+- 深卡片角色创建向导（race/class 画像卡 / 能力值铭牌 / 技能格子 / 装备卡 / 最终英雄卡）
+
+**法阵背景 11 层深度打磨**
+
+- 六芒星（Star of David，严格等边几何，r=240 / 内六边形 r=138.56）
+- 蛇形符文波浪环（n=12, baseR=345, amp=10, 144 sample points）
+- 12 星座点线图（替换 emoji）、日月星、大小 Elder Futhark 符文环
+- 内部射线 + 小五角星 + 脉冲扩张环 + 能量核心
+
+**生产部署**
+
+- 腾讯云 OpenCloudOS 9 一键升级脚本 `upgrade_v10.sh`
+- GFW 工作绕（`ghfast.top` 镜像 + tuna pip + npmmirror）
+- systemd 多 worker uvicorn 服务、Nginx WebSocket upgrade 代理
+- 生产加固：JWT secret fail-fast、CORS 白名单、测试数据清理脚本
+- 修复 systemd `--workers 2` 场景下 `__pycache__` 缓存导致新路由不注册的问题（stop + 清 cache + start，而非 restart）
+
+---
+
+## v0.10.1: 多人流程打磨（2026-04-21）-- 已完成
+
+**背景**：v0.10 部署后发现两个 UX 问题——多人模式下角色创建向导结尾仍在生成 AI 队伍（应返回房间），且房主没有"用 AI 补齐队伍"的快捷入口。
+
+**修复 1 — 多人角色创建向导分支**
+
+- `frontend/src/pages/CharacterCreate.jsx`
+  - `useSearchParams` 读取 URL 中的 `?roomSession=xxx`
+  - `isMultiplayerCreate = !!roomSessionId`
+  - STEPS 最后一步：单人 = "确认队伍"，多人 = "加入房间"
+  - `handleSaveAndContinue`：保存角色后若多人模式 → 调 `roomsApi.claimChar(sessionId, charId)` + `navigate('/room/:sessionId')`，跳过 `handleGenerateParty`
+  - 底部按钮文案切换：`✦ 确认并生成队伍 ✦` / `✦ 确认并返回房间 ✦`
+
+**新增 2 — 一键补满 AI 队友**
+
+后端：
+
+- `services/room_service.py:fill_with_ai_companions(db, actor_user_id, session_id)`
+  - 校验：房主 + 游戏未开始 + ≥1 位玩家已认领角色
+  - 以第一位已认领角色（职业/种族/等级）为参考调 `langgraph_client.generate_party(party_size = max_players - claimed - existing_ai)`
+  - 写入 Character 记录（`is_player=False`, `user_id=None`, `session_id=房间id`）
+- `services/room_service.py:list_ai_companions(db, session_id)`
+- `get_room_info()` 返回额外字段 `ai_companions: List[AiCompanionInfo]`
+- `POST /game/rooms/{session_id}/fill-ai`（`backend/api/rooms.py`）
+  - 响应：`{"generated": N, "companions": [...], "already_full": bool}`
+  - 广播：`ai_companions_filled` WebSocket 事件
+- `schemas/room_schemas.py`：新增 `AiCompanionInfo`，`RoomInfo.ai_companions`
+
+前端：
+
+- `roomsApi.fillAi(sessionId)`（`frontend/src/api/client.js`）
+- `pages/Room.jsx`
+  - 新增"❧ AI 队友 ❧"分区：紫色 ✦ AI 标签 + 种族/职业/等级
+  - 房主可见的"召唤 N 位 AI 队友"按钮：`N = max_players - 真人数 - 已有AI数`，仅在 `slotsAvailable>0` 且 `claimedCount≥1` 时显示
+  - 监听 `ai_companions_filled` WS 事件 → refresh 房间
+
+**部署命令（腾讯云）**
+
+```bash
+cd /opt/ai-trpg/app && \
+git pull && \
+cd frontend && npm run build && \
+sudo find /opt/ai-trpg/app/backend -type d -name __pycache__ -exec rm -rf {} + && \
+sudo systemctl stop ai-trpg && sleep 2 && sudo systemctl start ai-trpg && \
+sudo nginx -s reload
+```
 
 ---
 
@@ -363,6 +441,8 @@ v0.1-v0.9        v1.0             后续版本
 | v0.7 | Phase 14 前端骰子物理绑定+反应系统UI+控制法术+短休资源+AI队友施法+法术按职业过滤 | 2026.4.5 | ✅ 已发布 |
 | v0.8 | Phase 15 SQLite→PostgreSQL迁移+Docker容器化+SSL部署+自定义域名 | 2026.4.6 | ✅ 已发布 |
 | v0.9 | 自然语言战斗系统+Action Parser+AI队友行为大改+队伍生成多样性+连接池+FK修复+target_id审计 | 2026.4.7 | ✅ 已发布 |
+| v0.10 | Design v0.10 视觉重写+多人联机MVP+腾讯云部署+法阵背景升级 | 2026.4.20 | ✅ 已发布 |
+| v0.10.1 | 多人流程打磨（CharacterCreate 多人分支 + `/fill-ai` 补满 AI 队友按钮） | 2026.4.21 | ✅ 已发布 |
 | v1.0 | 正式版（预计：多人联机+模组市场） | TBD | 计划中 |
 
 ---

@@ -116,6 +116,7 @@ def generate_room_code() -> str:
 | POST | `/game/rooms/{session_id}/transfer` | 房主：转让房主权限 |
 | GET | `/game/rooms/{session_id}/members` | 获取成员列表（含在线状态） |
 | POST | `/game/rooms/{session_id}/claim-character` | 玩家认领一个角色 |
+| POST | `/game/rooms/{session_id}/fill-ai` | 房主：补满 AI 队友（按 max_players - 真人数 - 已有AI数 生成缺口） |
 
 #### 创建房间请求
 
@@ -145,14 +146,24 @@ Response:
 
 2. POST /characters (创建角色，user_id=本人, session_id=房间id)
    → 角色入库
+   → 前端角色创建向导检测 URL 中 ?roomSession=xxx 查询参数，
+     判定为"多人创建"模式：完成向导后不再生成 AI 队伍，而是
+     调用 /claim-character 并 navigate 回 /room/:sessionId
 
 3. POST /game/rooms/{id}/claim-character {character_id: ...}
    → 设置 SessionMember.character_id
    → 广播 "character_claimed"
 
-4. 房主 POST /game/rooms/{id}/start
-   → 验证：所有 SessionMember 都有 character_id
-   → 不足 max_players 的位置，由 AI 托管（生成 AI 队友角色）
+4. （可选）房主 POST /game/rooms/{id}/fill-ai
+   → 校验：房主权限 + 游戏未开始 + 至少 1 位玩家已认领角色
+   → 以第一位已认领角色作为参考，调用 langgraph_client.generate_party
+     生成 max_players - 真人数 - 已有AI数 个互补 Character
+     （is_player=False, user_id=None, session_id=房间id）
+   → 广播 "ai_companions_filled"，所有客户端 refresh 房间
+
+5. 房主 POST /game/rooms/{id}/start
+   → 验证：至少 1 位 SessionMember 已认领角色
+     （其余真人空位 → AI 托管；额外 AI 队友已通过 fill-ai 预先生成）
    → 广播 "game_started"
    → 触发 DM Agent 第一轮叙事
 ```
@@ -206,6 +217,7 @@ type ServerEvent =
   | { type: "member_joined", member: SessionMember }
   | { type: "member_left",   user_id: string }
   | { type: "character_claimed", user_id: string, character_id: string }
+  | { type: "ai_companions_filled", generated: number, ai_companions: AiCompanionInfo[] }
   | { type: "game_started" }
   | { type: "dm_speak_turn", user_id: string }    // 轮到谁发言
   | { type: "combat_update", state: CombatState }
@@ -306,7 +318,10 @@ class WSManager:
 - `pages/Room.jsx` —— 房间内（游戏未开始）
   - 顶部：房间码 + 复制按钮
   - 成员列表：头像、昵称、角色（未选时显示"创建角色"按钮）
-  - 房主独占按钮：开始游戏 / 踢人 / 转让房主
+  - **AI 队友分区**（紫色 ✦ AI 标签）：展示 `room.ai_companions`，含种族/职业/等级
+  - 房主独占按钮：
+    - 开始游戏 / 踢人 / 转让房主
+    - **召唤 N 位 AI 队友**（N = `max_players - 真人数 - 已有AI数`，>0 且已有玩家认领时可见）
   - 退出房间按钮
 
 ### 7.2 改造现有页面
@@ -502,3 +517,26 @@ export function useWebSocket(sessionId) {
 ---
 
 **PRD v0.1 完成。下一步：A1 — alembic 迁移 + 模型字段。**
+
+---
+
+## 修订记录
+
+### v0.2 — 2026-04-21（多人流程打磨 / v0.10.1）
+
+**新增**
+
+- **POST `/game/rooms/{session_id}/fill-ai`**：房主一键按 `max_players - 真人数 - 已有AI数` 补满 AI 队友。
+  - 校验：房主权限 + 游戏未开始 + ≥1 位玩家已认领角色（取其职业/种族/等级作为 party 生成参考）。
+  - 实现：`services/room_service.py:fill_with_ai_companions()`，调用 `langgraph_client.generate_party`，生成的 Character 写入 DB（`is_player=False`, `user_id=None`, `session_id=房间id`）。
+  - 广播：`ai_companions_filled` WS 事件，所有客户端 refresh 房间。
+- **`RoomInfo.ai_companions: List[AiCompanionInfo]`**：房间信息接口额外返回该房间的 AI 队友简要信息（id/name/race/char_class/level/hp_max）。
+- **`roomsApi.fillAi(sessionId)`**：前端 API 客户端方法。
+- **Room.jsx** 新增"❧ AI 队友 ❧"分区 + 房主可见的"召唤 N 位 AI 队友"按钮。
+
+**修复**
+
+- **多人模式下角色创建向导完成后不再生成 AI 队伍**。`CharacterCreate.jsx` 通过 `useSearchParams` 读取 URL 中的 `?roomSession=xxx`，若存在则：
+  - STEPS 最后一步改为"加入房间"（单人仍为"确认队伍"）。
+  - 保存角色后调 `roomsApi.claimChar(sessionId, charId)` → `navigate('/room/:sessionId')`，跳过 `handleGenerateParty`。
+  - 按钮文案切换为 `✦ 确认并返回房间 ✦`。
