@@ -90,6 +90,9 @@ export async function rollDice3D(faces = 20, count = 1) {
 
 // 实际执行投掷（由组件点击事件调用）
 async function _executeRoll(faces, count) {
+  // Juice：投掷开始时播放骰子音效（WebAudio 合成木桌上的骰声）
+  try { window.JuiceAudio?.dice?.() } catch (e) {}
+
   const box = diceBoxInstance
   if (!box) {
     const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1)

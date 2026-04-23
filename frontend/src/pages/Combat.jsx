@@ -5,6 +5,7 @@ import { useGameStore } from '../store/gameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import DiceRollerOverlay, { rollDice3D } from '../components/DiceRollerOverlay'
 import Sprite from '../components/Sprite'
+import { JuiceAudio, shake as JuiceShake } from '../juice'
 import {
   ShieldIcon, SwordIcon, SkullIcon, DiceD20Icon,
   AttackIcon, SpellIcon, MoveIcon, DefendIcon, DashIcon,
@@ -557,6 +558,11 @@ export default function Combat() {
       }
 
       if (!atkResult.hit) {
+        // Juice：未命中 / 大失手 音效
+        try { JuiceAudio.miss() } catch (e) {}
+        if (atkResult.is_fumble) {
+          try { JuiceShake(document.querySelector('.combat-stage') || document.body, 6, 320) } catch (e) {}
+        }
         // 未命中 — 显示 LLM 叙事或 fallback 日志
         const missText = atkResult.narration || (atkResult.is_fumble
           ? `\uD83D\uDC80 大失手！${atkResult.attacker_name} 对 ${atkResult.target_name} 攻击失手。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`
@@ -572,6 +578,13 @@ export default function Combat() {
         return
       }
 
+      // Juice：命中 / 暴击 音效（暴击附加震屏）
+      if (atkResult.is_crit) {
+        try { JuiceAudio.crit() } catch (e) {}
+        try { JuiceShake(document.querySelector('.combat-stage') || document.body, 10, 420) } catch (e) {}
+      } else {
+        try { JuiceAudio.hit() } catch (e) {}
+      }
       // 命中 — 暂存待处理攻击，等 2 秒让玩家看 d20 结果后自动掷伤害
       const hitLabel = atkResult.is_crit ? '\uD83D\uDCA5 暴击！' : '命中！'
       addLog({ role: 'system', content: `${hitLabel} ${atkResult.attacker_name} 对 ${atkResult.target_name}（${atkResult.attack_total} vs AC${atkResult.target_ac}）`, log_type: 'combat',

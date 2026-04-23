@@ -1,0 +1,266 @@
+/* ═══════════════════════════════════════════════════════════
+   JUICE — 反馈动画（震屏、闪白、飘字、转场、角色铸造）
+   ===========================================================
+   源自 design bundle（dnd/project/styles/juice.css）裁剪后的版本。
+   故意省略：3D 骰子样式（.dice3d 系列）—— 我们已有 DiceRollerOverlay
+   故意省略：战斗威胁区 / AoE / 技能 tooltip / cooldown 覆盖 —— 属于战斗 UI 重做范畴
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 震屏 ── */
+@keyframes jcShakeX {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(calc(var(--shake-x) * -1), 2px); }
+  20% { transform: translate(var(--shake-x), -2px); }
+  30% { transform: translate(calc(var(--shake-x) * -.7), 1px); }
+  40% { transform: translate(calc(var(--shake-x) * .7), -1px); }
+  50% { transform: translate(calc(var(--shake-x) * -.5), 1px); }
+  60% { transform: translate(calc(var(--shake-x) * .5), -1px); }
+  70% { transform: translate(calc(var(--shake-x) * -.3), 0); }
+  80% { transform: translate(calc(var(--shake-x) * .3), 0); }
+}
+.jc-shake { animation: jcShakeX .38s cubic-bezier(.36, .07, .19, .97) both; }
+
+/* ── 闪白（由 flash() 动态注入 div） ── */
+@keyframes jcFlash {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── 浮动反馈字 ── */
+.jc-floater {
+  position: absolute;
+  font-family: var(--font-display, var(--font-heading, serif));
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 50;
+  animation: jcFloatUp 1.3s ease-out forwards;
+  white-space: nowrap;
+  text-shadow: 0 0 8px #000, 0 3px 6px rgba(0, 0, 0, .9);
+  transform: translate(-50%, 0);
+}
+.jc-floater.dmg  { color: #ffffff; font-size: 26px; }
+.jc-floater.crit {
+  color: #ffd850;
+  font-size: 38px;
+  text-shadow: 0 0 10px #ffa040, 0 0 20px rgba(255, 200, 80, .6), 0 3px 6px #000;
+  animation: jcCritFloat 1.6s cubic-bezier(.2, .9, .3, 1) forwards;
+}
+.jc-floater.heal { color: #60e890; font-size: 24px; }
+.jc-floater.miss { color: #8a9aaa; font-size: 22px; font-style: italic; }
+.jc-floater.xp   { color: #7fe8f8; font-size: 20px; letter-spacing: .1em; }
+
+@keyframes jcFloatUp {
+  0%   { transform: translate(-50%, 0) scale(.6);    opacity: 0; }
+  15%  { transform: translate(-50%, -12px) scale(1.2); opacity: 1; }
+  30%  { transform: translate(-50%, -24px) scale(1); }
+  100% { transform: translate(-50%, -80px) scale(.9); opacity: 0; }
+}
+@keyframes jcCritFloat {
+  0%   { transform: translate(-50%, 0) scale(.3) rotate(-8deg);  opacity: 0; }
+  15%  { transform: translate(-50%, -16px) scale(1.5) rotate(4deg); opacity: 1; }
+  30%  { transform: translate(-50%, -20px) scale(1.1) rotate(-2deg); }
+  60%  { transform: translate(-50%, -44px) scale(1.05) rotate(0); }
+  100% { transform: translate(-50%, -100px) scale(.8); opacity: 0; }
+}
+
+/* ── 场景转场（圆形虹膜） ── */
+.scene-transition {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+  background: #000;
+  clip-path: circle(0% at 50% 50%);
+  animation: sceneOpenIris 700ms cubic-bezier(.7, 0, .3, 1) forwards;
+}
+@keyframes sceneOpenIris {
+  0%   { clip-path: circle(0% at 50% 50%);   background: #000; }
+  50%  { clip-path: circle(60% at 50% 50%);  background: #000; }
+  100% { clip-path: circle(100% at 50% 50%); background: transparent; }
+}
+
+/* ── 传奇诞生：角色铸造仪式 ── */
+.legend-forge {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(40, 20, 4, .9), #000);
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  animation: legendOpen .4s ease-out, legendClose .6s ease-in 3.4s forwards;
+}
+.legend-forge .inner {
+  position: relative;
+  width: 480px;
+  height: 480px;
+  display: grid;
+  place-items: center;
+}
+.legend-forge .sigil-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(240, 208, 96, .6);
+  border-radius: 50%;
+  box-shadow: 0 0 60px rgba(240, 208, 96, .4), inset 0 0 40px rgba(240, 208, 96, .25);
+  animation: legendSpin 4s linear infinite;
+}
+.legend-forge .sigil-ring.inner-ring {
+  inset: 40px;
+  border-style: dashed;
+  animation-duration: 6s;
+  animation-direction: reverse;
+  opacity: .5;
+}
+.legend-forge .rune-halo {
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  animation: legendSpin 30s linear infinite;
+}
+@keyframes legendSpin {
+  from { transform: rotate(0); }
+  to   { transform: rotate(360deg); }
+}
+.legend-forge .crest-slot {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  animation: legendCrestRise 1.4s cubic-bezier(.2, .9, .3, 1.2) .2s both;
+}
+.legend-forge .crest-slot::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(240, 208, 96, .5), transparent 60%);
+  filter: blur(12px);
+  animation: legendGlow 2.4s ease-in-out infinite;
+}
+@keyframes legendCrestRise {
+  0%   { transform: scale(.3) rotate(-180deg); opacity: 0; }
+  70%  { transform: scale(1.15) rotate(10deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0);        opacity: 1; }
+}
+@keyframes legendGlow {
+  0%, 100% { opacity: .6; }
+  50%      { opacity: 1; }
+}
+.legend-forge .sparks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.legend-forge .sparks span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  background: radial-gradient(circle, #ffe890, rgba(240, 160, 40, 0));
+  border-radius: 50%;
+  animation: legendSpark 1.6s ease-out forwards;
+  --a: 0deg;
+  --d: 200px;
+  transform: rotate(var(--a)) translateX(0);
+}
+@keyframes legendSpark {
+  0%   { transform: rotate(var(--a)) translateX(0) scale(0);            opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateX(var(--d)) scale(1.5);   opacity: 0; }
+}
+.legend-forge .title {
+  position: absolute;
+  bottom: -70px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-display, var(--font-heading, serif));
+  font-size: 32px;
+  letter-spacing: .3em;
+  background: linear-gradient(180deg, #f8e090, #b88028 60%, #6a4818);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 18px rgba(240, 208, 96, .35);
+  animation: legendTitle .8s ease-out 1.4s both;
+}
+.legend-forge .subtitle {
+  position: absolute;
+  bottom: -110px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: .4em;
+  color: rgba(232, 200, 160, .6);
+  animation: legendTitle .8s ease-out 1.9s both;
+}
+@keyframes legendTitle {
+  0%   { opacity: 0; transform: translate(-50%, 20px); letter-spacing: .6em; }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes legendOpen {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes legendClose {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+
+/* ── 低 HP 破裂效果（头像） ── */
+.avatar-crack {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, transparent 48%, rgba(0, 0, 0, .75) 49%, transparent 50%),
+    linear-gradient(55deg,  transparent 62%, rgba(0, 0, 0, .6)  63%, transparent 64%),
+    linear-gradient(-20deg, transparent 72%, rgba(0, 0, 0, .55) 73%, transparent 74%);
+  mix-blend-mode: multiply;
+  opacity: .85;
+  animation: crackPulse 1.4s ease-in-out infinite;
+}
+@keyframes crackPulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(240, 64, 64, .5)); }
+  50%      { filter: drop-shadow(0 0 8px rgba(240, 64, 64, .85)); }
+}
+
+/* ── 选项 hover 预告浮层 ── */
+.choice-preview {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 220px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #1a1208, #0a0604);
+  border: 1px solid rgba(127, 232, 248, .4);
+  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(127, 232, 248, .15);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+  z-index: 20;
+  font-family: var(--font-body, sans-serif);
+  color: var(--parchment, #e8c8a0);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.choice:hover .choice-preview { opacity: 1; }
+.choice-preview .pv-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  letter-spacing: .25em;
+  color: #7fe8f8;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.choice-preview .pv-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin: 2px 0;
+  font-family: var(--font-mono, monospace);
+}
+.choice-preview .pv-row b { color: var(--amber, #f0d060); }

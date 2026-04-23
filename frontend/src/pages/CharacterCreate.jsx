@@ -12,6 +12,8 @@ import {
 } from '../components/Icons'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
+import LegendForge from '../components/LegendForge'
+import { JuiceAudio } from '../juice'
 
 // ── 常量 ──────────────────────────────────────────────────
 const POINT_BUY_TOTAL = 27
@@ -184,6 +186,9 @@ export default function CharacterCreate() {
   const [savedCharId,     setSavedCharId]     = useState(null)
   const [saving,          setSaving]          = useState(false)
   const [error,           setError]           = useState('')
+  // 传奇铸造仪式：创建完成"开始冒险"时弹出 → 4.2s 后 navigate
+  const [forgeOpen,       setForgeOpen]       = useState(false)
+  const [forgeTargetPath, setForgeTargetPath] = useState(null)
 
   const [modal, setModal] = useState({ type:'', itemKey:'' })
   const openModal  = (type, itemKey) => setModal({ type, itemKey })
@@ -380,9 +385,13 @@ export default function CharacterCreate() {
         companion_ids: companions.map(c => c.id),
         save_name: `${form.name}的冒险`,
       })
-      navigate(`/adventure/${result.session_id}`)
-    } catch (e) { setError(e.message) }
-    finally { setSaving(false) }
+      // 先触发"传奇诞生"仪式（4.2s），结束后 navigate
+      setForgeTargetPath(`/adventure/${result.session_id}`)
+      setForgeOpen(true)
+    } catch (e) {
+      setError(e.message)
+      setSaving(false)
+    }
   }
 
   if (!module) return (
@@ -402,6 +411,17 @@ export default function CharacterCreate() {
 
   return (
     <div className="create-scene" style={{ maxWidth: 980, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+      <LegendForge
+        open={forgeOpen}
+        name={form.name}
+        cls={(CLASS_ZH_TO_EN[form.char_class] || 'paladin').toLowerCase()}
+        classZh={form.char_class}
+        raceZh={form.race}
+        onDone={() => {
+          setForgeOpen(false)
+          if (forgeTargetPath) navigate(forgeTargetPath)
+        }}
+      />
       <InfoModal type={modal.type} itemKey={modal.itemKey} onClose={closeModal} />
 
       {/* 顶部 · 标题 + 英雄预览卡 */}

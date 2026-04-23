@@ -25,6 +25,7 @@ import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { BookIcon, RestIcon, JournalIcon } from '../components/Icons'
 import DialogueHistoryView from '../components/DialogueHistoryView'
+import { JuiceAudio, shake as JuiceShake } from '../juice'
 
 export default function Adventure() {
   const { sessionId } = useParams()
@@ -279,6 +280,13 @@ export default function Adventure() {
       })
       const checkSummary = `${pendingCheck.check_type}检定 (DC ${pendingCheck.dc})：d20=${result.d20} ${result.modifier >= 0 ? '+' : ''}${result.modifier}${result.proficient ? ' [熟练]' : ''} = ${result.total} → ${result.success ? '✅ 成功' : '❌ 失败'}`
       addLog('dice', checkSummary, 'dice', { dice_result: result })
+      // Juice：检定结果音效 + 关键成功/失败震屏
+      try {
+        if (result.d20 === 20)      { JuiceAudio.crit() }
+        else if (result.d20 === 1)  { JuiceAudio.miss(); JuiceShake(document.body, 6, 340) }
+        else if (result.success)    { JuiceAudio.unlock() }
+        else                        { JuiceAudio.miss() }
+      } catch (e) {}
       setPendingCheck(null)
       const autoMsg = `[${pendingCheck.check_type}检定 ${result.success ? '成功' : '失败'}: ${result.total} vs DC${pendingCheck.dc}]`
       setTimeout(() => handleAction(autoMsg), 800)
@@ -583,7 +591,8 @@ export default function Adventure() {
                           <button
                             key={i}
                             className={`choice ${obj.action ? 'action' : ''} ${obj.ended ? 'ended' : ''}`}
-                            onClick={() => handleAction(obj.text)}
+                            onMouseEnter={() => { try { JuiceAudio.hover() } catch (e) {} }}
+                            onClick={() => { try { JuiceAudio.select() } catch (e) {}; handleAction(obj.text) }}
                             disabled={isLoading || (room && !isMySpeakTurn)}
                           >
                             <span className="idx">{i + 1}</span>

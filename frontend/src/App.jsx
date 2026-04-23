@@ -17,8 +17,13 @@ import './styles/ornaments.css'
 import './styles/components.css'
 import './styles/bg3.css'
 import './styles/gamefeel.css'
+import './styles/juice.css'
 import './styles/create.css'
 import './styles/compat.css'
+
+// 引入 juice.js 让 JuiceAudio / JuiceShake 挂到 window，
+// 方便 DiceRollerOverlay 等非 React 组件直接调用
+import './juice'
 
 // 路由守卫
 function ProtectedRoute({ children }) {
