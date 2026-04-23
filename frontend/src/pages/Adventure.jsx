@@ -587,6 +587,7 @@ export default function Adventure() {
                     <div className="choice-list">
                       {choices.slice(0, 9).map((c, i) => {
                         const obj = typeof c === 'string' ? { text: c, tags: [] } : c
+                        const preview = computeChoicePreview(obj, player)
                         return (
                           <button
                             key={i}
@@ -611,6 +612,23 @@ export default function Adventure() {
                                 <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--parchment-dark)' }}>🎲</span>
                               )}
                             </span>
+                            {preview && (
+                              <div className="choice-preview">
+                                <div className="pv-title">⚖ 结果预告</div>
+                                {preview.rows.map((r, ri) => (
+                                  <div key={ri} className="pv-row">
+                                    <span>{r.label}</span>
+                                    <b>{r.value}</b>
+                                  </div>
+                                ))}
+                                {preview.hint && (
+                                  <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed rgba(138,90,24,.4)',
+                                                fontSize: 10, color: 'rgba(232,200,160,.7)', fontStyle: 'italic' }}>
+                                    {preview.hint}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </button>
                         )
                       })}
@@ -673,6 +691,7 @@ export default function Adventure() {
                   <div className="frame" />
                   <div style={{ position: 'absolute', inset: 3, borderRadius: '50%', overflow: 'hidden' }}>
                     <Portrait cls={ck} size="sm" style={{ width: '100%', height: '100%' }} />
+                    {pct > 0 && pct <= 25 && <span className="avatar-crack" />}
                   </div>
                   <div className="hp-micro"><div className="fill" style={{ width: `${pct}%` }} /></div>
                 </div>
@@ -740,6 +759,65 @@ export default function Adventure() {
 // ═══════════════════════════════════════════════════════════
 // StageLeftFigure — 舞台左侧 silhouette，按当前说话者切换
 // ═══════════════════════════════════════════════════════════
+
+// ── 选项预告（choice-preview）────────────────────────────
+// 根据 choice.tags 中的 kind+dc 估算玩家的成功率与修正值。
+// 返回 null 时不渲染浮层；否则返回 {rows: [{label,value}], hint}
+const KIND_TO_ABILITY = {
+  insight: 'wis', perception: 'wis', wisdom: 'wis',
+  persuade: 'cha', intim: 'cha', deception: 'cha', performance: 'cha', charisma: 'cha',
+  athletic: 'str', strength: 'str',
+  acrobat: 'dex', stealth: 'dex', sleight: 'dex', dex: 'dex',
+  arcana: 'int', investigate: 'int', history: 'int', nature: 'int', religion: 'int',
+  check: 'wis',  // 兜底
+}
+const KIND_TO_SKILL_ZH = {
+  insight: '洞察', persuade: '劝说', intim: '威吓',
+  perception: '察觉', athletic: '运动', acrobat: '特技',
+  stealth: '隐匿', arcana: '奥秘', investigate: '调查',
+  history: '历史', nature: '自然', religion: '宗教',
+  deception: '欺瞒', performance: '表演', sleight: '巧手',
+}
+function computeChoicePreview(choice, player) {
+  // 没有检定需求就不预告（纯角色扮演选项）
+  const tag = (choice.tags || []).find(t => t.dc != null) || null
+  if (!tag || !choice.skill_check || !player) return null
+
+  const dc = Number(tag.dc)
+  if (!Number.isFinite(dc)) return null
+
+  const kind = (tag.kind || 'check').toLowerCase()
+  const ability = KIND_TO_ABILITY[kind] || 'wis'
+  const skillZh = KIND_TO_SKILL_ZH[kind] || tag.label || '检定'
+
+  const mods = player.derived?.ability_modifiers || {}
+  const abilMod = mods[ability] ?? 0
+  const profBonus = player.derived?.proficiency_bonus ?? 2
+  const proficient = (player.proficient_skills || []).includes(skillZh)
+  const totalMod = abilMod + (proficient ? profBonus : 0)
+
+  // 成功率 = P(d20 >= dc - totalMod)，d20 均匀，结果取值 [5%, 95%]
+  const needed = dc - totalMod
+  let successPct
+  if (needed <= 1)       successPct = 95
+  else if (needed >= 20) successPct = 5
+  else                   successPct = Math.max(5, Math.min(95, (21 - needed) * 5))
+
+  const sign = totalMod >= 0 ? '+' : ''
+  const rows = [
+    { label: '目标难度', value: `DC ${dc}` },
+    { label: `${skillZh}修正`, value: `${sign}${totalMod}${proficient ? ' (熟)' : ''}` },
+    { label: '成功率', value: `${successPct}%` },
+  ]
+
+  let hint = null
+  if (choice.ended)      hint = '⚠ 此选项将结束当前场景'
+  else if (choice.action) hint = '⚔ 攻击性行动 —— 可能触发战斗'
+  else if (successPct >= 80) hint = '胜券在握'
+  else if (successPct <= 30) hint = '九死一生'
+
+  return { rows, hint }
+}
 
 function StageLeftFigure({ dialogueMode, currentSeg, companions, player, hasDmContent }) {
   // 决定当前左侧应展示的身份

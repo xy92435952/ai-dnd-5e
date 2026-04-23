@@ -209,6 +209,118 @@
   to   { opacity: 0; visibility: hidden; }
 }
 
+/* ── 战斗格子：威胁区 & AoE 范围 ── */
+.iso-cell.threat {
+  background: radial-gradient(ellipse at 50% 50%,
+              rgba(240, 64, 64, .28),
+              rgba(240, 64, 64, .06) 60%,
+              transparent);
+  outline: 1px dashed rgba(240, 64, 64, .5);
+  outline-offset: -3px;
+}
+.iso-cell.threat::after {
+  content: '⚔';
+  position: absolute;
+  right: 3px;
+  top: 2px;
+  color: rgba(240, 80, 80, .75);
+  font-size: 9px;
+  text-shadow: 0 0 4px #000;
+  pointer-events: none;
+}
+.iso-cell.aoe {
+  background: radial-gradient(ellipse at 50% 50%,
+              rgba(255, 180, 80, .35),
+              rgba(255, 120, 40, .1) 70%,
+              transparent);
+  outline: 1px solid rgba(255, 180, 80, .7);
+  outline-offset: -2px;
+  animation: aoeBreathe 1.2s ease-in-out infinite;
+}
+.iso-cell.aoe-center {
+  background: radial-gradient(ellipse at 50% 50%,
+              rgba(255, 220, 120, .6),
+              rgba(240, 120, 40, .2) 60%,
+              transparent);
+  outline: 2px solid rgba(255, 220, 120, .9);
+  outline-offset: -3px;
+}
+@keyframes aoeBreathe {
+  0%, 100% { outline-color: rgba(255, 180, 80, .7); }
+  50%      { outline-color: rgba(255, 220, 140, 1); }
+}
+
+/* ── 技能 tooltip（hover 弹卡） ── */
+.slot-key { position: relative; }
+.skill-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: 220px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #1a1208 0%, #0a0604 100%);
+  border: 1px solid rgba(212, 168, 71, .7);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, .9),
+              inset 0 1px 0 rgba(240, 208, 96, .2),
+              0 0 0 1px rgba(212, 168, 71, .2);
+  color: var(--parchment, #e8c8a0);
+  font-family: var(--font-body, sans-serif);
+  font-size: 11px;
+  line-height: 1.55;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s, transform .15s;
+  z-index: 30;
+}
+.skill-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: rgba(212, 168, 71, .7);
+}
+.slot-key:hover .skill-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.skill-tooltip .t-name {
+  font-family: var(--font-display, var(--font-heading, serif));
+  font-size: 14px;
+  color: var(--amber, #f0d060);
+  letter-spacing: .08em;
+  margin-bottom: 4px;
+}
+.skill-tooltip .t-meta {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(232, 200, 160, .65);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(138, 90, 24, .4);
+}
+.skill-tooltip .t-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  padding: 2px 0;
+}
+.skill-tooltip .t-row b { color: #7fe8f8; font-weight: 700; }
+.skill-tooltip .t-desc {
+  font-style: italic;
+  color: rgba(232, 200, 160, .78);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(138, 90, 24, .4);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 /* ── 低 HP 破裂效果（头像） ── */
 .avatar-crack {
   position: absolute;
@@ -227,27 +339,38 @@
   50%      { filter: drop-shadow(0 0 8px rgba(240, 64, 64, .85)); }
 }
 
-/* ── 选项 hover 预告浮层 ── */
+/* ── 选项 hover 预告浮层 —— 适配垂直 choice-list ── */
+.choice { position: relative; }  /* 预告相对按钮定位 */
 .choice-preview {
   position: absolute;
-  right: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 220px;
+  bottom: calc(100% + 6px);   /* 在按钮上方弹出 */
+  right: 12px;                /* 靠右对齐，避开左侧编号徽章 */
+  width: 240px;
   padding: 10px 12px;
   background: linear-gradient(180deg, #1a1208, #0a0604);
   border: 1px solid rgba(127, 232, 248, .4);
   box-shadow: 0 10px 24px -4px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(127, 232, 248, .15);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .15s;
+  transform: translateY(4px);
+  transition: opacity .18s, transform .18s;
   z-index: 20;
   font-family: var(--font-body, sans-serif);
   color: var(--parchment, #e8c8a0);
   font-size: 11px;
   line-height: 1.55;
 }
-.choice:hover .choice-preview { opacity: 1; }
+.choice-preview::after {
+  content: '';
+  position: absolute;
+  right: 24px; top: 100%;
+  border: 6px solid transparent;
+  border-top-color: rgba(127, 232, 248, .4);
+}
+.choice:hover .choice-preview {
+  opacity: 1;
+  transform: translateY(0);
+}
 .choice-preview .pv-title {
   font-family: var(--font-mono, monospace);
   font-size: 9px;

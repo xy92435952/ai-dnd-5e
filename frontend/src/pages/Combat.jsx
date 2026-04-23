@@ -16,6 +16,50 @@ const GRID_COLS = 20
 const GRID_ROWS = 20
 const CELL = 36 // px per cell — smaller to fit more on screen
 
+// 技能描述查表（用于 tooltip），按 skillBar 的 k 键匹配
+const SKILL_INFO = {
+  atk:   { desc: '用主手武器发起一次近战或远程攻击。命中后掷伤害骰。' },
+  spell: { desc: '打开法术列表选择法术；施法消耗对应环级法术位。' },
+  shove: { desc: '推倒或推开对手。对方进行力量(运动) vs 力量/敏捷(特技)对抗。' },
+  help:  { desc: '辅助相邻盟友。其下一次攻击或检定获得优势。' },
+  dash:  { desc: '冲刺——本回合移动力翻倍，但消耗你的动作。' },
+  disg:  { desc: '脱离接战——移动时不触发敌方的借机攻击。' },
+  dodge: { desc: '闪避——对你的攻击骰劣势；敏捷豁免优势。' },
+  pot:   { desc: '服用治疗药剂（2d4+2 HP）。消耗一次附赠行动。' },
+  death: { desc: '濒死——每回合自动进行死亡豁免。无需手动触发。' },
+}
+
+// 根据玩家角色 + 当前所选目标估算某个技能的命中率 / 伤害
+function computeSkillStats(skill, player, target, hoverTarget) {
+  if (!player) return null
+  const d = player.derived || {}
+  const atkBonus = d.attack_bonus ?? (d.proficiency_bonus || 2) + (d.ability_modifiers?.str || 0)
+  const targetAc = (hoverTarget || target)?.ac ?? target?.ac ?? null
+
+  const stats = []
+  if (skill.kind === 'attack') {
+    if (targetAc != null) {
+      // 命中率 = P(d20 + atkBonus >= targetAc)
+      const needed = targetAc - atkBonus
+      const pct = needed <= 1 ? 95 : needed >= 20 ? 5 : Math.max(5, Math.min(95, (21 - needed) * 5))
+      stats.push({ label: '命中率', value: `${pct}%` })
+      stats.push({ label: '攻击加值', value: `+${atkBonus}` })
+    } else {
+      stats.push({ label: '命中率', value: '需选目标' })
+      stats.push({ label: '攻击加值', value: `+${atkBonus}` })
+    }
+  } else if (skill.kind === 'spell') {
+    stats.push({ label: '法术 DC', value: d.spell_save_dc ?? '—' })
+    stats.push({ label: '施法加值', value: `+${(d.proficiency_bonus || 2) + (d.ability_modifiers?.cha || 0)}` })
+  } else if (skill.kind === 'move') {
+    const used = 0 // 具体耗费在交互时追踪
+    stats.push({ label: '移动力', value: `${d.speed ?? 30} 尺` })
+  } else if (skill.kind === 'bonus' && skill.k === 'pot') {
+    stats.push({ label: '恢复', value: '2d4+2' })
+  }
+  return stats
+}
+
 export default function Combat() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -40,6 +84,11 @@ export default function Combat() {
   // 移动模式
   const [moveMode, setMoveMode] = useState(false)
   const [isRanged, setIsRanged] = useState(false)
+  // 威胁区显示（红色斜纹覆盖敌人攻击范围）
+  const [showThreat, setShowThreat] = useState(false)
+  // AoE 预览：选中 AoE 法术 → hover 格子显示冲击半径
+  const [aoePreview, setAoePreview] = useState(null) // { radius, spellName } | null
+  const [aoeHover, setAoeHover]     = useState(null) // "x_y" | null
 
   // 协助模式（选择队友）
   const [helpMode, setHelpMode] = useState(false)
@@ -1232,6 +1281,41 @@ export default function Combat() {
   // Player position for movement range highlighting
   const playerPos = playerId ? entity_positions[playerId] : null
 
+  // ── 威胁区：每个存活敌人 Chebyshev ≤ 1 的格子标记为威胁 ──
+  const threatCells = useMemo(() => {
+    const set = new Set()
+    if (!showThreat || !combat) return set
+    for (const [id, pos] of Object.entries(entity_positions)) {
+      const ent = entities[id]
+      if (!ent || !ent.is_enemy || (ent.hp_current ?? 0) <= 0) continue
+      // 近战威胁：相邻 8 格 + 自身格
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue
+          set.add(`${pos.x + dx}_${pos.y + dy}`)
+        }
+      }
+    }
+    return set
+  }, [showThreat, combat, entity_positions, entities])
+
+  // ── AoE 预览：hover 某格时，以该格为中心半径 R 内的所有格 ──
+  const aoeCells = useMemo(() => {
+    const out = { center: null, ring: new Set() }
+    if (!aoePreview || !aoeHover) return out
+    const [cx, cy] = aoeHover.split('_').map(Number)
+    const R = aoePreview.radius || 1
+    out.center = aoeHover
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        // 圆形 AoE：欧几里得距离 ≤ R（含 R+0.5 使边界格好看）
+        const d = Math.sqrt(dx * dx + dy * dy)
+        if (d <= R + 0.5) out.ring.add(`${cx + dx}_${cy + dy}`)
+      }
+    }
+    return out
+  }, [aoePreview, aoeHover])
+
   // 构建 20x20 格子数据
   const grid = Array.from({ length: GRID_ROWS }, (_, row) =>
     Array.from({ length: GRID_COLS }, (_, col) => {
@@ -1391,6 +1475,24 @@ export default function Combat() {
             · {combatOver === 'victory' ? '🏆 胜利' : '💀 全灭'} ·
           </span>
         )}
+        {/* 威胁区 toggle —— 右对齐 */}
+        <span style={{ flex: 1 }} />
+        <button
+          onClick={() => { setShowThreat(v => !v); try { JuiceAudio.click() } catch (e) {} }}
+          title="显示/隐藏敌人攻击范围"
+          style={{
+            background: showThreat ? 'rgba(240,64,64,.2)' : 'transparent',
+            border: `1px solid ${showThreat ? 'rgba(240,80,80,.75)' : 'rgba(138,90,24,.5)'}`,
+            color: showThreat ? '#ff9090' : 'var(--parchment-dark)',
+            padding: '4px 10px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10,
+            letterSpacing: '.15em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            transition: 'all .15s',
+          }}
+        >⚔ 威胁区</button>
       </div>
 
       {/* ── 横向先攻条 ── */}
@@ -1403,8 +1505,9 @@ export default function Combat() {
             style={{ cursor: dead ? 'default' : 'pointer' }}
           >
             <div className="init-no">{t.initiative ?? '?'}</div>
-            <div className="avatar">
+            <div className="avatar" style={{ position: 'relative' }}>
               {(ent?.name || t.name || '?').slice(0, 1)}{dead && '×'}
+              {low && !dead && <span className="avatar-crack" />}
             </div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment)', letterSpacing: '.08em', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {(ent?.name || t.name || '?').slice(0, 4)}
@@ -1451,10 +1554,15 @@ export default function Combat() {
                 else if (isTarget) klass = 'target'
                 else if (isHazard) klass = 'hazard'
 
+                // 威胁区与 AoE 覆盖层（非互斥，aoe 视觉上会盖过 threat，这符合期望）
+                const isThreat = threatCells.has(key) && !isWall && !ent?.is_enemy
+                const isAoeCenter = aoeCells.center === key
+                const isAoeRing   = !isAoeCenter && aoeCells.ring.has(key) && !isWall
+
                 return (
                   <div
                     key={key}
-                    className={`iso-cell ${klass}`}
+                    className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ' aoe' : ''}${isAoeCenter ? ' aoe-center' : ''}`}
                     onClick={() => {
                       if (ent && !isWall) {
                         setSelectedTarget(entId)
@@ -1463,6 +1571,8 @@ export default function Combat() {
                         handleMoveTo?.(x, y)
                       }
                     }}
+                    onMouseEnter={() => { if (aoePreview) setAoeHover(key) }}
+                    onMouseLeave={() => { if (aoePreview && aoeHover === key) setAoeHover(null) }}
                   >
                     {ent && (
                       <div className={`iso-unit ${ent.is_enemy ? 'enemy' : (entId === playerId ? 'player' : 'ally')} ${isCurTurn ? 'active' : ''} ${(ent.hp_current / (ent.hp_max || 1)) < .34 ? 'low' : ''}`}
@@ -1553,7 +1663,14 @@ export default function Combat() {
             <div className={`pip react ${turnState?.reaction_used ? 'used' : ''}`}><span>⚡</span></div>
           </div>
           <div className="hud-portrait">
-            <div className="big">{(session?.player?.name || 'P').slice(0, 1)}</div>
+            <div className="big" style={{ position: 'relative' }}>
+              {(session?.player?.name || 'P').slice(0, 1)}
+              {(() => {
+                const hp = session?.player?.hp_current ?? 0
+                const hpMax = session?.player?.derived?.hp_max ?? 1
+                return hp > 0 && hp / hpMax <= 0.25 ? <span className="avatar-crack" /> : null
+              })()}
+            </div>
             <div className="stats">
               <div className="name">{session?.player?.name || '玩家'}</div>
               <div className="sub">{playerClass || '?'} {playerSubclass ? `· ${playerSubclass} ` : ''}· Lv {playerLevel}</div>
@@ -1596,19 +1713,44 @@ export default function Combat() {
         {/* 中 · 技能快捷栏 + 日志 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
           <div className="skill-bar">
-            {skillBar.map(s => (
-              <div
-                key={s.k}
-                className={`slot-key ${s.kind} ${!s.available ? 'used' : ''}`}
-                onClick={() => onSkillClick(s)}
-                title={s.reason || s.label}
-                style={{ cursor: s.available && isPlayerTurn_v10 ? 'pointer' : 'not-allowed' }}
-              >
-                <span className="hot">{s.key}</span>
-                <span className="glyph">{s.glyph}</span>
-                {s.cost && <span className="cost">{String(s.cost).split('·')[0]}</span>}
-              </div>
-            ))}
+            {skillBar.map(s => {
+              const stats = computeSkillStats(s, session?.player, entities[selectedTarget])
+              const info = SKILL_INFO[s.k] || {}
+              return (
+                <div
+                  key={s.k}
+                  className={`slot-key ${s.kind} ${!s.available ? 'used' : ''}`}
+                  onClick={() => onSkillClick(s)}
+                  onMouseEnter={() => { try { JuiceAudio.hover() } catch (e) {} }}
+                  style={{ cursor: s.available && isPlayerTurn_v10 ? 'pointer' : 'not-allowed' }}
+                >
+                  <span className="hot">{s.key}</span>
+                  <span className="glyph">{s.glyph}</span>
+                  {s.cost && <span className="cost">{String(s.cost).split('·')[0]}</span>}
+
+                  {/* 技能 tooltip */}
+                  {s.label && (
+                    <div className="skill-tooltip">
+                      <div className="t-name">{s.label}</div>
+                      <div className="t-meta">
+                        {s.kind === 'attack' ? '攻击' : s.kind === 'spell' ? '法术' : s.kind === 'bonus' ? '附赠' : s.kind === 'move' ? '移动' : '—'}
+                        {' · '}{s.cost || '—'}
+                        {!s.available && <span style={{ color: '#f47070', marginLeft: 6 }}>✕ 不可用</span>}
+                      </div>
+                      {stats && stats.length > 0 && stats.map((r, ri) => (
+                        <div key={ri} className="t-row">
+                          <span>{r.label}</span>
+                          <b>{r.value}</b>
+                        </div>
+                      ))}
+                      {(s.reason || info.desc) && (
+                        <div className="t-desc">{s.reason || info.desc}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
           <div className="slot-label-bar">
             {skillBar.map(s => <span key={s.k}>{s.label || '—'}</span>)}
@@ -1722,7 +1864,21 @@ export default function Combat() {
           cantrips={playerCantrips}
           slots={playerSpellSlots}
           onCast={handleCastSpell}
-          onClose={() => setSpellModalOpen(false)}
+          onClose={() => { setSpellModalOpen(false); setAoePreview(null); setAoeHover(null) }}
+          onSpellHover={(spell) => {
+            if (spell && spell.aoe) {
+              const radius = aoeRadiusCells(spell)
+              setAoePreview({ radius, spellName: spell.name })
+              // 自动以当前选中目标为预览中心（没选就以玩家所在格）
+              const centerKey = selectedTarget && entity_positions[selectedTarget]
+                ? `${entity_positions[selectedTarget].x}_${entity_positions[selectedTarget].y}`
+                : (playerPos ? `${playerPos.x}_${playerPos.y}` : null)
+              setAoeHover(centerKey)
+            } else {
+              setAoePreview(null)
+              setAoeHover(null)
+            }
+          }}
         />
       )}
 
@@ -1769,7 +1925,15 @@ export default function Combat() {
 }
 
 // ── 法术选择 Modal ─────────────────────────────────────────
-function SpellModal({ spells, cantrips, slots, onCast, onClose }) {
+// 粗略估算 AoE 法术的格子半径：从描述里抓"N尺"，5尺/格
+function aoeRadiusCells(spell) {
+  if (!spell || !spell.aoe) return 0
+  const m = (spell.desc || '').match(/(\d+)\s*尺/)
+  if (m) return Math.max(1, Math.round(parseInt(m[1]) / 5))
+  return 3 // 默认 15ft ≈ 3 cells
+}
+
+function SpellModal({ spells, cantrips, slots, onCast, onClose, onSpellHover }) {
   const [selectedSpell, setSelectedSpell] = useState(null)
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
 
@@ -1845,7 +2009,10 @@ function SpellModal({ spells, cantrips, slots, onCast, onClose }) {
             const isSel = selectedSpell?.name === spell.name
             const isCantrip = spell.level === 0 || cantrips?.includes(spell.name)
             return (
-              <div key={spell.name} onClick={() => setSelectedSpell(isSel ? null : spell)}
+              <div key={spell.name}
+                onClick={() => setSelectedSpell(isSel ? null : spell)}
+                onMouseEnter={() => onSpellHover?.(spell)}
+                onMouseLeave={() => onSpellHover?.(null)}
                 style={{
                   padding:'8px 10px', borderRadius:6, cursor:'pointer',
                   background: isSel ? (isCantrip ? 'rgba(58,122,170,0.18)' : 'rgba(138,90,246,0.18)') : 'var(--bg)',
