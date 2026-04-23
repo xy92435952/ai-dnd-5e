@@ -254,6 +254,48 @@
   box-shadow: 0 0 0 1px rgba(212,168,71,.2), inset 0 2px 6px -2px rgba(0,0,0,.6), 0 0 18px -4px rgba(212,168,71,.35);
 }
 
+/* ── <select> 深色主题：收起态 + 展开下拉面板 ───────── */
+/* 浏览器默认下拉弹层用系统色，会出现"白底金字"—— 下面通过关闭 native appearance
+   + 在右侧手绘金色箭头 + 给 <option> 指定 background/color（大多数桌面浏览器会继承），
+   让下拉在 Chrome/Edge/Firefox 下都看起来像羊皮纸暗色调。*/
+select.input-fantasy {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  cursor: pointer;
+  /* 金色 ▾ 箭头（SVG inline，颜色 #c9a84c = --amber） */
+  background-image:
+    linear-gradient(180deg, rgba(12,8,4,.7), rgba(12,8,4,.4)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23c9a84c' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat, no-repeat;
+  background-position: 0 0, right 14px center;
+  background-size: auto, 10px 6px;
+}
+select.input-fantasy::-ms-expand { display: none; } /* IE / 老 Edge */
+
+/* 展开后的 <option> —— 大多数桌面浏览器会读取这里的 background-color / color */
+.input-fantasy option,
+select option {
+  background-color: #1a120b; /* --void 近似，深色 */
+  color: var(--parchment);
+  font-family: var(--font-body);
+}
+.input-fantasy option:checked,
+select option:checked {
+  background: linear-gradient(0deg, rgba(212,168,71,.25), rgba(212,168,71,.25)) #1a120b;
+  color: var(--amber);
+}
+.input-fantasy option:disabled,
+select option:disabled { color: var(--parchment-dark); opacity: .5; }
+
+.input-fantasy optgroup,
+select optgroup {
+  background-color: #1a120b;
+  color: var(--amber);
+  font-style: italic;
+}
+
 /* ── 余烬粒子 ───────────────────────────────────────── */
 .embers {
   position: absolute; inset: 0;
