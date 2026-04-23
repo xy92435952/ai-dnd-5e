@@ -345,8 +345,9 @@ export default function CharacterCreate() {
         try {
           await roomsApi.claimChar(roomSessionId, char.id)
         } catch (e) {
-          // 认领失败不阻止返回，让用户在房间页手动认领
-          console.warn('claim char failed:', e?.message)
+          // 认领失败：保持在创角页并报错，避免用户回到房间看到"还需创建角色"
+          setError(`角色认领失败：${e?.message || '未知错误'}。角色已保存，请重试或联系管理员。`)
+          return
         }
         navigate(`/room/${roomSessionId}`)
         return

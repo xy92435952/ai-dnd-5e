@@ -204,8 +204,14 @@ async def claim_character(
         raise HTTPException(403, "你不在该房间中")
 
     char = await db.get(Character, character_id)
-    if not char or char.session_id != session_id:
-        raise HTTPException(404, "角色不存在或不属于该房间")
+    if not char:
+        raise HTTPException(404, "角色不存在")
+    # 允许三种情况：
+    #   1) 角色已绑定到本房间的 session（重新 claim / 换人）
+    #   2) 角色是"孤儿"（session_id 为 None）—— 刚从多人向导创建完
+    #   3) 其它：拒绝（角色属于别的 session）
+    if char.session_id is not None and char.session_id != session_id:
+        raise HTTPException(404, "角色不属于该房间")
     if not char.is_player:
         raise HTTPException(400, "AI 队友角色不能被认领")
 
@@ -223,6 +229,7 @@ async def claim_character(
     member.character_id = character_id
     char.user_id = user_id
     char.is_player = True
+    char.session_id = session_id  # 孤儿角色顺带绑定到房间
     await db.commit()
     await db.refresh(member)
     return member
