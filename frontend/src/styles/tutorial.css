@@ -1,0 +1,818 @@
+/* ═══════════════════════════════════════════════════════════
+   TUTORIAL — 新手教程 UI 骨架
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 主页入口卡片 ── */
+.tut-entry-card {
+  position: relative;
+  padding: 20px 22px;
+  background:
+    linear-gradient(135deg, rgba(127,232,248,.08), transparent 60%),
+    linear-gradient(180deg, rgba(26,14,40,.9), rgba(10,6,18,.98));
+  border: 1px solid rgba(127,232,248,.45);
+  box-shadow:
+    0 10px 28px -6px rgba(0,0,0,.85),
+    inset 0 1px 0 rgba(127,232,248,.22),
+    0 0 24px -8px rgba(127,232,248,.4);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+}
+.tut-entry-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(127,232,248,.8);
+  box-shadow:
+    0 18px 40px -8px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(127,232,248,.35),
+    0 0 48px -6px rgba(127,232,248,.55);
+}
+.tut-entry-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 85% 25%, rgba(127,232,248,.18), transparent 35%),
+    radial-gradient(circle at 10% 90%, rgba(240,208,96,.12), transparent 40%);
+  pointer-events: none;
+}
+.tut-entry-card::after {
+  /* 左上装饰角 */
+  content: '';
+  position: absolute;
+  top: 6px; left: 6px;
+  width: 22px; height: 22px;
+  border-top: 2px solid rgba(127,232,248,.7);
+  border-left: 2px solid rgba(127,232,248,.7);
+  pointer-events: none;
+}
+.tut-entry-card .tec-corner-br {
+  position: absolute;
+  bottom: 6px; right: 6px;
+  width: 22px; height: 22px;
+  border-bottom: 2px solid rgba(127,232,248,.7);
+  border-right: 2px solid rgba(127,232,248,.7);
+  pointer-events: none;
+}
+.tut-entry-card .tec-icon {
+  font-family: var(--font-display, serif);
+  font-size: 44px;
+  color: #7fe8f8;
+  filter: drop-shadow(0 0 14px rgba(127,232,248,.6));
+  line-height: 1;
+  animation: tecIconPulse 3s ease-in-out infinite;
+}
+@keyframes tecIconPulse {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(127,232,248,.45)); transform: rotate(0); }
+  50%      { filter: drop-shadow(0 0 18px rgba(127,232,248,.75)); transform: rotate(5deg); }
+}
+.tut-entry-card .tec-kicker {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: .35em;
+  color: var(--arcane-light, #7fe8f8);
+  text-transform: uppercase;
+  opacity: .8;
+}
+.tut-entry-card .tec-title {
+  font-family: var(--font-display, serif);
+  font-size: 22px;
+  color: #e8f4fc;
+  letter-spacing: .1em;
+  margin-top: 4px;
+  text-shadow: 0 0 14px rgba(127,232,248,.35);
+}
+.tut-entry-card .tec-sub {
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: rgba(232,244,252,.75);
+  margin-top: 6px;
+  line-height: 1.6;
+}
+.tut-entry-card .tec-progress {
+  display: flex;
+  gap: 3px;
+  margin-top: 14px;
+}
+.tut-entry-card .tec-progress .dot {
+  flex: 1;
+  height: 4px;
+  background: rgba(127,232,248,.15);
+  border: 1px solid rgba(127,232,248,.3);
+}
+.tut-entry-card .tec-progress .dot.done {
+  background: linear-gradient(90deg, #7fe8f8, #2fa8b8);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
+}
+.tut-entry-card .tec-progress .dot.current {
+  background: rgba(127,232,248,.4);
+  animation: tecDotPulse 1.6s ease-in-out infinite;
+}
+@keyframes tecDotPulse {
+  0%,100% { background: rgba(127,232,248,.4); }
+  50%     { background: rgba(127,232,248,.9); }
+}
+.tut-entry-card .tec-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(127,232,248,.3);
+}
+.tut-entry-card .tec-meta {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: rgba(232,244,252,.6);
+  letter-spacing: .15em;
+}
+.tut-entry-card .tec-btn {
+  font-family: var(--font-display, serif);
+  font-size: 12px;
+  color: #04181c;
+  letter-spacing: .15em;
+  padding: 6px 16px;
+  background: linear-gradient(180deg, #7fe8f8, #2a7a88);
+  border: 1px solid #7fe8f8;
+  box-shadow: 0 4px 10px -2px rgba(127,232,248,.5), inset 0 1px 0 rgba(255,255,255,.4);
+  cursor: pointer;
+}
+.tut-entry-card .tec-btn:hover { filter: brightness(1.1); }
+
+/* ═══════════════════════ 教程全屏覆盖 ═══════════════════════ */
+
+.tut-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: radial-gradient(ellipse at 50% 50%, rgba(8,4,18,.6), rgba(0,0,0,.88));
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  animation: tutFadeIn .35s ease-out;
+}
+@keyframes tutFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── 欢迎/章节首屏 ── */
+.tut-welcome {
+  position: relative;
+  width: min(860px, 94vw);
+  max-height: 90vh;
+  background:
+    linear-gradient(180deg, rgba(26,14,40,.98), rgba(10,6,18,1)),
+    radial-gradient(ellipse at 50% 0%, rgba(127,232,248,.12), transparent 60%);
+  border: 1px solid rgba(127,232,248,.5);
+  box-shadow:
+    0 30px 80px -10px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(127,232,248,.25),
+    0 0 0 1px rgba(212,168,71,.18),
+    0 0 60px -10px rgba(127,232,248,.4);
+  padding: 36px 48px 32px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* 角装饰 */
+.tut-welcome::before,
+.tut-welcome::after {
+  content: '';
+  position: absolute;
+  width: 80px; height: 80px;
+  background-image:
+    linear-gradient(90deg, rgba(127,232,248,.7), transparent 60%),
+    linear-gradient(0deg,  rgba(127,232,248,.7), transparent 60%);
+  background-size: 100% 2px, 2px 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  pointer-events: none;
+}
+.tut-welcome::before { top: 12px; left: 12px; }
+.tut-welcome::after {
+  bottom: 12px; right: 12px;
+  transform: rotate(180deg);
+}
+
+.tut-welcome .tw-ornament {
+  text-align: center;
+  font-family: var(--font-display, serif);
+  font-size: 28px;
+  color: rgba(127,232,248,.8);
+  letter-spacing: .6em;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 8px rgba(127,232,248,.5));
+}
+.tut-welcome .tw-kicker {
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--arcane-light, #7fe8f8);
+  letter-spacing: .45em;
+  text-transform: uppercase;
+  opacity: .85;
+  margin-bottom: 6px;
+}
+.tut-welcome .tw-title {
+  text-align: center;
+  font-family: var(--font-display, serif);
+  font-size: 36px;
+  background: linear-gradient(180deg, #fff8dd 0%, #7fe8f8 70%, #2a7a88 100%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  letter-spacing: .15em;
+  margin: 0;
+  text-shadow: 0 0 40px rgba(127,232,248,.3);
+}
+.tut-welcome .tw-lead {
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  text-align: center;
+  font-size: 15px;
+  color: rgba(232,244,252,.85);
+  margin: 14px auto 22px;
+  line-height: 1.75;
+  max-width: 620px;
+}
+
+/* 章节列表（教程模块索引） */
+.tut-modules {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 10px;
+}
+.tut-module {
+  position: relative;
+  padding: 16px 14px 14px;
+  background: linear-gradient(180deg, rgba(16,10,26,.9), rgba(8,4,14,.95));
+  border: 1px solid rgba(127,232,248,.3);
+  box-shadow: inset 0 1px 0 rgba(127,232,248,.15);
+  cursor: pointer;
+  transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+.tut-module:hover {
+  border-color: rgba(127,232,248,.7);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(127,232,248,.25), 0 10px 24px -6px rgba(0,0,0,.7), 0 0 18px -4px rgba(127,232,248,.4);
+}
+.tut-module.locked { opacity: .5; cursor: not-allowed; }
+.tut-module.done  { border-color: rgba(96,232,144,.5); }
+.tut-module.done::after {
+  content: '✓';
+  position: absolute;
+  top: 10px; right: 12px;
+  color: #60e890;
+  font-size: 18px;
+  text-shadow: 0 0 8px rgba(96,232,144,.6);
+}
+.tut-module .tm-idx {
+  font-family: var(--font-display, serif);
+  font-size: 34px;
+  color: rgba(127,232,248,.3);
+  font-weight: 900;
+  line-height: 1;
+  position: absolute;
+  top: 10px; right: 14px;
+}
+.tut-module .tm-glyph {
+  font-size: 24px;
+  color: #7fe8f8;
+  filter: drop-shadow(0 0 8px rgba(127,232,248,.5));
+  margin-bottom: 8px;
+}
+.tut-module .tm-title {
+  font-family: var(--font-display, serif);
+  font-size: 15px;
+  color: var(--parchment, #e8c8a0);
+  letter-spacing: .08em;
+  margin-bottom: 4px;
+}
+.tut-module .tm-desc {
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: rgba(232,200,160,.7);
+  line-height: 1.55;
+}
+.tut-module .tm-dur {
+  margin-top: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(127,232,248,.7);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+
+.tut-welcome .tw-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(127,232,248,.25);
+}
+
+/* ═══════════════════════ 教程工具提示 Spotlight ═══════════════════════ */
+
+.tut-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  pointer-events: none;
+}
+.tut-spotlight .sp-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.72);
+  pointer-events: auto;
+  /* 挖空由 clip-path 在 JS 中设置 */
+  transition: clip-path .4s cubic-bezier(.2,.9,.3,1);
+}
+.tut-spotlight .sp-ring {
+  position: absolute;
+  border: 2px solid #7fe8f8;
+  box-shadow:
+    0 0 0 4px rgba(127,232,248,.2),
+    0 0 30px rgba(127,232,248,.6),
+    inset 0 0 30px rgba(127,232,248,.25);
+  animation: spRingPulse 1.8s ease-in-out infinite;
+  pointer-events: none;
+  transition: all .4s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes spRingPulse {
+  0%,100% {
+    box-shadow: 0 0 0 4px rgba(127,232,248,.2), 0 0 24px rgba(127,232,248,.5), inset 0 0 28px rgba(127,232,248,.22);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(127,232,248,.1), 0 0 44px rgba(127,232,248,.8), inset 0 0 44px rgba(127,232,248,.4);
+  }
+}
+.tut-spotlight .sp-arrow {
+  position: absolute;
+  color: #7fe8f8;
+  font-size: 32px;
+  filter: drop-shadow(0 0 10px rgba(127,232,248,.7));
+  animation: spArrowBob 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes spArrowBob {
+  0%,100% { transform: translate(0, 0); }
+  50%     { transform: translate(0, 6px); }
+}
+
+/* ── 教程对话气泡 ── */
+.tut-coach {
+  position: fixed;
+  z-index: 2200;
+  width: 340px;
+  padding: 16px 18px 14px;
+  background:
+    linear-gradient(180deg, rgba(22,12,32,.98), rgba(8,4,16,1));
+  border: 1px solid rgba(127,232,248,.55);
+  box-shadow:
+    0 18px 44px -8px rgba(0,0,0,.9),
+    inset 0 1px 0 rgba(127,232,248,.25),
+    0 0 30px -6px rgba(127,232,248,.4);
+  pointer-events: auto;
+  transition: top .4s cubic-bezier(.2,.9,.3,1), left .4s cubic-bezier(.2,.9,.3,1), opacity .25s;
+}
+/* 箭头指向 spotlight 位置 */
+.tut-coach::before {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  background: linear-gradient(135deg, rgba(22,12,32,1), rgba(22,12,32,0) 50%);
+  border-left: 1px solid rgba(127,232,248,.55);
+  border-top: 1px solid rgba(127,232,248,.55);
+  transform: rotate(-45deg);
+}
+.tut-coach[data-dir="left"]::before  { left: -8px;  top: 50%; margin-top: -7px; transform: rotate(-45deg); }
+.tut-coach[data-dir="right"]::before { right: -8px; top: 50%; margin-top: -7px; transform: rotate(135deg); }
+.tut-coach[data-dir="top"]::before   { top: -8px;   left: 50%; margin-left: -7px; transform: rotate(45deg); }
+.tut-coach[data-dir="bottom"]::before{ bottom: -8px;left: 50%; margin-left: -7px; transform: rotate(-135deg); }
+
+.tut-coach .coach-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(127,232,248,.3);
+}
+.tut-coach .coach-avatar {
+  position: relative;
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: radial-gradient(circle at 35% 30%, #7fe8f8, #143a5e 75%);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  color: #04181c;
+  font-family: var(--font-display, serif);
+  font-size: 18px; font-weight: 900;
+  box-shadow: 0 0 0 1px rgba(127,232,248,.5), 0 0 12px rgba(127,232,248,.4);
+}
+.tut-coach .coach-avatar::after {
+  content: '●';
+  position: absolute;
+  bottom: -2px; right: -2px;
+  color: #60e890;
+  font-size: 10px;
+  text-shadow: 0 0 6px #60e890;
+}
+.tut-coach .coach-name {
+  font-family: var(--font-display, serif);
+  font-size: 13px;
+  color: #7fe8f8;
+  letter-spacing: .1em;
+}
+.tut-coach .coach-role {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(232,244,252,.55);
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+.tut-coach .coach-step {
+  margin-left: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--amber, #f0d060);
+  letter-spacing: .15em;
+}
+.tut-coach .coach-body {
+  font-family: var(--font-body, sans-serif);
+  font-size: 13px;
+  color: var(--parchment, #e8c8a0);
+  line-height: 1.65;
+  min-height: 60px;
+}
+.tut-coach .coach-highlight {
+  color: #ffd850;
+  font-weight: 600;
+}
+.tut-coach .coach-key {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  background: rgba(127,232,248,.15);
+  border: 1px solid rgba(127,232,248,.4);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: #7fe8f8;
+  border-radius: 3px;
+}
+.tut-coach .coach-tip-hint {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(127,232,248,.08);
+  border-left: 2px solid rgba(127,232,248,.6);
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: rgba(232,244,252,.85);
+  line-height: 1.6;
+}
+.tut-coach .coach-tip-hint::before {
+  content: '✦ ';
+  color: #7fe8f8;
+}
+.tut-coach .coach-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(127,232,248,.25);
+}
+.tut-coach .coach-progress {
+  display: flex;
+  gap: 4px;
+}
+.tut-coach .coach-progress .p-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(127,232,248,.2);
+  border: 1px solid rgba(127,232,248,.4);
+}
+.tut-coach .coach-progress .p-dot.done { background: #7fe8f8; box-shadow: 0 0 6px #7fe8f8; }
+.tut-coach .coach-progress .p-dot.current { background: rgba(127,232,248,.6); animation: spRingPulse 1.6s ease-in-out infinite; }
+.tut-coach .coach-actions { display: flex; gap: 6px; }
+.tut-coach .btn-coach {
+  padding: 6px 14px;
+  font-family: var(--font-display, serif);
+  font-size: 11px;
+  letter-spacing: .12em;
+  background: transparent;
+  color: var(--parchment-dark, #b09878);
+  border: 1px solid rgba(138,90,24,.5);
+  cursor: pointer;
+  transition: all .2s;
+}
+.tut-coach .btn-coach:hover { border-color: var(--amber, #f0d060); color: var(--amber, #f0d060); }
+.tut-coach .btn-coach.primary {
+  background: linear-gradient(180deg, #7fe8f8, #2a7a88);
+  color: #04181c;
+  border-color: #7fe8f8;
+  font-weight: 700;
+  box-shadow: 0 4px 10px -2px rgba(127,232,248,.4), inset 0 1px 0 rgba(255,255,255,.3);
+}
+.tut-coach .btn-coach.primary:hover { filter: brightness(1.1); }
+
+/* ── 教程顶部 HUD ── */
+.tut-hud {
+  position: fixed;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 2150;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(10,6,18,.92);
+  border: 1px solid rgba(127,232,248,.45);
+  box-shadow: 0 6px 20px -4px rgba(0,0,0,.8), inset 0 1px 0 rgba(127,232,248,.2);
+  backdrop-filter: blur(6px);
+}
+.tut-hud .h-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: rgba(127,232,248,.8);
+  letter-spacing: .3em;
+  text-transform: uppercase;
+}
+.tut-hud .h-title {
+  font-family: var(--font-display, serif);
+  font-size: 13px;
+  color: #e8f4fc;
+  letter-spacing: .08em;
+  padding-left: 10px;
+  border-left: 1px solid rgba(127,232,248,.3);
+}
+.tut-hud .h-steps {
+  display: flex; gap: 3px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(127,232,248,.3);
+}
+.tut-hud .h-steps .st {
+  width: 22px; height: 3px;
+  background: rgba(127,232,248,.2);
+}
+.tut-hud .h-steps .st.done    { background: #7fe8f8; }
+.tut-hud .h-steps .st.current { background: rgba(127,232,248,.6); animation: spRingPulse 1.6s ease-in-out infinite; }
+.tut-hud .h-exit {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(232,100,100,.4);
+  color: #f4a0a0;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  letter-spacing: .15em;
+  cursor: pointer;
+  transition: all .2s;
+}
+.tut-hud .h-exit:hover { border-color: #f44848; color: #f48080; }
+
+/* ── 目标提示横幅（屏幕顶部"当前目标"）── */
+.tut-goal-banner {
+  position: fixed;
+  top: 70px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 2140;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 20px;
+  background: linear-gradient(90deg, transparent, rgba(240,208,96,.15), transparent);
+  border-top: 1px solid rgba(240,208,96,.45);
+  border-bottom: 1px solid rgba(240,208,96,.45);
+  pointer-events: none;
+  animation: goalSlide .5s ease-out;
+}
+@keyframes goalSlide {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.tut-goal-banner .gb-icon {
+  color: var(--amber, #f0d060);
+  font-size: 16px;
+  text-shadow: 0 0 8px rgba(240,208,96,.6);
+}
+.tut-goal-banner .gb-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: rgba(240,208,96,.8);
+  letter-spacing: .3em;
+  text-transform: uppercase;
+}
+.tut-goal-banner .gb-text {
+  font-family: var(--font-body, sans-serif);
+  font-size: 13px;
+  color: #ffd850;
+  font-weight: 500;
+}
+
+/* ── 术语 glossary 浮层（名词解释）── */
+.tut-glossary {
+  position: absolute;
+  z-index: 2300;
+  width: 260px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(26,18,8,.98), rgba(10,6,2,1));
+  border: 1px solid rgba(212,168,71,.6);
+  box-shadow: 0 12px 30px -6px rgba(0,0,0,.9), inset 0 1px 0 rgba(240,208,96,.2);
+}
+.tut-glossary .g-term {
+  font-family: var(--font-display, serif);
+  font-size: 14px;
+  color: var(--amber, #f0d060);
+  letter-spacing: .1em;
+  margin-bottom: 2px;
+}
+.tut-glossary .g-pron {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: var(--parchment-dark, #b09878);
+  letter-spacing: .2em;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(138,90,24,.4);
+}
+.tut-glossary .g-def {
+  font-size: 12px;
+  color: var(--parchment, #e8c8a0);
+  line-height: 1.6;
+}
+.tut-glossary .g-example {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(138,90,24,.4);
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: rgba(232,200,160,.7);
+  line-height: 1.55;
+}
+.tut-glossary .g-example::before {
+  content: '例 · ';
+  color: var(--arcane-light, #7fe8f8);
+  font-style: normal;
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  letter-spacing: .25em;
+}
+
+/* ── 迷你成就解锁 ── */
+.tut-unlock {
+  position: fixed;
+  bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 2400;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 22px 14px 18px;
+  background: linear-gradient(135deg, rgba(40,28,8,.98), rgba(10,6,2,1));
+  border: 1px solid var(--amber, #f0d060);
+  box-shadow: 0 14px 36px -4px rgba(0,0,0,.9), 0 0 40px -6px rgba(240,208,96,.5), inset 0 1px 0 rgba(240,208,96,.3);
+  animation: unlockSlide .6s cubic-bezier(.2,.9,.3,1), unlockFade .6s ease-in 2.4s forwards;
+}
+@keyframes unlockSlide {
+  from { opacity: 0; transform: translate(-50%, 30px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes unlockFade {
+  from { opacity: 1; }
+  to   { opacity: 0; visibility: hidden; }
+}
+.tut-unlock .u-icon {
+  width: 46px; height: 46px;
+  background: radial-gradient(circle at 35% 30%, #ffe890, #8a5a18 75%);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--font-display, serif);
+  font-size: 24px; font-weight: 900;
+  color: #1a0a02;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.4), 0 0 16px rgba(240,208,96,.6);
+}
+.tut-unlock .u-kicker {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--amber, #f0d060);
+  letter-spacing: .35em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.tut-unlock .u-name {
+  font-family: var(--font-display, serif);
+  font-size: 16px;
+  color: var(--parchment, #e8c8a0);
+  letter-spacing: .08em;
+}
+.tut-unlock .u-desc {
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: rgba(232,200,160,.75);
+  margin-top: 2px;
+}
+
+/* ── 引导手指 / 指针 ── */
+.tut-pointer-hand {
+  position: fixed;
+  z-index: 2250;
+  pointer-events: none;
+  color: #fff8dd;
+  filter: drop-shadow(0 0 10px rgba(240,208,96,.7)) drop-shadow(0 0 20px rgba(240,208,96,.4));
+  animation: pointerTap 1.6s ease-in-out infinite;
+}
+@keyframes pointerTap {
+  0%,100% { transform: scale(1) translate(0, 0); }
+  50%     { transform: scale(.88) translate(0, 3px); }
+}
+
+/* ── "练习场"骰子演示大面板 ── */
+.tut-dojo {
+  position: relative;
+  width: min(780px, 94vw);
+  padding: 28px 36px;
+  background:
+    linear-gradient(180deg, rgba(26,14,8,.98), rgba(10,6,2,1)),
+    radial-gradient(ellipse at 50% 0%, rgba(240,208,96,.15), transparent 60%);
+  border: 1px solid rgba(212,168,71,.55);
+  box-shadow: 0 30px 80px -10px rgba(0,0,0,.9), inset 0 1px 0 rgba(240,208,96,.25);
+}
+.tut-dojo .d-title {
+  font-family: var(--font-display, serif);
+  font-size: 22px;
+  color: var(--amber, #f0d060);
+  letter-spacing: .12em;
+  text-align: center;
+  margin-bottom: 8px;
+}
+.tut-dojo .d-sub {
+  text-align: center;
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  color: rgba(232,200,160,.75);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.tut-dojo .d-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 24px;
+  align-items: center;
+}
+.tut-dojo .d-actions {
+  display: flex; gap: 8px;
+  margin-top: 16px;
+  justify-content: center;
+}
+
+/* ── 场景路径预览卡（教程里"接下来你要做的事"）── */
+.tut-path {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+  padding: 14px;
+  background: rgba(0,0,0,.35);
+  border: 1px dashed rgba(127,232,248,.35);
+}
+.tut-path .p-node {
+  position: relative;
+  padding: 10px 8px;
+  text-align: center;
+  background: rgba(10,6,18,.85);
+  border: 1px solid rgba(127,232,248,.25);
+}
+.tut-path .p-node.active {
+  border-color: rgba(127,232,248,.8);
+  box-shadow: 0 0 14px -2px rgba(127,232,248,.5);
+}
+.tut-path .p-node.done { border-color: rgba(96,232,144,.6); opacity: .7; }
+.tut-path .p-node + .p-node::before {
+  content: '→';
+  position: absolute;
+  left: -10px; top: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(127,232,248,.6);
+  font-size: 14px;
+}
+.tut-path .p-node .p-ico {
+  font-size: 18px;
+  color: #7fe8f8;
+  display: block;
+  margin-bottom: 4px;
+}
+.tut-path .p-node .p-name {
+  font-family: var(--font-display, serif);
+  font-size: 11px;
+  color: var(--parchment, #e8c8a0);
+  letter-spacing: .08em;
+}
+.tut-path .p-node .p-dur {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  color: rgba(127,232,248,.6);
+  margin-top: 2px;
+  letter-spacing: .2em;
+}

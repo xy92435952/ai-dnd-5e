@@ -19,6 +19,7 @@ import './styles/bg3.css'
 import './styles/gamefeel.css'
 import './styles/juice.css'
 import './styles/create.css'
+import './styles/tutorial.css'
 import './styles/compat.css'
 
 // 引入 juice.js 让 JuiceAudio / JuiceShake 挂到 window，

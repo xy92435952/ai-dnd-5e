@@ -5,6 +5,7 @@ import { useGameStore } from '../store/gameStore'
 import { Divider } from '../components/Ornaments'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
+import { TutorialEntryCard, TutorialHost, getTutorialProgress } from '../components/Tutorial'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -15,6 +16,14 @@ export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [tab, setTab] = useState('modules')
+  // 新手教程 —— 首次登录自动弹出 welcome；之后从入口卡手动触发
+  const [tutorialOpen, setTutorialOpen] = useState(() => {
+    try {
+      const seen = localStorage.getItem('tutorial_seen')
+      return !seen // 没看过就首次自动弹
+    } catch { return false }
+  })
+  const tutorialProgress = getTutorialProgress()
 
   const me = (() => {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
@@ -100,6 +109,34 @@ export default function Home() {
       </header>
 
       <Divider>⚜ 选择你的冒险 ⚜</Divider>
+
+      {/* 新手教程入口卡 —— 已完成 4 章则收为一条轻提示 */}
+      {tutorialProgress < 4 ? (
+        <div style={{ margin: '18px 0 22px' }}>
+          <TutorialEntryCard
+            progress={tutorialProgress}
+            total={4}
+            onOpen={() => setTutorialOpen(true)}
+          />
+        </div>
+      ) : (
+        <div style={{
+          margin: '14px 0',
+          padding: '8px 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'linear-gradient(180deg, rgba(96,232,144,.06), transparent)',
+          border: '1px solid rgba(96,232,144,.3)',
+          fontSize: 12, color: 'var(--parchment-dark)',
+          fontFamily: 'var(--font-mono)', letterSpacing: '.15em',
+        }}>
+          <span>✓ 启蒙圣所已完成 · 所有章节已解锁</span>
+          <button
+            className="btn-ghost"
+            style={{ padding: '4px 10px', fontSize: 10 }}
+            onClick={() => setTutorialOpen(true)}
+          >重温教程</button>
+        </div>
+      )}
 
       {/* 标签栏 */}
       <div style={{ display: 'flex', gap: 0, margin: '20px 0 18px', borderBottom: '1px solid var(--bark-light)' }}>
@@ -230,6 +267,15 @@ export default function Home() {
           )}
         </div>
       )}
+
+      {/* 教程顶层容器 —— welcome → runner */}
+      <TutorialHost
+        open={tutorialOpen}
+        onClose={() => {
+          setTutorialOpen(false)
+          try { localStorage.setItem('tutorial_seen', '1') } catch (e) {}
+        }}
+      />
     </div>
   )
 }
