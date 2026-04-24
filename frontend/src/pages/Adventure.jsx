@@ -84,8 +84,28 @@ export default function Adventure() {
 
   const onWsEvent = useCallback((event) => {
     switch (event.type) {
-      case 'dm_responded':
-        loadSession(); break
+      case 'dm_thinking_start':
+        // 其他玩家提交行动时，我方同步显示"DM 思考中"
+        if (event.by_user_id && event.by_user_id !== myUserId) {
+          setIsLoading(true)
+        }
+        break
+      case 'dm_responded': {
+        const isMe = event.by_user_id && event.by_user_id === myUserId
+        // 非发言者：用广播 payload 本地启动剧场模式，避免变成只读观众
+        if (!isMe) {
+          setIsLoading(false)
+          const queue = buildDialogueQueue(event.narrative, event.companion_reactions, companions)
+          if (queue.length > 0) {
+            setDialogueQueue(queue)
+            setDialogueIdx(0)
+            setDialogueMode('stage')
+          }
+        }
+        // 刷新 logs 和 scene_vibe / clues 等副作用状态（发言者也需要，因为广播里的 addLog 是在发言者侧完成的）
+        loadSession()
+        break
+      }
       case 'dm_speak_turn':
         setRoom(prev => prev ? { ...prev, _currentSpeaker: event.user_id } : prev)
         break
@@ -101,7 +121,7 @@ export default function Adventure() {
       default: break
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [sessionId, myUserId, companions, buildDialogueQueue, setIsLoading])
 
   const { send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
 
@@ -161,6 +181,28 @@ export default function Adventure() {
     }])
   }, [])
 
+  // ── 共享：把 DM 响应构造成剧场模式的对话队列 ──
+  // 发言者（HTTP 响应）和其他玩家（WS dm_responded）都用这个
+  const buildDialogueQueue = useCallback((narrative, companionReactions, companionList) => {
+    const queue = []
+    if (narrative) {
+      splitDmNarrative(narrative).forEach(seg => {
+        queue.push({
+          speaker: seg.speaker || 'DM',
+          role: seg.role || 'dm',
+          text: seg.text,
+          color: seg.color,
+        })
+      })
+    }
+    if (companionReactions) {
+      splitCompanionReactions(companionReactions, companionList || []).forEach(seg => {
+        queue.push({ speaker: seg.speaker, role: 'companion', text: seg.text, color: seg.color })
+      })
+    }
+    return queue
+  }, [])
+
   // ── 主行动 ──
   const handleAction = async (overrideText) => {
     const text = (overrideText ?? input).trim()
@@ -171,22 +213,7 @@ export default function Adventure() {
       const resp = await gameApi.action({ session_id: sessionId, action_text: text })
 
       // 构建对话队列（DM 叙述拆段 + 队友反应按"[名字]:"拆开）
-      const queue = []
-      if (resp.narrative) {
-        splitDmNarrative(resp.narrative).forEach(seg => {
-          queue.push({
-            speaker: seg.speaker || 'DM',
-            role: seg.role || 'dm',
-            text: seg.text,
-            color: seg.color,
-          })
-        })
-      }
-      if (resp.companion_reactions) {
-        splitCompanionReactions(resp.companion_reactions, companions).forEach(seg => {
-          queue.push({ speaker: seg.speaker, role: 'companion', text: seg.text, color: seg.color })
-        })
-      }
+      const queue = buildDialogueQueue(resp.narrative, resp.companion_reactions, companions)
 
       if (resp.dice_display?.length) {
         for (const d of resp.dice_display) {

@@ -288,6 +288,17 @@ async def player_action(
             if speaker and speaker != user_id:
                 raise HTTPException(403, "现在不是你的发言时机，请等待 / 发言")
         player = await db.get(Character, member.character_id)
+
+        # 广播"DM 思考中"给房间所有成员（在 LLM 调用前，让 B/C/D 同步看到等待状态）
+        try:
+            from services.ws_manager import ws_manager
+            await ws_manager.broadcast(session.id, {
+                "type": "dm_thinking_start",
+                "by_user_id": user_id,
+                "action_text": req.action_text[:80],  # 简短预览
+            })
+        except Exception:
+            pass
     else:
         player = await db.get(Character, session.player_character_id)
 
@@ -639,6 +650,10 @@ async def player_action(
     await db.commit()
 
     # 多人联机：广播 DM 响应到房间所有人
+    # 携带**完整叙事 payload**，让其他玩家前端也能启动剧场模式
+    # player_choices / needs_check 只给发言者（他们通过 HTTP 响应拿到），
+    # WS 广播不带这些，避免误导非发言者
+    # scene_vibe / clues 已写进 session.game_state，前端 loadSession 能拿到
     if session.is_multiplayer:
         from services.ws_manager import ws_manager
         try:
@@ -647,6 +662,8 @@ async def player_action(
                 "by_user_id": user_id,
                 "action_type": ar.action_type,
                 "narrative": ar.narrative,
+                "companion_reactions": ar.companion_reactions or "",
+                "dice_display": ar.dice_display or [],
                 "combat_triggered": ar.combat_triggered,
                 "combat_ended": ar.combat_ended,
             })
