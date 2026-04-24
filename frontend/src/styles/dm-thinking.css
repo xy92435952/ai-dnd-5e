@@ -1,12 +1,20 @@
 /* ═══════════════════════════════════════════════════════════
-   DM Thinking Overlay — 沉浸式"DM 正在思考"等待层
+   DM Thinking Overlay — 沉浸式"DM 编织命运"等待层
+   ───────────────────────────────────────────────────────────
+   视觉结构：
+     双环法阵（outer + inner）
+       └─ 命运之核
+            ├─ 8 条命运连线（stroke dashoffset 流动）
+            ├─ 8 个轨道节点（整体 20s 旋转 + 各自闪烁）
+            ├─ 命运游标（巡游 + 经过节点时脉冲）
+            └─ 中心能量核（脉动 + 三层神秘符文反向旋转）
    ═══════════════════════════════════════════════════════════ */
 
 .dm-thinking-overlay {
   position: absolute;
   inset: 0;
   z-index: 50;
-  pointer-events: none;      /* 不阻挡底层元素点击 */
+  pointer-events: none;
   overflow: hidden;
 }
 
@@ -39,7 +47,6 @@
   box-shadow: 0 0 10px rgba(240, 208, 96, .5);
   z-index: 3;
 }
-
 @keyframes dmTopbar {
   0%   { background-position: -50% 0; }
   100% { background-position: 150% 0; }
@@ -58,8 +65,11 @@
   animation: dmContentFade .5s ease-out .1s both;
 }
 
-/* ── Stack：符文环 + portrait 三层叠加 ── */
-.dm-thinking-stack {
+/* ═══════════════════════════════════════════════════════════
+   Fate Weave · 命运之网（取代原 portrait）
+   ═══════════════════════════════════════════════════════════ */
+
+.fate-weave {
   position: relative;
   width: 240px;
   height: 240px;
@@ -67,91 +77,205 @@
   place-items: center;
   flex-shrink: 0;
 }
-.dm-thinking-stack > * {
+.fate-weave > * {
   grid-column: 1;
-  grid-row: 1;        /* 三层都叠在同一个格 */
+  grid-row: 1;
 }
 
-/* 外层符文环 */
-.dm-thinking-ring.outer {
+/* ── 外层法阵（正向旋转 12s） ── */
+.fate-ring.outer {
   width: 240px;
   height: 240px;
   pointer-events: none;
-  animation: dmRingSpin 12s linear infinite;
+  animation: fateSpin 12s linear infinite;
   filter: drop-shadow(0 0 12px rgba(240, 208, 96, .35));
 }
-
-/* 内层反向旋转环 */
-.dm-thinking-ring.inner {
-  width: 160px;
-  height: 160px;
+/* ── 内层虚线环（反向旋转 8s） ── */
+.fate-ring.inner {
+  width: 172px;
+  height: 172px;
   border: 1px dashed rgba(240, 208, 96, .5);
   border-radius: 50%;
   box-shadow:
     inset 0 0 24px rgba(240, 208, 96, .18),
     0 0 20px rgba(240, 208, 96, .2);
-  animation: dmRingSpin 8s linear infinite reverse;
+  animation: fateSpin 8s linear infinite reverse;
 }
 
-@keyframes dmRingSpin {
+@keyframes fateSpin {
   from { transform: rotate(0); }
   to   { transform: rotate(360deg); }
 }
 
-/* ── 中央兜帽老者 silhouette ── */
-.dm-thinking-portrait {
+/* ═══════════════════════════════════════════════════════════
+   Fate Core · 命运之核
+   ═══════════════════════════════════════════════════════════ */
+
+.fate-core {
   position: relative;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 32%, #2a1810 0%, #120806 55%, #050302 90%);
-  box-shadow:
-    0 0 0 1px rgba(240, 208, 96, .6),
-    0 0 0 3px rgba(240, 208, 96, .15),
-    0 0 28px rgba(240, 208, 96, .4),
-    inset 0 0 20px rgba(0, 0, 0, .85);
-  animation: dmPortraitPulse 3.4s ease-in-out infinite;
+  width: 160px;
+  height: 160px;
+  display: grid;
+  place-items: center;
+}
+.fate-core > * {
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.dm-thinking-portrait .hood {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse at 50% 20%,
-      rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 0) 30%,
-      rgba(0, 0, 0, .6) 55%,
-      rgba(0, 0, 0, .9) 80%);
-  pointer-events: none;
+/* ── 8 条命运连线（从中心到节点方向） ── */
+.fate-lines {
+  width: 160px;
+  height: 160px;
+  overflow: visible;
+}
+.fate-line {
+  stroke: rgba(240, 208, 96, .38);
+  stroke-width: .6;
+  stroke-dasharray: 3 5;
+  stroke-linecap: round;
+  animation: fateLineFlow 6s linear infinite;
+  animation-delay: calc(var(--i) * -.7s);
+  filter: drop-shadow(0 0 2px rgba(240, 208, 96, .4));
+}
+@keyframes fateLineFlow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -48; }
 }
 
-.dm-thinking-portrait .eye {
+/* ── 8 个轨道节点（整体缓慢旋转，各自闪烁） ── */
+.fate-orbit {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  animation: fateOrbitRotate 20s linear infinite;
+}
+.orbit-node {
   position: absolute;
-  top: 40%;
-  width: 6px;
-  height: 5px;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
   border-radius: 50%;
-  background: radial-gradient(circle, #ffe890 0%, #c88820 50%, transparent 80%);
+  background: radial-gradient(circle, #ffe890 0%, #c88820 50%, rgba(240, 160, 40, 0) 85%);
   box-shadow:
     0 0 6px #ffd850,
-    0 0 12px rgba(240, 160, 40, .6);
-  animation: dmEyeFlicker 3.2s ease-in-out infinite;
+    0 0 12px rgba(255, 200, 80, .5);
+  /* 放到轨道上：先旋转对应角度，再向"上"偏移 */
+  transform:
+    rotate(calc(var(--i) * (360deg / var(--n))))
+    translate(0, -78px);
+  animation: nodeFlicker 4.2s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -.55s);
 }
-.dm-thinking-portrait .eye.left  { left: 30%; }
-.dm-thinking-portrait .eye.right { right: 30%; animation-delay: .2s; }
-
-@keyframes dmPortraitPulse {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(240, 208, 96, .6), 0 0 0 3px rgba(240, 208, 96, .15), 0 0 24px rgba(240, 208, 96, .35), inset 0 0 20px rgba(0, 0, 0, .85); }
-  50%      { box-shadow: 0 0 0 1px rgba(240, 208, 96, .9), 0 0 0 4px rgba(240, 208, 96, .25), 0 0 40px rgba(240, 208, 96, .65), inset 0 0 20px rgba(0, 0, 0, .85); }
+@keyframes fateOrbitRotate {
+  to { transform: rotate(360deg); }
+}
+@keyframes nodeFlicker {
+  0%, 100% { opacity: .45; filter: brightness(.7); }
+  50%      { opacity: 1;   filter: brightness(1.3); }
 }
 
-@keyframes dmEyeFlicker {
-  0%, 88%, 100% { opacity: 1; transform: scaleY(1); }
-  91%, 95%      { opacity: .15; transform: scaleY(.3); }
+/* ── 命运游标：匀速绕轨道，经过节点时脉冲放大 ── */
+.fate-cursor-orbit {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  animation: cursorOrbit 5.5s linear infinite;
+}
+.fate-cursor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 244, 200, .95) 0%, rgba(255, 200, 100, .3) 50%, transparent 80%);
+  filter: drop-shadow(0 0 10px #ffd850) drop-shadow(0 0 18px rgba(255, 200, 80, .55));
+  transform: translate(0, -78px);
+  animation: cursorPulse 5.5s ease-in-out infinite;
+}
+/* 轨道旋转（wrapper）+ 脉冲缩放（元素本身） */
+@keyframes cursorOrbit {
+  to { transform: rotate(360deg); }
+}
+/* 游标走到 8 个节点（每 45deg）时放大，两点之间收回——共 8 次 */
+@keyframes cursorPulse {
+  0%, 100%                                 { transform: translate(0, -78px) scale(.6); opacity: .5; }
+  5%, 17%, 30%, 42%, 55%, 67%, 80%, 92%    { transform: translate(0, -78px) scale(1.4); opacity: 1; }
+  10%, 22%, 35%, 47%, 60%, 72%, 85%, 97%   { transform: translate(0, -78px) scale(.6); opacity: .5; }
 }
 
-/* ── 标题（名字 + 角色 + 三点） ── */
+/* ── 中心能量核心 ── */
+.fate-nucleus {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+}
+.fate-nucleus > * {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.nucleus-glow {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(255, 240, 180, .9) 0%,
+    rgba(240, 160, 40, .5) 35%,
+    rgba(106, 56, 24, .2) 65%,
+    transparent 85%);
+  filter: blur(3px);
+  animation: nucleusBreath 2.6s ease-in-out infinite;
+}
+.nucleus-core {
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, #fff8dd 0%, #ffd850 40%, #c88820 80%);
+  box-shadow:
+    0 0 14px rgba(255, 232, 144, .9),
+    0 0 28px rgba(240, 160, 40, .6),
+    inset 0 0 8px rgba(0, 0, 0, .4);
+  animation: nucleusBreath 2.6s ease-in-out infinite reverse;
+}
+@keyframes nucleusBreath {
+  0%, 100% { transform: scale(1);    opacity: .9; }
+  50%      { transform: scale(1.15); opacity: 1; }
+}
+
+/* ── 能量核内部：两组反向旋转的神秘符号 ── */
+.nucleus-runes {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.nucleus-runes .rune-ring {
+  transform-origin: center;
+  animation: runesSpin 14s linear infinite;
+}
+.nucleus-runes .rune-ring.mid {
+  animation: runesSpin 10s linear infinite reverse;
+}
+.nucleus-runes text {
+  fill: rgba(255, 248, 220, .75);
+  filter: drop-shadow(0 0 2px #ffd850);
+}
+@keyframes runesSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   标题 + 提示词
+   ═══════════════════════════════════════════════════════════ */
+
 .dm-thinking-title {
   display: flex;
   align-items: center;
@@ -199,7 +323,6 @@
   32%           { transform: scale(1.3); opacity: 1; }
 }
 
-/* ── 底部轮播提示词 ── */
 .dm-thinking-hint {
   min-height: 26px;
   max-width: 90%;
@@ -223,30 +346,46 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-
 @keyframes dmContentFade {
   from { opacity: 0; transform: scale(.95); }
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* ── 小屏适配：舞台高度不够时收缩 ── */
+/* ── 小屏适配 ── */
 @media (max-height: 700px) {
-  .dm-thinking-stack { width: 180px; height: 180px; }
-  .dm-thinking-ring.outer { width: 180px; height: 180px; }
-  .dm-thinking-ring.outer svg { width: 180px; height: 180px; }
-  .dm-thinking-ring.inner { width: 120px; height: 120px; }
-  .dm-thinking-portrait { width: 72px; height: 72px; }
+  .fate-weave     { width: 180px; height: 180px; }
+  .fate-ring.outer { width: 180px; height: 180px; }
+  .fate-ring.outer svg { width: 180px; height: 180px; }
+  .fate-ring.inner { width: 130px; height: 130px; }
+  .fate-core      { width: 130px; height: 130px; }
+  .fate-lines     { width: 130px; height: 130px; }
+  .fate-orbit     { width: 130px; height: 130px; }
+  .fate-orbit .orbit-node { transform: rotate(calc(var(--i) * (360deg / var(--n)))) translate(0, -62px); }
+  .fate-cursor-orbit { width: 130px; height: 130px; }
+  .fate-cursor { transform: translate(0, -62px); }
+  @keyframes cursorPulse {
+    0%, 100%                                 { transform: translate(0, -62px) scale(.6); opacity: .5; }
+    5%, 17%, 30%, 42%, 55%, 67%, 80%, 92%    { transform: translate(0, -62px) scale(1.4); opacity: 1; }
+    10%, 22%, 35%, 47%, 60%, 72%, 85%, 97%   { transform: translate(0, -62px) scale(.6); opacity: .5; }
+  }
+  .fate-nucleus { width: 54px; height: 54px; }
   .dm-thinking-content { gap: 14px; padding: 20px 16px; }
   .dm-thinking-title { font-size: 15px; }
   .dm-thinking-hint { font-size: 12.5px; }
 }
 
-/* ── 减动画媒体查询（尊重用户偏好） ── */
+/* ── 减动画媒体查询 ── */
 @media (prefers-reduced-motion: reduce) {
-  .dm-thinking-ring,
+  .fate-ring,
+  .fate-line,
+  .fate-orbit,
+  .orbit-node,
+  .fate-cursor-orbit,
+  .fate-cursor,
+  .nucleus-glow,
+  .nucleus-core,
+  .nucleus-runes .rune-ring,
   .dm-thinking-topbar,
-  .dm-thinking-portrait,
-  .dm-thinking-portrait .eye,
   .dm-thinking-title .dots span {
     animation: none !important;
   }
