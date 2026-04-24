@@ -28,6 +28,7 @@ import DialogueHistoryView from '../components/DialogueHistoryView'
 import DMThinkingOverlay from '../components/DMThinkingOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 import { renderLightMarkdown } from '../utils/markdown'
+import { useUser } from '../hooks/useUser'
 
 export default function Adventure() {
   const { sessionId } = useParams()
@@ -64,10 +65,7 @@ export default function Adventure() {
 
   // ── 多人联机 ──
   const [room, setRoom] = useState(null)
-  const myUserId = useMemo(() => {
-    const u = JSON.parse(localStorage.getItem('user') || 'null')
-    return u?.user_id || u?.id || null
-  }, [])
+  const { userId: myUserId } = useUser()
 
   useEffect(() => {
     let mounted = true
@@ -188,9 +186,7 @@ export default function Adventure() {
       // 单人模式下没有 last_actor_user_id 概念，都恢复
       const lt = data.game_state?.last_turn
       if (lt) {
-        const myU = JSON.parse(localStorage.getItem('user') || 'null')
-        const myId = myU?.user_id || myU?.id || null
-        const isMine = !data.is_multiplayer || !lt.last_actor_user_id || lt.last_actor_user_id === myId
+        const isMine = !data.is_multiplayer || !lt.last_actor_user_id || lt.last_actor_user_id === myUserId
         if (isMine) {
           if (Array.isArray(lt.player_choices) && lt.player_choices.length) {
             setChoices(lt.player_choices)

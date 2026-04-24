@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { roomsApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useUser } from '../hooks/useUser'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { Divider } from '../components/Ornaments'
@@ -14,15 +15,10 @@ export default function Room() {
   const { sessionId } = useParams()
   const nav = useNavigate()
   const [room, setRoom] = useState(null)
-  const [myUserId, setMyUserId] = useState(null)
+  const { userId: myUserId } = useUser()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    const u = JSON.parse(localStorage.getItem('user') || 'null')
-    setMyUserId(u?.user_id || u?.id || null)
-  }, [])
 
   const refresh = useCallback(async () => {
     try {

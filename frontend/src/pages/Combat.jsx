@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useUser } from '../hooks/useUser'
 import DiceRollerOverlay, { rollDice3D } from '../components/DiceRollerOverlay'
 import Sprite from '../components/Sprite'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
@@ -67,10 +68,7 @@ export default function Combat() {
 
   // ── 多人联机相关 ──
   const [room, setRoom] = useState(null)  // null = 单人模式；非空 = 多人房间信息
-  const myUserId = useMemo(() => {
-    const u = JSON.parse(localStorage.getItem('user') || 'null')
-    return u?.user_id || null
-  }, [])
+  const { userId: myUserId } = useUser()
   // 我控制的角色 id（多人：从 SessionMember 推；单人：=playerId）
   const [myCharacterId, setMyCharacterId] = useState(null)
 

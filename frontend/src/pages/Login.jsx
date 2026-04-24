@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '../api/client'
 import { Divider } from '../components/Ornaments'
+import { setUser } from '../hooks/useUser'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -23,13 +24,13 @@ export default function Login() {
         : await authApi.login(username.trim(), password)
 
       localStorage.setItem('token', result.token)
-      localStorage.setItem('user', JSON.stringify({
+      setUser({
         user_id: result.user_id,
         id: result.user_id,
         username: result.username,
         displayName: result.display_name,
         display_name: result.display_name,
-      }))
+      })
 
       navigate('/')
     } catch (err) {

@@ -20,6 +20,7 @@ from services.combat_service import CombatService
 from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
+from services.character_roster import CharacterRoster
 from sqlalchemy.orm.attributes import flag_modified
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -456,10 +457,9 @@ async def _resolve_opportunity_attacks(
                     })
 
         # 队友
-        for cid in state.get("companion_ids", []):
-            companion = await db.get(Character, cid)
-            if not companion or companion.hp_current <= 0:
-                continue
+        _roster = CharacterRoster(db, session)
+        for companion in await _roster.companions_alive():
+            cid = companion.id
             cp = positions.get(str(cid))
             if not cp:
                 continue
@@ -607,19 +607,13 @@ async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
 
     session = await get_session_or_404(session_id, db)
     await db.refresh(session)  # 确保读取最新的 game_state
-    state         = session.game_state or {}
-    enemies       = state.get("enemies", [])
-    companion_ids = state.get("companion_ids", [])
+    state   = session.game_state or {}
+    enemies = state.get("enemies", [])
     entities: dict = {}
 
-    player = await db.get(Character, session.player_character_id)
-    if player:
-        entities[player.id] = entity_snapshot(player, is_enemy=False)
-
-    for cid in companion_ids:
-        c = await db.get(Character, cid)
-        if c:
-            entities[c.id] = entity_snapshot(c, is_enemy=False)
+    roster = CharacterRoster(db, session)
+    for c in await roster.party():
+        entities[c.id] = entity_snapshot(c, is_enemy=False)
 
     for e in enemies:
         entities[e["id"]] = {
@@ -1094,16 +1088,14 @@ async def combat_action(
                 helped_name = tchar.name
         else:
             # 自动选最低 HP 的队友
-            companion_ids = state.get("companion_ids", [])
+            _roster = CharacterRoster(db, session)
             best_cid, best_hp_pct = None, 1.1
-            for cid in companion_ids:
-                c = await db.get(Character, cid)
-                if c and c.hp_current > 0:
-                    pct = c.hp_current / max(1, (c.derived or {}).get("hp_max", 1))
-                    if pct < best_hp_pct:
-                        best_hp_pct = pct
-                        best_cid = cid
-                        helped_name = c.name
+            for c in await _roster.companions_alive():
+                pct = c.hp_current / max(1, (c.derived or {}).get("hp_max", 1))
+                if pct < best_hp_pct:
+                    best_hp_pct = pct
+                    best_cid = c.id
+                    helped_name = c.name
             if best_cid:
                 t_ts = _get_ts(combat, best_cid)
                 t_ts["being_helped"] = True
@@ -1438,12 +1430,10 @@ async def combat_action(
     if attack_result_dict["hit"] and p_class == "Rogue":
         has_adv = atk_adv or def_adv
         # Check ally adjacent to target
-        companion_ids = state.get("companion_ids", [])
+        _roster = CharacterRoster(db, session)
         ally_list = [{"id": session.player_character_id, "hp_current": player.hp_current if player else 0}]
-        for cid in companion_ids:
-            c = await db.get(Character, cid)
-            if c:
-                ally_list.append({"id": c.id, "hp_current": c.hp_current})
+        for c in await _roster.companions():
+            ally_list.append({"id": c.id, "hp_current": c.hp_current})
         ally_adj = _has_ally_adjacent_to(resolved_target_id, player_id, ally_list, positions)
 
         # Swashbuckler: check if no other enemy is adjacent to target
@@ -1998,12 +1988,10 @@ async def damage_roll(
     if p_class == "Rogue":
         positions = dict(combat.entity_positions or {})
         has_adv = pending.get("advantage", False)
-        companion_ids = state.get("companion_ids", [])
+        _roster = CharacterRoster(db, session)
         ally_list = [{"id": session.player_character_id, "hp_current": player.hp_current}]
-        for cid in companion_ids:
-            c = await db.get(Character, cid)
-            if c:
-                ally_list.append({"id": c.id, "hp_current": c.hp_current})
+        for c in await _roster.companions():
+            ally_list.append({"id": c.id, "hp_current": c.hp_current})
         ally_adj = _has_ally_adjacent_to(target_id, attacker_entity_id, ally_list, positions)
 
         # Swashbuckler: check if no other enemy is adjacent to attacker
@@ -3157,20 +3145,19 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     # ── AI 决策：选择目标和行动 ─────────────────────────────
     from services.ai_combat_agent import get_ai_decision, calc_difficulty
 
-    player = await db.get(Character, session.player_character_id)
+    _roster = CharacterRoster(db, session)
+    player = await _roster.player()
     companions_alive = []
-    for cid in state.get("companion_ids", []):
-        c = await db.get(Character, cid)
-        if c and c.hp_current > 0:
-            companions_alive.append({
-                "id": c.id, "name": c.name, "char_class": c.char_class, "level": c.level,
-                "hp_current": c.hp_current, "hp_max": (c.derived or {}).get("hp_max", c.hp_current),
-                "ac": (c.derived or {}).get("ac", 10), "derived": c.derived or {},
-                "conditions": c.conditions or [], "concentration": c.concentration,
-                "known_spells": c.known_spells or [], "cantrips": c.cantrips or [],
-                "spell_slots": c.spell_slots or {}, "is_player": c.is_player,
-                "equipment": c.equipment or {},
-            })
+    for c in await _roster.companions_alive():
+        companions_alive.append({
+            "id": c.id, "name": c.name, "char_class": c.char_class, "level": c.level,
+            "hp_current": c.hp_current, "hp_max": (c.derived or {}).get("hp_max", c.hp_current),
+            "ac": (c.derived or {}).get("ac", 10), "derived": c.derived or {},
+            "conditions": c.conditions or [], "concentration": c.concentration,
+            "known_spells": c.known_spells or [], "cantrips": c.cantrips or [],
+            "spell_slots": c.spell_slots or {}, "is_player": c.is_player,
+            "equipment": c.equipment or {},
+        })
 
     enemies_alive = [e for e in enemies if e.get("hp_current", 0) > 0]
 
@@ -4847,9 +4834,9 @@ async def cast_spell(
         # 치유류 AoE（群体治愈）
         elif spell["type"] == "heal":
             result_heal, dice_detail = spell_service.resolve_heal(req.spell_name, req.spell_level, spell_mod, bonus_healing)
-            companion_ids = (session.game_state or {}).get("companion_ids", [])
+            _roster = CharacterRoster(db, session)
             heal_ids = req.target_ids if req.target_ids else (
-                [session.player_character_id] + companion_ids
+                [session.player_character_id] + _roster.companion_ids()
             )
             for tid in heal_ids:
                 tc = await db.get(Character, tid)

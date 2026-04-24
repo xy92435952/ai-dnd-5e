@@ -22,6 +22,7 @@ from services.langgraph_client import langgraph_client as dify_client
 from services.dnd_rules import roll_skill_check, roll_initiative, roll_dice, _normalize_class, get_class_resource_defaults, HIT_DICE
 from services.context_builder import ContextBuilder
 from services.state_applicator import StateApplicator
+from services.character_roster import CharacterRoster
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -131,10 +132,8 @@ async def create_session(req: CreateSessionRequest, db: AsyncSession = Depends(g
     await db.flush()
 
     # 绑定角色到 session
-    for cid in req.companion_ids:
-        c = await db.get(Character, cid)
-        if c:
-            c.session_id = session.id
+    roster = CharacterRoster(db, session)
+    await roster.bind_companions(req.companion_ids)
 
     player = await db.get(Character, req.player_character_id)
     if player:
@@ -177,15 +176,11 @@ async def list_sessions(db: AsyncSession = Depends(get_db), user_id: str = Depen
 @router.get("/sessions/{session_id}")
 async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """获取会话完整状态（用于恢复游戏）"""
-    session       = await get_session_or_404(session_id, db)
-    player        = await db.get(Character, session.player_character_id)
-    module        = await db.get(Module, session.module_id) if session.module_id else None
-    companion_ids = (session.game_state or {}).get("companion_ids", [])
-    companions    = []
-    for cid in companion_ids:
-        c = await db.get(Character, cid)
-        if c:
-            companions.append(char_brief(c))
+    session    = await get_session_or_404(session_id, db)
+    roster     = CharacterRoster(db, session)
+    player     = await roster.player()
+    module     = await db.get(Module, session.module_id) if session.module_id else None
+    companions = [char_brief(c) for c in await roster.companions()]
 
     log_result = await db.execute(
         select(GameLog)
@@ -236,11 +231,8 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db), us
     await db.execute(sql_delete(GameLog).where(GameLog.session_id == session_id))
 
     # 删除关联的 AI 队友角色（非玩家角色）
-    companion_ids = (session.game_state or {}).get("companion_ids", [])
-    for cid in companion_ids:
-        companion = await db.get(Character, cid)
-        if companion and not companion.is_player:
-            await db.delete(companion)
+    roster = CharacterRoster(db, session)
+    await roster.delete_ai_companions()
 
     # 删除会话本身
     await db.delete(session)
@@ -303,12 +295,10 @@ async def player_action(
     else:
         player = await db.get(Character, session.player_character_id)
 
-    companion_ids = (session.game_state or {}).get("companion_ids", [])
-    characters: list[Character] = [player] if player else []
-    for cid in companion_ids:
-        c = await db.get(Character, cid)
-        if c:
-            characters.append(c)
+    # player 在多人模式下来自 SessionMember，单人模式下来自 session.player_character_id
+    # companions 统一走 roster
+    roster = CharacterRoster(db, session)
+    characters: list[Character] = ([player] if player else []) + await roster.companions()
 
     # ── 加载战斗状态（如果在战斗中）──
     combat_state: Optional[CombatState] = None
@@ -889,15 +879,8 @@ async def take_rest(
     session = await get_session_or_404(session_id, db)
     state   = session.game_state or {}
 
-    player    = await db.get(Character, session.player_character_id)
-    comp_ids  = state.get("companion_ids", [])
-    companions = []
-    for cid in comp_ids:
-        c = await db.get(Character, cid)
-        if c:
-            companions.append(c)
-
-    all_chars = ([player] if player else []) + companions
+    roster    = CharacterRoster(db, session)
+    all_chars = await roster.party()
     results   = []
 
     for char in all_chars:

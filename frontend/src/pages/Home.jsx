@@ -6,6 +6,7 @@ import { Divider } from '../components/Ornaments'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { TutorialEntryCard, TutorialHost, getTutorialProgress } from '../components/Tutorial'
+import { useUser } from '../hooks/useUser'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -25,10 +26,7 @@ export default function Home() {
   })
   const tutorialProgress = getTutorialProgress()
 
-  const me = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
-  })()
-  const displayName = me?.display_name || me?.displayName || me?.username || '冒险者'
+  const { user: me, displayName } = useUser()
 
   useEffect(() => { resetGame(); loadModules(); loadSessions() }, [])
 
