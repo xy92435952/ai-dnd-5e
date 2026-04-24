@@ -1071,11 +1071,25 @@ function splitCompanionReactions(content, companionList = []) {
   const text = String(content).trim()
   if (!text) return []
 
+  // ——— speaker 识别 ———
+  // 原正则 `([一-鿿·A-Za-z]{2,16})[:：]` 太宽松：
+  //   "低声从牙缝里挤出一句：" 整坨被当 speaker（后面有冒号就能匹配）
+  // 修法：无方括号的 candidate 必须在 companions 白名单里才接受；
+  //      方括号 [名字] 保持宽松（玩家/模组显式标注）
   const namePattern = /(?:\[([^\]]{1,16})\]|([一-鿿·A-Za-z]{2,16}))[:：]\s*/g
+  const companionNames = (companionList || [])
+    .map(c => c?.name).filter(Boolean)
+  const isKnownCompanion = (candidate) => companionNames.some(n =>
+    n === candidate || n.includes(candidate) || candidate.includes(n))
   const matches = []
   let m
   while ((m = namePattern.exec(text)) !== null) {
-    matches.push({ idx: m.index, nameEnd: m.index + m[0].length, speaker: (m[1] || m[2]).trim() })
+    const candidate = (m[1] || m[2]).trim()
+    // 方括号捕获：直接采用（模组/玩家显式标注）
+    // 无方括号：必须命中队友白名单，否则跳过（避免"低声从牙缝里挤出一句"这种动作描述被误识别）
+    if (m[1] || isKnownCompanion(candidate)) {
+      matches.push({ idx: m.index, nameEnd: m.index + m[0].length, speaker: candidate })
+    }
   }
 
   const raw = []
@@ -1087,8 +1101,10 @@ function splitCompanionReactions(content, companionList = []) {
       if (say) raw.push({ speaker: cur.speaker, text: say })
     }
   } else {
+    // 没匹配到任何名字 → 用队伍里第一个队友兜底（至少显示真实名字而不是动作第一字）
+    const fallbackSpeaker = companionNames[0] || '队友'
     text.split(/\n+/).filter(Boolean).forEach(line => {
-      raw.push({ speaker: '队友', text: line.trim() })
+      raw.push({ speaker: fallbackSpeaker, text: line.trim() })
     })
   }
 
