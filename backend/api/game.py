@@ -675,6 +675,22 @@ async def player_action(
         except Exception:
             pass
 
+        # 真实跑团节奏：DM 回应后**自动**轮到下一位玩家
+        # （之前玩家需要手动点"我说完了"，现在自动推进）
+        # 探索阶段生效；战斗阶段由先攻顺序管理，不走这里
+        if not session.combat_active and not ar.combat_triggered:
+            try:
+                from api.ws import _advance_speaker
+                next_user = await _advance_speaker(db, session.id, user_id)
+                if next_user:
+                    await ws_manager.broadcast(session.id, {
+                        "type": "dm_speak_turn",
+                        "user_id": next_user,
+                        "auto": True,  # 标记是自动推进，前端可用来决定是否播提示音
+                    })
+            except Exception:
+                pass
+
     return {
         "type":               ar.action_type,
         "narrative":          ar.narrative,

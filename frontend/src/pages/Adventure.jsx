@@ -129,6 +129,31 @@ export default function Adventure() {
   const isMySpeakTurn = !room || !currentSpeakerUid || currentSpeakerUid === myUserId
   const currentSpeakerName = (room?.members || []).find(m => m.user_id === currentSpeakerUid)?.display_name
 
+  // 轮到自己时：音效提示 + 标题栏闪烁
+  // 仅多人模式生效（单人不需要提示）
+  const prevSpeakerRef = useRef(null)
+  useEffect(() => {
+    if (!room) { prevSpeakerRef.current = null; return }
+    const prev = prevSpeakerRef.current
+    prevSpeakerRef.current = currentSpeakerUid
+    // 检测"刚变成自己的回合"
+    if (prev && prev !== myUserId && currentSpeakerUid === myUserId) {
+      try { JuiceAudio.turn() } catch (e) {}
+      // 标题栏闪烁 4 次
+      const original = document.title
+      let flipCount = 0
+      const timer = setInterval(() => {
+        document.title = flipCount % 2 === 0 ? '⚔ 轮到你了 · 说点什么' : original
+        flipCount++
+        if (flipCount >= 8) {
+          clearInterval(timer)
+          document.title = original
+        }
+      }, 600)
+      return () => { clearInterval(timer); document.title = original }
+    }
+  }, [currentSpeakerUid, myUserId, room])
+
   // ── 数据加载 ──
   useEffect(() => { loadSession() }, [sessionId])
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs, pendingCheck])
@@ -467,12 +492,13 @@ export default function Adventure() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           zIndex: 5,
         }}>
-          <span>{isMySpeakTurn ? '✓ 你的发言时机' : `等待 ${currentSpeakerName || '其他玩家'} 发言…`}</span>
+          <span>{isMySpeakTurn ? '✦ 轮到你了 · 说一句你的行动，DM 会回应并自动轮到下一位' : `等待 ${currentSpeakerName || '其他玩家'} 发言…`}</span>
           <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {isMySpeakTurn && currentSpeakerUid && (
               <button onClick={() => wsSend({ type: 'speak_done' })}
-                style={{ padding: '3px 10px', fontSize: 11, background: 'var(--amber)', color: '#1a120b', border: 'none', borderRadius: 3, cursor: 'pointer', fontWeight: 'bold' }}>
-                我说完了 →
+                title="跳过本轮，不说话也不发起行动"
+                style={{ padding: '3px 10px', fontSize: 11, background: 'transparent', color: 'var(--amber)', border: '1px solid var(--amber)', borderRadius: 3, cursor: 'pointer' }}>
+                跳过本轮 ↷
               </button>
             )}
             <span style={{ fontSize: 11, opacity: 0.8 }}>房间码 {room.room_code}</span>
