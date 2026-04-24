@@ -123,7 +123,21 @@ export default function Adventure() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, myUserId, companions, buildDialogueQueue, setIsLoading])
 
-  const { send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
+  const { connected: wsConnected, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
+
+  // WS 重连成功时补漏：断线期间错过的广播事件（dm_responded / dm_speak_turn）不会 replay，
+  // 重连后主动 loadSession 一次拉取最新 logs + game_state.last_turn
+  const prevWsConnectedRef = useRef(false)
+  useEffect(() => {
+    if (!room) return
+    const wasDisconnected = !prevWsConnectedRef.current
+    if (wsConnected && wasDisconnected && session) {
+      // 从断开到连上：补漏
+      loadSession()
+    }
+    prevWsConnectedRef.current = wsConnected
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsConnected, room])
 
   const currentSpeakerUid = room?._currentSpeaker
   const isMySpeakTurn = !room || !currentSpeakerUid || currentSpeakerUid === myUserId
@@ -168,6 +182,28 @@ export default function Adventure() {
       setCompanions(data.companions || [])
       setCombatActive(false)
       if (data.combat_active) navigate(`/combat/${sessionId}`)
+
+      // ── 恢复 last_turn：页面刷新 / WS 重连后能看到之前的选项和检定 ──
+      // 仅在 "自己是最近一次 actor" 时恢复（避免非发言者误看到别人的 choices）
+      // 单人模式下没有 last_actor_user_id 概念，都恢复
+      const lt = data.game_state?.last_turn
+      if (lt) {
+        const myU = JSON.parse(localStorage.getItem('user') || 'null')
+        const myId = myU?.user_id || myU?.id || null
+        const isMine = !data.is_multiplayer || !lt.last_actor_user_id || lt.last_actor_user_id === myId
+        if (isMine) {
+          if (Array.isArray(lt.player_choices) && lt.player_choices.length) {
+            setChoices(lt.player_choices)
+          }
+          if (lt.needs_check?.required) {
+            setPendingCheck(lt.needs_check)
+          }
+        } else {
+          // 别人的回合：清空自己的选项，避免视觉混乱
+          setChoices([])
+          setPendingCheck(null)
+        }
+      }
 
       // ── 首次进入检测：如果只有 1 条 DM 开场叙事 + 对话队列空 → 自动启动剧场模式 ──
       // 单人模式 /game/sessions POST 后进入就是这个状态

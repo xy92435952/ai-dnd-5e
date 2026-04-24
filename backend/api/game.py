@@ -7,6 +7,7 @@
   其余端点（sessions CRUD / skill-check / journal / checkpoint / rest）保持不变
 """
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -652,6 +653,21 @@ async def player_action(
         )
 
     combat_update = None
+
+    # 持久化最近一次回合的对话状态（供页面刷新 / WS 断线重连恢复）
+    # - player_choices / needs_check 原本只在 HTTP 响应里返回，页面刷新后丢失
+    # - last_actor_user_id 供前端判断"是不是我上次的选项"决定是否恢复
+    gs = dict(session.game_state or {})  # 拷贝一份，避免引用问题
+    gs["last_turn"] = {
+        "player_choices":      ar.player_choices or [],
+        "needs_check":         ar.needs_check if (ar.needs_check and ar.needs_check.get("required")) else None,
+        "last_actor_user_id":  user_id,
+        "action_type":         ar.action_type,
+        "ts":                  datetime.utcnow().isoformat(),
+    }
+    session.game_state = gs
+    flag_modified(session, "game_state")
+
     await db.commit()
 
     # 多人联机：广播 DM 响应到房间所有人
