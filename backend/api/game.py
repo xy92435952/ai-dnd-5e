@@ -467,7 +467,6 @@ async def player_action(
 
                             state["enemies"] = enemies
                             session.game_state = dict(state)
-                            from sqlalchemy.orm.attributes import flag_modified
                             flag_modified(session, "game_state")
                     action_used = True
 

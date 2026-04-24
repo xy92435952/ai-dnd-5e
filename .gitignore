@@ -61,3 +61,8 @@ nul
 # Logs
 uvicorn.log
 
+# 测试产物
+.pytest_cache/
+backend/tests/_tmp_*
+backend/tests/**/.pytest_cache/
+
