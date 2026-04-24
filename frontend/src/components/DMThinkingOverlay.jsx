@@ -1,16 +1,16 @@
 /**
  * DMThinkingOverlay — DM 思考中沉浸式等待层
  * ==========================================
- * 当 isLoading=true 时覆盖在对话舞台上：
- *   - 顶部金色流光加载条
- *   - 中央符文环 + 兜帽老者 silhouette + 金色双眼（偶尔眨）
- *   - 下方"艾尔德林 · 编织故事中 ..." + 跳动的三点
- *   - 底部每 2.8s 轮播一条"思考提示词"
+ * 当 isLoading=true 时覆盖在对话舞台上。
+ * 结构（垂直 flex）：
+ *   ① Stack       — 符文环 + 兜帽老者 silhouette（3 层叠加）
+ *   ② Title       — "艾尔德林 · 编织故事中 ●●●"
+ *   ③ Hint        — 每 2.8s 轮播的提示词
+ *
+ * 顶部额外浮动一条金色流光条（z-index 最高）。
  *
  * 用法：
  *   <DMThinkingOverlay visible={isLoading} />
- *
- * 挂在 .dialogue-stage 里即可（绝对定位覆盖整个舞台）。
  */
 
 import { useEffect, useState } from 'react'
@@ -45,42 +45,42 @@ export default function DMThinkingOverlay({ visible }) {
 
   return (
     <div className="dm-thinking-overlay" aria-live="polite" aria-label="地下城主正在思考">
-      {/* 顶部金色流光条 */}
+      {/* 顶部金色流光条（最高 z-index） */}
       <div className="dm-thinking-topbar" />
 
-      {/* 背景暗化 + 轻微模糊 */}
+      {/* 背景暗化 + 轻模糊 */}
       <div className="dm-thinking-bg" />
 
+      {/* 主内容：垂直 flex */}
       <div className="dm-thinking-content">
-        {/* 外层旋转符文环 */}
-        <div className="dm-thinking-ring outer" aria-hidden="true">
-          <svg viewBox="0 0 240 240" width="240" height="240">
-            <g fill="none" stroke="rgba(240,208,96,.55)" strokeWidth="1">
-              <circle cx="120" cy="120" r="110" strokeDasharray="4 6" />
-              <circle cx="120" cy="120" r="92" />
-            </g>
-            <g fill="rgba(240,208,96,.8)" fontFamily="serif" fontSize="14" textAnchor="middle">
-              <text x="120" y="14">✦</text>
-              <text x="120" y="232">✦</text>
-              <text x="14" y="124">❖</text>
-              <text x="228" y="124">❖</text>
-            </g>
-          </svg>
+
+        {/* ① 视觉中心：3 层叠加（外环 / 内环 / portrait） */}
+        <div className="dm-thinking-stack">
+          <div className="dm-thinking-ring outer" aria-hidden="true">
+            <svg viewBox="0 0 240 240" width="240" height="240">
+              <g fill="none" stroke="rgba(240,208,96,.55)" strokeWidth="1">
+                <circle cx="120" cy="120" r="110" strokeDasharray="4 6" />
+                <circle cx="120" cy="120" r="92" />
+              </g>
+              <g fill="rgba(240,208,96,.8)" fontFamily="serif" fontSize="14" textAnchor="middle">
+                <text x="120" y="14">✦</text>
+                <text x="120" y="232">✦</text>
+                <text x="14" y="124">❖</text>
+                <text x="228" y="124">❖</text>
+              </g>
+            </svg>
+          </div>
+
+          <div className="dm-thinking-ring inner" aria-hidden="true" />
+
+          <div className="dm-thinking-portrait" aria-hidden="true">
+            <div className="hood" />
+            <div className="eye left" />
+            <div className="eye right" />
+          </div>
         </div>
 
-        {/* 内层反向旋转环 */}
-        <div className="dm-thinking-ring inner" aria-hidden="true" />
-
-        {/* 兜帽老者 silhouette */}
-        <div className="dm-thinking-portrait" aria-hidden="true">
-          {/* 兜帽剪影（纯 CSS 模拟） */}
-          <div className="hood" />
-          {/* 两只发光眼 */}
-          <div className="eye left" />
-          <div className="eye right" />
-        </div>
-
-        {/* 标题 + 三点 */}
+        {/* ② 标题 */}
         <div className="dm-thinking-title">
           <span className="name">艾尔德林</span>
           <span className="sep">·</span>
@@ -90,7 +90,7 @@ export default function DMThinkingOverlay({ visible }) {
           </span>
         </div>
 
-        {/* 轮播提示词 */}
+        {/* ③ 轮播提示词 */}
         <div className="dm-thinking-hint" key={hintIdx}>
           ✦ {HINTS[hintIdx]} ✦
         </div>

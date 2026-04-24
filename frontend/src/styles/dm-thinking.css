@@ -6,7 +6,7 @@
   position: absolute;
   inset: 0;
   z-index: 50;
-  pointer-events: none;              /* 不挡住玩家偶尔的其它操作 */
+  pointer-events: none;      /* 不阻挡底层元素点击 */
   overflow: hidden;
 }
 
@@ -45,33 +45,43 @@
   100% { background-position: 150% 0; }
 }
 
-/* ── 中央内容容器 ── */
+/* ── 主内容容器：垂直 flex 居中 ── */
 .dm-thinking-content {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  grid-template-rows: 1fr auto auto;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 30px 20px;
   animation: dmContentFade .5s ease-out .1s both;
 }
 
-.dm-thinking-content > * {
+/* ── Stack：符文环 + portrait 三层叠加 ── */
+.dm-thinking-stack {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.dm-thinking-stack > * {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1;        /* 三层都叠在同一个格 */
 }
 
-/* ── 符文环（双层，相反旋转方向） ── */
-.dm-thinking-ring {
-  position: relative;
-  pointer-events: none;
-  filter: drop-shadow(0 0 12px rgba(240, 208, 96, .35));
-}
+/* 外层符文环 */
 .dm-thinking-ring.outer {
   width: 240px;
   height: 240px;
+  pointer-events: none;
   animation: dmRingSpin 12s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(240, 208, 96, .35));
 }
+
+/* 内层反向旋转环 */
 .dm-thinking-ring.inner {
   width: 160px;
   height: 160px;
@@ -103,7 +113,6 @@
   animation: dmPortraitPulse 3.4s ease-in-out infinite;
 }
 
-/* 兜帽剪影（用渐变画出"披着兜帽"的感觉） */
 .dm-thinking-portrait .hood {
   position: absolute;
   inset: 0;
@@ -117,7 +126,6 @@
   pointer-events: none;
 }
 
-/* 金色发光眼睛 */
 .dm-thinking-portrait .eye {
   position: absolute;
   top: 40%;
@@ -131,8 +139,7 @@
   animation: dmEyeFlicker 3.2s ease-in-out infinite;
 }
 .dm-thinking-portrait .eye.left  { left: 30%; }
-.dm-thinking-portrait .eye.right { right: 30%; }
-.dm-thinking-portrait .eye.right { animation-delay: .2s; }
+.dm-thinking-portrait .eye.right { right: 30%; animation-delay: .2s; }
 
 @keyframes dmPortraitPulse {
   0%, 100% { box-shadow: 0 0 0 1px rgba(240, 208, 96, .6), 0 0 0 3px rgba(240, 208, 96, .15), 0 0 24px rgba(240, 208, 96, .35), inset 0 0 20px rgba(0, 0, 0, .85); }
@@ -146,9 +153,6 @@
 
 /* ── 标题（名字 + 角色 + 三点） ── */
 .dm-thinking-title {
-  grid-row: 2;
-  align-self: end;
-  margin-top: 24px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -157,6 +161,7 @@
   letter-spacing: .22em;
   color: var(--amber, #f0d060);
   text-shadow: 0 0 16px rgba(240, 208, 96, .55);
+  flex-shrink: 0;
 }
 .dm-thinking-title .name {
   background: linear-gradient(180deg, #fff8dd, var(--amber, #f0d060) 70%, #8a5a18);
@@ -165,9 +170,7 @@
   color: transparent;
   font-weight: 700;
 }
-.dm-thinking-title .sep {
-  opacity: .55;
-}
+.dm-thinking-title .sep { opacity: .55; }
 .dm-thinking-title .role {
   font-family: var(--font-script, serif);
   font-style: italic;
@@ -198,10 +201,8 @@
 
 /* ── 底部轮播提示词 ── */
 .dm-thinking-hint {
-  grid-row: 3;
-  align-self: end;
-  margin-top: 14px;
   min-height: 26px;
+  max-width: 90%;
   font-family: var(--font-script, serif);
   font-style: italic;
   font-size: 14px;
@@ -209,6 +210,7 @@
   letter-spacing: .08em;
   text-align: center;
   animation: dmHintSlide .6s ease-out;
+  flex-shrink: 0;
 }
 
 @keyframes dmHintSlide {
@@ -225,6 +227,18 @@
 @keyframes dmContentFade {
   from { opacity: 0; transform: scale(.95); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── 小屏适配：舞台高度不够时收缩 ── */
+@media (max-height: 700px) {
+  .dm-thinking-stack { width: 180px; height: 180px; }
+  .dm-thinking-ring.outer { width: 180px; height: 180px; }
+  .dm-thinking-ring.outer svg { width: 180px; height: 180px; }
+  .dm-thinking-ring.inner { width: 120px; height: 120px; }
+  .dm-thinking-portrait { width: 72px; height: 72px; }
+  .dm-thinking-content { gap: 14px; padding: 20px 16px; }
+  .dm-thinking-title { font-size: 15px; }
+  .dm-thinking-hint { font-size: 12.5px; }
 }
 
 /* ── 减动画媒体查询（尊重用户偏好） ── */
