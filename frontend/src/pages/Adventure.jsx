@@ -29,6 +29,9 @@ import DMThinkingOverlay from '../components/DMThinkingOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 import { renderLightMarkdown } from '../utils/markdown'
 import { useUser } from '../hooks/useUser'
+import RestModal from '../components/adventure/RestModal'
+import JournalModal from '../components/adventure/JournalModal'
+import PrepareSpellsModal from '../components/adventure/PrepareSpellsModal'
 
 export default function Adventure() {
   const { sessionId } = useParams()
@@ -1265,109 +1268,4 @@ function extractNarrative(content) {
     }
   }
   return trimmed
-}
-
-// ═══════════════════════════════════════════════════════════
-// Modals —— 保留原版（Overlay / RestModal / JournalModal / PrepareSpellsModal）
-// ═══════════════════════════════════════════════════════════
-
-function Overlay({ children, onClose }) {
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={e => e.stopPropagation()} className="panel" style={{ padding: 24, width: 500, maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: 16, borderColor: 'var(--bark-light)' }}>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function RestModal({ onRest, onClose }) {
-  return (
-    <Overlay onClose={onClose}>
-      <h3 style={{ color: 'var(--amber)', margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <RestIcon size={18} color="var(--amber)" /> 休息
-      </h3>
-      <button className="btn-fantasy" style={{ padding: 14, textAlign: 'left' }} onClick={() => onRest('long')}>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>🌙 长休（8小时）</div>
-        <div style={{ fontSize: 12, opacity: 0.6 }}>HP 全满 · 法术位全恢复 · 清除大多数状态条件</div>
-      </button>
-      <button className="btn-fantasy" style={{ padding: 14, textAlign: 'left' }} onClick={() => onRest('short')}>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>☕ 短休（1小时）</div>
-        <div style={{ fontSize: 12, opacity: 0.6 }}>消耗一颗生命骰恢复 HP · 魔契者恢复法术位</div>
-      </button>
-      <button className="btn-fantasy" style={{ padding: 8, opacity: 0.6 }} onClick={onClose}>取消</button>
-    </Overlay>
-  )
-}
-
-function JournalModal({ text, loading, onGenerate, onClose }) {
-  return (
-    <Overlay onClose={onClose}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ color: 'var(--amber)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <JournalIcon size={18} color="var(--amber)" /> 冒险日志
-        </h3>
-        <button onClick={onClose} style={{ color: 'var(--parchment-dark)', fontSize: 22, background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 200, maxHeight: '55vh', background: '#0a0604', borderRadius: 8, padding: 16, border: '1px solid var(--bark)' }}>
-        {loading ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--amber)' }}>DM 正在撰写日志...</div>
-         : text ? <p style={{ color: 'var(--parchment)', lineHeight: 1.9, fontSize: 14, whiteSpace: 'pre-wrap', margin: 0 }}>{text}</p>
-         : <p style={{ color: 'var(--parchment-dark)', textAlign: 'center', marginTop: 32, fontSize: 13 }}>点击下方按钮生成本次冒险的叙述日志</p>}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onGenerate} disabled={loading}>{loading ? '生成中...' : '🔄 重新生成'}</button>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onClose}>关闭</button>
-      </div>
-    </Overlay>
-  )
-}
-
-function PrepareSpellsModal({ player, onSave, onClose }) {
-  const derived = player.derived || {}
-  const mods = derived.ability_modifiers || {}
-  const spellMod = derived.spell_ability ? (mods[derived.spell_ability] || 0) : 0
-  const maxPrepared = Math.max(1, player.level + spellMod)
-  const [selected, setSelected] = useState(new Set(player.prepared_spells || []))
-  const toggle = (s) => setSelected(prev => {
-    const n = new Set(prev)
-    if (n.has(s)) n.delete(s)
-    else if (n.size < maxPrepared) n.add(s)
-    return n
-  })
-
-  return (
-    <Overlay onClose={onClose}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h3 style={{ color: 'var(--amethyst-light)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <BookIcon size={18} color="var(--amethyst-light)" /> 准备法术
-          </h3>
-          <p style={{ color: 'var(--parchment-dark)', fontSize: 12, margin: '4px 0 0' }}>上限：{selected.size}/{maxPrepared}</p>
-        </div>
-        <button onClick={onClose} style={{ color: 'var(--parchment-dark)', fontSize: 22, background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-        {(player.known_spells || []).map(spell => {
-          const sel = selected.has(spell), can = sel || selected.size < maxPrepared
-          return (
-            <button
-              key={spell}
-              onClick={() => toggle(spell)}
-              className="btn-fantasy"
-              style={{
-                textAlign: 'left', opacity: can ? 1 : 0.4,
-                borderColor: sel ? 'var(--amethyst)' : undefined,
-                background: sel ? 'rgba(138,79,212,0.15)' : undefined,
-                color: sel ? 'var(--amethyst-light)' : undefined,
-              }}
-            >{sel ? '✓ ' : ''}{spell}</button>
-          )
-        })}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button className="btn-gold" style={{ padding: '8px 16px', fontSize: 13 }} onClick={() => onSave([...selected])}>确认（{selected.size}/{maxPrepared}）</button>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onClose}>取消</button>
-      </div>
-    </Overlay>
-  )
 }
