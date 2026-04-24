@@ -204,6 +204,10 @@ export default function Adventure() {
   }
 
   // ── 打字机效果：每当 dialogueIdx 变化，逐字显示当前段 ──
+  //   按文本长度分级速度，避免"长队友反应打 20 秒玩家等不住"：
+  //     ≤ 60 字：正常  30 ms/字
+  //     60-150 字：加速 18 ms/字
+  //     > 150 字：跳过打字机，整段淡入（极长叙述时最友好）
   useEffect(() => {
     if (dialogueMode !== 'stage') return
     if (dialogueIdx >= dialogueQueue.length) return
@@ -212,15 +216,28 @@ export default function Adventure() {
     setTypingText('')
     setTypingDone(false)
     const full = seg.text || ''
+    const len = full.length
+
+    // 极长文本：不走打字机，下一帧直接显示完整内容（保留淡入动画由 CSS 处理）
+    if (len > 150) {
+      typingTimerRef.current = setTimeout(() => {
+        setTypingText(full)
+        setTypingDone(true)
+      }, 60)
+      return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current) }
+    }
+
+    // 分级速度
+    const interval = len > 60 ? 18 : 30
     let i = 0
     const step = () => {
       i += 1
       setTypingText(full.slice(0, i))
-      if (i >= full.length) {
+      if (i >= len) {
         setTypingDone(true)
         return
       }
-      typingTimerRef.current = setTimeout(step, 30)
+      typingTimerRef.current = setTimeout(step, interval)
     }
     typingTimerRef.current = setTimeout(step, 60)
     return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current) }
