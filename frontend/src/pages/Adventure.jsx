@@ -287,8 +287,10 @@ export default function Adventure() {
         else if (result.success)    { JuiceAudio.unlock() }
         else                        { JuiceAudio.miss() }
       } catch (e) {}
+      // 带 context（原选项文本）一起送给 DM，避免丢失行动上下文
+      const ctxPart = pendingCheck.context ? ` 我的行动："${pendingCheck.context}"` : ''
       setPendingCheck(null)
-      const autoMsg = `[${pendingCheck.check_type}检定 ${result.success ? '成功' : '失败'}: ${result.total} vs DC${pendingCheck.dc}]`
+      const autoMsg = `[${pendingCheck.check_type}检定 ${result.success ? '成功' : '失败'}: ${result.total} vs DC${pendingCheck.dc}]${ctxPart}`
       setTimeout(() => handleAction(autoMsg), 800)
     } catch (e) {
       addLog('system', `检定失败: ${e.message}`, 'system'); setPendingCheck(null)
@@ -593,7 +595,26 @@ export default function Adventure() {
                             key={i}
                             className={`choice ${obj.action ? 'action' : ''} ${obj.ended ? 'ended' : ''}`}
                             onMouseEnter={() => { try { JuiceAudio.hover() } catch (e) {} }}
-                            onClick={() => { try { JuiceAudio.select() } catch (e) {}; handleAction(obj.text) }}
+                            onClick={() => {
+                              try { JuiceAudio.select() } catch (e) {}
+                              // 带 skill_check 标记的选项：前端直接进入掷骰流程
+                              // （不要先把文本送给 DM，否则检定可能被跳过）
+                              const checkTag = obj.skill_check
+                                ? (obj.tags || []).find(t => t.dc != null)
+                                : null
+                              if (checkTag && checkTag.dc != null) {
+                                const kind = (checkTag.kind || 'check').toLowerCase()
+                                const skillZh = KIND_TO_SKILL_ZH[kind] || checkTag.label || '检定'
+                                setPendingCheck({
+                                  check_type: skillZh,
+                                  dc: Number(checkTag.dc),
+                                  character_id: player?.id,
+                                  context: obj.text,  // 原选项文本，UI 会显示 + 检定后带给 DM
+                                })
+                                return
+                              }
+                              handleAction(obj.text)
+                            }}
                             disabled={isLoading || (room && !isMySpeakTurn)}
                           >
                             <span className="idx">{i + 1}</span>
