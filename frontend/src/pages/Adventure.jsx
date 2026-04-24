@@ -25,6 +25,7 @@ import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { BookIcon, RestIcon, JournalIcon } from '../components/Icons'
 import DialogueHistoryView from '../components/DialogueHistoryView'
+import DMThinkingOverlay from '../components/DMThinkingOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 
 export default function Adventure() {
@@ -516,6 +517,9 @@ export default function Adventure() {
           </div>
 
           <div className="stage-letterbox bottom" />
+
+          {/* DM 正在思考覆盖层（沉浸式等待状态） */}
+          <DMThinkingOverlay visible={isLoading} />
         </div>
 
         {/* 对话气泡 + 选项 */}
@@ -664,7 +668,7 @@ export default function Adventure() {
                       value={input}
                       onChange={e => setInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAction() } }}
-                      placeholder={isLoading ? '…DM 正在思考…' : (room && !isMySpeakTurn ? '等待发言权…' : '描述你的行动，或按上方编号快捷回应')}
+                      placeholder={isLoading ? '✦ 地下城主正在编织命运… ✦' : (room && !isMySpeakTurn ? '等待发言权…' : '描述你的行动，或按上方编号快捷回应')}
                       disabled={isLoading || (room && !isMySpeakTurn)}
                     />
                     <button

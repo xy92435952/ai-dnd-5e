@@ -1,0 +1,240 @@
+/* ═══════════════════════════════════════════════════════════
+   DM Thinking Overlay — 沉浸式"DM 正在思考"等待层
+   ═══════════════════════════════════════════════════════════ */
+
+.dm-thinking-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;              /* 不挡住玩家偶尔的其它操作 */
+  overflow: hidden;
+}
+
+/* ── 背景暗化 + 轻模糊 ── */
+.dm-thinking-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(30, 18, 6, .55) 0%, rgba(6, 4, 2, .82) 80%);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: dmFadeIn .4s ease-out forwards;
+}
+
+/* ── 顶部金色流光加载条 ── */
+.dm-thinking-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(240, 208, 96, .2) 20%,
+      rgba(255, 232, 144, 1) 50%,
+      rgba(240, 208, 96, .2) 80%,
+      transparent 100%);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: dmTopbar 1.6s linear infinite;
+  box-shadow: 0 0 10px rgba(240, 208, 96, .5);
+  z-index: 3;
+}
+
+@keyframes dmTopbar {
+  0%   { background-position: -50% 0; }
+  100% { background-position: 150% 0; }
+}
+
+/* ── 中央内容容器 ── */
+.dm-thinking-content {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  grid-template-rows: 1fr auto auto;
+  padding: 20px;
+  animation: dmContentFade .5s ease-out .1s both;
+}
+
+.dm-thinking-content > * {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+/* ── 符文环（双层，相反旋转方向） ── */
+.dm-thinking-ring {
+  position: relative;
+  pointer-events: none;
+  filter: drop-shadow(0 0 12px rgba(240, 208, 96, .35));
+}
+.dm-thinking-ring.outer {
+  width: 240px;
+  height: 240px;
+  animation: dmRingSpin 12s linear infinite;
+}
+.dm-thinking-ring.inner {
+  width: 160px;
+  height: 160px;
+  border: 1px dashed rgba(240, 208, 96, .5);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 24px rgba(240, 208, 96, .18),
+    0 0 20px rgba(240, 208, 96, .2);
+  animation: dmRingSpin 8s linear infinite reverse;
+}
+
+@keyframes dmRingSpin {
+  from { transform: rotate(0); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── 中央兜帽老者 silhouette ── */
+.dm-thinking-portrait {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, #2a1810 0%, #120806 55%, #050302 90%);
+  box-shadow:
+    0 0 0 1px rgba(240, 208, 96, .6),
+    0 0 0 3px rgba(240, 208, 96, .15),
+    0 0 28px rgba(240, 208, 96, .4),
+    inset 0 0 20px rgba(0, 0, 0, .85);
+  animation: dmPortraitPulse 3.4s ease-in-out infinite;
+}
+
+/* 兜帽剪影（用渐变画出"披着兜帽"的感觉） */
+.dm-thinking-portrait .hood {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 20%,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(0, 0, 0, 0) 30%,
+      rgba(0, 0, 0, .6) 55%,
+      rgba(0, 0, 0, .9) 80%);
+  pointer-events: none;
+}
+
+/* 金色发光眼睛 */
+.dm-thinking-portrait .eye {
+  position: absolute;
+  top: 40%;
+  width: 6px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe890 0%, #c88820 50%, transparent 80%);
+  box-shadow:
+    0 0 6px #ffd850,
+    0 0 12px rgba(240, 160, 40, .6);
+  animation: dmEyeFlicker 3.2s ease-in-out infinite;
+}
+.dm-thinking-portrait .eye.left  { left: 30%; }
+.dm-thinking-portrait .eye.right { right: 30%; }
+.dm-thinking-portrait .eye.right { animation-delay: .2s; }
+
+@keyframes dmPortraitPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(240, 208, 96, .6), 0 0 0 3px rgba(240, 208, 96, .15), 0 0 24px rgba(240, 208, 96, .35), inset 0 0 20px rgba(0, 0, 0, .85); }
+  50%      { box-shadow: 0 0 0 1px rgba(240, 208, 96, .9), 0 0 0 4px rgba(240, 208, 96, .25), 0 0 40px rgba(240, 208, 96, .65), inset 0 0 20px rgba(0, 0, 0, .85); }
+}
+
+@keyframes dmEyeFlicker {
+  0%, 88%, 100% { opacity: 1; transform: scaleY(1); }
+  91%, 95%      { opacity: .15; transform: scaleY(.3); }
+}
+
+/* ── 标题（名字 + 角色 + 三点） ── */
+.dm-thinking-title {
+  grid-row: 2;
+  align-self: end;
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display, serif);
+  font-size: 17px;
+  letter-spacing: .22em;
+  color: var(--amber, #f0d060);
+  text-shadow: 0 0 16px rgba(240, 208, 96, .55);
+}
+.dm-thinking-title .name {
+  background: linear-gradient(180deg, #fff8dd, var(--amber, #f0d060) 70%, #8a5a18);
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  font-weight: 700;
+}
+.dm-thinking-title .sep {
+  opacity: .55;
+}
+.dm-thinking-title .role {
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--parchment, #e8c8a0);
+  letter-spacing: .12em;
+}
+.dm-thinking-title .dots {
+  display: inline-flex;
+  gap: 5px;
+  margin-left: 4px;
+}
+.dm-thinking-title .dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber, #f0d060);
+  box-shadow: 0 0 8px rgba(240, 208, 96, .7);
+  animation: dmDot 1.3s ease-in-out infinite;
+}
+.dm-thinking-title .dots span:nth-child(2) { animation-delay: .18s; }
+.dm-thinking-title .dots span:nth-child(3) { animation-delay: .36s; }
+
+@keyframes dmDot {
+  0%, 65%, 100% { transform: scale(.7); opacity: .35; }
+  32%           { transform: scale(1.3); opacity: 1; }
+}
+
+/* ── 底部轮播提示词 ── */
+.dm-thinking-hint {
+  grid-row: 3;
+  align-self: end;
+  margin-top: 14px;
+  min-height: 26px;
+  font-family: var(--font-script, serif);
+  font-style: italic;
+  font-size: 14px;
+  color: rgba(232, 200, 160, .82);
+  letter-spacing: .08em;
+  text-align: center;
+  animation: dmHintSlide .6s ease-out;
+}
+
+@keyframes dmHintSlide {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 公用 fade-in */
+@keyframes dmFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes dmContentFade {
+  from { opacity: 0; transform: scale(.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── 减动画媒体查询（尊重用户偏好） ── */
+@media (prefers-reduced-motion: reduce) {
+  .dm-thinking-ring,
+  .dm-thinking-topbar,
+  .dm-thinking-portrait,
+  .dm-thinking-portrait .eye,
+  .dm-thinking-title .dots span {
+    animation: none !important;
+  }
+  .dm-thinking-hint { animation-duration: 0s !important; }
+}
