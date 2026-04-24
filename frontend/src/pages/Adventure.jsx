@@ -117,11 +117,32 @@ export default function Adventure() {
     try {
       const data = await gameApi.getSession(sessionId)
       setSession(data)
-      setLogs(data.logs || [])
+      const loadedLogs = data.logs || []
+      setLogs(loadedLogs)
       setPlayer(data.player)
       setCompanions(data.companions || [])
       setCombatActive(false)
       if (data.combat_active) navigate(`/combat/${sessionId}`)
+
+      // ── 首次进入检测：如果只有 1 条 DM 开场叙事 + 对话队列空 → 自动启动剧场模式 ──
+      // 单人模式 /game/sessions POST 后进入就是这个状态
+      // 多人模式 room_service.start_game() 首次触发也是这个状态
+      // 刷新已有对话的 session 不会触发（logs > 1）
+      setDialogueQueue(prevQueue => {
+        if (prevQueue.length > 0) return prevQueue  // 已有队列不打断
+        const dmNarratives = loadedLogs.filter(l =>
+          (l.role === 'dm' || l.role === 'system') &&
+          (l.log_type === 'narrative' || !l.log_type) &&
+          l.content
+        )
+        if (dmNarratives.length !== 1) return prevQueue  // 只在恰好 1 条开场时触发
+        const opening = dmNarratives[0]
+        const text = String(opening.content || '').replace(/^\[开场\]\s*/, '')
+        if (!text) return prevQueue
+        setDialogueIdx(0)
+        setDialogueMode('stage')
+        return [{ speaker: 'DM', role: 'dm', text, color: 'gold' }]
+      })
     } catch (e) { setError(e.message) }
   }
 

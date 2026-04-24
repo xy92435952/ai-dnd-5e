@@ -318,6 +318,38 @@ async def start_game(
     if not claimed:
         raise HTTPException(400, "至少需要一位玩家认领角色才能开始")
 
+    # ── 首次启动：绑定主角色 + 生成开场白 ──
+    # 单人模式的 /game/sessions POST 里会做这两件事，多人之前漏了，
+    # 导致玩家进入 Adventure 页看到空页。
+    from models import GameLog
+    already_started = bool(session.current_scene)  # 若已有 current_scene，说明之前启动过，仅刷新状态
+
+    if not already_started:
+        # 1. 绑定 session.player_character_id = 第一位 claimed（便于单人场景代码复用）
+        if not session.player_character_id:
+            session.player_character_id = claimed[0].character_id
+
+        # 2. 生成开场白（复用单人模式的 _generate_opening）
+        module = await db.get(Module, session.module_id)
+        parsed = (module.parsed_content or {}) if module else {}
+        scenes = parsed.get("scenes", []) or []
+        raw_scene = scenes[0]["description"] if scenes and isinstance(scenes[0], dict) else ""
+        try:
+            from api.game import _generate_opening  # lazy import 避免循环依赖
+            first_scene = await _generate_opening(parsed, raw_scene)
+        except Exception:
+            first_scene = raw_scene or "冒险正在开始……"
+
+        session.current_scene = first_scene
+
+        # 3. 写入 [开场] GameLog
+        db.add(GameLog(
+            session_id=session_id,
+            role="dm",
+            content=f"[开场] {first_scene}",
+            log_type="narrative",
+        ))
+
     # 标记游戏已开始：在 game_state 写一个 flag
     state = session.game_state or {}
     mp = state.setdefault("multiplayer", {})
