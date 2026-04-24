@@ -83,13 +83,21 @@ class ContextBuilder:
     # 主入口：构建 WF3 所需全部输入字段
     # ─────────────────────────────────────────────
 
-    async def build(self, player_action: str) -> dict:
+    async def build(self, player_action: str, current_actor_id: Optional[str] = None) -> dict:
         """
         返回可直接传入 DifyClient.call_dm_agent() 的字典。
         session_history 已移除——Chatflow 通过 conversation_id 原生维护对话记忆。
         campaign_memory 仅包含 checkpoint 存档中的结构化长期记忆。
+
+        Args:
+            player_action: 玩家行动文本
+            current_actor_id: 当前发起行动的角色 id
+                - 单人模式：session.player_character_id
+                - 多人模式：SessionMember 查到的 character_id
+                game_state 里会标注这个字段，DM 会据此聚焦叙事视角，避免
+                分头行动时把不在场的队友硬塞进叙事
         """
-        game_state      = self._build_game_state()
+        game_state      = self._build_game_state(current_actor_id)
         module_context  = self._build_module_context()
         campaign_memory = self._build_campaign_memory()
 
@@ -108,10 +116,18 @@ class ContextBuilder:
     # game_state：完整的游戏状态快照
     # ─────────────────────────────────────────────
 
-    def _build_game_state(self) -> str:
+    def _build_game_state(self, current_actor_id: Optional[str] = None) -> str:
         gs = GameState.model_validate(
             self.session.game_state or {}
         )
+
+        # 查当前行动者的名字（供 prompt 使用）
+        actor_name = None
+        if current_actor_id:
+            for ch in self.characters:
+                if ch.id == current_actor_id:
+                    actor_name = ch.name
+                    break
 
         state = {
             "session_id":    self.session.id,
@@ -122,6 +138,10 @@ class ContextBuilder:
             "enemies":       [],
             "turn_order":    [],
             "current_turn":  None,
+            # 当前发起行动的角色：DM 应按这个角色的视角聚焦叙事
+            # 分头行动场景里，其他角色不应该凭空出现在叙事里
+            "current_actor_id":   current_actor_id,
+            "current_actor_name": actor_name,
         }
 
         # 角色快照

@@ -616,7 +616,12 @@ async def player_action(
         characters   = characters,
         combat_state = combat_state,
     )
-    inputs = await builder.build(player_action=req.action_text)
+    # player 是当前行动者（单人=主角，多人=SessionMember 查到的角色）
+    # 把 id 传下去让 DM 聚焦视角，避免分头行动时硬塞不在场的队友
+    inputs = await builder.build(
+        player_action=req.action_text,
+        current_actor_id=player.id if player else None,
+    )
 
     try:
         dm_result = await dify_client.call_dm_agent(
