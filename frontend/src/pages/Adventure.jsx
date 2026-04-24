@@ -27,6 +27,7 @@ import { BookIcon, RestIcon, JournalIcon } from '../components/Icons'
 import DialogueHistoryView from '../components/DialogueHistoryView'
 import DMThinkingOverlay from '../components/DMThinkingOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
+import { renderLightMarkdown } from '../utils/markdown'
 
 export default function Adventure() {
   const { sessionId } = useParams()
@@ -962,7 +963,7 @@ function StageBubble({ seg, typingText, typingDone }) {
         letterSpacing: '.03em',
         whiteSpace: 'pre-wrap',
       }}>
-        {typingText}
+        {renderLightMarkdown(typingText, p.accent)}
         {!typingDone && (
           <span style={{
             display: 'inline-block',
@@ -989,7 +990,7 @@ function LogLine({ entry }) {
         color: 'var(--parchment)', fontSize: 14, lineHeight: 1.7,
         margin: '8px 0', padding: '0 0 0 14px',
         borderLeft: '2px solid rgba(240,208,96,.45)',
-      }}>{txt}</p>
+      }}>{renderLightMarkdown(txt, 'var(--amber)')}</p>
     )
   }
   if (role === 'player') {
@@ -998,7 +999,7 @@ function LogLine({ entry }) {
         color: '#7fe8f8', fontSize: 13, fontFamily: 'var(--font-body)',
         margin: '6px 0', padding: '0 0 0 14px',
         borderLeft: '2px solid rgba(127,232,248,.5)',
-      }}>► {txt}</p>
+      }}>► {renderLightMarkdown(txt, '#fff8dd')}</p>
     )
   }
   if (role === 'companion') {
@@ -1007,7 +1008,7 @@ function LogLine({ entry }) {
         color: 'var(--emerald-light)', fontSize: 12,
         margin: '4px 0', padding: '0 0 0 14px', fontStyle: 'italic',
         borderLeft: '2px solid rgba(90,168,120,.5)',
-      }}>❖ {txt}</p>
+      }}>❖ {renderLightMarkdown(txt, '#a8f0c0')}</p>
     )
   }
   if (role === 'dice') {

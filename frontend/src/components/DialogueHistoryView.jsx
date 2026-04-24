@@ -11,6 +11,7 @@
  * 输入：session（含 logs + campaign_state + current_scene + module_name）
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { renderLightMarkdown } from '../utils/markdown'
 
 /**
  * 把后端 GameLog 转成史册条目。
@@ -288,7 +289,9 @@ export default function DialogueHistoryView({ session, player, onBack }) {
               if (h.kind === 'narration' || h.kind === 'system') {
                 return (
                   <p key={i} className="hist-narration">
-                    {h.kind === 'system' ? `· ${h.txt} ·` : h.txt}
+                    {h.kind === 'system'
+                      ? `· ${h.txt} ·`
+                      : renderLightMarkdown(h.txt, 'var(--amber)')}
                   </p>
                 )
               }
@@ -298,7 +301,9 @@ export default function DialogueHistoryView({ session, player, onBack }) {
                     <div className="hist-avatar npc" data-cls={h.cls || 'commoner'}>{h.letter}</div>
                     <div className="hist-body">
                       <div className="hist-name">❖ {h.speaker}</div>
-                      <p className={`hist-line ${h.emphasis ? 'emphasis' : ''}`}>{h.txt}</p>
+                      <p className={`hist-line ${h.emphasis ? 'emphasis' : ''}`}>
+                        {renderLightMarkdown(h.txt, 'var(--amber)')}
+                      </p>
                     </div>
                   </div>
                 )
@@ -309,7 +314,7 @@ export default function DialogueHistoryView({ session, player, onBack }) {
                     <div className="hist-body">
                       <div className="hist-name">◈ {h.speaker}</div>
                       {h.choice && <div className="hist-choice-tag">{h.choice}</div>}
-                      <p className="hist-line">{h.txt}</p>
+                      <p className="hist-line">{renderLightMarkdown(h.txt, '#fff8dd')}</p>
                     </div>
                     <div className="hist-avatar player">{h.letter}</div>
                   </div>
