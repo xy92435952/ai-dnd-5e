@@ -69,6 +69,30 @@ jobs:
         working-directory: frontend
         run: npm test
 
-      - name: Build
+      - name: Build (full deps —— dev + prod)
+        working-directory: frontend
+        run: npm run build
+
+  # 生产部署兜底：模拟 `npm install --omit=dev` 后能 build。
+  # 痛点回忆：vite.config.js 曾经 `import 'vitest/config'`，本地 / 上面那个 frontend job
+  # 都过得了（dev deps 已装），但腾讯云 update 脚本用 --omit=dev 直接 ERR_MODULE_NOT_FOUND。
+  # 这个 job 就是把那种坑挡在 PR 阶段。
+  frontend-prod-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install prod-only deps (--omit=dev)
+        working-directory: frontend
+        run: npm ci --omit=dev
+
+      - name: Build (prod-only deps)
         working-directory: frontend
         run: npm run build
