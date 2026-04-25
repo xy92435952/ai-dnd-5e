@@ -265,3 +265,226 @@ async def test_get_room_returns_full_info(client, sample_module):
     info = r.json()
     assert info["room_code"] == create["room_code"]
     assert info["host_user_id"] == host["user_id"]
+
+
+# ─── 接管 AI 角色 / 重连续玩（用户反馈过的 bug） ─────────
+
+async def test_claim_ai_character_promotes_to_player(
+    client, db_session, sample_module,
+):
+    """
+    用户报过的 bug：断线重连 / 加入既有房间想接管 AI 队友时，被拒绝
+    "AI 队友角色不能被认领"。修法：is_player=False 不再 block claim，
+    接管后角色自动升级为 is_player=True 并绑定 user_id。
+    """
+    from models import Character
+    import uuid as _uuid
+
+    host = await _register(client, "host_takeover")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    # 模拟一个 AI 队友（fill_ai 或别的玩家离开后留下的）
+    ai_char = Character(
+        id=str(_uuid.uuid4()),
+        name="AI 法师",
+        race="Elf", char_class="Wizard", level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 13, "int": 16, "wis": 12, "cha": 10},
+        hp_current=6, is_player=False,
+        session_id=sid,
+        user_id=None,
+    )
+    db_session.add(ai_char)
+    await db_session.commit()
+
+    # host claim 这个 AI 角色 → 应当成功
+    r = await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": ai_char.id},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["claimed"] is True
+
+    # 角色应被升级 + 绑定到 host
+    await db_session.refresh(ai_char)
+    assert ai_char.is_player is True
+    assert ai_char.user_id == host["user_id"]
+
+
+async def test_claim_orphan_character_binds_to_session(
+    client, db_session, sample_module,
+):
+    """孤儿角色（session_id=None，刚从创角向导出来）首次 claim 时被绑到房间。"""
+    from models import Character
+    import uuid as _uuid
+
+    host = await _register(client, "host_orphan")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    orphan = Character(
+        id=str(_uuid.uuid4()),
+        name="孤儿角色",
+        race="Human", char_class="Fighter", level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12, is_player=True,
+        session_id=None, user_id=None,
+    )
+    db_session.add(orphan)
+    await db_session.commit()
+
+    r = await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": orphan.id},
+    )
+    assert r.status_code == 200, r.text
+    await db_session.refresh(orphan)
+    assert orphan.session_id == sid
+
+
+async def test_cannot_steal_character_from_active_member(
+    client, db_session, sample_module,
+):
+    """如果角色已被某 SessionMember 绑（无论该 user 在线与否），别人不能抢。"""
+    from models import Character
+    import uuid as _uuid
+
+    host  = await _register(client, "host_owner")
+    thief = await _register(client, "thief_attempt")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    char = Character(
+        id=str(_uuid.uuid4()),
+        name="host 的角色",
+        race="Human", char_class="Fighter", level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12, is_player=True, session_id=sid, user_id=host["user_id"],
+    )
+    db_session.add(char)
+    await db_session.commit()
+
+    # host 先 claim
+    r = await client.post(f"/game/rooms/{sid}/claim-character",
+                           headers=_h(host["token"]),
+                           json={"character_id": char.id})
+    assert r.status_code == 200
+
+    # thief 加入房间，尝试 claim 同一个角色
+    await client.post("/game/rooms/join", headers=_h(thief["token"]), json={
+        "room_code": create["room_code"],
+    })
+    bad = await client.post(f"/game/rooms/{sid}/claim-character",
+                              headers=_h(thief["token"]),
+                              json={"character_id": char.id})
+    assert bad.status_code == 409  # 已被其他玩家认领
+
+
+async def test_switching_character_demotes_previous_one(
+    client, db_session, sample_module,
+):
+    """玩家从角色 A 换到角色 B：A 应被自动降级为 is_player=False。"""
+    from models import Character
+    import uuid as _uuid
+
+    host = await _register(client, "host_switch")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    char_a = Character(
+        id=str(_uuid.uuid4()), name="角色 A",
+        race="Human", char_class="Fighter", level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12, is_player=True, session_id=sid,
+    )
+    char_b = Character(
+        id=str(_uuid.uuid4()), name="角色 B",
+        race="Elf", char_class="Wizard", level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 13, "int": 16, "wis": 12, "cha": 10},
+        hp_current=6, is_player=True, session_id=sid,
+    )
+    db_session.add_all([char_a, char_b])
+    await db_session.commit()
+
+    # 先 claim A
+    await client.post(f"/game/rooms/{sid}/claim-character",
+                       headers=_h(host["token"]),
+                       json={"character_id": char_a.id})
+    # 换 claim B
+    r = await client.post(f"/game/rooms/{sid}/claim-character",
+                           headers=_h(host["token"]),
+                           json={"character_id": char_b.id})
+    assert r.status_code == 200, r.text
+
+    # A 被降级为 AI
+    await db_session.refresh(char_a)
+    assert char_a.is_player is False
+    assert char_a.user_id is None
+    # B 是真人
+    await db_session.refresh(char_b)
+    assert char_b.is_player is True
+    assert char_b.user_id == host["user_id"]
+
+
+async def test_reclaim_own_character_after_leave_and_rejoin(
+    client, db_session, sample_module,
+):
+    """
+    完整模拟"断线重连接管"：玩家显式 leave_room → 角色降级 AI → 重新加入 → 再次 claim 成功。
+    （leave_room 的降级行为之前是 claim_character is_player 检查的"杀手"，
+    现在应当通畅。）
+    """
+    from models import Character
+    import uuid as _uuid
+
+    host = await _register(client, "perm_host")
+    p2   = await _register(client, "comeback_player")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    code = create["room_code"]
+
+    # p2 加入并 claim 一个角色
+    await client.post("/game/rooms/join", headers=_h(p2["token"]), json={"room_code": code})
+    char = Character(
+        id=str(_uuid.uuid4()), name="p2 的角色",
+        race="Human", char_class="Fighter", level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12, is_player=True, session_id=sid,
+    )
+    db_session.add(char)
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character",
+                       headers=_h(p2["token"]),
+                       json={"character_id": char.id})
+
+    # p2 离开房间 —— 角色应被降级为 AI
+    await client.post(f"/game/rooms/{sid}/leave", headers=_h(p2["token"]))
+    await db_session.refresh(char)
+    assert char.is_player is False  # leave_room 的降级行为还在
+
+    # p2 重新加入
+    await client.post("/game/rooms/join", headers=_h(p2["token"]), json={"room_code": code})
+
+    # 重新 claim 自己的角色 —— 现在应该能成功（修复前会 400）
+    r = await client.post(f"/game/rooms/{sid}/claim-character",
+                           headers=_h(p2["token"]),
+                           json={"character_id": char.id})
+    assert r.status_code == 200, r.text
+
+    await db_session.refresh(char)
+    assert char.is_player is True
+    assert char.user_id == p2["user_id"]

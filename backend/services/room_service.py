@@ -198,7 +198,22 @@ async def claim_character(
     session_id: str,
     character_id: str,
 ) -> SessionMember:
-    """认领一个角色。角色必须属于本 session 且 is_player=True 且未被其他成员认领。"""
+    """
+    认领（或接管）一个角色。允许的场景：
+
+      1) 我自己的角色（重连续玩 / 换角色）—— 直接绑回
+      2) "孤儿"角色（session_id 为 None）—— 刚从多人向导创建完，第一次绑
+      3) 房间内的 AI 角色（is_player=False）—— 接管：fill_ai 生成的 / 其他玩家
+         离开后降级的 / 长时间断线被托管的，都允许在线玩家拿回来玩
+
+    拒绝的场景：
+      - 角色属于别的 session
+      - 角色已被**别的活跃 SessionMember** 绑（在线 / 离线但还没触发 leave）
+        → 此时其他玩家有"占有权"，本玩家不能强抢；想抢的话需要房主先 kick
+
+    历史上这里硬性 `is_player=True` 的限制把"接管 AI / 接管离线队友"两个
+    合理需求都堵死了 —— 用户反馈过"断线重连不能接管人机"。
+    """
     member = await _get_member(db, session_id, user_id)
     if not member:
         raise HTTPException(403, "你不在该房间中")
@@ -206,16 +221,12 @@ async def claim_character(
     char = await db.get(Character, character_id)
     if not char:
         raise HTTPException(404, "角色不存在")
-    # 允许三种情况：
-    #   1) 角色已绑定到本房间的 session（重新 claim / 换人）
-    #   2) 角色是"孤儿"（session_id 为 None）—— 刚从多人向导创建完
-    #   3) 其它：拒绝（角色属于别的 session）
     if char.session_id is not None and char.session_id != session_id:
         raise HTTPException(404, "角色不属于该房间")
-    if not char.is_player:
-        raise HTTPException(400, "AI 队友角色不能被认领")
 
-    # 检查是否已被他人认领
+    # 检查是否已被**其他**真实成员持有
+    # 注意：拿 SessionMember 判而不是 char.is_player —— is_player 是"当前是否真人控"，
+    # SessionMember.character_id 才是"占有权"
     existing = await db.execute(
         select(SessionMember).where(
             SessionMember.session_id == session_id,
@@ -226,10 +237,17 @@ async def claim_character(
     if other and other.user_id != user_id:
         raise HTTPException(409, "该角色已被其他玩家认领")
 
+    # 如果该玩家之前 claim 过别的角色，先把那个角色降级为 AI（防止脚踩两条船）
+    if member.character_id and member.character_id != character_id:
+        prev = await db.get(Character, member.character_id)
+        if prev:
+            prev.user_id = None
+            prev.is_player = False
+
     member.character_id = character_id
     char.user_id = user_id
-    char.is_player = True
-    char.session_id = session_id  # 孤儿角色顺带绑定到房间
+    char.is_player = True       # 接管 → 升级为真人控
+    char.session_id = session_id   # 孤儿角色顺带绑定到房间
     await db.commit()
     await db.refresh(member)
     return member
