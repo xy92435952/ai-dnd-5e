@@ -146,14 +146,28 @@ async def assert_can_act(
                 pass
 
 
-async def broadcast_to_session(session: Session, event: dict) -> None:
-    """广播事件到房间所有 WS 连接。单人模式静默跳过。"""
+async def broadcast_to_session(session: Session, event) -> None:
+    """
+    广播事件到房间所有 WS 连接。单人模式静默跳过。
+
+    `event` 接受两种形式：
+      - Pydantic 的 BaseModel 实例（推荐，schemas/ws_events.py 中定义）
+      - 裸 dict（向后兼容，建议逐步替换为 Pydantic）
+    """
     if not session.is_multiplayer:
         return
+
+    # Pydantic → dict 统一成 JSON 兼容
+    from pydantic import BaseModel as _PydBase
+    if isinstance(event, _PydBase):
+        payload = event.model_dump(mode="json")
+    else:
+        payload = event
+
     # 延迟 import，避免循环依赖
     from services.ws_manager import ws_manager
     try:
-        await ws_manager.broadcast(session.id, event)
+        await ws_manager.broadcast(session.id, payload)
     except Exception:
         # 广播失败不应阻塞 API 响应
         pass

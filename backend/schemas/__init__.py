@@ -7,3 +7,11 @@ from schemas.room_schemas import (
     KickMemberRequest, TransferHostRequest,
     MemberInfo, RoomInfo, CreateRoomResponse, JoinRoomResponse,
 )
+from schemas.ws_events import (
+    WSEvent, WS_EVENT_TYPES,
+    MemberJoined, MemberLeft, RoomDissolved, GameStarted,
+    AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
+    MemberOnline, MemberOffline, Typing,
+    DMThinkingStart, DMResponded, DMSpeakTurn,
+    CombatUpdate, TurnChanged, EntityMoved,
+)

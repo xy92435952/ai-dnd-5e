@@ -16,6 +16,10 @@ from schemas.room_schemas import (
     KickMemberRequest, TransferHostRequest,
     CreateRoomResponse, JoinRoomResponse, RoomInfo, MemberInfo,
 )
+from schemas.ws_events import (
+    MemberJoined, MemberLeft, RoomDissolved, GameStarted,
+    AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
+)
 
 
 router = APIRouter(prefix="/game/rooms", tags=["rooms"])
@@ -53,11 +57,9 @@ async def join_room(
     )
     members = await room_service.list_members(db, session.id)
     # 广播：新成员加入
-    await ws_manager.broadcast(session.id, {
-        "type": "member_joined",
-        "user_id": user_id,
-        "members": members,
-    })
+    await ws_manager.broadcast(session.id, MemberJoined(
+        user_id=user_id, members=members,
+    ))
     return JoinRoomResponse(
         session_id=session.id,
         room_code=session.room_code,
@@ -76,16 +78,13 @@ async def leave_room(
     members = await room_service.list_members(db, session_id)
     # 广播：成员离开 / 房主转移 / 房间解散
     if result["room_dissolved"]:
-        await ws_manager.broadcast(session_id, {
-            "type": "room_dissolved", "by_user_id": user_id,
-        })
+        await ws_manager.broadcast(session_id, RoomDissolved(by_user_id=user_id))
     else:
-        await ws_manager.broadcast(session_id, {
-            "type": "member_left",
-            "user_id": user_id,
-            "host_transferred_to": result["host_transferred_to"],
-            "members": members,
-        })
+        await ws_manager.broadcast(session_id, MemberLeft(
+            user_id=user_id,
+            host_transferred_to=result["host_transferred_to"],
+            members=members,
+        ))
     return result
 
 
@@ -98,10 +97,9 @@ async def start_game(
     user_id: str = Depends(get_user_id),
 ):
     session = await room_service.start_game(db, actor_user_id=user_id, session_id=session_id)
-    await ws_manager.broadcast(session_id, {
-        "type": "game_started",
-        "current_speaker_user_id": session.game_state.get("multiplayer", {}).get("current_speaker_user_id"),
-    })
+    await ws_manager.broadcast(session_id, GameStarted(
+        current_speaker_user_id=session.game_state.get("multiplayer", {}).get("current_speaker_user_id"),
+    ))
     return {"started": True, "session_id": session.id}
 
 
@@ -116,11 +114,10 @@ async def fill_ai_companions(
         db, actor_user_id=user_id, session_id=session_id,
     )
     # 广播：AI 队友已生成（客户端刷新房间信息）
-    await ws_manager.broadcast(session_id, {
-        "type": "ai_companions_filled",
-        "generated": result["generated"],
-        "ai_companions": result["companions"],
-    })
+    await ws_manager.broadcast(session_id, AiCompanionsFilled(
+        generated=result["generated"],
+        ai_companions=result["companions"],
+    ))
     return result
 
 
@@ -136,12 +133,11 @@ async def kick_member(
         session_id=session_id, target_user_id=req.user_id,
     )
     members = await room_service.list_members(db, session_id)
-    await ws_manager.broadcast(session_id, {
-        "type": "member_kicked",
-        "user_id": req.user_id,
-        "by_user_id": user_id,
-        "members": members,
-    })
+    await ws_manager.broadcast(session_id, MemberKicked(
+        user_id=req.user_id,
+        by_user_id=user_id,
+        members=members,
+    ))
     return result
 
 
@@ -156,10 +152,9 @@ async def transfer_host(
         db, actor_user_id=user_id,
         session_id=session_id, new_host_user_id=req.new_host_user_id,
     )
-    await ws_manager.broadcast(session_id, {
-        "type": "host_transferred",
-        "new_host_user_id": req.new_host_user_id,
-    })
+    await ws_manager.broadcast(session_id, HostTransferred(
+        new_host_user_id=req.new_host_user_id,
+    ))
     return result
 
 
@@ -177,12 +172,11 @@ async def claim_character(
         session_id=session_id, character_id=req.character_id,
     )
     members = await room_service.list_members(db, session_id)
-    await ws_manager.broadcast(session_id, {
-        "type": "character_claimed",
-        "user_id": user_id,
-        "character_id": req.character_id,
-        "members": members,
-    })
+    await ws_manager.broadcast(session_id, CharacterClaimed(
+        user_id=user_id,
+        character_id=req.character_id,
+        members=members,
+    ))
     return {"claimed": True, "member_id": member.id, "character_id": req.character_id}
 
 

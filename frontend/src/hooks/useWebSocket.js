@@ -2,7 +2,9 @@
  * useWebSocket — 多人联机 WS 客户端 Hook
  *
  * 用法：
- *   const { connected, send } = useWebSocket(sessionId, handleEvent)
+ *   /** @type {(event: import('../types/ws').WSEvent) => void} *\/
+ *   const onEvent = (e) => { switch (e.type) { ... } }
+ *   const { connected, send } = useWebSocket(sessionId, onEvent)
  *
  * 自动：
  *   - 建立连接 + JWT 鉴权（token 来自 localStorage）
@@ -13,6 +15,10 @@
  * 不负责：
  *   - 业务事件分发（由 onEvent 回调处理）
  *   - 状态管理（由调用方注入到 Zustand store）
+ *
+ * @param {string|null} sessionId
+ * @param {(event: import('../types/ws').WSEvent) => void} onEvent
+ * @returns {{ connected: boolean, send: (event: object) => boolean }}
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
 

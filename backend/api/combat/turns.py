@@ -113,9 +113,11 @@ async def end_player_turn(
         db.add(tl)
     await db.commit()
     # 多人联机：广播回合切换 + 最新战斗状态
-    await _broadcast_combat(session, combat, event_type="turn_changed",
-                            round_number=combat.round_number,
-                            next_turn_index=next_index)
+    from schemas.ws_events import TurnChanged
+    await _broadcast_combat(session, combat, TurnChanged(
+        round_number=combat.round_number,
+        next_turn_index=next_index,
+    ))
 
     return {
         "next_turn_index":    next_index,

@@ -59,20 +59,37 @@ def _reset_ts(combat: CombatState, entity_id: str,
 # 在 commit 后调用，向房间所有 WS 连接广播一次最新战斗状态。
 # 单人模式静默跳过。
 
-async def _broadcast_combat(session: Session, combat: CombatState | None, event_type: str = "combat_update", **extra) -> None:
+from pydantic import BaseModel as _PydBase   # 局部 import 避免顶部污染
+
+
+async def _broadcast_combat(
+    session: Session,
+    combat: CombatState | None,
+    event: _PydBase,
+) -> None:
+    """
+    广播一个战斗相关 WS 事件。调用方构造 Pydantic 实例
+    （`schemas.ws_events.CombatUpdate / TurnChanged / EntityMoved` 等），
+    `combat` 和 `current_entity_id` 字段如果未填，由本函数自动注入。
+
+    单人模式静默跳过。
+    """
     if not session.is_multiplayer:
         return
-    payload = {"type": event_type}
+
+    payload = event.model_dump(mode="json")
+
+    # 自动注入通用字段
     if combat is not None:
-        payload["combat"] = serialize_combat(combat)
-        # 当前回合归属（用 user_id 给前端做 owner 判断）
-        if combat.turn_order:
+        if payload.get("combat") is None:
+            payload["combat"] = serialize_combat(combat)
+        if payload.get("current_entity_id") is None and combat.turn_order:
             try:
                 cur = combat.turn_order[combat.current_turn_index or 0]
                 payload["current_entity_id"] = cur.get("character_id") if isinstance(cur, dict) else None
             except (IndexError, AttributeError):
                 pass
-    payload.update(extra)
+
     await broadcast_to_session(session, payload)
 
 

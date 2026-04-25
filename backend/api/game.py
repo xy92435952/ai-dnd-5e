@@ -285,11 +285,11 @@ async def player_action(
         # 广播"DM 思考中"给房间所有成员（在 LLM 调用前，让 B/C/D 同步看到等待状态）
         try:
             from services.ws_manager import ws_manager
-            await ws_manager.broadcast(session.id, {
-                "type": "dm_thinking_start",
-                "by_user_id": user_id,
-                "action_text": req.action_text[:80],  # 简短预览
-            })
+            from schemas.ws_events import DMThinkingStart
+            await ws_manager.broadcast(session.id, DMThinkingStart(
+                by_user_id=user_id,
+                action_text=req.action_text[:80],
+            ))
         except Exception:
             pass
     else:
@@ -666,17 +666,17 @@ async def player_action(
     # scene_vibe / clues 已写进 session.game_state，前端 loadSession 能拿到
     if session.is_multiplayer:
         from services.ws_manager import ws_manager
+        from schemas.ws_events import DMResponded, DMSpeakTurn
         try:
-            await ws_manager.broadcast(session.id, {
-                "type": "dm_responded",
-                "by_user_id": user_id,
-                "action_type": ar.action_type,
-                "narrative": ar.narrative,
-                "companion_reactions": ar.companion_reactions or "",
-                "dice_display": ar.dice_display or [],
-                "combat_triggered": ar.combat_triggered,
-                "combat_ended": ar.combat_ended,
-            })
+            await ws_manager.broadcast(session.id, DMResponded(
+                by_user_id=user_id,
+                action_type=ar.action_type,
+                narrative=ar.narrative,
+                companion_reactions=ar.companion_reactions or "",
+                dice_display=ar.dice_display or [],
+                combat_triggered=ar.combat_triggered,
+                combat_ended=ar.combat_ended,
+            ))
         except Exception:
             pass
 
@@ -688,11 +688,9 @@ async def player_action(
                 from api.ws import _advance_speaker
                 next_user = await _advance_speaker(db, session.id, user_id)
                 if next_user:
-                    await ws_manager.broadcast(session.id, {
-                        "type": "dm_speak_turn",
-                        "user_id": next_user,
-                        "auto": True,  # 标记是自动推进，前端可用来决定是否播提示音
-                    })
+                    await ws_manager.broadcast(session.id, DMSpeakTurn(
+                        user_id=next_user, auto=True,
+                    ))
             except Exception:
                 pass
 

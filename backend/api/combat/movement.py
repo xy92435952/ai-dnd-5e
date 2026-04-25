@@ -115,9 +115,11 @@ async def combat_move(
 
     await db.commit()
     # 多人联机：广播位置变更
-    await _broadcast_combat(session, combat, event_type="entity_moved",
-                            entity_id=req.entity_id,
-                            position={"x": req.to_x, "y": req.to_y})
+    from schemas.ws_events import EntityMoved
+    await _broadcast_combat(session, combat, EntityMoved(
+        entity_id=req.entity_id,
+        position={"x": req.to_x, "y": req.to_y},
+    ))
     return {
         "entity_id":               req.entity_id,
         "x":                       req.to_x,

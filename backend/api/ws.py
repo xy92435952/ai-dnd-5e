@@ -17,6 +17,7 @@ from models import SessionMember, Session
 from api.auth import decode_token
 from services.ws_manager import ws_manager
 from services import room_service
+from schemas.ws_events import MemberOnline, MemberOffline, Typing, DMSpeakTurn
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +56,11 @@ async def ws_endpoint(
     await ws_manager.connect(session_id, user_id, websocket)
 
     # 4. 广播在线
-    await ws_manager.broadcast(session_id, {
-        "type": "member_online",
-        "user_id": user_id,
-    }, exclude_user_id=user_id)
+    await ws_manager.broadcast(
+        session_id,
+        MemberOnline(user_id=user_id),
+        exclude_user_id=user_id,
+    )
 
     # 5. 主循环
     try:
@@ -79,18 +81,18 @@ async def ws_endpoint(
                 async with AsyncSessionLocal() as db:
                     next_user = await _advance_speaker(db, session_id, user_id)
                 if next_user:
-                    await ws_manager.broadcast(session_id, {
-                        "type": "dm_speak_turn",
-                        "user_id": next_user,
-                    })
+                    await ws_manager.broadcast(
+                        session_id,
+                        DMSpeakTurn(user_id=next_user, auto=False),
+                    )
 
             elif msg_type == "typing":
                 # 打字状态广播给其他人
-                await ws_manager.broadcast(session_id, {
-                    "type": "typing",
-                    "user_id": user_id,
-                    "is_typing": bool(data.get("is_typing")),
-                }, exclude_user_id=user_id)
+                await ws_manager.broadcast(
+                    session_id,
+                    Typing(user_id=user_id, is_typing=bool(data.get("is_typing"))),
+                    exclude_user_id=user_id,
+                )
 
             else:
                 logger.debug(f"Unknown WS message type from {user_id}: {msg_type}")
@@ -102,10 +104,10 @@ async def ws_endpoint(
     finally:
         await ws_manager.disconnect(websocket)
         # 广播离线
-        await ws_manager.broadcast(session_id, {
-            "type": "member_offline",
-            "user_id": user_id,
-        })
+        await ws_manager.broadcast(
+            session_id,
+            MemberOffline(user_id=user_id),
+        )
 
 
 async def _advance_speaker(db: AsyncSession, session_id: str, current_user_id: str) -> str | None:

@@ -62,8 +62,18 @@ class WSManager:
         logger.info(f"WS disconnected: session={session_id} user={user_id}")
         return meta
 
-    async def broadcast(self, session_id: str, event: dict, exclude_user_id: Optional[str] = None) -> int:
-        """向房间内所有连接广播。返回成功发送的连接数。"""
+    async def broadcast(self, session_id: str, event, exclude_user_id: Optional[str] = None) -> int:
+        """
+        向房间内所有连接广播。返回成功发送的连接数。
+
+        `event` 既可以是 dict 也可以是 Pydantic BaseModel 实例
+        （推荐走 schemas.ws_events 里定义的事件类型）。
+        """
+        # Pydantic 实例自动序列化
+        from pydantic import BaseModel as _PydBase
+        if isinstance(event, _PydBase):
+            event = event.model_dump(mode="json")
+
         # 拷贝快照避免广播过程中字典被改
         async with self._lock:
             targets = list(self.rooms.get(session_id, set()))
@@ -84,8 +94,12 @@ class WSManager:
                 asyncio.create_task(self._silent_disconnect(ws))
         return ok
 
-    async def send_to_user(self, session_id: str, user_id: str, event: dict) -> bool:
-        """点对点发送。"""
+    async def send_to_user(self, session_id: str, user_id: str, event) -> bool:
+        """点对点发送。event 同样接受 dict 或 Pydantic BaseModel。"""
+        from pydantic import BaseModel as _PydBase
+        if isinstance(event, _PydBase):
+            event = event.model_dump(mode="json")
+
         async with self._lock:
             ws = self.user_ws.get((session_id, user_id))
         if ws is None:
