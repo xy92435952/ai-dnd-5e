@@ -105,6 +105,13 @@ def _mock_llm_layer():
     import services.graphs.dm_agent as dm_agent
     patches.append(patch.object(dm_agent, "initialize_memory", fake_initialize_memory))
 
+    # 拦截 api.game._generate_opening：它直接调 services.llm.get_llm，不走
+    # langgraph_client，conftest 上面的 mock 拦不住。给它一个稳定 stub。
+    async def fake_generate_opening(parsed, raw_scene):
+        return (raw_scene or "（测试开场）你站在矿洞口，回头还能看到村庄的灯火。").strip()
+    import api.game as game_module
+    patches.append(patch.object(game_module, "_generate_opening", fake_generate_opening))
+
     for p in patches:
         p.start()
     yield
