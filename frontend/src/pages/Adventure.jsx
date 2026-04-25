@@ -29,6 +29,9 @@ import DMThinkingOverlay from '../components/DMThinkingOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 import { renderLightMarkdown } from '../utils/markdown'
 import { useUser } from '../hooks/useUser'
+import { useSkillCheck } from '../hooks/useSkillCheck'
+import { useDialogueFlow } from '../hooks/useDialogueFlow'
+import { useAdventureSession } from '../hooks/useAdventureSession'
 import RestModal from '../components/adventure/RestModal'
 import JournalModal from '../components/adventure/JournalModal'
 import PrepareSpellsModal from '../components/adventure/PrepareSpellsModal'
@@ -36,16 +39,14 @@ import PrepareSpellsModal from '../components/adventure/PrepareSpellsModal'
 export default function Adventure() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
-  const { isLoading, setIsLoading, showDice, setCombatActive } = useGameStore()
+  const { isLoading, setIsLoading, showDice } = useGameStore()
 
-  const [session, setSession] = useState(null)
+  // session / player / companions + loadSession 都在 useAdventureSession 里
+  // logs 留给 Adventure 自己（因为 addLog 在太多地方被调用，state 留在这里最简单）
+  // onLoaded 回调在 hook 解构后定义，通过 ref 传递（见 hook 内部）
   const [logs, setLogs] = useState([])
-  const [player, setPlayer] = useState(null)
-  const [companions, setCompanions] = useState([])
   const [input, setInput] = useState('')
   const [choices, setChoices] = useState([])         // 当前回合的对话选项
-  const [pendingCheck, setPendingCheck] = useState(null)
-  const [checkRolling, setCheckRolling] = useState(false)
   const [error, setError] = useState('')
   const [restOpen, setRestOpen] = useState(false)
   const [prepareOpen, setPrepareOpen] = useState(false)
@@ -53,15 +54,8 @@ export default function Adventure() {
   const [journalText, setJournalText] = useState('')
   const [journalLoading, setJournalLoading] = useState(false)
 
-  // ── 对话流系统（v0.10.1）──
-  // mode='chat' 聊天日志视图；mode='stage' 剧场对话视图（逐条气泡+打字机）
-  const [dialogueMode, setDialogueMode] = useState('chat')
-  const [showHistory, setShowHistory] = useState(false)       // 对话史册视图（v0.10.2）
-  const [dialogueQueue, setDialogueQueue] = useState([])      // {speaker, role, text, color, logType}[]
-  const [dialogueIdx, setDialogueIdx] = useState(0)
-  const [typingText, setTypingText] = useState('')
-  const [typingDone, setTypingDone] = useState(true)
-  const typingTimerRef = useRef(null)
+  // 对话流系统（v0.10.1）— 状态机 + 打字机 + 空格推进都在 useDialogueFlow 里
+  // Adventure 只需要：enterStage(queue) 启动剧场；advance() 推进；读 dialogueMode/typingText 渲染
 
   const logsEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -98,9 +92,7 @@ export default function Adventure() {
           setIsLoading(false)
           const queue = buildDialogueQueue(event.narrative, event.companion_reactions, companions)
           if (queue.length > 0) {
-            setDialogueQueue(queue)
-            setDialogueIdx(0)
-            setDialogueMode('stage')
+            enterDialogueStage(queue)
           }
         }
         // 刷新 logs 和 scene_vibe / clues 等副作用状态（发言者也需要，因为广播里的 addLog 是在发言者侧完成的）
@@ -169,62 +161,8 @@ export default function Adventure() {
     }
   }, [currentSpeakerUid, myUserId, room])
 
-  // ── 数据加载 ──
-  useEffect(() => { loadSession() }, [sessionId])
+  // mount 时 loadSession 由 useAdventureSession 内部自动触发一次
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs, pendingCheck])
-
-  const loadSession = async () => {
-    try {
-      const data = await gameApi.getSession(sessionId)
-      setSession(data)
-      const loadedLogs = data.logs || []
-      setLogs(loadedLogs)
-      setPlayer(data.player)
-      setCompanions(data.companions || [])
-      setCombatActive(false)
-      if (data.combat_active) navigate(`/combat/${sessionId}`)
-
-      // ── 恢复 last_turn：页面刷新 / WS 重连后能看到之前的选项和检定 ──
-      // 仅在 "自己是最近一次 actor" 时恢复（避免非发言者误看到别人的 choices）
-      // 单人模式下没有 last_actor_user_id 概念，都恢复
-      const lt = data.game_state?.last_turn
-      if (lt) {
-        const isMine = !data.is_multiplayer || !lt.last_actor_user_id || lt.last_actor_user_id === myUserId
-        if (isMine) {
-          if (Array.isArray(lt.player_choices) && lt.player_choices.length) {
-            setChoices(lt.player_choices)
-          }
-          if (lt.needs_check?.required) {
-            setPendingCheck(lt.needs_check)
-          }
-        } else {
-          // 别人的回合：清空自己的选项，避免视觉混乱
-          setChoices([])
-          setPendingCheck(null)
-        }
-      }
-
-      // ── 首次进入检测：如果只有 1 条 DM 开场叙事 + 对话队列空 → 自动启动剧场模式 ──
-      // 单人模式 /game/sessions POST 后进入就是这个状态
-      // 多人模式 room_service.start_game() 首次触发也是这个状态
-      // 刷新已有对话的 session 不会触发（logs > 1）
-      setDialogueQueue(prevQueue => {
-        if (prevQueue.length > 0) return prevQueue  // 已有队列不打断
-        const dmNarratives = loadedLogs.filter(l =>
-          (l.role === 'dm' || l.role === 'system') &&
-          (l.log_type === 'narrative' || !l.log_type) &&
-          l.content
-        )
-        if (dmNarratives.length !== 1) return prevQueue  // 只在恰好 1 条开场时触发
-        const opening = dmNarratives[0]
-        const text = String(opening.content || '').replace(/^\[开场\]\s*/, '')
-        if (!text) return prevQueue
-        setDialogueIdx(0)
-        setDialogueMode('stage')
-        return [{ speaker: 'DM', role: 'dm', text, color: 'gold' }]
-      })
-    } catch (e) { setError(e.message) }
-  }
 
   const refreshCharacters = async () => {
     try {
@@ -240,6 +178,76 @@ export default function Adventure() {
       created_at: new Date().toISOString(), ...extra
     }])
   }, [])
+
+  // 技能检定：pendingCheck / checkRolling / rollPending
+  // 设定 pendingCheck 后，UI 渲染"投掷 d20"按钮；handleDiceRoll 触发 rollPending，
+  // 返回 autoMsg 后由本组件决定是否调 handleAction + focus input
+  const { pendingCheck, setPendingCheck, checkRolling, rollPending } = useSkillCheck({
+    sessionId,
+    playerId: player?.id,
+    addLog,
+  })
+
+  // 剧场模式：状态机 + 打字机都在 hook 内部，Adventure 只读状态 + 调 enterStage/advance
+  const {
+    dialogueMode, dialogueQueue, dialogueIdx, typingText, typingDone,
+    showHistory, setShowHistory,
+    enterStage: enterDialogueStage,
+    advance: advanceDialogue,
+  } = useDialogueFlow({ addLog })
+
+  // Session 加载 + 战斗激活跳转
+  // onLoaded 这个 callback 会 capture 当前 render 的 enterDialogueStage /
+  // setPendingCheck / setChoices / myUserId / dialogueQueue —— hook 内部用
+  // ref 转发避免陈旧闭包
+  const handleSessionLoaded = (data) => {
+    setLogs(data.logs || [])
+
+    // ── 恢复 last_turn：页面刷新 / WS 重连后能看到之前的选项和检定 ──
+    // 仅在 "自己是最近一次 actor" 时恢复（避免非发言者误看到别人的 choices）
+    const lt = data.game_state?.last_turn
+    if (lt) {
+      const isMine = !data.is_multiplayer || !lt.last_actor_user_id || lt.last_actor_user_id === myUserId
+      if (isMine) {
+        if (Array.isArray(lt.player_choices) && lt.player_choices.length) {
+          setChoices(lt.player_choices)
+        }
+        if (lt.needs_check?.required) {
+          setPendingCheck(lt.needs_check)
+        }
+      } else {
+        setChoices([])
+        setPendingCheck(null)
+      }
+    }
+
+    // ── 首次进入检测：恰好 1 条开场叙事 + 对话队列空 → 自动启动剧场模式 ──
+    if (dialogueQueue.length === 0) {
+      const dmNarratives = (data.logs || []).filter(l =>
+        (l.role === 'dm' || l.role === 'system') &&
+        (l.log_type === 'narrative' || !l.log_type) &&
+        l.content
+      )
+      if (dmNarratives.length === 1) {
+        const opening = dmNarratives[0]
+        const text = String(opening.content || '').replace(/^\[开场\]\s*/, '')
+        if (text) {
+          enterDialogueStage([{ speaker: 'DM', role: 'dm', text, color: 'gold' }])
+        }
+      }
+    }
+  }
+
+  const {
+    session, setSession,
+    player, setPlayer,
+    companions, setCompanions,
+    loadSession,
+  } = useAdventureSession({
+    sessionId,
+    onLoaded: handleSessionLoaded,
+    onError: (e) => setError(e.message),
+  })
 
   // ── 共享：把 DM 响应构造成剧场模式的对话队列 ──
   // 发言者（HTTP 响应）和其他玩家（WS dm_responded）都用这个
@@ -287,9 +295,7 @@ export default function Adventure() {
 
       // 启动剧场模式播放队列
       if (queue.length > 0) {
-        setDialogueQueue(queue)
-        setDialogueIdx(0)
-        setDialogueMode('stage')
+        enterDialogueStage(queue)
       }
 
       if (resp.combat_triggered) {
@@ -311,120 +317,16 @@ export default function Adventure() {
     }
   }
 
-  // ── 打字机效果：每当 dialogueIdx 变化，逐字显示当前段 ──
-  //   按文本长度分级速度，避免"长队友反应打 20 秒玩家等不住"：
-  //     ≤ 60 字：正常  30 ms/字
-  //     60-150 字：加速 18 ms/字
-  //     > 150 字：跳过打字机，整段淡入（极长叙述时最友好）
-  useEffect(() => {
-    if (dialogueMode !== 'stage') return
-    if (dialogueIdx >= dialogueQueue.length) return
-    const seg = dialogueQueue[dialogueIdx]
-    if (!seg) return
-    setTypingText('')
-    setTypingDone(false)
-    const full = seg.text || ''
-    const len = full.length
+  // 打字机效果 + 空格推进 + advanceDialogue 全部抽到 useDialogueFlow
 
-    // 极长文本：不走打字机，下一帧直接显示完整内容（保留淡入动画由 CSS 处理）
-    if (len > 150) {
-      typingTimerRef.current = setTimeout(() => {
-        setTypingText(full)
-        setTypingDone(true)
-      }, 60)
-      return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current) }
-    }
-
-    // 分级速度
-    const interval = len > 60 ? 18 : 30
-    let i = 0
-    const step = () => {
-      i += 1
-      setTypingText(full.slice(0, i))
-      if (i >= len) {
-        setTypingDone(true)
-        return
-      }
-      typingTimerRef.current = setTimeout(step, interval)
-    }
-    typingTimerRef.current = setTimeout(step, 60)
-    return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current) }
-  }, [dialogueMode, dialogueIdx, dialogueQueue])
-
-  // 推进对话：点击气泡 / 按空格
-  const advanceDialogue = useCallback(() => {
-    if (dialogueMode !== 'stage') return
-    // 如果还没打完字，立即打完
-    if (!typingDone) {
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-      const seg = dialogueQueue[dialogueIdx]
-      setTypingText(seg?.text || '')
-      setTypingDone(true)
-      return
-    }
-    // 已打完 → 把当前段入 log，推进下一段
-    const seg = dialogueQueue[dialogueIdx]
-    if (seg) addLog(seg.role, seg.text, seg.role === 'dm' ? 'narrative' : seg.role)
-    const next = dialogueIdx + 1
-    if (next >= dialogueQueue.length) {
-      // 播放完毕：回到聊天模式
-      setDialogueMode('chat')
-      setDialogueQueue([])
-      setDialogueIdx(0)
-      setTypingText('')
-      setTypingDone(true)
-    } else {
-      setDialogueIdx(next)
-    }
-  }, [dialogueMode, dialogueIdx, dialogueQueue, typingDone, addLog])
-
-  // 空格推进
-  useEffect(() => {
-    if (dialogueMode !== 'stage') return
-    const onKey = (e) => {
-      if (e.code === 'Space' || e.code === 'Enter') {
-        e.preventDefault()
-        advanceDialogue()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [dialogueMode, advanceDialogue])
-
-  // ── 检定流 ──
+  // ── 检定流（核心逻辑已抽到 useSkillCheck） ──
   const handleDiceRoll = async () => {
-    if (!pendingCheck || checkRolling) return
-    setCheckRolling(true)
-    try {
-      const { total: d20 } = await rollDice3D(20)
-      showDice({ faces: 20, result: d20, label: `${pendingCheck.check_type}检定` })
-      const result = await gameApi.skillCheck({
-        session_id: sessionId,
-        character_id: pendingCheck.character_id || player?.id,
-        skill: pendingCheck.check_type,
-        dc: pendingCheck.dc,
-        d20_value: d20
-      })
-      const checkSummary = `${pendingCheck.check_type}检定 (DC ${pendingCheck.dc})：d20=${result.d20} ${result.modifier >= 0 ? '+' : ''}${result.modifier}${result.proficient ? ' [熟练]' : ''} = ${result.total} → ${result.success ? '✅ 成功' : '❌ 失败'}`
-      addLog('dice', checkSummary, 'dice', { dice_result: result })
-      // Juice：检定结果音效 + 关键成功/失败震屏
-      try {
-        if (result.d20 === 20)      { JuiceAudio.crit() }
-        else if (result.d20 === 1)  { JuiceAudio.miss(); JuiceShake(document.body, 6, 340) }
-        else if (result.success)    { JuiceAudio.unlock() }
-        else                        { JuiceAudio.miss() }
-      } catch (e) {}
-      // 带 context（原选项文本）一起送给 DM，避免丢失行动上下文
-      const ctxPart = pendingCheck.context ? ` 我的行动："${pendingCheck.context}"` : ''
-      setPendingCheck(null)
-      const autoMsg = `[${pendingCheck.check_type}检定 ${result.success ? '成功' : '失败'}: ${result.total} vs DC${pendingCheck.dc}]${ctxPart}`
+    const autoMsg = await rollPending()
+    if (autoMsg) {
+      // 延迟 800ms 让玩家看清骰子结果再进入 DM 叙事
       setTimeout(() => handleAction(autoMsg), 800)
-    } catch (e) {
-      addLog('system', `检定失败: ${e.message}`, 'system'); setPendingCheck(null)
-    } finally {
-      setCheckRolling(false)
-      inputRef.current?.focus()
     }
+    inputRef.current?.focus()
   }
 
   const handleRest = async (restType) => {
