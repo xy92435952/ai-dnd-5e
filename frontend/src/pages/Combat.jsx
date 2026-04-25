@@ -4,6 +4,7 @@ import { gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useUser } from '../hooks/useUser'
+import { useCombatTargeting } from '../hooks/useCombatTargeting'
 import DiceRollerOverlay, { rollDice3D } from '../components/DiceRollerOverlay'
 import Sprite from '../components/Sprite'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
@@ -35,22 +36,22 @@ export default function Combat() {
 
   const [combat, setCombat] = useState(null)
   const [logs, setLogs] = useState([])
-  const [selectedTarget, setSelectedTarget] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [combatOver, setCombatOver] = useState(null) // null | 'victory' | 'defeat'
   const [error, setError] = useState('')
 
-  // 移动模式
-  const [moveMode, setMoveMode] = useState(false)
-  const [isRanged, setIsRanged] = useState(false)
-  // 威胁区显示（红色斜纹覆盖敌人攻击范围）
-  const [showThreat, setShowThreat] = useState(false)
-  // AoE 预览：选中 AoE 法术 → hover 格子显示冲击半径
-  const [aoePreview, setAoePreview] = useState(null) // { radius, spellName } | null
-  const [aoeHover, setAoeHover]     = useState(null) // "x_y" | null
-
-  // 协助模式（选择队友）
-  const [helpMode, setHelpMode] = useState(false)
+  // 瞄准 / 视觉模式集合（selectedTarget / moveMode / isRanged / showThreat / aoePreview / aoeHover / helpMode）
+  // 互斥切换（如 toggleMoveMode）也封装在 hook 里，免得这里散落 3 行 setter
+  const {
+    selectedTarget, setSelectedTarget,
+    moveMode, setMoveMode,
+    isRanged, setIsRanged,
+    showThreat, setShowThreat,
+    aoePreview, setAoePreview,
+    aoeHover,   setAoeHover,
+    helpMode,   setHelpMode,
+    clearAoePreview,
+  } = useCombatTargeting()
 
   // 法术面板
   const [spellModalOpen, setSpellModalOpen] = useState(false)
@@ -90,8 +91,8 @@ export default function Combat() {
   const [skillBarV10, setSkillBarV10] = useState(null)
   // v0.10 — /predict 预测结果
   const [prediction, setPrediction] = useState(null)
-  // v0.10 — 伤害飘字（id, kind, val, x, y）
-  const [floats, setFloats] = useState([])
+  // v0.10 — 伤害飘字（保留 floats 占位，目前未使用）
+  const floats = []
 
   const logsEndRef = useRef(null)
   const gridContainerRef = useRef(null)
@@ -1823,7 +1824,7 @@ export default function Combat() {
           cantrips={playerCantrips}
           slots={playerSpellSlots}
           onCast={handleCastSpell}
-          onClose={() => { setSpellModalOpen(false); setAoePreview(null); setAoeHover(null) }}
+          onClose={() => { setSpellModalOpen(false); clearAoePreview() }}
           onSpellHover={(spell) => {
             if (spell && spell.aoe) {
               const radius = aoeRadiusCells(spell)
