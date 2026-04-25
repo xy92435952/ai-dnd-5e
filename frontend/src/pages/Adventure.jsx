@@ -458,6 +458,22 @@ export default function Adventure() {
                 跳过本轮 ↷
               </button>
             )}
+            {/* 别的人发言但久未出声 → 让 AI 据他人设代演一句 */}
+            {!isMySpeakTurn && currentSpeakerUid && (
+              <button
+                onClick={async () => {
+                  try {
+                    await gameApi.aiTakeover(sessionId)
+                  } catch (e) {
+                    // 后端会返 409"该玩家仍在线"或 400"战斗中无需手动代演"
+                    setError(e.message || '无法触发 AI 代演')
+                  }
+                }}
+                title="若该玩家长时间没动作（≥30 秒无心跳），让 AI 据其人设代演一句"
+                style={{ padding: '3px 10px', fontSize: 11, background: 'transparent', color: 'var(--arcane-light)', border: '1px solid var(--arcane-light)', borderRadius: 3, cursor: 'pointer' }}>
+                ⚙ 代他出招
+              </button>
+            )}
             <span style={{ fontSize: 11, opacity: 0.8 }}>房间码 {room.room_code}</span>
           </span>
         </div>

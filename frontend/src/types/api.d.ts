@@ -1063,6 +1063,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/sessions/{session_id}/ai-takeover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Takeover Action
+         * @description 替断线 / 长时间无心跳的当前发言者 AI 代演一句，然后走完整 DM 流程。
+         *
+         *     触发规则：
+         *       - 仅多人模式
+         *       - 仅探索阶段（战斗轮到他时由 ai_combat_turn 处理，不走这里）
+         *       - 调用方必须是房间成员
+         *       - 当前 speaker 必须存在 + 有绑定的角色 + last_seen_at 超过 OFFLINE_THRESHOLD_SECONDS
+         *
+         *     AI 据该角色的 personality / speech_style / catchphrase 生成 action_text，
+         *     走和 player_action 同样的 ContextBuilder → DM Agent → StateApplicator
+         *     流程，但**用 speaker 的 user_id 而不是调用方的**写 last_turn —— 这样前端
+         *     刷新时仍能正确恢复 last_turn 归属。
+         */
+        post: operations["ai_takeover_action_game_sessions__session_id__ai_takeover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/sessions/{session_id}/checkpoint": {
         parameters: {
             query?: never;
@@ -4403,6 +4434,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_takeover_action_game_sessions__session_id__ai_takeover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerActionResponse"];
                 };
             };
             /** @description Validation Error */

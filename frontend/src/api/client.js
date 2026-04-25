@@ -119,6 +119,13 @@ export const gameApi = {
   generateJournal: (sessionId) => api.post(`/game/sessions/${sessionId}/journal`),
 
   /**
+   * 多人模式：让 AI 替断线的当前发言者出招（仅 last_seen > 30s 的离线玩家）
+   * @param {string} sessionId
+   * @returns {Promise<PlayerActionResponse>}
+   */
+  aiTakeover: (sessionId) => api.post(`/game/sessions/${sessionId}/ai-takeover`),
+
+  /**
    * 战斗
    * @param {string} sessionId
    * @returns {Promise<CombatStateResponse>}

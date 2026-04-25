@@ -713,6 +713,204 @@ async def player_action(
     }
 
 
+# ── AI 代演离线玩家 ──────────────────────────────────────
+
+class AITakeoverRequest(BaseModel):
+    session_id: str
+
+
+@router.post("/sessions/{session_id}/ai-takeover", response_model=PlayerActionResponse)
+async def ai_takeover_action(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    """
+    替断线 / 长时间无心跳的当前发言者 AI 代演一句，然后走完整 DM 流程。
+
+    触发规则：
+      - 仅多人模式
+      - 仅探索阶段（战斗轮到他时由 ai_combat_turn 处理，不走这里）
+      - 调用方必须是房间成员
+      - 当前 speaker 必须存在 + 有绑定的角色 + last_seen_at 超过 OFFLINE_THRESHOLD_SECONDS
+
+    AI 据该角色的 personality / speech_style / catchphrase 生成 action_text，
+    走和 player_action 同样的 ContextBuilder → DM Agent → StateApplicator
+    流程，但**用 speaker 的 user_id 而不是调用方的**写 last_turn —— 这样前端
+    刷新时仍能正确恢复 last_turn 归属。
+    """
+    from datetime import timedelta as _td
+    from models import SessionMember, User
+    from services.room_service import OFFLINE_THRESHOLD_SECONDS
+    from services.ws_manager import ws_manager
+    from schemas.ws_events import DMThinkingStart, DMResponded, DMSpeakTurn
+
+    session = await get_session_or_404(session_id, db)
+    if not session.is_multiplayer:
+        raise HTTPException(400, "仅多人模式可用")
+    if session.combat_active:
+        raise HTTPException(400, "战斗中由先攻顺序自动处理 AI 行动，无需手动代演")
+
+    # 调用方必须在房间
+    caller_q = await db.execute(
+        select(SessionMember).where(
+            SessionMember.session_id == session.id,
+            SessionMember.user_id == user_id,
+        )
+    )
+    if not caller_q.scalar_one_or_none():
+        raise HTTPException(403, "你不在该房间中")
+
+    # 拿当前 speaker
+    mp = (session.game_state or {}).get("multiplayer", {})
+    speaker_uid = mp.get("current_speaker_user_id")
+    if not speaker_uid:
+        raise HTTPException(400, "当前没有发言者")
+    if speaker_uid == user_id:
+        raise HTTPException(400, "你就是当前发言者，请直接出招")
+
+    # 检查 speaker 是否真的离线
+    speaker_member_q = await db.execute(
+        select(SessionMember).where(
+            SessionMember.session_id == session.id,
+            SessionMember.user_id == speaker_uid,
+        )
+    )
+    speaker_member = speaker_member_q.scalar_one_or_none()
+    if not speaker_member or not speaker_member.character_id:
+        raise HTTPException(400, "当前发言者没有绑定角色")
+
+    threshold = datetime.utcnow() - _td(seconds=OFFLINE_THRESHOLD_SECONDS)
+    if speaker_member.last_seen_at and speaker_member.last_seen_at >= threshold:
+        raise HTTPException(409, "该玩家仍在线，无法触发 AI 代演（请等他出招或转发言权）")
+
+    speaker_char = await db.get(Character, speaker_member.character_id)
+    if not speaker_char:
+        raise HTTPException(404, "speaker 的角色已被删除")
+
+    # ── 加载 module / characters 并喂给 LLM 生成 action ──
+    module = await db.get(Module, session.module_id)
+    roster = CharacterRoster(db, session)
+    characters: list[Character] = ([speaker_char]) + await roster.companions()
+
+    # 拿最近 8 条 logs 作为上下文
+    recent_logs_q = await db.execute(
+        select(GameLog)
+        .where(GameLog.session_id == session_id)
+        .order_by(GameLog.created_at.desc())
+        .limit(8)
+    )
+    recent_contents = [l.content for l in reversed(recent_logs_q.scalars().all())]
+
+    # 调用 LLM 生成 action_text
+    char_info = char_brief(speaker_char)
+    action_text = await dify_client.generate_takeover_action(
+        character=char_info,
+        scene=session.current_scene or "",
+        recent_logs=recent_contents,
+    )
+    # 显式标注 [AI 代演]，前端能用前缀做提示渲染
+    action_text_logged = f"[AI 代演] {action_text}"
+
+    # 写一条 player log（role=player + 前缀）
+    db.add(GameLog(
+        session_id=session_id,
+        role="player",
+        content=action_text_logged,
+        log_type="narrative",
+    ))
+
+    # 广播 DM 思考中
+    try:
+        await ws_manager.broadcast(session.id, DMThinkingStart(
+            by_user_id=speaker_uid,        # 用 speaker 的 uid，前端按这个判 actor
+            action_text=action_text[:80],
+        ))
+    except Exception:
+        pass
+
+    # ── 走 DM 流程（探索阶段简化版，复用 player_action 的核心逻辑） ──
+    builder = ContextBuilder(
+        session=session, module=module,
+        characters=characters, combat_state=None,
+    )
+    inputs = await builder.build(
+        player_action=action_text,
+        current_actor_id=speaker_char.id,
+    )
+    try:
+        dm_result = await dify_client.call_dm_agent(
+            **inputs, conversation_id=session.id,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"AI服务暂时不可用: {str(e)}")
+    if not dm_result.get("success", True):
+        raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
+
+    applicator = StateApplicator(db)
+    ar = await applicator.apply(
+        session=session,
+        result_json=dm_result["result"],
+        characters=characters,
+        combat_state=None,
+    )
+
+    # 持久化 last_turn —— 注意 last_actor_user_id 用 speaker_uid，
+    # 这样 speaker 重连刷新时能正确看到自己的选项；其他在线玩家仍然只看叙事
+    gs = dict(session.game_state or {})
+    gs["last_turn"] = {
+        "player_choices":     ar.player_choices or [],
+        "needs_check":        ar.needs_check if (ar.needs_check and ar.needs_check.get("required")) else None,
+        "last_actor_user_id": speaker_uid,
+        "action_type":        ar.action_type,
+        "ts":                 datetime.utcnow().isoformat(),
+        "ai_takeover":        True,        # 标记此回合是 AI 代演的（前端可显示徽章）
+        "takeover_by":        user_id,     # 是谁触发的
+    }
+    session.game_state = gs
+    flag_modified(session, "game_state")
+    await db.commit()
+
+    # 广播 DM 响应 + 推进下一个 speaker
+    try:
+        await ws_manager.broadcast(session.id, DMResponded(
+            by_user_id=speaker_uid,
+            action_type=ar.action_type,
+            narrative=ar.narrative,
+            companion_reactions=ar.companion_reactions or "",
+            dice_display=ar.dice_display or [],
+            combat_triggered=ar.combat_triggered,
+            combat_ended=ar.combat_ended,
+        ))
+    except Exception:
+        pass
+
+    if not ar.combat_triggered:
+        try:
+            from api.ws import _advance_speaker
+            next_user = await _advance_speaker(db, session.id, speaker_uid)
+            if next_user:
+                await ws_manager.broadcast(session.id, DMSpeakTurn(
+                    user_id=next_user, auto=True,
+                ))
+        except Exception:
+            pass
+
+    return {
+        "type":               ar.action_type,
+        "narrative":          ar.narrative,
+        "companion_reactions": ar.companion_reactions,
+        "dice_display":       ar.dice_display,
+        "player_choices":     [],   # 选项归 speaker 自己；触发方不显示
+        "needs_check":        None,
+        "combat_triggered":   ar.combat_triggered,
+        "combat_ended":       ar.combat_ended,
+        "combat_end_result":  ar.combat_end_result,
+        "combat_update":      None,
+        "errors":             ar.errors,
+    }
+
+
 # ── 技能检定 ──────────────────────────────────────────────
 
 @router.post("/skill-check", response_model=SkillCheckResult)

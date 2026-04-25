@@ -5429,6 +5429,49 @@
         ]
       }
     },
+    "/game/sessions/{session_id}/ai-takeover": {
+      "post": {
+        "description": "替断线 / 长时间无心跳的当前发言者 AI 代演一句，然后走完整 DM 流程。\n\n触发规则：\n  - 仅多人模式\n  - 仅探索阶段（战斗轮到他时由 ai_combat_turn 处理，不走这里）\n  - 调用方必须是房间成员\n  - 当前 speaker 必须存在 + 有绑定的角色 + last_seen_at 超过 OFFLINE_THRESHOLD_SECONDS\n\nAI 据该角色的 personality / speech_style / catchphrase 生成 action_text，\n走和 player_action 同样的 ContextBuilder → DM Agent → StateApplicator\n流程，但**用 speaker 的 user_id 而不是调用方的**写 last_turn —— 这样前端\n刷新时仍能正确恢复 last_turn 归属。",
+        "operationId": "ai_takeover_action_game_sessions__session_id__ai_takeover_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ai Takeover Action",
+        "tags": [
+          "game"
+        ]
+      }
+    },
     "/game/sessions/{session_id}/checkpoint": {
       "get": {
         "description": "获取当前战役档案（用于前端展示存档详情）",

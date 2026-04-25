@@ -93,11 +93,18 @@ def _mock_llm_layer():
             "world_flags":      {},
         }
 
+    async def fake_generate_takeover_action(character, scene, recent_logs):
+        # 返回一段贴合人设的占位文本（含 personality 关键字便于断言）
+        name = character.get("name", "队友")
+        cp = character.get("catchphrase") or ""
+        return f"{name}沉默地观察四周，{cp}".strip()
+
     import services.langgraph_client as lc
-    patches.append(patch.object(lc.langgraph_client, "call_dm_agent",            fake_call_dm_agent))
-    patches.append(patch.object(lc.langgraph_client, "parse_module",             fake_parse_module))
-    patches.append(patch.object(lc.langgraph_client, "generate_party",           fake_generate_party))
-    patches.append(patch.object(lc.langgraph_client, "generate_campaign_state",  fake_generate_campaign_state))
+    patches.append(patch.object(lc.langgraph_client, "call_dm_agent",             fake_call_dm_agent))
+    patches.append(patch.object(lc.langgraph_client, "parse_module",              fake_parse_module))
+    patches.append(patch.object(lc.langgraph_client, "generate_party",            fake_generate_party))
+    patches.append(patch.object(lc.langgraph_client, "generate_campaign_state",   fake_generate_campaign_state))
+    patches.append(patch.object(lc.langgraph_client, "generate_takeover_action",  fake_generate_takeover_action))
 
     # 跳过 DM Agent 的 SqliteSaver 初始化（测试场景下不需要对话记忆持久化）
     async def fake_initialize_memory():

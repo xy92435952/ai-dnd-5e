@@ -437,6 +437,197 @@ async def test_switching_character_demotes_previous_one(
     assert char_b.user_id == host["user_id"]
 
 
+async def test_ai_takeover_speaker_offline_succeeds(
+    client, db_session, sample_module,
+):
+    """
+    场景：speaker 长时间无心跳（离线）→ 另一个在线玩家点"代他出招"→
+    AI 据 speaker 的 personality 生成一句行动 → 走 DM 流程 → 推进 speaker。
+    """
+    from datetime import datetime, timedelta
+    from models import Character, SessionMember
+    import uuid as _uuid
+
+    host    = await _register(client, "host_takeover_off")
+    offline = await _register(client, "offline_speaker")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid  = create["session_id"]
+    code = create["room_code"]
+
+    # offline 加入并 claim 角色
+    await client.post("/game/rooms/join", headers=_h(offline["token"]), json={"room_code": code})
+
+    char = Character(
+        id=str(_uuid.uuid4()), name="离线浪人",
+        race="Human", char_class="Ranger", level=1,
+        ability_scores={"str": 13, "dex": 15, "con": 14, "int": 10, "wis": 13, "cha": 8},
+        hp_current=10, is_player=True, session_id=sid,
+        personality="沉默寡言", speech_style="短句", catchphrase="天黑前必须到达。",
+    )
+    db_session.add(char)
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character",
+                       headers=_h(offline["token"]),
+                       json={"character_id": char.id})
+
+    # host 也认领一个角色，方便启动游戏
+    host_char = Character(
+        id=str(_uuid.uuid4()), name="host 战士",
+        race="Human", char_class="Fighter", level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12, is_player=True, session_id=sid,
+    )
+    db_session.add(host_char)
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character",
+                       headers=_h(host["token"]),
+                       json={"character_id": host_char.id})
+
+    # 启动游戏
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+
+    # 把 speaker 强行设为 offline 用户
+    from sqlalchemy.orm.attributes import flag_modified
+    from models import Session
+    sess = await db_session.get(Session, sid)
+    gs = dict(sess.game_state or {})
+    gs.setdefault("multiplayer", {})["current_speaker_user_id"] = offline["user_id"]
+    sess.game_state = gs
+    flag_modified(sess, "game_state")
+
+    # 把 offline 的 last_seen_at 改成 60 秒前 → 视为离线
+    sm_q = await db_session.execute(
+        SessionMember.__table__.select().where(
+            (SessionMember.session_id == sid) &
+            (SessionMember.user_id == offline["user_id"])
+        )
+    )
+    # 简单写法：直接拉 SessionMember ORM 对象再改
+    from sqlalchemy import select as _select
+    sm_orm = (await db_session.execute(
+        _select(SessionMember).where(
+            SessionMember.session_id == sid,
+            SessionMember.user_id == offline["user_id"],
+        )
+    )).scalar_one()
+    sm_orm.last_seen_at = datetime.utcnow() - timedelta(seconds=120)
+    await db_session.commit()
+
+    # host 触发 AI 代演
+    r = await client.post(f"/game/sessions/{sid}/ai-takeover", headers=_h(host["token"]))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "narrative" in body
+
+    # 验证：写了一条 [AI 代演] log
+    from models import GameLog
+    logs_q = await db_session.execute(
+        _select(GameLog).where(GameLog.session_id == sid).order_by(GameLog.created_at.desc()).limit(5)
+    )
+    contents = [l.content for l in logs_q.scalars().all()]
+    assert any("[AI 代演]" in c for c in contents)
+
+    # 验证：last_turn.last_actor_user_id 是 offline（不是 host）
+    await db_session.refresh(sess)
+    lt = sess.game_state.get("last_turn") or {}
+    assert lt.get("last_actor_user_id") == offline["user_id"]
+    assert lt.get("ai_takeover") is True
+    assert lt.get("takeover_by") == host["user_id"]
+
+
+async def test_ai_takeover_rejected_when_speaker_online(
+    client, db_session, sample_module,
+):
+    """speaker 还在线 → 触发 AI 代演应被 409 拒绝。"""
+    from datetime import datetime
+    from models import Character, SessionMember
+    from sqlalchemy.orm.attributes import flag_modified
+    from models import Session
+    from sqlalchemy import select as _select
+    import uuid as _uuid
+
+    host    = await _register(client, "host_online_check")
+    speaker = await _register(client, "online_speaker")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(speaker["token"]),
+                       json={"room_code": create["room_code"]})
+
+    # 准备 + claim 角色
+    char = Character(
+        id=str(_uuid.uuid4()), name="speaker 角色",
+        race="Human", char_class="Fighter", level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12, is_player=True, session_id=sid,
+    )
+    db_session.add(char)
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character",
+                       headers=_h(speaker["token"]),
+                       json={"character_id": char.id})
+
+    # 设 speaker
+    sess = await db_session.get(Session, sid)
+    gs = dict(sess.game_state or {})
+    gs.setdefault("multiplayer", {})["current_speaker_user_id"] = speaker["user_id"]
+    sess.game_state = gs
+    flag_modified(sess, "game_state")
+    # speaker 刚刚刷新过 last_seen
+    sm = (await db_session.execute(
+        _select(SessionMember).where(
+            SessionMember.session_id == sid,
+            SessionMember.user_id == speaker["user_id"],
+        )
+    )).scalar_one()
+    sm.last_seen_at = datetime.utcnow()
+    await db_session.commit()
+
+    r = await client.post(f"/game/sessions/{sid}/ai-takeover", headers=_h(host["token"]))
+    assert r.status_code == 409  # speaker 仍在线，拒绝
+
+
+async def test_ai_takeover_rejected_for_self(
+    client, db_session, sample_module,
+):
+    """触发方就是当前 speaker → 400（请直接出招）。"""
+    from sqlalchemy.orm.attributes import flag_modified
+    from models import Session
+
+    host = await _register(client, "host_self_takeover")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+
+    sess = await db_session.get(Session, create["session_id"])
+    gs = dict(sess.game_state or {})
+    gs.setdefault("multiplayer", {})["current_speaker_user_id"] = host["user_id"]
+    sess.game_state = gs
+    flag_modified(sess, "game_state")
+    await db_session.commit()
+
+    r = await client.post(f"/game/sessions/{create['session_id']}/ai-takeover",
+                           headers=_h(host["token"]))
+    assert r.status_code == 400
+
+
+async def test_ai_takeover_singleplayer_rejected(
+    client, sample_session, sample_user,
+):
+    """单人模式 session → 400。"""
+    login = await client.post("/auth/login", json={
+        "username": sample_user.username, "password": "password",
+    })
+    headers = {"Authorization": f"Bearer {login.json()['token']}"}
+    r = await client.post(f"/game/sessions/{sample_session.id}/ai-takeover", headers=headers)
+    assert r.status_code == 400
+
+
 async def test_reclaim_own_character_after_leave_and_rejoin(
     client, db_session, sample_module,
 ):
