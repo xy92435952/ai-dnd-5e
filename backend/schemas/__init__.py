@@ -27,3 +27,7 @@ from schemas.game_responses import (
 from schemas.module_responses import (
     ModuleListItem, ModuleDetail, ModuleUploadResponse,
 )
+from schemas.combat_responses import (
+    CombatActionResult, EndTurnResult, MoveResult,
+    ConditionUpdateResult, DeathSaveResult,
+)

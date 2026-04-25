@@ -29,6 +29,8 @@ from services.langgraph_client import langgraph_client as dify_client
 from services.spell_service import spell_service
 from schemas.game_responses import (
     CharacterDetail, CharacterOptionsResponse, GeneratePartyResponse,
+    PreparedSpellsResult, GoldUpdateResult, ExhaustionUpdateResult,
+    AmmoUpdateResult, LevelUpResult,
 )
 
 router = APIRouter(prefix="/characters", tags=["characters"])
@@ -421,7 +423,7 @@ class PreparedSpellsRequest(BaseModel):
     prepared_spells: list[str]
 
 
-@router.patch("/{character_id}/prepared-spells")
+@router.patch("/{character_id}/prepared-spells", response_model=PreparedSpellsResult)
 async def update_prepared_spells(
     character_id: str,
     req: PreparedSpellsRequest,
@@ -464,7 +466,7 @@ class LevelUpRequest(BaseModel):
     feat_choice: Optional[dict] = None    # {"name": "Alert"} 替代 ASI
 
 
-@router.post("/{character_id}/level-up")
+@router.post("/{character_id}/level-up", response_model=LevelUpResult)
 async def level_up(
     character_id: str,
     req: LevelUpRequest,
@@ -574,7 +576,7 @@ class GoldRequest(BaseModel):
     reason: str = ""
 
 
-@router.patch("/{character_id}/gold")
+@router.patch("/{character_id}/gold", response_model=GoldUpdateResult)
 async def update_gold(
     character_id: str,
     req: GoldRequest,
@@ -604,7 +606,7 @@ class ExhaustionRequest(BaseModel):
     change: int = 1  # positive=gain exhaustion, negative=remove
 
 
-@router.patch("/{character_id}/exhaustion")
+@router.patch("/{character_id}/exhaustion", response_model=ExhaustionUpdateResult)
 async def update_exhaustion(
     character_id: str,
     req: ExhaustionRequest,
@@ -649,7 +651,7 @@ class AmmoRequest(BaseModel):
     change: int = -1  # negative=use, positive=recover
 
 
-@router.patch("/{character_id}/ammo")
+@router.patch("/{character_id}/ammo", response_model=AmmoUpdateResult)
 async def update_ammo(
     character_id: str,
     req: AmmoRequest,

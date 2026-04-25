@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import EndTurnResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/ai-turn")
+@router.post("/combat/{session_id}/ai-turn", response_model=EndTurnResult)
 async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     """处理当前 AI 实体的回合（队友或敌人）"""
     session = await get_session_or_404(session_id, db)
@@ -953,7 +954,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
 
 # ── 结束战斗 ──────────────────────────────────────────────
 
-@router.post("/combat/{session_id}/end")
+@router.post("/combat/{session_id}/end", response_model=EndTurnResult)
 async def end_combat(session_id: str, db: AsyncSession = Depends(get_db)):
     session = await get_session_or_404(session_id, db)
     session.combat_active = False

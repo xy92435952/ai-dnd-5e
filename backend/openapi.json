@@ -131,6 +131,31 @@
         "title": "AmmoRequest",
         "type": "object"
       },
+      "AmmoUpdateResult": {
+        "additionalProperties": true,
+        "description": "PATCH /characters/{id}/ammo",
+        "properties": {
+          "ammo": {
+            "title": "Ammo",
+            "type": "integer"
+          },
+          "change": {
+            "title": "Change",
+            "type": "integer"
+          },
+          "weapon": {
+            "title": "Weapon",
+            "type": "string"
+          }
+        },
+        "required": [
+          "weapon",
+          "ammo",
+          "change"
+        ],
+        "title": "AmmoUpdateResult",
+        "type": "object"
+      },
       "AttackRollRequest": {
         "properties": {
           "action_type": {
@@ -859,6 +884,130 @@
         "title": "CombatActionRequest",
         "type": "object"
       },
+      "CombatActionResult": {
+        "additionalProperties": true,
+        "description": "11 个动作类端点共用：/action / /attack-roll / /damage-roll / /spell /\n/spell-roll / /spell-confirm / /smite / /grapple-shove / /class-feature /\n/maneuver / /reaction",
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "attacker_hp_current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attacker Hp Current"
+          },
+          "combat_over": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combat Over"
+          },
+          "damage": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage"
+          },
+          "dice_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dice Result"
+          },
+          "hit": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit"
+          },
+          "is_crit": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Crit"
+          },
+          "log_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Msg"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "target_hp_current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Hp Current"
+          }
+        },
+        "title": "CombatActionResult",
+        "type": "object"
+      },
       "CombatStateResponse": {
         "additionalProperties": true,
         "description": "对应 api.combat.info.get_combat_state 的返回。",
@@ -948,6 +1097,40 @@
           "condition"
         ],
         "title": "ConditionRequest",
+        "type": "object"
+      },
+      "ConditionUpdateResult": {
+        "additionalProperties": true,
+        "description": "/condition/add / /condition/remove —— 端点返回更新后**完整**的条件列表。\n前端据 `conditions` 整体覆盖 UI 状态，不做 diff。",
+        "properties": {
+          "conditions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "log_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Msg"
+          }
+        },
+        "required": [
+          "entity_id"
+        ],
+        "title": "ConditionUpdateResult",
         "type": "object"
       },
       "CreateCharacterRequest": {
@@ -1312,6 +1495,186 @@
         "title": "DeathSaveRequest",
         "type": "object"
       },
+      "DeathSaveResult": {
+        "additionalProperties": true,
+        "description": "/death-save。",
+        "properties": {
+          "d20": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20"
+          },
+          "dead": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dead"
+          },
+          "failures": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failures"
+          },
+          "hp_current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hp Current"
+          },
+          "log_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log Msg"
+          },
+          "revived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revived"
+          },
+          "save_succeeded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Succeeded"
+          },
+          "stable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stable"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "successes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Successes"
+          }
+        },
+        "title": "DeathSaveResult",
+        "type": "object"
+      },
+      "EndTurnResult": {
+        "additionalProperties": true,
+        "description": "/end-turn / /ai-turn / /end 等回合推进类端点。",
+        "properties": {
+          "combat_over": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combat Over"
+          },
+          "current_entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Entity Id"
+          },
+          "next_turn_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Turn Index"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "round_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round Number"
+          },
+          "success": {
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "title": "EndTurnResult",
+        "type": "object"
+      },
       "EntitySnapshot": {
         "additionalProperties": true,
         "description": "战斗地图上的实体（玩家 / 队友 / 敌人共用）。",
@@ -1419,6 +1782,34 @@
           }
         },
         "title": "ExhaustionRequest",
+        "type": "object"
+      },
+      "ExhaustionUpdateResult": {
+        "additionalProperties": true,
+        "description": "PATCH /characters/{id}/exhaustion",
+        "properties": {
+          "effects": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "exhaustion_level": {
+            "title": "Exhaustion Level",
+            "type": "integer"
+          },
+          "is_dead": {
+            "default": false,
+            "title": "Is Dead",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exhaustion_level"
+        ],
+        "title": "ExhaustionUpdateResult",
         "type": "object"
       },
       "GameLogEntry": {
@@ -1529,6 +1920,37 @@
           "amount"
         ],
         "title": "GoldRequest",
+        "type": "object"
+      },
+      "GoldUpdateResult": {
+        "additionalProperties": true,
+        "description": "PATCH /characters/{id}/gold",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "integer"
+          },
+          "gold": {
+            "title": "Gold",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "gold",
+          "change"
+        ],
+        "title": "GoldUpdateResult",
         "type": "object"
       },
       "GrappleShoveRequest": {
@@ -1659,6 +2081,26 @@
           }
         },
         "title": "LevelUpRequest",
+        "type": "object"
+      },
+      "LevelUpResult": {
+        "additionalProperties": true,
+        "description": "POST /characters/{id}/level-up",
+        "properties": {
+          "character": {
+            "$ref": "#/components/schemas/CharacterDetail"
+          },
+          "level_up_details": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Level Up Details",
+            "type": "object"
+          }
+        },
+        "required": [
+          "character"
+        ],
+        "title": "LevelUpResult",
         "type": "object"
       },
       "LoginRequest": {
@@ -1997,6 +2439,62 @@
         "title": "MoveRequest",
         "type": "object"
       },
+      "MoveResult": {
+        "additionalProperties": true,
+        "description": "/move —— 含借机攻击触发结果。",
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "movement_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Movement Remaining"
+          },
+          "movement_used": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Movement Used"
+          },
+          "opportunity_attacks": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Opportunity Attacks",
+            "type": "array"
+          },
+          "x": {
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity_id",
+          "x",
+          "y"
+        ],
+        "title": "MoveResult",
+        "type": "object"
+      },
       "PlayerActionRequest": {
         "properties": {
           "action_text": {
@@ -2146,6 +2644,29 @@
           "prepared_spells"
         ],
         "title": "PreparedSpellsRequest",
+        "type": "object"
+      },
+      "PreparedSpellsResult": {
+        "additionalProperties": true,
+        "description": "PATCH /characters/{id}/prepared-spells",
+        "properties": {
+          "max_prepared": {
+            "title": "Max Prepared",
+            "type": "integer"
+          },
+          "prepared_spells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Prepared Spells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prepared_spells",
+          "max_prepared"
+        ],
+        "title": "PreparedSpellsResult",
         "type": "object"
       },
       "ReactionRequest": {
@@ -3277,7 +3798,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AmmoUpdateResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3430,7 +3953,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ExhaustionUpdateResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3481,7 +4006,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GoldUpdateResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3532,7 +4059,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LevelUpResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3583,7 +4112,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PreparedSpellsResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3872,7 +4403,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3913,7 +4446,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EndTurnResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -3964,7 +4499,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4015,7 +4552,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4066,7 +4605,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionUpdateResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4117,7 +4658,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ConditionUpdateResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4168,7 +4711,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4219,7 +4764,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DeathSaveResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4259,7 +4806,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EndTurnResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4300,7 +4849,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EndTurnResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4351,7 +4902,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4402,7 +4955,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4453,7 +5008,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MoveResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4555,7 +5112,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4665,7 +5224,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4716,7 +5277,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4767,7 +5330,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -4818,7 +5383,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
               }
             },
             "description": "Successful Response"

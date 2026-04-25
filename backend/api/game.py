@@ -1,10 +1,15 @@
 """
 游戏会话路由 — Session 管理 / 主跑团循环 / 技能检定 / 战役日志
 
-架构说明（新版）：
-  /game/action  ── 统一行动入口，战斗和探索都走这里
-                   内部调用 ContextBuilder → DifyClient.call_dm_agent → StateApplicator
-  其余端点（sessions CRUD / skill-check / journal / checkpoint / rest）保持不变
+架构说明：
+  /game/action       统一行动入口，战斗和探索都走这里
+                     探索分支调 _execute_exploration_action helper（与
+                     /sessions/{id}/ai-takeover 共用），战斗分支用自然语言
+                     解析 + combat_service 执行
+                     内部走 ContextBuilder → LangGraphClient.call_dm_agent
+                     → StateApplicator
+  其余端点（sessions CRUD / skill-check / journal / checkpoint / rest /
+            ai-takeover）保持简单
 """
 import uuid
 from datetime import datetime
@@ -243,6 +248,134 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db), us
     await db.commit()
 
     return {"ok": True}
+
+
+# ── 探索阶段 DM 主流程（player_action 与 ai_takeover 共用） ──
+
+async def _execute_exploration_action(
+    db: AsyncSession,
+    session: Session,
+    module: Optional[Module],
+    characters: list[Character],
+    actor: Optional[Character],
+    actor_user_id: str,
+    action_text: str,
+    *,
+    combat_state: Optional[CombatState] = None,
+    is_takeover: bool = False,
+    takeover_by_user_id: Optional[str] = None,
+) -> dict:
+    """
+    探索阶段一次行动的完整 DM 主流程：
+
+      ContextBuilder → DM Agent → StateApplicator
+        → 写 last_turn 到 game_state（带 ai_takeover/takeover_by 标记）
+        → 多人广播 DMResponded
+        → 推进下一位 speaker
+
+    返回 PlayerActionResponse 形状的 dict。
+
+    调用方负责：
+      - 提前广播 DMThinkingStart（让所有人看到等待状态）
+      - 提前写一条"玩家说了什么"的 GameLog（player_action 写原文，
+        ai_takeover 加 [AI 代演] 前缀）
+    """
+    builder = ContextBuilder(
+        session=session, module=module,
+        characters=characters, combat_state=combat_state,
+    )
+    inputs = await builder.build(
+        player_action=action_text,
+        current_actor_id=actor.id if actor else None,
+    )
+
+    try:
+        dm_result = await dify_client.call_dm_agent(
+            **inputs, conversation_id=session.id,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"AI服务暂时不可用: {str(e)}")
+    if not dm_result.get("success", True):
+        raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
+
+    applicator = StateApplicator(db)
+    ar = await applicator.apply(
+        session=session,
+        result_json=dm_result["result"],
+        characters=characters,
+        combat_state=combat_state,
+    )
+
+    if ar.combat_triggered:
+        await _init_combat(
+            session=session,
+            initial_enemies=ar.initial_enemies,
+            characters=characters,
+            module=module,
+            db=db,
+        )
+
+    # 持久化 last_turn —— 供页面刷新 / WS 重连恢复
+    gs = dict(session.game_state or {})
+    last_turn: dict = {
+        "player_choices":     ar.player_choices or [],
+        "needs_check":        ar.needs_check if (ar.needs_check and ar.needs_check.get("required")) else None,
+        "last_actor_user_id": actor_user_id,
+        "action_type":        ar.action_type,
+        "ts":                 datetime.utcnow().isoformat(),
+    }
+    if is_takeover:
+        last_turn["ai_takeover"] = True
+        if takeover_by_user_id:
+            last_turn["takeover_by"] = takeover_by_user_id
+    gs["last_turn"] = last_turn
+    session.game_state = gs
+    flag_modified(session, "game_state")
+    await db.commit()
+
+    # 多人广播
+    if session.is_multiplayer:
+        from services.ws_manager import ws_manager
+        from schemas.ws_events import DMResponded, DMSpeakTurn
+        try:
+            await ws_manager.broadcast(session.id, DMResponded(
+                by_user_id=actor_user_id,
+                action_type=ar.action_type,
+                narrative=ar.narrative,
+                companion_reactions=ar.companion_reactions or "",
+                dice_display=ar.dice_display or [],
+                combat_triggered=ar.combat_triggered,
+                combat_ended=ar.combat_ended,
+            ))
+        except Exception:
+            pass
+
+        # 探索阶段自动推进 speaker（战斗阶段由先攻顺序管理）
+        if not session.combat_active and not ar.combat_triggered:
+            try:
+                from api.ws import _advance_speaker
+                next_user = await _advance_speaker(db, session.id, actor_user_id)
+                if next_user:
+                    await ws_manager.broadcast(session.id, DMSpeakTurn(
+                        user_id=next_user, auto=True,
+                    ))
+            except Exception:
+                pass
+
+    return {
+        "type":               ar.action_type,
+        "narrative":          ar.narrative,
+        "companion_reactions": ar.companion_reactions,
+        "dice_display":       ar.dice_display,
+        # AI 代演时不向触发方暴露 actor 的 player_choices / needs_check
+        "player_choices":     [] if is_takeover else ar.player_choices,
+        "needs_check":        None if is_takeover else ar.needs_check,
+        "combat_triggered":   ar.combat_triggered,
+        "combat_ended":       ar.combat_ended,
+        "combat_end_result":  ar.combat_end_result,
+        "combat_update":      None,
+        "errors":             ar.errors,
+    }
 
 
 # ── 主跑团循环（统一入口：战斗 + 探索） ─────────────────
@@ -601,116 +734,18 @@ async def player_action(
         }
 
     # ═══════════════════════════════════════════════════════
-    # 探索模式：原有 DM Agent 流程
+    # 探索模式：DM Agent 主流程（与 ai_takeover 共用）
     # ═══════════════════════════════════════════════════════
-
-    builder = ContextBuilder(
-        session      = session,
-        module       = module,
-        characters   = characters,
-        combat_state = combat_state,
+    return await _execute_exploration_action(
+        db=db,
+        session=session,
+        module=module,
+        characters=characters,
+        actor=player,
+        actor_user_id=user_id,
+        action_text=req.action_text,
+        combat_state=combat_state,
     )
-    # player 是当前行动者（单人=主角，多人=SessionMember 查到的角色）
-    # 把 id 传下去让 DM 聚焦视角，避免分头行动时硬塞不在场的队友
-    inputs = await builder.build(
-        player_action=req.action_text,
-        current_actor_id=player.id if player else None,
-    )
-
-    try:
-        dm_result = await dify_client.call_dm_agent(
-            **inputs,
-            conversation_id=session.id,
-        )
-    except Exception as e:
-        raise HTTPException(502, f"AI服务暂时不可用: {str(e)}")
-
-    if not dm_result.get("success", True):
-        raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
-
-    applicator = StateApplicator(db)
-    ar = await applicator.apply(
-        session      = session,
-        result_json  = dm_result["result"],
-        characters   = characters,
-        combat_state = combat_state,
-    )
-
-    if ar.combat_triggered:
-        await _init_combat(
-            session         = session,
-            initial_enemies = ar.initial_enemies,
-            characters      = characters,
-            module          = module,
-            db              = db,
-        )
-
-    combat_update = None
-
-    # 持久化最近一次回合的对话状态（供页面刷新 / WS 断线重连恢复）
-    # - player_choices / needs_check 原本只在 HTTP 响应里返回，页面刷新后丢失
-    # - last_actor_user_id 供前端判断"是不是我上次的选项"决定是否恢复
-    gs = dict(session.game_state or {})  # 拷贝一份，避免引用问题
-    gs["last_turn"] = {
-        "player_choices":      ar.player_choices or [],
-        "needs_check":         ar.needs_check if (ar.needs_check and ar.needs_check.get("required")) else None,
-        "last_actor_user_id":  user_id,
-        "action_type":         ar.action_type,
-        "ts":                  datetime.utcnow().isoformat(),
-    }
-    session.game_state = gs
-    flag_modified(session, "game_state")
-
-    await db.commit()
-
-    # 多人联机：广播 DM 响应到房间所有人
-    # 携带**完整叙事 payload**，让其他玩家前端也能启动剧场模式
-    # player_choices / needs_check 只给发言者（他们通过 HTTP 响应拿到），
-    # WS 广播不带这些，避免误导非发言者
-    # scene_vibe / clues 已写进 session.game_state，前端 loadSession 能拿到
-    if session.is_multiplayer:
-        from services.ws_manager import ws_manager
-        from schemas.ws_events import DMResponded, DMSpeakTurn
-        try:
-            await ws_manager.broadcast(session.id, DMResponded(
-                by_user_id=user_id,
-                action_type=ar.action_type,
-                narrative=ar.narrative,
-                companion_reactions=ar.companion_reactions or "",
-                dice_display=ar.dice_display or [],
-                combat_triggered=ar.combat_triggered,
-                combat_ended=ar.combat_ended,
-            ))
-        except Exception:
-            pass
-
-        # 真实跑团节奏：DM 回应后**自动**轮到下一位玩家
-        # （之前玩家需要手动点"我说完了"，现在自动推进）
-        # 探索阶段生效；战斗阶段由先攻顺序管理，不走这里
-        if not session.combat_active and not ar.combat_triggered:
-            try:
-                from api.ws import _advance_speaker
-                next_user = await _advance_speaker(db, session.id, user_id)
-                if next_user:
-                    await ws_manager.broadcast(session.id, DMSpeakTurn(
-                        user_id=next_user, auto=True,
-                    ))
-            except Exception:
-                pass
-
-    return {
-        "type":               ar.action_type,
-        "narrative":          ar.narrative,
-        "companion_reactions":ar.companion_reactions,
-        "dice_display":       ar.dice_display,
-        "player_choices":     ar.player_choices,
-        "needs_check":        ar.needs_check,
-        "combat_triggered":   ar.combat_triggered,
-        "combat_ended":       ar.combat_ended,
-        "combat_end_result":  ar.combat_end_result,
-        "combat_update":      combat_update,
-        "errors":             ar.errors,
-    }
 
 
 # ── AI 代演离线玩家 ──────────────────────────────────────
@@ -740,10 +775,10 @@ async def ai_takeover_action(
     刷新时仍能正确恢复 last_turn 归属。
     """
     from datetime import timedelta as _td
-    from models import SessionMember, User
+    from models import SessionMember
     from services.room_service import OFFLINE_THRESHOLD_SECONDS
     from services.ws_manager import ws_manager
-    from schemas.ws_events import DMThinkingStart, DMResponded, DMSpeakTurn
+    from schemas.ws_events import DMThinkingStart
 
     session = await get_session_or_404(session_id, db)
     if not session.is_multiplayer:
@@ -791,7 +826,7 @@ async def ai_takeover_action(
     # ── 加载 module / characters 并喂给 LLM 生成 action ──
     module = await db.get(Module, session.module_id)
     roster = CharacterRoster(db, session)
-    characters: list[Character] = ([speaker_char]) + await roster.companions()
+    characters: list[Character] = [speaker_char] + await roster.companions()
 
     # 拿最近 8 条 logs 作为上下文
     recent_logs_q = await db.execute(
@@ -803,112 +838,40 @@ async def ai_takeover_action(
     recent_contents = [l.content for l in reversed(recent_logs_q.scalars().all())]
 
     # 调用 LLM 生成 action_text
-    char_info = char_brief(speaker_char)
     action_text = await dify_client.generate_takeover_action(
-        character=char_info,
+        character=char_brief(speaker_char),
         scene=session.current_scene or "",
         recent_logs=recent_contents,
     )
-    # 显式标注 [AI 代演]，前端能用前缀做提示渲染
-    action_text_logged = f"[AI 代演] {action_text}"
 
-    # 写一条 player log（role=player + 前缀）
+    # 写一条 player log，[AI 代演] 前缀供前端区分渲染
     db.add(GameLog(
         session_id=session_id,
         role="player",
-        content=action_text_logged,
+        content=f"[AI 代演] {action_text}",
         log_type="narrative",
     ))
 
-    # 广播 DM 思考中
+    # 广播 DM 思考中（用 speaker 的 uid，前端按这个判 actor）
     try:
         await ws_manager.broadcast(session.id, DMThinkingStart(
-            by_user_id=speaker_uid,        # 用 speaker 的 uid，前端按这个判 actor
-            action_text=action_text[:80],
+            by_user_id=speaker_uid, action_text=action_text[:80],
         ))
     except Exception:
         pass
 
-    # ── 走 DM 流程（探索阶段简化版，复用 player_action 的核心逻辑） ──
-    builder = ContextBuilder(
-        session=session, module=module,
-        characters=characters, combat_state=None,
-    )
-    inputs = await builder.build(
-        player_action=action_text,
-        current_actor_id=speaker_char.id,
-    )
-    try:
-        dm_result = await dify_client.call_dm_agent(
-            **inputs, conversation_id=session.id,
-        )
-    except Exception as e:
-        raise HTTPException(502, f"AI服务暂时不可用: {str(e)}")
-    if not dm_result.get("success", True):
-        raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
-
-    applicator = StateApplicator(db)
-    ar = await applicator.apply(
+    # 走探索阶段共用主流程：DM Agent → state apply → 广播 → 推 speaker
+    return await _execute_exploration_action(
+        db=db,
         session=session,
-        result_json=dm_result["result"],
+        module=module,
         characters=characters,
-        combat_state=None,
+        actor=speaker_char,
+        actor_user_id=speaker_uid,        # 用 speaker，不是 caller
+        action_text=action_text,
+        is_takeover=True,
+        takeover_by_user_id=user_id,
     )
-
-    # 持久化 last_turn —— 注意 last_actor_user_id 用 speaker_uid，
-    # 这样 speaker 重连刷新时能正确看到自己的选项；其他在线玩家仍然只看叙事
-    gs = dict(session.game_state or {})
-    gs["last_turn"] = {
-        "player_choices":     ar.player_choices or [],
-        "needs_check":        ar.needs_check if (ar.needs_check and ar.needs_check.get("required")) else None,
-        "last_actor_user_id": speaker_uid,
-        "action_type":        ar.action_type,
-        "ts":                 datetime.utcnow().isoformat(),
-        "ai_takeover":        True,        # 标记此回合是 AI 代演的（前端可显示徽章）
-        "takeover_by":        user_id,     # 是谁触发的
-    }
-    session.game_state = gs
-    flag_modified(session, "game_state")
-    await db.commit()
-
-    # 广播 DM 响应 + 推进下一个 speaker
-    try:
-        await ws_manager.broadcast(session.id, DMResponded(
-            by_user_id=speaker_uid,
-            action_type=ar.action_type,
-            narrative=ar.narrative,
-            companion_reactions=ar.companion_reactions or "",
-            dice_display=ar.dice_display or [],
-            combat_triggered=ar.combat_triggered,
-            combat_ended=ar.combat_ended,
-        ))
-    except Exception:
-        pass
-
-    if not ar.combat_triggered:
-        try:
-            from api.ws import _advance_speaker
-            next_user = await _advance_speaker(db, session.id, speaker_uid)
-            if next_user:
-                await ws_manager.broadcast(session.id, DMSpeakTurn(
-                    user_id=next_user, auto=True,
-                ))
-        except Exception:
-            pass
-
-    return {
-        "type":               ar.action_type,
-        "narrative":          ar.narrative,
-        "companion_reactions": ar.companion_reactions,
-        "dice_display":       ar.dice_display,
-        "player_choices":     [],   # 选项归 speaker 自己；触发方不显示
-        "needs_check":        None,
-        "combat_triggered":   ar.combat_triggered,
-        "combat_ended":       ar.combat_ended,
-        "combat_end_result":  ar.combat_end_result,
-        "combat_update":      None,
-        "errors":             ar.errors,
-    }
 
 
 # ── 技能检定 ──────────────────────────────────────────────

@@ -1347,6 +1347,20 @@ export interface components {
             /** Weapon Name */
             weapon_name: string;
         };
+        /**
+         * AmmoUpdateResult
+         * @description PATCH /characters/{id}/ammo
+         */
+        AmmoUpdateResult: {
+            /** Ammo */
+            ammo: number;
+            /** Change */
+            change: number;
+            /** Weapon */
+            weapon: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** AttackRollRequest */
         AttackRollRequest: {
             /**
@@ -1721,6 +1735,43 @@ export interface components {
             target_id?: string | null;
         };
         /**
+         * CombatActionResult
+         * @description 11 个动作类端点共用：/action / /attack-roll / /damage-roll / /spell /
+         *     /spell-roll / /spell-confirm / /smite / /grapple-shove / /class-feature /
+         *     /maneuver / /reaction
+         */
+        CombatActionResult: {
+            /** Action */
+            action?: string | null;
+            /** Attacker Hp Current */
+            attacker_hp_current?: number | null;
+            /** Combat Over */
+            combat_over?: boolean | null;
+            /** Damage */
+            damage?: number | null;
+            /** Dice Result */
+            dice_result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Hit */
+            hit?: boolean | null;
+            /** Is Crit */
+            is_crit?: boolean | null;
+            /** Log Msg */
+            log_msg?: string | null;
+            /** Outcome */
+            outcome?: string | null;
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+            /** Target Hp Current */
+            target_hp_current?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * CombatStateResponse
          * @description 对应 api.combat.info.get_combat_state 的返回。
          */
@@ -1786,6 +1837,24 @@ export interface components {
             is_enemy: boolean;
             /** Rounds */
             rounds?: number | null;
+        };
+        /**
+         * ConditionUpdateResult
+         * @description /condition/add / /condition/remove —— 端点返回更新后**完整**的条件列表。
+         *     前端据 `conditions` 整体覆盖 UI 状态，不做 diff。
+         */
+        ConditionUpdateResult: {
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: string[];
+            /** Entity Id */
+            entity_id: string;
+            /** Log Msg */
+            log_msg?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** CreateCharacterRequest */
         CreateCharacterRequest: {
@@ -1914,6 +1983,60 @@ export interface components {
             d20_value?: number | null;
         };
         /**
+         * DeathSaveResult
+         * @description /death-save。
+         */
+        DeathSaveResult: {
+            /** D20 */
+            d20?: number | null;
+            /** Dead */
+            dead?: boolean | null;
+            /** Failures */
+            failures?: number | null;
+            /** Hp Current */
+            hp_current?: number | null;
+            /** Log Msg */
+            log_msg?: string | null;
+            /** Revived */
+            revived?: boolean | null;
+            /** Save Succeeded */
+            save_succeeded?: boolean | null;
+            /** Stable */
+            stable?: boolean | null;
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+            /** Successes */
+            successes?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * EndTurnResult
+         * @description /end-turn / /ai-turn / /end 等回合推进类端点。
+         */
+        EndTurnResult: {
+            /** Combat Over */
+            combat_over?: boolean | null;
+            /** Current Entity Id */
+            current_entity_id?: string | null;
+            /** Next Turn Index */
+            next_turn_index?: number | null;
+            /** Outcome */
+            outcome?: string | null;
+            /** Round Number */
+            round_number?: number | null;
+            /**
+             * Success
+             * @default true
+             */
+            success: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * EntitySnapshot
          * @description 战斗地图上的实体（玩家 / 队友 / 敌人共用）。
          */
@@ -1987,6 +2110,26 @@ export interface components {
             change: number;
         };
         /**
+         * ExhaustionUpdateResult
+         * @description PATCH /characters/{id}/exhaustion
+         */
+        ExhaustionUpdateResult: {
+            /**
+             * Effects
+             * @default []
+             */
+            effects: string[];
+            /** Exhaustion Level */
+            exhaustion_level: number;
+            /**
+             * Is Dead
+             * @default false
+             */
+            is_dead: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * GameLogEntry
          * @description 对应 api.deps.serialize_log(GameLog) 的返回。
          */
@@ -2043,6 +2186,20 @@ export interface components {
              */
             reason: string;
         };
+        /**
+         * GoldUpdateResult
+         * @description PATCH /characters/{id}/gold
+         */
+        GoldUpdateResult: {
+            /** Change */
+            change: number;
+            /** Gold */
+            gold: number;
+            /** Reason */
+            reason?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** GrappleShoveRequest */
         GrappleShoveRequest: {
             /** Action Type */
@@ -2096,6 +2253,22 @@ export interface components {
              * @default true
              */
             use_average_hp: boolean;
+        };
+        /**
+         * LevelUpResult
+         * @description POST /characters/{id}/level-up
+         */
+        LevelUpResult: {
+            character: components["schemas"]["CharacterDetail"];
+            /**
+             * Level Up Details
+             * @default {}
+             */
+            level_up_details: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2250,6 +2423,31 @@ export interface components {
             /** To Y */
             to_y: number;
         };
+        /**
+         * MoveResult
+         * @description /move —— 含借机攻击触发结果。
+         */
+        MoveResult: {
+            /** Entity Id */
+            entity_id: string;
+            /** Movement Remaining */
+            movement_remaining?: number | null;
+            /** Movement Used */
+            movement_used?: number | null;
+            /**
+             * Opportunity Attacks
+             * @default []
+             */
+            opportunity_attacks: {
+                [key: string]: unknown;
+            }[];
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        } & {
+            [key: string]: unknown;
+        };
         /** PlayerActionRequest */
         PlayerActionRequest: {
             /** Action Text */
@@ -2333,6 +2531,18 @@ export interface components {
         PreparedSpellsRequest: {
             /** Prepared Spells */
             prepared_spells: string[];
+        };
+        /**
+         * PreparedSpellsResult
+         * @description PATCH /characters/{id}/prepared-spells
+         */
+        PreparedSpellsResult: {
+            /** Max Prepared */
+            max_prepared: number;
+            /** Prepared Spells */
+            prepared_spells: string[];
+        } & {
+            [key: string]: unknown;
         };
         /** ReactionRequest */
         ReactionRequest: {
@@ -2927,7 +3137,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AmmoUpdateResult"];
                 };
             };
             /** @description Validation Error */
@@ -3032,7 +3242,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ExhaustionUpdateResult"];
                 };
             };
             /** @description Validation Error */
@@ -3067,7 +3277,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GoldUpdateResult"];
                 };
             };
             /** @description Validation Error */
@@ -3102,7 +3312,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LevelUpResult"];
                 };
             };
             /** @description Validation Error */
@@ -3137,7 +3347,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PreparedSpellsResult"];
                 };
             };
             /** @description Validation Error */
@@ -3341,7 +3551,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3372,7 +3582,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EndTurnResult"];
                 };
             };
             /** @description Validation Error */
@@ -3407,7 +3617,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3442,7 +3652,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3477,7 +3687,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConditionUpdateResult"];
                 };
             };
             /** @description Validation Error */
@@ -3512,7 +3722,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ConditionUpdateResult"];
                 };
             };
             /** @description Validation Error */
@@ -3547,7 +3757,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3582,7 +3792,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DeathSaveResult"];
                 };
             };
             /** @description Validation Error */
@@ -3613,7 +3823,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EndTurnResult"];
                 };
             };
             /** @description Validation Error */
@@ -3644,7 +3854,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EndTurnResult"];
                 };
             };
             /** @description Validation Error */
@@ -3679,7 +3889,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3714,7 +3924,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3749,7 +3959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MoveResult"];
                 };
             };
             /** @description Validation Error */
@@ -3819,7 +4029,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3887,7 +4097,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3922,7 +4132,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3957,7 +4167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */
@@ -3992,7 +4202,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */

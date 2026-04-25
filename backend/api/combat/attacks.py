@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import CombatActionResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/action")
+@router.post("/combat/{session_id}/action", response_model=CombatActionResult)
 async def combat_action(
     session_id: str,
     req:        CombatActionRequest,
@@ -605,7 +606,7 @@ async def combat_action(
 
 # ── 攻击检定（仅 d20，不掷伤害）──────────────────────────────
 
-@router.post("/combat/{session_id}/attack-roll")
+@router.post("/combat/{session_id}/attack-roll", response_model=CombatActionResult)
 async def attack_roll(
     session_id: str,
     req:        AttackRollRequest,
@@ -898,7 +899,7 @@ async def attack_roll(
 
 # ── 伤害骰（读取 pending_attack，掷伤害，扣 HP）──────────────
 
-@router.post("/combat/{session_id}/damage-roll")
+@router.post("/combat/{session_id}/damage-roll", response_model=CombatActionResult)
 async def damage_roll(
     session_id: str,
     req:        DamageRollRequest,
@@ -1178,7 +1179,7 @@ async def damage_roll(
 # ── 结束玩家回合（明确���进回合）────────────────────────────
 
 
-@router.post("/combat/{session_id}/grapple-shove")
+@router.post("/combat/{session_id}/grapple-shove", response_model=CombatActionResult)
 async def grapple_shove(
     session_id: str,
     req: GrappleShoveRequest,
@@ -1345,7 +1346,7 @@ async def grapple_shove(
 
 # ── 神圣斩击 (Divine Smite) ───────────────────────────────
 
-@router.post("/combat/{session_id}/smite")
+@router.post("/combat/{session_id}/smite", response_model=CombatActionResult)
 async def divine_smite(
     session_id: str,
     req: SmiteRequest,
@@ -1489,7 +1490,7 @@ async def divine_smite(
 
 # ── 职业特性 (Class Features) ─────────────────────────────
 
-@router.post("/combat/{session_id}/class-feature")
+@router.post("/combat/{session_id}/class-feature", response_model=CombatActionResult)
 async def use_class_feature(
     session_id: str,
     req: ClassFeatureRequest,
@@ -1882,7 +1883,7 @@ async def use_class_feature(
 # ── AI 回合 ───────────────────────────────────────────────
 
 
-@router.post("/combat/{session_id}/maneuver")
+@router.post("/combat/{session_id}/maneuver", response_model=CombatActionResult)
 async def use_maneuver(session_id: str, req: ManeuverRequest, db: AsyncSession = Depends(get_db)):
     """
     Battle Master maneuver: consume 1 superiority die and apply effect.

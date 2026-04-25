@@ -38,7 +38,6 @@ backend/_*.json
 .claude/plans/
 *.db-shm
 *.db-wal
-dify_workflows/
 # 允许根目录的 docs/ 跟踪（开发文档 / 设计决策 / 约定）
 # 但忽略 design-preview 里夹带的 docs
 frontend/public/design-preview*/docs/

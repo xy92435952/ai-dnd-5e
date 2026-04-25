@@ -298,6 +298,46 @@ class GeneratePartyResponse(BaseModel):
     companions: list[CharacterDetail] = []
 
 
+# ─── 角色 PATCH / POST 端点（结构稳定的部分） ──────────────
+
+class PreparedSpellsResult(BaseModel):
+    """PATCH /characters/{id}/prepared-spells"""
+    model_config = ConfigDict(extra="allow")
+    prepared_spells: list[str]
+    max_prepared: int
+
+
+class GoldUpdateResult(BaseModel):
+    """PATCH /characters/{id}/gold"""
+    model_config = ConfigDict(extra="allow")
+    gold: int
+    change: int
+    reason: Optional[str] = None
+
+
+class ExhaustionUpdateResult(BaseModel):
+    """PATCH /characters/{id}/exhaustion"""
+    model_config = ConfigDict(extra="allow")
+    exhaustion_level: int
+    effects: list[str] = []
+    is_dead: bool = False
+
+
+class AmmoUpdateResult(BaseModel):
+    """PATCH /characters/{id}/ammo"""
+    model_config = ConfigDict(extra="allow")
+    weapon: str
+    ammo: int
+    change: int
+
+
+class LevelUpResult(BaseModel):
+    """POST /characters/{id}/level-up"""
+    model_config = ConfigDict(extra="allow")
+    character: CharacterDetail
+    level_up_details: dict[str, Any] = {}
+
+
 __all__ = [
     "CharacterBrief", "GameLogEntry",
     "SessionListItem", "SessionDetail", "PlayerActionResponse",
@@ -306,4 +346,6 @@ __all__ = [
     "SkillBarItem", "SkillBarResponse",
     "CreateSessionResponse",
     "CharacterOptionsResponse", "CharacterDetail", "GeneratePartyResponse",
+    "PreparedSpellsResult", "GoldUpdateResult", "ExhaustionUpdateResult",
+    "AmmoUpdateResult", "LevelUpResult",
 ]

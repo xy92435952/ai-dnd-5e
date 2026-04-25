@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import EndTurnResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/end-turn")
+@router.post("/combat/{session_id}/end-turn", response_model=EndTurnResult)
 async def end_player_turn(
     session_id: str,
     db: AsyncSession = Depends(get_db),

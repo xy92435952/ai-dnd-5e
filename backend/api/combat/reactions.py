@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import CombatActionResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/reaction")
+@router.post("/combat/{session_id}/reaction", response_model=CombatActionResult)
 async def use_reaction(
     session_id: str,
     req: ReactionRequest,

@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import DeathSaveResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/death-save")
+@router.post("/combat/{session_id}/death-save", response_model=DeathSaveResult)
 async def death_saving_throw(
     session_id: str,
     req: DeathSaveRequest,

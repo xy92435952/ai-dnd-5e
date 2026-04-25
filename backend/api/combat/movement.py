@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import MoveResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/move")
+@router.post("/combat/{session_id}/move", response_model=MoveResult)
 async def combat_move(
     session_id: str, req: MoveRequest,
     db: AsyncSession = Depends(get_db),

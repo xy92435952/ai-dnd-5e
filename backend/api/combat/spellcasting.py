@@ -39,6 +39,7 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import CombatActionResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -57,7 +58,7 @@ async def get_spells_for_class(class_name: str, max_level: int = 9):
 
 # ── 两步施法流程：spell-roll → spell-confirm ──────────────────
 
-@router.post("/combat/{session_id}/spell-roll")
+@router.post("/combat/{session_id}/spell-roll", response_model=CombatActionResult)
 async def spell_roll(
     session_id: str,
     req: SpellRollRequest,
@@ -193,7 +194,7 @@ async def spell_roll(
     }
 
 
-@router.post("/combat/{session_id}/spell-confirm")
+@router.post("/combat/{session_id}/spell-confirm", response_model=CombatActionResult)
 async def spell_confirm(
     session_id: str,
     req: SpellConfirmRequest,
@@ -640,7 +641,7 @@ async def spell_confirm(
     }
 
 
-@router.post("/combat/{session_id}/spell")
+@router.post("/combat/{session_id}/spell", response_model=CombatActionResult)
 async def cast_spell(
     session_id: str, req: SpellRequest,
     db: AsyncSession = Depends(get_db),

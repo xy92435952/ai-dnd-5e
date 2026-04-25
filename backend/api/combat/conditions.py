@@ -39,11 +39,12 @@ from api.combat.schemas import (
     AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
     SpellConfirmRequest, ManeuverRequest,
 )
+from schemas.combat_responses import ConditionUpdateResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
-@router.post("/combat/{session_id}/condition/add")
+@router.post("/combat/{session_id}/condition/add", response_model=ConditionUpdateResult)
 async def add_condition(
     session_id: str,
     req: ConditionRequest,
@@ -92,7 +93,7 @@ async def add_condition(
     return {"entity_id": req.entity_id, "conditions": conditions}
 
 
-@router.post("/combat/{session_id}/condition/remove")
+@router.post("/combat/{session_id}/condition/remove", response_model=ConditionUpdateResult)
 async def remove_condition(
     session_id: str,
     req: ConditionRequest,

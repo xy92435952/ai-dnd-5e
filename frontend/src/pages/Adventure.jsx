@@ -31,6 +31,7 @@ import { useUser } from '../hooks/useUser'
 import { useSkillCheck } from '../hooks/useSkillCheck'
 import { useDialogueFlow } from '../hooks/useDialogueFlow'
 import { useAdventureSession } from '../hooks/useAdventureSession'
+import { useDialogueWsSync } from '../hooks/useDialogueWsSync'
 import RestModal from '../components/adventure/RestModal'
 import JournalModal from '../components/adventure/JournalModal'
 import PrepareSpellsModal from '../components/adventure/PrepareSpellsModal'
@@ -205,39 +206,12 @@ export default function Adventure() {
     return queue
   }, [])
 
-  // 7. WS 事件处理（依赖前面所有 hook 的产物）
-  const onWsEvent = useCallback((event) => {
-    switch (event.type) {
-      case 'dm_thinking_start':
-        if (event.by_user_id && event.by_user_id !== myUserId) {
-          setIsLoading(true)
-        }
-        break
-      case 'dm_responded': {
-        const isMe = event.by_user_id && event.by_user_id === myUserId
-        if (!isMe) {
-          setIsLoading(false)
-          const queue = buildDialogueQueue(event.narrative, event.companion_reactions, companions)
-          if (queue.length > 0) enterDialogueStage(queue)
-        }
-        loadSession()
-        break
-      }
-      case 'dm_speak_turn':
-        setRoom(prev => prev ? { ...prev, _currentSpeaker: event.user_id } : prev)
-        break
-      case 'member_online':
-      case 'member_offline':
-      case 'member_joined':
-      case 'member_left':
-      case 'character_claimed':
-        roomsApi.get(sessionId)
-          .then(r => r?.is_multiplayer && setRoom({ ...r, _currentSpeaker: r.current_speaker_user_id }))
-          .catch(() => {})
-        break
-      default: break
-    }
-  }, [sessionId, myUserId, companions, buildDialogueQueue, enterDialogueStage, loadSession, setIsLoading])
+  // 7. WS 事件处理 —— 整段 switch 抽到 useDialogueWsSync 里
+  const onWsEvent = useDialogueWsSync({
+    sessionId, myUserId, companions,
+    buildDialogueQueue, enterDialogueStage, loadSession,
+    setIsLoading, setRoom,
+  })
 
   const { connected: wsConnected, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
 
