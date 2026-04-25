@@ -65,6 +65,10 @@ jobs:
           npm run types:api
           git diff --exit-code src/types/api.d.ts || (echo "❌ src/types/api.d.ts 已过时，请本地跑 npm run types:api 并 commit" && exit 1)
 
+      - name: Run vitest (前端 hook 单测)
+        working-directory: frontend
+        run: npm test
+
       - name: Build
         working-directory: frontend
         run: npm run build
