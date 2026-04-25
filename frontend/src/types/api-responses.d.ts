@@ -31,3 +31,18 @@ export type CombatStateResponse  = Schemas['CombatStateResponse']
 export type EntitySnapshot       = Schemas['EntitySnapshot']
 export type SkillBarResponse     = Schemas['SkillBarResponse']
 export type SkillBarItem         = Schemas['SkillBarItem']
+
+// ─── 创角 / 角色 ────────────────────────────────────────
+export type CreateSessionResponse    = Schemas['CreateSessionResponse']
+export type CharacterDetail          = Schemas['CharacterDetail']
+export type CharacterOptionsResponse = Schemas['CharacterOptionsResponse']
+export type GeneratePartyResponse    = Schemas['GeneratePartyResponse']
+
+// ─── 模组 ───────────────────────────────────────────────
+export type ModuleListItem      = Schemas['ModuleListItem']
+export type ModuleDetail        = Schemas['ModuleDetail']
+export type ModuleUploadResponse = Schemas['ModuleUploadResponse']
+
+// ─── 用户 ───────────────────────────────────────────────
+export type MeResponse = Schemas['MeResponse']
+export type TokenResponse = Schemas['TokenResponse']

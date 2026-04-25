@@ -12,11 +12,12 @@ from services.module_parser import extract_text, get_file_type, is_allowed_file,
 from services.langgraph_client import langgraph_client as dify_client
 from services.local_rag_uploader import rag_uploader
 from api.deps import get_user_id
+from schemas.module_responses import ModuleListItem, ModuleDetail, ModuleUploadResponse
 
 router = APIRouter(prefix="/modules", tags=["modules"])
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=ModuleUploadResponse)
 async def upload_module(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -115,7 +116,7 @@ async def _parse_module_bg(module_id: str, file_path: str, file_type: str):
                 await db.commit()
 
 
-@router.get("/")
+@router.get("/", response_model=list[ModuleListItem])
 async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depends(get_user_id)):
     """获取当前用户的模组列表"""
     result = await db.execute(select(Module).where(Module.user_id == user_id).order_by(Module.created_at.desc()))
@@ -137,7 +138,7 @@ async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depend
     ]
 
 
-@router.get("/{module_id}")
+@router.get("/{module_id}", response_model=ModuleDetail)
 async def get_module(module_id: str, db: AsyncSession = Depends(get_db)):
     """获取模组详情"""
     result = await db.execute(select(Module).where(Module.id == module_id))

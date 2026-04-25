@@ -27,6 +27,9 @@ from services.dnd_rules import (
 )
 from services.langgraph_client import langgraph_client as dify_client
 from services.spell_service import spell_service
+from schemas.game_responses import (
+    CharacterDetail, CharacterOptionsResponse, GeneratePartyResponse,
+)
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -77,7 +80,7 @@ class GeneratePartyRequest(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────
 
-@router.get("/options")
+@router.get("/options", response_model=CharacterOptionsResponse)
 async def get_character_options():
     """获取角色创建所有可选项，含种族加值/职业技能选择等元数据"""
     # 为每个施法职业构建可选戏法/法术列表
@@ -132,7 +135,7 @@ async def get_character_options():
     }
 
 
-@router.post("/create")
+@router.post("/create", response_model=CharacterDetail)
 async def create_character(
     req: CreateCharacterRequest,
     db: AsyncSession = Depends(get_db),
@@ -295,7 +298,7 @@ async def create_character(
     return _serialize_character(character)
 
 
-@router.post("/generate-party")
+@router.post("/generate-party", response_model=GeneratePartyResponse)
 async def generate_party(
     req: GeneratePartyRequest,
     db: AsyncSession = Depends(get_db),
@@ -390,7 +393,7 @@ async def get_shop_inventory():
     }
 
 
-@router.get("/{character_id}")
+@router.get("/{character_id}", response_model=CharacterDetail)
 async def get_character(character_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Character).where(Character.id == character_id))
     char = result.scalar_one_or_none()

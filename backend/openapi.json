@@ -342,6 +342,367 @@
         "title": "CharacterBrief",
         "type": "object"
       },
+      "CharacterDetail": {
+        "additionalProperties": true,
+        "description": "对应 api.characters._serialize_character 返回。和 CharacterBrief 的区别：\nBrief 只给 DM 上下文用（精简），Detail 给前端创角 / 角色面板（完整）。",
+        "properties": {
+          "ability_scores": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Ability Scores",
+            "type": "object"
+          },
+          "ac": {
+            "title": "Ac",
+            "type": "integer"
+          },
+          "alignment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alignment"
+          },
+          "background": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background"
+          },
+          "backstory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backstory"
+          },
+          "cantrips": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Cantrips",
+            "type": "array"
+          },
+          "cantrips_count": {
+            "default": 0,
+            "title": "Cantrips Count",
+            "type": "integer"
+          },
+          "caster_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caster Type"
+          },
+          "catchphrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catchphrase"
+          },
+          "char_class": {
+            "title": "Char Class",
+            "type": "string"
+          },
+          "combat_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combat Preference"
+          },
+          "concentration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concentration"
+          },
+          "condition_durations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Condition Durations",
+            "type": "object"
+          },
+          "conditions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "death_saves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Death Saves"
+          },
+          "derived": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Derived",
+            "type": "object"
+          },
+          "equipment": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Equipment",
+            "type": "object"
+          },
+          "feats": {
+            "default": [],
+            "items": {},
+            "title": "Feats",
+            "type": "array"
+          },
+          "fighting_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fighting Style"
+          },
+          "hp_current": {
+            "title": "Hp Current",
+            "type": "integer"
+          },
+          "hp_max": {
+            "title": "Hp Max",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_player": {
+            "title": "Is Player",
+            "type": "boolean"
+          },
+          "known_spells": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Known Spells",
+            "type": "array"
+          },
+          "languages": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          },
+          "multiclass_info": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiclass Info"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "personality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality"
+          },
+          "prepared_spells": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Prepared Spells",
+            "type": "array"
+          },
+          "proficient_saves": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Proficient Saves",
+            "type": "array"
+          },
+          "proficient_skills": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Proficient Skills",
+            "type": "array"
+          },
+          "race": {
+            "title": "Race",
+            "type": "string"
+          },
+          "speech_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Style"
+          },
+          "spell_slots": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Spell Slots",
+            "type": "object"
+          },
+          "spell_slots_max": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Spell Slots Max",
+            "type": "object"
+          },
+          "subclass": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subclass"
+          },
+          "subclass_effects": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Subclass Effects",
+            "type": "object"
+          },
+          "tool_proficiencies": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Proficiencies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "is_player",
+          "name",
+          "race",
+          "char_class",
+          "level",
+          "hp_current",
+          "hp_max",
+          "ac"
+        ],
+        "title": "CharacterDetail",
+        "type": "object"
+      },
+      "CharacterOptionsResponse": {
+        "additionalProperties": true,
+        "description": "GET /characters/options 返回 —— 角色创建向导依赖的元数据。\n字段非常多（种族/职业/法术/装备/专长全表），用 extra=allow 兼容；\n这里只列前端必读的主键。",
+        "properties": {
+          "alignments": {
+            "default": [],
+            "items": {},
+            "title": "Alignments",
+            "type": "array"
+          },
+          "all_skills": {
+            "default": [],
+            "items": {},
+            "title": "All Skills",
+            "type": "array"
+          },
+          "backgrounds": {
+            "default": [],
+            "items": {},
+            "title": "Backgrounds",
+            "type": "array"
+          },
+          "classes": {
+            "default": [],
+            "items": {},
+            "title": "Classes",
+            "type": "array"
+          },
+          "races": {
+            "default": [],
+            "items": {},
+            "title": "Races",
+            "type": "array"
+          },
+          "spellcaster_classes": {
+            "default": [],
+            "items": {},
+            "title": "Spellcaster Classes",
+            "type": "array"
+          }
+        },
+        "title": "CharacterOptionsResponse",
+        "type": "object"
+      },
       "CharacterRestResult": {
         "additionalProperties": true,
         "description": "单个角色的休息结果。长休 / 短休字段是并集。",
@@ -825,6 +1186,26 @@
         "title": "CreateSessionRequest",
         "type": "object"
       },
+      "CreateSessionResponse": {
+        "additionalProperties": true,
+        "description": "对应 api.game.create_session 返回。",
+        "properties": {
+          "opening_scene": {
+            "title": "Opening Scene",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "opening_scene"
+        ],
+        "title": "CreateSessionResponse",
+        "type": "object"
+      },
       "DamageRollRequest": {
         "properties": {
           "damage_values": {
@@ -1061,6 +1442,22 @@
         "title": "GeneratePartyRequest",
         "type": "object"
       },
+      "GeneratePartyResponse": {
+        "additionalProperties": true,
+        "description": "POST /characters/generate-party 返回。",
+        "properties": {
+          "companions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CharacterDetail"
+            },
+            "title": "Companions",
+            "type": "array"
+          }
+        },
+        "title": "GeneratePartyResponse",
+        "type": "object"
+      },
       "GoldRequest": {
         "properties": {
           "amount": {
@@ -1245,6 +1642,47 @@
         "title": "ManeuverRequest",
         "type": "object"
       },
+      "MeResponse": {
+        "description": "GET /auth/me 返回的当前用户摘要。",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "username"
+        ],
+        "title": "MeResponse",
+        "type": "object"
+      },
       "MemberInfo": {
         "properties": {
           "character_id": {
@@ -1310,6 +1748,175 @@
           "role"
         ],
         "title": "MemberInfo",
+        "type": "object"
+      },
+      "ModuleDetail": {
+        "additionalProperties": true,
+        "description": "对应 GET /modules/{id}。parsed_content 形状由 LangGraph WF1 决定，allow extra。",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "file_type": {
+            "title": "File Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "level_max": {
+            "default": 5,
+            "title": "Level Max",
+            "type": "integer"
+          },
+          "level_min": {
+            "default": 1,
+            "title": "Level Min",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parse_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Error"
+          },
+          "parse_status": {
+            "title": "Parse Status",
+            "type": "string"
+          },
+          "parsed_content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsed Content"
+          },
+          "recommended_party_size": {
+            "default": 4,
+            "title": "Recommended Party Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "file_type",
+          "parse_status"
+        ],
+        "title": "ModuleDetail",
+        "type": "object"
+      },
+      "ModuleListItem": {
+        "additionalProperties": true,
+        "description": "对应 GET /modules/ 列表的每一项。",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "file_type": {
+            "title": "File Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "level_max": {
+            "default": 5,
+            "title": "Level Max",
+            "type": "integer"
+          },
+          "level_min": {
+            "default": 1,
+            "title": "Level Min",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parse_status": {
+            "title": "Parse Status",
+            "type": "string"
+          },
+          "recommended_party_size": {
+            "default": 4,
+            "title": "Recommended Party Size",
+            "type": "integer"
+          },
+          "setting": {
+            "default": "",
+            "title": "Setting",
+            "type": "string"
+          },
+          "tone": {
+            "default": "",
+            "title": "Tone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "file_type",
+          "parse_status"
+        ],
+        "title": "ModuleListItem",
+        "type": "object"
+      },
+      "ModuleUploadResponse": {
+        "description": "对应 POST /modules/upload。status 为 'processing' / 'done' / 'failed'。",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ],
+        "title": "ModuleUploadResponse",
         "type": "object"
       },
       "MoveRequest": {
@@ -2362,7 +2969,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2434,7 +3043,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterDetail"
+                }
               }
             },
             "description": "Successful Response"
@@ -2474,7 +3085,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratePartyResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2504,7 +3117,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterOptionsResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2554,7 +3169,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterDetail"
+                }
               }
             },
             "description": "Successful Response"
@@ -4651,7 +5268,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -5066,7 +5685,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModuleListItem"
+                  },
+                  "title": "Response List Modules Modules  Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -5096,7 +5721,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleUploadResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -5176,7 +5803,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleDetail"
+                }
               }
             },
             "description": "Successful Response"

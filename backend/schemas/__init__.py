@@ -21,4 +21,9 @@ from schemas.game_responses import (
     SkillCheckResult, CharacterRestResult, RestResponse,
     EntitySnapshot, CombatStateResponse,
     SkillBarItem, SkillBarResponse,
+    CreateSessionResponse,
+    CharacterOptionsResponse, CharacterDetail, GeneratePartyResponse,
+)
+from schemas.module_responses import (
+    ModuleListItem, ModuleDetail, ModuleUploadResponse,
 )

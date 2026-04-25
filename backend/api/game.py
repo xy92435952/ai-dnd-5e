@@ -25,7 +25,7 @@ from services.state_applicator import StateApplicator
 from services.character_roster import CharacterRoster
 from schemas.game_responses import (
     SessionListItem, SessionDetail, PlayerActionResponse,
-    SkillCheckResult, RestResponse,
+    SkillCheckResult, RestResponse, CreateSessionResponse,
 )
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -108,7 +108,7 @@ class SkillCheckRequest(BaseModel):
 
 # ── Session 管理 ──────────────────────────────────────────
 
-@router.post("/sessions")
+@router.post("/sessions", response_model=CreateSessionResponse)
 async def create_session(req: CreateSessionRequest, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_user_id)):
     """创建游戏会话（开始新冒险）"""
     mod_result = await db.execute(select(Module).where(Module.id == req.module_id))

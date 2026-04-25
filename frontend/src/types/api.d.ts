@@ -1429,6 +1429,202 @@ export interface components {
             [key: string]: unknown;
         };
         /**
+         * CharacterDetail
+         * @description 对应 api.characters._serialize_character 返回。和 CharacterBrief 的区别：
+         *     Brief 只给 DM 上下文用（精简），Detail 给前端创角 / 角色面板（完整）。
+         */
+        CharacterDetail: {
+            /**
+             * Ability Scores
+             * @default {}
+             */
+            ability_scores: {
+                [key: string]: unknown;
+            };
+            /** Ac */
+            ac: number;
+            /** Alignment */
+            alignment?: string | null;
+            /** Background */
+            background?: string | null;
+            /** Backstory */
+            backstory?: string | null;
+            /**
+             * Cantrips
+             * @default []
+             */
+            cantrips: string[];
+            /**
+             * Cantrips Count
+             * @default 0
+             */
+            cantrips_count: number;
+            /** Caster Type */
+            caster_type?: string | null;
+            /** Catchphrase */
+            catchphrase?: string | null;
+            /** Char Class */
+            char_class: string;
+            /** Combat Preference */
+            combat_preference?: string | null;
+            /** Concentration */
+            concentration?: string | null;
+            /**
+             * Condition Durations
+             * @default {}
+             */
+            condition_durations: {
+                [key: string]: unknown;
+            };
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: string[];
+            /** Death Saves */
+            death_saves?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Derived
+             * @default {}
+             */
+            derived: {
+                [key: string]: unknown;
+            };
+            /**
+             * Equipment
+             * @default {}
+             */
+            equipment: {
+                [key: string]: unknown;
+            };
+            /**
+             * Feats
+             * @default []
+             */
+            feats: unknown[];
+            /** Fighting Style */
+            fighting_style?: string | null;
+            /** Hp Current */
+            hp_current: number;
+            /** Hp Max */
+            hp_max: number;
+            /** Id */
+            id: string;
+            /** Is Player */
+            is_player: boolean;
+            /**
+             * Known Spells
+             * @default []
+             */
+            known_spells: string[];
+            /**
+             * Languages
+             * @default []
+             */
+            languages: string[];
+            /** Level */
+            level: number;
+            /** Multiclass Info */
+            multiclass_info?: {
+                [key: string]: unknown;
+            } | null;
+            /** Name */
+            name: string;
+            /** Personality */
+            personality?: string | null;
+            /**
+             * Prepared Spells
+             * @default []
+             */
+            prepared_spells: string[];
+            /**
+             * Proficient Saves
+             * @default []
+             */
+            proficient_saves: string[];
+            /**
+             * Proficient Skills
+             * @default []
+             */
+            proficient_skills: string[];
+            /** Race */
+            race: string;
+            /** Speech Style */
+            speech_style?: string | null;
+            /**
+             * Spell Slots
+             * @default {}
+             */
+            spell_slots: {
+                [key: string]: unknown;
+            };
+            /**
+             * Spell Slots Max
+             * @default {}
+             */
+            spell_slots_max: {
+                [key: string]: unknown;
+            };
+            /** Subclass */
+            subclass?: string | null;
+            /**
+             * Subclass Effects
+             * @default {}
+             */
+            subclass_effects: {
+                [key: string]: unknown;
+            };
+            /**
+             * Tool Proficiencies
+             * @default []
+             */
+            tool_proficiencies: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * CharacterOptionsResponse
+         * @description GET /characters/options 返回 —— 角色创建向导依赖的元数据。
+         *     字段非常多（种族/职业/法术/装备/专长全表），用 extra=allow 兼容；
+         *     这里只列前端必读的主键。
+         */
+        CharacterOptionsResponse: {
+            /**
+             * Alignments
+             * @default []
+             */
+            alignments: unknown[];
+            /**
+             * All Skills
+             * @default []
+             */
+            all_skills: unknown[];
+            /**
+             * Backgrounds
+             * @default []
+             */
+            backgrounds: unknown[];
+            /**
+             * Classes
+             * @default []
+             */
+            classes: unknown[];
+            /**
+             * Races
+             * @default []
+             */
+            races: unknown[];
+            /**
+             * Spellcaster Classes
+             * @default []
+             */
+            spellcaster_classes: unknown[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * CharacterRestResult
          * @description 单个角色的休息结果。长休 / 短休字段是并集。
          */
@@ -1650,6 +1846,18 @@ export interface components {
             /** Save Name */
             save_name?: string | null;
         };
+        /**
+         * CreateSessionResponse
+         * @description 对应 api.game.create_session 返回。
+         */
+        CreateSessionResponse: {
+            /** Opening Scene */
+            opening_scene: string;
+            /** Session Id */
+            session_id: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** DamageRollRequest */
         DamageRollRequest: {
             /** Damage Values */
@@ -1771,6 +1979,19 @@ export interface components {
             /** Player Character Id */
             player_character_id: string;
         };
+        /**
+         * GeneratePartyResponse
+         * @description POST /characters/generate-party 返回。
+         */
+        GeneratePartyResponse: {
+            /**
+             * Companions
+             * @default []
+             */
+            companions: components["schemas"]["CharacterDetail"][];
+        } & {
+            [key: string]: unknown;
+        };
         /** GoldRequest */
         GoldRequest: {
             /** Amount */
@@ -1849,6 +2070,20 @@ export interface components {
             /** Target Id */
             target_id: string;
         };
+        /**
+         * MeResponse
+         * @description GET /auth/me 返回的当前用户摘要。
+         */
+        MeResponse: {
+            /** Created At */
+            created_at?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** User Id */
+            user_id: string;
+            /** Username */
+            username: string;
+        };
         /** MemberInfo */
         MemberInfo: {
             /** Character Id */
@@ -1870,6 +2105,100 @@ export interface components {
             user_id: string;
             /** Username */
             username: string;
+        };
+        /**
+         * ModuleDetail
+         * @description 对应 GET /modules/{id}。parsed_content 形状由 LangGraph WF1 决定，allow extra。
+         */
+        ModuleDetail: {
+            /** Created At */
+            created_at?: string | null;
+            /** File Type */
+            file_type: string;
+            /** Id */
+            id: string;
+            /**
+             * Level Max
+             * @default 5
+             */
+            level_max: number;
+            /**
+             * Level Min
+             * @default 1
+             */
+            level_min: number;
+            /** Name */
+            name: string;
+            /** Parse Error */
+            parse_error?: string | null;
+            /** Parse Status */
+            parse_status: string;
+            /** Parsed Content */
+            parsed_content?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Recommended Party Size
+             * @default 4
+             */
+            recommended_party_size: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModuleListItem
+         * @description 对应 GET /modules/ 列表的每一项。
+         */
+        ModuleListItem: {
+            /** Created At */
+            created_at?: string | null;
+            /** File Type */
+            file_type: string;
+            /** Id */
+            id: string;
+            /**
+             * Level Max
+             * @default 5
+             */
+            level_max: number;
+            /**
+             * Level Min
+             * @default 1
+             */
+            level_min: number;
+            /** Name */
+            name: string;
+            /** Parse Status */
+            parse_status: string;
+            /**
+             * Recommended Party Size
+             * @default 4
+             */
+            recommended_party_size: number;
+            /**
+             * Setting
+             * @default
+             */
+            setting: string;
+            /**
+             * Tone
+             * @default
+             */
+            tone: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * ModuleUploadResponse
+         * @description 对应 POST /modules/upload。status 为 'processing' / 'done' / 'failed'。
+         */
+        ModuleUploadResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
         };
         /** MoveRequest */
         MoveRequest: {
@@ -2361,7 +2690,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeResponse"];
                 };
             };
         };
@@ -2418,7 +2747,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CharacterDetail"];
                 };
             };
             /** @description Validation Error */
@@ -2451,7 +2780,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GeneratePartyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2480,7 +2809,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CharacterOptionsResponse"];
                 };
             };
         };
@@ -2522,7 +2851,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CharacterDetail"];
                 };
             };
             /** @description Validation Error */
@@ -4001,7 +4330,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CreateSessionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4324,7 +4653,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModuleListItem"][];
                 };
             };
         };
@@ -4348,7 +4677,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModuleUploadResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4379,7 +4708,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModuleDetail"];
                 };
             };
             /** @description Validation Error */

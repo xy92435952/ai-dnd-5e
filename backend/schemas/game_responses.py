@@ -212,10 +212,98 @@ class SkillBarResponse(BaseModel):
     bar: list[SkillBarItem] = []
 
 
+# ─── /game/sessions POST ───────────────────────────────────
+
+class CreateSessionResponse(BaseModel):
+    """对应 api.game.create_session 返回。"""
+    model_config = ConfigDict(extra="allow")
+
+    session_id: str
+    opening_scene: str
+
+
+# ─── /characters/options ───────────────────────────────────
+
+class CharacterOptionsResponse(BaseModel):
+    """
+    GET /characters/options 返回 —— 角色创建向导依赖的元数据。
+    字段非常多（种族/职业/法术/装备/专长全表），用 extra=allow 兼容；
+    这里只列前端必读的主键。
+    """
+    model_config = ConfigDict(extra="allow")
+
+    races:       list[Any] = []
+    classes:     list[Any] = []
+    backgrounds: list[Any] = []
+    alignments:  list[Any] = []
+    all_skills:  list[Any] = []
+    spellcaster_classes: list[Any] = []
+
+
+# ─── 完整角色详情（GET /characters/{id} + POST /characters/create） ─
+
+class CharacterDetail(BaseModel):
+    """
+    对应 api.characters._serialize_character 返回。和 CharacterBrief 的区别：
+    Brief 只给 DM 上下文用（精简），Detail 给前端创角 / 角色面板（完整）。
+    """
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    is_player: bool
+    name: str
+    race: str
+    char_class: str
+    subclass: Optional[str] = None
+    level: int
+    background: Optional[str] = None
+    alignment: Optional[str] = None
+    ability_scores: dict[str, Any] = {}
+    derived: dict[str, Any] = {}
+    hp_current: int
+    hp_max: int
+    ac: int
+    spell_slots: dict[str, Any] = {}
+    spell_slots_max: dict[str, Any] = {}
+    known_spells: list[str] = []
+    prepared_spells: list[str] = []
+    cantrips: list[str] = []
+    concentration: Optional[str] = None
+    caster_type: Optional[str] = None
+    cantrips_count: int = 0
+    proficient_skills: list[str] = []
+    proficient_saves: list[str] = []
+    equipment: dict[str, Any] = {}
+    fighting_style: Optional[str] = None
+    languages: list[str] = []
+    tool_proficiencies: list[str] = []
+    feats: list[Any] = []
+    conditions: list[str] = []
+    death_saves: Optional[dict[str, Any]] = None
+    # AI 队友专属
+    personality:        Optional[str] = None
+    speech_style:       Optional[str] = None
+    combat_preference:  Optional[str] = None
+    backstory:          Optional[str] = None
+    catchphrase:        Optional[str] = None
+    multiclass_info:    Optional[dict[str, Any]] = None
+    subclass_effects:   dict[str, Any] = {}
+    condition_durations: dict[str, Any] = {}
+
+
+class GeneratePartyResponse(BaseModel):
+    """POST /characters/generate-party 返回。"""
+    model_config = ConfigDict(extra="allow")
+
+    companions: list[CharacterDetail] = []
+
+
 __all__ = [
     "CharacterBrief", "GameLogEntry",
     "SessionListItem", "SessionDetail", "PlayerActionResponse",
     "SkillCheckResult", "CharacterRestResult", "RestResponse",
     "EntitySnapshot", "CombatStateResponse",
     "SkillBarItem", "SkillBarResponse",
+    "CreateSessionResponse",
+    "CharacterOptionsResponse", "CharacterDetail", "GeneratePartyResponse",
 ]

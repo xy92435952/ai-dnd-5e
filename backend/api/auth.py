@@ -49,6 +49,14 @@ class TokenResponse(BaseModel):
     display_name: str
 
 
+class MeResponse(BaseModel):
+    """GET /auth/me 返回的当前用户摘要。"""
+    user_id: str
+    username: str
+    display_name: str | None = None
+    created_at: str | None = None
+
+
 # ── JWT 工具 ─────────────────────────────────────────
 
 def create_token(user_id: str, username: str) -> str:
@@ -129,7 +137,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.get("/me")
+@router.get("/me", response_model=MeResponse)
 async def get_me(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_user_id_from_token),
