@@ -89,6 +89,74 @@ async def test_create_fighter_character_full_pipeline(
     assert derived.get("ac", 10) >= 11
 
 
+async def test_create_character_with_narrative_fields(
+    client, db_session, sample_user, sample_module,
+):
+    """
+    玩家创角时填了 personality/backstory/speech_style 等叙事字段：
+      - 必须落库
+      - 必须出现在 char_brief（供 GET /sessions/{id} 时前端读）
+      - 必须出现在 ContextBuilder 序列化的 game_state（供 DM 代演时引用）
+    """
+    headers = await _auth_headers(client, sample_user)
+
+    payload = {
+        "module_id": sample_module.id,
+        "name":  "测试浪人",
+        "race":  "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "background": "Outlander",
+        "alignment": "中立善良",
+        "ability_scores": {"str": 13, "dex": 15, "con": 14, "int": 10, "wis": 13, "cha": 8},
+        "proficient_skills": ["感知", "运动"],
+        # 叙事字段
+        "personality":       "沉默寡言，只在必要时开口",
+        "backstory":         "10 年前家乡被山贼洗劫，从此孤身在边境讨生活",
+        "speech_style":      "短句、低声、不带感情",
+        "combat_preference": "远程优先，必要时白刃相搏",
+        "catchphrase":       "天黑前必须到达。",
+    }
+    r = await client.post("/characters/create", headers=headers, json=payload)
+    assert r.status_code == 200, r.text
+    data = r.json()
+
+    # _serialize_character 必须回传所有叙事字段
+    assert data["personality"]       == payload["personality"]
+    assert data["backstory"]         == payload["backstory"]
+    assert data["speech_style"]      == payload["speech_style"]
+    assert data["combat_preference"] == payload["combat_preference"]
+    assert data["catchphrase"]       == payload["catchphrase"]
+
+    # ── 验证 ContextBuilder 把这些字段灌进 game_state ──
+    # 直接调用以避免起完整 session 流程
+    from models import Character, Session
+    from services.context_builder import ContextBuilder
+    char = await db_session.get(Character, data["id"])
+    fake_session = Session(
+        id="x",
+        module_id=sample_module.id,
+        player_character_id=char.id,
+        game_state={"companion_ids": [], "scene_index": 0, "flags": {}},
+        combat_active=False,
+    )
+    builder = ContextBuilder(
+        session=fake_session,
+        module=sample_module,
+        characters=[char],
+    )
+    game_state_json = builder._build_game_state()
+    # game_state JSON 字符串应包含玩家的所有叙事字段（DM prompt 拿去喂 LLM）
+    for fragment in (
+        payload["personality"],
+        payload["backstory"],
+        payload["speech_style"],
+        payload["combat_preference"],
+        payload["catchphrase"],
+    ):
+        assert fragment in game_state_json, f"game_state 缺少 {fragment[:10]}..."
+
+
 async def test_wizard_starts_with_spells(client, sample_user, sample_module):
     """法师创建时必须有 cantrips + known_spells（数量由 dnd_rules 决定）。"""
     headers = await _auth_headers(client, sample_user)

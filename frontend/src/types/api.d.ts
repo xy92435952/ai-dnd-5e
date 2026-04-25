@@ -1763,6 +1763,8 @@ export interface components {
             alignment?: string | null;
             /** Background */
             background?: string | null;
+            /** Backstory */
+            backstory?: string | null;
             /**
              * Bonus Languages
              * @default []
@@ -1773,8 +1775,12 @@ export interface components {
              * @default []
              */
             cantrips: string[];
+            /** Catchphrase */
+            catchphrase?: string | null;
             /** Char Class */
             char_class: string;
+            /** Combat Preference */
+            combat_preference?: string | null;
             /** Equipment Choice */
             equipment_choice?: number | null;
             /**
@@ -1804,6 +1810,8 @@ export interface components {
             } | null;
             /** Name */
             name: string;
+            /** Personality */
+            personality?: string | null;
             /**
              * Proficient Skills
              * @default []
@@ -1811,6 +1819,8 @@ export interface components {
             proficient_skills: string[];
             /** Race */
             race: string;
+            /** Speech Style */
+            speech_style?: string | null;
             /** Subclass */
             subclass?: string | null;
         };

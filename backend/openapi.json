@@ -977,6 +977,17 @@
             ],
             "title": "Background"
           },
+          "backstory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backstory"
+          },
           "bonus_languages": {
             "default": [],
             "items": {
@@ -993,9 +1004,31 @@
             "title": "Cantrips",
             "type": "array"
           },
+          "catchphrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catchphrase"
+          },
           "char_class": {
             "title": "Char Class",
             "type": "string"
+          },
+          "combat_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combat Preference"
           },
           "equipment_choice": {
             "anyOf": [
@@ -1061,6 +1094,17 @@
             "title": "Name",
             "type": "string"
           },
+          "personality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personality"
+          },
           "proficient_skills": {
             "default": [],
             "items": {
@@ -1072,6 +1116,17 @@
           "race": {
             "title": "Race",
             "type": "string"
+          },
+          "speech_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Style"
           },
           "subclass": {
             "anyOf": [

@@ -71,6 +71,15 @@ class CreateCharacterRequest(BaseModel):
     bonus_languages: list[str] = []              # 种族/背景额外语言选择
     feats: list[dict] = []                       # [{"name":"Alert"}, {"name":"Tough","ability":"con"}]
 
+    # ── 角色叙事字段（玩家可选填，DM 在生成对话/反应时会引用）──
+    # 价值场景：玩家断线 → 角色被 AI 托管，DM 按 personality + speech_style 代演，
+    # 不会"出戏"。也用于队友的反应风格。
+    personality:       Optional[str] = None     # 性格描述（短句，120 字内）
+    backstory:         Optional[str] = None     # 背景故事（任意长度，DM 偶尔引用）
+    speech_style:      Optional[str] = None     # 说话风格："寡言/健谈/幽默/古板..."
+    combat_preference: Optional[str] = None     # 战斗倾向："优先保护弱小/激进/远程..."
+    catchphrase:       Optional[str] = None     # 口头禅
+
 
 class GeneratePartyRequest(BaseModel):
     module_id:           str
@@ -290,6 +299,12 @@ async def create_character(
         languages         = languages,
         tool_proficiencies= bg_tools,
         feats             = req.feats,
+        # 角色叙事（玩家可选填，DM 据此代演）
+        personality       = req.personality,
+        backstory         = req.backstory,
+        speech_style      = req.speech_style,
+        combat_preference = req.combat_preference,
+        catchphrase       = req.catchphrase,
     )
     db.add(character)
     await db.commit()

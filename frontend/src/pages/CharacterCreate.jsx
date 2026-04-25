@@ -180,6 +180,16 @@ export default function CharacterCreate() {
   const [bonusLanguages,  setBonusLanguages]  = useState([])
   const [chosenFeats,     setChosenFeats]     = useState([])   // [{name:"Alert"}, ...]
 
+  // 角色叙事字段（全部可选）
+  // 价值：玩家断线被 AI 托管时，DM 据此代演不出戏；多人聊天时队友也按 personality 反应
+  const [narrative, setNarrative] = useState({
+    personality:        '',
+    backstory:          '',
+    speech_style:       '',
+    combat_preference:  '',
+    catchphrase:        '',
+  })
+
   const [partySize,       setPartySize]       = useState(4)
   const [companions,      setLocalCompanions] = useState([])
   const [generatingParty, setGeneratingParty] = useState(false)
@@ -323,6 +333,14 @@ export default function CharacterCreate() {
     try {
       const multiclassInfo = form.multiclassEnabled && form.multiclass_class
         ? { char_class: form.multiclass_class, level: form.multiclass_level } : null
+      // 叙事字段：空串发 null 让后端识别"未填"
+      const narrativePayload = {
+        personality:       narrative.personality.trim()       || null,
+        backstory:         narrative.backstory.trim()         || null,
+        speech_style:      narrative.speech_style.trim()      || null,
+        combat_preference: narrative.combat_preference.trim() || null,
+        catchphrase:       narrative.catchphrase.trim()       || null,
+      }
       const char = await charactersApi.create({
         module_id:         moduleId,
         name:              form.name,
@@ -341,6 +359,7 @@ export default function CharacterCreate() {
         equipment_choice:  equipChoice,
         bonus_languages:   bonusLanguages,
         feats:             chosenFeats,
+        ...narrativePayload,
       })
       setSavedCharId(char.id)
       setPlayerCharacter(char)
@@ -736,6 +755,92 @@ export default function CharacterCreate() {
                 </div>
               )}
             </div>
+
+          {/* ── 角色叙事 · 全部可选 ──
+              价值：玩家断线被 AI 托管时 DM 据此代演不出戏；多人队友也按 personality 反应 */}
+          <details
+            style={{
+              marginTop: 24,
+              padding: '12px 16px',
+              border: '1px solid var(--wood-light)',
+              borderRadius: 6,
+              background: 'rgba(46,31,14,0.4)',
+            }}
+          >
+            <summary
+              style={{
+                cursor: 'pointer',
+                color: 'var(--gold)',
+                fontFamily: 'var(--font-display)',
+                fontSize: '0.95rem',
+                letterSpacing: '0.1em',
+                userSelect: 'none',
+              }}
+            >
+              ❖ 角色叙事 · 选填
+              <span style={{ marginLeft: 12, fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-body)', letterSpacing: 0 }}>
+                填了 DM 在你掉线时也能"按你的人设"代演，不会出戏
+              </span>
+            </summary>
+
+            <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+              {[
+                { key: 'personality',       label: '性格',       hint: '简短描述（如"沉默寡言，只在必要时开口"）', rows: 2 },
+                { key: 'backstory',         label: '背景故事',   hint: 'DM 偶尔会引用，长短不限', rows: 4 },
+                { key: 'speech_style',      label: '说话风格',   hint: '寡言 / 健谈 / 幽默 / 古板严肃 / ...', rows: 1 },
+                { key: 'combat_preference', label: '战斗偏好',   hint: '激进 / 远程优先 / 优先保护弱小 / ...', rows: 1 },
+                { key: 'catchphrase',       label: '口头禅',     hint: '一句即可（如"天黑前必须到达。"）', rows: 1 },
+              ].map(({ key, label, hint, rows }) => (
+                <div key={key}>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '0.8rem',
+                      color: 'var(--text)',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {label}
+                    <span style={{ color: 'var(--text-dim)', marginLeft: 8, opacity: 0.7 }}>— {hint}</span>
+                  </label>
+                  {rows > 1 ? (
+                    <textarea
+                      rows={rows}
+                      maxLength={key === 'backstory' ? 800 : 200}
+                      value={narrative[key]}
+                      onChange={e => setNarrative(n => ({ ...n, [key]: e.target.value }))}
+                      style={{
+                        width: '100%', padding: '8px 10px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.85rem',
+                        background: 'rgba(10,6,4,0.5)',
+                        color: 'var(--parchment)',
+                        border: '1px solid var(--wood-light)',
+                        borderRadius: 4,
+                        resize: 'vertical',
+                      }}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      maxLength={120}
+                      value={narrative[key]}
+                      onChange={e => setNarrative(n => ({ ...n, [key]: e.target.value }))}
+                      style={{
+                        width: '100%', padding: '8px 10px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.85rem',
+                        background: 'rgba(10,6,4,0.5)',
+                        color: 'var(--parchment)',
+                        border: '1px solid var(--wood-light)',
+                        borderRadius: 4,
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </details>
 
         </div>
       )}

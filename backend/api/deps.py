@@ -36,7 +36,7 @@ async def get_session_or_404(session_id: str, db: AsyncSession) -> Session:
 
 
 def char_brief(char: Character) -> dict:
-    """返回角色的简要信息（用于 DM 上下文构建）"""
+    """返回角色的简要信息（用于 DM 上下文构建 + 前端面板渲染）"""
     derived = char.derived or {}
     return {
         "id":               char.id,
@@ -58,6 +58,12 @@ def char_brief(char: Character) -> dict:
         "cantrips":         char.cantrips or [],
         "equipment":        char.equipment or {},
         "fighting_style":   char.fighting_style,
+        # 角色叙事（玩家被 AI 托管时供 DM 代演用，前端也可显示）
+        "personality":       char.personality,
+        "backstory":         char.backstory,
+        "speech_style":      char.speech_style,
+        "combat_preference": char.combat_preference,
+        "catchphrase":       char.catchphrase,
     }
 
 

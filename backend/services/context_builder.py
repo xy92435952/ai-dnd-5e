@@ -45,7 +45,9 @@ _CHAR_FIELDS = [
     "death_saves", "concentration", "known_spells",
     "cantrips", "equipped", "active_effects",
     "proficient_skills", "proficient_saves",
-    "is_player", "personality",
+    # 角色叙事字段：DM 在生成对话/反应时据此代演（含玩家被托管时）
+    "is_player", "personality", "backstory",
+    "speech_style", "combat_preference", "catchphrase",
 ]
 
 
@@ -170,7 +172,12 @@ class ContextBuilder:
                 "proficient_skills":char.proficient_skills or [],
                 "proficient_saves": char.proficient_saves or [],
                 "is_player":        char.is_player,
-                "personality":      char.personality or "",
+                # 叙事字段（DM 据此代演角色：玩家被托管时也能贴合人设）
+                "personality":       char.personality or "",
+                "backstory":         char.backstory or "",
+                "speech_style":      char.speech_style or "",
+                "combat_preference": char.combat_preference or "",
+                "catchphrase":       char.catchphrase or "",
                 "gold":             (getattr(char, "equipment", {}) or {}).get("gold", 0),
                 # 装备和主动效果（后续扩展字段，暂为空）
                 "equipped":         getattr(char, "equipment", {}) or {},
