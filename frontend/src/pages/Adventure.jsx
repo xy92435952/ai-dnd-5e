@@ -77,100 +77,20 @@ export default function Adventure() {
     return () => { mounted = false }
   }, [sessionId])
 
-  const onWsEvent = useCallback((event) => {
-    switch (event.type) {
-      case 'dm_thinking_start':
-        // 其他玩家提交行动时，我方同步显示"DM 思考中"
-        if (event.by_user_id && event.by_user_id !== myUserId) {
-          setIsLoading(true)
-        }
-        break
-      case 'dm_responded': {
-        const isMe = event.by_user_id && event.by_user_id === myUserId
-        // 非发言者：用广播 payload 本地启动剧场模式，避免变成只读观众
-        if (!isMe) {
-          setIsLoading(false)
-          const queue = buildDialogueQueue(event.narrative, event.companion_reactions, companions)
-          if (queue.length > 0) {
-            enterDialogueStage(queue)
-          }
-        }
-        // 刷新 logs 和 scene_vibe / clues 等副作用状态（发言者也需要，因为广播里的 addLog 是在发言者侧完成的）
-        loadSession()
-        break
-      }
-      case 'dm_speak_turn':
-        setRoom(prev => prev ? { ...prev, _currentSpeaker: event.user_id } : prev)
-        break
-      case 'member_online':
-      case 'member_offline':
-      case 'member_joined':
-      case 'member_left':
-      case 'character_claimed':
-        roomsApi.get(sessionId)
-          .then(r => r?.is_multiplayer && setRoom({ ...r, _currentSpeaker: r.current_speaker_user_id }))
-          .catch(() => {})
-        break
-      default: break
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, myUserId, companions, buildDialogueQueue, setIsLoading])
+  // ════════════════════════════════════════════════════════
+  // hooks 顺序约定（必须严格按依赖链声明，否则 useCallback / useEffect
+  // 的 deps 数组会触发 TDZ ReferenceError，整页白屏）：
+  //   1. addLog                        基础 log 操作
+  //   2. useDialogueFlow               对话流（依赖 addLog）
+  //   3. handleSessionLoaded 函数      闭包内引用下面的 hook 返回值，函数本身定义无副作用
+  //   4. useAdventureSession           暴露 session / player / companions / loadSession
+  //   5. useSkillCheck                 依赖 player.id（player 来自步骤 4）
+  //   6. buildDialogueQueue            依赖 splitDmNarrative / splitCompanionReactions（纯函数）
+  //   7. onWsEvent + useWebSocket      依赖 companions / buildDialogueQueue / loadSession 等
+  //   8. 各种 useEffect                依赖 pendingCheck / dialogue 等
+  // ════════════════════════════════════════════════════════
 
-  const { connected: wsConnected, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
-
-  // WS 重连成功时补漏：断线期间错过的广播事件（dm_responded / dm_speak_turn）不会 replay，
-  // 重连后主动 loadSession 一次拉取最新 logs + game_state.last_turn
-  const prevWsConnectedRef = useRef(false)
-  useEffect(() => {
-    if (!room) return
-    const wasDisconnected = !prevWsConnectedRef.current
-    if (wsConnected && wasDisconnected && session) {
-      // 从断开到连上：补漏
-      loadSession()
-    }
-    prevWsConnectedRef.current = wsConnected
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wsConnected, room])
-
-  const currentSpeakerUid = room?._currentSpeaker
-  const isMySpeakTurn = !room || !currentSpeakerUid || currentSpeakerUid === myUserId
-  const currentSpeakerName = (room?.members || []).find(m => m.user_id === currentSpeakerUid)?.display_name
-
-  // 轮到自己时：音效提示 + 标题栏闪烁
-  // 仅多人模式生效（单人不需要提示）
-  const prevSpeakerRef = useRef(null)
-  useEffect(() => {
-    if (!room) { prevSpeakerRef.current = null; return }
-    const prev = prevSpeakerRef.current
-    prevSpeakerRef.current = currentSpeakerUid
-    // 检测"刚变成自己的回合"
-    if (prev && prev !== myUserId && currentSpeakerUid === myUserId) {
-      try { JuiceAudio.turn() } catch (e) {}
-      // 标题栏闪烁 4 次
-      const original = document.title
-      let flipCount = 0
-      const timer = setInterval(() => {
-        document.title = flipCount % 2 === 0 ? '⚔ 轮到你了 · 说点什么' : original
-        flipCount++
-        if (flipCount >= 8) {
-          clearInterval(timer)
-          document.title = original
-        }
-      }, 600)
-      return () => { clearInterval(timer); document.title = original }
-    }
-  }, [currentSpeakerUid, myUserId, room])
-
-  // mount 时 loadSession 由 useAdventureSession 内部自动触发一次
-  useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs, pendingCheck])
-
-  const refreshCharacters = async () => {
-    try {
-      const data = await gameApi.getSession(sessionId)
-      setSession(data); setPlayer(data.player); setCompanions(data.companions || [])
-    } catch {}
-  }
-
+  // 1. addLog
   const addLog = useCallback((role, content, logType = 'narrative', extra = {}) => {
     setLogs(prev => [...prev, {
       id: `${role}-${Date.now()}-${Math.random()}`,
@@ -179,16 +99,7 @@ export default function Adventure() {
     }])
   }, [])
 
-  // 技能检定：pendingCheck / checkRolling / rollPending
-  // 设定 pendingCheck 后，UI 渲染"投掷 d20"按钮；handleDiceRoll 触发 rollPending，
-  // 返回 autoMsg 后由本组件决定是否调 handleAction + focus input
-  const { pendingCheck, setPendingCheck, checkRolling, rollPending } = useSkillCheck({
-    sessionId,
-    playerId: player?.id,
-    addLog,
-  })
-
-  // 剧场模式：状态机 + 打字机都在 hook 内部，Adventure 只读状态 + 调 enterStage/advance
+  // 2. 剧场模式
   const {
     dialogueMode, dialogueQueue, dialogueIdx, typingText, typingDone,
     showHistory, setShowHistory,
@@ -196,15 +107,12 @@ export default function Adventure() {
     advance: advanceDialogue,
   } = useDialogueFlow({ addLog })
 
-  // Session 加载 + 战斗激活跳转
-  // onLoaded 这个 callback 会 capture 当前 render 的 enterDialogueStage /
-  // setPendingCheck / setChoices / myUserId / dialogueQueue —— hook 内部用
-  // ref 转发避免陈旧闭包
+  // 3. handleSessionLoaded —— 函数定义不触发 body 内部 TDZ；body 中引用的 setPendingCheck /
+  //    setChoices 在调用时（loadSession async 完成）必然已初始化
   const handleSessionLoaded = (data) => {
     setLogs(data.logs || [])
 
     // ── 恢复 last_turn：页面刷新 / WS 重连后能看到之前的选项和检定 ──
-    // 仅在 "自己是最近一次 actor" 时恢复（避免非发言者误看到别人的 choices）
     const lt = data.game_state?.last_turn
     if (lt) {
       const isMine = !data.is_multiplayer || !lt.last_actor_user_id || lt.last_actor_user_id === myUserId
@@ -238,6 +146,7 @@ export default function Adventure() {
     }
   }
 
+  // 4. session 加载（onLoaded 通过 ref 转发）
   const {
     session, setSession,
     player, setPlayer,
@@ -249,8 +158,14 @@ export default function Adventure() {
     onError: (e) => setError(e.message),
   })
 
-  // ── 共享：把 DM 响应构造成剧场模式的对话队列 ──
-  // 发言者（HTTP 响应）和其他玩家（WS dm_responded）都用这个
+  // 5. 技能检定（依赖 player.id）
+  const { pendingCheck, setPendingCheck, checkRolling, rollPending } = useSkillCheck({
+    sessionId,
+    playerId: player?.id,
+    addLog,
+  })
+
+  // 6. 把 DM 响应拼成剧场队列（HTTP 响应和 WS dm_responded 都用这个）
   const buildDialogueQueue = useCallback((narrative, companionReactions, companionList) => {
     const queue = []
     if (narrative) {
@@ -271,6 +186,91 @@ export default function Adventure() {
     return queue
   }, [])
 
+  // 7. WS 事件处理（依赖前面所有 hook 的产物）
+  const onWsEvent = useCallback((event) => {
+    switch (event.type) {
+      case 'dm_thinking_start':
+        if (event.by_user_id && event.by_user_id !== myUserId) {
+          setIsLoading(true)
+        }
+        break
+      case 'dm_responded': {
+        const isMe = event.by_user_id && event.by_user_id === myUserId
+        if (!isMe) {
+          setIsLoading(false)
+          const queue = buildDialogueQueue(event.narrative, event.companion_reactions, companions)
+          if (queue.length > 0) enterDialogueStage(queue)
+        }
+        loadSession()
+        break
+      }
+      case 'dm_speak_turn':
+        setRoom(prev => prev ? { ...prev, _currentSpeaker: event.user_id } : prev)
+        break
+      case 'member_online':
+      case 'member_offline':
+      case 'member_joined':
+      case 'member_left':
+      case 'character_claimed':
+        roomsApi.get(sessionId)
+          .then(r => r?.is_multiplayer && setRoom({ ...r, _currentSpeaker: r.current_speaker_user_id }))
+          .catch(() => {})
+        break
+      default: break
+    }
+  }, [sessionId, myUserId, companions, buildDialogueQueue, enterDialogueStage, loadSession, setIsLoading])
+
+  const { connected: wsConnected, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
+
+  // WS 重连补漏（断线期间错过的广播不会 replay）
+  const prevWsConnectedRef = useRef(false)
+  useEffect(() => {
+    if (!room) return
+    const wasDisconnected = !prevWsConnectedRef.current
+    if (wsConnected && wasDisconnected && session) {
+      loadSession()
+    }
+    prevWsConnectedRef.current = wsConnected
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wsConnected, room])
+
+  const currentSpeakerUid = room?._currentSpeaker
+  const isMySpeakTurn = !room || !currentSpeakerUid || currentSpeakerUid === myUserId
+  const currentSpeakerName = (room?.members || []).find(m => m.user_id === currentSpeakerUid)?.display_name
+
+  // 轮到自己时：音效提示 + 标题栏闪烁（仅多人）
+  const prevSpeakerRef = useRef(null)
+  useEffect(() => {
+    if (!room) { prevSpeakerRef.current = null; return }
+    const prev = prevSpeakerRef.current
+    prevSpeakerRef.current = currentSpeakerUid
+    if (prev && prev !== myUserId && currentSpeakerUid === myUserId) {
+      try { JuiceAudio.turn() } catch (e) {}
+      const original = document.title
+      let flipCount = 0
+      const timer = setInterval(() => {
+        document.title = flipCount % 2 === 0 ? '⚔ 轮到你了 · 说点什么' : original
+        flipCount++
+        if (flipCount >= 8) {
+          clearInterval(timer)
+          document.title = original
+        }
+      }, 600)
+      return () => { clearInterval(timer); document.title = original }
+    }
+  }, [currentSpeakerUid, myUserId, room])
+
+  // 8. UI 副作用 effect
+  useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs, pendingCheck])
+
+  // refresh helper（必须在 useAdventureSession 之后，因为它用 setSession/setPlayer/setCompanions）
+  const refreshCharacters = async () => {
+    try {
+      const data = await gameApi.getSession(sessionId)
+      setSession(data); setPlayer(data.player); setCompanions(data.companions || [])
+    } catch {}
+  }
+
   // ── 主行动 ──
   const handleAction = async (overrideText) => {
     const text = (overrideText ?? input).trim()
@@ -290,7 +290,8 @@ export default function Adventure() {
             'dice', { dice_result: d })
         }
       }
-      if (resp.needs_check?.required) { setPendingCheck(resp.needs_check); setCheckRolling(false) }
+      // checkRolling 由 useSkillCheck 内部管理；这里只设 pendingCheck 触发 UI
+      if (resp.needs_check?.required) setPendingCheck(resp.needs_check)
       if (resp.player_choices?.length) setChoices(resp.player_choices)
 
       // 启动剧场模式播放队列
