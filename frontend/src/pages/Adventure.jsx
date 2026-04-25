@@ -107,11 +107,13 @@ export default function Adventure() {
     advance: advanceDialogue,
   } = useDialogueFlow({ addLog })
 
+  // 防止同一 session 在客户端反复触发"开场剧场"（loadSession 会在 mount /
+  // WS 重连 / dm_responded 多次调用，没有这个 ref 每次都 enterDialogueStage 一遍）
+  const openingTriggeredRef = useRef(new Set())
+
   // 3. handleSessionLoaded —— 函数定义不触发 body 内部 TDZ；body 中引用的 setPendingCheck /
   //    setChoices 在调用时（loadSession async 完成）必然已初始化
   const handleSessionLoaded = (data) => {
-    setLogs(data.logs || [])
-
     // ── 恢复 last_turn：页面刷新 / WS 重连后能看到之前的选项和检定 ──
     const lt = data.game_state?.last_turn
     if (lt) {
@@ -130,8 +132,16 @@ export default function Adventure() {
     }
 
     // ── 首次进入检测：恰好 1 条开场叙事 + 对话队列空 → 自动启动剧场模式 ──
-    if (dialogueQueue.length === 0) {
-      const dmNarratives = (data.logs || []).filter(l =>
+    // 注意要先决定要不要剧场，再决定 setLogs，因为如果触发剧场，得**剔除**那条 [开场] log，
+    // 否则剧场播完 advance 会再写一条 DM log，logs 里就会有两条同样内容的 DM 气泡。
+    let displayLogs = data.logs || []
+    const sid = data.session_id || sessionId
+
+    if (
+      !openingTriggeredRef.current.has(sid) &&
+      dialogueQueue.length === 0
+    ) {
+      const dmNarratives = displayLogs.filter(l =>
         (l.role === 'dm' || l.role === 'system') &&
         (l.log_type === 'narrative' || !l.log_type) &&
         l.content
@@ -140,10 +150,15 @@ export default function Adventure() {
         const opening = dmNarratives[0]
         const text = String(opening.content || '').replace(/^\[开场\]\s*/, '')
         if (text) {
+          openingTriggeredRef.current.add(sid)
+          // 把 [开场] 这条从展示 logs 里抹掉 —— 剧场播完 advance 会自然加回（不带前缀）
+          displayLogs = displayLogs.filter(l => l.id !== opening.id)
           enterDialogueStage([{ speaker: 'DM', role: 'dm', text, color: 'gold' }])
         }
       }
     }
+
+    setLogs(displayLogs)
   }
 
   // 4. session 加载（onLoaded 通过 ref 转发）
