@@ -64,14 +64,31 @@ export const charactersApi = {
 }
 
 // ── 游戏 ──────────────────────────────────────────────────
+
+/** @typedef {import('../types/api-responses').SessionListItem} SessionListItem */
+/** @typedef {import('../types/api-responses').SessionDetail} SessionDetail */
+/** @typedef {import('../types/api-responses').PlayerActionResponse} PlayerActionResponse */
+
 export const gameApi = {
   // 会话管理
   createSession:  (data) => api.post('/game/sessions', data),
+
+  /** @returns {Promise<SessionListItem[]>} */
   listSessions:   () => api.get('/game/sessions'),
+
+  /**
+   * @param {string} id
+   * @returns {Promise<SessionDetail>}
+   */
   getSession:     (id) => api.get(`/game/sessions/${id}`),
+
   deleteSession:  (id) => api.delete(`/game/sessions/${id}`),
 
-  // 主行动（探索 + 战斗统一入口）
+  /**
+   * 主行动（探索 + 战斗统一入口）
+   * @param {{session_id: string, action_text: string}} data
+   * @returns {Promise<PlayerActionResponse>}
+   */
   action: (data) => api.post('/game/action', data),
 
   // 技能检定（本地掷骰，联动 needs_check）

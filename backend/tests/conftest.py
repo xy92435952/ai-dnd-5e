@@ -49,9 +49,11 @@ def _mock_llm_layer():
             "action_type": "exploration",
             "narrative":   "（测试叙事）你环顾四周，什么也没发生。",
             "player_choices": [],
-            "companion_reactions": [],
+            # companion_reactions 的契约是 str（见 ApplyResult）
+            "companion_reactions": "",
             "state_delta": {},
-            "needs_check": None,
+            # needs_check 的契约是带 required 字段的 dict
+            "needs_check": {"required": False},
             "combat_triggered": False,
             "combat_ended":     False,
             "dice_display": [],

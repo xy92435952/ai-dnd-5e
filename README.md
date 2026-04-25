@@ -168,6 +168,26 @@ cd frontend
 npm run build
 ```
 
+## 前后端类型同步
+
+后端 Pydantic schema 是类型的**单一来源**。前端的 `src/types/api.d.ts` 从 OpenAPI 生成，改了后端字段后按顺序：
+
+```bash
+cd backend
+python scripts/export_openapi.py          # 产出 backend/openapi.json
+
+cd ../frontend
+npm run types:api                          # 从上面那份 openapi.json 生成 src/types/api.d.ts
+```
+
+两份产物都入库。CI 会校验 `openapi.json` 与 `api.d.ts` 是否与代码同步，不同步直接红灯。
+
+WebSocket 事件类型**不走 OpenAPI**，在两边各写一份：
+- 后端：`backend/schemas/ws_events.py`（Pydantic）
+- 前端：`frontend/src/types/ws.d.ts`（TypeScript interface）
+
+改一处必改两处，`tests/unit/test_ws_events.py` 会校验后端侧的完整性。
+
 ---
 
 ## 开发阶段

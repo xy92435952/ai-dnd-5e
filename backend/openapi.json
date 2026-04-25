@@ -1,0 +1,4862 @@
+{
+  "components": {
+    "schemas": {
+      "AbilityScores": {
+        "properties": {
+          "cha": {
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Cha",
+            "type": "integer"
+          },
+          "con": {
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Con",
+            "type": "integer"
+          },
+          "dex": {
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Dex",
+            "type": "integer"
+          },
+          "int": {
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Int",
+            "type": "integer"
+          },
+          "str": {
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Str",
+            "type": "integer"
+          },
+          "wis": {
+            "maximum": 30.0,
+            "minimum": 3.0,
+            "title": "Wis",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "str",
+          "dex",
+          "con",
+          "int",
+          "wis",
+          "cha"
+        ],
+        "title": "AbilityScores",
+        "type": "object"
+      },
+      "AiCompanionInfo": {
+        "properties": {
+          "char_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Class"
+          },
+          "hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hp Max"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Race"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AiCompanionInfo",
+        "type": "object"
+      },
+      "AmmoRequest": {
+        "properties": {
+          "change": {
+            "default": -1,
+            "title": "Change",
+            "type": "integer"
+          },
+          "weapon_name": {
+            "title": "Weapon Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "weapon_name"
+        ],
+        "title": "AmmoRequest",
+        "type": "object"
+      },
+      "AttackRollRequest": {
+        "properties": {
+          "action_type": {
+            "default": "melee",
+            "title": "Action Type",
+            "type": "string"
+          },
+          "d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20 Value"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "is_offhand": {
+            "default": false,
+            "title": "Is Offhand",
+            "type": "boolean"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "target_id"
+        ],
+        "title": "AttackRollRequest",
+        "type": "object"
+      },
+      "Body_upload_module_modules_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_module_modules_upload_post",
+        "type": "object"
+      },
+      "BuyItemRequest": {
+        "properties": {
+          "item_category": {
+            "title": "Item Category",
+            "type": "string"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          },
+          "quantity": {
+            "default": 1,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "item_name",
+          "item_category"
+        ],
+        "title": "BuyItemRequest",
+        "type": "object"
+      },
+      "CharacterBrief": {
+        "additionalProperties": true,
+        "description": "对应 api.deps.char_brief(Character) 的返回。",
+        "properties": {
+          "ac": {
+            "title": "Ac",
+            "type": "integer"
+          },
+          "cantrips": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Cantrips",
+            "type": "array"
+          },
+          "char_class": {
+            "title": "Char Class",
+            "type": "string"
+          },
+          "concentration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concentration"
+          },
+          "conditions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "derived": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Derived",
+            "type": "object"
+          },
+          "equipment": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Equipment",
+            "type": "object"
+          },
+          "fighting_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fighting Style"
+          },
+          "hp_current": {
+            "title": "Hp Current",
+            "type": "integer"
+          },
+          "hp_max": {
+            "title": "Hp Max",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_player": {
+            "title": "Is Player",
+            "type": "boolean"
+          },
+          "known_spells": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Known Spells",
+            "type": "array"
+          },
+          "level": {
+            "title": "Level",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proficient_saves": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Proficient Saves",
+            "type": "array"
+          },
+          "proficient_skills": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Proficient Skills",
+            "type": "array"
+          },
+          "race": {
+            "title": "Race",
+            "type": "string"
+          },
+          "spell_slots": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Spell Slots",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "race",
+          "char_class",
+          "level",
+          "hp_current",
+          "hp_max",
+          "ac",
+          "is_player"
+        ],
+        "title": "CharacterBrief",
+        "type": "object"
+      },
+      "ClaimCharacterRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "character_id"
+        ],
+        "title": "ClaimCharacterRequest",
+        "type": "object"
+      },
+      "ClassFeatureRequest": {
+        "properties": {
+          "feature_name": {
+            "title": "Feature Name",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          }
+        },
+        "required": [
+          "feature_name"
+        ],
+        "title": "ClassFeatureRequest",
+        "type": "object"
+      },
+      "CombatActionRequest": {
+        "properties": {
+          "action_text": {
+            "default": "普通攻击",
+            "title": "Action Text",
+            "type": "string"
+          },
+          "is_offhand": {
+            "default": false,
+            "title": "Is Offhand",
+            "type": "boolean"
+          },
+          "is_ranged": {
+            "default": false,
+            "title": "Is Ranged",
+            "type": "boolean"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          }
+        },
+        "title": "CombatActionRequest",
+        "type": "object"
+      },
+      "ConditionRequest": {
+        "properties": {
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "is_enemy": {
+            "default": false,
+            "title": "Is Enemy",
+            "type": "boolean"
+          },
+          "rounds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rounds"
+          }
+        },
+        "required": [
+          "entity_id",
+          "condition"
+        ],
+        "title": "ConditionRequest",
+        "type": "object"
+      },
+      "CreateCharacterRequest": {
+        "properties": {
+          "ability_scores": {
+            "$ref": "#/components/schemas/AbilityScores"
+          },
+          "alignment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alignment"
+          },
+          "background": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background"
+          },
+          "bonus_languages": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Bonus Languages",
+            "type": "array"
+          },
+          "cantrips": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Cantrips",
+            "type": "array"
+          },
+          "char_class": {
+            "title": "Char Class",
+            "type": "string"
+          },
+          "equipment_choice": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment Choice"
+          },
+          "feats": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Feats",
+            "type": "array"
+          },
+          "fighting_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fighting Style"
+          },
+          "known_spells": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Known Spells",
+            "type": "array"
+          },
+          "level": {
+            "default": 1,
+            "title": "Level",
+            "type": "integer"
+          },
+          "module_id": {
+            "title": "Module Id",
+            "type": "string"
+          },
+          "multiclass_info": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiclass Info"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proficient_skills": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Proficient Skills",
+            "type": "array"
+          },
+          "race": {
+            "title": "Race",
+            "type": "string"
+          },
+          "subclass": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subclass"
+          }
+        },
+        "required": [
+          "module_id",
+          "name",
+          "race",
+          "char_class",
+          "ability_scores"
+        ],
+        "title": "CreateCharacterRequest",
+        "type": "object"
+      },
+      "CreateRoomRequest": {
+        "properties": {
+          "max_players": {
+            "default": 4,
+            "maximum": 4.0,
+            "minimum": 2.0,
+            "title": "Max Players",
+            "type": "integer"
+          },
+          "module_id": {
+            "title": "Module Id",
+            "type": "string"
+          },
+          "save_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Name"
+          }
+        },
+        "required": [
+          "module_id"
+        ],
+        "title": "CreateRoomRequest",
+        "type": "object"
+      },
+      "CreateRoomResponse": {
+        "properties": {
+          "host_user_id": {
+            "title": "Host User Id",
+            "type": "string"
+          },
+          "room_code": {
+            "title": "Room Code",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "room_code",
+          "host_user_id"
+        ],
+        "title": "CreateRoomResponse",
+        "type": "object"
+      },
+      "CreateSessionRequest": {
+        "properties": {
+          "companion_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Companion Ids",
+            "type": "array"
+          },
+          "module_id": {
+            "title": "Module Id",
+            "type": "string"
+          },
+          "player_character_id": {
+            "title": "Player Character Id",
+            "type": "string"
+          },
+          "save_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Name"
+          }
+        },
+        "required": [
+          "module_id",
+          "player_character_id",
+          "companion_ids"
+        ],
+        "title": "CreateSessionRequest",
+        "type": "object"
+      },
+      "DamageRollRequest": {
+        "properties": {
+          "damage_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Values"
+          },
+          "pending_attack_id": {
+            "title": "Pending Attack Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pending_attack_id"
+        ],
+        "title": "DamageRollRequest",
+        "type": "object"
+      },
+      "DeathSaveRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20 Value"
+          }
+        },
+        "required": [
+          "character_id"
+        ],
+        "title": "DeathSaveRequest",
+        "type": "object"
+      },
+      "EquipmentBulkUpdateRequest": {
+        "description": "Accept the full equipment dict from CharacterSheet (equip/unequip toggles).",
+        "properties": {
+          "equipment": {
+            "additionalProperties": true,
+            "title": "Equipment",
+            "type": "object"
+          }
+        },
+        "required": [
+          "equipment"
+        ],
+        "title": "EquipmentBulkUpdateRequest",
+        "type": "object"
+      },
+      "EquipmentUpdateRequest": {
+        "description": "Equip or unequip a weapon/armor item.",
+        "properties": {
+          "equip": {
+            "default": true,
+            "title": "Equip",
+            "type": "boolean"
+          },
+          "item_category": {
+            "title": "Item Category",
+            "type": "string"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_name",
+          "item_category"
+        ],
+        "title": "EquipmentUpdateRequest",
+        "type": "object"
+      },
+      "ExhaustionRequest": {
+        "properties": {
+          "change": {
+            "default": 1,
+            "title": "Change",
+            "type": "integer"
+          }
+        },
+        "title": "ExhaustionRequest",
+        "type": "object"
+      },
+      "GameLogEntry": {
+        "additionalProperties": true,
+        "description": "对应 api.deps.serialize_log(GameLog) 的返回。",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "dice_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dice Result"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "log_type": {
+            "title": "Log Type",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "content",
+          "log_type"
+        ],
+        "title": "GameLogEntry",
+        "type": "object"
+      },
+      "GeneratePartyRequest": {
+        "properties": {
+          "module_id": {
+            "title": "Module Id",
+            "type": "string"
+          },
+          "party_size": {
+            "default": 4,
+            "title": "Party Size",
+            "type": "integer"
+          },
+          "player_character_id": {
+            "title": "Player Character Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "module_id",
+          "player_character_id"
+        ],
+        "title": "GeneratePartyRequest",
+        "type": "object"
+      },
+      "GoldRequest": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "GoldRequest",
+        "type": "object"
+      },
+      "GrappleShoveRequest": {
+        "properties": {
+          "action_type": {
+            "title": "Action Type",
+            "type": "string"
+          },
+          "shove_type": {
+            "default": "prone",
+            "title": "Shove Type",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_type",
+          "target_id"
+        ],
+        "title": "GrappleShoveRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "JoinRoomRequest": {
+        "properties": {
+          "room_code": {
+            "maxLength": 6,
+            "minLength": 6,
+            "title": "Room Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_code"
+        ],
+        "title": "JoinRoomRequest",
+        "type": "object"
+      },
+      "JoinRoomResponse": {
+        "properties": {
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/MemberInfo"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "room_code": {
+            "title": "Room Code",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "your_member_id": {
+            "title": "Your Member Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "room_code",
+          "your_member_id",
+          "members"
+        ],
+        "title": "JoinRoomResponse",
+        "type": "object"
+      },
+      "KickMemberRequest": {
+        "properties": {
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "KickMemberRequest",
+        "type": "object"
+      },
+      "LevelUpRequest": {
+        "properties": {
+          "ability_score_increases": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ability Score Increases"
+          },
+          "feat_choice": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feat Choice"
+          },
+          "use_average_hp": {
+            "default": true,
+            "title": "Use Average Hp",
+            "type": "boolean"
+          }
+        },
+        "title": "LevelUpRequest",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "ManeuverRequest": {
+        "properties": {
+          "maneuver_name": {
+            "title": "Maneuver Name",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "maneuver_name",
+          "target_id"
+        ],
+        "title": "ManeuverRequest",
+        "type": "object"
+      },
+      "MemberInfo": {
+        "properties": {
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "character_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Name"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "is_online": {
+            "default": false,
+            "title": "Is Online",
+            "type": "boolean"
+          },
+          "joined_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "username",
+          "display_name",
+          "role"
+        ],
+        "title": "MemberInfo",
+        "type": "object"
+      },
+      "MoveRequest": {
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "to_x": {
+            "title": "To X",
+            "type": "integer"
+          },
+          "to_y": {
+            "title": "To Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity_id",
+          "to_x",
+          "to_y"
+        ],
+        "title": "MoveRequest",
+        "type": "object"
+      },
+      "PlayerActionRequest": {
+        "properties": {
+          "action_text": {
+            "title": "Action Text",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "action_text"
+        ],
+        "title": "PlayerActionRequest",
+        "type": "object"
+      },
+      "PlayerActionResponse": {
+        "additionalProperties": true,
+        "description": "对应 api.game.player_action 返回。字段来自 StateApplicator.apply\n产生的 ApplyResult，加上后端注入的 combat_update。",
+        "properties": {
+          "combat_end_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combat End Result"
+          },
+          "combat_ended": {
+            "default": false,
+            "title": "Combat Ended",
+            "type": "boolean"
+          },
+          "combat_triggered": {
+            "default": false,
+            "title": "Combat Triggered",
+            "type": "boolean"
+          },
+          "combat_update": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Combat Update"
+          },
+          "companion_reactions": {
+            "default": "",
+            "title": "Companion Reactions",
+            "type": "string"
+          },
+          "dice_display": {
+            "default": [],
+            "items": {},
+            "title": "Dice Display",
+            "type": "array"
+          },
+          "errors": {
+            "default": [],
+            "items": {},
+            "title": "Errors",
+            "type": "array"
+          },
+          "narrative": {
+            "title": "Narrative",
+            "type": "string"
+          },
+          "needs_check": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs Check"
+          },
+          "player_choices": {
+            "default": [],
+            "items": {},
+            "title": "Player Choices",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "narrative"
+        ],
+        "title": "PlayerActionResponse",
+        "type": "object"
+      },
+      "PredictRequest": {
+        "properties": {
+          "action_key": {
+            "default": "atk",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "attacker_id": {
+            "title": "Attacker Id",
+            "type": "string"
+          },
+          "is_ranged": {
+            "default": false,
+            "title": "Is Ranged",
+            "type": "boolean"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attacker_id",
+          "target_id"
+        ],
+        "title": "PredictRequest",
+        "type": "object"
+      },
+      "PreparedSpellsRequest": {
+        "properties": {
+          "prepared_spells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Prepared Spells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prepared_spells"
+        ],
+        "title": "PreparedSpellsRequest",
+        "type": "object"
+      },
+      "ReactionRequest": {
+        "properties": {
+          "reaction_type": {
+            "title": "Reaction Type",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          }
+        },
+        "required": [
+          "reaction_type"
+        ],
+        "title": "ReactionRequest",
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "display_name": {
+            "default": "",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "type": "object"
+      },
+      "RoomInfo": {
+        "properties": {
+          "ai_companions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AiCompanionInfo"
+            },
+            "title": "Ai Companions",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current_speaker_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Speaker User Id"
+          },
+          "game_started": {
+            "title": "Game Started",
+            "type": "boolean"
+          },
+          "host_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host User Id"
+          },
+          "is_multiplayer": {
+            "title": "Is Multiplayer",
+            "type": "boolean"
+          },
+          "max_players": {
+            "title": "Max Players",
+            "type": "integer"
+          },
+          "members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MemberInfo"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "module_id": {
+            "title": "Module Id",
+            "type": "string"
+          },
+          "room_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Code"
+          },
+          "save_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Name"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "speak_round": {
+            "default": 0,
+            "title": "Speak Round",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "session_id",
+          "room_code",
+          "module_id",
+          "save_name",
+          "host_user_id",
+          "max_players",
+          "is_multiplayer",
+          "game_started"
+        ],
+        "title": "RoomInfo",
+        "type": "object"
+      },
+      "SellItemRequest": {
+        "properties": {
+          "item_category": {
+            "title": "Item Category",
+            "type": "string"
+          },
+          "item_index": {
+            "default": 0,
+            "title": "Item Index",
+            "type": "integer"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_name",
+          "item_category"
+        ],
+        "title": "SellItemRequest",
+        "type": "object"
+      },
+      "SessionDetail": {
+        "additionalProperties": true,
+        "description": "Adventure.jsx loadSession 消费的主接口。",
+        "properties": {
+          "campaign_state": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Campaign State",
+            "type": "object"
+          },
+          "combat_active": {
+            "default": false,
+            "title": "Combat Active",
+            "type": "boolean"
+          },
+          "companions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CharacterBrief"
+            },
+            "title": "Companions",
+            "type": "array"
+          },
+          "current_scene": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Scene"
+          },
+          "game_state": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Game State",
+            "type": "object"
+          },
+          "is_multiplayer": {
+            "default": false,
+            "title": "Is Multiplayer",
+            "type": "boolean"
+          },
+          "logs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GameLogEntry"
+            },
+            "title": "Logs",
+            "type": "array"
+          },
+          "module_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Id"
+          },
+          "module_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Name"
+          },
+          "player": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CharacterBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "room_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Code"
+          },
+          "save_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Name"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "title": "SessionDetail",
+        "type": "object"
+      },
+      "SessionListItem": {
+        "additionalProperties": true,
+        "properties": {
+          "combat_active": {
+            "title": "Combat Active",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "module_name": {
+            "title": "Module Name",
+            "type": "string"
+          },
+          "player_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Class"
+          },
+          "player_level": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Level"
+          },
+          "player_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Name"
+          },
+          "player_race": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Race"
+          },
+          "save_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Name"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "module_name",
+          "combat_active"
+        ],
+        "title": "SessionListItem",
+        "type": "object"
+      },
+      "SkillCheckRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20 Value"
+          },
+          "dc": {
+            "title": "Dc",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "skill": {
+            "title": "Skill",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "character_id",
+          "skill",
+          "dc"
+        ],
+        "title": "SkillCheckRequest",
+        "type": "object"
+      },
+      "SmiteRequest": {
+        "properties": {
+          "damage_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Values"
+          },
+          "slot_level": {
+            "default": 1,
+            "title": "Slot Level",
+            "type": "integer"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_is_undead": {
+            "default": false,
+            "title": "Target Is Undead",
+            "type": "boolean"
+          }
+        },
+        "title": "SmiteRequest",
+        "type": "object"
+      },
+      "SpellConfirmRequest": {
+        "properties": {
+          "damage_values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Damage Values"
+          },
+          "pending_spell_id": {
+            "title": "Pending Spell Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pending_spell_id"
+        ],
+        "title": "SpellConfirmRequest",
+        "type": "object"
+      },
+      "SpellRequest": {
+        "properties": {
+          "caster_id": {
+            "title": "Caster Id",
+            "type": "string"
+          },
+          "spell_level": {
+            "default": 1,
+            "title": "Spell Level",
+            "type": "integer"
+          },
+          "spell_name": {
+            "title": "Spell Name",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ids"
+          }
+        },
+        "required": [
+          "caster_id",
+          "spell_name"
+        ],
+        "title": "SpellRequest",
+        "type": "object"
+      },
+      "SpellRollRequest": {
+        "properties": {
+          "caster_id": {
+            "title": "Caster Id",
+            "type": "string"
+          },
+          "spell_level": {
+            "default": 1,
+            "title": "Spell Level",
+            "type": "integer"
+          },
+          "spell_name": {
+            "title": "Spell Name",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ids"
+          }
+        },
+        "required": [
+          "caster_id",
+          "spell_name"
+        ],
+        "title": "SpellRollRequest",
+        "type": "object"
+      },
+      "TokenResponse": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "user_id",
+          "username",
+          "display_name"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
+      "TransferHostRequest": {
+        "properties": {
+          "new_host_user_id": {
+            "title": "New Host User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_host_user_id"
+        ],
+        "title": "TransferHostRequest",
+        "type": "object"
+      },
+      "UseItemRequest": {
+        "properties": {
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_name"
+        ],
+        "title": "UseItemRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "DnD 5e AI跑团平台后端",
+    "title": "AI TRPG Backend",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "description": "用户登录",
+        "operationId": "login_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "description": "获取当前用户信息",
+        "operationId": "get_me_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "description": "注册新用户",
+        "operationId": "register_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/characters/create": {
+      "post": {
+        "description": "创建玩家角色（含种族加值、熟练校验）",
+        "operationId": "create_character_characters_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCharacterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Character",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/generate-party": {
+      "post": {
+        "description": "生成AI队友（调用 Dify WF2），自动应用种族加值和熟练",
+        "operationId": "generate_party_characters_generate_party_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeneratePartyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Party",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/options": {
+      "get": {
+        "description": "获取角色创建所有可选项，含种族加值/职业技能选择等元数据",
+        "operationId": "get_character_options_characters_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Character Options",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/shop/inventory": {
+      "get": {
+        "description": "Return all available items for purchase (weapons, armor, gear).",
+        "operationId": "get_shop_inventory_characters_shop_inventory_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Shop Inventory",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}": {
+      "get": {
+        "operationId": "get_character_characters__character_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Character",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/ammo": {
+      "patch": {
+        "description": "Track ammunition for ranged weapons.",
+        "operationId": "update_ammo_characters__character_id__ammo_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmmoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Ammo",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/equipment": {
+      "patch": {
+        "description": "Update character equipment (equip/unequip weapons/armor).\nRecalculates derived stats when AC-affecting items change.",
+        "operationId": "update_equipment_characters__character_id__equipment_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EquipmentUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Equipment",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/equipment-bulk": {
+      "patch": {
+        "description": "Replace full equipment dict and recalculate derived stats.",
+        "operationId": "update_equipment_bulk_characters__character_id__equipment_bulk_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EquipmentBulkUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Equipment Bulk",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/exhaustion": {
+      "patch": {
+        "description": "Increase or decrease exhaustion level (0-6). Level 6 = death.",
+        "operationId": "update_exhaustion_characters__character_id__exhaustion_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExhaustionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Exhaustion",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/gold": {
+      "patch": {
+        "description": "Add or spend gold. Equipment.gold tracks the character's gold.",
+        "operationId": "update_gold_characters__character_id__gold_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Gold",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/level-up": {
+      "post": {
+        "description": "角色升级：递增等级，重算衍生属性，增加HP，更新法术位。\nASI 等级（4,8,12,16,19; Fighter额外6,14; Rogue额外10）可增加属性或选择专长。",
+        "operationId": "level_up_characters__character_id__level_up_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LevelUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Level Up",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/prepared-spells": {
+      "patch": {
+        "description": "更新已准备法术（法师/牧师/德鲁伊专用，上限 = 等级 + 施法调整值）",
+        "operationId": "update_prepared_spells_characters__character_id__prepared_spells_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreparedSpellsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Prepared Spells",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/shop/buy": {
+      "post": {
+        "description": "Buy an item from the shop. Deducts gold and adds to equipment.",
+        "operationId": "buy_item_characters__character_id__shop_buy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuyItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Buy Item",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/shop/sell": {
+      "post": {
+        "description": "Sell an item for half its purchase price. Removes from equipment.",
+        "operationId": "sell_item_characters__character_id__shop_sell_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SellItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sell Item",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/characters/{character_id}/use-item": {
+      "post": {
+        "description": "Use a consumable item (potion, antitoxin, etc.).\nHealing potions roll dice and restore HP.",
+        "operationId": "use_item_characters__character_id__use_item_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UseItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Item",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
+    "/game/action": {
+      "post": {
+        "description": "玩家行动统一入口。\n战斗模式和探索模式都走这里，由 WF3 全能DM代理内部分流处理。\n返回 state_delta 由 StateApplicator 写库，前端通过 action_type 判断渲染方式。\n\n多人联机模式：\n  - 探索阶段：仅当前发言者（multiplayer.current_speaker_user_id）能调用\n  - 战斗阶段：仅当前回合归属玩家能调用\n  - player 角色根据 user_id 在 SessionMember 中查找（不再用 session.player_character_id）",
+        "operationId": "player_action_game_action_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Player Action",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/combat/{session_id}": {
+      "get": {
+        "description": "获取当前战斗状态（含完整实体数据）",
+        "operationId": "get_combat_state_game_combat__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Combat State",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/action": {
+      "post": {
+        "description": "玩家战斗行动（攻击 / 闪避 / 冲刺 / 脱离接战 / 协助）。\n本端点不再自动推进回合——玩家需明确调用 /end-turn 结束回合。",
+        "operationId": "combat_action_game_combat__session_id__action_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CombatActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Combat Action",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/ai-turn": {
+      "post": {
+        "description": "处理当前 AI 实体的回合（队友或敌人）",
+        "operationId": "ai_combat_turn_game_combat__session_id__ai_turn_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ai Combat Turn",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/attack-roll": {
+      "post": {
+        "description": "两步攻击流程 Step 1：仅掷 d20 攻击检定，判定命中/未中/暴击/大失手。\n不掷伤害骰、不扣 HP。结果暂存到 turn_states.pending_attack 供 /damage-roll 使用。",
+        "operationId": "attack_roll_game_combat__session_id__attack_roll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttackRollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attack Roll",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/class-feature": {
+      "post": {
+        "description": "使用职业战斗特性：\n- second_wind:  Fighter 1+, 恢复 1d10+level HP, 附赠行动, 每短休1次\n- action_surge: Fighter 2+, 本回合获得额外行动, 每短休1次\n- rage:         Barbarian 1+, 进入/退出狂暴, 附赠行动\n- cunning_action_dash: Rogue 2+, 附赠行动冲刺\n- cunning_action_disengage: Rogue 2+, 附赠行动脱离\n- cunning_action_hide: Rogue 2+, 附赠行动隐匿",
+        "operationId": "use_class_feature_game_combat__session_id__class_feature_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassFeatureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Class Feature",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/condition/add": {
+      "post": {
+        "description": "向战斗实体添加状态条件（角色或敌人）",
+        "operationId": "add_condition_game_combat__session_id__condition_add_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Condition",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/condition/remove": {
+      "post": {
+        "description": "从战斗实体移除状态条件",
+        "operationId": "remove_condition_game_combat__session_id__condition_remove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConditionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Condition",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/damage-roll": {
+      "post": {
+        "description": "两步攻击流程 Step 2：掷伤害骰，应用伤害/偷袭/狂暴/专长/抗性，扣 HP。\n必须在 /attack-roll 命中后调用。",
+        "operationId": "damage_roll_game_combat__session_id__damage_roll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DamageRollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Damage Roll",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/death-save": {
+      "post": {
+        "description": "濒死豁免检定（5e PHB p.197）\n- HP = 0 的角色每回合投 d20\n- 20（自然）：立即稳定并恢复1HP\n- 1（自然）：记为2次失败\n- 10+：成功\n- <10：失败\n- 3成功 → 稳定（stable=True，停止豁免）\n- 3失败 → 死亡（角色被移除战斗）",
+        "operationId": "death_saving_throw_game_combat__session_id__death_save_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeathSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Death Saving Throw",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/end": {
+      "post": {
+        "operationId": "end_combat_game_combat__session_id__end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Combat",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/end-turn": {
+      "post": {
+        "description": "玩家明确结束回合。\n- 对当前实体执行条件倒计时\n- 推进 current_turn_index\n- 重置下一实体的回合状态",
+        "operationId": "end_player_turn_game_combat__session_id__end_turn_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Player Turn",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/grapple-shove": {
+      "post": {
+        "description": "Grapple or Shove action. Replaces one attack.\nGrapple: contested Athletics check, success → target grappled (speed=0)\nShove: contested Athletics check, success → target prone or pushed 5ft",
+        "operationId": "grapple_shove_game_combat__session_id__grapple_shove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrappleShoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grapple Shove",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/maneuver": {
+      "post": {
+        "description": "Battle Master maneuver: consume 1 superiority die and apply effect.\nManeuvers: precision, trip, disarm, riposte, menacing, pushing, goading",
+        "operationId": "use_maneuver_game_combat__session_id__maneuver_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManeuverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Maneuver",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/move": {
+      "post": {
+        "description": "在战斗格子上移动实体（每回合最多 6 格 = 30ft）",
+        "operationId": "combat_move_game_combat__session_id__move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Combat Move",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/predict": {
+      "post": {
+        "description": "预测一次行动的命中率 / 暴击率 / 期望伤害（v0.10 新增）。\n纯算数，不掷骰、不消耗资源、不改状态。\n仅作为 UI 参考值展示；实际战斗仍以 /attack-roll / /spell-roll 为准。",
+        "operationId": "predict_action_endpoint_game_combat__session_id__predict_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Predict Action Endpoint",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/reaction": {
+      "post": {
+        "description": "Player uses reaction during enemy turn.\nreaction_type: \"shield\" | \"uncanny_dodge\" | \"hellish_rebuke\" | \"opportunity_attack\"\nCalled by frontend when enemy attacks player and player has reaction available.",
+        "operationId": "use_reaction_game_combat__session_id__reaction_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Reaction",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/skill-bar": {
+      "get": {
+        "description": "获取当前玩家的 10 格技能栏配置（v0.10 新增）。\nentity_id 可选，默认使用当前用户绑定的角色。",
+        "operationId": "get_skill_bar_endpoint_game_combat__session_id__skill_bar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Skill Bar Endpoint",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/smite": {
+      "post": {
+        "description": "Paladin Divine Smite -- 成功命中后追加辐光伤害。\n前端在攻击命中后弹出选择，玩家决定消耗法术位。",
+        "operationId": "divine_smite_game_combat__session_id__smite_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Divine Smite",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/spell": {
+      "post": {
+        "description": "施放法术（消耗法术位，计算升环效果）\n- 单目标：传 target_id\n- AoE 多目标：传 target_ids（空列表 = 命中所有存活敌人）\n- AoE 带豁免：每个目标各自豁免，成功者伤害减半",
+        "operationId": "cast_spell_game_combat__session_id__spell_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpellRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cast Spell",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/spell-confirm": {
+      "post": {
+        "description": "两步施法 Step 2：掷伤害/治疗骰，消耗法术位，应用效果。\n必须在 /spell-roll 之后调用。",
+        "operationId": "spell_confirm_game_combat__session_id__spell_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpellConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Spell Confirm",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/spell-roll": {
+      "post": {
+        "description": "两步施法 Step 1：验证法术/法术位/目标，返回将要掷的骰子信息。\n不实际掷伤害骰、不消耗法术位、不应用效果。\n将 pending_spell 存入 turn_states。",
+        "operationId": "spell_roll_game_combat__session_id__spell_roll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpellRollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Spell Roll",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/rooms/create": {
+      "post": {
+        "operationId": "create_room_game_rooms_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRoomResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Room",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/join": {
+      "post": {
+        "operationId": "join_room_game_rooms_join_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRoomRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinRoomResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join Room",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}": {
+      "get": {
+        "operationId": "get_room_game_rooms__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Room",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/claim-character": {
+      "post": {
+        "operationId": "claim_character_game_rooms__session_id__claim_character_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimCharacterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Character",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/fill-ai": {
+      "post": {
+        "description": "房主补满 AI 队友：按 max_players - 真人玩家数 - 已有 AI 数 生成缺口。",
+        "operationId": "fill_ai_companions_game_rooms__session_id__fill_ai_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fill Ai Companions",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/kick": {
+      "post": {
+        "operationId": "kick_member_game_rooms__session_id__kick_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KickMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kick Member",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/leave": {
+      "post": {
+        "operationId": "leave_room_game_rooms__session_id__leave_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Leave Room",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/members": {
+      "get": {
+        "operationId": "list_members_game_rooms__session_id__members_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemberInfo"
+                  },
+                  "title": "Response List Members Game Rooms  Session Id  Members Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Members",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/start": {
+      "post": {
+        "operationId": "start_game_game_rooms__session_id__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Game",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/transfer": {
+      "post": {
+        "operationId": "transfer_host_game_rooms__session_id__transfer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferHostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transfer Host",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/sessions": {
+      "get": {
+        "description": "获取当前用户的存档",
+        "operationId": "list_sessions_game_sessions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionListItem"
+                  },
+                  "title": "Response List Sessions Game Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "game"
+        ]
+      },
+      "post": {
+        "description": "创建游戏会话（开始新冒险）",
+        "operationId": "create_session_game_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}": {
+      "delete": {
+        "description": "删除游戏存档及关联数据",
+        "operationId": "delete_session_game_sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Session",
+        "tags": [
+          "game"
+        ]
+      },
+      "get": {
+        "description": "获取会话完整状态（用于恢复游戏）",
+        "operationId": "get_session_game_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}/checkpoint": {
+      "get": {
+        "description": "获取当前战役档案（用于前端展示存档详情）",
+        "operationId": "get_checkpoint_game_sessions__session_id__checkpoint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Checkpoint",
+        "tags": [
+          "game"
+        ]
+      },
+      "post": {
+        "description": "将当前会话的冒险记录压缩为结构化 Campaign State JSON 并存档。\n- 只提取叙事/队友日志（过滤骰子、系统消息）\n- 新状态与历史档案增量合并（不覆盖已有内容）\n- 下次游戏时 player_action 会自动使用此档案作为长期记忆",
+        "operationId": "save_checkpoint_game_sessions__session_id__checkpoint_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Checkpoint",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}/journal": {
+      "post": {
+        "description": "生成本次冒险的叙事日志摘要（调用 DM Agent Chatflow，独立新对话）",
+        "operationId": "generate_journal_game_sessions__session_id__journal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Journal",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}/rest": {
+      "post": {
+        "description": "长休 (long)：HP满值、法术位全部恢复、清除条件与专注\n短休 (short)：消耗一颗生命骰恢复HP；魔契者短休恢复法术位",
+        "operationId": "take_rest_game_sessions__session_id__rest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rest_type",
+            "required": false,
+            "schema": {
+              "default": "long",
+              "title": "Rest Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Rest",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/skill-check": {
+      "post": {
+        "description": "执行技能检定（正确检查角色是否熟练）",
+        "operationId": "skill_check_game_skill_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skill Check",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/spells": {
+      "get": {
+        "description": "获取完整法术列表",
+        "operationId": "get_spell_list_game_spells_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Spell List",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/spells/class/{class_name}": {
+      "get": {
+        "description": "获取指定职业的可用法术",
+        "operationId": "get_spells_for_class_game_spells_class__class_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "class_name",
+            "required": true,
+            "schema": {
+              "title": "Class Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_level",
+            "required": false,
+            "schema": {
+              "default": 9,
+              "title": "Max Level",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Spells For Class",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/modules/": {
+      "get": {
+        "description": "获取当前用户的模组列表",
+        "operationId": "list_modules_modules__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Modules",
+        "tags": [
+          "modules"
+        ]
+      }
+    },
+    "/modules/upload": {
+      "post": {
+        "description": "上传模组文件，异步解析",
+        "operationId": "upload_module_modules_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_module_modules_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Module",
+        "tags": [
+          "modules"
+        ]
+      }
+    },
+    "/modules/{module_id}": {
+      "delete": {
+        "description": "删除模组",
+        "operationId": "delete_module_modules__module_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "module_id",
+            "required": true,
+            "schema": {
+              "title": "Module Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Module",
+        "tags": [
+          "modules"
+        ]
+      },
+      "get": {
+        "description": "获取模组详情",
+        "operationId": "get_module_modules__module_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "module_id",
+            "required": true,
+            "schema": {
+              "title": "Module Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Module",
+        "tags": [
+          "modules"
+        ]
+      }
+    }
+  }
+}

@@ -15,3 +15,7 @@ from schemas.ws_events import (
     DMThinkingStart, DMResponded, DMSpeakTurn,
     CombatUpdate, TurnChanged, EntityMoved,
 )
+from schemas.game_responses import (
+    CharacterBrief, GameLogEntry,
+    SessionListItem, SessionDetail, PlayerActionResponse,
+)

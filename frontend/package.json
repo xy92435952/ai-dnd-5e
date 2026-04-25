@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "types:api": "openapi-typescript ../backend/openapi.json -o src/types/api.d.ts"
   },
   "dependencies": {
     "@3d-dice/dice-box": "^1.1.4",
@@ -29,6 +30,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.1"
   }

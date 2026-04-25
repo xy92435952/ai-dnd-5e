@@ -23,6 +23,9 @@ from services.dnd_rules import roll_skill_check, roll_initiative, roll_dice, _no
 from services.context_builder import ContextBuilder
 from services.state_applicator import StateApplicator
 from services.character_roster import CharacterRoster
+from schemas.game_responses import (
+    SessionListItem, SessionDetail, PlayerActionResponse,
+)
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -150,7 +153,7 @@ async def create_session(req: CreateSessionRequest, db: AsyncSession = Depends(g
     return {"session_id": session.id, "opening_scene": first_scene}
 
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=list[SessionListItem])
 async def list_sessions(db: AsyncSession = Depends(get_db), user_id: str = Depends(get_user_id)):
     """获取当前用户的存档"""
     result   = await db.execute(select(Session).where(Session.user_id == user_id).order_by(Session.updated_at.desc()))
@@ -173,7 +176,7 @@ async def list_sessions(db: AsyncSession = Depends(get_db), user_id: str = Depen
     return out
 
 
-@router.get("/sessions/{session_id}")
+@router.get("/sessions/{session_id}", response_model=SessionDetail)
 async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
     """获取会话完整状态（用于恢复游戏）"""
     session    = await get_session_or_404(session_id, db)
@@ -243,7 +246,7 @@ async def delete_session(session_id: str, db: AsyncSession = Depends(get_db), us
 
 # ── 主跑团循环（统一入口：战斗 + 探索） ─────────────────
 
-@router.post("/action")
+@router.post("/action", response_model=PlayerActionResponse)
 async def player_action(
     req: PlayerActionRequest,
     db: AsyncSession = Depends(get_db),

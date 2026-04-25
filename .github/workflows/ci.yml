@@ -34,6 +34,15 @@ jobs:
         run: |
           python -m pytest tests/ -v --tb=short
 
+      - name: Verify OpenAPI schema is up-to-date
+        working-directory: backend
+        env:
+          LLM_API_KEY: ci-dummy
+          JWT_SECRET: ci-test-secret-at-least-32-bytes-long
+        run: |
+          python scripts/export_openapi.py
+          git diff --exit-code openapi.json || (echo "❌ openapi.json 已过时，请本地跑 python scripts/export_openapi.py 并 commit" && exit 1)
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -49,6 +58,12 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
+
+      - name: Verify api.d.ts matches openapi.json
+        working-directory: frontend
+        run: |
+          npm run types:api
+          git diff --exit-code src/types/api.d.ts || (echo "❌ src/types/api.d.ts 已过时，请本地跑 npm run types:api 并 commit" && exit 1)
 
       - name: Build
         working-directory: frontend
