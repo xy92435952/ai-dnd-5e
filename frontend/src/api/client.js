@@ -68,6 +68,10 @@ export const charactersApi = {
 /** @typedef {import('../types/api-responses').SessionListItem} SessionListItem */
 /** @typedef {import('../types/api-responses').SessionDetail} SessionDetail */
 /** @typedef {import('../types/api-responses').PlayerActionResponse} PlayerActionResponse */
+/** @typedef {import('../types/api-responses').SkillCheckResult} SkillCheckResult */
+/** @typedef {import('../types/api-responses').RestResponse} RestResponse */
+/** @typedef {import('../types/api-responses').CombatStateResponse} CombatStateResponse */
+/** @typedef {import('../types/api-responses').SkillBarResponse} SkillBarResponse */
 
 export const gameApi = {
   // 会话管理
@@ -91,10 +95,19 @@ export const gameApi = {
    */
   action: (data) => api.post('/game/action', data),
 
-  // 技能检定（本地掷骰，联动 needs_check）
+  /**
+   * 技能检定（本地掷骰，联动 needs_check）
+   * @param {{session_id:string, character_id:string, skill:string, dc:number, d20_value?:number}} data
+   * @returns {Promise<SkillCheckResult>}
+   */
   skillCheck: (data) => api.post('/game/skill-check', data),
 
-  // 休息
+  /**
+   * 休息（长 / 短）
+   * @param {string} sessionId
+   * @param {'long'|'short'} restType
+   * @returns {Promise<RestResponse>}
+   */
   rest: (sessionId, restType = 'long') =>
     api.post(`/game/sessions/${sessionId}/rest?rest_type=${restType}`),
 
@@ -105,7 +118,11 @@ export const gameApi = {
   // 战役日志
   generateJournal: (sessionId) => api.post(`/game/sessions/${sessionId}/journal`),
 
-  // 战斗
+  /**
+   * 战斗
+   * @param {string} sessionId
+   * @returns {Promise<CombatStateResponse>}
+   */
   getCombat:    (sessionId) => api.get(`/game/combat/${sessionId}`),
   combatAction: (sessionId, actionText, targetId = null, isRanged = false, isOffhand = false) =>
     api.post(`/game/combat/${sessionId}/action`, {
@@ -209,7 +226,12 @@ export const gameApi = {
   getSpells:         () => api.get('/game/spells'),
   getSpellsByClass:  (cls) => api.get(`/game/spells/class/${cls}`),
 
-  // v0.10 新增：技能栏 + 命中率预测
+  /**
+   * v0.10 新增：技能栏（基于职业 / 等级 / 法术位 / 资源动态生成）
+   * @param {string} sessionId
+   * @param {string=} entityId
+   * @returns {Promise<SkillBarResponse>}
+   */
   getSkillBar: (sessionId, entityId) =>
     api.get(`/game/combat/${sessionId}/skill-bar`, entityId ? { params: { entity_id: entityId } } : undefined),
   predict: (sessionId, attackerId, targetId, actionKey = 'atk', isRanged = false) =>

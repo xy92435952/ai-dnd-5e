@@ -342,6 +342,93 @@
         "title": "CharacterBrief",
         "type": "object"
       },
+      "CharacterRestResult": {
+        "additionalProperties": true,
+        "description": "单个角色的休息结果。长休 / 短休字段是并集。",
+        "properties": {
+          "class_resources": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Resources"
+          },
+          "con_mod": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Con Mod"
+          },
+          "hit_dice_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Dice Remaining"
+          },
+          "hit_die_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Die Roll"
+          },
+          "hp_current": {
+            "title": "Hp Current",
+            "type": "integer"
+          },
+          "hp_recovered": {
+            "title": "Hp Recovered",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "no_hit_dice": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Hit Dice"
+          },
+          "slots_restored": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Slots Restored",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "hp_recovered",
+          "hp_current"
+        ],
+        "title": "CharacterRestResult",
+        "type": "object"
+      },
       "ClaimCharacterRequest": {
         "properties": {
           "character_id": {
@@ -409,6 +496,63 @@
           }
         },
         "title": "CombatActionRequest",
+        "type": "object"
+      },
+      "CombatStateResponse": {
+        "additionalProperties": true,
+        "description": "对应 api.combat.info.get_combat_state 的返回。",
+        "properties": {
+          "current_turn_index": {
+            "default": 0,
+            "title": "Current Turn Index",
+            "type": "integer"
+          },
+          "entities": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EntitySnapshot"
+            },
+            "default": {},
+            "title": "Entities",
+            "type": "object"
+          },
+          "entity_positions": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Entity Positions",
+            "type": "object"
+          },
+          "grid_data": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Grid Data",
+            "type": "object"
+          },
+          "round_number": {
+            "default": 1,
+            "title": "Round Number",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "turn_order": {
+            "default": [],
+            "items": {},
+            "title": "Turn Order",
+            "type": "array"
+          },
+          "turn_states": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Turn States",
+            "type": "object"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "title": "CombatStateResponse",
         "type": "object"
       },
       "ConditionRequest": {
@@ -730,6 +874,65 @@
           "character_id"
         ],
         "title": "DeathSaveRequest",
+        "type": "object"
+      },
+      "EntitySnapshot": {
+        "additionalProperties": true,
+        "description": "战斗地图上的实体（玩家 / 队友 / 敌人共用）。",
+        "properties": {
+          "ac": {
+            "title": "Ac",
+            "type": "integer"
+          },
+          "conditions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "derived": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Derived",
+            "type": "object"
+          },
+          "hp_current": {
+            "title": "Hp Current",
+            "type": "integer"
+          },
+          "hp_max": {
+            "title": "Hp Max",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_enemy": {
+            "default": false,
+            "title": "Is Enemy",
+            "type": "boolean"
+          },
+          "is_player": {
+            "default": false,
+            "title": "Is Player",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "hp_current",
+          "hp_max",
+          "ac"
+        ],
+        "title": "EntitySnapshot",
         "type": "object"
       },
       "EquipmentBulkUpdateRequest": {
@@ -1330,6 +1533,28 @@
         "title": "RegisterRequest",
         "type": "object"
       },
+      "RestResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "characters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CharacterRestResult"
+            },
+            "title": "Characters",
+            "type": "array"
+          },
+          "rest_type": {
+            "title": "Rest Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rest_type"
+        ],
+        "title": "RestResponse",
+        "type": "object"
+      },
       "RoomInfo": {
         "properties": {
           "ai_companions": {
@@ -1674,6 +1899,68 @@
         "title": "SessionListItem",
         "type": "object"
       },
+      "SkillBarItem": {
+        "additionalProperties": true,
+        "description": "技能栏单项。形状由 _build_skill_bar 决定，字段较多用 extra='allow'。",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "cost": {
+            "default": "",
+            "title": "Cost",
+            "type": "string"
+          },
+          "glyph": {
+            "default": "",
+            "title": "Glyph",
+            "type": "string"
+          },
+          "k": {
+            "title": "K",
+            "type": "string"
+          }
+        },
+        "required": [
+          "k"
+        ],
+        "title": "SkillBarItem",
+        "type": "object"
+      },
+      "SkillBarResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "bar": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SkillBarItem"
+            },
+            "title": "Bar",
+            "type": "array"
+          },
+          "char_class": {
+            "default": "",
+            "title": "Char Class",
+            "type": "string"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "level": {
+            "default": 1,
+            "title": "Level",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity_id"
+        ],
+        "title": "SkillBarResponse",
+        "type": "object"
+      },
       "SkillCheckRequest": {
         "properties": {
           "character_id": {
@@ -1711,6 +1998,51 @@
           "dc"
         ],
         "title": "SkillCheckRequest",
+        "type": "object"
+      },
+      "SkillCheckResult": {
+        "additionalProperties": true,
+        "description": "对应 services.dnd_rules.roll_skill_check 的返回。",
+        "properties": {
+          "advantage": {
+            "default": false,
+            "title": "Advantage",
+            "type": "boolean"
+          },
+          "d20": {
+            "title": "D20",
+            "type": "integer"
+          },
+          "disadvantage": {
+            "default": false,
+            "title": "Disadvantage",
+            "type": "boolean"
+          },
+          "modifier": {
+            "title": "Modifier",
+            "type": "integer"
+          },
+          "proficient": {
+            "default": false,
+            "title": "Proficient",
+            "type": "boolean"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "d20",
+          "modifier",
+          "total",
+          "success"
+        ],
+        "title": "SkillCheckResult",
         "type": "object"
       },
       "SmiteRequest": {
@@ -2815,7 +3147,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CombatStateResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3606,7 +3940,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillBarResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -4569,7 +4905,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RestResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -4609,7 +4947,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SkillCheckResult"
+                }
               }
             },
             "description": "Successful Response"

@@ -1428,6 +1428,39 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * CharacterRestResult
+         * @description 单个角色的休息结果。长休 / 短休字段是并集。
+         */
+        CharacterRestResult: {
+            /** Class Resources */
+            class_resources?: {
+                [key: string]: unknown;
+            } | null;
+            /** Con Mod */
+            con_mod?: number | null;
+            /** Hit Dice Remaining */
+            hit_dice_remaining?: number | null;
+            /** Hit Die Roll */
+            hit_die_roll?: number | null;
+            /** Hp Current */
+            hp_current: number;
+            /** Hp Recovered */
+            hp_recovered: number;
+            /** Name */
+            name: string;
+            /** No Hit Dice */
+            no_hit_dice?: boolean | null;
+            /**
+             * Slots Restored
+             * @default {}
+             */
+            slots_restored: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /** ClaimCharacterRequest */
         ClaimCharacterRequest: {
             /** Character Id */
@@ -1459,6 +1492,59 @@ export interface components {
             is_ranged: boolean;
             /** Target Id */
             target_id?: string | null;
+        };
+        /**
+         * CombatStateResponse
+         * @description 对应 api.combat.info.get_combat_state 的返回。
+         */
+        CombatStateResponse: {
+            /**
+             * Current Turn Index
+             * @default 0
+             */
+            current_turn_index: number;
+            /**
+             * Entities
+             * @default {}
+             */
+            entities: {
+                [key: string]: components["schemas"]["EntitySnapshot"];
+            };
+            /**
+             * Entity Positions
+             * @default {}
+             */
+            entity_positions: {
+                [key: string]: unknown;
+            };
+            /**
+             * Grid Data
+             * @default {}
+             */
+            grid_data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Round Number
+             * @default 1
+             */
+            round_number: number;
+            /** Session Id */
+            session_id: string;
+            /**
+             * Turn Order
+             * @default []
+             */
+            turn_order: unknown[];
+            /**
+             * Turn States
+             * @default {}
+             */
+            turn_states: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         /** ConditionRequest */
         ConditionRequest: {
@@ -1577,6 +1663,46 @@ export interface components {
             character_id: string;
             /** D20 Value */
             d20_value?: number | null;
+        };
+        /**
+         * EntitySnapshot
+         * @description 战斗地图上的实体（玩家 / 队友 / 敌人共用）。
+         */
+        EntitySnapshot: {
+            /** Ac */
+            ac: number;
+            /**
+             * Conditions
+             * @default []
+             */
+            conditions: string[];
+            /**
+             * Derived
+             * @default {}
+             */
+            derived: {
+                [key: string]: unknown;
+            };
+            /** Hp Current */
+            hp_current: number;
+            /** Hp Max */
+            hp_max: number;
+            /** Id */
+            id: string;
+            /**
+             * Is Enemy
+             * @default false
+             */
+            is_enemy: boolean;
+            /**
+             * Is Player
+             * @default false
+             */
+            is_player: boolean;
+            /** Name */
+            name: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * EquipmentBulkUpdateRequest
@@ -1857,6 +1983,18 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** RestResponse */
+        RestResponse: {
+            /**
+             * Characters
+             * @default []
+             */
+            characters: components["schemas"]["CharacterRestResult"][];
+            /** Rest Type */
+            rest_type: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** RoomInfo */
         RoomInfo: {
             /**
@@ -1985,6 +2123,53 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * SkillBarItem
+         * @description 技能栏单项。形状由 _build_skill_bar 决定，字段较多用 extra='allow'。
+         */
+        SkillBarItem: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Cost
+             * @default
+             */
+            cost: string;
+            /**
+             * Glyph
+             * @default
+             */
+            glyph: string;
+            /** K */
+            k: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SkillBarResponse */
+        SkillBarResponse: {
+            /**
+             * Bar
+             * @default []
+             */
+            bar: components["schemas"]["SkillBarItem"][];
+            /**
+             * Char Class
+             * @default
+             */
+            char_class: string;
+            /** Entity Id */
+            entity_id: string;
+            /**
+             * Level
+             * @default 1
+             */
+            level: number;
+        } & {
+            [key: string]: unknown;
+        };
         /** SkillCheckRequest */
         SkillCheckRequest: {
             /** Character Id */
@@ -1997,6 +2182,37 @@ export interface components {
             session_id: string;
             /** Skill */
             skill: string;
+        };
+        /**
+         * SkillCheckResult
+         * @description 对应 services.dnd_rules.roll_skill_check 的返回。
+         */
+        SkillCheckResult: {
+            /**
+             * Advantage
+             * @default false
+             */
+            advantage: boolean;
+            /** D20 */
+            d20: number;
+            /**
+             * Disadvantage
+             * @default false
+             */
+            disadvantage: boolean;
+            /** Modifier */
+            modifier: number;
+            /**
+             * Proficient
+             * @default false
+             */
+            proficient: boolean;
+            /** Success */
+            success: boolean;
+            /** Total */
+            total: number;
+        } & {
+            [key: string]: unknown;
         };
         /** SmiteRequest */
         SmiteRequest: {
@@ -2720,7 +2936,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CombatStateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3266,7 +3482,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillBarResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3973,7 +4189,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4006,7 +4222,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SkillCheckResult"];
                 };
             };
             /** @description Validation Error */

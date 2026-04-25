@@ -25,6 +25,7 @@ from services.state_applicator import StateApplicator
 from services.character_roster import CharacterRoster
 from schemas.game_responses import (
     SessionListItem, SessionDetail, PlayerActionResponse,
+    SkillCheckResult, RestResponse,
 )
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -714,7 +715,7 @@ async def player_action(
 
 # ── 技能检定 ──────────────────────────────────────────────
 
-@router.post("/skill-check")
+@router.post("/skill-check", response_model=SkillCheckResult)
 async def skill_check(req: SkillCheckRequest, db: AsyncSession = Depends(get_db)):
     """执行技能检定（正确检查角色是否熟练）"""
     char = await db.get(Character, req.character_id)
@@ -863,7 +864,7 @@ async def get_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
 
 # ── 休息（长休 / 短休）───────────────────────────────────
 
-@router.post("/sessions/{session_id}/rest")
+@router.post("/sessions/{session_id}/rest", response_model=RestResponse)
 async def take_rest(
     session_id: str,
     rest_type:  str = "long",   # "long" | "short"

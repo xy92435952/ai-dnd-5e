@@ -90,7 +90,7 @@ async def test_get_skill_bar(client, sample_session, combat_state, sample_user, 
     # 端点返回的 key 是 "bar"（不是 "skill_bar"）
     assert "bar" in data
     assert isinstance(data["bar"], list)
-    assert data["class"] == "Fighter"
+    assert data["char_class"] == "Fighter"
 
 
 async def test_combat_state_404_when_no_combat(client, sample_user):

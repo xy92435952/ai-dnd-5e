@@ -45,7 +45,10 @@ router = APIRouter(prefix="/game", tags=["combat"])
 
 # ── 获取战斗状态 ──────────────────────────────────────────
 
-@router.get("/combat/{session_id}")
+from schemas.game_responses import CombatStateResponse, SkillBarResponse
+
+
+@router.get("/combat/{session_id}", response_model=CombatStateResponse)
 async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
     """获取当前战斗状态（含完整实体数据）"""
     result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
@@ -282,7 +285,7 @@ def _build_skill_bar(player: Character) -> list[dict]:
     return bar[:10]
 
 
-@router.get("/combat/{session_id}/skill-bar")
+@router.get("/combat/{session_id}/skill-bar", response_model=SkillBarResponse)
 async def get_skill_bar_endpoint(
     session_id: str,
     entity_id: Optional[str] = None,
@@ -318,10 +321,11 @@ async def get_skill_bar_endpoint(
         raise HTTPException(404, "未找到角色")
 
     return {
-        "entity_id": player.id,
-        "class": player.char_class,
-        "level": player.level,
-        "bar": _build_skill_bar(player),
+        "entity_id":  player.id,
+        # 字段名改为 char_class（与 ORM 一致；前端只读 .bar，不受影响）
+        "char_class": player.char_class,
+        "level":      player.level,
+        "bar":        _build_skill_bar(player),
     }
 
 

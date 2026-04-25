@@ -20,3 +20,14 @@ export type SessionDetail        = Schemas['SessionDetail']
 export type PlayerActionResponse = Schemas['PlayerActionResponse']
 export type CharacterBrief       = Schemas['CharacterBrief']
 export type GameLogEntry         = Schemas['GameLogEntry']
+
+// ─── 检定 / 休息 ────────────────────────────────────────
+export type SkillCheckResult     = Schemas['SkillCheckResult']
+export type RestResponse         = Schemas['RestResponse']
+export type CharacterRestResult  = Schemas['CharacterRestResult']
+
+// ─── 战斗 ───────────────────────────────────────────────
+export type CombatStateResponse  = Schemas['CombatStateResponse']
+export type EntitySnapshot       = Schemas['EntitySnapshot']
+export type SkillBarResponse     = Schemas['SkillBarResponse']
+export type SkillBarItem         = Schemas['SkillBarItem']

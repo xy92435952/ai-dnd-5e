@@ -18,4 +18,7 @@ from schemas.ws_events import (
 from schemas.game_responses import (
     CharacterBrief, GameLogEntry,
     SessionListItem, SessionDetail, PlayerActionResponse,
+    SkillCheckResult, CharacterRestResult, RestResponse,
+    EntitySnapshot, CombatStateResponse,
+    SkillBarItem, SkillBarResponse,
 )

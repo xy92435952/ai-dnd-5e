@@ -120,7 +120,102 @@ class PlayerActionResponse(BaseModel):
     errors: list[Any] = []
 
 
+# ─── /game/skill-check ─────────────────────────────────────
+
+class SkillCheckResult(BaseModel):
+    """对应 services.dnd_rules.roll_skill_check 的返回。"""
+    model_config = ConfigDict(extra="allow")
+
+    d20: int
+    modifier: int
+    total: int
+    success: bool
+    proficient: bool = False
+    advantage:    bool = False
+    disadvantage: bool = False
+
+
+# ─── /game/sessions/{id}/rest ──────────────────────────────
+
+class CharacterRestResult(BaseModel):
+    """单个角色的休息结果。长休 / 短休字段是并集。"""
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    hp_recovered: int
+    hp_current: int
+    slots_restored: dict[str, Any] = {}
+    hit_dice_remaining: Optional[int] = None
+    # 短休专属（长休不带）
+    hit_die_roll:    Optional[int] = None
+    con_mod:         Optional[int] = None
+    no_hit_dice:     Optional[bool] = None
+    class_resources: Optional[dict[str, Any]] = None
+
+
+class RestResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    rest_type: str
+    characters: list[CharacterRestResult] = []
+
+
+# ─── /game/combat/{id} ─────────────────────────────────────
+
+class EntitySnapshot(BaseModel):
+    """战斗地图上的实体（玩家 / 队友 / 敌人共用）。"""
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str
+    is_player: bool = False
+    is_enemy:  bool = False
+    hp_current: int
+    hp_max: int
+    ac: int
+    conditions: list[str] = []
+    derived: dict[str, Any] = {}
+
+
+class CombatStateResponse(BaseModel):
+    """对应 api.combat.info.get_combat_state 的返回。"""
+    model_config = ConfigDict(extra="allow")
+
+    session_id: str
+    turn_order: list[Any] = []
+    current_turn_index: int = 0
+    round_number: int = 1
+    entity_positions: dict[str, Any] = {}
+    grid_data: dict[str, Any] = {}
+    entities: dict[str, EntitySnapshot] = {}
+    turn_states: dict[str, Any] = {}
+
+
+# ─── /game/combat/{id}/skill-bar ───────────────────────────
+
+class SkillBarItem(BaseModel):
+    """技能栏单项。形状由 _build_skill_bar 决定，字段较多用 extra='allow'。"""
+    model_config = ConfigDict(extra="allow")
+
+    k: str             # atk / spell / shove / ...
+    glyph: str = ""    # 显示符号
+    cost: str  = ""    # "动作" / "附赠" / "反应" / "免费"
+    available: bool = True
+
+
+class SkillBarResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    entity_id: str
+    char_class: str = ""
+    level: int = 1
+    bar: list[SkillBarItem] = []
+
+
 __all__ = [
     "CharacterBrief", "GameLogEntry",
     "SessionListItem", "SessionDetail", "PlayerActionResponse",
+    "SkillCheckResult", "CharacterRestResult", "RestResponse",
+    "EntitySnapshot", "CombatStateResponse",
+    "SkillBarItem", "SkillBarResponse",
 ]
