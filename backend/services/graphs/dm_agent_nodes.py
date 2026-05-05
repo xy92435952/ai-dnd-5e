@@ -114,6 +114,8 @@ async def parse_validate(state: DMAgentState) -> dict:
     raw = state.get("llm_output", "")
     logger.info("[parse_validate] raw len=%s, starts_with=%r", len(raw), raw[:40])
     data, error, new_messages = normalize_dm_output(raw, state.get("player_action", ""))
+    if not state.get("combat_active"):
+        data["companion_reactions"] = ""
     return {
         "result": data,
         "error": error,

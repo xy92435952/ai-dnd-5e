@@ -19,6 +19,7 @@ def test_explore_prompt_contains_all_maintenance_sections():
         "视角聚焦",
         "多人分队与焦点镜头",
         "companion_reactions",
+        "companion_brief",
         "技能检定声明规则",
         "严格输出格式",
         "campaign_delta",

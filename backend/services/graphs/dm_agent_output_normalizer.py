@@ -126,6 +126,7 @@ def normalize_dm_output(raw: str, player_action: str) -> tuple[dict, str, list]:
         data.setdefault("dice_results", [])
         data.setdefault("state_delta", {})
         data.setdefault("companion_reactions", "")
+        data.setdefault("companion_brief", None)
         data.setdefault("ai_turns", [])
         data.setdefault("player_choices", [])
         data.setdefault("campaign_delta", {})

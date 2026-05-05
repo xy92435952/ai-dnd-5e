@@ -1,7 +1,7 @@
 """
 WF3 — DM Agent LangGraph 图
 四层链路：input_layer → pre_roll_dice → rules_layer → memory_layer
-        → [combat_dm | explore_dm] → parse_validate
+        → [combat_dm | explore_dm] → parse_validate → [generate_companion_reactions]
 支持 SQLite（本地开发）和 PostgreSQL（生产环境）持久化对话记忆
 """
 
@@ -9,6 +9,12 @@ from __future__ import annotations
 
 from langgraph.graph import END, StateGraph
 
+from services.graphs.dm_agent_companions import (
+    _collect_ai_companions,
+    _normalize_companion_brief,
+    generate_companion_reactions,
+    route_after_parse,
+)
 from services.graphs.dm_agent_nodes import (
     combat_dm,
     explore_dm,
@@ -58,6 +64,7 @@ async def build_dm_agent_graph():
     g.add_node("explore_dm", explore_dm)
     g.add_node("memory_layer", memory_layer)
     g.add_node("parse_validate", parse_validate)
+    g.add_node("generate_companion_reactions", generate_companion_reactions)
 
     g.set_entry_point("input_layer")
     g.add_conditional_edges("input_layer", route_after_guard, {
@@ -73,7 +80,11 @@ async def build_dm_agent_graph():
     })
     g.add_edge("combat_dm", "parse_validate")
     g.add_edge("explore_dm", "parse_validate")
-    g.add_edge("parse_validate", END)
+    g.add_conditional_edges("parse_validate", route_after_parse, {
+        "generate_companion_reactions": "generate_companion_reactions",
+        "end": END,
+    })
+    g.add_edge("generate_companion_reactions", END)
 
     return g.compile(checkpointer=checkpointer)
 
