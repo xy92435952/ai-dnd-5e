@@ -57,7 +57,8 @@ export function getStepLabels({ isSpellcaster, needsASI, isMultiplayerCreate }) 
   const steps = ['基础信息', '能力值', '技能熟练', '装备选择']
   if (isSpellcaster) steps.push('法术选择')
   if (needsASI) steps.push('专长/属性提升')
-  steps.push(isMultiplayerCreate ? '加入房间' : '确认队伍')
+  if (isMultiplayerCreate) steps.push('加入房间')
+  else steps.push('确认队伍', 'DM风格')
   return steps
 }
 
@@ -128,6 +129,7 @@ export function buildCharacterCreateModel({
   const spellStep = isSpellcaster ? 5 : -1
   const featStep = needsASI ? (isSpellcaster ? 6 : 5) : -1
   const partyStep = (featStep > 0 ? featStep : (spellStep > 0 ? spellStep : 4)) + 1
+  const styleStep = isMultiplayerCreate ? -1 : partyStep + 1
 
   const multiclassEnKey = getClassEnKey(form?.multiclass_class)
   const multiReqs = MULTICLASS_REQUIREMENTS[multiclassEnKey] || {}
@@ -178,6 +180,7 @@ export function buildCharacterCreateModel({
     spellStep,
     featStep,
     partyStep,
+    styleStep,
     multiclassEnKey,
     multiReqs,
     multiReqMet,

@@ -15,6 +15,7 @@ import CharacterCreateStepEquipment from '../components/character-create/Charact
 import CharacterCreateStepSpells from '../components/character-create/CharacterCreateStepSpells'
 import CharacterCreateStepFeats from '../components/character-create/CharacterCreateStepFeats'
 import CharacterCreateStepParty from '../components/character-create/CharacterCreateStepParty'
+import { DM_STYLES, DEFAULT_DM_STYLE, getDmStyle } from '../data/dmStyles'
 import {
   SCORE_COSTS,
   buildCharacterCreateModel,
@@ -70,6 +71,7 @@ export default function CharacterCreate() {
 
   const [partySize,       setPartySize]       = useState(4)
   const [companions,      setLocalCompanions] = useState([])
+  const [dmStyle,         setDmStyle]         = useState(DEFAULT_DM_STYLE)
   const [generatingParty, setGeneratingParty] = useState(false)
   const [savedCharId,     setSavedCharId]     = useState(null)
   const [saving,          setSaving]          = useState(false)
@@ -126,7 +128,7 @@ export default function CharacterCreate() {
     baseScores, finalScores, pointsLeft,
     skillConfig, saveProfs, isSpellcaster, cantripCount, spellCount,
     availableCantrips, availableSpells, hasFightingStyle, needsASI,
-    asiLevels, asiCount, featStep, partyStep,
+    asiLevels, asiCount, featStep, partyStep, styleStep,
     multiclassEnKey,
     multiReqs, multiReqMet, step1Valid, step2Valid, step3Valid, step4Valid,
     showSubclass, subclassOptions, steps: STEPS,
@@ -232,6 +234,7 @@ export default function CharacterCreate() {
         module_id: moduleId, player_character_id: savedCharId,
         companion_ids: companions.map(c => c.id),
         save_name: `${form.name}的冒险`,
+        dm_style: dmStyle,
       })
       // 先触发"传奇诞生"仪式（4.2s），结束后 navigate
       setForgeTargetPath(`/adventure/${result.session_id}`)
@@ -283,6 +286,9 @@ export default function CharacterCreate() {
     asiCount,
     featStep,
     partyStep,
+    styleStep,
+    dmStyle,
+    setDmStyle,
     multiclassEnKey,
     multiReqs,
     multiReqMet,
@@ -417,6 +423,71 @@ export default function CharacterCreate() {
       {step === featStep && needsASI && <CharacterCreateStepFeats ctx={ctx} />}
       {step === partyStep && <CharacterCreateStepParty ctx={ctx} />}
 
+      {step === styleStep && !isMultiplayerCreate && (
+        <div className="step-pane">
+          <div className="step-title">✦ 选择你的 DM 风格 ✦</div>
+          <div className="step-sub">
+            这个选择会在冒险创建时锁定，之后不能更改。它会影响叙事语气、节奏、选项设计和队友反应。
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+            marginTop: 20,
+          }}>
+            {DM_STYLES.map(style => {
+              const selected = dmStyle === style.key
+              return (
+                <button
+                  key={style.key}
+                  type="button"
+                  onClick={() => setDmStyle(style.key)}
+                  className="panel"
+                  style={{
+                    textAlign: 'left',
+                    padding: 14,
+                    cursor: 'pointer',
+                    borderColor: selected ? style.accent : 'var(--bark-light)',
+                    boxShadow: selected ? `inset 0 0 0 1px ${style.accent}, 0 0 18px -8px ${style.accent}` : 'none',
+                    background: selected
+                      ? `linear-gradient(180deg, ${style.accent}22, rgba(10,6,2,.45))`
+                      : 'rgba(10,6,2,.35)',
+                    minHeight: 118,
+                  }}
+                >
+                  <div style={{
+                    fontFamily: 'var(--font-heading)',
+                    color: selected ? style.accent : 'var(--parchment)',
+                    fontSize: 15,
+                    letterSpacing: '.08em',
+                    marginBottom: 8,
+                  }}>{style.label}</div>
+                  <div style={{
+                    color: 'var(--parchment-dark)',
+                    fontSize: 12,
+                    lineHeight: 1.65,
+                  }}>{style.summary}</div>
+                </button>
+              )
+            })}
+          </div>
+
+          <div style={{
+            marginTop: 18,
+            padding: 12,
+            border: '1px solid rgba(216,180,95,.28)',
+            background: 'rgba(216,180,95,.06)',
+            color: 'var(--parchment-dark)',
+            fontSize: 12,
+            lineHeight: 1.7,
+          }}>
+            当前选择：<b style={{ color: getDmStyle(dmStyle).accent }}>{getDmStyle(dmStyle).label}</b>
+            <span style={{ marginLeft: 8 }}>{getDmStyle(dmStyle).summary}</span>
+          </div>
+        </div>
+      )}
+
         <div className="scroll-ornament bottom">✦ ❧ ✦</div>
       </div>{/* end create-scroll */}
 
@@ -436,11 +507,11 @@ export default function CharacterCreate() {
             {STEPS[step - 1] || ''}
           </span>
         </div>
-        {step === partyStep && !isMultiplayerCreate ? (
-          // 单人：最后一步是确认队伍 → 开始冒险
+        {step === styleStep && !isMultiplayerCreate ? (
+          // 单人：最后一步是选择 DM 风格 → 开始冒险
           <button
             className="btn-gold"
-            disabled={companions.length === 0 || generatingParty || saving}
+            disabled={!dmStyle || companions.length === 0 || generatingParty || saving}
             onClick={handleStartAdventure}
             style={{ padding: '10px 28px', fontSize: 13, letterSpacing: '.18em' }}
           >{saving ? '✦ 准备中… ✦' : '✦ 开始冒险 ✦'}</button>

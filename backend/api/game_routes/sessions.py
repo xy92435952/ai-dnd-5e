@@ -8,6 +8,7 @@ from models import Character, CombatState, GameLog, Module, Session
 from schemas.game_requests import CreateSessionRequest
 from schemas.game_responses import CreateSessionResponse, SessionDetail, SessionListItem
 from services.character_roster import CharacterRoster
+from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -28,7 +29,8 @@ async def create_session(
     parsed = module.parsed_content or {}
     scenes = parsed.get("scenes", [])
     raw_scene = scenes[0]["description"] if scenes else ""
-    first_scene = await _generate_opening_with_legacy_patch(parsed, raw_scene)
+    dm_style = normalize_dm_style(req.dm_style)
+    first_scene = await _generate_opening_with_legacy_patch(parsed, raw_scene, dm_style)
 
     session = Session(
         user_id=user_id,
@@ -36,7 +38,7 @@ async def create_session(
         player_character_id=req.player_character_id,
         current_scene=first_scene,
         session_history="",
-        game_state={"companion_ids": req.companion_ids, "scene_index": 0, "flags": {}},
+        game_state={"companion_ids": req.companion_ids, "scene_index": 0, "flags": {}, "dm_style": dm_style},
         save_name=req.save_name or f"冒险-{module.name}",
     )
     db.add(session)
@@ -148,13 +150,16 @@ async def delete_session(
     return {"ok": True}
 
 
-async def _generate_opening_with_legacy_patch(parsed: dict, raw_scene: str) -> str:
+async def _generate_opening_with_legacy_patch(parsed: dict, raw_scene: str, dm_style: str | None = None) -> str:
     """Honor historical tests/tools that monkeypatch api.game._generate_opening."""
     try:
         import api.game as game_module
         patched = getattr(game_module, "_generate_opening", None)
         if patched and patched is not generate_opening:
-            return await patched(parsed, raw_scene)
+            try:
+                return await patched(parsed, raw_scene, dm_style)
+            except TypeError:
+                return await patched(parsed, raw_scene)
     except Exception:
         pass
-    return await generate_opening(parsed, raw_scene)
+    return await generate_opening(parsed, raw_scene, dm_style)

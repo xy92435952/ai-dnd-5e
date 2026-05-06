@@ -166,6 +166,24 @@ export default function Room() {
         </div>
       </div>
 
+      {room.dm_style && (
+        <div className="panel" style={{
+          maxWidth: 560,
+          margin: '0 auto 16px',
+          padding: '10px 14px',
+          textAlign: 'center',
+          color: 'var(--parchment-dark)',
+          fontSize: 12,
+          lineHeight: 1.6,
+        }}>
+          <span style={{ color: 'var(--amber)', fontFamily: 'var(--font-heading)', letterSpacing: '.08em' }}>
+            DM 风格：{room.dm_style.label}
+          </span>
+          <span style={{ marginLeft: 8 }}>{room.dm_style.summary}</span>
+          <div style={{ marginTop: 4, fontSize: 10, fontFamily: 'var(--font-mono)' }}>开始后不可更改</div>
+        </div>
+      )}
+
       <Divider>❧ 冒险者们 ❧</Divider>
 
       <RoomMembersGrid

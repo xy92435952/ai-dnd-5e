@@ -8,6 +8,7 @@ class CreateSessionRequest(BaseModel):
     player_character_id: str
     companion_ids: list[str]
     save_name: Optional[str] = None
+    dm_style: Optional[str] = None
 
 
 class PlayerActionRequest(BaseModel):

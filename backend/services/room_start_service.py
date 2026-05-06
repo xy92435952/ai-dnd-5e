@@ -39,7 +39,7 @@ async def start_game(
         raw_scene = scenes[0]["description"] if scenes and isinstance(scenes[0], dict) else ""
         try:
             from api.game import _generate_opening
-            first_scene = await _generate_opening(parsed, raw_scene)
+            first_scene = await _generate_opening(parsed, raw_scene, (session.game_state or {}).get("dm_style"))
         except Exception:
             first_scene = raw_scene or "冒险正在开始……"
 

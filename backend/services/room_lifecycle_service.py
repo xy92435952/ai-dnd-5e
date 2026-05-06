@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Character, Module, Session, SessionMember
 from services import room_group_service
+from services.dm_styles import normalize_dm_style
 from services.room_member_service import count_members, get_member
 
 
@@ -36,6 +37,7 @@ async def create_room(
     module_id: str,
     save_name: Optional[str],
     max_players: int,
+    dm_style: Optional[str] = None,
 ) -> Session:
     """创建多人房间。创建者自动成为 host。"""
     module = await db.get(Module, module_id)
@@ -43,6 +45,7 @@ async def create_room(
         raise HTTPException(404, "模组不存在")
 
     code = await generate_unique_room_code(db)
+    style_key = normalize_dm_style(dm_style)
     session = Session(
         user_id=user_id,
         module_id=module_id,
@@ -51,7 +54,8 @@ async def create_room(
         room_code=code,
         host_user_id=user_id,
         max_players=max_players,
-        game_state={"multiplayer": {"current_speaker_user_id": None,
+        game_state={"dm_style": style_key,
+                    "multiplayer": {"current_speaker_user_id": None,
                                      "speak_round": 0,
                                      "pending_actions": [],
                                      "online_user_ids": [user_id],

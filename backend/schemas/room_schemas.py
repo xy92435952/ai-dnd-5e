@@ -10,6 +10,7 @@ class CreateRoomRequest(BaseModel):
     module_id: str
     save_name: Optional[str] = None
     max_players: int = Field(default=4, ge=2, le=4)
+    dm_style: Optional[str] = None
 
 
 class JoinRoomRequest(BaseModel):
@@ -98,6 +99,7 @@ class RoomInfo(BaseModel):
     active_group_id: Optional[str] = None
     pending_actions_by_group: dict = {}
     group_readiness: dict = {}
+    dm_style: Optional[dict] = None
     created_at: Optional[datetime] = None
 
 

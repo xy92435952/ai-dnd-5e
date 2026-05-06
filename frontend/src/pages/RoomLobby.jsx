@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { modulesApi, roomsApi } from '../api/client'
 import { Divider } from '../components/Ornaments'
+import { DM_STYLES, DEFAULT_DM_STYLE } from '../data/dmStyles'
 
 export default function RoomLobby() {
   const nav = useNavigate()
@@ -18,6 +19,7 @@ export default function RoomLobby() {
   const [moduleId, setModuleId] = useState('')
   const [saveName, setSaveName] = useState('')
   const [maxPlayers, setMaxPlayers] = useState(4)
+  const [dmStyle, setDmStyle] = useState(DEFAULT_DM_STYLE)
   const [roomCode, setRoomCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -35,7 +37,7 @@ export default function RoomLobby() {
     if (!moduleId) { setError('请先选择模组'); return }
     setError(''); setBusy(true)
     try {
-      const r = await roomsApi.create(moduleId, saveName.trim() || null, maxPlayers)
+      const r = await roomsApi.create(moduleId, saveName.trim() || null, maxPlayers, dmStyle)
       nav(`/room/${r.session_id}`)
     } catch (e) {
       setError(e.message)
@@ -117,6 +119,35 @@ export default function RoomLobby() {
               onChange={(e) => setMaxPlayers(Number(e.target.value))}>
               {[2, 3, 4].map(n => <option key={n} value={n}>{n} 人</option>)}
             </select>
+
+            <Label>DM 风格（开始后不可更改）</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+              {DM_STYLES.map(style => {
+                const selected = dmStyle === style.key
+                return (
+                  <button
+                    key={style.key}
+                    type="button"
+                    onClick={() => setDmStyle(style.key)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '9px 10px',
+                      border: `1px solid ${selected ? style.accent : 'var(--bark-light)'}`,
+                      background: selected ? `${style.accent}18` : 'rgba(10,6,2,.35)',
+                      color: 'var(--parchment)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span style={{ color: selected ? style.accent : 'var(--parchment)', fontFamily: 'var(--font-heading)' }}>
+                      {style.label}
+                    </span>
+                    <span style={{ display: 'block', marginTop: 3, color: 'var(--parchment-dark)', fontSize: 11 }}>
+                      {style.summary}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
 
             <button onClick={onCreate} disabled={busy} className="btn-gold"
               style={{ marginTop: 10, padding: '12px', fontSize: 14, letterSpacing: '.18em' }}>

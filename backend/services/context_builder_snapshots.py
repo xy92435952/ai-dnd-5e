@@ -2,6 +2,7 @@ import json
 
 from schemas.game_schemas import GameState
 from services.context_builder_multiplayer import build_multiplayer_context
+from services.dm_styles import get_dm_style
 
 ENEMY_FIELDS = [
     "id", "name", "hp_current", "hp_max", "ac", "conditions",
@@ -86,6 +87,14 @@ def build_game_state_payload(
         "current_actor_id": current_actor_id,
         "current_actor_name": actor_name,
     }
+
+    dm_style = get_dm_style((session.game_state or {}).get("dm_style"))
+    state["dm_style"] = {
+        "key": dm_style.key,
+        "label": dm_style.label,
+        "summary": dm_style.summary,
+    }
+    state["dm_style_prompt"] = dm_style.prompt
 
     if session.is_multiplayer:
         state["multiplayer_context"] = build_multiplayer_context(

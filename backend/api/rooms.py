@@ -41,6 +41,7 @@ async def create_room(
         module_id=req.module_id,
         save_name=req.save_name,
         max_players=req.max_players,
+        dm_style=req.dm_style,
     )
     return CreateRoomResponse(
         session_id=session.id,

@@ -145,6 +145,7 @@ describe('characterCreate helpers', () => {
     expect(model.needsASI).toBe(true)
     expect(model.asiCount).toBe(1)
     expect(model.partyStep).toBe(6)
+    expect(model.styleStep).toBe(7)
     expect(model.steps).toEqual([
       '基础信息',
       '能力值',
@@ -152,6 +153,7 @@ describe('characterCreate helpers', () => {
       '装备选择',
       '专长/属性提升',
       '确认队伍',
+      'DM风格',
     ])
     expect(model.step1Valid).toBe(true)
     expect(model.step2Valid).toBe(true)

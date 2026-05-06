@@ -252,8 +252,8 @@ export const gameApi = {
 
 // ── 多人联机房间 ─────────────────────────────────────────
 export const roomsApi = {
-  create:     (moduleId, saveName, maxPlayers = 4) =>
-    api.post('/game/rooms/create', { module_id: moduleId, save_name: saveName, max_players: maxPlayers }),
+  create:     (moduleId, saveName, maxPlayers = 4, dmStyle = 'classic') =>
+    api.post('/game/rooms/create', { module_id: moduleId, save_name: saveName, max_players: maxPlayers, dm_style: dmStyle }),
   join:       (roomCode) =>
     api.post('/game/rooms/join', { room_code: roomCode }),
   leave:      (sessionId) => api.post(`/game/rooms/${sessionId}/leave`),

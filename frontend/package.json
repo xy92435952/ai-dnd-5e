@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --configLoader native",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --configLoader native --pool threads",
+    "test:watch": "vitest --configLoader native --pool threads",
     "types:api": "openapi-typescript ../backend/openapi.json -o src/types/api.d.ts"
   },
   "dependencies": {
