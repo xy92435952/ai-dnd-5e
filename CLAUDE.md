@@ -1,9 +1,11 @@
 # CLAUDE.md — AI跑团平台项目档案
 
-> 最后更新：2026-04-01
-> 项目状态：Phase 11 完成 — Dify → LangGraph 全面迁移完成，AI 层完全本地化
+> **历史档案说明（2026-05-07）：** 本文件曾作为项目长档案维护，下面大量章节仍保留 Phase 11/v0.10 前后的历史记录，可能不完全反映当前拆分后的代码结构。当前日常开发请优先参考 [README.md](./README.md)、[doc/Technical_Architecture.md](./doc/Technical_Architecture.md)、[doc/Update_Roadmap.md](./doc/Update_Roadmap.md) 和 [doc/DEPLOY.md](./doc/DEPLOY.md)。
+>
+> 最后状态刷新：2026-05-07
+> 项目状态：v0.11-dev — Adventure / Combat 前后端拆分、DM Agent 输入/规则/叙事/记忆四层化、自然语言战斗体验修复
 > 当前阻塞：无
-> 项目路径：`D:\program\game`
+> 当前本地路径：`/Users/qft/Desktop/ai-dnd-5e`
 
 ---
 

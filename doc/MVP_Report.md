@@ -1,5 +1,7 @@
 # MVP 完成报告
 
+> **历史归档说明（2026-05-07）：** 本报告记录 v0.9-multiplayer beta 时期的 MVP 状态。当前项目已经进入 v0.11-dev 的结构化拆分与 DM Agent 重构阶段，功能和文件结构已明显变化。当前状态请参考 [README.md](../README.md)、[Technical_Architecture.md](./Technical_Architecture.md) 和 [Update_Roadmap.md](./Update_Roadmap.md)。
+
 **项目名称：** AI 跑团平台（DnD 5e）
 **版本：** v0.9-multiplayer beta
 **日期：** 2026-04-17

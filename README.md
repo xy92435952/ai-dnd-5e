@@ -1,206 +1,183 @@
 # AI 跑团平台 — DnD 5e
 
-基于 DnD 5e 规则的 AI 跑团平台。上传模组，创建角色，AI 担任 DM 和队友；支持单人和多人房间。
+基于 DnD 5e 规则的 AI 跑团平台。玩家上传模组、创建角色，AI 担任地下城主和队友；支持单人冒险、多人房间、网格战斗、自然语言战斗行动和本地规则结算。
 
-- **规则骨架**：5e 引擎（骰子 / 检定 / 战斗 / 法术）全部在后端本地计算，AI 不参与数学
-- **AI 叙事**：LangGraph StateGraph 编排 3 个独立 graph（模组解析 / 队友生成 / DM 代理）
-- **本地 RAG**：ChromaDB 向量库，模组 chunks 按 `module_id` 隔离
-- **多人联机**：WebSocket 广播，剧场模式同步、DM 思考动画跨玩家联动
+> 当前文档快照：2026-05-07
+> 当前重点：DM Agent 四层化（输入 / 规则 / 叙事 / 记忆）、Adventure / Combat 前后端拆分、自然语言战斗体验修复。
 
-详细架构见 [`CLAUDE.md`](./CLAUDE.md)；项目约定见 [`docs/`](./docs/)。
+## 当前能力
 
----
+- **规则在后端本地结算**：骰子、技能检定、攻击、伤害、移动、法术、回合资源由 Python 规则层执行，AI 不直接决定数学结果。
+- **AI DM 编排**：LangGraph 驱动模组解析、队友生成、DM 代理；DM Agent 已按输入、规则、叙事、记忆拆层。
+- **输入安全层**：区分 `human_input`、`ai_generated_choice`、`system_action`、`ai_takeover`，拦截明显越界、注入、作弊和与游戏无关内容；AI 生成选项由后端校验来源后放行。
+- **自然语言战斗**：玩家可以输入“我靠近最近的骷髅并用长剑攻击”。解析器会先用本地规则处理常见意图，再回退 LLM；近战目标不可达时只移动，不伪造攻击。
+- **多人联机**：房间、成员、发言权、WebSocket 广播、战斗回合归属校验。
+- **前端拆分**：Adventure / Combat 已拆成页面、hooks、adventure components、combat components、utils 和测试。
 
 ## 快速启动
 
-### 1. 后端环境
+### 后端
 
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate          # Windows（Linux/Mac: source venv/bin/activate）
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# 编辑 .env，填入 LLM 配置
+# 编辑 .env，填入 OpenAI 兼容 LLM 配置
 ```
 
-`.env` 示例（OpenAI 兼容 API，如 AiHubMix / OpenRouter / OpenAI）：
+`.env` 最小示例：
 
 ```env
-# LLM（必填）
 LLM_API_KEY=sk-xxxxxxxxxxxxxxxx
-LLM_BASE_URL=https://aihubmix.com/v1
-LLM_MODEL=claude-sonnet-4-6
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
 
-# 本地 RAG / 对话记忆（默认路径即可）
+DATABASE_URL=sqlite+aiosqlite:///./ai_trpg.db
 CHROMADB_PATH=./chromadb_data
 LANGGRAPH_DB_PATH=./langgraph_memory.db
+JWT_SECRET=dev-secret-change-me-at-least-32-bytes
+ENV=development
+CORS_ALLOW_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-首次运行需要跑一次数据库迁移：
+启动本地后端：
 
 ```bash
-python migrate_multiclass.py
-python migrate_turn_states.py
-python migrate_dify_conversation_id.py
-python migrate_condition_durations.py
+cd backend
+source .venv/bin/activate
+python -m uvicorn main:app --host 127.0.0.1 --port 8002
 ```
 
-### 2. 前端环境
+本地开发使用 8002 是因为 [frontend/vite.config.js](/Users/qft/Desktop/ai-dnd-5e/frontend/vite.config.js) 的 `/api` 代理指向 `http://localhost:8002`。
+
+### 前端
 
 ```bash
 cd frontend
 npm install
-```
-
-### 3. 启动
-
-**Windows 一键：**
-
-```
-start.bat
-```
-
-**手动：**
-
-```bash
-# 终端 1 - 后端
-cd backend
-python -m uvicorn main:app --port 8000
-# 注意：Windows 上不要用 --reload（有 WinError 6 僵尸进程 bug）
-
-# 终端 2 - 前端
-cd frontend
 npm run dev
 ```
 
-访问 **http://localhost:3000**。API 文档在 **http://localhost:8000/docs**。
+访问：
 
----
+- 前端开发页：`http://127.0.0.1:3000`
+- 后端健康检查：`http://127.0.0.1:8002/health`
+- API 文档：`http://127.0.0.1:8002/docs`
 
-## 使用流程
+## 部署简版
 
-1. **上传模组** — PDF / DOCX / Markdown / TXT
-2. **等待解析** — LangGraph WF1 自动提取结构化信息 + 生成 RAG chunks（30–60 秒）
-3. **创建角色** — 向导式 4–6 步，施法职业自动多一步"法术选择"
-4. **生成队伍** — LangGraph WF2 按角色缺口生成 AI 队友
-5. **开始冒险** — 输入行动 → WF3 DM 代理推进剧情 → 本地规则引擎解算骰子与战斗
-
----
-
-## 项目结构
-
-```
-ai-dnd-5e/
-├── backend/
-│   ├── main.py                    FastAPI 入口
-│   ├── api/
-│   │   ├── game.py                会话 / 行动 / 休息 / checkpoint
-│   │   ├── combat/                战斗包（11 个子模块，从单文件 5368 行拆出）
-│   │   ├── characters.py          角色 CRUD / 队友生成
-│   │   ├── modules.py             模组上传与解析
-│   │   ├── rooms.py               多人房间
-│   │   ├── auth.py / ws.py / deps.py
-│   ├── services/
-│   │   ├── graphs/                3 个 LangGraph StateGraph
-│   │   ├── dnd_rules.py           5e 规则引擎（纯计算）
-│   │   ├── combat_service.py      战斗逻辑
-│   │   ├── spell_service.py       法术注册表
-│   │   ├── context_builder.py     序列化为 DM 输入
-│   │   ├── state_applicator.py    解析 state_delta 并写库
-│   │   ├── character_roster.py    session → party 访问器
-│   │   ├── local_rag_service.py   ChromaDB 检索
-│   │   └── langgraph_client.py    统一 AI 客户端
-│   ├── models/                    SQLAlchemy ORM
-│   ├── schemas/                   JSON 字段 Pydantic
-│   └── tests/                     pytest 套件（smoke / unit / integration）
-├── frontend/
-│   └── src/
-│       ├── pages/                 Home / Login / Room / CharacterCreate / Adventure / Combat
-│       ├── components/            通用组件 + adventure/ + combat/ 子目录
-│       ├── hooks/                 useWebSocket / useUser
-│       ├── store/gameStore.js     Zustand 全局状态
-│       ├── utils/                 markdown / combat / dice
-│       └── data/                  dnd5e.js / combat.js
-├── docs/
-│   └── json-field-convention.md   JSON 列修改约定（flag_modified）
-├── dify_workflows/                遗留参考（Phase 11 已全迁 LangGraph，不再被代码引用）
-├── CLAUDE.md                      详细架构 / ADR / Phase 记录
-└── README.md
-```
-
----
-
-## 技术栈
-
-| 层 | 选型 |
-|----|------|
-| 前端 | React 18 + Vite + Zustand |
-| 后端 | FastAPI (async) + SQLAlchemy 2.0 + aiosqlite |
-| AI 编排 | LangGraph StateGraph（Phase 11 替换 Dify） |
-| LLM | AiHubMix / OpenRouter / OpenAI 任意 OpenAI 兼容 API，通过 `langchain-openai` 接入 |
-| 对话记忆 | LangGraph `AsyncSqliteSaver`（`thread_id = session.id`） |
-| RAG | ChromaDB 本地持久化 |
-| 文件解析 | PyMuPDF (PDF) + python-docx + markdown |
-| 多人通信 | FastAPI WebSocket |
-
----
-
-## 测试
-
-后端 pytest 套件：
+如果服务器沿用当前 nginx 读取静态 `dist/` 的方式：
 
 ```bash
+cd /opt/ai-trpg/app
+git pull
+
 cd backend
-pip install -r requirements.txt       # 已含 pytest + pytest-asyncio
-python -m pytest tests/ -v
-```
+pip install -r requirements.txt
 
-- `tests/smoke/`       — 导入 / 路由注册 / 环境健康（不需网络）
-- `tests/unit/`        — 纯函数（dnd_rules / combat_service / character_roster）
-- `tests/integration/` — HTTP 端点（TestClient，使用独立的内存 SQLite）
-
-前端构建校验：
-
-```bash
-cd frontend
+cd ../frontend
+npm install
 npm run build
 ```
 
-## 前后端类型同步
+纯前端改动构建完成后 nginx 通常不需要重启。后端代码同步部署后，需要按服务器当前方式重启后端服务。
 
-后端 Pydantic schema 是类型的**单一来源**。前端的 `src/types/api.d.ts` 从 OpenAPI 生成，改了后端字段后按顺序：
+更完整的生产部署清单见 [doc/DEPLOY.md](/Users/qft/Desktop/ai-dnd-5e/doc/DEPLOY.md)。
+
+## 项目结构
+
+```text
+ai-dnd-5e/
+├── backend/
+│   ├── main.py                         FastAPI 入口
+│   ├── api/
+│   │   ├── game.py                     /game 会话、探索、自然语言战斗入口
+│   │   ├── combat/                     战斗端点包，按攻击/法术/AI回合/状态拆分
+│   │   ├── rooms.py                    多人房间
+│   │   ├── modules.py                  模组上传与解析
+│   │   ├── characters.py               角色创建、队友生成、准备法术
+│   │   └── auth.py / ws.py / deps.py
+│   ├── services/
+│   │   ├── graphs/dm_agent.py          DM Agent 四层流程
+│   │   ├── input_guard.py              输入来源和拦截
+│   │   ├── action_parser.py            自然语言战斗行动解析
+│   │   ├── combat_service.py           攻击、伤害、条件等规则计算
+│   │   ├── dnd_rules.py                5e 规则纯函数
+│   │   ├── context_builder.py          DM 输入上下文
+│   │   ├── state_applicator.py         DM 输出写回数据库
+│   │   └── local_rag_service.py        ChromaDB 检索
+│   ├── models/                         SQLAlchemy ORM
+│   ├── schemas/                        HTTP / WS / 游戏响应 schema
+│   └── tests/                          pytest: unit / integration / smoke
+├── frontend/
+│   └── src/
+│       ├── pages/                      Home / Login / CharacterCreate / Adventure / Combat
+│       ├── components/adventure/       Adventure 页面组件
+│       ├── components/combat/          Combat 页面组件
+│       ├── hooks/                      Adventure / Combat / WebSocket / User hooks
+│       ├── utils/                      combat、skillCheck、dialogue 等纯工具
+│       ├── api/client.js               axios API 客户端
+│       └── store/gameStore.js          Zustand 全局状态
+├── docs/
+│   └── json-field-convention.md        JSON 字段修改约定
+├── doc/
+│   ├── DEPLOY.md                       部署清单
+│   ├── Technical_Architecture.md       当前技术架构
+│   ├── DM_Agent_Architecture.html      DM Agent 四层可视化架构
+│   └── Update_Roadmap.md               当前路线图和历史阶段
+└── README.md
+```
+
+## 测试与发布前检查
+
+后端：
 
 ```bash
 cd backend
-python scripts/export_openapi.py          # 产出 backend/openapi.json
-
-cd ../frontend
-npm run types:api                          # 从上面那份 openapi.json 生成 src/types/api.d.ts
+python -m pytest tests/ -q
 ```
 
-两份产物都入库。CI 会校验 `openapi.json` 与 `api.d.ts` 是否与代码同步，不同步直接红灯。
+常用定向回归：
 
-WebSocket 事件类型**不走 OpenAPI**，在两边各写一份：
-- 后端：`backend/schemas/ws_events.py`（Pydantic）
-- 前端：`frontend/src/types/ws.d.ts`（TypeScript interface）
+```bash
+cd ..
+backend/.venv-codex/bin/pytest \
+  backend/tests/unit/test_action_parser.py \
+  backend/tests/integration/test_combat_endpoints.py \
+  backend/tests/smoke/test_imports.py -q
+```
 
-改一处必改两处，`tests/unit/test_ws_events.py` 会校验后端侧的完整性。
+前端：
 
----
+```bash
+cd frontend
+npm test
+npm run build
+```
 
-## 开发阶段
+当前已知情况：
 
-见 [`CLAUDE.md`](./CLAUDE.md) §9。当前状态：**Phase 12 完成 — 结构性重构**
+- `npm test` 应通过全部 Vitest 测试。
+- `npm run build` 应成功，可能出现 chunk 体积和 CSS `@import` 顺序 warning，不阻塞部署。
+- `npm run lint` 仍会扫到 `public/design-preview-*` 和部分历史 React Compiler 风格规则噪声；发布以测试和构建为准。
 
-- P1 消除 companion 加载 / localStorage.user 等重复模式
-- P2 拆 `api/combat.py`（5368 行）为 11 个职能子模块
-- P3 从 Combat.jsx / Adventure.jsx 剥离内嵌子组件和工具
-- P4 建 pytest 测试体系 + CI
+## 重要约定
 
----
+- 不要提交 `backend/.env`、`frontend/dist/`、`.venv*`、`backend/.venv*`。
+- 修改 SQLAlchemy JSON 字段时遵守 [docs/json-field-convention.md](/Users/qft/Desktop/ai-dnd-5e/docs/json-field-convention.md)。
+- 改后端响应 schema 后，同步 OpenAPI 和前端类型：
+
+```bash
+cd backend
+python scripts/export_openapi.py
+
+cd ../frontend
+npm run types:api
+```
 
 ## 许可
 
-项目仅供个人学习使用。SRD 数据遵循 Wizards of the Coast `Systems Reference Document 5.1 CC-BY-4.0`。
+项目仅供个人学习和原型验证使用。D&D 5e SRD 内容请遵守 Wizards of the Coast `Systems Reference Document 5.1 CC-BY-4.0`。

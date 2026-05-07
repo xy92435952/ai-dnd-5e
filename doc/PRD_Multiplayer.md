@@ -1,5 +1,7 @@
 # PRD — 多人联机功能（v0.9-multiplayer）
 
+> **历史归档说明（2026-05-07）：** 本文件是多人联机 MVP 的原始 PRD。房间、WebSocket、AI 补队友等能力已进入代码；当前实现细节请以 [doc/Technical_Architecture.md](./Technical_Architecture.md)、`backend/api/rooms.py`、`frontend/src/pages/Room.jsx` 和相关 WebSocket schema 为准。
+
 > 版本：v0.1（初稿）
 > 起草日期：2026-04-17
 > 目标版本号：v0.9

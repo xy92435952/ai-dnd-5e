@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DM Agent 架构图 · 输入 / 规则 / 叙事 / 记忆四层</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070d19;
+    --bg2: #0d1525;
+    --bg3: #111c30;
+    --panel: rgba(13, 21, 37, 0.92);
+    --panel-strong: rgba(17, 28, 48, 0.96);
+    --border: rgba(255,255,255,0.08);
+    --blue: #2563eb;
+    --cyan: #06b6d4;
+    --purple: #8b5cf6;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --pink: #ec4899;
+    --text: #dbe7f5;
+    --text-dim: #7b8aa0;
+    --text-muted: #536177;
+    --text-bright: #f8fafc;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --display: 'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 10% -10%, rgba(37,99,235,0.12), transparent 32rem),
+      radial-gradient(circle at 90% 10%, rgba(6,182,212,0.08), transparent 30rem),
+      linear-gradient(180deg, var(--bg) 0%, #050913 100%);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 48px 48px 64px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 42px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(6,182,212,0.1);
+    border: 1px solid rgba(6,182,212,0.25);
+    border-radius: 99px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .header-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 4vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.06;
+    color: var(--text-bright);
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+
+  .header-sub {
+    max-width: 980px;
+    margin: 0 auto;
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .mono {
+    font-family: var(--mono);
+    color: #b7cdfa;
+    font-size: 0.93em;
+  }
+
+  .section {
+    margin-top: 34px;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .section-title .bar {
+    width: 4px;
+    height: 28px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, var(--cyan), var(--blue));
+    box-shadow: 0 0 18px rgba(6,182,212,0.3);
+  }
+
+  h2 {
+    font-family: var(--display);
+    color: var(--text-bright);
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+
+  .grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card {
+    position: relative;
+    min-height: 100%;
+    padding: 18px 18px 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--cyan);
+  }
+
+  .card.blue::before { background: var(--blue); }
+  .card.cyan::before { background: var(--cyan); }
+  .card.purple::before { background: var(--purple); }
+  .card.green::before { background: var(--green); }
+  .card.orange::before { background: var(--orange); }
+  .card.red::before { background: var(--red); }
+  .card.pink::before { background: var(--pink); }
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--text-bright);
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .card-kicker {
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .card p {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 8px;
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.035);
+    color: #a9bad0;
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .flow-shell {
+    border: 1px solid rgba(6,182,212,0.18);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, rgba(6,182,212,0.045), transparent 220px),
+      rgba(7,13,25,0.72);
+    padding: 22px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.34);
+  }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .node {
+    position: relative;
+    min-height: 112px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--panel-strong);
+    padding: 16px;
+  }
+
+  .node::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -14px;
+    width: 14px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(6,182,212,0.55));
+  }
+
+  .node:nth-child(4n)::after,
+  .node:last-child::after {
+    display: none;
+  }
+
+  .node-code {
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .node-title {
+    color: var(--text-bright);
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .node-desc {
+    color: var(--text-dim);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  .branch {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .branch-card {
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.035);
+    padding: 16px;
+  }
+
+  .branch-card .node-code {
+    margin-bottom: 8px;
+  }
+
+  .matrix {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.82fr) repeat(4, minmax(0, 1fr));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--panel);
+  }
+
+  .cell {
+    min-height: 68px;
+    padding: 14px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  .cell:nth-child(5n) { border-right: 0; }
+  .cell.header-cell {
+    min-height: auto;
+    background: rgba(255,255,255,0.04);
+    color: var(--text-bright);
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .cell.row-head {
+    color: #b7cdfa;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .list-item {
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    gap: 10px;
+    align-items: start;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px rgba(6,182,212,0.45);
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 16px;
+  }
+
+  .code-panel {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: rgba(3, 7, 18, 0.58);
+    padding: 16px;
+    overflow: auto;
+  }
+
+  pre {
+    font-family: var(--mono);
+    color: #b9c8df;
+    font-size: 12px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+  }
+
+  .timeline {
+    position: relative;
+    display: grid;
+    gap: 14px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: linear-gradient(180deg, var(--cyan), var(--purple), var(--green));
+    opacity: 0.4;
+  }
+
+  .step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 38px 1fr;
+    gap: 12px;
+  }
+
+  .step-index {
+    position: relative;
+    z-index: 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    border: 1px solid rgba(6,182,212,0.24);
+    background: #08111f;
+    color: var(--cyan);
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .step-body {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    padding: 14px 16px;
+  }
+
+  .step-body strong {
+    display: block;
+    color: var(--text-bright);
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+
+  .step-body span {
+    color: var(--text-dim);
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .footer {
+    margin-top: 38px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .footer a {
+    color: var(--cyan);
+    text-decoration: none;
+  }
+
+  .footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 1100px) {
+    .page { padding: 36px 24px 52px; }
+    .grid-4, .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .node:nth-child(2n)::after { display: none; }
+    .node:nth-child(4n)::after { display: none; }
+    .split { grid-template-columns: 1fr; }
+    .matrix { grid-template-columns: 1fr; }
+    .cell, .cell:nth-child(5n) { border-right: 0; }
+  }
+
+  @media (max-width: 720px) {
+    .page { padding: 28px 16px 42px; }
+    .grid-4, .grid-3, .grid-2, .flow, .branch { grid-template-columns: 1fr; }
+    .node::after { display: none; }
+    .header { text-align: left; }
+    .header-sub { margin: 0; }
+    .footer { align-items: flex-start; flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="header-badge">v0.11-dev · LangGraph DM Agent</div>
+      <h1>DM Agent 四层架构</h1>
+      <p class="header-sub">
+        当前 DM 流程按 <span class="mono">input_layer</span>、<span class="mono">rules_layer</span>、
+        <span class="mono">narrative</span>、<span class="mono">memory_layer</span> 四个维护边界组织。
+        核心目标是让 AI 负责故事表达和意图理解，让后端规则层负责可验证的 5e 裁定、输入安全和状态写入。
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="section-title">
+        <div class="bar"></div>
+        <div>
+          <h2>核心原则</h2>
+          <div class="subtitle">这四条是后续改 prompt、规则、战斗接口和记忆策略时的设计底线。</div>
+        </div>
+      </div>
+      <div class="grid grid-4">
+        <article class="card cyan">
+          <div class="card-title">AI 负责表达 <span class="card-kicker">Narrative</span></div>
+          <p>DM LLM 可以解释意图、塑造氛围、给出选择，但不能直接绕过后端规则数学来改 HP、金币、资源和战斗结果。</p>
+          <div class="tag-row"><span class="tag">explore_dm</span><span class="tag">combat_dm</span></div>
+        </article>
+        <article class="card green">
+          <div class="card-title">规则先于叙事 <span class="card-kicker">Rules</span></div>
+          <p>技能检定、优势骰、激励骰、帮助动作、战斗射程和动作经济都应先被规则层理解，再交给叙事层包装。</p>
+          <div class="tag-row"><span class="tag">rules_context</span><span class="tag">dnd_rules</span></div>
+        </article>
+        <article class="card purple">
+          <div class="card-title">输入来源可信化 <span class="card-kicker">Input</span></div>
+          <p>AI 生成选项必须由后端确认来自上一轮 <span class="mono">player_choices</span>，不允许客户端伪造可信来源。</p>
+          <div class="tag-row"><span class="tag">human_input</span><span class="tag">ai_generated_choice</span></div>
+        </article>
+        <article class="card orange">
+          <div class="card-title">记忆只供上下文 <span class="card-kicker">Memory</span></div>
+          <p>日志、checkpoint、RAG 和战役状态负责给 DM 补背景，不应覆盖实时规则结算，也不应存入被拒绝的注入文本。</p>
+          <div class="tag-row"><span class="tag">GameLog</span><span class="tag">checkpoint</span><span class="tag">RAG</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <div class="bar"></div>
+        <div>
+          <h2>主流程</h2>
+          <div class="subtitle">从玩家行动到前端响应的完整链路，叙事分支之前会先通过输入、安全、骰池和规则上下文。</div>
+        </div>
+      </div>
+      <div class="flow-shell">
+        <div class="flow">
+          <div class="node">
+            <div class="node-code">/game/action</div>
+            <div class="node-title">接收玩家行动</div>
+            <div class="node-desc">API 层组装 session、game_state、module_context 和 action_source。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">input_layer</div>
+            <div class="node-title">输入归一化</div>
+            <div class="node-desc">识别行动来源，并用 input_guard 拦截离题、作弊和 prompt 注入。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">pre_roll_dice</div>
+            <div class="node-title">预生成骰池</div>
+            <div class="node-desc">提供 d20、adv、dis、d4 等骰池，避免叙事层临场自由编骰。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">rules_layer</div>
+            <div class="node-title">规则上下文</div>
+            <div class="node-desc">说明合法规则术语、越权边界、战斗触发和检定裁定提示。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">memory_layer</div>
+            <div class="node-title">记忆上下文</div>
+            <div class="node-desc">合并战役状态、近期历史、RAG 片段和关键事件，供 DM 使用。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">explore_dm / combat_dm</div>
+            <div class="node-title">叙事裁定</div>
+            <div class="node-desc">按 combat_active 分流，探索推进故事，战斗处理回合与 AI 单位。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">parse_validate</div>
+            <div class="node-title">JSON 校验</div>
+            <div class="node-desc">修复和补齐 LLM 输出字段，保证下游响应结构稳定。</div>
+          </div>
+          <div class="node">
+            <div class="node-code">StateApplicator</div>
+            <div class="node-title">状态写库</div>
+            <div class="node-desc">应用 state_delta、combat_update、日志和会话历史，返回 PlayerActionResponse。</div>
+          </div>
+        </div>
+        <div class="branch">
+          <div class="branch-card">
+            <div class="node-code">blocked route</div>
+            <div class="node-title">拒绝分支</div>
+            <div class="node-desc">当 verdict 为 off_topic、rule_violation 或 injection 时，直接返回兼容结构的拒绝叙事，不进入规则和记忆，不污染 checkpoint。</div>
+          </div>
+          <div class="branch-card">
+            <div class="node-code">combat route</div>
+            <div class="node-title">战斗分支</div>
+            <div class="node-desc">combat_active 为 true 时进入 combat_dm；自然语言战斗会先经 action_parser 转成 move、attack、spell、creative 等结构化动作。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <div class="bar"></div>
+        <div>
+          <h2>输入层</h2>
+          <div class="subtitle">输入层负责判断“这句话能不能进入游戏”，但不负责复杂 5e 裁定。</div>
+        </div>
+      </div>
+      <div class="matrix">
+        <div class="cell header-cell">维度</div>
+        <div class="cell header-cell">human_input</div>
+        <div class="cell header-cell">ai_generated_choice</div>
+        <div class="cell header-cell">system_action</div>
+        <div class="cell header-cell">ai_takeover</div>
+
+        <div class="cell row-head">来源含义</div>
+        <div class="cell">玩家自由输入，风险最高，需要完整分类。</div>
+        <div class="cell">上一轮 DM 生成的选项，必须匹配 last_turn.player_choices。</div>
+        <div class="cell">后端系统动作，例如开场、自动推进或内部流程。</div>
+        <div class="cell">AI 队友代演的行动，来源受后端控制。</div>
+
+        <div class="cell row-head">审核策略</div>
+        <div class="cell">本地正则先筛，再用轻量 LLM 分类，不确定时放行为 in_game。</div>
+        <div class="cell">可信来源直接进入 in_game，但可信性来自后端匹配而不是客户端字段。</div>
+        <div class="cell">跳过人类输入守卫，避免系统流程被误拦截。</div>
+        <div class="cell">跳过人类输入守卫，但仍接受后续规则层约束。</div>
+
+        <div class="cell row-head">可能 verdict</div>
+        <div class="cell">in_game、off_topic、rule_violation、injection。</div>
+        <div class="cell">通常为 in_game。</div>
+        <div class="cell">通常为 in_game。</div>
+        <div class="cell">通常为 in_game。</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="split">
+        <div>
+          <div class="section-title">
+            <div class="bar"></div>
+            <div>
+              <h2>规则层</h2>
+              <div class="subtitle">规则层的重点是“允许合理玩法，拦截越界宣告”。这次修复后的关键点是优势骰和激励骰不再被误伤。</div>
+            </div>
+          </div>
+          <div class="grid grid-2">
+            <article class="card green">
+              <div class="card-title">应放行</div>
+              <div class="list">
+                <div class="list-item"><span class="dot"></span><span>请求进行技能检定，例如调查、潜行、说服、察觉、洞察。</span></div>
+                <div class="list-item"><span class="dot"></span><span>声明使用优势骰、劣势骰、帮助动作、祝福 d4、吟游激励骰。</span></div>
+                <div class="list-item"><span class="dot"></span><span>询问自身 HP、资源、法术位、装备或当前规则状态。</span></div>
+                <div class="list-item"><span class="dot"></span><span>由 DM 自己生成并被玩家点击的合理选项。</span></div>
+              </div>
+            </article>
+            <article class="card red">
+              <div class="card-title">应拦截</div>
+              <div class="list">
+                <div class="list-item"><span class="dot" style="background:var(--red);"></span><span>直接宣告自动命中、自动暴击、跳过豁免或无需检定。</span></div>
+                <div class="list-item"><span class="dot" style="background:var(--red);"></span><span>要求给角色加满 HP、凭空获得大量金币/经验或神器。</span></div>
+                <div class="list-item"><span class="dot" style="background:var(--red);"></span><span>修改敌人 AC/HP/属性，或瞬间跳到最终战。</span></div>
+                <div class="list-item"><span class="dot" style="background:var(--red);"></span><span>与游戏无关的现实问题、代码请求、新闻天气等内容。</span></div>
+              </div>
+            </article>
+          </div>
+        </div>
+        <div>
+          <div class="section-title">
+            <div class="bar"></div>
+            <div>
+              <h2>输入守卫输出</h2>
+              <div class="subtitle">四类 verdict 决定是否继续进入 DM Agent 主链路。</div>
+            </div>
+          </div>
+          <div class="code-panel">
+<pre>{
+  "verdict": "in_game",
+  "reason": "合法规则术语",
+  "refusal": ""
+}
+
+{
+  "verdict": "off_topic",
+  "reason": "明显与跑团无关",
+  "refusal": "请用游戏内行动继续冒险"
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <div class="bar"></div>
+        <div>
+          <h2>自然语言战斗</h2>
+          <div class="subtitle">战斗体验修复的核心是让“玩家意图”先变成结构化动作，再由真实执行结果决定叙事。</div>
+        </div>
+      </div>
+      <div class="timeline">
+        <div class="step">
+          <div class="step-index">01</div>
+          <div class="step-body">
+            <strong>本地常见意图解析</strong>
+            <span><span class="mono">action_parser</span> 优先识别移动、近战、远程、最近敌人、身旁敌人等高频表达，稳定且低延迟。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-index">02</div>
+          <div class="step-body">
+            <strong>LLM parser 补足复杂表达</strong>
+            <span>当本地规则无法确定时，LLM parser 尝试把自然语言整理成 actions 数组，但仍必须落入后端支持的动作类型。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-index">03</div>
+          <div class="step-body">
+            <strong>fallback 保证不中断</strong>
+            <span>LLM 失败或超时时使用保守 fallback。若近战目标不可达，本轮只移动靠近，不伪造一次范围外攻击。</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-index">04</div>
+          <div class="step-body">
+            <strong>真实执行结果驱动叙事</strong>
+            <span>API 根据实际 executed_action_types 选择 <span class="mono">move</span>、<span class="mono">attack</span>、<span class="mono">creative</span>、<span class="mono">out_of_range</span> 等叙事类型，避免“只是移动却讲成攻击失败”。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <div class="bar"></div>
+        <div>
+          <h2>记忆层</h2>
+          <div class="subtitle">记忆层只整理上下文，不做规则覆盖。它让故事连续，但不替代战斗和状态结算。</div>
+        </div>
+      </div>
+      <div class="grid grid-3">
+        <article class="card purple">
+          <div class="card-title">短期会话</div>
+          <p>读取 messages 和 session_history 的近期片段，帮助 DM 记住最近的玩家行动、NPC 回复和上一轮选择。</p>
+          <div class="tag-row"><span class="tag">messages[-10:]</span><span class="tag">last_turn</span></div>
+        </article>
+        <article class="card blue">
+          <div class="card-title">长期战役状态</div>
+          <p>从 campaign_state 和 GameLog 获得关键事件、队伍状态、地点变化和已经发生过的剧情事实。</p>
+          <div class="tag-row"><span class="tag">campaign_state</span><span class="tag">GameLog</span></div>
+        </article>
+        <article class="card green">
+          <div class="card-title">模组检索</div>
+          <p>RAG 片段为 DM 提供原模组背景、场景、NPC 和遭遇信息，避免叙事完全脱离模组。</p>
+          <div class="tag-row"><span class="tag">retrieved_context</span><span class="tag">module_context</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="split">
+        <div>
+          <div class="section-title">
+            <div class="bar"></div>
+            <div>
+              <h2>输出契约</h2>
+              <div class="subtitle">DM Agent 输出必须能被前端和 StateApplicator 稳定消费，字段缺失由 parse_validate 补默认值。</div>
+            </div>
+          </div>
+          <div class="code-panel">
+<pre>{
+  "action_type": "explore | combat | blocked_*",
+  "narrative": "给玩家阅读的 DM 文本",
+  "player_choices": [
+    {
+      "id": "choice-1",
+      "text": "玩家可点击的下一步行动",
+      "kind": "skill_check | dialogue | action"
+    }
+  ],
+  "needs_check": {
+    "required": true,
+    "ability": "DEX",
+    "skill": "Stealth",
+    "dc": 15
+  },
+  "dice_results": [],
+  "dice_display": {},
+  "state_delta": {
+    "characters": [],
+    "enemies": [],
+    "combat_trigger": false,
+    "gold_changes": []
+  },
+  "combat_update": {}
+}</pre>
+          </div>
+        </div>
+        <div>
+          <div class="section-title">
+            <div class="bar"></div>
+            <div>
+              <h2>维护热点</h2>
+              <div class="subtitle">后续继续拆分时，优先沿着这些边界移动代码。</div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/graphs/dm_agent.py</span>：LangGraph 节点、prompt、规则和记忆上下文。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/input_guard.py</span>：离题、作弊、注入、合法规则术语分类。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/action_parser.py</span>：自然语言战斗动作解析。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/state_applicator.py</span>：DM 输出落库和会话状态更新。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/api/combat/*</span>、<span class="mono">combat_service.py</span>、<span class="mono">dnd_rules.py</span>：确定性战斗规则。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">frontend/src/pages/Adventure.jsx</span> 与 <span class="mono">frontend/src/components/combat/</span>：前端展示和交互入口。</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>更新日期：2026-05-07 · 当前版本：v0.11-dev · 文档类型：DM Agent 可视化架构</div>
+      <div>
+        <a href="./Technical_Architecture.md">Technical_Architecture.md</a>
+        &nbsp;/&nbsp;
+        <a href="./Update_Roadmap.md">Update_Roadmap.md</a>
+        &nbsp;/&nbsp;
+        <a href="../README.md">README.md</a>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

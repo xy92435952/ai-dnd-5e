@@ -1,5 +1,7 @@
 # 设计 v0.10 实装计划（含战斗 + 对话冒险 BG3 风格）
 
+> **历史归档说明（2026-05-07）：** 本文件是 v0.10 设计实装计划，不再作为当前任务清单。Adventure / Combat 的视觉和结构拆分已继续推进，当前进度请参考 [Update_Roadmap.md](./Update_Roadmap.md)。
+
 **日期**：2026-04-18
 **目标版本**：v0.10
 **设计来源**：claude.ai/design 第二轮 handoff（iso 战场 + CRPG 对话 + 像素 token）

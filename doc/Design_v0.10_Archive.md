@@ -1,5 +1,7 @@
 # 视觉设计 v0.10 归档（含战斗/对话冒险待重设计版本）
 
+> **历史归档说明（2026-05-07）：** 本文件记录 v0.10 视觉设计交接和早期实装状态。Adventure / Combat 现在已经进一步拆分到 `frontend/src/components/adventure/`、`frontend/src/components/combat/` 和对应 hooks；当前结构请参考 [Technical_Architecture.md](./Technical_Architecture.md)。
+
 **日期：** 2026-04-17
 **来源：** claude.ai/design handoff 包
 **状态：**

@@ -1,190 +1,238 @@
-# 生产部署清单（v0.10）
+# 生产部署清单
 
-> 最后更新：2026-04-19
+> 最后更新：2026-05-07
+> 适用状态：当前 FastAPI + Vite + nginx 静态文件部署，以及可选 Docker Compose 部署。
 
-## 🔒 一、强制硬化（上线前必做）
+## 1. 发布前本地确认
 
-### 1. 生成独立 JWT secret
+在推送或服务器拉取前，建议先跑：
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
-# 把输出填入 backend/.env 的 JWT_SECRET
+cd frontend
+npm test
+npm run build
+
+cd ..
+backend/.venv-codex/bin/pytest \
+  backend/tests/unit/test_action_parser.py \
+  backend/tests/integration/test_combat_endpoints.py \
+  backend/tests/smoke/test_imports.py -q
 ```
 
-不设 `JWT_SECRET` + `ENV=production` 会直接 RuntimeError，上线不会忘。
+当前已知非阻塞 warning：
 
-### 2. 配置 CORS 白名单
+- Vite 构建可能提示部分 chunk 超过 500KB。
+- CSS 可能提示 Google Fonts `@import` 顺序。
+- Vitest 在 Node 25 下可能输出 `--localstorage-file` warning，但测试应通过。
 
-编辑 `backend/.env`：
+## 2. 环境变量
+
+服务器必须有 `backend/.env`，不要提交到 Git。
+
+最小示例：
 
 ```env
 ENV=production
-JWT_SECRET=<上一步生成的强随机值>
+JWT_SECRET=<用强随机生成的至少32字节字符串>
 CORS_ALLOW_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+
+LLM_API_KEY=sk-xxxxxxxxxxxxxxxx
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
+
+DATABASE_URL=sqlite+aiosqlite:///./ai_trpg.db
+CHROMADB_PATH=./chromadb_data
+LANGGRAPH_DB_PATH=./langgraph_memory.db
+UPLOAD_DIR=./uploads
 ```
 
-**禁止使用 `*`** — FastAPI 与 `allow_credentials=True` 不兼容。
+生产 PostgreSQL 示例：
 
-### 3. 清理测试数据
-
-```bash
-cd backend
-python cleanup_test_data.py --dry-run   # 预览
-python cleanup_test_data.py --apply     # 实际删除
+```env
+DATABASE_URL=postgresql+asyncpg://ai_trpg:<password>@127.0.0.1:5432/ai_trpg
+LANGGRAPH_DB_URL=postgresql://ai_trpg:<password>@127.0.0.1:5432/ai_trpg
 ```
 
-清理规则：
-- `users` 中 username 以 `mp_` / `test_` 开头的账号（含关联 sessions / characters / logs / combat / members）
-- `modules` 中 name 以 `__test_module` 开头的
-- 保留 `username='test'` 等手动创建的账号
-
-## 📦 二、数据库迁移
-
-### 生产 PostgreSQL 初始化
+生成 `JWT_SECRET`：
 
 ```bash
-# 在生产环境
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+## 3. 服务器更新流程（systemd + nginx）
+
+适用于当前“nginx 直接读 `frontend/dist`，后端由 systemd/uvicorn 跑在本机端口”的部署方式。
+
+```bash
+cd /opt/ai-trpg/app
+git pull
+
 cd backend
+source /opt/ai-trpg/venv/bin/activate
 pip install -r requirements.txt
 
-# 已有 v0.8 及以前数据库（数据已存在）
-alembic stamp 20260417_0001_baseline_v08
-alembic upgrade head
-
-# 全新数据库
-alembic upgrade head
+cd ../frontend
+npm install
+npm run build
 ```
 
-## 🐳 三、Docker 部署
+纯前端改动：
 
-### 重新构建镜像（v0.10 变更）
+- `npm run build` 成功后，nginx 会直接读取新的 `dist/` 静态文件。
+- 通常不需要重启 nginx。
+- 不需要重启后端。
+
+包含后端改动：
 
 ```bash
-cd <项目根>
-docker compose build --no-cache backend frontend
-docker compose up -d
+sudo systemctl restart ai-trpg
+# 或服务器实际使用的服务名：
+sudo systemctl restart ai-trpg-backend
 ```
 
-### 验证
+检查：
 
 ```bash
-# Backend 健康
-curl https://yourdomain.com/api/health
-# 期望: {"status":"ok","version":"0.1.0"}
-
-# Sprite 资源（39 个 PNG + _INDEX.json）
-curl -I https://yourdomain.com/sprites/_INDEX.json
-curl -I https://yourdomain.com/sprites/paladin.png
-
-# 新 API 端点
-curl -I https://yourdomain.com/api/game/combat/xxx/skill-bar  # 应 401（未登录）或 404
+curl -s http://127.0.0.1:8000/health
+curl -s https://yourdomain.com/api/health
+sudo journalctl -u ai-trpg -n 100 --no-pager
 ```
 
-## 🌐 四、Nginx 配置（WebSocket 要点）
+如果服务器后端实际监听 8002，请把命令和 nginx `proxy_pass` 中的端口对应调整。
 
-多人联机用 WebSocket，Nginx 需要升级头：
+## 4. Nginx 参考配置
 
 ```nginx
-location /api/ws/ {
-    proxy_pass http://backend:8002/ws/;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_read_timeout 3600s;
-    proxy_send_timeout 3600s;
-    proxy_set_header Host $host;
-}
+server {
+    listen 80;
+    server_name yourdomain.com;
 
-location /api/ {
-    proxy_pass http://backend:8002/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-}
+    location / {
+        root /opt/ai-trpg/app/frontend/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
 
-location /sprites/ {
-    # 像素 PNG 缓存一年（文件内容不变）
-    alias /var/www/frontend/dist/sprites/;
-    expires 1y;
-    add_header Cache-Control "public, immutable";
+    location /api/ws/ {
+        proxy_pass http://127.0.0.1:8000/ws/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size 50M;
+    }
 }
 ```
 
-## 🎨 五、像素 Sprite 系统
+注意：
 
-### 当前资源（v0.10.3）
+- WebSocket 必须保留 `Upgrade` / `Connection` 头。
+- `location /api/ws/` 应在 `location /api/` 之前。
+- 如果使用 HTTPS，记得同步把域名写入 `CORS_ALLOW_ORIGINS`。
 
-- 39 个 PNG（`frontend/public/sprites/*.png`，共 ~39KB）
-- 7 个"原型"精灵 + 32 个通过色相偏移派生的变体
-- `_INDEX.json` 定义 kind → fallback + size 映射
-- 体型缩放：S(0.75x) / M(1x) / L(1.5x) / H(2x) / G(3x)
+## 5. Docker Compose 部署
 
-### 如需后期换成手绘高清版
-
-1. 替换 `frontend/public/sprites/{kind}.png` 为同名新文件
-2. 无需改代码；保持 16×24 或 16:24 比例即可
-
-### 重新生成
+仓库内 [docker-compose.yml](/Users/qft/Desktop/ai-dnd-5e/docker-compose.yml) 提供 PostgreSQL + backend + frontend 三容器参考：
 
 ```bash
-cd <项目根>
-python scripts/generate_sprite_pngs.py
+cd /opt/ai-trpg/app
+docker compose build --no-cache
+docker compose up -d
+docker compose logs -f backend --tail=100
 ```
 
-## 🧪 六、部署后冒烟测试（最低覆盖）
+当前 compose 端口：
 
-在生产环境用真实账号手动跑一遍：
+- backend 宿主机端口：`8002` → 容器 `8000`
+- frontend 宿主机端口：`3080` → 容器 `80`
+- postgres 宿主机端口：`5432`
 
-1. **注册 + 登录** → 获得 token（localStorage 检查）
-2. **上传模组** → 等待 parse_status 变 done
-3. **创建角色**（Step 1-4 或 1-5 或 1-6）→ 生成队伍 → 开始冒险
-4. **对话冒险** → 说一句话，验证 DM 响应 + stage 打字机
-5. **翻开对话历史** → 验证章节 + 筛选器
-6. **触发战斗** → 攻击/施法/移动/结束回合/AI 回合循环 → 胜利/失败结算
-7. **开多人房间** → 房间码分享（另一账号加入）→ WebSocket 事件实时同步
-8. **刷新页面** → localStorage 保留 + 会话恢复
+## 6. 数据库迁移
 
-## 📊 七、监控与日志
+项目当前仍在 `main.py` lifespan 中调用 `init_db()`，本地开发可自动建表。生产 PostgreSQL 推荐使用 Alembic 管理 schema。
 
-- **后端日志**：`docker compose logs -f backend --tail=200`
-- **前端错误**：浏览器 Console + Network 面板
-- **LLM 调用失败率**：关注 AiHubMix dashboard 的 4xx/5xx 比例
-- **数据库大小**：`ai_trpg.db` 或 PG `pg_database_size()`
-- **ChromaDB**：`chromadb_data/` 目录大小（向量持久化）
-
-## 🚨 八、已知限制（不阻止上线，记录给用户说明）
-
-- **反应窗口弹窗**：Shield / Uncanny Dodge / Hellish Rebuke 做了骨架，多数子职业特性未接入技能栏
-- **像素 sprite 风格化**：当前是"算法变体"，不同敌人在同一变体组（如 skeleton/zombie/ghoul/vampire/lich）外观差异有限
-- **多人 DM 发言轮转**：探索阶段按 `speak_done` 推进，如果玩家不点会一直等（已有 30s 心跳超时检测，但没有自动跳过发言）
-- **战斗资源回收**：退出战斗时清理不完全，长期可能有僵尸 CombatState（建议定期 cron 清理 `combat_states` 表）
-
-## 🔄 九、回滚方案
+全新 PostgreSQL：
 
 ```bash
-# 保留 v0.9 tag
-git tag v0.10-pre-deploy
-git push origin v0.10-pre-deploy
-
-# 出问题
-git checkout v0.9-multiplayer-stable
-docker compose build --no-cache && docker compose up -d
-alembic downgrade 20260417_0002_multiplayer  # 回滚 schema 到多人联机
+cd backend
+alembic upgrade head
 ```
 
----
+已有旧库：
 
-## ✅ 上线 checklist（勾选完成）
+```bash
+cd backend
+alembic current
+alembic upgrade head
+```
 
-- [ ] `.env` 设置 `JWT_SECRET`（≥32 字节）
-- [ ] `.env` 设置 `ENV=production`
-- [ ] `.env` 设置 `CORS_ALLOW_ORIGINS` 为实际域名
-- [ ] 运行 `cleanup_test_data.py --apply`
-- [ ] 运行 `alembic upgrade head`
-- [ ] `docker compose build --no-cache`
-- [ ] `docker compose up -d`
-- [ ] Nginx 配置含 WebSocket upgrade header
-- [ ] Nginx 配置含 `/sprites/` 长缓存
-- [ ] 冒烟测试 8 步全部通过
-- [ ] 开放 1-5 个内测用户（不要直接开放注册）
-- [ ] 观察 24 小时日志
-- [ ] 开放公测
+更完整说明见 [backend/alembic/README.md](/Users/qft/Desktop/ai-dnd-5e/backend/alembic/README.md)。
+
+## 7. 部署后冒烟测试
+
+至少手动跑：
+
+1. 注册 / 登录。
+2. 上传一个小模组，等待解析完成。
+3. 创建角色，确认技能/法术/装备步骤可交互。
+4. 开始冒险，发送一句探索行动。
+5. 点击 AI 生成选项，确认不会被规则拦截。
+6. 输入明显无关内容，确认 DM 会拒绝。
+7. 触发战斗，测试移动、攻击、施法、结束回合。
+8. 测试远距离近战自然语言：`我向最近的敌人移动并用长剑攻击它`。如果移动后仍不可达，应只移动，不掷攻击骰。
+9. 多人房间：创建、加入、认领角色、发言轮转、刷新恢复。
+
+## 8. 日志与故障定位
+
+```bash
+# systemd 后端
+sudo journalctl -u ai-trpg -f
+
+# nginx
+sudo tail -f /var/log/nginx/error.log
+sudo tail -f /var/log/nginx/access.log
+
+# Docker
+docker compose logs -f backend --tail=200
+docker compose logs -f frontend --tail=100
+```
+
+常见问题：
+
+- **前端 404**：nginx `try_files $uri $uri/ /index.html` 缺失。
+- **API 401**：token 过期或 `JWT_SECRET` 变更导致旧 token 失效。
+- **WebSocket 不同步**：检查 `/api/ws/` upgrade header。
+- **LLM 401/模型错误**：检查 `LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`。
+- **ChromaDB import error**：服务器未重新 `pip install -r backend/requirements.txt`。
+
+## 9. 不要推送的内容
+
+已在 `.gitignore` 中忽略：
+
+- `backend/.env`
+- `frontend/dist/`
+- `.venv*`
+- `backend/.venv*`
+- `*.db`
+- `.pytest_cache/`
+
+推送前可检查：
+
+```bash
+git status --short
+git check-ignore -v backend/.env frontend/dist backend/.venv-codex
+```

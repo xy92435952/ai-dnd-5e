@@ -1,5 +1,12 @@
 # PRD · AI 跑团平台（DnD 5e）
 
+> **历史归档说明（2026-05-07）：** 本文件是早期产品规划文档，保留用于理解立项背景和原始需求，不再代表当前代码状态。当前开发、部署和架构请优先参考：
+>
+> - [README.md](./README.md)
+> - [doc/Technical_Architecture.md](./doc/Technical_Architecture.md)
+> - [doc/Update_Roadmap.md](./doc/Update_Roadmap.md)
+> - [doc/DEPLOY.md](./doc/DEPLOY.md)
+
 > 版本：v0.1
 > 最后更新：2026-03-26
 > 状态：规划中，未开发
