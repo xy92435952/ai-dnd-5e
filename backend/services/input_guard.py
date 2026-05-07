@@ -24,6 +24,7 @@ from services.llm import get_llm
 logger = logging.getLogger(__name__)
 
 Verdict = Literal["in_game", "off_topic", "rule_violation", "injection"]
+ActionSource = Literal["human_input", "ai_generated_choice", "system_action", "ai_takeover"]
 
 
 class GuardResult(TypedDict):
@@ -55,6 +56,37 @@ _INJECTION_PATTERNS = [
 ]
 
 _INJECTION_RE = re.compile("|".join(_INJECTION_PATTERNS), re.IGNORECASE)
+
+
+_TRUSTED_SOURCES: set[str] = {"ai_generated_choice", "system_action", "ai_takeover"}
+
+_OFF_TOPIC_PATTERNS = [
+    r"(今天|明天|现在).*(天气|气温|下雨|空气质量)",
+    r"(新闻|股价|股票|汇率|比特币|彩票|外卖|快递)",
+    r"(写|帮我写|生成|实现).*(python|javascript|java|代码|爬虫|脚本|函数|程序)",
+    r"(数学题|解方程|论文|简历|邮件|翻译这段)",
+]
+_OFF_TOPIC_RE = re.compile("|".join(_OFF_TOPIC_PATTERNS), re.IGNORECASE)
+
+_RULE_VIOLATION_PATTERNS = [
+    r"(自动|直接|必定|一定).*(命中|暴击|成功|通过|说服|击杀|杀死)",
+    r"(跳过|无视|不用|不需要).*(检定|豁免|骰|规则|dc|ac)",
+    r"(给我|让我|把我|我).*?(加满|回满|满血|恢复满).*(hp|生命|血)",
+    r"(给我|获得|得到|增加).*(999|9999|无限|大量).*(金币|金钱|经验|xp)",
+    r"(修改|降低|清空).*(敌人|怪物).*(ac|hp|属性|生命)",
+    r"(瞬间|直接).*(到|进入).*(终局|最终战|结局|boss)",
+    r"(凭空|突然).*(神器|传说武器|无敌|不死)",
+]
+_RULE_VIOLATION_RE = re.compile("|".join(_RULE_VIOLATION_PATTERNS), re.IGNORECASE)
+
+_LEGAL_RULE_TERMS = [
+    r"(优势|优势骰|advantage).*(检定|攻击|豁免|调查|潜行|说服|察觉|洞察|动作)",
+    r"(劣势|disadvantage).*(检定|攻击|豁免)",
+    r"(激励骰|吟游激励|bardic inspiration|inspiration die|鼓舞).*(使用|消耗|补|加|给|检定|攻击|豁免)",
+    r"(帮助动作|协助|help action|help).*(优势|检定|攻击|队友)",
+    r"(祝福|bless).*(d4|检定|攻击|豁免)",
+]
+_LEGAL_RULE_TERMS_RE = re.compile("|".join(_LEGAL_RULE_TERMS), re.IGNORECASE)
 
 
 # ─────────────────────────────────────────────────────────
@@ -108,19 +140,14 @@ GUARD_SYSTEM = """你是一个 DnD 5e 跑团游戏的【输入审核员】，唯
 # 主入口
 # ─────────────────────────────────────────────────────────
 
-async def classify_player_input(player_action: str) -> GuardResult:
-    """
-    对玩家单次行动做分类。返回 GuardResult。
-    - 空输入 → in_game（让下游正常处理/报错）
-    - 首先跑启发式正则匹配注入关键字（命中即判 injection，跳过 LLM）
-    - 否则调用轻量 LLM 分类
-    - LLM 任何异常 → 安全兜底为 in_game（不误伤玩家）
-    """
-    action = (player_action or "").strip()
-    if not action:
-        return {"verdict": "in_game", "reason": "空输入", "refusal": ""}
+def _trusted_source_result(source: str) -> GuardResult | None:
+    if source in _TRUSTED_SOURCES:
+        return {"verdict": "in_game", "reason": f"可信来源:{source}", "refusal": ""}
+    return None
 
-    # 1) 启发式快判
+
+def _classify_by_local_rules(action: str) -> GuardResult | None:
+    """本地确定性边界：只处理高置信度注入、离题和作弊，不裁定复杂 5e 规则。"""
     if _INJECTION_RE.search(action):
         logger.info("[input_guard] regex 命中 injection 模式")
         return {
@@ -128,6 +155,46 @@ async def classify_player_input(player_action: str) -> GuardResult:
             "reason": "启发式匹配到注入关键词",
             "refusal": REFUSALS["injection"],
         }
+    if _OFF_TOPIC_RE.search(action):
+        return {
+            "verdict": "off_topic",
+            "reason": "明显与跑团无关",
+            "refusal": REFUSALS["off_topic"],
+        }
+    if _RULE_VIOLATION_RE.search(action):
+        return {
+            "verdict": "rule_violation",
+            "reason": "明显要求越权结算或修改状态",
+            "refusal": REFUSALS["rule_violation"],
+        }
+    if _LEGAL_RULE_TERMS_RE.search(action):
+        return {"verdict": "in_game", "reason": "合法规则术语", "refusal": ""}
+    return None
+
+
+async def classify_player_input(
+    player_action: str,
+    source: ActionSource | str = "human_input",
+) -> GuardResult:
+    """
+    对玩家单次行动做分类。返回 GuardResult。
+    - 空输入 → in_game（让下游正常处理/报错）
+    - 可信来源（AI 选项 / 系统动作 / AI 代演）跳过人类输入守卫
+    - 首先跑本地确定性规则（高置信度注入 / 离题 / 作弊 / 合法规则术语）
+    - 否则调用轻量 LLM 分类
+    - LLM 任何异常 → 安全兜底为 in_game（不误伤玩家）
+    """
+    action = (player_action or "").strip()
+    if not action:
+        return {"verdict": "in_game", "reason": "空输入", "refusal": ""}
+
+    trusted = _trusted_source_result(source)
+    if trusted:
+        return trusted
+
+    local = _classify_by_local_rules(action)
+    if local:
+        return local
 
     # 2) LLM 分类（temperature 0 追求稳定）
     try:

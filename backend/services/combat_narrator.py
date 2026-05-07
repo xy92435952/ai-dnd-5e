@@ -76,6 +76,10 @@ async def narrate_action(
             details_parts.append(f"伤害：{damage} 点{damage_type}伤害")
     elif action_type == "dodge":
         details_parts.append("采取闪避姿态，专注于躲避攻击")
+    elif action_type == "move":
+        details_parts.append(extra_details or "移动到更有利的位置")
+    elif action_type == "out_of_range":
+        details_parts.append(extra_details or "目标暂时不在攻击范围内")
     elif action_type == "dash":
         details_parts.append("使用冲刺，加速穿越战场")
     elif action_type == "disengage":

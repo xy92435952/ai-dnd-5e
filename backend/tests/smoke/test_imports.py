@@ -24,13 +24,28 @@ def test_import_combat_subpackage():
     """拆分后的 api/combat/ 所有子模块能独立 import。"""
     from api.combat import (
         _shared, schemas,
-        info, turns, movement, attacks, reactions,
-        spellcasting, conditions, deathsaves, ai_turn,
+        info, turns, movement, attacks, attack_rolls, reactions,
+        spell_catalog, spell_rolls, spellcasting, conditions, deathsaves, ai_turn, ai_end,
+        ai_turn_actions, ai_turn_spell, ai_turn_attack,
+        grapples, smites, class_features, maneuvers,
     )
     # 每个子模块应该都有自己的 router 实例
-    for mod in (info, turns, movement, attacks, reactions,
-                spellcasting, conditions, deathsaves, ai_turn):
+    for mod in (info, turns, movement, attacks, attack_rolls, reactions,
+                spell_catalog, spell_rolls, spellcasting, conditions, deathsaves, ai_turn, ai_end,
+                grapples, smites, class_features, maneuvers):
         assert hasattr(mod, "router"), f"{mod.__name__} 缺少 router"
+
+
+def test_combat_package_exports_legacy_helpers():
+    """game.py 的自然语言战斗分支仍依赖这些包级 helper 导出。"""
+    from api.combat import (
+        _get_ts, _save_ts, _check_attack_range, _ai_move_toward,
+        _chebyshev_dist, _calc_entity_turn_limits,
+    )
+    assert all([
+        _get_ts, _save_ts, _check_attack_range, _ai_move_toward,
+        _chebyshev_dist, _calc_entity_turn_limits,
+    ])
 
 
 def test_import_all_services():

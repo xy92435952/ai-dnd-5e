@@ -11,28 +11,38 @@
  * mount 整个组件"才能发现。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 // ─── 把所有外部副作用模块 mock 到最小可用 ───────────────────
 
+const {
+  sessionFixture,
+  actionMock,
+  getSessionMock,
+} = vi.hoisted(() => ({
+  sessionFixture: {
+    session_id:    'sess-1',
+    save_name:     'Test',
+    module_id:     'm1',
+    module_name:   'Test Module',
+    current_scene: '测试场景',
+    combat_active: false,
+    game_state:    {},
+    player:        null,
+    companions:    [],
+    logs:          [],
+    campaign_state: {},
+    is_multiplayer: false,
+  },
+  actionMock: vi.fn(),
+  getSessionMock: vi.fn(),
+}))
+
 vi.mock('../../api/client', () => ({
   gameApi: {
-    getSession: vi.fn().mockResolvedValue({
-      session_id:    'sess-1',
-      save_name:     'Test',
-      module_id:     'm1',
-      module_name:   'Test Module',
-      current_scene: '测试场景',
-      combat_active: false,
-      game_state:    {},
-      player:        null,
-      companions:    [],
-      logs:          [],
-      campaign_state: {},
-      is_multiplayer: false,
-    }),
-    action:     vi.fn(),
+    getSession: getSessionMock,
+    action:     actionMock,
     skillCheck: vi.fn(),
     rest:       vi.fn(),
     saveCheckpoint:  vi.fn(),
@@ -66,6 +76,7 @@ import Adventure from '../Adventure'
 describe('Adventure render smoke', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    getSessionMock.mockResolvedValue(sessionFixture)
   })
 
   it('能挂载且不抛 TDZ / hook 顺序错误', () => {
@@ -88,6 +99,113 @@ describe('Adventure render smoke', () => {
     expect(errors).toEqual([])
 
     errSpy.mockRestore()
+    cleanup()
+  })
+
+  it('点击带 skill_check 的选项时进入前端检定流程', async () => {
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      game_state: {
+        last_turn: {
+          last_actor_user_id: null,
+          player_choices: [{
+            text: '仔细辨认暗纹',
+            skill_check: true,
+            tags: [{ kind: 'perception', label: '察觉', dc: 12 }],
+          }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: {
+          hp_max: 10,
+          proficiency_bonus: 2,
+          ability_modifiers: { wis: 1 },
+        },
+        proficient_skills: [],
+      },
+    })
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByRole('button', { name: /仔细辨认暗纹/ })
+    fireEvent.click(screen.getByRole('button', { name: /仔细辨认暗纹/ }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/察觉检定 · DC 12/)).toBeInTheDocument()
+    })
+
+    expect(errSpy.mock.calls.map(c => c.join(' ')).join('\n')).not.toMatch(/KIND_TO_SKILL_ZH|ReferenceError/)
+    errSpy.mockRestore()
+    cleanup()
+  })
+
+  it('点击 DM 生成的普通选项时带 ai_generated_choice 来源', async () => {
+    actionMock.mockResolvedValue({
+      type: 'exploration',
+      narrative: '你靠近墙面，符文在微光里泛起冷色。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      game_state: {
+        last_turn: {
+          last_actor_user_id: null,
+          player_choices: [{
+            text: '伸手触碰低处的符文',
+            tags: [],
+          }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: {
+          hp_max: 10,
+          proficiency_bonus: 2,
+          ability_modifiers: { int: 3 },
+        },
+        proficient_skills: [],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByRole('button', { name: /伸手触碰低处的符文/ })
+    fireEvent.click(screen.getByRole('button', { name: /伸手触碰低处的符文/ }))
+
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        action_text: '伸手触碰低处的符文',
+        action_source: 'ai_generated_choice',
+      })
+    })
+
     cleanup()
   })
 })

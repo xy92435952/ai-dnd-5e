@@ -1,0 +1,119 @@
+"""
+Unit tests for spell effect helper modules.
+"""
+
+
+def test_apply_frontend_dice_override_updates_total_and_base_roll():
+    from api.combat.spell_effects import apply_frontend_dice_override
+
+    total, detail = apply_frontend_dice_override(
+        value=9,
+        dice_detail={"total": 9, "base_roll": {"rolls": [4, 5], "total": 9}},
+        damage_values=[2, 6],
+        modifier=3,
+    )
+
+    assert total == 11
+    assert detail["total"] == 11
+    assert detail["base_roll"]["rolls"] == [2, 6]
+    assert detail["base_roll"]["total"] == 8
+
+
+async def test_apply_spell_damage_to_enemy_updates_enemy_state(db_session):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "哥布林",
+        "hp_current": 7,
+        "derived": {"hp_max": 7},
+    }]
+
+    result, conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        enemies,
+        "goblin-1",
+        5,
+        save_result={"success": False},
+    )
+
+    assert result == {
+        "target_id": "goblin-1",
+        "target_name": "哥布林",
+        "damage": 5,
+        "new_hp": 2,
+        "save": {"success": False},
+    }
+    assert enemies[0]["hp_current"] == 2
+    assert conc_log is None
+
+
+async def test_apply_spell_heal_to_character_caps_at_max(db_session, sample_character):
+    from api.combat.spell_effects import apply_spell_heal_to_target
+
+    sample_character.hp_current = 5
+    await db_session.commit()
+
+    result = await apply_spell_heal_to_target(db_session, sample_character.id, 20)
+
+    assert result["target_id"] == sample_character.id
+    assert result["new_hp"] == 12
+    assert sample_character.hp_current == 12
+
+
+def test_resolve_spell_condition_uses_known_mapping_and_fallback():
+    from api.combat.spell_effects import resolve_spell_condition
+
+    assert resolve_spell_condition("定身术", {"save": "wis"}) == ("paralyzed", "wis")
+    assert resolve_spell_condition("Unknown Control", {"save": "cha"}) == ("affected", "cha")
+
+
+async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_session, monkeypatch):
+    from api.combat import spell_effects
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "哥布林",
+        "ability_scores": {"wis": 8},
+        "conditions": ["paralyzed"],
+    }]
+    monkeypatch.setattr(spell_effects, "roll_dice", lambda expr: {"rolls": [2], "total": 2})
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "goblin-1",
+        condition_name="paralyzed",
+        save_ability="wis",
+        spell_save_dc=13,
+    )
+
+    assert result["condition_name"] == "paralyzed"
+    assert result["save_detail"]["success"] is False
+    assert enemies[0]["conditions"] == ["paralyzed"]
+
+
+async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sample_character, monkeypatch):
+    from api.combat import spell_effects
+
+    sample_character.conditions = []
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "saving_throws": {"wis": 2},
+    }
+    await db_session.commit()
+    monkeypatch.setattr(spell_effects, "roll_dice", lambda expr: {"rolls": [3], "total": 3})
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        [],
+        sample_character.id,
+        condition_name="commanded",
+        save_ability="wis",
+        spell_save_dc=13,
+    )
+
+    assert result["save_detail"]["total"] == 5
+    assert result["save_detail"]["success"] is False
+    assert sample_character.conditions == ["commanded"]

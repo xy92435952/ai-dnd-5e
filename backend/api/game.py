@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
 
 from database import get_db
 from models import Module, Character, Session, GameLog, CombatState
@@ -101,6 +101,7 @@ class CreateSessionRequest(BaseModel):
 class PlayerActionRequest(BaseModel):
     session_id:  str
     action_text: str
+    action_source: Literal["human_input", "ai_generated_choice", "system_action", "ai_takeover"] = "human_input"
 
 
 class SkillCheckRequest(BaseModel):
@@ -109,6 +110,27 @@ class SkillCheckRequest(BaseModel):
     skill:        str
     dc:           int
     d20_value:    Optional[int] = None  # Frontend 3D dice result
+
+
+def _choice_text(choice) -> str:
+    if isinstance(choice, str):
+        return choice.strip()
+    if isinstance(choice, dict):
+        return str(choice.get("text") or "").strip()
+    return ""
+
+
+def _normalize_action_source(session: Session, action_text: str, requested_source: str) -> str:
+    """客户端可提示来源，但只有服务端保存的上一轮选项才承认为 AI 生成选项。"""
+    if requested_source != "ai_generated_choice":
+        return requested_source
+
+    last_turn = (session.game_state or {}).get("last_turn") or {}
+    choices = last_turn.get("player_choices") or []
+    normalized_text = (action_text or "").strip()
+    if any(_choice_text(choice) == normalized_text for choice in choices):
+        return "ai_generated_choice"
+    return "human_input"
 
 
 # ── Session 管理 ──────────────────────────────────────────
@@ -261,6 +283,7 @@ async def _execute_exploration_action(
     actor_user_id: str,
     action_text: str,
     *,
+    action_source: str = "human_input",
     combat_state: Optional[CombatState] = None,
     is_takeover: bool = False,
     takeover_by_user_id: Optional[str] = None,
@@ -291,7 +314,9 @@ async def _execute_exploration_action(
 
     try:
         dm_result = await dify_client.call_dm_agent(
-            **inputs, conversation_id=session.id,
+            **inputs,
+            action_source=action_source,
+            conversation_id=session.id,
         )
     except Exception as e:
         raise HTTPException(502, f"AI服务暂时不可用: {str(e)}")
@@ -398,6 +423,7 @@ async def player_action(
     """
     session = await get_session_or_404(req.session_id, db)
     module  = await db.get(Module, session.module_id)
+    action_source = _normalize_action_source(session, req.action_text, req.action_source)
 
     # ── 多人联机：解析当前用户对应的角色 ──
     if session.is_multiplayer:
@@ -455,6 +481,31 @@ async def player_action(
         log_type   = "narrative" if not session.combat_active else "combat",
     ))
 
+    if session.combat_active:
+        from services.input_guard import classify_player_input
+        guard = await classify_player_input(req.action_text, source=action_source)
+        if guard["verdict"] in ("off_topic", "rule_violation", "injection"):
+            db.add(GameLog(
+                session_id=req.session_id,
+                role="dm",
+                content=guard["refusal"],
+                log_type="combat",
+            ))
+            await db.commit()
+            return {
+                "type":               f"blocked_{guard['verdict']}",
+                "narrative":          guard["refusal"],
+                "companion_reactions": "",
+                "dice_display":       [],
+                "player_choices":     [],
+                "needs_check":        {"required": False},
+                "combat_triggered":   False,
+                "combat_ended":       False,
+                "combat_end_result":  None,
+                "combat_update":      None,
+                "errors":             [],
+            }
+
     # ═══════════════════════════════════════════════════════
     # 自然语言战斗：解析 → 引擎执行 → DM 叙事
     # ═══════════════════════════════════════════════════════
@@ -503,6 +554,7 @@ async def player_action(
         total_damage = 0
         target_new_hp = None
         action_used = False
+        executed_action_types: list[str] = []
 
         for action in parsed["actions"]:
             atype = action.get("type", "")
@@ -531,6 +583,7 @@ async def player_action(
                             move_remaining -= result["steps"]
                             _save_ts(combat_state, player_id, ts)
                             action_results.append(f"移动了 {result['steps']*5}ft")
+                            executed_action_types.append("move")
 
             elif atype == "attack" and not action_used:
                 # 攻击
@@ -557,6 +610,7 @@ async def player_action(
 
                     if not in_range:
                         action_results.append(f"目标不在攻击范围内（距离{dist*5}ft）")
+                        executed_action_types.append("out_of_range")
                     else:
                         # 执行攻击
                         target_enemy = next((e for e in enemies if str(e["id"]) == str(target_id)), None)
@@ -605,6 +659,7 @@ async def player_action(
                             state["enemies"] = enemies
                             session.game_state = dict(state)
                             flag_modified(session, "game_state")
+                            executed_action_types.append("attack")
                     action_used = True
 
             elif atype == "creative" and not action_used:
@@ -655,24 +710,28 @@ async def player_action(
                 else:
                     action_results.append(f"{description} — 失败（d20={d20}+{check_result.get('modifier',0)}={total} vs DC{dc}）" +
                                           (f" {action.get('effect_on_fail','')}" if action.get('effect_on_fail') else ""))
+                executed_action_types.append("creative")
                 action_used = True
 
             elif atype == "dodge" and not action_used:
                 ts["dodging"] = True
                 _save_ts(combat_state, player_id, ts)
                 action_results.append("采取闪避动作，攻击你的敌人获得劣势")
+                executed_action_types.append("dodge")
                 action_used = True
 
             elif atype == "dash" and not action_used:
                 ts["movement_max"] *= 2
                 _save_ts(combat_state, player_id, ts)
                 action_results.append("冲刺！移动力翻倍")
+                executed_action_types.append("dash")
                 action_used = True
 
             elif atype == "disengage" and not action_used:
                 ts["disengaged"] = True
                 _save_ts(combat_state, player_id, ts)
                 action_results.append("脱离接战，移动不触发借机攻击")
+                executed_action_types.append("disengage")
                 action_used = True
 
         # 标记行动已使用
@@ -682,11 +741,23 @@ async def player_action(
 
         # Step 3: DM 叙事包装
         mechanical_summary = " | ".join(action_results) if action_results else "未执行有效行动"
+        if "creative" in executed_action_types:
+            narration_action_type = "creative"
+        elif "attack" in executed_action_types:
+            narration_action_type = "attack"
+        elif "out_of_range" in executed_action_types:
+            narration_action_type = "out_of_range"
+        elif executed_action_types:
+            narration_action_type = executed_action_types[-1]
+        elif any(a.get("type") == "creative" for a in parsed["actions"]):
+            narration_action_type = "creative"
+        else:
+            narration_action_type = "move"
         narrative = await narrate_action(
             actor_name=player.name,
             actor_class=player.char_class,
             target_name="",
-            action_type="creative" if any(a.get("type") == "creative" for a in parsed["actions"]) else "attack",
+            action_type=narration_action_type,
             extra_details=f"玩家行动: {req.action_text}\n结果: {mechanical_summary}",
             damage=total_damage,
         )
@@ -744,6 +815,7 @@ async def player_action(
         actor=player,
         actor_user_id=user_id,
         action_text=req.action_text,
+        action_source=action_source,
         combat_state=combat_state,
     )
 
@@ -869,6 +941,7 @@ async def ai_takeover_action(
         actor=speaker_char,
         actor_user_id=speaker_uid,        # 用 speaker，不是 caller
         action_text=action_text,
+        action_source="ai_takeover",
         is_takeover=True,
         takeover_by_user_id=user_id,
     )

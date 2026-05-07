@@ -13,7 +13,10 @@
  *   onSpellHover - (spell|null) => void  可选，用于地图上预览 AoE 半径
  */
 import { useState } from 'react'
-import { SpellIcon, HeartIcon } from '../Icons'
+import { SpellIcon } from '../Icons'
+import SpellModalTabs from './SpellModalTabs'
+import SpellModalList from './SpellModalList'
+import SpellModalActions from './SpellModalActions'
 
 export default function SpellModal({ spells, cantrips, slots, onCast, onClose, onSpellHover }) {
   const [selectedSpell, setSelectedSpell] = useState(null)
@@ -50,86 +53,31 @@ export default function SpellModal({ spells, cantrips, slots, onCast, onClose, o
           <button onClick={onClose} style={{ color:'var(--text-dim)', fontSize:18, background:'none', border:'none', cursor:'pointer' }}>x</button>
         </div>
 
-        <div className="flex gap-1.5 mb-3 flex-wrap">
-          <button onClick={() => { setLevel(0); setSelectedSpell(null) }}
-            className="px-2 py-1 rounded text-xs"
-            style={{
-              background: level===0 ? 'rgba(58,122,170,0.25)' : 'var(--bg)',
-              border: `1px solid ${level===0 ? 'var(--blue-light)' : 'var(--wood-light)'}`,
-              color: level===0 ? 'var(--blue-light)' : cantripList.length > 0 ? 'var(--parchment)' : 'var(--wood-light)',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-            戏法 ({cantripList.length})
-          </button>
-          {[1,2,3,4,5].map(lvl => {
-            const cnt = available(lvl)
-            const hasSpells = spellList.some(s => s.level <= lvl)
-            return (
-              <button key={lvl} onClick={() => { setLevel(lvl); setSelectedSpell(null) }}
-                disabled={cnt <= 0 || !hasSpells}
-                className="px-2 py-1 rounded text-xs"
-                style={{
-                  background: level===lvl ? 'rgba(138,90,246,0.25)' : 'var(--bg)',
-                  border: `1px solid ${level===lvl ? '#8a5af6' : 'var(--wood-light)'}`,
-                  color: (cnt > 0 && hasSpells) ? (level===lvl ? '#c084fc' : 'var(--parchment)') : 'var(--wood-light)',
-                  cursor: (cnt > 0 && hasSpells) ? 'pointer' : 'not-allowed',
-                  fontFamily: 'inherit',
-                }}>
-                {lvl}环 ({cnt})
-              </button>
-            )
-          })}
-        </div>
+        <SpellModalTabs
+          level={level}
+          setLevel={setLevel}
+          setSelectedSpell={setSelectedSpell}
+          cantripCount={cantripList.length}
+          spellList={spellList}
+          available={available}
+        />
 
-        <div className="space-y-1.5 overflow-y-auto flex-1" style={{ maxHeight:260 }}>
-          {shownSpells.length === 0 ? (
-            <p className="text-xs text-center py-4" style={{ color: 'var(--text-dim)' }}>
-              {level === 0 ? '未习得戏法' : '当前法术位不足或无可用法术'}
-            </p>
-          ) : shownSpells.map(spell => {
-            const isSel = selectedSpell?.name === spell.name
-            const isCantrip = spell.level === 0 || cantrips?.includes(spell.name)
-            return (
-              <div key={spell.name}
-                onClick={() => setSelectedSpell(isSel ? null : spell)}
-                onMouseEnter={() => onSpellHover?.(spell)}
-                onMouseLeave={() => onSpellHover?.(null)}
-                style={{
-                  padding:'8px 10px', borderRadius:6, cursor:'pointer',
-                  background: isSel ? (isCantrip ? 'rgba(58,122,170,0.18)' : 'rgba(138,90,246,0.18)') : 'var(--bg)',
-                  border: `1px solid ${isSel ? (isCantrip ? 'var(--blue-light)' : '#8a5af6') : 'var(--wood)'}`,
-                  transition:'all 0.1s',
-                }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold" style={{ color:'var(--parchment)' }}>
-                    {isCantrip
-                      ? <SpellIcon size={12} color="var(--blue-light)" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />
-                      : spell.type==='heal'
-                        ? <HeartIcon size={12} color="var(--green-light)" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />
-                        : <SpellIcon size={12} color="var(--red-light)" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />}
-                    {spell.name}
-                    {isCantrip && <span className="ml-1 text-xs" style={{ color:'var(--blue-light)', opacity:0.7 }}>戏法</span>}
-                  </span>
-                  <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                    {spell.type==='damage' ? spell.damage : spell.heal}
-                  </span>
-                </div>
-                {spell.desc && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-dim)' }}>{spell.desc}</p>}
-              </div>
-            )
-          })}
-        </div>
+        <SpellModalList
+          level={level}
+          shownSpells={shownSpells}
+          cantrips={cantrips}
+          selectedSpell={selectedSpell}
+          setSelectedSpell={setSelectedSpell}
+          onSpellHover={onSpellHover}
+        />
 
-        <div className="flex gap-2 mt-3">
-          <button className="flex-1 btn-fantasy py-2 text-sm"
-            style={{ borderColor: canCast ? '#8a5af6' : 'var(--wood)', opacity: canCast ? 1 : 0.4 }}
-            disabled={!canCast}
-            onClick={() => selectedSpell && onCast(selectedSpell, level || 1)}>
-            <SpellIcon size={14} color="#8a5af6" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />
-            施放{selectedSpell ? `【${selectedSpell.name}】` : ''}
-          </button>
-          <button className="btn-fantasy px-4 py-2 text-sm" onClick={onClose}>取消</button>
-        </div>
+        <SpellModalActions
+          canCast={canCast}
+          selectedSpell={selectedSpell}
+          level={level}
+          onCast={onCast}
+          onClose={onClose}
+        />
       </div>
     </div>
   )

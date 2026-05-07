@@ -39,6 +39,7 @@ class LangGraphClient:
         module_context: str,
         campaign_memory: str = "",
         retrieved_context: str = "",
+        action_source: str = "human_input",
         conversation_id: Optional[str] = None,
     ) -> dict:
         return await run_dm_agent(
@@ -47,6 +48,7 @@ class LangGraphClient:
             module_context=module_context,
             campaign_memory=campaign_memory,
             retrieved_context=retrieved_context,
+            action_source=action_source,
             session_id=conversation_id,
         )
 

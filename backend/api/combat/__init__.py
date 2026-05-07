@@ -7,11 +7,17 @@ router 合并暴露。main.py 仍然 `from api.combat import router` 即可。
 from fastapi import APIRouter
 
 from . import (
-    info, attacks, turns, reactions, ai_turn,
-    movement, spellcasting, conditions, deathsaves,
+    info, attacks, attack_rolls, turns, reactions, ai_turn, ai_end,
+    movement, spell_catalog, spell_rolls, spellcasting, conditions, deathsaves,
+    grapples, smites, class_features, maneuvers,
+)
+from ._shared import (
+    _get_ts, _save_ts, _check_attack_range, _ai_move_toward,
+    _chebyshev_dist, _calc_entity_turn_limits,
 )
 
 router = APIRouter()
-for _mod in (info, attacks, turns, reactions, ai_turn,
-             movement, spellcasting, conditions, deathsaves):
+for _mod in (info, attacks, attack_rolls, turns, reactions, ai_turn, ai_end,
+             movement, spell_catalog, spell_rolls, spellcasting, conditions, deathsaves,
+             grapples, smites, class_features, maneuvers):
     router.include_router(_mod.router)

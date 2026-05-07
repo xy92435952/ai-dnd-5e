@@ -115,7 +115,7 @@ class PlayerActionResponse(BaseModel):
     needs_check: Optional[dict[str, Any]] = None
     combat_triggered: bool = False
     combat_ended: bool = False
-    combat_end_result: Optional[dict[str, Any]] = None
+    combat_end_result: Optional[Any] = None
     combat_update: Optional[dict[str, Any]] = None
     errors: list[Any] = []
 

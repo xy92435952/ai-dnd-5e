@@ -1,0 +1,147 @@
+import { useCallback } from 'react'
+import { gameApi } from '../api/client'
+import { JuiceAudio, shake as JuiceShake } from '../juice'
+import { applyHpUpdate, parseDiceNotation } from '../utils/combat'
+import { rollDice3D } from '../components/DiceRollerOverlay'
+
+function ignoreOptionalEffect(fn) {
+  try {
+    fn()
+  } catch {
+    // Optional audio / haptics may fail in tests or unsupported browsers.
+  }
+}
+
+export function useCombatAttackFlow({
+  sessionId,
+  playerId,
+  selectedTarget,
+  isRanged,
+  combat,
+  isProcessing,
+  isPlayerTurn,
+  processingRef,
+  setIsProcessing,
+  setError,
+  showDice,
+  addLog,
+  setTurnState,
+  setCombat,
+  setSelectedTarget,
+  setSmitePrompt,
+  setCombatOver,
+}) {
+  return useCallback(async () => {
+    if (!selectedTarget || !isPlayerTurn(combat) || isProcessing) return
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const { total: d20 } = await rollDice3D(20)
+      showDice({ faces: 20, result: d20, label: '攻击检定' })
+
+      const atkResult = await gameApi.attackRoll(
+        sessionId, playerId, selectedTarget,
+        isRanged ? 'ranged' : 'melee', false, d20,
+      )
+
+      if (atkResult.turn_state) setTurnState(atkResult.turn_state)
+
+      const attacksRemaining = atkResult.attacks_max - atkResult.attacks_made
+      if (attacksRemaining > 0) {
+        addLog({
+          role: 'system',
+          content: `\u2694\uFE0F 额外攻击：还可攻击 ${attacksRemaining} 次`,
+          log_type: 'system',
+        })
+      }
+
+      if (!atkResult.hit) {
+        ignoreOptionalEffect(() => JuiceAudio.miss())
+        if (atkResult.is_fumble) {
+          ignoreOptionalEffect(() => JuiceShake(document.querySelector('.combat-stage') || document.body, 6, 320))
+        }
+        const missText = atkResult.narration || (atkResult.is_fumble
+          ? `\uD83D\uDC80 大失手！${atkResult.attacker_name} 对 ${atkResult.target_name} 攻击失手。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`
+          : `${atkResult.attacker_name} 攻击 ${atkResult.target_name}，未命中。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`)
+        addLog({ role: 'player', content: missText, log_type: 'combat',
+          dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: false, is_crit: false, is_fumble: atkResult.is_fumble } },
+        })
+        setSelectedTarget(null)
+        processingRef.current = false
+        setIsProcessing(false)
+        return
+      }
+
+      if (atkResult.is_crit) {
+        ignoreOptionalEffect(() => JuiceAudio.crit())
+        ignoreOptionalEffect(() => JuiceShake(document.querySelector('.combat-stage') || document.body, 10, 420))
+      } else {
+        ignoreOptionalEffect(() => JuiceAudio.hit())
+      }
+      const hitLabel = atkResult.is_crit ? '\uD83D\uDCA5 暴击！' : '命中！'
+      addLog({ role: 'system', content: `${hitLabel} ${atkResult.attacker_name} 对 ${atkResult.target_name}（${atkResult.attack_total} vs AC${atkResult.target_ac}）`, log_type: 'combat',
+        dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: true, is_crit: atkResult.is_crit, is_fumble: false } },
+      })
+
+      setTimeout(async () => {
+        try {
+          const { count: dmgCount, faces: damageFaces } = parseDiceNotation(atkResult.damage_dice || '1d8')
+          const { total: dmgTotal, rolls: dmgRolls } = await rollDice3D(damageFaces, dmgCount)
+          showDice({ faces: damageFaces, result: dmgTotal, label: '伤害骰', count: dmgCount })
+
+          const dmgResult = await gameApi.damageRoll(sessionId, atkResult.pending_attack_id, dmgRolls)
+
+          setCombat(prev => {
+            if (!prev) return prev
+            return applyHpUpdate(prev, dmgResult.target_id, dmgResult.target_new_hp)
+          })
+
+          if (dmgResult.turn_state) setTurnState(dmgResult.turn_state)
+
+          addLog({ role: 'player', content: dmgResult.narration, log_type: 'combat',
+            dice_result: { damage: dmgResult.damage_total, total_damage: dmgResult.total_damage },
+          })
+
+          if (dmgResult.sneak_attack_damage > 0) {
+            addLog({ role: 'system', content: `\uD83D\uDDE1\uFE0F 偷袭！额外造成 ${dmgResult.sneak_attack_damage} 点伤害`, log_type: 'system' })
+          }
+
+          if (dmgResult.can_smite) {
+            setSmitePrompt({ show: true, targetId: dmgResult.target_id })
+          }
+
+          if (dmgResult.combat_over) { setCombatOver(dmgResult.outcome) }
+        } catch (e2) {
+          setError(e2.message)
+        } finally {
+          setSelectedTarget(null)
+          processingRef.current = false
+          setIsProcessing(false)
+        }
+      }, 1800)
+    } catch (e) {
+      setError(e.message)
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }, [
+    addLog,
+    combat,
+    isPlayerTurn,
+    isProcessing,
+    isRanged,
+    playerId,
+    processingRef,
+    selectedTarget,
+    sessionId,
+    setCombat,
+    setCombatOver,
+    setError,
+    setIsProcessing,
+    setSelectedTarget,
+    setSmitePrompt,
+    setTurnState,
+    showDice,
+  ])
+}

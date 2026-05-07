@@ -17,6 +17,20 @@ export const SKILL_INFO = {
   death: { desc: '濒死——每回合自动进行死亡豁免。无需手动触发。' },
 }
 
+// 默认技能栏：后端 /skill-bar 不可用或返回空列表时的本地兜底。
+export const DEFAULT_SKILL_BAR = [
+  { k: 'atk',   label: '攻击', glyph: '⚔', cost: '动作', key: '1', kind: 'attack', available: true },
+  { k: 'spell', label: '法术', glyph: '✧', cost: '动作', key: '2', kind: 'spell', available: true },
+  { k: 'shove', label: '推撞', glyph: '↦', cost: '动作', key: '3', kind: 'attack', available: true },
+  { k: 'help',  label: '协助', glyph: '☉', cost: '动作', key: '4', kind: 'bonus', available: true },
+  { k: 'dash',  label: '冲刺', glyph: '»', cost: '动作', key: '5', kind: 'move', available: true },
+  { k: 'disg',  label: '脱离', glyph: '↶', cost: '动作', key: '6', kind: 'move', available: true },
+  { k: 'dodge', label: '闪避', glyph: '⊙', cost: '动作', key: '7', kind: 'bonus', available: true },
+  { k: 'death', label: '濒死', glyph: '☠', cost: '—', key: '8', kind: 'empty', available: false },
+  { k: 'empty', label: '', glyph: '', cost: '', key: '9', kind: 'empty', available: false },
+  { k: 'pot',   label: '药剂', glyph: '⚱', cost: '动作', key: '0', kind: 'bonus', available: true },
+]
+
 // 战斗宗师战技列表（Battle Master Maneuvers）
 export const MANEUVERS = [
   { id: 'precision', name: '精准攻击', desc: '将优越骰加到攻击检定上', icon: '🎯', needsTarget: false },

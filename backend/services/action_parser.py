@@ -24,6 +24,7 @@ Action Parser — 自然语言战斗行动解析器
 import json
 import logging
 import asyncio
+import re
 from typing import Optional
 
 from services.llm import get_llm
@@ -88,6 +89,213 @@ AC: {player_ac}
 """
 
 
+_ATTACK_WORDS = ("攻击", "打", "砍", "劈", "刺", "射", "开火", "attack", "strike", "shoot")
+_MOVE_WORDS = ("移动", "靠近", "冲", "跑", "走到", "接近", "move", "approach", "charge")
+_RANGED_WORDS = ("弓", "弩", "射", "远程", "火焰箭", "firebolt", "ray", "shoot")
+
+
+def _dist(a: dict, b: dict) -> int:
+    return max(abs(a.get("x", 0) - b.get("x", 0)), abs(a.get("y", 0) - b.get("y", 0)))
+
+
+def _can_reach_melee_after_move(distance: int, move_remaining: int) -> bool:
+    return max(distance - max(move_remaining, 0), 0) <= 1
+
+
+def _living_enemies(game_state: dict) -> list[dict]:
+    return [e for e in game_state.get("enemies", []) if e.get("hp_current", 0) > 0]
+
+
+def _enemy_name_matches(text: str, enemy: dict) -> bool:
+    name = str(enemy.get("name") or "")
+    return bool(name and name in text)
+
+
+def _nearest_enemy(game_state: dict, positions: dict, player_id: str) -> dict | None:
+    player_pos = positions.get(str(player_id), {})
+    enemies = _living_enemies(game_state)
+    if not enemies:
+        return None
+    return min(
+        enemies,
+        key=lambda e: _dist(player_pos, positions.get(str(e.get("id")), {"x": 999, "y": 999})),
+    )
+
+
+def _target_enemy_from_text(text: str, game_state: dict, positions: dict, player_id: str) -> dict | None:
+    enemies = _living_enemies(game_state)
+    for enemy in enemies:
+        if _enemy_name_matches(text, enemy):
+            return enemy
+    if re.search(r"(最近|身旁|旁边|面前|nearest|closest)", text, re.IGNORECASE):
+        return _nearest_enemy(game_state, positions, player_id)
+    return _nearest_enemy(game_state, positions, player_id) if len(enemies) == 1 else None
+
+
+def _parse_local_combat_action(
+    player_input: str,
+    game_state: dict,
+    player_id: str,
+    positions: dict,
+    move_remaining: int,
+) -> dict | None:
+    text = (player_input or "").strip()
+    lowered = text.lower()
+    wants_attack = any(word in lowered or word in text for word in _ATTACK_WORDS)
+    if not wants_attack:
+        return None
+
+    target = _target_enemy_from_text(text, game_state, positions, player_id)
+    if not target:
+        return None
+
+    target_id = str(target.get("id"))
+    player_pos = positions.get(str(player_id), {})
+    target_pos = positions.get(target_id, {})
+    distance = _dist(player_pos, target_pos) if player_pos and target_pos else 999
+    is_ranged = any(word in lowered or word in text for word in _RANGED_WORDS)
+    wants_move = any(word in lowered or word in text for word in _MOVE_WORDS)
+
+    actions = []
+    if not is_ranged and distance > 1 and wants_move and move_remaining > 0:
+        actions.append({
+            "type": "move",
+            "target_id": target_id,
+            "target_pos": None,
+            "reason": "靠近目标",
+        })
+        if not _can_reach_melee_after_move(distance, move_remaining):
+            return {
+                "actions": actions,
+                "narrative_hint": text,
+                "_fallback": False,
+            }
+    actions.append({
+        "type": "attack",
+        "target_id": target_id,
+        "is_ranged": is_ranged,
+        "reason": "远程攻击" if is_ranged else "近战攻击",
+    })
+    return {
+        "actions": actions,
+        "narrative_hint": text,
+        "_fallback": False,
+    }
+
+
+async def _parse_with_llm(
+    player_input: str,
+    game_state: dict,
+    player_id: str,
+    player_data: dict,
+    positions: dict,
+    move_remaining: int,
+) -> dict:
+    player_pos = positions.get(str(player_id), {})
+
+    # 构建简化的战场信息给 AI
+    battlefield = []
+    for eid, pos in positions.items():
+        # 从 game_state 找实体信息
+        entity_info = None
+        for char in game_state.get("characters", []):
+            if str(char.get("id")) == str(eid):
+                entity_info = f"{char.get('name','?')} (队友, HP:{char.get('hp_current',0)}/{char.get('hp_max',0)})"
+                break
+        if not entity_info:
+            for enemy in game_state.get("enemies", []):
+                if str(enemy.get("id")) == str(eid):
+                    entity_info = f"{enemy.get('name','?')} (敌人, HP:{enemy.get('hp_current',0)}/{enemy.get('hp_max',0)})"
+                    break
+        if not entity_info:
+            entity_info = eid[:8]
+
+        dist = _dist(pos, player_pos) if player_pos else 999
+        battlefield.append(f"  ID:{eid[:16]} | {entity_info} | 位置:({pos.get('x','?')},{pos.get('y','?')}) | 距离:{dist}格({dist*5}ft)")
+
+    game_state_str = "\n".join(battlefield) if battlefield else "无实体信息"
+
+    prompt = PARSE_PROMPT.format(
+        game_state=game_state_str,
+        player_id=player_id,
+        player_name=player_data.get("name", "玩家"),
+        player_x=player_pos.get("x", "?"),
+        player_y=player_pos.get("y", "?"),
+        player_hp=player_data.get("hp_current", 0),
+        player_hp_max=player_data.get("hp_max", 0),
+        player_ac=player_data.get("ac", 10),
+        move_remaining=move_remaining,
+        move_remaining_ft=move_remaining * 5,
+        player_input=player_input,
+    )
+
+    llm = get_llm(temperature=0.3, max_tokens=500)
+    resp = await asyncio.wait_for(
+        llm.ainvoke([
+            SystemMessage(content="你是 DnD 5e 战斗行动解析器。只返回 JSON。"),
+            HumanMessage(content=prompt),
+        ]),
+        timeout=10.0,
+    )
+
+    raw = resp.content.strip()
+    # 去除 markdown 代码块
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+    if raw.endswith("```"):
+        raw = raw[:-3]
+    raw = raw.strip()
+
+    result = json.loads(raw)
+    result.setdefault("actions", [])
+    result.setdefault("narrative_hint", "")
+    result["_fallback"] = False
+    return result
+
+
+def _fallback_combat_action(
+    player_input: str,
+    game_state: dict,
+    player_id: str,
+    positions: dict,
+    move_remaining: int,
+) -> dict:
+    target = _nearest_enemy(game_state, positions, player_id)
+    target_id = str(target.get("id")) if target else None
+    actions = []
+    if target_id:
+        player_pos = positions.get(str(player_id), {})
+        target_pos = positions.get(target_id, {})
+        distance = _dist(player_pos, target_pos) if player_pos and target_pos else 999
+        if distance > 1 and move_remaining > 0:
+            actions.append({
+                "type": "move",
+                "target_id": target_id,
+                "target_pos": None,
+                "reason": "靠近最近敌人",
+            })
+            if not _can_reach_melee_after_move(distance, move_remaining):
+                return {
+                    "actions": actions,
+                    "narrative_hint": player_input,
+                    "_fallback": True,
+                }
+        actions.append({
+            "type": "attack",
+            "target_id": target_id,
+            "is_ranged": False,
+            "reason": player_input,
+        })
+    else:
+        actions.append({"type": "attack", "target_id": None, "is_ranged": False, "reason": player_input})
+
+    return {
+        "actions": actions,
+        "narrative_hint": player_input,
+        "_fallback": True,
+    }
+
+
 async def parse_combat_action(
     player_input: str,
     game_state: dict,
@@ -106,68 +314,22 @@ async def parse_combat_action(
             "_fallback": False
         }
     """
+    local = _parse_local_combat_action(
+        player_input, game_state, player_id, positions, move_remaining,
+    )
+    if local:
+        logger.info(f"本地行动解析: {player_input[:30]}... → {len(local['actions'])} 个行动")
+        return local
+
     try:
-        player_pos = positions.get(str(player_id), {})
-
-        # 构建简化的战场信息给 AI
-        battlefield = []
-        for eid, pos in positions.items():
-            # 从 game_state 找实体信息
-            entity_info = None
-            for char in game_state.get("characters", []):
-                if str(char.get("id")) == str(eid):
-                    entity_info = f"{char.get('name','?')} (队友, HP:{char.get('hp_current',0)}/{char.get('hp_max',0)})"
-                    break
-            if not entity_info:
-                for enemy in game_state.get("enemies", []):
-                    if str(enemy.get("id")) == str(eid):
-                        entity_info = f"{enemy.get('name','?')} (敌人, HP:{enemy.get('hp_current',0)}/{enemy.get('hp_max',0)})"
-                        break
-            if not entity_info:
-                entity_info = eid[:8]
-
-            dist = max(abs(pos.get("x",0) - player_pos.get("x",0)),
-                       abs(pos.get("y",0) - player_pos.get("y",0))) if player_pos else 999
-            battlefield.append(f"  ID:{eid[:16]} | {entity_info} | 位置:({pos.get('x','?')},{pos.get('y','?')}) | 距离:{dist}格({dist*5}ft)")
-
-        game_state_str = "\n".join(battlefield) if battlefield else "无实体信息"
-
-        prompt = PARSE_PROMPT.format(
-            game_state=game_state_str,
-            player_id=player_id,
-            player_name=player_data.get("name", "玩家"),
-            player_x=player_pos.get("x", "?"),
-            player_y=player_pos.get("y", "?"),
-            player_hp=player_data.get("hp_current", 0),
-            player_hp_max=player_data.get("hp_max", 0),
-            player_ac=player_data.get("ac", 10),
-            move_remaining=move_remaining,
-            move_remaining_ft=move_remaining * 5,
+        result = await _parse_with_llm(
             player_input=player_input,
+            game_state=game_state,
+            player_id=player_id,
+            player_data=player_data,
+            positions=positions,
+            move_remaining=move_remaining,
         )
-
-        llm = get_llm(temperature=0.3, max_tokens=500)
-        resp = await asyncio.wait_for(
-            llm.ainvoke([
-                SystemMessage(content="你是 DnD 5e 战斗行动解析器。只返回 JSON。"),
-                HumanMessage(content=prompt),
-            ]),
-            timeout=10.0,
-        )
-
-        raw = resp.content.strip()
-        # 去除 markdown 代码块
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
-        if raw.endswith("```"):
-            raw = raw[:-3]
-        raw = raw.strip()
-
-        result = json.loads(raw)
-        result.setdefault("actions", [])
-        result.setdefault("narrative_hint", "")
-        result["_fallback"] = False
-
         # 验证 actions
         valid_types = {"move", "attack", "spell", "creative", "dodge", "dash", "disengage", "help"}
         result["actions"] = [a for a in result["actions"] if a.get("type") in valid_types]
@@ -182,9 +344,4 @@ async def parse_combat_action(
     except Exception as e:
         logger.warning(f"行动解析异常: {e}")
 
-    # Fallback: 当作普通攻击
-    return {
-        "actions": [{"type": "attack", "target_id": None, "is_ranged": False, "reason": player_input}],
-        "narrative_hint": player_input,
-        "_fallback": True,
-    }
+    return _fallback_combat_action(player_input, game_state, player_id, positions, move_remaining)

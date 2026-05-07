@@ -90,7 +90,7 @@ export const gameApi = {
 
   /**
    * 主行动（探索 + 战斗统一入口）
-   * @param {{session_id: string, action_text: string}} data
+   * @param {{session_id: string, action_text: string, action_source?: 'human_input'|'ai_generated_choice'|'system_action'|'ai_takeover'}} data
    * @returns {Promise<PlayerActionResponse>}
    */
   action: (data) => api.post('/game/action', data),

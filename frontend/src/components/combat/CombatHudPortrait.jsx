@@ -1,0 +1,52 @@
+import React from 'react'
+
+export default function CombatHudPortrait({ session, playerClass, playerSubclass, playerLevel, turnState }) {
+  return (
+    <div className="hud-portrait">
+      <div className="big" style={{ position: 'relative' }}>
+        {(session?.player?.name || 'P').slice(0, 1)}
+        {(() => {
+          const hp = session?.player?.hp_current ?? 0
+          const hpMax = session?.player?.derived?.hp_max ?? 1
+          return hp > 0 && hp / hpMax <= 0.25 ? <span className="avatar-crack" /> : null
+        })()}
+      </div>
+      <div className="stats">
+        <div className="name">{session?.player?.name || '玩家'}</div>
+        <div className="sub">{playerClass || '?'} {playerSubclass ? `· ${playerSubclass} ` : ''}· Lv {playerLevel}</div>
+        <div className={`hp-segmented ${(() => {
+          const hp = session?.player?.hp_current ?? 0, hpMax = session?.player?.derived?.hp_max ?? 1
+          return hp / hpMax < .34 ? 'low' : hp / hpMax < .67 ? 'mid' : ''
+        })()}`}>
+          {(() => {
+            const hp = session?.player?.hp_current ?? 0
+            const hpMax = session?.player?.derived?.hp_max ?? 1
+            const segs = 12
+            const filled = Math.round((hp / hpMax) * segs)
+            return Array.from({ length: segs }).map((_, i) => (
+              <div key={i} className={`seg ${i >= filled ? 'empty' : ''}`} />
+            ))
+          })()}
+        </div>
+        <div className="hp-text">
+          <span><span className="cur">{session?.player?.hp_current ?? 0}</span> / {session?.player?.derived?.hp_max ?? 0}</span>
+          <span>移动 <b style={{ color: 'var(--arcane-light)' }}>{(turnState?.movement_max ?? 6) - (turnState?.movement_used ?? 0)}/{turnState?.movement_max ?? 6}</b></span>
+        </div>
+        <div className="stat-line">
+          <span>AC <span className="v">{session?.player?.derived?.ac ?? 10}</span></span>
+          <span>先攻 <span className="v">{(() => { const m = session?.player?.derived?.initiative ?? 0; return (m >= 0 ? '+' : '') + m })()}</span></span>
+          {session?.player?.derived?.spell_save_dc && (
+            <span>DC <span className="v">{session.player.derived.spell_save_dc}</span></span>
+          )}
+        </div>
+        {session?.player?.conditions?.length > 0 && (
+          <div className="conditions">
+            {session.player.conditions.slice(0, 6).map((c, i) => (
+              <span key={i} className="cond-icon" title={c}>⚠</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
