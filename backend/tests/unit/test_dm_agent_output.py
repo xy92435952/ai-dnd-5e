@@ -62,7 +62,7 @@ def test_normalize_dm_output_preserves_check_advantage_flags_and_choice_metadata
         "action_type": "investigation",
         "narrative": "你借着队友的掩护靠近符文门。",
         "needs_check": {
-            "required": True,
+            "required": False,
             "check_type": "调查",
             "ability": "int",
             "dc": 15,
@@ -90,6 +90,41 @@ def test_normalize_dm_output_preserves_check_advantage_flags_and_choice_metadata
     assert data["player_choices"][0]["skill_check"] is True
     assert data["player_choices"][0]["tags"][0]["kind"] == "check"
     assert data["player_choices"][0]["tags"][0]["dc"] == 15
+
+
+def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types():
+    raw = json.dumps({
+        "action_type": "investigation",
+        "narrative": "你停在门前，等待检定结果。",
+        "needs_check": {
+            "required": True,
+            "check_type": "调查",
+            "advantage": True,
+            "disadvantage": True,
+        },
+        "player_choices": [
+            {"tags": [{"label": "调查", "kind": "check"}], "skill_check": True},
+            "等待同伴靠近",
+        ],
+        "state_delta": {
+            "characters": {"id": "c1", "hp_change": "-5"},
+            "enemies": "bad",
+            "gold_changes": {"id": "c1", "amount": "7"},
+        },
+        "ai_turns": {"actor_id": "e1"},
+    }, ensure_ascii=False)
+
+    data, error, _messages = normalize_dm_output(raw, "检查机关")
+
+    assert error == ""
+    assert data["needs_check"]["required"] is True
+    assert data["needs_check"]["advantage"] is False
+    assert data["needs_check"]["disadvantage"] is False
+    assert data["player_choices"] == []
+    assert data["state_delta"]["characters"] == []
+    assert data["state_delta"]["enemies"] == []
+    assert data["state_delta"]["gold_changes"] == []
+    assert data["ai_turns"] == []
 
 
 def test_normalize_dm_output_falls_back_with_extracted_narrative():
