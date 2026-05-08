@@ -22,7 +22,7 @@ os.environ.setdefault("LLM_API_KEY", "test-key")
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///file::memory:?cache=shared&uri=true")
 os.environ.setdefault("CHROMADB_PATH", str(Path(__file__).parent / "_tmp_chroma"))
 os.environ.setdefault("LANGGRAPH_DB_PATH", str(Path(__file__).parent / "_tmp_langgraph.db"))
-os.environ.setdefault("JWT_SECRET", "test-secret-dont-use-in-prod")
+os.environ.setdefault("JWT_SECRET", "test-secret-dont-use-in-prod-32-bytes-min")
 os.environ.setdefault("ENV", "development")
 
 import pytest
