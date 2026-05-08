@@ -91,6 +91,7 @@ def wrap_final_state(final_state: dict, session_id: str | None = None) -> dict:
         "state_delta": state_delta,
         "dice_results": result_data.get("dice_results", []),
         "ai_turns": result_data.get("ai_turns", []),
+        "campaign_delta": result_data.get("campaign_delta", {}),
     }
 
     return {

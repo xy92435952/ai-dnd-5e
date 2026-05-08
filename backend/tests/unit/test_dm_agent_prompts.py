@@ -20,6 +20,8 @@ def test_explore_prompt_contains_all_maintenance_sections():
         "companion_reactions",
         "技能检定声明规则",
         "严格输出格式",
+        "campaign_delta",
+        "活战役状态",
         "player_choices 结构化格式",
         "enemy.sprite",
     ]

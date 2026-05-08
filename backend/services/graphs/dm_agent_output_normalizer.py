@@ -8,6 +8,7 @@ import re
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage
+from services.campaign_delta import normalize_campaign_delta
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +128,13 @@ def normalize_dm_output(raw: str, player_action: str) -> tuple[dict, str, list]:
         data.setdefault("companion_reactions", "")
         data.setdefault("ai_turns", [])
         data.setdefault("player_choices", [])
+        data.setdefault("campaign_delta", {})
 
         data["state_delta"] = _normalize_state_delta(data["state_delta"])
         data["ai_turns"] = _normalize_ai_turns(data.get("ai_turns", []))
         data["needs_check"] = normalize_needs_check(data.get("needs_check", {"required": False}))
         data["player_choices"] = normalize_player_choices(data.get("player_choices", []), data["needs_check"])
+        data["campaign_delta"] = normalize_campaign_delta(data.get("campaign_delta", {}))
 
         new_messages = [
             HumanMessage(content=player_action),
@@ -159,6 +162,7 @@ def normalize_dm_output(raw: str, player_action: str) -> tuple[dict, str, list]:
             "player_choices": [],
             "dice_results": [],
             "ai_turns": [],
+            "campaign_delta": normalize_campaign_delta({}),
         }
         new_messages = [
             HumanMessage(content=player_action),

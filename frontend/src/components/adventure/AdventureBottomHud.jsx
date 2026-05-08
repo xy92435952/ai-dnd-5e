@@ -8,6 +8,8 @@ export default function AdventureBottomHud({
   allMembers,
   questLine,
   clues,
+  npcUpdates,
+  keyDecisions,
   onOpenCharacter,
   onOpenJournal,
 }) {
@@ -23,7 +25,12 @@ export default function AdventureBottomHud({
       flexShrink: 0,
     }}>
       <AdventurePartyHud allMembers={allMembers} onOpenCharacter={onOpenCharacter} />
-      <AdventureQuestHud questLine={questLine} clues={clues} />
+      <AdventureQuestHud
+        questLine={questLine}
+        clues={clues}
+        npcUpdates={npcUpdates}
+        keyDecisions={keyDecisions}
+      />
 
       <div style={{ display: 'flex', gap: 4 }}>
         <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenJournal}>☰ 卷宗</button>

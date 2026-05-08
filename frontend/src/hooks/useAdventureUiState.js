@@ -57,11 +57,30 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
     return null
   }, [logs])
 
+  const npcUpdates = useMemo(() => {
+    const registry = session?.campaign_state?.npc_registry || {}
+    return Object.entries(registry)
+      .map(([name, data]) => ({
+        name,
+        relationship: data?.relationship || '未知',
+        keyFacts: Array.isArray(data?.key_facts) ? data.key_facts : [],
+      }))
+      .slice(-3)
+  }, [session])
+
+  const keyDecisions = useMemo(() => (
+    Array.isArray(session?.campaign_state?.key_decisions)
+      ? session.campaign_state.key_decisions.slice(-3)
+      : []
+  ), [session])
+
   return {
     canPrepareSpells,
     sceneVibe: session?.game_state?.scene_vibe || {},
     clues: (session?.campaign_state?.clues || []).slice(-4),
     questLine: session?.campaign_state?.quest_log?.find(q => q.status === 'active'),
+    npcUpdates,
+    keyDecisions,
     allMembers,
     latestDmLine,
   }

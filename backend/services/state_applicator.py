@@ -25,6 +25,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models.character import Character
 from models.session import Session, CombatState, GameLog
 from schemas.game_schemas import GameState, EnemyState
+from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
 
 logger = logging.getLogger(__name__)
 
@@ -146,36 +147,32 @@ class StateApplicator:
         if delta.get("scene_advance") and delta.get("new_scene_hint"):
             session.current_scene = delta["new_scene_hint"]
 
-        # ── 场景氛围（v0.10）──
-        scene_vibe = delta.get("scene_vibe")
-        if scene_vibe and isinstance(scene_vibe, dict):
+        # ── Living Campaign State（v0.11）──
+        campaign_delta = dict(data.get("campaign_delta") or {})
+        if delta.get("clues_add") and "clues_add" not in campaign_delta:
+            campaign_delta["clues_add"] = delta.get("clues_add")
+        if delta.get("scene_vibe") and "scene_vibe" not in campaign_delta:
+            campaign_delta["scene_vibe"] = delta.get("scene_vibe")
+
+        normalized_campaign_delta = normalize_campaign_delta(campaign_delta)
+        scene_vibe = normalized_campaign_delta.get("scene_vibe")
+        if scene_vibe:
             gs = dict(session.game_state or {})
-            gs["scene_vibe"] = {
-                "location": scene_vibe.get("location"),
-                "time_of_day": scene_vibe.get("time_of_day"),
-                "tension": scene_vibe.get("tension"),
-            }
+            gs["scene_vibe"] = scene_vibe
             session.game_state = gs
             flag_modified(session, "game_state")
 
-        # ── 线索追加（v0.10）──
-        clues_add = delta.get("clues_add", [])
-        if clues_add and isinstance(clues_add, list):
-            cs = dict(session.campaign_state or {})
-            clues = list(cs.get("clues", []))
-            from datetime import datetime
-            now_iso = datetime.utcnow().isoformat() + "Z"
-            for clue in clues_add:
-                if not isinstance(clue, dict) or not clue.get("text"):
-                    continue
-                clues.append({
-                    "text": str(clue["text"])[:80],
-                    "category": clue.get("category", "general"),
-                    "found_at": now_iso,
-                    "is_new": True,
-                })
-            cs["clues"] = clues
-            session.campaign_state = cs
+        if any(normalized_campaign_delta.get(key) for key in (
+            "quest_updates",
+            "npc_updates",
+            "key_decisions_add",
+            "world_flags_set",
+            "clues_add",
+        )):
+            session.campaign_state = apply_campaign_delta(
+                session.campaign_state or {},
+                normalized_campaign_delta,
+            )
             flag_modified(session, "campaign_state")
 
         # ── 写入会话历史 ──

@@ -127,6 +127,50 @@ def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types()
     assert data["ai_turns"] == []
 
 
+def test_normalize_dm_output_repairs_campaign_delta_contract():
+    raw = json.dumps({
+        "narrative": "铁匠终于说出暗门的位置。",
+        "campaign_delta": {
+            "quest_updates": {"quest": "寻找暗门", "status": "active"},
+            "npc_updates": [
+                {
+                    "name": "铁匠",
+                    "relationship": "友好",
+                    "key_facts": "知道暗门",
+                    "promises": ["明早带路"],
+                },
+                {"relationship": "缺少名字"},
+            ],
+            "key_decisions_add": "玩家选择信任铁匠",
+            "world_flags_set": ["bad"],
+            "clues_add": [
+                {"text": "暗门在井底", "category": "location"},
+                {"category": "missing text"},
+            ],
+            "scene_vibe": "tense",
+        },
+    }, ensure_ascii=False)
+
+    data, error, _messages = normalize_dm_output(raw, "追问铁匠")
+
+    assert error == ""
+    assert data["campaign_delta"] == {
+        "quest_updates": [],
+        "npc_updates": [
+            {
+                "name": "铁匠",
+                "relationship": "友好",
+                "key_facts": ["知道暗门"],
+                "promises": ["明早带路"],
+            },
+        ],
+        "key_decisions_add": [],
+        "world_flags_set": {},
+        "clues_add": [{"text": "暗门在井底", "category": "location"}],
+        "scene_vibe": None,
+    }
+
+
 def test_normalize_dm_output_falls_back_with_extracted_narrative():
     raw = '{"action_type": "exploration", "narrative": "门后的风突然停了。", "broken": '
 

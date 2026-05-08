@@ -68,6 +68,9 @@ def test_wrap_final_state_matches_langgraph_client_contract():
             },
             "dice_results": [{"label": "攻击骰", "total": 17}],
             "ai_turns": [{"actor": "goblin"}],
+            "campaign_delta": {
+                "quest_updates": [{"quest": "调查暗门", "status": "active", "outcome": ""}],
+            },
         },
         "error": "",
     }
@@ -83,4 +86,5 @@ def test_wrap_final_state_matches_langgraph_client_contract():
     assert wrapped["_conversation_id"] == "s1"
     assert wrapped["needs_check"] == {"required": True, "check_type": "attack"}
     assert result_payload["player_choices"] == ["继续追击"]
+    assert result_payload["campaign_delta"]["quest_updates"][0]["quest"] == "调查暗门"
     assert json.loads(wrapped["state_delta"])["enemies"][0]["hp_change"] == -5

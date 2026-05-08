@@ -206,6 +206,8 @@ export default function Adventure() {
     sceneVibe,
     clues,
     questLine,
+    npcUpdates,
+    keyDecisions,
     allMembers,
     latestDmLine,
   } = useAdventureDerivedState({ session, player, companions, logs })
@@ -309,6 +311,8 @@ export default function Adventure() {
           allMembers={allMembers}
           questLine={questLine}
           clues={clues}
+          npcUpdates={npcUpdates}
+          keyDecisions={keyDecisions}
           onOpenCharacter={(id) => navigate(`/character/${id}`)}
           onOpenJournal={() => setJournalOpen(true)}
         />

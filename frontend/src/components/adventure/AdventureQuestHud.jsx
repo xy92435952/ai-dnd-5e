@@ -1,4 +1,4 @@
-export default function AdventureQuestHud({ questLine, clues }) {
+export default function AdventureQuestHud({ questLine, clues, npcUpdates = [], keyDecisions = [] }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -14,7 +14,7 @@ export default function AdventureQuestHud({ questLine, clues }) {
       </span>
       <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>❖ 线索 {clues.length}</span>
-      <div style={{ display: 'flex', gap: 6, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 6, overflow: 'hidden', minWidth: 0 }}>
         {clues.map((c, i) => (
           <span key={i} style={{
             fontSize: 11,
@@ -30,6 +30,35 @@ export default function AdventureQuestHud({ questLine, clues }) {
           </span>
         ))}
       </div>
+      {(npcUpdates.length > 0 || keyDecisions.length > 0) && (
+        <>
+          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>记忆</span>
+          <div style={{ display: 'flex', gap: 6, overflow: 'hidden', minWidth: 0 }}>
+            {npcUpdates.map(npc => (
+              <span key={`npc-${npc.name}`} title={(npc.keyFacts || []).join('；')} style={{
+                fontSize: 11,
+                color: 'var(--parchment-light)',
+                whiteSpace: 'nowrap',
+              }}>
+                {npc.name}:{npc.relationship}
+              </span>
+            ))}
+            {keyDecisions.slice(-1).map(decision => (
+              <span key={`decision-${decision}`} title={decision} style={{
+                fontSize: 11,
+                color: 'var(--amber)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: 180,
+              }}>
+                · {decision}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

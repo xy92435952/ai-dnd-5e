@@ -41,6 +41,10 @@ describe('useAdventureDerivedState', () => {
             { quest: '旧任务', status: 'completed' },
             { quest: '当前任务', status: 'active' },
           ],
+          npc_registry: {
+            铁匠: { relationship: '友好', key_facts: ['愿意修装备'] },
+          },
+          key_decisions: ['救下铁匠', '信任铁匠'],
         },
       },
       player: { id: 'p1', name: '法师', char_class: 'Wizard' },
@@ -56,6 +60,10 @@ describe('useAdventureDerivedState', () => {
     expect(result.current.sceneVibe).toEqual({ tone: 'tense' })
     expect(result.current.clues).toEqual(['b', 'c', 'd', 'e'])
     expect(result.current.questLine.quest).toBe('当前任务')
+    expect(result.current.npcUpdates).toEqual([
+      { name: '铁匠', relationship: '友好', keyFacts: ['愿意修装备'] },
+    ])
+    expect(result.current.keyDecisions).toEqual(['救下铁匠', '信任铁匠'])
     expect(result.current.allMembers).toEqual([
       { id: 'p1', name: '法师', char_class: 'Wizard', isPlayer: true },
       { id: 'c1', name: '战士', isPlayer: false },
