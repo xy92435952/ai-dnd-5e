@@ -819,8 +819,12 @@
             </div>
           </div>
           <div class="list">
-            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/graphs/dm_agent.py</span>：LangGraph 节点、prompt、规则和记忆上下文。</span></div>
-            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/input_guard.py</span>：离题、作弊、注入、合法规则术语分类。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/graphs/dm_agent.py</span>：公开入口和 LangGraph 连线。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_nodes.py</span>、<span class="mono">dm_agent_state.py</span>：节点实现、路由函数和 state 类型。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_prompts.py</span>、<span class="mono">dm_agent_messages.py</span>：系统提示词与 LLM 用户消息组装。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_utils.py</span>、<span class="mono">dm_agent_runtime.py</span>：规则/记忆上下文、JSON 归一化、骰池和响应包装。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_memory.py</span>、<span class="mono">dm_campaign_state.py</span>：checkpoint 初始化与战役状态摘要。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/input_guard.py</span>、<span class="mono">input_guard_policy.py</span>：输入分类入口、离题、作弊、注入、合法规则术语分类。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/action_parser.py</span>：自然语言战斗动作解析。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/state_applicator.py</span>：DM 输出落库和会话状态更新。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/api/combat/*</span>、<span class="mono">combat_service.py</span>、<span class="mono">dnd_rules.py</span>：确定性战斗规则。</span></div>

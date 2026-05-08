@@ -94,8 +94,18 @@ backend/services/
 ├── graphs/
 │   ├── module_parser.py        模组解析 graph
 │   ├── party_generator.py      AI 队友生成 graph
-│   └── dm_agent.py             DM Agent 四层流程
-├── input_guard.py              输入分类和拦截
+│   ├── dm_agent.py             DM Agent 公开入口和 LangGraph 连线
+│   ├── dm_agent_nodes.py       input/rules/memory/combat/explore/parse 节点
+│   ├── dm_agent_state.py       LangGraph state 类型和消息窗口
+│   ├── dm_agent_prompts.py     探索/战斗/战役状态提示词
+│   ├── dm_agent_utils.py       输入元数据、规则/记忆上下文、输出归一化
+│   ├── dm_agent_runtime.py     骰池、初始状态、最终响应包装
+│   ├── dm_agent_messages.py    LLM 用户消息组装
+│   ├── dm_agent_memory.py      LangGraph checkpoint 初始化
+│   └── dm_campaign_state.py    战役状态摘要生成
+├── input_guard.py              输入分类和拦截入口
+├── input_guard_policy.py       本地高置信度拦截/放行规则
+├── input_guard_types.py        输入守卫类型定义
 ├── action_parser.py            自然语言战斗行动解析
 ├── combat_service.py           攻击/伤害/治疗/条件核心规则
 ├── dnd_rules.py                5e 属性、检定、先攻、骰子等规则
@@ -118,11 +128,14 @@ flowchart TD
   A["/game/action"] --> B["输入层 input_layer"]
   B --> C{"输入来源 / 安全分类"}
   C -->|blocked| X["拒绝回复，不进规则和叙事"]
-  C -->|in_game| D["规则层 rules_layer"]
-  D --> E{"探索 / 战斗 / 检定"}
-  E --> F["记忆层 memory_layer"]
-  F --> G["叙事层 explore_dm / combat_dm"]
-  G --> H["parse_validate"]
+  C -->|in_game| P["pre_roll_dice"]
+  P --> D["规则层 rules_layer"]
+  D --> F["记忆层 memory_layer"]
+  F --> E{"combat_active?"}
+  E -->|true| G1["叙事层 combat_dm"]
+  E -->|false| G2["叙事层 explore_dm"]
+  G1 --> H["parse_validate"]
+  G2 --> H["parse_validate"]
   H --> I["StateApplicator 写库"]
   I --> J["PlayerActionResponse"]
 ```

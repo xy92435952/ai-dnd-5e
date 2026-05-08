@@ -24,6 +24,21 @@ async def test_legal_advantage_and_inspiration_terms_are_in_game(action):
 @pytest.mark.parametrize(
     "action",
     [
+        "我使用激励骰，这不是让我自动成功，只是加到这次说服检定上。",
+        "我借助帮助动作获得优势，但不是自动命中，只是正常掷攻击检定。",
+    ],
+)
+async def test_legal_rule_terms_with_negated_cheating_words_are_in_game(action):
+    result = await classify_player_input(action)
+
+    assert result["verdict"] == "in_game"
+    assert result["refusal"] == ""
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "action",
+    [
         "今天上海天气怎么样？",
         "帮我写一个 Python 爬虫。",
     ],

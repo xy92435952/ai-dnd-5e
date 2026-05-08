@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest'
 import {
   splitDmNarrative,
   splitCompanionReactions,
+  buildDialogueQueue,
   extractNarrative,
 } from '../dialogue'
 
@@ -121,5 +122,26 @@ describe('extractNarrative', () => {
   it('空 / null 返回空字符串', () => {
     expect(extractNarrative('')).toBe('')
     expect(extractNarrative(null)).toBe('')
+  })
+})
+
+
+describe('buildDialogueQueue', () => {
+  it('combines DM narrative and companion reactions in display order', () => {
+    const queue = buildDialogueQueue(
+      '[村长]: 夜路不好走。\n他把灯递给你。',
+      '[艾莉]: 我来断后。',
+      [{ name: '艾莉' }]
+    )
+
+    expect(queue).toEqual([
+      { speaker: '村长', role: 'npc', text: '[村长]: 夜路不好走。', color: undefined },
+      { speaker: 'DM', role: 'dm', text: '他把灯递给你。', color: undefined },
+      { speaker: '艾莉', role: 'companion', text: '我来断后。', color: undefined },
+    ])
+  })
+
+  it('returns an empty queue when all inputs are empty', () => {
+    expect(buildDialogueQueue('', '', [])).toEqual([])
   })
 })

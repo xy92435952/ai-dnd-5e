@@ -107,13 +107,18 @@ backend/.venv-codex/bin/pytest \
 
 ### P1：DM 可维护性
 
-- [ ] 将 DM prompt 拆为独立模板文件。
-- [ ] 将规则拦截 policy 和本地关键词规则提取为配置。
-- [ ] 给 DM Agent 四层增加更细的单元测试：输入源、规则拦截、叙事 JSON 解析、记忆上下文。
-- [ ] 为 RAG 检索结果加入更明确的“只可参考，不可覆盖规则”约束。
+- [x] 将 DM prompt 拆为独立模板文件：`dm_agent_prompts.py`。
+- [x] 将 DM Agent 节点、state、LLM 用户消息、骰池/响应包装、checkpoint、Campaign State 拆出主图文件。
+- [x] 将规则拦截 policy 和本地关键词规则提取为独立模块，并按 PatternGroup 结构化。
+- [x] 给 DM Agent 四层增加更细的单元测试：输入源、规则拦截、LLM 消息组装、运行时响应包装。
+- [x] 继续补 DM Agent parse fallback 和输出归一化的边界测试。
+- [x] 继续补 DM Agent 记忆上下文和 Campaign State 合并边界测试。
+- [x] 为 RAG 检索结果加入更明确的“只可参考，不可覆盖规则”约束。
 
 ### P2：战斗体验
 
+- [x] Adventure 页面继续拆出多人房间 hook、UI state hook、session 恢复工具与对话队列纯函数。
+- [x] Combat 页面继续拆出页面常量、可选副作用工具、页面状态 hook、导航动作 hook 和 runtime 接线 hook。
 - [ ] 自然语言战斗支持更多动作：撤离、冲刺、帮助、躲避、掩体、指定坐标。
 - [ ] 移动后不可达时前端提示“已靠近，下一回合可继续攻击”。
 - [ ] 战斗日志中区分机械结果和 DM 叙事，便于玩家理解。

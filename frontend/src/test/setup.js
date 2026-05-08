@@ -33,8 +33,6 @@ function createMemoryStorage() {
 }
 
 function ensureStorage(name) {
-  const current = globalThis[name]
-  if (current && typeof current.setItem === 'function') return
   const storage = createMemoryStorage()
   Object.defineProperty(globalThis, name, {
     configurable: true,

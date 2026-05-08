@@ -140,8 +140,11 @@ game/
 │   │       ├── __init__.py
 │   │       ├── module_parser.py ← WF1 图：4节点线性链（LLM提取→验证→LLM chunks→验证）
 │   │       ├── party_generator.py ← WF2 图：3节点线性链（角色分析→LLM生成→衍生属性）
-│   │       └── dm_agent.py      ← WF3 图：条件分支（骰子预掷→战斗/探索LLM→解析验证）
-│   │                               + SqliteSaver 对话记忆 + Campaign State 生成
+│   │       ├── dm_agent.py      ← WF3 公开入口和 LangGraph 连线
+│   │       ├── dm_agent_nodes.py / dm_agent_state.py ← 节点实现、路由函数和 state 类型
+│   │       ├── dm_agent_prompts.py / dm_agent_messages.py ← 提示词与 LLM 输入组装
+│   │       ├── dm_agent_utils.py / dm_agent_runtime.py    ← 上下文、输出归一化、骰池、响应包装
+│   │       └── dm_agent_memory.py / dm_campaign_state.py  ← checkpoint 与 Campaign State 生成
 │   │
 │   ├── data/
 │   │   └── spells_srd.json      ← SRD 法术数据（99+ 法术，0-7 环，支持 // 注释）
@@ -419,17 +422,21 @@ START → analyze_roles(Python) → generate_companions(LLM,t=0.85) → calc_der
 ### Graph 3 — DM Agent (`services/graphs/dm_agent.py`)
 
 ```
-START → pre_roll_dice(Python) → [combat_active?]
-                                  ├─ True  → combat_dm(LLM,t=0.72) → parse_validate(Python) → END
-                                  └─ False → explore_dm(LLM,t=0.82) → parse_validate(Python) → END
+START → input_layer(Python) → pre_roll_dice(Python) → rules_layer(Python) → memory_layer(Python)
+                                                                    → [combat_active?]
+                                                                      ├─ True  → combat_dm(LLM,t=0.72) → parse_validate(Python) → END
+                                                                      └─ False → explore_dm(LLM,t=0.82) → parse_validate(Python) → END
 ```
 
+- **input_layer**：按 `action_source` 区分玩家自由输入、AI 选项和系统动作，只拦截离题、作弊越权和 prompt 注入。
 - **pre_roll_dice**：预掷骰子池（d20[16], d4-d12, adv/dis, d100, hit_dice）
+- **rules_layer**：生成规则裁定上下文，明确优势骰、激励骰、帮助动作等合法术语不应被误拦截
+- **memory_layer**：拼接 Campaign State 与 RAG 检索片段，供叙事层使用
 - **combat_dm**：完整 5e 战斗规则裁定（命中/暴击/条件/专注/濒死/AI行动原则）
 - **explore_dm**：叙事推进 + 技能检定声明 + 战斗触发判定 + 队友反应
 - **parse_validate**：JSON 解析 + 降级 fallback + 追加到 messages 列表
-- **SqliteSaver**：`AsyncSqliteSaver`，`thread_id = session.id`，messages 窗口 20 条
-- **Campaign State**：简单 LLM 调用（不用 Graph），`_merge_campaign_states()` 增量合并
+- **checkpoint**：`dm_agent_memory.py` 选择 PostgreSQL 或 SQLite，`thread_id = session.id`，messages 窗口 20 条
+- **Campaign State**：`dm_campaign_state.py` 简单 LLM 调用（不用 Graph），`_merge_campaign_states()` 增量合并
 
 ### RAG 层 — ChromaDB
 

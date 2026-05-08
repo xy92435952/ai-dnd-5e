@@ -101,8 +101,18 @@ ai-dnd-5e/
 │   │   ├── characters.py               角色创建、队友生成、准备法术
 │   │   └── auth.py / ws.py / deps.py
 │   ├── services/
-│   │   ├── graphs/dm_agent.py          DM Agent 四层流程
-│   │   ├── input_guard.py              输入来源和拦截
+│   │   ├── graphs/dm_agent.py          DM Agent 公开入口和 LangGraph 连线
+│   │   ├── graphs/dm_agent_nodes.py    input/rules/memory/combat/explore/parse 节点
+│   │   ├── graphs/dm_agent_state.py    LangGraph state 类型和消息窗口
+│   │   ├── graphs/dm_agent_prompts.py  探索/战斗/战役状态提示词
+│   │   ├── graphs/dm_agent_utils.py    输入元数据、规则/记忆上下文、输出归一化
+│   │   ├── graphs/dm_agent_runtime.py  骰池、初始状态、最终响应包装
+│   │   ├── graphs/dm_agent_messages.py LLM 用户消息组装
+│   │   ├── graphs/dm_agent_memory.py   LangGraph checkpoint 初始化
+│   │   ├── graphs/dm_campaign_state.py 战役状态摘要生成
+│   │   ├── input_guard.py              输入来源和拦截入口
+│   │   ├── input_guard_policy.py       本地高置信度拦截/放行规则
+│   │   ├── input_guard_types.py        输入守卫类型定义
 │   │   ├── action_parser.py            自然语言战斗行动解析
 │   │   ├── combat_service.py           攻击、伤害、条件等规则计算
 │   │   ├── dnd_rules.py                5e 规则纯函数
@@ -118,7 +128,13 @@ ai-dnd-5e/
 │       ├── components/adventure/       Adventure 页面组件
 │       ├── components/combat/          Combat 页面组件
 │       ├── hooks/                      Adventure / Combat / WebSocket / User hooks
+│       │   ├── useAdventureRoom.js     Adventure 多人房间查询
+│       │   ├── useAdventureUiState.js  Adventure 页面 UI 状态和派生数据
+│       │   ├── useCombatRuntime.js     Combat 页面流程接线
+│       │   └── useCombatPageState.js   Combat 页面状态容器
 │       ├── utils/                      combat、skillCheck、dialogue 等纯工具
+│       │   ├── adventureSessionLoaded.js  Adventure session 恢复/开场剧场逻辑
+│       │   └── combatPage.js              Combat 页面常量和可选副作用工具
 │       ├── api/client.js               axios API 客户端
 │       └── store/gameStore.js          Zustand 全局状态
 ├── docs/

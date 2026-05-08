@@ -9,6 +9,38 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // DiceBox is imported on demand when a roll starts. Its published bundle
+    // embeds the physics worker, so keep app/vendor chunks split and allow the
+    // known async dice chunk without hiding real initial bundle regressions.
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+            return 'vendor-react'
+          }
+          if (id.includes('/react-router') || id.includes('/@tanstack/') || id.includes('/zustand/')) {
+            return 'vendor-app'
+          }
+          if (id.includes('/@babylonjs/core/')) {
+            return 'vendor-babylon-core'
+          }
+          if (id.includes('/@babylonjs/loaders/') || id.includes('/@babylonjs/materials/')) {
+            return 'vendor-babylon-extras'
+          }
+          if (id.includes('/three/') || id.includes('/cannon-es/')) {
+            return 'vendor-physics'
+          }
+          if (id.includes('/@3d-dice/')) {
+            return 'vendor-dice'
+          }
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     proxy: {

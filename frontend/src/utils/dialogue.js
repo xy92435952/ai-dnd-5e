@@ -114,6 +114,34 @@ export function splitCompanionReactions(content, companionList = []) {
 }
 
 /**
+ * Build the theatre queue used by Adventure dialogue stage.
+ *
+ * @param {string} narrative
+ * @param {string} companionReactions
+ * @param {Array<{name?: string}>} companionList
+ * @returns {Array<{speaker: string, role: string, text: string, color?: string}>}
+ */
+export function buildDialogueQueue(narrative, companionReactions, companionList = []) {
+  const queue = []
+  if (narrative) {
+    splitDmNarrative(narrative).forEach(seg => {
+      queue.push({
+        speaker: seg.speaker || 'DM',
+        role: seg.role || 'dm',
+        text: seg.text,
+        color: seg.color,
+      })
+    })
+  }
+  if (companionReactions) {
+    splitCompanionReactions(companionReactions, companionList || []).forEach(seg => {
+      queue.push({ speaker: seg.speaker, role: 'companion', text: seg.text, color: seg.color })
+    })
+  }
+  return queue
+}
+
+/**
  * 从 GameLog.content 中抽出真正的叙事文本。
  * 历史版本里偶尔会有整块 JSON / Markdown 代码块塞进来，这里做兼容兜底。
  *
