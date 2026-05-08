@@ -91,10 +91,10 @@ backend/.venv-codex/bin/pytest \
 
 最近一次验证：
 
-- 前端 Vitest：27 files / 120 tests passed。
+- `scripts/check.sh`：通过。
+- 后端 pytest：315 passed。
+- 前端 Vitest：32 files / 141 tests passed。
 - 前端 Vite build：成功。
-- 后端 targeted pytest：23 passed。
-- 真实探索 + 战斗 smoke：`EXPLORE_COMBAT_SMOKE_OK`。
 
 ## 下一阶段优先级
 
@@ -109,11 +109,23 @@ backend/.venv-codex/bin/pytest \
 
 - [x] 将 DM prompt 拆为独立模板文件：`dm_agent_prompts.py`。
 - [x] 将 DM Agent 节点、state、LLM 用户消息、骰池/响应包装、checkpoint、Campaign State 拆出主图文件。
+- [x] 将 DM Agent 输入元数据、规则上下文、记忆上下文、输出归一化从 `dm_agent_utils.py` 继续拆分。
 - [x] 将规则拦截 policy 和本地关键词规则提取为独立模块，并按 PatternGroup 结构化。
 - [x] 给 DM Agent 四层增加更细的单元测试：输入源、规则拦截、LLM 消息组装、运行时响应包装。
 - [x] 继续补 DM Agent parse fallback 和输出归一化的边界测试。
 - [x] 继续补 DM Agent 记忆上下文和 Campaign State 合并边界测试。
 - [x] 为 RAG 检索结果加入更明确的“只可参考，不可覆盖规则”约束。
+- [x] 新增 Living Campaign State：`campaign_delta` 归一化、任务/NPC/线索/关键决定/世界 flag 合并，并在 Adventure HUD 显示最近记忆摘要。
+- [x] 新增 `scripts/check.sh` 一键门禁，统一运行后端测试、前端测试和前端构建。
+
+### P1.5：DM 体验升级
+
+- [x] `campaign_delta` 输出契约接入探索 prompt。
+- [x] `StateApplicator` 将 `campaign_delta` 写入 `session.campaign_state` 和 `session.game_state.scene_vibe`。
+- [x] Adventure HUD 显示最近任务、线索、NPC 关系和关键决定。
+- [ ] 卷宗 / Journal 面板升级：按任务、线索、NPC、关键决定分栏浏览。
+- [ ] 为 NPC 关系变化增加更明确的前端提示或日志条目。
+- [ ] 给真实 LLM 冒险测试增加 campaign memory 断言。
 
 ### P2：战斗体验
 

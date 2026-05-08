@@ -129,7 +129,8 @@ game/
 │   │   ├── dify_client.py       ← DifyClient（已废弃，保留兼容，不再被引用）
 │   │   ├── module_parser.py     ← 本地文件解析（PDF/DOCX/MD/TXT → 纯文本）
 │   │   ├── context_builder.py   ← ContextBuilder：序列化为 DM Agent 输入（含 RAG）
-│   │   ├── state_applicator.py  ← StateApplicator：解析 state_delta，应用到数据库
+│   │   ├── campaign_delta.py    ← Living Campaign State：归一化并合并任务/NPC/线索/关键决定
+│   │   ├── state_applicator.py  ← StateApplicator：解析 state_delta/campaign_delta，应用到数据库
 │   │   ├── rag_service.py       ← RAG 服务接口：BaseRagService + get_rag_service()
 │   │   │                           工厂（自动选择 LocalRagService 或存根）
 │   │   ├── local_rag_service.py ← LocalRagService（ChromaDB 检索）★ Phase 11 新增
@@ -143,7 +144,10 @@ game/
 │   │       ├── dm_agent.py      ← WF3 公开入口和 LangGraph 连线
 │   │       ├── dm_agent_nodes.py / dm_agent_state.py ← 节点实现、路由函数和 state 类型
 │   │       ├── dm_agent_prompts.py / dm_agent_messages.py ← 提示词与 LLM 输入组装
-│   │       ├── dm_agent_utils.py / dm_agent_runtime.py    ← 上下文、输出归一化、骰池、响应包装
+│   │       ├── dm_agent_input_meta.py / dm_agent_rules_context.py / dm_agent_memory_context.py
+│   │       │                         ← 输入元数据、规则上下文、记忆上下文
+│   │       ├── dm_agent_output_normalizer.py / dm_agent_runtime.py
+│   │       │                         ← 输出归一化、骰池、响应包装
 │   │       └── dm_agent_memory.py / dm_campaign_state.py  ← checkpoint 与 Campaign State 生成
 │   │
 │   ├── data/
@@ -381,7 +385,7 @@ created_at
 >
 > - 本地引擎：所有骰子、HP、命中判断、规则计算（`dnd_rules.py` / `combat_service.py`）
 > - LangGraph AI：叙事、生成、角色决策、内容创作（3 个 StateGraph）
-> - StateApplicator：将 AI 输出的 `state_delta` 安全地应用到本地数据库
+> - StateApplicator：将 AI 输出的 `state_delta` 和 `campaign_delta` 安全地应用到本地数据库
 
 ### 统一接口 — LangGraphClient (`services/langgraph_client.py`)
 
@@ -431,12 +435,13 @@ START → input_layer(Python) → pre_roll_dice(Python) → rules_layer(Python) 
 - **input_layer**：按 `action_source` 区分玩家自由输入、AI 选项和系统动作，只拦截离题、作弊越权和 prompt 注入。
 - **pre_roll_dice**：预掷骰子池（d20[16], d4-d12, adv/dis, d100, hit_dice）
 - **rules_layer**：生成规则裁定上下文，明确优势骰、激励骰、帮助动作等合法术语不应被误拦截
-- **memory_layer**：拼接 Campaign State 与 RAG 检索片段，供叙事层使用
+- **memory_layer**：拼接 Campaign State、近期历史与 RAG 检索片段，供叙事层使用
 - **combat_dm**：完整 5e 战斗规则裁定（命中/暴击/条件/专注/濒死/AI行动原则）
 - **explore_dm**：叙事推进 + 技能检定声明 + 战斗触发判定 + 队友反应
-- **parse_validate**：JSON 解析 + 降级 fallback + 追加到 messages 列表
+- **parse_validate**：JSON 解析 + 降级 fallback + 补齐 `state_delta` / `campaign_delta` / `combat_update` + 追加到 messages 列表
 - **checkpoint**：`dm_agent_memory.py` 选择 PostgreSQL 或 SQLite，`thread_id = session.id`，messages 窗口 20 条
 - **Campaign State**：`dm_campaign_state.py` 简单 LLM 调用（不用 Graph），`_merge_campaign_states()` 增量合并
+- **Living Campaign State**：探索 DM 输出 `campaign_delta`，由 `campaign_delta.py` 归一化并经 `StateApplicator` 合并任务、NPC 关系、关键决定、世界 flag、线索和场景氛围
 
 ### RAG 层 — ChromaDB
 
@@ -605,13 +610,15 @@ ApplyResult:
   combat_triggered: bool
   combat_ended: bool
   state_delta: dict       # 原始 state_delta（前端可用）
+  campaign_delta: dict    # 结构化战役记忆增量（前端 HUD 可用）
 
 StateApplicator(session, characters, combat_state=None):
   apply(dm_output: dict) -> ApplyResult
-    # 解析 state_delta，应用到 DB：
+    # 解析 state_delta / campaign_delta，应用到 DB：
     # - 角色 HP / 条件 / 法术位 / 濒死豁免变更
     # - 敌人状态变更
     # - 写入 GameLog
+    # - 合并任务、NPC关系、关键决定、世界flag、线索和 scene_vibe
     # - 信号战斗触发/结束事件
 ```
 
@@ -849,7 +856,7 @@ endTurn(sessionId)
 
 **ContextBuilder + StateApplicator 架构**
 - `services/context_builder.py`：将 Session/Character/Combat ORM 对象序列化为 Chatflow 输入（含 RAG 接口）
-- `services/state_applicator.py`：解析 `state_delta` JSON，将所有状态变更安全写入数据库
+- `services/state_applicator.py`：解析 `state_delta` 和 `campaign_delta` JSON，将角色、战斗和 Living Campaign State 变更安全写入数据库
 - `/game/action` 端点重构：旧版手动状态更新替换为 ContextBuilder→Chatflow→StateApplicator 管线
 - `ApplyResult` dataclass：统一行动结果数据结构
 
@@ -1117,7 +1124,7 @@ endTurn(sessionId)
 
 **理由**：
 - 旧版 `game.py` 在 action 端点内直接构造 prompt 并手动更新状态，耦合度高
-- 新架构：ContextBuilder 负责所有状态序列化，StateApplicator 负责所有状态写入，两者可独立测试
+- 新架构：ContextBuilder 负责所有状态序列化，StateApplicator 负责所有状态写入，Living Campaign State 由 `campaign_delta.py` 单独归一化并合并，三者可独立测试
 - Chatflow 原生记忆大幅简化了 ContextBuilder 的工作（不再需要手动维护 session_history 滚动窗口）
 
 ### ADR-007: RAG 服务插件化

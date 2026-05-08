@@ -2,14 +2,15 @@
 
 基于 DnD 5e 规则的 AI 跑团平台。玩家上传模组、创建角色，AI 担任地下城主和队友；支持单人冒险、多人房间、网格战斗、自然语言战斗行动和本地规则结算。
 
-> 当前文档快照：2026-05-07
-> 当前重点：DM Agent 四层化（输入 / 规则 / 叙事 / 记忆）、Adventure / Combat 前后端拆分、自然语言战斗体验修复。
+> 当前文档快照：2026-05-08
+> 当前重点：DM Agent 四层化（输入 / 规则 / 叙事 / 记忆）、Living Campaign State、Adventure / Combat 前后端拆分、自然语言战斗体验修复。
 
 ## 当前能力
 
 - **规则在后端本地结算**：骰子、技能检定、攻击、伤害、移动、法术、回合资源由 Python 规则层执行，AI 不直接决定数学结果。
 - **AI DM 编排**：LangGraph 驱动模组解析、队友生成、DM 代理；DM Agent 已按输入、规则、叙事、记忆拆层。
 - **输入安全层**：区分 `human_input`、`ai_generated_choice`、`system_action`、`ai_takeover`，拦截明显越界、注入、作弊和与游戏无关内容；AI 生成选项由后端校验来源后放行。
+- **Living Campaign State**：DM 每轮可输出 `campaign_delta`，后端会归一化并合并任务、NPC 关系、关键决定、世界 flag、线索和场景氛围，Adventure HUD 会显示最近记忆摘要。
 - **自然语言战斗**：玩家可以输入“我靠近最近的骷髅并用长剑攻击”。解析器会先用本地规则处理常见意图，再回退 LLM；近战目标不可达时只移动，不伪造攻击。
 - **多人联机**：房间、成员、发言权、WebSocket 广播、战斗回合归属校验。
 - **前端拆分**：Adventure / Combat 已拆成页面、hooks、adventure components、combat components、utils 和测试。
@@ -101,11 +102,16 @@ ai-dnd-5e/
 │   │   ├── characters.py               角色创建、队友生成、准备法术
 │   │   └── auth.py / ws.py / deps.py
 │   ├── services/
+│   │   ├── campaign_delta.py           Living Campaign State 归一化与合并
 │   │   ├── graphs/dm_agent.py          DM Agent 公开入口和 LangGraph 连线
 │   │   ├── graphs/dm_agent_nodes.py    input/rules/memory/combat/explore/parse 节点
 │   │   ├── graphs/dm_agent_state.py    LangGraph state 类型和消息窗口
 │   │   ├── graphs/dm_agent_prompts.py  探索/战斗/战役状态提示词
-│   │   ├── graphs/dm_agent_utils.py    输入元数据、规则/记忆上下文、输出归一化
+│   │   ├── graphs/dm_agent_utils.py    兼容出口：输入/规则/记忆/输出 helper
+│   │   ├── graphs/dm_agent_input_meta.py        输入元数据
+│   │   ├── graphs/dm_agent_rules_context.py     规则层上下文
+│   │   ├── graphs/dm_agent_memory_context.py    记忆层上下文
+│   │   ├── graphs/dm_agent_output_normalizer.py DM 输出归一化与 schema repair
 │   │   ├── graphs/dm_agent_runtime.py  骰池、初始状态、最终响应包装
 │   │   ├── graphs/dm_agent_messages.py LLM 用户消息组装
 │   │   ├── graphs/dm_agent_memory.py   LangGraph checkpoint 初始化
@@ -149,7 +155,19 @@ ai-dnd-5e/
 
 ## 测试与发布前检查
 
-后端：
+推荐一键检查：
+
+```bash
+scripts/check.sh
+```
+
+该脚本会依次运行：
+
+- 后端 pytest
+- 前端 Vitest
+- 前端生产构建
+
+后端单独运行：
 
 ```bash
 cd backend
@@ -177,7 +195,8 @@ npm run build
 当前已知情况：
 
 - `npm test` 应通过全部 Vitest 测试。
-- `npm run build` 应成功，可能出现 chunk 体积和 CSS `@import` 顺序 warning，不阻塞部署。
+- `npm run build` 应成功；3D 骰子库是按需加载的大异步 chunk，已在 Vite 配置中单独说明。
+- 当前本地门禁快照：后端 `315 passed`，前端 `32 files / 141 tests passed`，Vite build 通过。
 - `npm run lint` 仍会扫到 `public/design-preview-*` 和部分历史 React Compiler 风格规则噪声；发布以测试和构建为准。
 
 ## 重要约定

@@ -580,7 +580,7 @@
           <div class="node">
             <div class="node-code">memory_layer</div>
             <div class="node-title">记忆上下文</div>
-            <div class="node-desc">合并战役状态、近期历史、RAG 片段和关键事件，供 DM 使用。</div>
+            <div class="node-desc">合并战役状态、近期历史、RAG 片段和关键事件，供 DM 输出 campaign_delta。</div>
           </div>
           <div class="node">
             <div class="node-code">explore_dm / combat_dm</div>
@@ -590,12 +590,12 @@
           <div class="node">
             <div class="node-code">parse_validate</div>
             <div class="node-title">JSON 校验</div>
-            <div class="node-desc">修复和补齐 LLM 输出字段，保证下游响应结构稳定。</div>
+            <div class="node-desc">修复和补齐 LLM 输出字段，包含 state_delta、campaign_delta 和 combat_update。</div>
           </div>
           <div class="node">
             <div class="node-code">StateApplicator</div>
             <div class="node-title">状态写库</div>
-            <div class="node-desc">应用 state_delta、combat_update、日志和会话历史，返回 PlayerActionResponse。</div>
+            <div class="node-desc">应用 state_delta、campaign_delta、combat_update、日志和会话历史，返回 PlayerActionResponse。</div>
           </div>
         </div>
         <div class="branch">
@@ -760,8 +760,8 @@
         </article>
         <article class="card blue">
           <div class="card-title">长期战役状态</div>
-          <p>从 campaign_state 和 GameLog 获得关键事件、队伍状态、地点变化和已经发生过的剧情事实。</p>
-          <div class="tag-row"><span class="tag">campaign_state</span><span class="tag">GameLog</span></div>
+          <p>从 campaign_state 和 GameLog 获得任务进展、NPC 关系、关键决定、世界 flag、线索和场景氛围。</p>
+          <div class="tag-row"><span class="tag">campaign_state</span><span class="tag">campaign_delta</span><span class="tag">GameLog</span></div>
         </article>
         <article class="card green">
           <div class="card-title">模组检索</div>
@@ -806,6 +806,14 @@
     "combat_trigger": false,
     "gold_changes": []
   },
+  "campaign_delta": {
+    "quest_updates": [],
+    "npc_updates": [],
+    "key_decisions_add": [],
+    "world_flags_set": {},
+    "clues_add": [],
+    "scene_vibe": null
+  },
   "combat_update": {}
 }</pre>
           </div>
@@ -822,11 +830,12 @@
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/graphs/dm_agent.py</span>：公开入口和 LangGraph 连线。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_nodes.py</span>、<span class="mono">dm_agent_state.py</span>：节点实现、路由函数和 state 类型。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_prompts.py</span>、<span class="mono">dm_agent_messages.py</span>：系统提示词与 LLM 用户消息组装。</span></div>
-            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_utils.py</span>、<span class="mono">dm_agent_runtime.py</span>：规则/记忆上下文、JSON 归一化、骰池和响应包装。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_input_meta.py</span>、<span class="mono">dm_agent_rules_context.py</span>、<span class="mono">dm_agent_memory_context.py</span>、<span class="mono">dm_agent_output_normalizer.py</span>：输入元数据、规则上下文、记忆上下文和输出归一化。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_runtime.py</span>：骰池准备、LLM 调用、parse fallback 和响应包装。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">dm_agent_memory.py</span>、<span class="mono">dm_campaign_state.py</span>：checkpoint 初始化与战役状态摘要。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/input_guard.py</span>、<span class="mono">input_guard_policy.py</span>：输入分类入口、离题、作弊、注入、合法规则术语分类。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/action_parser.py</span>：自然语言战斗动作解析。</span></div>
-            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/state_applicator.py</span>：DM 输出落库和会话状态更新。</span></div>
+            <div class="list-item"><span class="dot"></span><span><span class="mono">backend/services/campaign_delta.py</span>、<span class="mono">backend/services/state_applicator.py</span>：Living Campaign State 归一化、合并和 DM 输出落库。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">backend/api/combat/*</span>、<span class="mono">combat_service.py</span>、<span class="mono">dnd_rules.py</span>：确定性战斗规则。</span></div>
             <div class="list-item"><span class="dot"></span><span><span class="mono">frontend/src/pages/Adventure.jsx</span> 与 <span class="mono">frontend/src/components/combat/</span>：前端展示和交互入口。</span></div>
           </div>
@@ -835,7 +844,7 @@
     </section>
 
     <footer class="footer">
-      <div>更新日期：2026-05-07 · 当前版本：v0.11-dev · 文档类型：DM Agent 可视化架构</div>
+      <div>更新日期：2026-05-08 · 当前版本：v0.11-dev · 文档类型：DM Agent 可视化架构</div>
       <div>
         <a href="./Technical_Architecture.md">Technical_Architecture.md</a>
         &nbsp;/&nbsp;

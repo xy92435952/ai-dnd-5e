@@ -91,6 +91,7 @@ schemas.py                  combat 请求/响应模型
 
 ```text
 backend/services/
+├── campaign_delta.py           Living Campaign State 归一化与合并
 ├── graphs/
 │   ├── module_parser.py        模组解析 graph
 │   ├── party_generator.py      AI 队友生成 graph
@@ -98,7 +99,11 @@ backend/services/
 │   ├── dm_agent_nodes.py       input/rules/memory/combat/explore/parse 节点
 │   ├── dm_agent_state.py       LangGraph state 类型和消息窗口
 │   ├── dm_agent_prompts.py     探索/战斗/战役状态提示词
-│   ├── dm_agent_utils.py       输入元数据、规则/记忆上下文、输出归一化
+│   ├── dm_agent_utils.py       兼容出口：输入/规则/记忆/输出 helper
+│   ├── dm_agent_input_meta.py  输入元数据
+│   ├── dm_agent_rules_context.py     规则层上下文
+│   ├── dm_agent_memory_context.py    记忆层上下文
+│   ├── dm_agent_output_normalizer.py DM 输出归一化与 schema repair
 │   ├── dm_agent_runtime.py     骰池、初始状态、最终响应包装
 │   ├── dm_agent_messages.py    LLM 用户消息组装
 │   ├── dm_agent_memory.py      LangGraph checkpoint 初始化
@@ -172,6 +177,21 @@ AI 生成选项不是客户端说了算。后端会检查 `session.game_state.la
 - `session.campaign_state`
 - LangGraph checkpoint
 - RAG 检索出的模组片段
+
+### Living Campaign State
+
+探索 DM 可以在标准响应中输出 `campaign_delta`，用于表达本轮产生的结构化战役变化：
+
+- `quest_updates`：任务状态变化，按任务名去重更新 `campaign_state.quest_log`。
+- `npc_updates`：NPC 关系、关键事实、承诺，按 NPC 名合并进 `campaign_state.npc_registry`。
+- `key_decisions_add`：影响后续剧情的关键决定，去重追加到 `campaign_state.key_decisions`。
+- `world_flags_set`：世界状态 flag，合并到 `campaign_state.world_flags`。
+- `clues_add`：玩家实际发现的新线索，去重追加到 `campaign_state.clues`，并补 `found_at` / `is_new`。
+- `scene_vibe`：当前地点、时间和紧张度，写入 `session.game_state.scene_vibe`。
+
+`services.campaign_delta.normalize_campaign_delta` 会先修复坏类型和缺字段，`StateApplicator` 再调用 `apply_campaign_delta` 合并入 session。旧版 `state_delta.clues_add` 和 `state_delta.scene_vibe` 仍被兼容读取。
+
+前端 Adventure 底部 HUD 会读取最近任务、线索、NPC 关系和关键决定，让玩家能感到 DM 正在记住故事。
 
 ## 5. 自然语言战斗流程
 
