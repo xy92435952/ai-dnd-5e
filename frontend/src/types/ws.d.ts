@@ -21,6 +21,7 @@ export interface Member {
   character_id?: string | null
   character_name?: string | null
   is_online?: boolean
+  seconds_since_seen?: number | null
 }
 
 // ─── 房间管理 ───────────────────────────────────────────
@@ -108,12 +109,32 @@ export interface DMResponded {
   dice_display: unknown[]
   combat_triggered: boolean
   combat_ended: boolean
+  table_reason?: string
+  table_decision?: {
+    decision?: string
+    reason_code?: string
+    target_group_id?: string | null
+    waiting_group_id?: string | null
+    actor_group_id?: string | null
+    focus_group_id?: string | null
+    knowledge_scope?: string
+  }
+  visibility?: {
+    scope?: 'party' | 'group' | 'private' | string
+    group_id?: string | null
+    visible_to_user_ids?: string[]
+  }
 }
 
 export interface DMSpeakTurn {
   type: 'dm_speak_turn'
   user_id: string
   auto: boolean
+}
+
+export interface RoomStateUpdated {
+  type: 'room_state_updated'
+  room: unknown
 }
 
 // ─── 战斗 ────────────────────────────────────────────────
@@ -157,6 +178,7 @@ export type WSEvent =
   | DMThinkingStart
   | DMResponded
   | DMSpeakTurn
+  | RoomStateUpdated
   | CombatUpdate
   | TurnChanged
   | EntityMoved

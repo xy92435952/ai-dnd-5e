@@ -356,6 +356,9 @@ class StateApplicator:
         full_data: dict,
     ) -> None:
         logs_to_add = []
+        visibility = full_data.get("visibility") if isinstance(full_data.get("visibility"), dict) else None
+        table_reason = full_data.get("table_reason") if isinstance(full_data.get("table_reason"), str) else None
+        table_decision = full_data.get("table_decision") if isinstance(full_data.get("table_decision"), dict) else None
 
         # DM 叙述
         if ar.narrative:
@@ -365,6 +368,9 @@ class StateApplicator:
                 content=ar.narrative,
                 log_type="narrative" if "combat" not in ar.action_type else "combat",
                 dice_result=ar.dice_display or None,
+                visibility=visibility,
+                table_reason=table_reason,
+                table_decision=table_decision,
             ))
 
         # 队友反应

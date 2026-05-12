@@ -988,6 +988,111 @@ async def sell_item(
     }
 
 
+# ── Transfer Item (party inventory) ───────────────────────
+
+class TransferItemRequest(BaseModel):
+    target_character_id: str
+    item_name: str
+    item_category: str       # "weapon" | "armor" | "shield" | "gear"
+    item_index: int = 0      # index among same-name matches
+
+
+def _find_named_item(items: list, item_name: str, item_index: int) -> tuple[int, object] | None:
+    matches = []
+    for idx, item in enumerate(items):
+        name = item.get("name") if isinstance(item, dict) else item
+        if name == item_name:
+            matches.append((idx, item))
+    if not matches:
+        return None
+    safe_index = item_index if 0 <= item_index < len(matches) else 0
+    return matches[safe_index]
+
+
+@router.post("/{character_id}/transfer-item")
+async def transfer_item(
+    character_id: str,
+    req: TransferItemRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Move one inventory item from this character to a party member."""
+    source = await db.get(Character, character_id)
+    target = await db.get(Character, req.target_character_id)
+    if not source:
+        raise HTTPException(404, "来源角色不存在")
+    if not target:
+        raise HTTPException(404, "目标角色不存在")
+    if source.id == target.id:
+        raise HTTPException(400, "不能把物品转交给自己")
+    if source.session_id and target.session_id and source.session_id != target.session_id:
+        raise HTTPException(400, "只能在同一队伍内转交物品")
+
+    source_equipment = dict(source.equipment or {})
+    target_equipment = dict(target.equipment or {})
+    moved_item = None
+
+    if req.item_category == "weapon":
+        weapons = list(source_equipment.get("weapons", []))
+        found = _find_named_item(weapons, req.item_name, req.item_index)
+        if not found:
+            raise HTTPException(404, f"背包中未找到武器：{req.item_name}")
+        actual_idx, moved_item = found
+        if isinstance(moved_item, dict) and moved_item.get("equipped"):
+            raise HTTPException(400, "不能转交装备中的武器，请先卸下")
+        weapons.pop(actual_idx)
+        source_equipment["weapons"] = weapons
+        target_equipment["weapons"] = list(target_equipment.get("weapons", [])) + [moved_item]
+
+    elif req.item_category == "armor":
+        armor_list = list(source_equipment.get("armor", []))
+        found = _find_named_item(armor_list, req.item_name, req.item_index)
+        if not found:
+            raise HTTPException(404, f"背包中未找到护甲：{req.item_name}")
+        actual_idx, moved_item = found
+        if isinstance(moved_item, dict) and moved_item.get("equipped"):
+            raise HTTPException(400, "不能转交装备中的护甲，请先卸下")
+        armor_list.pop(actual_idx)
+        source_equipment["armor"] = armor_list
+        target_equipment["armor"] = list(target_equipment.get("armor", [])) + [moved_item]
+
+    elif req.item_category == "shield":
+        shield = source_equipment.get("shield")
+        if not shield:
+            raise HTTPException(404, "背包中没有盾牌")
+        if isinstance(shield, dict) and shield.get("equipped"):
+            raise HTTPException(400, "不能转交装备中的盾牌，请先卸下")
+        if target_equipment.get("shield"):
+            raise HTTPException(400, "目标角色已经有盾牌")
+        moved_item = shield
+        source_equipment["shield"] = None
+        target_equipment["shield"] = moved_item
+
+    elif req.item_category == "gear":
+        gear = list(source_equipment.get("gear", []))
+        found = _find_named_item(gear, req.item_name, req.item_index)
+        if not found:
+            raise HTTPException(404, f"背包中未找到物品：{req.item_name}")
+        actual_idx, moved_item = found
+        gear.pop(actual_idx)
+        source_equipment["gear"] = gear
+        target_equipment["gear"] = list(target_equipment.get("gear", [])) + [moved_item]
+
+    else:
+        raise HTTPException(400, f"无效的物品类别：{req.item_category}")
+
+    source.equipment = source_equipment
+    target.equipment = target_equipment
+    await db.commit()
+
+    moved_name = moved_item.get("name") if isinstance(moved_item, dict) else moved_item
+    return {
+        "transferred": moved_name,
+        "target_character_id": target.id,
+        "source_equipment": source_equipment,
+        "target_equipment": target_equipment,
+    }
+
+
 # ── Use Item / Potion (V2) ────────────────────────────────
 
 class UseItemRequest(BaseModel):
@@ -1077,6 +1182,8 @@ async def use_item(
     char.equipment = equipment
     await db.commit()
 
+    result["equipment"] = equipment
+    result["hp_current"] = char.hp_current
     return result
 
 

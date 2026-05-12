@@ -39,6 +39,9 @@ import AdventureTopBar from '../components/adventure/AdventureTopBar'
 import AdventureStage from '../components/adventure/AdventureStage'
 import DialoguePanel from '../components/adventure/DialoguePanel'
 import AdventureBottomHud from '../components/adventure/AdventureBottomHud'
+import MultiplayerPartyPanel from '../components/adventure/MultiplayerPartyPanel'
+import MultiplayerTableNotice from '../components/adventure/MultiplayerTableNotice'
+import MultiplayerTimelinePanel from '../components/adventure/MultiplayerTimelinePanel'
 import { buildDialogueQueue as buildDialogueQueueFromText } from '../utils/dialogue'
 import { getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
 
@@ -267,11 +270,11 @@ export default function Adventure() {
         onOpenJournal={() => { setJournalOpen(true); if (!journalText) handleGenerateJournal() }}
         onOpenRest={() => setRestOpen(true)}
         onOpenPrepare={() => setPrepareOpen(true)}
-        onOpenCharacter={() => navigate(`/character/${player.id}`)}
+        onOpenCharacter={() => navigate(`/character/${player.id}?sessionId=${sessionId}`)}
       />
 
       {/* ═══ 主舞台区 ═══ */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateRows: '1fr auto auto', overflow: 'hidden', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'grid', gridTemplateRows: '1fr auto auto auto', overflow: 'hidden', minHeight: 0 }}>
 
         <AdventureStage
           dialogueMode={dialogueMode}
@@ -307,13 +310,37 @@ export default function Adventure() {
           isMySpeakTurn={isMySpeakTurn}
         />
 
+        <MultiplayerTableNotice
+          room={room}
+          myUserId={myUserId}
+          currentSeg={dialogueQueue[dialogueIdx]}
+          logs={logs}
+        />
+
+        <MultiplayerPartyPanel
+          room={room}
+          myUserId={myUserId}
+          isMySpeakTurn={isMySpeakTurn}
+          isLoading={isLoading}
+          onRoomUpdated={(updated) => {
+            setRoom(updated?.is_multiplayer ? { ...updated, _currentSpeaker: updated.current_speaker_user_id } : updated)
+          }}
+          onError={setError}
+        />
+
+        <MultiplayerTimelinePanel
+          room={room}
+          logs={logs}
+          myUserId={myUserId}
+        />
+
         <AdventureBottomHud
           allMembers={allMembers}
           questLine={questLine}
           clues={clues}
           npcUpdates={npcUpdates}
           keyDecisions={keyDecisions}
-          onOpenCharacter={(id) => navigate(`/character/${id}`)}
+          onOpenCharacter={(id) => navigate(`/character/${id}?sessionId=${sessionId}`)}
           onOpenJournal={() => setJournalOpen(true)}
         />
       </div>

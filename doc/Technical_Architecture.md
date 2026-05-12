@@ -1,8 +1,8 @@
 # 技术架构文档
 
 **项目：** AI 跑团平台（DnD 5e）
-**文档更新时间：** 2026-05-07
-**当前状态：** Adventure / Combat / DM Agent 已进入结构化拆分阶段。
+**文档更新时间：** 2026-05-09
+**当前状态：** Adventure / Combat / DM Agent 已进入结构化拆分阶段，多人联机已加入分队焦点和 Multiplayer DM 桌面裁决。
 
 ## 1. 总览
 
@@ -26,6 +26,7 @@ FastAPI + SQLAlchemy 2.0
 - **后端是规则权威。** 前端可以展示骰子和交互，但最终 HP、条件、回合资源由后端写库。
 - **DM Agent 拆成输入 / 规则 / 叙事 / 记忆四层。** 这样后续改 prompt 或规则校验时不必碰整条链路。
 - **多人和单人共用主业务入口。** `/game/action` 根据 `session.combat_active` 和多人发言权分流。
+- **多人桌面秩序先于叙事。** 复杂分队、切镜头、秘密行动和同时行动先由 Multiplayer DM v2 裁决是否进入基础 DM；简单同组行动继续走确定性聚合，避免每次多人输入都增加 LLM 延迟。
 
 ## 2. 技术栈
 
@@ -107,7 +108,11 @@ backend/services/
 │   ├── dm_agent_runtime.py     骰池、初始状态、最终响应包装
 │   ├── dm_agent_messages.py    LLM 用户消息组装
 │   ├── dm_agent_memory.py      LangGraph checkpoint 初始化
-│   └── dm_campaign_state.py    战役状态摘要生成
+│   ├── dm_campaign_state.py    战役状态摘要生成
+│   ├── multiplayer_dm_agent.py       多人 DM 桌面裁决入口
+│   ├── multiplayer_dm_context.py     多人房间 / 分队上下文快照
+│   ├── multiplayer_dm_prompts.py     v2 裁决提示词
+│   └── multiplayer_dm_state.py       v1/v2 裁决数据模型
 ├── input_guard.py              输入分类和拦截入口
 ├── input_guard_policy.py       本地高置信度拦截/放行规则
 ├── input_guard_types.py        输入守卫类型定义
@@ -193,7 +198,87 @@ AI 生成选项不是客户端说了算。后端会检查 `session.game_state.la
 
 前端 Adventure 底部 HUD 会读取最近任务、线索、NPC 关系和关键决定，让玩家能感到 DM 正在记住故事。
 
-## 5. 自然语言战斗流程
+## 5. Multiplayer DM 桌面裁决
+
+多人探索阶段在 `/game/action` 进入基础 DM Agent 前，会先经过 `services.graphs.multiplayer_dm_agent.run_multiplayer_dm_agent`。
+
+```mermaid
+flowchart TD
+  A["多人 /game/action"] --> B["发言权 / 角色绑定校验"]
+  B --> C["build_multiplayer_dm_context"]
+  C --> D{"是否复杂桌面局面?"}
+  D -->|否| E["v1 确定性聚合同组 pending actions"]
+  D -->|是| F["v2 table decision"]
+  F -->|process_actor_group / process_active_group| G["组装 effective_action_text"]
+  F -->|switch_focus / wait_for_group| H["返回 multiplayer_table，不调用基础 DM"]
+  F -->|解析失败 / LLM 失败| E
+  E --> G
+  G --> I["基础 DM Agent 四层流程"]
+  I --> J["成功后清空对应分队 pending actions / 更新 active_group_id / 广播 RoomStateUpdated"]
+  H --> K["应用 active_group_id / 广播 RoomStateUpdated"]
+```
+
+### v1 确定性路径
+
+默认路径不调用 LLM，只做三件事：
+
+- 找到行动玩家所在分队，作为当前焦点组。
+- 把同组队友的 `pending_actions_by_group[group_id]` 合并进 `effective_action_text`，交给基础 DM。
+- 把焦点分队的 `group_readiness[group_id]` 摘要进 `effective_action_text`，让基础 DM 知道哪些玩家已确认、仍在草拟或正在等待。
+- 只提示“其他分队有待处理动作”，不把其他分队行动文本喂给基础 DM，避免跨分队泄露信息。
+
+这个路径适合大多数“同组一起行动”的情况，延迟低、行为稳定。
+
+readiness 会参与 v1 / v2 分流：
+
+- 焦点分队已有 pending actions 且该分队成员都 `ready`，而其他有 pending 的分队都未全员 `ready` 时，直接走 v1 处理焦点分队。
+- 如果多个分队都全员 `ready` 且都有 pending actions，则进入 v2，只裁决先处理哪一组，不合并不同分队行动。
+- `waiting` 表示该分队主动等待补充或回应，除非玩家明确要求切镜头，否则不抢走当前镜头。
+- 当前分队被基础 DM 成功处理并清空后，如果另一个分队仍有 pending actions 且全员 `ready`，后端会在同一次 `RoomStateUpdated` 中把 `active_group_id` 推进到该分队，形成“下一镜头建议/自动切镜头”的桌面节奏。
+
+### v2 桌面裁决路径
+
+只有复杂局面才触发 v2：
+
+- 当前焦点组和其他分队同时都有待处理行动。
+- 玩家文本包含切镜头、同时行动、秘密行动、分头行动、等待确认等桌面管理意图。
+
+v2 的职责是输出结构化 `MultiplayerTableDecision`：
+
+- `decision`：`process_actor_group`、`process_active_group`、`wait_for_group`、`switch_focus`。
+- `focus_group_id`：应该处理或切换到的分队。
+- `groups[].readiness`：每个分队成员的桌面确认状态，取值为 `drafting`、`ready`、`waiting`。
+- `knowledge_scope` / `visible_to_user_ids`：该桌面信息的可见范围。
+- `clear_pending_group_ids`：基础 DM 成功处理后可清空的分队队列。
+- `table_message`：不进入基础 DM 时返回给前端的桌面提示。
+- `reason`：裁决理由。进入 `MultiplayerDMDecision.table_reason` 后，会随 `multiplayer_table` HTTP 响应和 `DMResponded` 实时事件保留，方便前端解释“为什么切镜头/等待/先处理某分队”。
+
+v2 不写正式剧情，不结算规则，只管理多人桌面流程。它输出坏 JSON 或 LLM 调用失败时会自动回退 v1，保证联机行动不被桌面裁决层卡死。
+
+### 实时可见性
+
+`DMResponded` 支持携带 `visibility`：
+
+- `scope=party` 或没有可见用户列表时，按原方式广播给全房间。
+- `scope=group/private` 且有 `visible_to_user_ids` 时，后端通过 `ws_manager.send_to_user` 点对点发送给可见玩家，不做全房间广播。
+- 前端 `useDialogueWsSync` 会再次检查 `visible_to_user_ids`，收到不属于自己的事件时不进入剧场，也不触发 `loadSession`。
+- `/game/action` 的 HTTP 响应也会返回同一份 `visibility`，因此行动发起者的剧场内容会立即带上“分队/私密”标识，不需要等下一次刷新。
+- 可见事件进入剧场队列时会保留 `visibility`，剧场播完落入本地日志后，Adventure 聊天日志会显示“分队”或“私密”标识，避免玩家误以为所有人都看到了同一段内容。
+- Adventure 还会基于当前用户已经可见的日志构建“分队时间线”：公共、我的分队、私密三栏只读展示最近 DM 记录。它不绕过后端过滤，不给房主额外视野，只帮助玩家理解当前联机桌面的信息分层。
+
+### 持久化可见性
+
+`GameLog` 也保存同一份 `visibility` JSON。`/game/sessions/{session_id}` 恢复日志时会按当前登录用户过滤：
+
+- 旧日志或没有 `visible_to_user_ids` 的日志默认全队可见。
+- 带 `visible_to_user_ids` 的日志只返回给列表中的用户。
+- 房主只是技术房主，仍然是玩家；不在 `visible_to_user_ids` 中时也不能恢复其他玩家的分队/私密日志。
+- Multiplayer DM 给基础 DM 生成的正式叙事会把本轮 `visibility` 注入 DM 输出，再由 `StateApplicator` 写入 `GameLog`。
+- `multiplayer_table` 桌面提示也会以同样的 `visibility` 写入日志。
+
+这样实时 WebSocket 和刷新后的日志恢复使用同一份可见性语义。后续如果需要真正的主持人/旁观 DM 视图，应增加独立角色或显式房间开关，不能默认绑定到房主。
+
+## 6. 自然语言战斗流程
 
 ```mermaid
 flowchart TD
@@ -215,9 +300,9 @@ flowchart TD
 - 近战目标不可达时，只生成 `move`，不生成同回合假 `attack`。
 - 叙事器根据实际执行动作类型选择 `move` / `attack` / `creative` / `out_of_range`，避免“只是移动却讲成攻击失败”。
 
-## 6. 前端架构
+## 7. 前端架构
 
-### 6.1 页面
+### 7.1 页面
 
 ```text
 frontend/src/pages/

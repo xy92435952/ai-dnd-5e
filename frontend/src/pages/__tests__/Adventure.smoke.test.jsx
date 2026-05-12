@@ -20,6 +20,10 @@ const {
   sessionFixture,
   actionMock,
   getSessionMock,
+  roomsGetMock,
+  submitGroupActionMock,
+  joinGroupMock,
+  setGroupReadinessMock,
 } = vi.hoisted(() => ({
   sessionFixture: {
     session_id:    'sess-1',
@@ -37,6 +41,10 @@ const {
   },
   actionMock: vi.fn(),
   getSessionMock: vi.fn(),
+  roomsGetMock: vi.fn(),
+  submitGroupActionMock: vi.fn(),
+  joinGroupMock: vi.fn(),
+  setGroupReadinessMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
@@ -51,8 +59,10 @@ vi.mock('../../api/client', () => ({
   },
   charactersApi: { prepareSpells: vi.fn() },
   roomsApi: {
-    // 单人模式：拉房间时直接 reject（Adventure 会忽略）
-    get: vi.fn().mockRejectedValue(new Error('not multiplayer')),
+    get: roomsGetMock,
+    submitGroupAction: submitGroupActionMock,
+    joinGroup: joinGroupMock,
+    setGroupReadiness: setGroupReadinessMock,
   },
 }))
 
@@ -76,7 +86,12 @@ import Adventure from '../Adventure'
 describe('Adventure render smoke', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.setItem('user', JSON.stringify({ user_id: 'me', username: 'me', display_name: '我' }))
     getSessionMock.mockResolvedValue(sessionFixture)
+    roomsGetMock.mockRejectedValue(new Error('not multiplayer'))
+    submitGroupActionMock.mockResolvedValue({})
+    joinGroupMock.mockResolvedValue({})
+    setGroupReadinessMock.mockResolvedValue({})
   })
 
   it('能挂载且不抛 TDZ / hook 顺序错误', () => {
@@ -205,6 +220,103 @@ describe('Adventure render smoke', () => {
         action_source: 'ai_generated_choice',
       })
     })
+
+    cleanup()
+  })
+
+  it('多人当前发言者提交时只发送主行动，分队聚合交给后端', async () => {
+    actionMock.mockResolvedValue({
+      type: 'exploration',
+      narrative: 'DM 汇总了分队行动。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    roomsGetMock.mockResolvedValue({
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'me',
+      active_group_id: 'alley',
+      members: [
+        { user_id: 'me', display_name: '我', character_id: 'char-1', is_online: true },
+        { user_id: 'u2', display_name: '队友', character_id: 'char-2', is_online: true },
+      ],
+      party_groups: [
+        { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+      ],
+      pending_actions_by_group: {
+        alley: [{ user_id: 'u2', display_name: '队友', text: '我检查仓库门锁。' }],
+      },
+      group_readiness: {
+        alley: { me: 'drafting', u2: 'ready' },
+      },
+    })
+    setGroupReadinessMock.mockResolvedValue({
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'me',
+      active_group_id: 'alley',
+      members: [
+        { user_id: 'me', display_name: '我', character_id: 'char-1', is_online: true },
+        { user_id: 'u2', display_name: '队友', character_id: 'char-2', is_online: true },
+      ],
+      party_groups: [
+        { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+      ],
+      pending_actions_by_group: {
+        alley: [{ user_id: 'u2', display_name: '队友', text: '我检查仓库门锁。' }],
+      },
+      group_readiness: {
+        alley: { me: 'ready', u2: 'ready' },
+      },
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      is_multiplayer: true,
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/你是当前发言者 · DM 会汇总本分队 1 条意图/)
+    expect(screen.getByText(/队友 · 已确认/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /我已确认/ }))
+    await waitFor(() => {
+      expect(setGroupReadinessMock).toHaveBeenCalledWith('sess-1', 'alley', 'ready')
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/描述你的行动/), {
+      target: { value: '我撬开后门。' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /发送/ }))
+
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        action_text: '我撬开后门。',
+        action_source: 'human_input',
+      })
+    })
+    const payload = actionMock.mock.calls[0][0]
+    expect(payload.action_text).not.toContain('队友意图')
 
     cleanup()
   })

@@ -2,8 +2,8 @@
 
 基于 DnD 5e 规则的 AI 跑团平台。玩家上传模组、创建角色，AI 担任地下城主和队友；支持单人冒险、多人房间、网格战斗、自然语言战斗行动和本地规则结算。
 
-> 当前文档快照：2026-05-08
-> 当前重点：DM Agent 四层化（输入 / 规则 / 叙事 / 记忆）、Living Campaign State、Adventure / Combat 前后端拆分、自然语言战斗体验修复。
+> 当前文档快照：2026-05-09
+> 当前重点：DM Agent 四层化（输入 / 规则 / 叙事 / 记忆）、Multiplayer DM 桌面裁决、Living Campaign State、Adventure / Combat 前后端拆分、自然语言战斗体验修复。
 
 ## 当前能力
 
@@ -12,7 +12,7 @@
 - **输入安全层**：区分 `human_input`、`ai_generated_choice`、`system_action`、`ai_takeover`，拦截明显越界、注入、作弊和与游戏无关内容；AI 生成选项由后端校验来源后放行。
 - **Living Campaign State**：DM 每轮可输出 `campaign_delta`，后端会归一化并合并任务、NPC 关系、关键决定、世界 flag、线索和场景氛围，Adventure HUD 会显示最近记忆摘要。
 - **自然语言战斗**：玩家可以输入“我靠近最近的骷髅并用长剑攻击”。解析器会先用本地规则处理常见意图，再回退 LLM；近战目标不可达时只移动，不伪造攻击。
-- **多人联机**：房间、成员、发言权、WebSocket 广播、战斗回合归属校验。
+- **多人联机**：房间、成员、发言权、分队行动、分队确认状态、桌面焦点、可见时间线、WebSocket 广播、战斗回合归属校验；复杂分队/切镜头场景由 Multiplayer DM v2 做桌面裁决，简单同组行动仍走确定性聚合。
 - **前端拆分**：Adventure / Combat 已拆成页面、hooks、adventure components、combat components、utils 和测试。
 
 ## 快速启动
@@ -116,6 +116,10 @@ ai-dnd-5e/
 │   │   ├── graphs/dm_agent_messages.py LLM 用户消息组装
 │   │   ├── graphs/dm_agent_memory.py   LangGraph checkpoint 初始化
 │   │   ├── graphs/dm_campaign_state.py 战役状态摘要生成
+│   │   ├── graphs/multiplayer_dm_agent.py     多人桌面裁决入口
+│   │   ├── graphs/multiplayer_dm_context.py   多人房间上下文快照
+│   │   ├── graphs/multiplayer_dm_prompts.py   v2 桌面裁决提示词
+│   │   ├── graphs/multiplayer_dm_state.py     v1/v2 裁决结果类型
 │   │   ├── input_guard.py              输入来源和拦截入口
 │   │   ├── input_guard_policy.py       本地高置信度拦截/放行规则
 │   │   ├── input_guard_types.py        输入守卫类型定义
@@ -140,6 +144,7 @@ ai-dnd-5e/
 │       │   └── useCombatPageState.js   Combat 页面状态容器
 │       ├── utils/                      combat、skillCheck、dialogue 等纯工具
 │       │   ├── adventureSessionLoaded.js  Adventure session 恢复/开场剧场逻辑
+│       │   ├── multiplayerTimeline.js     多人可见时间线分类
 │       │   └── combatPage.js              Combat 页面常量和可选副作用工具
 │       ├── api/client.js               axios API 客户端
 │       └── store/gameStore.js          Zustand 全局状态

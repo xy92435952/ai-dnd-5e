@@ -14,11 +14,14 @@ from services.ws_manager import ws_manager
 from schemas.room_schemas import (
     CreateRoomRequest, JoinRoomRequest, ClaimCharacterRequest,
     KickMemberRequest, TransferHostRequest,
+    SetGroupRequest, SubmitGroupActionRequest, ClearGroupActionsRequest,
+    FocusGroupRequest, SetGroupReadinessRequest,
     CreateRoomResponse, JoinRoomResponse, RoomInfo, MemberInfo,
 )
 from schemas.ws_events import (
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
+    RoomStateUpdated,
 )
 
 
@@ -178,6 +181,97 @@ async def claim_character(
         members=members,
     ))
     return {"claimed": True, "member_id": member.id, "character_id": req.character_id}
+
+
+# ── 探索分队 / 行动队列 ─────────────────────────────────
+
+@router.post("/{session_id}/groups/join", response_model=RoomInfo)
+async def join_group(
+    session_id: str,
+    req: SetGroupRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_service.set_member_group(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        group_id=req.group_id,
+        group_name=req.group_name,
+        location=req.location,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
+
+
+@router.post("/{session_id}/groups/actions", response_model=RoomInfo)
+async def submit_group_action(
+    session_id: str,
+    req: SubmitGroupActionRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_service.submit_group_action(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        group_id=req.group_id,
+        action_text=req.action_text,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
+
+
+@router.post("/{session_id}/groups/actions/clear", response_model=RoomInfo)
+async def clear_group_actions(
+    session_id: str,
+    req: ClearGroupActionsRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_service.clear_group_actions(
+        db,
+        session_id=session_id,
+        group_id=req.group_id,
+        actor_user_id=user_id,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
+
+
+@router.post("/{session_id}/groups/readiness", response_model=RoomInfo)
+async def set_group_readiness(
+    session_id: str,
+    req: SetGroupReadinessRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_service.set_group_readiness(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        group_id=req.group_id,
+        status=req.status,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
+
+
+@router.post("/{session_id}/groups/focus", response_model=RoomInfo)
+async def focus_group(
+    session_id: str,
+    req: FocusGroupRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_service.set_active_group(
+        db,
+        session_id=session_id,
+        group_id=req.group_id,
+        actor_user_id=user_id,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
 
 
 # ── 查询 ─────────────────────────────────────────────

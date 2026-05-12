@@ -7,9 +7,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { roomsApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useUser } from '../hooks/useUser'
-import Portrait from '../components/Portrait'
-import { classKey } from '../components/Crests'
+import { normalizeRealtimeRoom } from '../hooks/useRoomRealtime'
 import { Divider } from '../components/Ornaments'
+import RoomActionsPanel from '../components/room/RoomActionsPanel'
+import RoomAiCompanionsSection from '../components/room/RoomAiCompanionsSection'
+import RoomMembersGrid from '../components/room/RoomMembersGrid'
+import RoomMultiplayerStatusPanel from '../components/room/RoomMultiplayerStatusPanel'
 
 export default function Room() {
   const { sessionId } = useParams()
@@ -32,6 +35,9 @@ export default function Room() {
 
   const onEvent = useCallback((event) => {
     switch (event.type) {
+      case 'room_state_updated':
+        if (event.room) setRoom(normalizeRealtimeRoom(event.room))
+        break
       case 'member_joined':
       case 'member_left':
       case 'character_claimed':
@@ -107,6 +113,16 @@ export default function Room() {
     finally { setBusy(false) }
   }
 
+  const onFocusGroup = async (groupId) => {
+    if (!groupId) return
+    setBusy(true); setError('')
+    try {
+      const updated = await roomsApi.focusGroup(sessionId, groupId)
+      setRoom(normalizeRealtimeRoom(updated))
+    } catch (e) { setError(e.message) }
+    finally { setBusy(false) }
+  }
+
   if (!room) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1 }}>
@@ -120,6 +136,7 @@ export default function Room() {
   const canStart = isHost && (room.members || []).some(m => m.character_id)
   const aiCompanions = room.ai_companions || []
   const claimedCount = (room.members || []).filter(m => m.character_id).length
+  const memberCount = (room.members || []).length
   const slotsAvailable = Math.max(0, (room.max_players || 4) - claimedCount - aiCompanions.length)
 
   return (
@@ -151,138 +168,38 @@ export default function Room() {
 
       <Divider>❧ 冒险者们 ❧</Divider>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14, marginTop: 18 }}>
-        {(room.members || []).map((m) => (
-          <div
-            key={m.user_id}
-            className="panel-ornate"
-            style={{
-              padding: 14, display: 'flex', gap: 14, alignItems: 'center',
-              opacity: m.is_online ? 1 : 0.5,
-            }}
-          >
-            <div style={{ position: 'relative' }}>
-              <Portrait cls={classKey(m.character_name ? 'fighter' : 'dm')} size="md" />
-              <span style={{
-                position: 'absolute', bottom: 0, right: 0,
-                width: 14, height: 14, borderRadius: '50%',
-                background: m.is_online ? 'var(--emerald-light)' : 'var(--bark-light)',
-                border: '2px solid var(--void)',
-                boxShadow: m.is_online ? '0 0 8px var(--emerald-light)' : 'none',
-              }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{
-                  fontFamily: 'var(--font-heading)', color: 'var(--parchment)',
-                  fontSize: 14, fontWeight: 600,
-                }}>{m.display_name}</span>
-                {m.role === 'host' && <span className="tag tag-gold" style={{ fontSize: 9 }}>★ 主持</span>}
-                {m.user_id === myUserId && <span className="tag tag-blue" style={{ fontSize: 9 }}>我</span>}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                {m.character_name
-                  ? `角色：${m.character_name}`
-                  : (m.is_online ? '○ 尚未选择角色' : '◌ 离线')}
-              </div>
-            </div>
-            {isHost && m.user_id !== myUserId && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <button onClick={() => onTransfer(m.user_id)} className="btn-ghost" style={{ fontSize: 10, padding: '4px 8px' }}>转让</button>
-                <button onClick={() => onKick(m.user_id)} className="btn-ghost" style={{ fontSize: 10, padding: '4px 8px', borderColor: 'var(--blood)', color: '#ffaaaa' }}>踢出</button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      <RoomMembersGrid
+        members={room.members || []}
+        myUserId={myUserId}
+        isHost={isHost}
+        onTransfer={onTransfer}
+        onKick={onKick}
+      />
 
-      {/* AI 队友列表 */}
-      {aiCompanions.length > 0 && (
-        <>
-          <Divider>❧ AI 队友 ❧</Divider>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginTop: 12 }}>
-            {aiCompanions.map((c) => (
-              <div
-                key={c.id}
-                className="panel-ornate"
-                style={{ padding: 10, display: 'flex', gap: 10, alignItems: 'center', opacity: 0.92 }}
-              >
-                <Portrait cls={classKey(c.char_class || 'fighter')} size="sm" />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'var(--font-heading)', color: 'var(--parchment)', fontSize: 13, fontWeight: 600 }}>
-                      {c.name}
-                    </span>
-                    <span className="tag" style={{ fontSize: 9, background: 'rgba(139,110,230,.25)', border: '1px solid rgba(139,110,230,.6)', color: '#d4c2ff' }}>
-                      ✦ AI
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                    {c.race} · {c.char_class} · Lv{c.level}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      <Divider>❧ 联机状态 ❧</Divider>
 
-      {/* 我没角色 → 创建按钮 */}
-      {myMember && !myMember.character_id && (
-        <div style={{ marginTop: 22, textAlign: 'center' }}>
-          <button onClick={onCreateChar} disabled={busy} className="btn-gold" style={{ padding: '12px 32px', fontSize: 14 }}>
-            ✦ 创建你的英雄 ✦
-          </button>
-        </div>
-      )}
+      <RoomMultiplayerStatusPanel
+        room={room}
+        claimedCount={claimedCount}
+        memberCount={memberCount}
+        busy={busy}
+        onFocusGroup={onFocusGroup}
+      />
 
-      {/* 房主：补满 AI 队友 */}
-      {isHost && slotsAvailable > 0 && claimedCount >= 1 && (
-        <div style={{ marginTop: 14, textAlign: 'center' }}>
-          <button
-            onClick={onFillAi}
-            disabled={busy}
-            className="btn-ghost"
-            style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '.14em' }}
-          >
-            {busy ? '✦ 召唤中… ✦' : `✦ 召唤 ${slotsAvailable} 位 AI 队友 ✦`}
-          </button>
-          <div style={{ fontSize: 10, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
-            根据第一位玩家的职业生成互补角色
-          </div>
-        </div>
-      )}
+      <RoomAiCompanionsSection aiCompanions={aiCompanions} />
 
-      {/* 房主：开始游戏 */}
-      {isHost && (
-        <div style={{ marginTop: 18, textAlign: 'center' }}>
-          <button
-            onClick={onStart}
-            disabled={!canStart || busy}
-            className="btn-gold"
-            style={{ padding: '12px 32px', fontSize: 14, letterSpacing: '.18em', opacity: canStart ? 1 : .5 }}
-          >
-            {busy ? '✦ 启动中… ✦' : '✦ 开启冒险 ✦'}
-          </button>
-          {!canStart && (
-            <div style={{ fontSize: 11, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
-              至少需要一位玩家创建并认领角色
-            </div>
-          )}
-        </div>
-      )}
-
-      {!isHost && (
-        <div style={{ textAlign: 'center', marginTop: 22, opacity: 0.7, fontSize: 13, fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
-          ~ 等待房主开启冒险 ~
-        </div>
-      )}
-
-      <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button onClick={onLeave} className="btn-ghost" style={{ fontSize: 12, color: '#ffaaaa', borderColor: 'var(--blood)' }}>
-          ⎋ 离开房间
-        </button>
-      </div>
+      <RoomActionsPanel
+        isHost={isHost}
+        busy={busy}
+        canStart={canStart}
+        slotsAvailable={slotsAvailable}
+        claimedCount={claimedCount}
+        myMember={myMember}
+        onCreateChar={onCreateChar}
+        onFillAi={onFillAi}
+        onStart={onStart}
+        onLeave={onLeave}
+      />
 
       {error && (
         <div style={{

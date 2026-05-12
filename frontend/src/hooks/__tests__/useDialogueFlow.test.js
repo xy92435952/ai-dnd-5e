@@ -87,6 +87,19 @@ describe('useDialogueFlow', () => {
     expect(result.current.dialogueQueue).toEqual([])
   })
 
+  it('advance 写入 log 时保留剧场段落的额外元数据', () => {
+    const { result, addLog } = createHook()
+    const visibility = { scope: 'group', group_id: 'alley', visible_to_user_ids: ['u1'] }
+    act(() => {
+      result.current.enterStage([
+        { role: 'dm', text: '后巷门锁弹开。', visibility },
+      ])
+    })
+    act(() => { result.current.advance() })
+    act(() => { result.current.advance() })
+    expect(addLog).toHaveBeenCalledWith('dm', '后巷门锁弹开。', 'narrative', { visibility })
+  })
+
   it('短文本（≤60 字）走 30ms/字 打字机', () => {
     const { result } = createHook()
     const text = 'hello'   // 5 字

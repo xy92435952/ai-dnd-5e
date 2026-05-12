@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class _BaseEvent(BaseModel):
@@ -84,11 +84,13 @@ class CharacterClaimed(_BaseEvent):
 class MemberOnline(_BaseEvent):
     type: Literal["member_online"] = "member_online"
     user_id: str
+    members: list[dict] = []
 
 
 class MemberOffline(_BaseEvent):
     type: Literal["member_offline"] = "member_offline"
     user_id: str
+    members: list[dict] = []
 
 
 class Typing(_BaseEvent):
@@ -116,6 +118,9 @@ class DMResponded(_BaseEvent):
     dice_display: list = []
     combat_triggered: bool = False
     combat_ended: bool = False
+    visibility: dict = Field(default_factory=dict)
+    table_reason: str = ""
+    table_decision: dict = Field(default_factory=dict)
 
 
 class DMSpeakTurn(_BaseEvent):
@@ -126,6 +131,12 @@ class DMSpeakTurn(_BaseEvent):
     type: Literal["dm_speak_turn"] = "dm_speak_turn"
     user_id: str
     auto: bool = False
+
+
+class RoomStateUpdated(_BaseEvent):
+    """房间协作状态快照更新。前端收到后可直接替换 room realtime state。"""
+    type: Literal["room_state_updated"] = "room_state_updated"
+    room: dict
 
 
 # ─── 战斗 ────────────────────────────────────────────────────
@@ -161,7 +172,7 @@ WSEvent = Union[
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing,
-    DMThinkingStart, DMResponded, DMSpeakTurn,
+    DMThinkingStart, DMResponded, DMSpeakTurn, RoomStateUpdated,
     CombatUpdate, TurnChanged, EntityMoved,
 ]
 
@@ -170,7 +181,7 @@ WS_EVENT_TYPES = frozenset({
     "member_joined", "member_left", "room_dissolved", "game_started",
     "ai_companions_filled", "member_kicked", "host_transferred", "character_claimed",
     "member_online", "member_offline", "typing",
-    "dm_thinking_start", "dm_responded", "dm_speak_turn",
+    "dm_thinking_start", "dm_responded", "dm_speak_turn", "room_state_updated",
     "combat_update", "turn_changed", "entity_moved",
 })
 
@@ -183,7 +194,7 @@ __all__ = [
     # 在线
     "MemberOnline", "MemberOffline", "Typing",
     # DM
-    "DMThinkingStart", "DMResponded", "DMSpeakTurn",
+    "DMThinkingStart", "DMResponded", "DMSpeakTurn", "RoomStateUpdated",
     # 战斗
     "CombatUpdate", "TurnChanged", "EntityMoved",
 ]

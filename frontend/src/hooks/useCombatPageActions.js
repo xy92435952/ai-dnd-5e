@@ -8,6 +8,7 @@ import { useCallback } from 'react'
 import { gameApi, roomsApi } from '../api/client'
 import { getAoePreviewCenterKey, aoeRadiusCells } from '../utils/combat'
 import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
+import { mergeRealtimeRoomEvent } from './useRoomRealtime'
 
 export function useCombatPageActions({
   sessionId,
@@ -44,8 +45,15 @@ export function useCombatPageActions({
       case 'dm_responded':
         onLoadCombat()
         break
+      case 'room_state_updated':
+        setRoom(prev => mergeRealtimeRoomEvent(prev, event))
+        break
       case 'member_offline':
       case 'member_online':
+        if (Array.isArray(event.members)) {
+          setRoom(prev => mergeRealtimeRoomEvent(prev, event))
+          break
+        }
         roomsApi.get(sessionId).then(r => r?.is_multiplayer && setRoom(r)).catch(() => undefined)
         break
       default:

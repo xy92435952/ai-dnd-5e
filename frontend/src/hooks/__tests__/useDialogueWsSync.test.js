@@ -95,6 +95,100 @@ describe('useDialogueWsSync', () => {
     expect(deps.loadSession).toHaveBeenCalled()
   })
 
+  it('dm_responded: 带可见范围但不包含自己 → 忽略剧场和刷新', () => {
+    const deps = makeDeps()
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+    act(() => {
+      result.current({
+        type: 'dm_responded',
+        by_user_id: 'other',
+        narrative: '后巷私密信息',
+        companion_reactions: '',
+        action_type: 'exploration',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+        visibility: {
+          scope: 'group',
+          group_id: 'alley',
+          visible_to_user_ids: ['u-alley-1'],
+        },
+      })
+    })
+    expect(deps.setIsLoading).not.toHaveBeenCalledWith(false)
+    expect(deps.buildDialogueQueue).not.toHaveBeenCalled()
+    expect(deps.enterDialogueStage).not.toHaveBeenCalled()
+    expect(deps.loadSession).not.toHaveBeenCalled()
+  })
+
+  it('dm_responded: 可见事件进入剧场时把 visibility 附到 DM 段落', () => {
+    const visibility = {
+      scope: 'group',
+      group_id: 'alley',
+      visible_to_user_ids: ['me'],
+    }
+    const queue = [{ role: 'dm', text: '后巷门锁弹开。' }]
+    const deps = makeDeps({
+      buildDialogueQueue: vi.fn().mockReturnValue(queue),
+    })
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+    act(() => {
+      result.current({
+        type: 'dm_responded',
+        by_user_id: 'other',
+        narrative: '后巷门锁弹开。',
+        companion_reactions: '',
+        action_type: 'exploration',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+        visibility,
+      })
+    })
+    expect(deps.enterDialogueStage).toHaveBeenCalledWith([
+      { role: 'dm', text: '后巷门锁弹开。', visibility },
+    ])
+  })
+
+  it('dm_responded: table-only 事件进入剧场时保留 table_reason', () => {
+    const queue = [{ role: 'dm', text: '镜头转向酒馆组，请酒馆组玩家先行动。' }]
+    const deps = makeDeps({
+      buildDialogueQueue: vi.fn().mockReturnValue(queue),
+    })
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+    act(() => {
+      result.current({
+        type: 'dm_responded',
+        by_user_id: 'other',
+        narrative: '镜头转向酒馆组，请酒馆组玩家先行动。',
+        companion_reactions: '',
+        action_type: 'multiplayer_table',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+        table_reason: '酒馆组已有待处理行动，玩家明确要求切镜头。',
+        table_decision: {
+          decision: 'switch_focus',
+          reason_code: 'switch_focus',
+          target_group_id: 'tavern',
+        },
+      })
+    })
+
+    expect(deps.enterDialogueStage).toHaveBeenCalledWith([
+      {
+        role: 'dm',
+        text: '镜头转向酒馆组，请酒馆组玩家先行动。',
+        table_reason: '酒馆组已有待处理行动，玩家明确要求切镜头。',
+        table_decision: {
+          decision: 'switch_focus',
+          reason_code: 'switch_focus',
+          target_group_id: 'tavern',
+        },
+      },
+    ])
+  })
+
   it('dm_speak_turn: 用 functional updater 更新 _currentSpeaker', () => {
     const deps = makeDeps()
     const { result } = renderHook(() => useDialogueWsSync(deps))
@@ -120,6 +214,52 @@ describe('useDialogueWsSync', () => {
       await Promise.resolve()
     })
     expect(roomsApi.get).toHaveBeenCalledWith('sess-1')
+  })
+
+  it('member_online: 事件自带 members 时直接更新房间，避免额外刷新', async () => {
+    const deps = makeDeps()
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+    await act(async () => {
+      result.current({
+        type: 'member_online',
+        user_id: 'other',
+        members: [{ user_id: 'other', display_name: 'Other', is_online: true }],
+      })
+      await Promise.resolve()
+    })
+    expect(roomsApi.get).not.toHaveBeenCalled()
+    expect(deps.setRoom).toHaveBeenCalledWith(expect.any(Function))
+    const updater = deps.setRoom.mock.calls[0][0]
+    expect(updater({ is_multiplayer: true, room_code: '234567', _currentSpeaker: 'me', members: [] })).toMatchObject({
+      room_code: '234567',
+      _currentSpeaker: 'me',
+      members: [{ user_id: 'other', display_name: 'Other', is_online: true }],
+    })
+  })
+
+  it('room_state_updated: 直接用完整房间快照更新 realtime room', async () => {
+    const deps = makeDeps()
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+    await act(async () => {
+      result.current({
+        type: 'room_state_updated',
+        room: {
+          is_multiplayer: true,
+          room_code: '765432',
+          current_speaker_user_id: 'u-next',
+          party_groups: [{ id: 'main', member_user_ids: ['me'] }],
+        },
+      })
+      await Promise.resolve()
+    })
+    expect(roomsApi.get).not.toHaveBeenCalled()
+    expect(deps.setRoom).toHaveBeenCalledWith(expect.any(Function))
+    const updater = deps.setRoom.mock.calls[0][0]
+    expect(updater({ is_multiplayer: true, room_code: '234567', _currentSpeaker: 'old' })).toMatchObject({
+      room_code: '765432',
+      _currentSpeaker: 'u-next',
+      party_groups: [{ id: 'main', member_user_ids: ['me'] }],
+    })
   })
 
   it('未知 type: 静默忽略不报错', () => {

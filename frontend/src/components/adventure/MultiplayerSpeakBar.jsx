@@ -4,6 +4,13 @@
  * 只负责展示和把按钮动作交还给页面；AI 代演、WS 消息发送等业务仍在
  * Adventure.jsx 中，避免展示组件知道 API 细节。
  */
+import {
+  canRequestAiTakeover,
+  getAiTakeoverStatus,
+  getSpeakTurnStatusText,
+  getSpeakerOnlineStatus,
+} from '../../utils/multiplayerStatus'
+
 export default function MultiplayerSpeakBar({
   room,
   isMySpeakTurn,
@@ -13,6 +20,10 @@ export default function MultiplayerSpeakBar({
   onAiTakeover,
 }) {
   if (!room) return null
+  const statusText = getSpeakTurnStatusText({ isMySpeakTurn, currentSpeakerName })
+  const speakerStatus = getSpeakerOnlineStatus(room, currentSpeakerUid)
+  const takeoverStatus = getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn })
+  const canTakeover = takeoverStatus.canTakeover || canRequestAiTakeover({ room, currentSpeakerUid, isMySpeakTurn })
 
   return (
     <div style={{
@@ -25,7 +36,7 @@ export default function MultiplayerSpeakBar({
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       zIndex: 5,
     }}>
-      <span>{isMySpeakTurn ? '✦ 轮到你了 · 说一句你的行动，DM 会回应并自动轮到下一位' : `等待 ${currentSpeakerName || '其他玩家'} 发言…`}</span>
+      <span>{isMySpeakTurn ? `✦ ${statusText}` : statusText}</span>
       <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         {isMySpeakTurn && currentSpeakerUid && (
           <button onClick={onSkipTurn}
@@ -37,9 +48,16 @@ export default function MultiplayerSpeakBar({
         {!isMySpeakTurn && currentSpeakerUid && (
           <button
             onClick={onAiTakeover}
-            title="若该玩家长时间没动作（≥30 秒无心跳），让 AI 据其人设代演一句"
-            style={{ padding: '3px 10px', fontSize: 11, background: 'transparent', color: 'var(--arcane-light)', border: '1px solid var(--arcane-light)', borderRadius: 3, cursor: 'pointer' }}>
-            ⚙ 代他出招
+            disabled={!canTakeover}
+            title={takeoverStatus.label || (canTakeover ? '该玩家离线，可让 AI 据其人设代演一句' : '当前发言者仍在线，暂不能代演')}
+            style={{
+              padding: '3px 10px', fontSize: 11, background: 'transparent',
+              color: canTakeover ? 'var(--arcane-light)' : 'var(--text-dim)',
+              border: `1px solid ${canTakeover ? 'var(--arcane-light)' : 'var(--wood-light)'}`,
+              borderRadius: 3, cursor: canTakeover ? 'pointer' : 'not-allowed',
+              opacity: canTakeover ? 1 : 0.65,
+            }}>
+            ⚙ {canTakeover ? 'AI 代演' : (takeoverStatus.label || `玩家${speakerStatus.label}`)}
           </button>
         )}
         <span style={{ fontSize: 11, opacity: 0.8 }}>房间码 {room.room_code}</span>

@@ -56,6 +56,9 @@ class GameLogEntry(BaseModel):
     content: str
     log_type: str
     dice_result: Optional[dict[str, Any]] = None
+    visibility: dict[str, Any] = {}
+    table_reason: str = ""
+    table_decision: dict[str, Any] = {}
     created_at: Optional[str] = None
 
 
@@ -117,6 +120,9 @@ class PlayerActionResponse(BaseModel):
     combat_ended: bool = False
     combat_end_result: Optional[Any] = None
     combat_update: Optional[dict[str, Any]] = None
+    visibility: dict[str, Any] = {}
+    table_reason: str = ""
+    table_decision: dict[str, Any] = {}
     errors: list[Any] = []
 
 

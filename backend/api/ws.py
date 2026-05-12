@@ -50,6 +50,8 @@ async def ws_endpoint(
         if member is None:
             await websocket.close(code=4403, reason="Not a room member")
             return
+        await room_service.update_heartbeat(db, session_id, user_id)
+        online_members = await room_service.list_members(db, session_id)
 
     # 3. 接受连接 + 注册
     await websocket.accept()
@@ -58,7 +60,7 @@ async def ws_endpoint(
     # 4. 广播在线
     await ws_manager.broadcast(
         session_id,
-        MemberOnline(user_id=user_id),
+        MemberOnline(user_id=user_id, members=online_members),
         exclude_user_id=user_id,
     )
 
@@ -102,12 +104,16 @@ async def ws_endpoint(
     except Exception as e:
         logger.warning(f"WS error session={session_id} user={user_id}: {e}")
     finally:
-        await ws_manager.disconnect(websocket)
-        # 广播离线
-        await ws_manager.broadcast(
-            session_id,
-            MemberOffline(user_id=user_id),
-        )
+        disconnected = await ws_manager.disconnect(websocket)
+        if disconnected:
+            async with AsyncSessionLocal() as db:
+                await room_service.mark_offline(db, session_id, user_id)
+                offline_members = await room_service.list_members(db, session_id)
+            # 广播离线
+            await ws_manager.broadcast(
+                session_id,
+                MemberOffline(user_id=user_id, members=offline_members),
+            )
 
 
 async def _advance_speaker(db: AsyncSession, session_id: str, current_user_id: str) -> str | None:

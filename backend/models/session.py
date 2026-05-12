@@ -65,5 +65,8 @@ class GameLog(Base):
     content = Column(Text, nullable=False)
     log_type = Column(String(20), default="narrative")  # narrative/combat/dice/companion/system
     dice_result = Column(JSON, nullable=True)     # 骰子结果
+    visibility = Column(JSON, nullable=True)      # 多人可见范围；None/party 表示全队可见
+    table_reason = Column(Text, nullable=True)    # 多人 DM 桌面调度原因
+    table_decision = Column(JSON, nullable=True)  # 多人 DM 结构化桌面裁决
 
     created_at = Column(DateTime, server_default=func.now())

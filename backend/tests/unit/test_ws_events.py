@@ -17,7 +17,7 @@ from schemas.ws_events import (
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing,
     DMThinkingStart, DMResponded, DMSpeakTurn,
-    CombatUpdate, TurnChanged, EntityMoved,
+    RoomStateUpdated, CombatUpdate, TurnChanged, EntityMoved,
 )
 
 
@@ -26,7 +26,7 @@ ALL_CLASSES = [
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing,
     DMThinkingStart, DMResponded, DMSpeakTurn,
-    CombatUpdate, TurnChanged, EntityMoved,
+    RoomStateUpdated, CombatUpdate, TurnChanged, EntityMoved,
 ]
 
 
@@ -64,6 +64,14 @@ class TestSampleEvents:
         e = MemberLeft(user_id="u1", members=[])
         assert e.host_transferred_to is None
 
+    def test_member_online_offline_can_carry_member_snapshots(self):
+        """在线/离线事件可直接携带成员快照，前端不用再额外拉房间。"""
+        members = [{"user_id": "u1", "display_name": "A", "is_online": True}]
+        online = MemberOnline(user_id="u1", members=members)
+        offline = MemberOffline(user_id="u1", members=members)
+        assert online.model_dump(mode="json")["members"] == members
+        assert offline.model_dump(mode="json")["members"] == members
+
     def test_dm_responded_defaults(self):
         """companion_reactions / dice_display 等有合理默认值。"""
         e = DMResponded(
@@ -75,11 +83,33 @@ class TestSampleEvents:
         assert e.dice_display == []
         assert e.combat_triggered is False
         assert e.combat_ended is False
+        assert e.visibility == {}
+
+    def test_dm_responded_can_carry_visibility(self):
+        """多人分队私密回应可携带可见范围。"""
+        visibility = {"scope": "group", "group_id": "alley", "visible_to_user_ids": ["u1", "u2"]}
+        table_decision = {"decision": "switch_focus", "target_group_id": "alley"}
+        e = DMResponded(
+            by_user_id="u1",
+            action_type="multiplayer_table",
+            narrative="镜头转向后巷组。",
+            visibility=visibility,
+            table_decision=table_decision,
+        )
+        assert e.model_dump(mode="json")["visibility"] == visibility
+        assert e.model_dump(mode="json")["table_decision"] == table_decision
 
     def test_dm_speak_turn_auto_default_false(self):
         """auto 默认 False（玩家手动推进）；自动推进时调用方显式传 True。"""
         e = DMSpeakTurn(user_id="u1")
         assert e.auto is False
+
+    def test_room_state_updated_carries_full_room_snapshot(self):
+        """房间协作状态变化时可广播完整 room 快照，前端直接合并。"""
+        e = RoomStateUpdated(room={"session_id": "s1", "party_groups": []})
+        d = e.model_dump(mode="json")
+        assert d["type"] == "room_state_updated"
+        assert d["room"]["session_id"] == "s1"
 
     def test_entity_moved_position(self):
         e = EntityMoved(entity_id="g1", position={"x": 3, "y": 5})

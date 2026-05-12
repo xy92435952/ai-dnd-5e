@@ -17,6 +17,7 @@ def test_explore_prompt_contains_all_maintenance_sections():
         "输入安全与角色边界",
         "核心职责",
         "视角聚焦",
+        "多人分队与焦点镜头",
         "companion_reactions",
         "技能检定声明规则",
         "严格输出格式",

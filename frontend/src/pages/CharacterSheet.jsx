@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { charactersApi } from '../api/client'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { charactersApi, gameApi } from '../api/client'
 import {
-  BackIcon, ShieldIcon, HeartIcon, SwordIcon, DiceD20Icon,
-  BookIcon, ClassIcon, MagicIcon, DefendIcon,
+  BackIcon, ShieldIcon, HeartIcon, DiceD20Icon,
+  BookIcon, ClassIcon, MagicIcon,
 } from '../components/Icons'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { Divider } from '../components/Ornaments'
+import InventoryPanel from '../components/inventory/InventoryPanel'
 
 // ── 常量 ──────────────────────────────────────────────────
 const ABILITY_LABELS = {
@@ -43,11 +44,12 @@ const ALL_SKILLS = [
 
 export default function CharacterSheet() {
   const { characterId } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
   const [char, setChar] = useState(null)
+  const [partyMembers, setPartyMembers] = useState([])
   const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => { loadCharacter() }, [characterId])
 
@@ -55,31 +57,18 @@ export default function CharacterSheet() {
     try {
       const data = await charactersApi.get(characterId)
       setChar(data)
-    } catch (e) {
-      setError(e.message)
-    }
-  }
-
-  const handleEquipToggle = async (category, index) => {
-    if (!char || saving) return
-    const eq = { ...char.equipment }
-    if (category === 'shield') {
-      if (eq.shield) {
-        eq.shield = { ...eq.shield, equipped: !eq.shield.equipped }
+      const sessionId = searchParams.get('sessionId')
+      if (sessionId) {
+        const session = await gameApi.getSession(sessionId)
+        const party = [session.player, ...(session.companions || [])]
+          .filter(member => member?.id && member.id !== characterId)
+          .map(member => ({ id: member.id, name: member.name }))
+        setPartyMembers(party)
+      } else {
+        setPartyMembers([])
       }
-    } else {
-      const list = [...(eq[category] || [])]
-      list[index] = { ...list[index], equipped: !list[index].equipped }
-      eq[category] = list
-    }
-    setSaving(true)
-    try {
-      const result = await charactersApi.updateEquipment(char.id, eq)
-      setChar(prev => ({ ...prev, equipment: result.equipment, derived: result.derived }))
     } catch (e) {
       setError(e.message)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -114,7 +103,6 @@ export default function CharacterSheet() {
   const hpColor = hpPct > 60 ? 'var(--green-light)' : hpPct > 30 ? '#f59e0b' : 'var(--red-light)'
   const profBonus = derived.proficiency_bonus || 2
   const passivePerception = 10 + (mods.wis || 0) + ((char.proficient_skills || []).includes('感知') || (char.proficient_skills || []).includes('Perception') ? profBonus : 0)
-  const eq = char.equipment || {}
   const slotsMax = derived.spell_slots_max || {}
   const slotsCur = char.spell_slots || {}
 
@@ -280,129 +268,12 @@ export default function CharacterSheet() {
           </div>
         </div>
 
-        {/* ── Equipment ── */}
-        <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
-          <SectionTitle>装备</SectionTitle>
-
-          {/* Gold */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, padding: '8px 12px', background: 'rgba(201,168,76,0.08)', borderRadius: 6, border: '1px solid var(--gold-dim)' }}>
-            <span style={{ fontSize: 16 }}>&#x1F4B0;</span>
-            <span style={{ color: 'var(--gold)', fontSize: 16, fontWeight: 700 }}>{eq.gold ?? 0}</span>
-            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>gp</span>
-          </div>
-
-          {/* Weapons */}
-          {(eq.weapons || []).length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ color: 'var(--red-light)', fontSize: 11, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <SwordIcon size={11} color="var(--red-light)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                武器
-              </p>
-              {eq.weapons.map((w, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                  background: w.equipped ? 'rgba(139,32,32,0.1)' : 'transparent',
-                  border: `1px solid ${w.equipped ? 'var(--red)' : 'var(--wood)'}`,
-                  borderRadius: 6, marginBottom: 4, cursor: 'pointer',
-                }} onClick={() => handleEquipToggle('weapons', i)}>
-                  <div style={{
-                    width: 14, height: 14, borderRadius: 3,
-                    background: w.equipped ? 'var(--red-light)' : 'transparent',
-                    border: `2px solid ${w.equipped ? 'var(--red-light)' : 'var(--wood-light)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--bg)', fontSize: 10, fontWeight: 700, flexShrink: 0,
-                  }}>
-                    {w.equipped && '\u2713'}
-                  </div>
-                  <span style={{ color: 'var(--parchment)', fontSize: 12, fontWeight: 600, flex: 1 }}>{w.zh || w.name}</span>
-                  {w.damage && <span style={{ color: 'var(--red-light)', fontSize: 11 }}>{w.damage}</span>}
-                  {w.type && <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{w.type}</span>}
-                  {w.properties && <span style={{ color: 'var(--wood-light)', fontSize: 9 }}>{Array.isArray(w.properties) ? w.properties.join(', ') : w.properties}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Armor */}
-          {(eq.armor || []).length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ color: 'var(--blue-light)', fontSize: 11, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <ShieldIcon size={11} color="var(--blue-light)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                护甲
-              </p>
-              {eq.armor.map((a, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                  background: a.equipped ? 'rgba(26,58,90,0.15)' : 'transparent',
-                  border: `1px solid ${a.equipped ? 'var(--blue)' : 'var(--wood)'}`,
-                  borderRadius: 6, marginBottom: 4, cursor: 'pointer',
-                }} onClick={() => handleEquipToggle('armor', i)}>
-                  <div style={{
-                    width: 14, height: 14, borderRadius: 3,
-                    background: a.equipped ? 'var(--blue-light)' : 'transparent',
-                    border: `2px solid ${a.equipped ? 'var(--blue-light)' : 'var(--wood-light)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--bg)', fontSize: 10, fontWeight: 700, flexShrink: 0,
-                  }}>
-                    {a.equipped && '\u2713'}
-                  </div>
-                  <span style={{ color: 'var(--parchment)', fontSize: 12, fontWeight: 600, flex: 1 }}>{a.zh || a.name}</span>
-                  {a.ac != null && <span style={{ color: 'var(--blue-light)', fontSize: 11 }}>AC {a.ac}</span>}
-                  {a.type && <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{a.type}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Shield */}
-          {eq.shield && (
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ color: 'var(--blue-light)', fontSize: 11, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <DefendIcon size={11} color="var(--blue-light)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-                盾牌
-              </p>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                background: eq.shield.equipped ? 'rgba(26,58,90,0.15)' : 'transparent',
-                border: `1px solid ${eq.shield.equipped ? 'var(--blue)' : 'var(--wood)'}`,
-                borderRadius: 6, cursor: 'pointer',
-              }} onClick={() => handleEquipToggle('shield', 0)}>
-                <div style={{
-                  width: 14, height: 14, borderRadius: 3,
-                  background: eq.shield.equipped ? 'var(--blue-light)' : 'transparent',
-                  border: `2px solid ${eq.shield.equipped ? 'var(--blue-light)' : 'var(--wood-light)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--bg)', fontSize: 10, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {eq.shield.equipped && '\u2713'}
-                </div>
-                <span style={{ color: 'var(--parchment)', fontSize: 12, fontWeight: 600, flex: 1 }}>{eq.shield.zh || eq.shield.name}</span>
-                <span style={{ color: 'var(--blue-light)', fontSize: 11 }}>+{eq.shield.ac} AC</span>
-              </div>
-            </div>
-          )}
-
-          {/* Gear */}
-          {(eq.gear || []).length > 0 && (
-            <div>
-              <p style={{ color: 'var(--text-dim)', fontSize: 11, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                杂物
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {eq.gear.map((g, i) => (
-                  <span key={i} className="tag tag-info">{typeof g === 'string' ? g : (g.zh || g.name || g)}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* No equipment */}
-          {!(eq.weapons?.length || eq.armor?.length || eq.shield || eq.gear?.length) && (
-            <p style={{ color: 'var(--text-dim)', fontSize: 12, textAlign: 'center', padding: 16 }}>
-              暂无装备数据
-            </p>
-          )}
-        </div>
+        <InventoryPanel
+          character={char}
+          partyMembers={partyMembers}
+          onCharacterChange={setChar}
+          onError={setError}
+        />
 
         {/* ── Spell Slots ── */}
         {Object.keys(slotsMax).length > 0 && (

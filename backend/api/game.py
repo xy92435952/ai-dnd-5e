@@ -12,6 +12,7 @@
             ai-takeover）保持简单
 """
 import uuid
+import json
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +23,7 @@ from typing import Optional, Literal
 
 from database import get_db
 from models import Module, Character, Session, GameLog, CombatState
-from api.deps import get_session_or_404, char_brief, serialize_log, get_user_id
+from api.deps import get_session_or_404, char_brief, serialize_log, can_user_see_log, get_user_id
 from services.langgraph_client import langgraph_client as dify_client
 from services.dnd_rules import roll_skill_check, roll_initiative, roll_dice, _normalize_class, get_class_resource_defaults, HIT_DICE
 from services.context_builder import ContextBuilder
@@ -133,6 +134,126 @@ def _normalize_action_source(session: Session, action_text: str, requested_sourc
     return "human_input"
 
 
+async def _apply_multiplayer_room_decision(
+    *,
+    db: AsyncSession,
+    session: Session,
+    actor_user_id: str,
+    multiplayer_decision,
+) -> None:
+    """Apply multiplayer table room updates and broadcast the fresh room snapshot."""
+    if not multiplayer_decision:
+        return
+    from services import room_service
+    from services.ws_manager import ws_manager
+    from schemas.ws_events import RoomStateUpdated
+
+    room_info = None
+    for group_id in multiplayer_decision.clear_pending_group_ids:
+        room_info = await room_service.clear_group_actions(
+            db,
+            session_id=session.id,
+            group_id=group_id,
+            actor_user_id=actor_user_id,
+        )
+    focus_group_id = multiplayer_decision.room_updates.get("active_group_id")
+    next_ready_group_id = None
+    if room_info:
+        next_ready_group_id = _find_next_ready_group_id(
+            room_info,
+            exclude_group_ids=set(multiplayer_decision.clear_pending_group_ids or []),
+        )
+    if next_ready_group_id:
+        focus_group_id = next_ready_group_id
+    if focus_group_id:
+        room_info = await room_service.set_active_group(
+            db,
+            session_id=session.id,
+            group_id=focus_group_id,
+            actor_user_id=actor_user_id,
+        )
+    if room_info:
+        try:
+            await ws_manager.broadcast(session.id, RoomStateUpdated(room=room_info))
+        except Exception:
+            pass
+
+
+def _find_next_ready_group_id(room_info: dict, exclude_group_ids: set[str] | None = None) -> Optional[str]:
+    """Pick the next group that has pending actions and every member marked ready."""
+    exclude_group_ids = exclude_group_ids or set()
+    pending_by_group = room_info.get("pending_actions_by_group") or {}
+    readiness_by_group = room_info.get("group_readiness") or {}
+    for group in room_info.get("party_groups") or []:
+        group_id = group.get("id")
+        if not group_id or group_id in exclude_group_ids:
+            continue
+        if not pending_by_group.get(group_id):
+            continue
+        member_ids = group.get("member_user_ids") or []
+        if not member_ids:
+            continue
+        readiness = readiness_by_group.get(group_id) or {}
+        if all(readiness.get(user_id) == "ready" for user_id in member_ids):
+            return group_id
+    return None
+
+
+async def _broadcast_multiplayer_table_message(
+    *,
+    session: Session,
+    actor_user_id: str,
+    table_message: str,
+    table_reason: str = "",
+    table_decision: Optional[dict] = None,
+    visibility: Optional[dict] = None,
+) -> None:
+    """Broadcast a table-only Multiplayer DM result to room observers."""
+    if not session.is_multiplayer:
+        return
+    from schemas.ws_events import DMResponded
+
+    try:
+        visibility = visibility or {}
+        await _send_dm_responded_with_visibility(
+            session=session,
+            visibility=visibility,
+            event=DMResponded(
+                by_user_id=actor_user_id,
+                action_type="multiplayer_table",
+                narrative=table_message,
+                companion_reactions="",
+                dice_display=[],
+                combat_triggered=False,
+                combat_ended=False,
+                visibility=visibility,
+                table_reason=table_reason,
+                table_decision=table_decision or {},
+            ),
+        )
+    except Exception:
+        pass
+
+
+async def _send_dm_responded_with_visibility(
+    *,
+    session: Session,
+    event,
+    visibility: Optional[dict] = None,
+) -> None:
+    """Broadcast a DM response, respecting optional multiplayer visibility."""
+    from services.ws_manager import ws_manager
+
+    visibility = visibility or {}
+    visible_to = list(visibility.get("visible_to_user_ids") or [])
+    scope = visibility.get("scope") or "party"
+    if session.is_multiplayer and scope in {"group", "private"} and visible_to:
+        for target_user_id in visible_to:
+            await ws_manager.send_to_user(session.id, target_user_id, event)
+        return
+    await ws_manager.broadcast(session.id, event)
+
+
 # ── Session 管理 ──────────────────────────────────────────
 
 @router.post("/sessions", response_model=CreateSessionResponse)
@@ -205,7 +326,11 @@ async def list_sessions(db: AsyncSession = Depends(get_db), user_id: str = Depen
 
 
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
-async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """获取会话完整状态（用于恢复游戏）"""
     session    = await get_session_or_404(session_id, db)
     roster     = CharacterRoster(db, session)
@@ -231,7 +356,7 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
         "game_state":     session.game_state or {},
         "player":         char_brief(player) if player else None,
         "companions":     companions,
-        "logs":           [serialize_log(l) for l in logs],
+        "logs":           [serialize_log(l) for l in logs if can_user_see_log(l, user_id)],
         "campaign_state": session.campaign_state or {},
     }
 
@@ -287,6 +412,7 @@ async def _execute_exploration_action(
     combat_state: Optional[CombatState] = None,
     is_takeover: bool = False,
     takeover_by_user_id: Optional[str] = None,
+    after_success=None,
 ) -> dict:
     """
     探索阶段一次行动的完整 DM 主流程：
@@ -323,6 +449,23 @@ async def _execute_exploration_action(
     if not dm_result.get("success", True):
         raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
 
+    multiplayer_visibility = getattr(after_success, "multiplayer_visibility", {}) if after_success else {}
+    multiplayer_table_reason = getattr(after_success, "multiplayer_table_reason", "") if after_success else ""
+    multiplayer_table_decision = getattr(after_success, "multiplayer_table_decision", {}) if after_success else {}
+    if multiplayer_visibility or multiplayer_table_reason or multiplayer_table_decision:
+        try:
+            result_payload = json.loads(dm_result["result"])
+            if isinstance(result_payload, dict):
+                if multiplayer_visibility:
+                    result_payload["visibility"] = multiplayer_visibility
+                if multiplayer_table_reason:
+                    result_payload["table_reason"] = multiplayer_table_reason
+                if multiplayer_table_decision:
+                    result_payload["table_decision"] = multiplayer_table_decision
+                dm_result["result"] = json.dumps(result_payload, ensure_ascii=False)
+        except Exception:
+            pass
+
     applicator = StateApplicator(db)
     ar = await applicator.apply(
         session=session,
@@ -339,6 +482,9 @@ async def _execute_exploration_action(
             module=module,
             db=db,
         )
+
+    if after_success:
+        await after_success()
 
     # 持久化 last_turn —— 供页面刷新 / WS 重连恢复
     gs = dict(session.game_state or {})
@@ -360,24 +506,31 @@ async def _execute_exploration_action(
 
     # 多人广播
     if session.is_multiplayer:
-        from services.ws_manager import ws_manager
         from schemas.ws_events import DMResponded, DMSpeakTurn
         try:
-            await ws_manager.broadcast(session.id, DMResponded(
-                by_user_id=actor_user_id,
-                action_type=ar.action_type,
-                narrative=ar.narrative,
-                companion_reactions=ar.companion_reactions or "",
-                dice_display=ar.dice_display or [],
-                combat_triggered=ar.combat_triggered,
-                combat_ended=ar.combat_ended,
-            ))
+            await _send_dm_responded_with_visibility(
+                session=session,
+                visibility=multiplayer_visibility,
+                event=DMResponded(
+                    by_user_id=actor_user_id,
+                    action_type=ar.action_type,
+                    narrative=ar.narrative,
+                    companion_reactions=ar.companion_reactions or "",
+                    dice_display=ar.dice_display or [],
+                    combat_triggered=ar.combat_triggered,
+                    combat_ended=ar.combat_ended,
+                    visibility=multiplayer_visibility,
+                    table_reason=multiplayer_table_reason,
+                    table_decision=multiplayer_table_decision,
+                ),
+            )
         except Exception:
             pass
 
         # 探索阶段自动推进 speaker（战斗阶段由先攻顺序管理）
         if not session.combat_active and not ar.combat_triggered:
             try:
+                from services.ws_manager import ws_manager
                 from api.ws import _advance_speaker
                 next_user = await _advance_speaker(db, session.id, actor_user_id)
                 if next_user:
@@ -399,6 +552,9 @@ async def _execute_exploration_action(
         "combat_ended":       ar.combat_ended,
         "combat_end_result":  ar.combat_end_result,
         "combat_update":      None,
+        "visibility":         multiplayer_visibility,
+        "table_reason":       multiplayer_table_reason,
+        "table_decision":     multiplayer_table_decision,
         "errors":             ar.errors,
     }
 
@@ -424,6 +580,8 @@ async def player_action(
     session = await get_session_or_404(req.session_id, db)
     module  = await db.get(Module, session.module_id)
     action_source = _normalize_action_source(session, req.action_text, req.action_source)
+    effective_action_text = req.action_text
+    multiplayer_decision = None
 
     # ── 多人联机：解析当前用户对应的角色 ──
     if session.is_multiplayer:
@@ -444,6 +602,64 @@ async def player_action(
             if speaker and speaker != user_id:
                 raise HTTPException(403, "现在不是你的发言时机，请等待 / 发言")
         player = await db.get(Character, member.character_id)
+
+        if not session.combat_active:
+            from services.graphs.multiplayer_dm_agent import run_multiplayer_dm_agent
+            multiplayer_decision = await run_multiplayer_dm_agent(
+                db=db,
+                session=session,
+                actor_user_id=user_id,
+                action_text=req.action_text,
+            )
+            if not multiplayer_decision.should_call_base_dm:
+                table_message = multiplayer_decision.table_message or "等待队伍决定下一步。"
+                db.add(GameLog(
+                    session_id=req.session_id,
+                    role="player",
+                    content=req.action_text,
+                    log_type="narrative",
+                ))
+                db.add(GameLog(
+                    session_id=req.session_id,
+                    role="dm",
+                    content=table_message,
+                    log_type="narrative",
+                    visibility=multiplayer_decision.visibility,
+                    table_reason=multiplayer_decision.table_reason,
+                    table_decision=multiplayer_decision.table_decision,
+                ))
+                await _apply_multiplayer_room_decision(
+                    db=db,
+                    session=session,
+                    actor_user_id=user_id,
+                    multiplayer_decision=multiplayer_decision,
+                )
+                await db.commit()
+                await _broadcast_multiplayer_table_message(
+                    session=session,
+                    actor_user_id=user_id,
+                    table_message=table_message,
+                    table_reason=multiplayer_decision.table_reason,
+                    table_decision=multiplayer_decision.table_decision,
+                    visibility=multiplayer_decision.visibility,
+                )
+                return {
+                    "type": "multiplayer_table",
+                    "narrative": table_message,
+                    "table_reason": multiplayer_decision.table_reason,
+                    "table_decision": multiplayer_decision.table_decision,
+                    "companion_reactions": "",
+                    "dice_display": [],
+                    "player_choices": [],
+                    "needs_check": {"required": False},
+                    "combat_triggered": False,
+                    "combat_ended": False,
+                    "combat_end_result": None,
+                    "combat_update": None,
+                    "visibility": multiplayer_decision.visibility,
+                    "errors": [],
+                }
+            effective_action_text = multiplayer_decision.effective_action_text or req.action_text
 
         # 广播"DM 思考中"给房间所有成员（在 LLM 调用前，让 B/C/D 同步看到等待状态）
         try:
@@ -807,6 +1023,23 @@ async def player_action(
     # ═══════════════════════════════════════════════════════
     # 探索模式：DM Agent 主流程（与 ai_takeover 共用）
     # ═══════════════════════════════════════════════════════
+    async def after_multiplayer_success():
+        await _apply_multiplayer_room_decision(
+            db=db,
+            session=session,
+            actor_user_id=user_id,
+            multiplayer_decision=multiplayer_decision,
+        )
+    after_multiplayer_success.multiplayer_visibility = (
+        multiplayer_decision.visibility if multiplayer_decision else {}
+    )
+    after_multiplayer_success.multiplayer_table_reason = (
+        multiplayer_decision.table_reason if multiplayer_decision else ""
+    )
+    after_multiplayer_success.multiplayer_table_decision = (
+        multiplayer_decision.table_decision if multiplayer_decision else {}
+    )
+
     return await _execute_exploration_action(
         db=db,
         session=session,
@@ -814,9 +1047,10 @@ async def player_action(
         characters=characters,
         actor=player,
         actor_user_id=user_id,
-        action_text=req.action_text,
+        action_text=effective_action_text,
         action_source=action_source,
         combat_state=combat_state,
+        after_success=after_multiplayer_success if multiplayer_decision else None,
     )
 
 

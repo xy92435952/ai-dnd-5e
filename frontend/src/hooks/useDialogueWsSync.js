@@ -25,6 +25,13 @@
  */
 import { useCallback } from 'react'
 import { roomsApi } from '../api/client'
+import { mergeRealtimeRoomEvent } from './useRoomRealtime'
+
+function isVisibleToMe(event, myUserId) {
+  const visibleTo = event?.visibility?.visible_to_user_ids
+  if (!Array.isArray(visibleTo) || visibleTo.length === 0) return true
+  return Boolean(myUserId && visibleTo.includes(myUserId))
+}
 
 export function useDialogueWsSync({
   sessionId,
@@ -46,11 +53,27 @@ export function useDialogueWsSync({
         break
 
       case 'dm_responded': {
+        if (!isVisibleToMe(event, myUserId)) break
         const isMe = event.by_user_id && event.by_user_id === myUserId
         if (!isMe) {
           // 非发言者：用广播 payload 本地启动剧场，避免变只读观众
           setIsLoading(false)
           const queue = buildDialogueQueue(event.narrative, event.companion_reactions, companions)
+          if (event.visibility && Array.isArray(queue)) {
+            queue.forEach(seg => {
+              if (seg?.role === 'dm') seg.visibility = event.visibility
+            })
+          }
+          if (event.table_reason && Array.isArray(queue)) {
+            queue.forEach(seg => {
+              if (seg?.role === 'dm') seg.table_reason = event.table_reason
+            })
+          }
+          if (event.table_decision && Array.isArray(queue)) {
+            queue.forEach(seg => {
+              if (seg?.role === 'dm') seg.table_decision = event.table_decision
+            })
+          }
           if (queue.length > 0) enterDialogueStage(queue)
         }
         // 发言者也需要 loadSession —— 广播里没有 player_choices / scene_vibe / clues
@@ -63,11 +86,19 @@ export function useDialogueWsSync({
         setRoom(prev => prev ? { ...prev, _currentSpeaker: event.user_id } : prev)
         break
 
+      case 'room_state_updated':
+        setRoom(prev => mergeRealtimeRoomEvent(prev, event))
+        break
+
       case 'member_online':
       case 'member_offline':
       case 'member_joined':
       case 'member_left':
       case 'character_claimed':
+        if (Array.isArray(event.members)) {
+          setRoom(prev => mergeRealtimeRoomEvent(prev, event))
+          break
+        }
         // 成员事件：拉一次最新房间信息（包含 is_online / character_id 等）
         roomsApi.get(sessionId)
           .then(r => r?.is_multiplayer && setRoom({ ...r, _currentSpeaker: r.current_speaker_user_id }))

@@ -28,6 +28,30 @@ class TransferHostRequest(BaseModel):
     new_host_user_id: str
 
 
+class SetGroupRequest(BaseModel):
+    group_id: str = Field(default="main", min_length=1, max_length=40)
+    group_name: Optional[str] = Field(default=None, max_length=40)
+    location: Optional[str] = Field(default=None, max_length=80)
+
+
+class SubmitGroupActionRequest(BaseModel):
+    group_id: str = Field(default="main", min_length=1, max_length=40)
+    action_text: str = Field(min_length=1, max_length=500)
+
+
+class ClearGroupActionsRequest(BaseModel):
+    group_id: str = Field(default="main", min_length=1, max_length=40)
+
+
+class FocusGroupRequest(BaseModel):
+    group_id: str = Field(default="main", min_length=1, max_length=40)
+
+
+class SetGroupReadinessRequest(BaseModel):
+    group_id: str = Field(default="main", min_length=1, max_length=40)
+    status: str = Field(min_length=1, max_length=20)
+
+
 # ── 响应 ─────────────────────────────────────────────
 
 class MemberInfo(BaseModel):
@@ -38,6 +62,7 @@ class MemberInfo(BaseModel):
     character_id: Optional[str] = None
     character_name: Optional[str] = None
     is_online: bool = False
+    seconds_since_seen: Optional[int] = None
     joined_at: Optional[datetime] = None
 
     class Config:
@@ -69,6 +94,10 @@ class RoomInfo(BaseModel):
     ai_companions: List[AiCompanionInfo] = []
     current_speaker_user_id: Optional[str] = None
     speak_round: int = 0
+    party_groups: List[dict] = []
+    active_group_id: Optional[str] = None
+    pending_actions_by_group: dict = {}
+    group_readiness: dict = {}
     created_at: Optional[datetime] = None
 
 

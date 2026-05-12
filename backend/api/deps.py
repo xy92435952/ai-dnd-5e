@@ -101,8 +101,20 @@ def serialize_log(log: GameLog) -> dict:
         "content":     log.content,
         "log_type":    log.log_type,
         "dice_result": log.dice_result,
+        "visibility":   log.visibility or {},
+        "table_reason": log.table_reason or "",
+        "table_decision": log.table_decision or {},
         "created_at":  log.created_at.isoformat() if log.created_at else None,
     }
+
+
+def can_user_see_log(log: GameLog, user_id: Optional[str]) -> bool:
+    """Return whether a multiplayer user can see this persisted log entry."""
+    visibility = log.visibility or {}
+    visible_to = visibility.get("visible_to_user_ids") or []
+    if not visible_to:
+        return True
+    return bool(user_id and user_id in visible_to)
 
 
 # ── 多人联机：权限校验 + 广播辅助 ───────────────────

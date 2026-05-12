@@ -253,6 +253,10 @@ async def test_start_game_after_claim_works(client, sample_module):
     assert r.status_code == 200, r.text
     assert r.json()["started"] is True
 
+    room = (await client.get(f"/game/rooms/{create['session_id']}", headers=_h(host["token"]))).json()
+    assert room["game_started"] is True
+    assert room["current_speaker_user_id"] == host["user_id"]
+
 
 async def test_get_room_returns_full_info(client, sample_module):
     host = await _register(client, "host_info")
@@ -265,6 +269,685 @@ async def test_get_room_returns_full_info(client, sample_module):
     info = r.json()
     assert info["room_code"] == create["room_code"]
     assert info["host_user_id"] == host["user_id"]
+    assert info["active_group_id"] == "main"
+    assert info["pending_actions_by_group"] == {"main": []}
+    assert info["group_readiness"] == {"main": {}}
+
+
+async def test_party_group_endpoints_update_room_snapshot(client, sample_module):
+    host = await _register(client, "host_groups")
+    guest = await _register(client, "guest_groups")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+    sid = create["session_id"]
+
+    joined = await client.post(
+        f"/game/rooms/{sid}/groups/join",
+        headers=_h(guest["token"]),
+        json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"},
+    )
+    assert joined.status_code == 200, joined.text
+    groups = {group["id"]: group for group in joined.json()["party_groups"]}
+    assert groups["alley"]["member_user_ids"] == [guest["user_id"]]
+
+    submitted = await client.post(
+        f"/game/rooms/{sid}/groups/actions",
+        headers=_h(guest["token"]),
+        json={"group_id": "alley", "action_text": "我检查仓库门锁。"},
+    )
+    assert submitted.status_code == 200, submitted.text
+    actions = submitted.json()["pending_actions_by_group"]["alley"]
+    assert actions[0]["user_id"] == guest["user_id"]
+    assert actions[0]["text"] == "我检查仓库门锁。"
+    assert submitted.json()["group_readiness"]["alley"][guest["user_id"]] == "drafting"
+
+    readied = await client.post(
+        f"/game/rooms/{sid}/groups/readiness",
+        headers=_h(guest["token"]),
+        json={"group_id": "alley", "status": "ready"},
+    )
+    assert readied.status_code == 200, readied.text
+    assert readied.json()["group_readiness"]["alley"][guest["user_id"]] == "ready"
+
+    cleared = await client.post(
+        f"/game/rooms/{sid}/groups/actions/clear",
+        headers=_h(host["token"]),
+        json={"group_id": "alley"},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["pending_actions_by_group"]["alley"] == []
+    assert cleared.json()["group_readiness"]["alley"] == {}
+
+
+async def test_focus_group_endpoint_changes_active_group(client, sample_module):
+    host = await _register(client, "host_focus")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    joined = await client.post(
+        f"/game/rooms/{sid}/groups/join",
+        headers=_h(host["token"]),
+        json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"},
+    )
+    assert joined.status_code == 200, joined.text
+    assert joined.json()["active_group_id"] == "alley"
+
+    focused = await client.post(
+        f"/game/rooms/{sid}/groups/focus",
+        headers=_h(host["token"]),
+        json={"group_id": "main"},
+    )
+    assert focused.status_code == 200, focused.text
+    assert focused.json()["active_group_id"] == "main"
+
+
+async def test_multiplayer_player_action_aggregates_group_actions_on_backend(
+    client, db_session, sample_module, monkeypatch,
+):
+    """多人探索行动应由后端聚合同分队 pending actions，并在成功后清空该分队队列。"""
+    import json
+    import uuid as _uuid
+    from models import Character
+    import services.langgraph_client as lc
+
+    seen = {}
+
+    async def fake_call_dm_agent(**kwargs):
+        seen["player_action"] = kwargs["player_action"]
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "后巷的门锁发出轻响。",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {},
+                "needs_check": {"required": False},
+                "combat_triggered": False,
+                "combat_ended": False,
+                "dice_display": [],
+            }, ensure_ascii=False),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    host = await _register(client, "mp_actor")
+    supporter = await _register(client, "mp_supporter", display_name="艾拉")
+    tavern_player = await _register(client, "mp_tavern_ready", display_name="凯伦")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(supporter["token"]), json={"room_code": create["room_code"]})
+    await client.post("/game/rooms/join", headers=_h(tavern_player["token"]), json={"room_code": create["room_code"]})
+
+    host_char = Character(
+        id=str(_uuid.uuid4()), name="洛林",
+        race="Human", char_class="Rogue", level=1,
+        ability_scores={"str": 10, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10},
+        hp_current=8, is_player=True, session_id=sid,
+    )
+    supporter_char = Character(
+        id=str(_uuid.uuid4()), name="艾拉",
+        race="Elf", char_class="Wizard", level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10},
+        hp_current=6, is_player=True, session_id=sid,
+    )
+    tavern_char = Character(
+        id=str(_uuid.uuid4()), name="凯伦",
+        race="Human", char_class="Bard", level=1,
+        ability_scores={"str": 8, "dex": 12, "con": 12, "int": 12, "wis": 10, "cha": 16},
+        hp_current=7, is_player=True, session_id=sid,
+    )
+    db_session.add_all([host_char, supporter_char, tavern_char])
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(host["token"]), json={"character_id": host_char.id})
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(supporter["token"]), json={"character_id": supporter_char.id})
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(tavern_player["token"]), json={"character_id": tavern_char.id})
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(host["token"]),
+                      json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(supporter["token"]),
+                      json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(tavern_player["token"]),
+                      json={"group_id": "tavern", "group_name": "酒馆组", "location": "酒馆大厅"})
+    await client.post(f"/game/rooms/{sid}/groups/actions", headers=_h(supporter["token"]),
+                      json={"group_id": "alley", "action_text": "我检查仓库门锁。"})
+    await client.post(f"/game/rooms/{sid}/groups/actions", headers=_h(tavern_player["token"]),
+                      json={"group_id": "tavern", "action_text": "我继续套老板的话。"})
+    await client.post(f"/game/rooms/{sid}/groups/readiness", headers=_h(host["token"]),
+                      json={"group_id": "alley", "status": "ready"})
+    await client.post(f"/game/rooms/{sid}/groups/readiness", headers=_h(supporter["token"]),
+                      json={"group_id": "alley", "status": "ready"})
+    await client.post(f"/game/rooms/{sid}/groups/readiness", headers=_h(tavern_player["token"]),
+                      json={"group_id": "tavern", "status": "ready"})
+
+    response = await client.post("/game/action", headers=_h(host["token"]), json={
+        "session_id": sid,
+        "action_text": "我撬开后门。",
+    })
+
+    assert response.status_code == 200, response.text
+    assert "我撬开后门。" in seen["player_action"]
+    assert "【多人分队上下文】" in seen["player_action"]
+    assert "当前焦点分队：后巷组" in seen["player_action"]
+    assert "艾拉：我检查仓库门锁。" in seen["player_action"]
+
+    room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
+    assert room["pending_actions_by_group"]["alley"] == []
+    assert room["group_readiness"]["alley"] == {}
+    assert room["pending_actions_by_group"]["tavern"][0]["text"] == "我继续套老板的话。"
+    assert room["group_readiness"]["tavern"][tavern_player["user_id"]] == "ready"
+    assert room["active_group_id"] == "tavern"
+
+
+async def test_multiplayer_table_decision_updates_focus_without_base_dm(
+    client, db_session, sample_module, monkeypatch,
+):
+    """v2 桌面裁决如果只切镜头，应返回 table message 并更新房间焦点。"""
+    import uuid as _uuid
+    from models import Character
+    from services.graphs.multiplayer_dm_state import MultiplayerDMDecision
+    import services.graphs.multiplayer_dm_agent as mp_agent
+    import services.ws_manager as ws_module
+
+    broadcasts = []
+
+    async def fake_multiplayer_dm_agent(*, db, session, actor_user_id, action_text):
+        return MultiplayerDMDecision(
+            should_call_base_dm=False,
+            table_message="镜头转向酒馆组，请酒馆组玩家先行动。",
+            table_reason="酒馆组已有待处理行动，玩家明确要求切镜头。",
+            table_decision={
+                "decision": "switch_focus",
+                "reason_code": "switch_focus",
+                "target_group_id": "tavern",
+                "waiting_group_id": None,
+                "actor_group_id": "alley",
+                "focus_group_id": "tavern",
+                "knowledge_scope": "group",
+            },
+            actor_group_id="alley",
+            focus_group_id="tavern",
+            room_updates={"active_group_id": "tavern"},
+            visibility={"scope": "group", "group_id": "tavern", "visible_to_user_ids": []},
+        )
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append(payload)
+        return 1
+
+    monkeypatch.setattr(mp_agent, "run_multiplayer_dm_agent", fake_multiplayer_dm_agent)
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
+
+    host = await _register(client, "mp_table_actor")
+    guest = await _register(client, "mp_table_guest")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={"room_code": create["room_code"]})
+
+    host_char = Character(
+        id=str(_uuid.uuid4()), name="洛林",
+        race="Human", char_class="Rogue", level=1,
+        ability_scores={"str": 10, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10},
+        hp_current=8, is_player=True, session_id=sid,
+    )
+    guest_char = Character(
+        id=str(_uuid.uuid4()), name="凯伦",
+        race="Human", char_class="Bard", level=1,
+        ability_scores={"str": 8, "dex": 12, "con": 12, "int": 12, "wis": 10, "cha": 16},
+        hp_current=7, is_player=True, session_id=sid,
+    )
+    db_session.add_all([host_char, guest_char])
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(host["token"]), json={"character_id": host_char.id})
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(guest["token"]), json={"character_id": guest_char.id})
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(host["token"]),
+                      json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(guest["token"]),
+                      json={"group_id": "tavern", "group_name": "酒馆组", "location": "酒馆大厅"})
+    focused_before = await client.post(
+        f"/game/rooms/{sid}/groups/focus",
+        headers=_h(host["token"]),
+        json={"group_id": "alley"},
+    )
+    assert focused_before.status_code == 200, focused_before.text
+    assert focused_before.json()["active_group_id"] == "alley"
+
+    response = await client.post("/game/action", headers=_h(host["token"]), json={
+        "session_id": sid,
+        "action_text": "先切到酒馆看看他们。",
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["type"] == "multiplayer_table"
+    assert body["narrative"] == "镜头转向酒馆组，请酒馆组玩家先行动。"
+    assert body["table_reason"] == "酒馆组已有待处理行动，玩家明确要求切镜头。"
+    assert body["table_decision"]["decision"] == "switch_focus"
+    assert body["table_decision"]["target_group_id"] == "tavern"
+    assert body["visibility"]["group_id"] == "tavern"
+
+    room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
+    assert room["active_group_id"] == "tavern"
+    assert any(
+        event["type"] == "room_state_updated" and event["room"]["active_group_id"] == "tavern"
+        for event in broadcasts
+    )
+    assert any(
+        event["type"] == "dm_responded"
+        and event["action_type"] == "multiplayer_table"
+        and event["narrative"] == "镜头转向酒馆组，请酒馆组玩家先行动。"
+        and event["table_decision"]["target_group_id"] == "tavern"
+        for event in broadcasts
+    )
+    logs = (await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))).json()["logs"]
+    assert any(log["role"] == "dm" and log["content"] == "镜头转向酒馆组，请酒馆组玩家先行动。" for log in logs)
+    table_log = next(log for log in logs if log["role"] == "dm" and log["content"] == "镜头转向酒馆组，请酒馆组玩家先行动。")
+    assert table_log["table_reason"] == "酒馆组已有待处理行动，玩家明确要求切镜头。"
+    assert table_log["table_decision"]["reason_code"] == "switch_focus"
+
+
+async def test_group_visible_dm_response_is_sent_only_to_visible_users(
+    client, db_session, sample_module, monkeypatch,
+):
+    """基础 DM 叙事带 group visibility 时，只应点对点推给可见分队成员。"""
+    import json
+    import uuid as _uuid
+    from models import Character
+    from services.graphs.multiplayer_dm_state import MultiplayerDMDecision
+    import services.graphs.multiplayer_dm_agent as mp_agent
+    import services.langgraph_client as lc
+    import services.ws_manager as ws_module
+
+    sent_to_users = []
+    broadcasts = []
+
+    async def fake_multiplayer_dm_agent(*, db, session, actor_user_id, action_text):
+        return MultiplayerDMDecision(
+            should_call_base_dm=True,
+            effective_action_text="我撬开后门。\n\n【多人分队上下文】\n当前焦点分队：后巷组",
+            actor_group_id="alley",
+            focus_group_id="alley",
+            table_reason="后巷组行动已齐，交给基础 DM 处理当前镜头。",
+            table_decision={
+                "decision": "process_actor_group",
+                "reason_code": "process_actor_group",
+                "target_group_id": "alley",
+                "waiting_group_id": None,
+                "actor_group_id": "alley",
+                "focus_group_id": "alley",
+                "knowledge_scope": "group",
+            },
+            clear_pending_group_ids=[],
+            room_updates={},
+            visibility={"scope": "group", "group_id": "alley", "visible_to_user_ids": [host["user_id"], ally["user_id"]]},
+        )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "后巷门锁在阴影里轻轻弹开。",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {},
+                "needs_check": {"required": False},
+                "combat_triggered": False,
+                "combat_ended": False,
+                "dice_display": [],
+            }, ensure_ascii=False),
+            "success": True,
+        }
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append(payload)
+        return 1
+
+    async def fake_send_to_user(session_id, user_id, event):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        sent_to_users.append((user_id, payload))
+        return True
+
+    monkeypatch.setattr(mp_agent, "run_multiplayer_dm_agent", fake_multiplayer_dm_agent)
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
+    monkeypatch.setattr(ws_module.ws_manager, "send_to_user", fake_send_to_user)
+
+    host = await _register(client, "mp_visible_actor")
+    ally = await _register(client, "mp_visible_ally")
+    outsider = await _register(client, "mp_visible_outsider")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(ally["token"]), json={"room_code": create["room_code"]})
+    await client.post("/game/rooms/join", headers=_h(outsider["token"]), json={"room_code": create["room_code"]})
+
+    chars = []
+    for token_owner, name, char_class in [
+        (host, "洛林", "Rogue"),
+        (ally, "艾拉", "Wizard"),
+        (outsider, "凯伦", "Bard"),
+    ]:
+        char = Character(
+            id=str(_uuid.uuid4()), name=name,
+            race="Human", char_class=char_class, level=1,
+            ability_scores={"str": 10, "dex": 14, "con": 12, "int": 12, "wis": 10, "cha": 10},
+            hp_current=8, is_player=True, session_id=sid,
+        )
+        chars.append((token_owner, char))
+    db_session.add_all([char for _, char in chars])
+    await db_session.commit()
+    for token_owner, char in chars:
+        await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(token_owner["token"]), json={"character_id": char.id})
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(host["token"]),
+                      json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(ally["token"]),
+                      json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
+    await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(outsider["token"]),
+                      json={"group_id": "tavern", "group_name": "酒馆组", "location": "酒馆大厅"})
+
+    response = await client.post("/game/action", headers=_h(host["token"]), json={
+        "session_id": sid,
+        "action_text": "我撬开后门。",
+    })
+
+    assert response.status_code == 200, response.text
+    assert response.json()["visibility"]["group_id"] == "alley"
+    assert response.json()["table_reason"] == "后巷组行动已齐，交给基础 DM 处理当前镜头。"
+    assert response.json()["table_decision"]["reason_code"] == "process_actor_group"
+    assert response.json()["table_decision"]["target_group_id"] == "alley"
+    visible_user_ids = [user_id for user_id, payload in sent_to_users if payload["type"] == "dm_responded"]
+    assert visible_user_ids == [host["user_id"], ally["user_id"]]
+    assert outsider["user_id"] not in visible_user_ids
+    assert not any(event["type"] == "dm_responded" for event in broadcasts)
+    assert sent_to_users[0][1]["visibility"]["group_id"] == "alley"
+    assert sent_to_users[0][1]["table_reason"] == "后巷组行动已齐，交给基础 DM 处理当前镜头。"
+    assert sent_to_users[0][1]["table_decision"]["reason_code"] == "process_actor_group"
+    host_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))).json()["logs"]
+    outsider_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(outsider["token"]))).json()["logs"]
+    assert any(
+        log["content"] == "后巷门锁在阴影里轻轻弹开。"
+        and log["visibility"]["group_id"] == "alley"
+        and log["table_reason"] == "后巷组行动已齐，交给基础 DM 处理当前镜头。"
+        and log["table_decision"]["reason_code"] == "process_actor_group"
+        for log in host_logs
+    )
+    assert not any(log["content"] == "后巷门锁在阴影里轻轻弹开。" for log in outsider_logs)
+
+
+async def test_simulated_multiplayer_split_party_turn_preserves_other_group_queue(
+    client, db_session, sample_module, monkeypatch,
+):
+    """模拟真人多人局：两个分队都有意图时，只处理当前发言者分队并保留另一组队列。"""
+    import json
+    import uuid as _uuid
+    from models import Character
+    import services.langgraph_client as lc
+    import services.ws_manager as ws_module
+
+    sent_to_users = []
+    broadcasts = []
+    seen = {}
+
+    async def fake_call_dm_agent(**kwargs):
+        seen["player_action"] = kwargs["player_action"]
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "后巷组悄声撬开仓库后门，屋内传出潮湿木板的气味。",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {},
+                "needs_check": {"required": False},
+                "combat_triggered": False,
+                "combat_ended": False,
+                "dice_display": [],
+            }, ensure_ascii=False),
+            "success": True,
+        }
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append(payload)
+        return 1
+
+    async def fake_send_to_user(session_id, user_id, event):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        sent_to_users.append((user_id, payload))
+        return True
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
+    monkeypatch.setattr(ws_module.ws_manager, "send_to_user", fake_send_to_user)
+
+    host = await _register(client, "mp_sim_host", display_name="洛林玩家")
+    ally = await _register(client, "mp_sim_ally", display_name="艾拉玩家")
+    tavern = await _register(client, "mp_sim_tavern", display_name="凯伦玩家")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "模拟多人局", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(ally["token"]), json={"room_code": create["room_code"]})
+    await client.post("/game/rooms/join", headers=_h(tavern["token"]), json={"room_code": create["room_code"]})
+
+    chars = []
+    for token_owner, name, char_class in [
+        (host, "洛林", "Rogue"),
+        (ally, "艾拉", "Wizard"),
+        (tavern, "凯伦", "Bard"),
+    ]:
+        char = Character(
+            id=str(_uuid.uuid4()), name=name,
+            race="Human", char_class=char_class, level=1,
+            ability_scores={"str": 10, "dex": 14, "con": 12, "int": 12, "wis": 10, "cha": 10},
+            hp_current=8, is_player=True, session_id=sid,
+        )
+        chars.append((token_owner, char))
+    db_session.add_all([char for _, char in chars])
+    await db_session.commit()
+    for token_owner, char in chars:
+        await client.post(
+            f"/game/rooms/{sid}/claim-character",
+            headers=_h(token_owner["token"]),
+            json={"character_id": char.id},
+        )
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await client.post(
+        f"/game/rooms/{sid}/groups/join",
+        headers=_h(host["token"]),
+        json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/groups/join",
+        headers=_h(ally["token"]),
+        json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/groups/join",
+        headers=_h(tavern["token"]),
+        json={"group_id": "tavern", "group_name": "酒馆组", "location": "酒馆大厅"},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/groups/actions",
+        headers=_h(ally["token"]),
+        json={"group_id": "alley", "action_text": "我在门边准备法术警戒。"},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/groups/actions",
+        headers=_h(tavern["token"]),
+        json={"group_id": "tavern", "action_text": "我继续和老板套话。"},
+    )
+    for token_owner, group_id in [(host, "alley"), (ally, "alley"), (tavern, "tavern")]:
+        await client.post(
+            f"/game/rooms/{sid}/groups/readiness",
+            headers=_h(token_owner["token"]),
+            json={"group_id": group_id, "status": "ready"},
+        )
+
+    response = await client.post("/game/action", headers=_h(host["token"]), json={
+        "session_id": sid,
+        "action_text": "我轻轻撬开仓库后门。",
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["visibility"]["scope"] == "group"
+    assert body["visibility"]["group_id"] == "alley"
+    assert body["table_decision"]["target_group_id"] == "alley"
+    assert "【同分队队友意图】" in seen["player_action"]
+    assert "艾拉玩家：我在门边准备法术警戒。" in seen["player_action"]
+    assert "酒馆组 1 条" in seen["player_action"]
+
+    room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
+    assert room["pending_actions_by_group"]["alley"] == []
+    assert room["group_readiness"]["alley"] == {}
+    assert room["pending_actions_by_group"]["tavern"][0]["text"] == "我继续和老板套话。"
+    assert room["group_readiness"]["tavern"][tavern["user_id"]] == "ready"
+    assert room["active_group_id"] == "tavern"
+
+    visible_user_ids = [user_id for user_id, payload in sent_to_users if payload["type"] == "dm_responded"]
+    assert visible_user_ids == [host["user_id"], ally["user_id"]]
+    assert tavern["user_id"] not in visible_user_ids
+    assert any(
+        event["type"] == "room_state_updated"
+        and event["room"]["pending_actions_by_group"]["alley"] == []
+        and (event["room"]["pending_actions_by_group"].get("tavern") or [{}])[0].get("text") == "我继续和老板套话。"
+        for event in broadcasts
+    )
+
+    host_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))).json()["logs"]
+    tavern_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(tavern["token"]))).json()["logs"]
+    assert any(log["content"] == body["narrative"] for log in host_logs)
+    assert not any(log["content"] == body["narrative"] for log in tavern_logs)
+
+
+async def test_session_logs_hide_group_private_entries_from_other_groups(
+    client, db_session, sample_module,
+):
+    """刷新会话时，分队私密日志只应出现在可见玩家的 logs 中。"""
+    import uuid as _uuid
+    from models import Character, GameLog
+
+    host = await _register(client, "mp_log_actor")
+    ally = await _register(client, "mp_log_ally")
+    outsider = await _register(client, "mp_log_outsider")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(ally["token"]), json={"room_code": create["room_code"]})
+    await client.post("/game/rooms/join", headers=_h(outsider["token"]), json={"room_code": create["room_code"]})
+
+    chars = []
+    for token_owner, name in [(host, "洛林"), (ally, "艾拉"), (outsider, "凯伦")]:
+        char = Character(
+            id=str(_uuid.uuid4()), name=name,
+            race="Human", char_class="Rogue", level=1,
+            ability_scores={"str": 10, "dex": 14, "con": 12, "int": 12, "wis": 10, "cha": 10},
+            hp_current=8, is_player=True, session_id=sid,
+        )
+        chars.append((token_owner, char))
+    db_session.add_all([char for _, char in chars])
+    await db_session.commit()
+    for token_owner, char in chars:
+        await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(token_owner["token"]), json={"character_id": char.id})
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+
+    db_session.add_all([
+        GameLog(
+            session_id=sid,
+            role="dm",
+            content="所有人都听见远处钟声。",
+            log_type="narrative",
+            visibility={"scope": "party", "visible_to_user_ids": []},
+        ),
+        GameLog(
+            session_id=sid,
+            role="dm",
+            content="后巷门锁在阴影里轻轻弹开。",
+            log_type="narrative",
+            visibility={
+                "scope": "group",
+                "group_id": "alley",
+                "visible_to_user_ids": [host["user_id"], ally["user_id"]],
+            },
+        ),
+    ])
+    await db_session.commit()
+
+    host_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))).json()["logs"]
+    outsider_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(outsider["token"]))).json()["logs"]
+
+    assert any(log["content"] == "后巷门锁在阴影里轻轻弹开。" for log in host_logs)
+    assert not any(log["content"] == "后巷门锁在阴影里轻轻弹开。" for log in outsider_logs)
+    assert any(log["content"] == "所有人都听见远处钟声。" for log in outsider_logs)
+
+
+async def test_room_host_cannot_restore_private_logs_unless_visible(
+    client, db_session, sample_module,
+):
+    """房主也是玩家；不在可见名单里时不能恢复其他玩家私密日志。"""
+    import uuid as _uuid
+    from models import Character, GameLog
+
+    host = await _register(client, "mp_host_private_boundary")
+    ally = await _register(client, "mp_private_target")
+    outsider = await _register(client, "mp_private_outsider")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(ally["token"]), json={"room_code": create["room_code"]})
+    await client.post("/game/rooms/join", headers=_h(outsider["token"]), json={"room_code": create["room_code"]})
+
+    chars = []
+    for token_owner, name in [(host, "房主角色"), (ally, "艾拉"), (outsider, "凯伦")]:
+        char = Character(
+            id=str(_uuid.uuid4()), name=name,
+            race="Human", char_class="Rogue", level=1,
+            ability_scores={"str": 10, "dex": 14, "con": 12, "int": 12, "wis": 10, "cha": 10},
+            hp_current=8, is_player=True, session_id=sid,
+        )
+        chars.append((token_owner, char))
+    db_session.add_all([char for _, char in chars])
+    await db_session.commit()
+    for token_owner, char in chars:
+        await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(token_owner["token"]), json={"character_id": char.id})
+    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+
+    db_session.add(GameLog(
+        session_id=sid,
+        role="dm",
+        content="只有艾拉看见柜台下的暗号。",
+        log_type="narrative",
+        visibility={
+            "scope": "private",
+            "visible_to_user_ids": [ally["user_id"]],
+        },
+    ))
+    await db_session.commit()
+
+    host_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))).json()["logs"]
+    ally_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(ally["token"]))).json()["logs"]
+    outsider_logs = (await client.get(f"/game/sessions/{sid}", headers=_h(outsider["token"]))).json()["logs"]
+
+    assert not any(log["content"] == "只有艾拉看见柜台下的暗号。" for log in host_logs)
+    assert any(log["content"] == "只有艾拉看见柜台下的暗号。" for log in ally_logs)
+    assert not any(log["content"] == "只有艾拉看见柜台下的暗号。" for log in outsider_logs)
 
 
 # ─── 接管 AI 角色 / 重连续玩（用户反馈过的 bug） ─────────

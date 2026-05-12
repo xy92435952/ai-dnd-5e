@@ -265,6 +265,23 @@ export const roomsApi = {
   claimChar:  (sessionId, characterId) =>
     api.post(`/game/rooms/${sessionId}/claim-character`, { character_id: characterId }),
   fillAi:     (sessionId) => api.post(`/game/rooms/${sessionId}/fill-ai`),
+  joinGroup:  (sessionId, groupId, groupName = null, location = null) =>
+    api.post(`/game/rooms/${sessionId}/groups/join`, {
+      group_id: groupId,
+      group_name: groupName,
+      location,
+    }),
+  submitGroupAction: (sessionId, groupId, actionText) =>
+    api.post(`/game/rooms/${sessionId}/groups/actions`, {
+      group_id: groupId,
+      action_text: actionText,
+    }),
+  clearGroupActions: (sessionId, groupId) =>
+    api.post(`/game/rooms/${sessionId}/groups/actions/clear`, { group_id: groupId }),
+  setGroupReadiness: (sessionId, groupId, status) =>
+    api.post(`/game/rooms/${sessionId}/groups/readiness`, { group_id: groupId, status }),
+  focusGroup: (sessionId, groupId) =>
+    api.post(`/game/rooms/${sessionId}/groups/focus`, { group_id: groupId }),
   get:        (sessionId) => api.get(`/game/rooms/${sessionId}`),
   members:    (sessionId) => api.get(`/game/rooms/${sessionId}/members`),
 }
@@ -273,6 +290,34 @@ export const roomsApi = {
 Object.assign(charactersApi, {
   updateEquipment: (charId, equipment) =>
     api.patch(`/characters/${charId}/equipment-bulk`, { equipment }),
+  equipItem: (charId, itemName, itemCategory, equip = true) =>
+    api.patch(`/characters/${charId}/equipment`, {
+      item_name: itemName,
+      item_category: itemCategory,
+      equip,
+    }),
+  getShopInventory: () => api.get('/characters/shop/inventory'),
+  buyItem: (charId, itemName, itemCategory, quantity = 1) =>
+    api.post(`/characters/${charId}/shop/buy`, {
+      item_name: itemName,
+      item_category: itemCategory,
+      quantity,
+    }),
+  sellItem: (charId, itemName, itemCategory, itemIndex = 0) =>
+    api.post(`/characters/${charId}/shop/sell`, {
+      item_name: itemName,
+      item_category: itemCategory,
+      item_index: itemIndex,
+    }),
+  transferItem: (charId, targetCharacterId, itemName, itemCategory, itemIndex = 0) =>
+    api.post(`/characters/${charId}/transfer-item`, {
+      target_character_id: targetCharacterId,
+      item_name: itemName,
+      item_category: itemCategory,
+      item_index: itemIndex,
+    }),
+  useItem: (charId, itemName) =>
+    api.post(`/characters/${charId}/use-item`, { item_name: itemName }),
   levelUp: (charId, choices = {}) =>
     api.post(`/characters/${charId}/level-up`, choices),
   updateGold: (charId, amount, reason = '') =>

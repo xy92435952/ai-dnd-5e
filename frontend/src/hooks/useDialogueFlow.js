@@ -88,7 +88,17 @@ export function useDialogueFlow({ addLog }) {
     }
     // 字已打完 → 当前段入 log，推进下一段
     const seg = dialogueQueue[dialogueIdx]
-    if (seg) addLog(seg.role, seg.text, seg.role === 'dm' ? 'narrative' : seg.role)
+    if (seg) {
+      const extra = {}
+      if (seg.visibility) extra.visibility = seg.visibility
+      if (seg.table_reason) extra.table_reason = seg.table_reason
+      if (seg.table_decision) extra.table_decision = seg.table_decision
+      if (Object.keys(extra).length > 0) {
+        addLog(seg.role, seg.text, seg.role === 'dm' ? 'narrative' : seg.role, extra)
+      } else {
+        addLog(seg.role, seg.text, seg.role === 'dm' ? 'narrative' : seg.role)
+      }
+    }
     const next = dialogueIdx + 1
     if (next >= dialogueQueue.length) {
       // 队列播完 → 回到聊天模式

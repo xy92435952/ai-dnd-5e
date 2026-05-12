@@ -93,6 +93,9 @@ export default function Combat() {
     threatCells,
     aoeCells,
   } = derived
+  const currentTurnControllerName = room && currentTurnEntry
+    ? (room.members || []).find(member => member.character_id === currentTurnEntry.character_id)?.display_name
+    : ''
   const {
     onSkillClick,
     handleMoveTo,
@@ -140,6 +143,8 @@ export default function Combat() {
         room={room}
         currentTurnLabel={currentTurnLabel}
         isMyTurnMP={isMyTurnMP}
+        controllerName={currentTurnControllerName}
+        currentTurnCharacterId={currentTurnEntry?.character_id}
       />
 
       <TurnBanner

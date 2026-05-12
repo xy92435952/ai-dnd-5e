@@ -8,6 +8,37 @@
 import { extractNarrative } from '../../utils/dialogue'
 import { renderLightMarkdown } from '../../utils/markdown'
 
+function visibilityLabel(visibility) {
+  const scope = visibility?.scope
+  if (scope === 'private') return '私密'
+  if (scope === 'group') return '分队'
+  return ''
+}
+
+function VisibilityBadge({ visibility }) {
+  const label = visibilityLabel(visibility)
+  if (!label) return null
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      height: 18,
+      padding: '0 6px',
+      marginRight: 8,
+      borderRadius: 4,
+      border: '1px solid rgba(240,208,96,.35)',
+      background: 'rgba(240,208,96,.12)',
+      color: 'var(--amber)',
+      fontFamily: 'var(--font-body)',
+      fontSize: 10,
+      fontStyle: 'normal',
+      fontWeight: 700,
+      letterSpacing: 0,
+      verticalAlign: '1px',
+    }}>{label}</span>
+  )
+}
+
 export default function LogLine({ entry }) {
   const role = entry.role
   const txt = extractNarrative(entry.content)
@@ -19,7 +50,10 @@ export default function LogLine({ entry }) {
         color: 'var(--parchment)', fontSize: 14, lineHeight: 1.7,
         margin: '8px 0', padding: '0 0 0 14px',
         borderLeft: '2px solid rgba(240,208,96,.45)',
-      }}>{renderLightMarkdown(txt, 'var(--amber)')}</p>
+      }}>
+        <VisibilityBadge visibility={entry.visibility} />
+        {renderLightMarkdown(txt, 'var(--amber)')}
+      </p>
     )
   }
   if (role === 'player') {

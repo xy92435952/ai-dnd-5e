@@ -119,6 +119,24 @@ def _mock_llm_layer():
     import api.game as game_module
     patches.append(patch.object(game_module, "_generate_opening", fake_generate_opening))
 
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _Resp:
+                content = _json.dumps({
+                    "decision": "process_actor_group",
+                    "focus_group_id": None,
+                    "knowledge_scope": "group",
+                    "visible_to_user_ids": [],
+                    "clear_pending_group_ids": [],
+                    "table_message": None,
+                    "reason": "测试环境默认按当前行动分队处理。",
+                    "reason_code": "process_actor_group",
+                }, ensure_ascii=False)
+            return _Resp()
+
+    import services.llm as llm_module
+    patches.append(patch.object(llm_module, "get_llm", lambda *args, **kwargs: _FakeLLM()))
+
     for p in patches:
         p.start()
     yield

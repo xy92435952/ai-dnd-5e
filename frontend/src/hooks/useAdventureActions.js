@@ -68,6 +68,21 @@ export function useAdventureActions({
       })
 
       const queue = buildDialogueQueue(resp.narrative, resp.companion_reactions, companions)
+      if (resp.visibility && Array.isArray(queue)) {
+        queue.forEach(seg => {
+          if (seg?.role === 'dm') seg.visibility = resp.visibility
+        })
+      }
+      if (resp.table_reason && Array.isArray(queue)) {
+        queue.forEach(seg => {
+          if (seg?.role === 'dm') seg.table_reason = resp.table_reason
+        })
+      }
+      if (resp.table_decision && Array.isArray(queue)) {
+        queue.forEach(seg => {
+          if (seg?.role === 'dm') seg.table_decision = resp.table_decision
+        })
+      }
 
       if (resp.dice_display?.length) {
         for (const d of resp.dice_display) {

@@ -1,0 +1,242 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { roomsApi } from '../../../api/client'
+import MultiplayerPartyPanel from '../MultiplayerPartyPanel'
+
+vi.mock('../../../api/client', () => ({
+  roomsApi: {
+    submitGroupAction: vi.fn(),
+    joinGroup: vi.fn(),
+    focusGroup: vi.fn(),
+    setGroupReadiness: vi.fn(),
+  },
+}))
+
+describe('MultiplayerPartyPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    roomsApi.submitGroupAction.mockResolvedValue({ is_multiplayer: true })
+    roomsApi.joinGroup.mockResolvedValue({ is_multiplayer: true })
+    roomsApi.focusGroup.mockResolvedValue({ is_multiplayer: true })
+    roomsApi.setGroupReadiness.mockResolvedValue({ is_multiplayer: true, group_readiness: { alley: { me: 'ready' } } })
+  })
+
+  it('shows an explicit active camera hint when focus moved to another ready group', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'tavern',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me'] },
+          { id: 'tavern', name: '酒馆组', location: '酒馆大厅', member_user_ids: ['u2'] },
+        ],
+        pending_actions_by_group: {
+          alley: [],
+          tavern: [{ user_id: 'u2', display_name: '凯伦', text: '我继续套老板的话。' }],
+        },
+        group_readiness: {
+          alley: { me: 'drafting' },
+          tavern: { u2: 'ready' },
+        },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+    />)
+
+    expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
+    expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(screen.queryByText('主持')).not.toBeInTheDocument()
+  })
+
+  it('shows my submitted intent and group readiness feedback', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'alley',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+        ],
+        pending_actions_by_group: {
+          alley: [
+            { user_id: 'me', display_name: '我', text: '我守住后门。' },
+            { user_id: 'u2', display_name: '凯伦', text: '我检查脚印。' },
+          ],
+        },
+        group_readiness: {
+          alley: { me: 'ready', u2: 'drafting' },
+        },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+    />)
+
+    expect(screen.getByText('你已提交意图 · 等当前发言者带给 DM')).toBeInTheDocument()
+    expect(screen.getByText('确认进度：1/2 已确认')).toBeInTheDocument()
+    expect(screen.getByText(/我守住后门。/)).toBeInTheDocument()
+  })
+
+  it('prompts me to confirm after submitting an intent while still drafting', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'alley',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+        ],
+        pending_actions_by_group: {
+          alley: [
+            { user_id: 'me', display_name: '我', text: '我检查门锁。' },
+          ],
+        },
+        group_readiness: {
+          alley: { me: 'drafting', u2: 'ready' },
+        },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+    />)
+
+    expect(screen.getByText('你已提交意图 · 点“我已确认”后 DM 才会处理')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /我已确认/ })).not.toBeDisabled()
+  })
+
+  it('tells the active speaker how many group intents will be aggregated', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'alley',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+        ],
+        pending_actions_by_group: {
+          alley: [
+            { user_id: 'me', display_name: '我', text: '我守住后门。' },
+            { user_id: 'u2', display_name: '凯伦', text: '我检查脚印。' },
+          ],
+        },
+        group_readiness: {
+          alley: { me: 'ready', u2: 'ready' },
+        },
+      }}
+      myUserId="me"
+      isMySpeakTurn
+      isLoading={false}
+    />)
+
+    expect(screen.getByText('你是当前发言者 · DM 会汇总本分队 2 条意图')).toBeInTheDocument()
+    expect(screen.getByText('确认进度：2/2 已确认')).toBeInTheDocument()
+  })
+
+  it('can submit an intent and confirm it in one explicit action', async () => {
+    const onRoomUpdated = vi.fn()
+    const finalRoom = { is_multiplayer: true, group_readiness: { alley: { me: 'ready' } } }
+    roomsApi.submitGroupAction.mockResolvedValue({ is_multiplayer: true, pending_actions_by_group: { alley: [] } })
+    roomsApi.setGroupReadiness.mockResolvedValue(finalRoom)
+
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'alley',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+        ],
+        pending_actions_by_group: { alley: [] },
+        group_readiness: { alley: { me: 'drafting', u2: 'ready' } },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+      onRoomUpdated={onRoomUpdated}
+    />)
+
+    const input = screen.getByPlaceholderText(/先提交你的分队行动/)
+    fireEvent.change(input, { target: { value: '我检查门锁。' } })
+    fireEvent.click(screen.getByRole('button', { name: '提交并确认' }))
+
+    await waitFor(() => {
+      expect(roomsApi.submitGroupAction).toHaveBeenCalledWith('sess-1', 'alley', '我检查门锁。')
+      expect(roomsApi.setGroupReadiness).toHaveBeenCalledWith('sess-1', 'alley', 'ready')
+    })
+    expect(roomsApi.submitGroupAction.mock.invocationCallOrder[0])
+      .toBeLessThan(roomsApi.setGroupReadiness.mock.invocationCallOrder[0])
+    expect(onRoomUpdated).toHaveBeenLastCalledWith(finalRoom)
+    expect(input).toHaveValue('')
+  })
+
+  it('preserves Chinese group names when creating a split-party group', async () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'main',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'main', name: '主队', location: '酒馆大厅', member_user_ids: ['me', 'u2'] },
+        ],
+        pending_actions_by_group: { main: [] },
+        group_readiness: { main: { me: 'drafting', u2: 'ready' } },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+    />)
+
+    fireEvent.change(screen.getByPlaceholderText('新分队名'), { target: { value: '后巷组' } })
+    fireEvent.change(screen.getByPlaceholderText('位置'), { target: { value: '酒馆后巷' } })
+    fireEvent.click(screen.getByRole('button', { name: '切换/创建分队' }))
+
+    await waitFor(() => {
+      expect(roomsApi.joinGroup).toHaveBeenCalledWith('sess-1', '后巷组', '后巷组', '酒馆后巷')
+    })
+  })
+
+  it('stays hidden for single-player sessions', () => {
+    const { container } = render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: false,
+        session_id: 'sess-1',
+        active_group_id: 'main',
+        members: [{ user_id: 'me', display_name: '我' }],
+        party_groups: [
+          { id: 'main', name: '单人队伍', location: '大厅', member_user_ids: ['me'] },
+        ],
+      }}
+      myUserId="me"
+      isMySpeakTurn={true}
+      isLoading={false}
+    />)
+
+    expect(container).toBeEmptyDOMElement()
+  })
+})
