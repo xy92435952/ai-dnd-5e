@@ -4,6 +4,7 @@ import CombatHudSkillBar from './CombatHudSkillBar'
 import CombatHudCombatLog from './CombatHudCombatLog'
 import CombatHudSlots from './CombatHudSlots'
 import CombatHudControls from './CombatHudControls'
+import CombatQuickInventory from './CombatQuickInventory'
 
 export default function CombatHud({
   session,
@@ -21,10 +22,14 @@ export default function CombatHud({
   isPlayerTurn,
   moveMode,
   isRanged,
+  onSessionChange,
+  onTurnStateChange,
+  onError,
   onSkillClick,
   onEndTurn,
   onToggleMove,
   onToggleRanged,
+  onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
 }) {
@@ -56,6 +61,15 @@ export default function CombatHud({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <CombatHudSlots session={session} playerSpellSlots={playerSpellSlots} />
+        <CombatQuickInventory
+          session={session}
+          turnState={turnState}
+          isPlayerTurn={isPlayerTurn}
+          disabled={isProcessing}
+          onSessionChange={onSessionChange}
+          onTurnStateChange={onTurnStateChange}
+          onError={onError}
+        />
         <CombatHudControls
           isProcessing={isProcessing}
           isPlayerTurn={isPlayerTurn}
@@ -64,6 +78,7 @@ export default function CombatHud({
           onEndTurn={onEndTurn}
           onToggleMove={onToggleMove}
           onToggleRanged={onToggleRanged}
+          onOpenCharacter={onOpenCharacter}
           onReturnAdventure={onReturnAdventure}
           onForceEndCombat={onForceEndCombat}
         />

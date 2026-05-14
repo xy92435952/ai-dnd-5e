@@ -202,10 +202,14 @@ export default function Combat() {
         isPlayerTurn={isPlayerTurnV10}
         moveMode={moveMode}
         isRanged={isRanged}
+        onSessionChange={runtime.setSession}
+        onTurnStateChange={page.setTurnState}
+        onError={page.setError}
         onSkillClick={onSkillClick}
         onEndTurn={handleEndTurn}
         onToggleMove={() => setMoveMode(m => !m)}
         onToggleRanged={() => setIsRanged(r => !r)}
+        onOpenCharacter={() => playerId && navigate(`/character/${playerId}?sessionId=${sessionId}`)}
         onReturnAdventure={returnToAdventure}
         onForceEndCombat={forceEndCombat}
       />

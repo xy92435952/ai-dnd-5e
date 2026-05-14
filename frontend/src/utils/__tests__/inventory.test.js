@@ -3,10 +3,14 @@ import {
   canSellInventoryItem,
   categorizeShopInventory,
   getInventoryItemLabel,
+  getInventoryUseProfile,
+  getInventoryUseSuccessText,
   hasAmmunition,
   isConsumableInventoryItem,
+  isUsableInventoryItem,
   mergeAmmoUpdate,
   normalizeInventoryItem,
+  requiresUseTarget,
   stackInventoryItems,
 } from '../inventory'
 
@@ -52,6 +56,54 @@ describe('inventory utils', () => {
     expect(isConsumableInventoryItem(potion)).toBe(true)
     expect(getInventoryItemLabel(potion)).toBe('治疗药水')
     expect(getInventoryItemLabel({ name: 'Longsword' })).toBe('Longsword')
+  })
+
+  it('distinguishes directly usable items from generic consumables', () => {
+    const potion = normalizeInventoryItem({ name: 'Healing Potion', zh: '治疗药水', consumable: true, effect: 'heal' }, 'gear', 0)
+    const torch = normalizeInventoryItem({ name: 'Torch', zh: '火把', consumable: true }, 'gear', 1)
+    const kit = normalizeInventoryItem({ name: "Healer's Kit", zh: '医疗包', consumable: true, uses: 10 }, 'gear', 2)
+
+    expect(isConsumableInventoryItem(torch)).toBe(true)
+    expect(isUsableInventoryItem(potion)).toBe(true)
+    expect(isUsableInventoryItem(kit)).toBe(true)
+    expect(requiresUseTarget(kit)).toBe(true)
+    expect(requiresUseTarget(potion)).toBe(false)
+    expect(isUsableInventoryItem(torch)).toBe(false)
+  })
+
+  it('builds use profiles for direct and target-based consumables', () => {
+    const potion = normalizeInventoryItem({ name: 'Healing Potion', zh: '治疗药水', consumable: true, effect: 'heal' }, 'gear', 0)
+    const kit = normalizeInventoryItem({ name: "Healer's Kit", zh: '医疗包', consumable: true, uses: 10 }, 'gear', 1)
+    const torch = normalizeInventoryItem({ name: 'Torch', zh: '火把', consumable: true }, 'gear', 2)
+
+    expect(getInventoryUseProfile(potion)).toEqual({
+      usable: true,
+      requiresTarget: false,
+      effect: 'heal',
+      actionLabel: '使用',
+    })
+    expect(getInventoryUseProfile(kit)).toEqual({
+      usable: true,
+      requiresTarget: true,
+      effect: 'stabilize',
+      actionLabel: '用于',
+    })
+    expect(getInventoryUseProfile(torch)).toEqual({
+      usable: false,
+      requiresTarget: false,
+      effect: '',
+      actionLabel: '使用',
+    })
+  })
+
+  it('formats use success text from the item use payload', () => {
+    const potion = normalizeInventoryItem({ name: 'Healing Potion', zh: '治疗药水', consumable: true, effect: 'heal' }, 'gear', 0)
+    const kit = normalizeInventoryItem({ name: "Healer's Kit", zh: '医疗包', consumable: true, uses: 10 }, 'gear', 1)
+    const firePotion = normalizeInventoryItem({ name: 'Potion of Fire Resistance', zh: '火焰抗性药水', consumable: true, effect: 'fire_resistance' }, 'gear', 2)
+
+    expect(getInventoryUseSuccessText(potion, { effect: 'heal', heal_amount: 7 })).toBe('治疗药水 恢复 7 HP')
+    expect(getInventoryUseSuccessText(kit, { effect: 'stabilize', target_name: '测试队友' })).toBe('已用 医疗包 稳定 测试队友')
+    expect(getInventoryUseSuccessText(firePotion, { effect: 'fire_resistance' })).toBe('已使用 火焰抗性药水')
   })
 
   it('categorizes shop inventory maps into sorted item arrays', () => {

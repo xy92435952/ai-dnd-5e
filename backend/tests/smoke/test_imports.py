@@ -14,10 +14,10 @@ def test_import_backend_main():
 
 def test_import_all_api_modules():
     """所有 api/* 子模块能 import。"""
-    from api import auth, game, modules, characters, rooms, ws, deps
+    from api import auth, game, modules, characters, character_inventory, rooms, ws, deps
     from api import combat
     assert all([auth.router, game.router, modules.router, characters.router,
-                rooms.router, ws.router, combat.router])
+                character_inventory.router, rooms.router, ws.router, combat.router])
 
 
 def test_import_combat_subpackage():

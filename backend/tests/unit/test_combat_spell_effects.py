@@ -70,7 +70,7 @@ def test_resolve_spell_condition_uses_known_mapping_and_fallback():
 
 
 async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_session, monkeypatch):
-    from api.combat import spell_effects
+    from services import combat_spell_effect_service as spell_effects
 
     enemies = [{
         "id": "goblin-1",
@@ -95,7 +95,7 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
 
 
 async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sample_character, monkeypatch):
-    from api.combat import spell_effects
+    from services import combat_spell_effect_service as spell_effects
 
     sample_character.conditions = []
     sample_character.derived = {

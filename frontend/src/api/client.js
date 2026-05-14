@@ -316,8 +316,8 @@ Object.assign(charactersApi, {
       item_category: itemCategory,
       item_index: itemIndex,
     }),
-  useItem: (charId, itemName) =>
-    api.post(`/characters/${charId}/use-item`, { item_name: itemName }),
+  useItem: (charId, itemName, options = {}) =>
+    api.post(`/characters/${charId}/use-item`, { item_name: itemName, ...options }),
   levelUp: (charId, choices = {}) =>
     api.post(`/characters/${charId}/level-up`, choices),
   updateGold: (charId, amount, reason = '') =>

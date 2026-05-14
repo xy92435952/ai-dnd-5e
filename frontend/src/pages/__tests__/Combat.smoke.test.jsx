@@ -5,7 +5,7 @@
  * 但 React 运行时会报 hook 顺序变化并导致页面不可用。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, cleanup, screen } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const {
@@ -15,6 +15,7 @@ const {
   getSessionMock,
   getSpellsMock,
   getSkillBarMock,
+  useItemMock,
 } = vi.hoisted(() => ({
   combatFixture: {
     round_number: 2,
@@ -65,6 +66,11 @@ const {
       char_class: 'Wizard',
       level: 3,
       hp_current: 12,
+      equipment: {
+        gear: [
+          { name: 'Healing Potion', zh: '治疗药水', consumable: true, cost: 50 },
+        ],
+      },
       spell_slots: { '1st': 2 },
       known_spells: ['Magic Missile'],
       cantrips: ['Fire Bolt'],
@@ -82,6 +88,7 @@ const {
   getSessionMock: vi.fn(),
   getSpellsMock: vi.fn(),
   getSkillBarMock: vi.fn(),
+  useItemMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
@@ -93,6 +100,9 @@ vi.mock('../../api/client', () => ({
     predict: vi.fn().mockResolvedValue(null),
     endCombat: vi.fn().mockResolvedValue({}),
     endTurn: vi.fn().mockResolvedValue({}),
+  },
+  charactersApi: {
+    useItem: useItemMock,
   },
   roomsApi: {
     get: vi.fn().mockRejectedValue(new Error('not multiplayer')),
@@ -129,6 +139,19 @@ describe('Combat render smoke', () => {
     getSessionMock.mockResolvedValue(sessionFixture)
     getSpellsMock.mockResolvedValue([])
     getSkillBarMock.mockResolvedValue({ bar: [] })
+    useItemMock.mockResolvedValue({
+      item: 'Healing Potion',
+      heal_amount: 5,
+      hp_after: 12,
+      equipment: { gear: [] },
+      turn_state: {
+        action_used: true,
+        bonus_action_used: false,
+        reaction_used: false,
+        movement_used: 0,
+        movement_max: 6,
+      },
+    })
   })
 
   afterEach(() => {
@@ -154,5 +177,44 @@ describe('Combat render smoke', () => {
     expect(errors).toEqual([])
 
     errSpy.mockRestore()
+  })
+
+  it('can open the player character sheet from combat', async () => {
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+          <Route path="/character/:characterId" element={<div>角色卡页面</div>} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/结束回合/)
+    fireEvent.click(screen.getByRole('button', { name: /角色卡/ }))
+
+    await waitFor(() => {
+      expect(screen.getByText('角色卡页面')).toBeInTheDocument()
+    })
+  })
+
+  it('can use a consumable directly from combat', async () => {
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/结束回合/)
+    fireEvent.click(screen.getByRole('button', { name: /使用 治疗药水/ }))
+
+    await waitFor(() => {
+      expect(useItemMock).toHaveBeenCalledWith('char-1', 'Healing Potion', {
+        session_id: 'sess-1',
+        use_in_combat: true,
+      })
+      expect(screen.getByText(/治疗药水 恢复 5 HP/)).toBeInTheDocument()
+    })
   })
 })

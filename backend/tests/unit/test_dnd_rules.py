@@ -136,6 +136,17 @@ class TestCalcDerived:
         assert d.get("caster_type") == "full"
         assert d.get("spell_save_dc") == 8 + 2 + 3  # 8 + prof + int_mod
 
+    def test_shield_only_adds_ac_when_equipped(self):
+        scores = {"str": 16, "dex": 14, "con": 15, "int": 10, "wis": 12, "cha": 8}
+        unequipped = calc_derived("Fighter", 1, scores, equipment={
+            "shield": {"name": "Shield", "equipped": False},
+        })
+        equipped = calc_derived("Fighter", 1, scores, equipment={
+            "shield": {"name": "Shield", "equipped": True},
+        })
+
+        assert equipped["ac"] == unequipped["ac"] + 2
+
 
 class TestNormalizeClass:
     @pytest.mark.parametrize("given,expected", [

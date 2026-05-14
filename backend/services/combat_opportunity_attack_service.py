@@ -1,0 +1,204 @@
+from typing import Any
+
+from sqlalchemy.orm.attributes import flag_modified
+
+from models import Character, GameLog
+from services.character_roster import CharacterRoster
+from services.combat_concentration_service import do_concentration_check
+from services.combat_grid_service import chebyshev_distance
+from services.combat_service import CombatService
+from services.combat_turn_state_service import get_turn_state, save_turn_state
+
+svc = CombatService()
+
+
+async def resolve_opportunity_attacks(
+    db,
+    session,
+    combat,
+    moving_id: str,
+    old_pos: dict[str, Any],
+    new_pos: dict[str, Any],
+    positions: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """
+    检查并解析因移动触发的借机攻击（Opportunity Attack，5e PHB p.195）。
+
+    规则：
+      - 移动方未脱离接战（disengaged=False）
+      - 从威胁者的临近格（Chebyshev<=1）移入非临近格
+      - 威胁者本轮 reaction 尚未使用
+    """
+    state = session.game_state or {}
+    enemies = list(state.get("enemies", []))
+    results = []
+    is_enemy_moving = moving_id in {enemy["id"] for enemy in enemies}
+
+    if not is_enemy_moving:
+        moving_char = await db.get(Character, moving_id)
+        if not moving_char:
+            return results
+
+        for enemy in enemies:
+            if enemy.get("hp_current", 0) <= 0:
+                continue
+            enemy_position = positions.get(str(enemy["id"]))
+            if not enemy_position:
+                continue
+            if chebyshev_distance(enemy_position, old_pos) <= 1 and chebyshev_distance(enemy_position, new_pos) > 1:
+                enemy_turn_state = get_turn_state(combat, enemy["id"])
+                if enemy_turn_state.get("reaction_used"):
+                    continue
+                result = svc.resolve_melee_attack(
+                    attacker_derived=enemy.get("derived", {}),
+                    target_derived=moving_char.derived or {},
+                )
+                enemy_turn_state["reaction_used"] = True
+                save_turn_state(combat, enemy["id"], enemy_turn_state)
+
+                if result.attack_roll["hit"]:
+                    moving_char.hp_current = svc.apply_damage(
+                        moving_char.hp_current,
+                        result.damage,
+                        (moving_char.derived or {}).get("hp_max", moving_char.hp_current),
+                    )
+                    concentration_log = await do_concentration_check(
+                        moving_char,
+                        result.damage,
+                        session.id,
+                    )
+                    if concentration_log:
+                        db.add(concentration_log)
+
+                narration = svc._build_narration(
+                    enemy["name"],
+                    moving_char.name,
+                    result.attack_roll,
+                    result.damage,
+                )
+                results.append({
+                    "attacker": enemy["name"],
+                    "target": moving_char.name,
+                    "log": GameLog(
+                        session_id=session.id,
+                        role="system",
+                        content=f"⚔️ 借机攻击！{narration}",
+                        log_type="combat",
+                        dice_result={
+                            "attack": result.attack_roll,
+                            "damage": result.damage,
+                            "opportunity": True,
+                        },
+                    ),
+                    "result": result.to_dict(),
+                })
+
+    else:
+        moving_enemy = next((enemy for enemy in enemies if enemy["id"] == moving_id), None)
+        if not moving_enemy:
+            return results
+
+        player = await db.get(Character, session.player_character_id)
+        if player and player.hp_current > 0:
+            player_position = positions.get(str(session.player_character_id))
+            if (
+                player_position
+                and chebyshev_distance(player_position, old_pos) <= 1
+                and chebyshev_distance(player_position, new_pos) > 1
+            ):
+                player_turn_state = get_turn_state(combat, session.player_character_id)
+                if not player_turn_state.get("reaction_used"):
+                    result = svc.resolve_melee_attack(
+                        attacker_derived=player.derived or {},
+                        target_derived=moving_enemy.get("derived", {}),
+                    )
+                    player_turn_state["reaction_used"] = True
+                    save_turn_state(combat, session.player_character_id, player_turn_state)
+
+                    if result.attack_roll["hit"]:
+                        moving_enemy["hp_current"] = svc.apply_damage(
+                            moving_enemy.get("hp_current", 0),
+                            result.damage,
+                            moving_enemy.get("derived", {}).get("hp_max", 10),
+                        )
+                        state["enemies"] = enemies
+                        session.game_state = dict(state)
+                        flag_modified(session, "game_state")
+
+                    narration = svc._build_narration(
+                        player.name,
+                        moving_enemy["name"],
+                        result.attack_roll,
+                        result.damage,
+                    )
+                    results.append({
+                        "attacker": player.name,
+                        "target": moving_enemy["name"],
+                        "log": GameLog(
+                            session_id=session.id,
+                            role="player",
+                            content=f"⚔️ 借机攻击！{narration}",
+                            log_type="combat",
+                            dice_result={
+                                "attack": result.attack_roll,
+                                "damage": result.damage,
+                                "opportunity": True,
+                            },
+                        ),
+                        "result": result.to_dict(),
+                    })
+
+        roster = CharacterRoster(db, session)
+        for companion in await roster.companions_alive():
+            companion_id = companion.id
+            companion_position = positions.get(str(companion_id))
+            if not companion_position:
+                continue
+            if (
+                chebyshev_distance(companion_position, old_pos) <= 1
+                and chebyshev_distance(companion_position, new_pos) > 1
+            ):
+                companion_turn_state = get_turn_state(combat, companion_id)
+                if companion_turn_state.get("reaction_used"):
+                    continue
+                result = svc.resolve_melee_attack(
+                    attacker_derived=companion.derived or {},
+                    target_derived=moving_enemy.get("derived", {}),
+                )
+                companion_turn_state["reaction_used"] = True
+                save_turn_state(combat, companion_id, companion_turn_state)
+
+                if result.attack_roll["hit"]:
+                    moving_enemy["hp_current"] = svc.apply_damage(
+                        moving_enemy.get("hp_current", 0),
+                        result.damage,
+                        moving_enemy.get("derived", {}).get("hp_max", 10),
+                    )
+                    state["enemies"] = enemies
+                    session.game_state = dict(state)
+                    flag_modified(session, "game_state")
+
+                narration = svc._build_narration(
+                    companion.name,
+                    moving_enemy["name"],
+                    result.attack_roll,
+                    result.damage,
+                )
+                results.append({
+                    "attacker": companion.name,
+                    "target": moving_enemy["name"],
+                    "log": GameLog(
+                        session_id=session.id,
+                        role=f"companion_{companion.name}",
+                        content=f"⚔️ 借机攻击！{narration}",
+                        log_type="combat",
+                        dice_result={
+                            "attack": result.attack_roll,
+                            "damage": result.damage,
+                            "opportunity": True,
+                        },
+                    ),
+                    "result": result.to_dict(),
+                })
+
+    return results

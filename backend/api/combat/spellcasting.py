@@ -15,6 +15,7 @@ from api.deps import (
 )
 from services.spell_service import spell_service
 from services.character_roster import CharacterRoster
+from services.combat_outcome_service import check_and_cleanup_combat_outcome
 
 from api.combat._shared import (
     _DEFAULT_TS,
@@ -23,7 +24,7 @@ from api.combat._shared import (
     svc,
 )
 from api.combat.schemas import SpellRequest
-from api.combat.spell_effects import (
+from services.combat_spell_effect_service import (
     apply_spell_damage_to_target,
     apply_spell_heal_to_target,
     roll_spell_save,
@@ -225,15 +226,13 @@ async def cast_spell(
         _save_ts(combat_obj, req.caster_id, spell_ts)
 
     # ── 检查战斗是否结束 ──────────────────────────────────
-    player_check2        = await db.get(Character, session.player_character_id)
-    combat_over, outcome = svc.check_combat_over(enemies, player_check2.hp_current if player_check2 else 0)
-    if combat_over:
-        session.combat_active = False
-        # 清理战斗状态记录，防止下次战斗残留旧数据
-        try:
-            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
-            if _old_cs: await db.delete(_old_cs)
-        except Exception: pass
+    combat_over, outcome = await check_and_cleanup_combat_outcome(
+        db,
+        session=session,
+        session_id=session_id,
+        enemies=enemies,
+        check_combat_over=svc.check_combat_over,
+    )
 
     round_number = combat_obj.round_number if combat_obj else 1
     next_index   = combat_obj.current_turn_index if combat_obj else 0

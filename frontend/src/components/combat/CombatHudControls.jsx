@@ -8,6 +8,7 @@ export default function CombatHudControls({
   onEndTurn,
   onToggleMove,
   onToggleRanged,
+  onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
 }) {
@@ -29,6 +30,10 @@ export default function CombatHudControls({
           onClick={onToggleRanged}
           disabled={isProcessing || !isPlayerTurn}>
           {isRanged ? '✓ 远程' : '⊙ 远程'}
+        </button>
+        <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+          onClick={onOpenCharacter}>
+          角色卡
         </button>
         <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
           onClick={onReturnAdventure}>

@@ -612,7 +612,7 @@ SHOP_GEAR = {
     "Grappling Hook":     {"zh": "抓钩",         "cost": 2,    "weight": 4,   "consumable": False, "description": "抓钩"},
     "Oil (flask)":        {"zh": "灯油",         "cost": 1,    "weight": 1,   "consumable": True,  "description": "灯油（可泼洒引燃，5尺区域2d6火焰伤害）"},
     "Caltrops (bag of 20)": {"zh": "铁蒺藜(20个)", "cost": 1,  "weight": 2,   "consumable": True,  "description": "铁蒺藜（5尺区域，DEX DC15否则速度降为0）"},
-    "Healer's Kit":       {"zh": "医疗包",       "cost": 5,    "weight": 3,   "consumable": True,  "uses": 10, "description": "医疗包（10次使用，稳定濒死角色）"},
+    "Healer's Kit":       {"zh": "医疗包",       "cost": 5,    "weight": 3,   "consumable": True,  "uses": 10, "effect": "stabilize", "description": "医疗包（10次使用，稳定濒死角色）"},
     "Arrows (20)":        {"zh": "箭矢(20支)",   "cost": 1,    "weight": 1,   "consumable": True,  "description": "箭矢20支"},
     "Bolts (20)":         {"zh": "弩矢(20支)",   "cost": 1,    "weight": 1.5, "consumable": True,  "description": "弩矢20支"},
     "Potion of Fire Resistance": {"zh": "火焰抗性药水", "cost": 300, "weight": 0.5, "consumable": True, "effect": "fire_resistance", "description": "火焰抗性，持续1小时"},
@@ -1127,7 +1127,7 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
                     base_ac += 1
         # 盾牌
         shield_item = equipment.get("shield")
-        if shield_item:
+        if shield_item and (not isinstance(shield_item, dict) or shield_item.get("equipped")):
             base_ac += 2
         # 武器
         weapons = equipment.get("weapons", [])

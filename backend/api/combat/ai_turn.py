@@ -3,46 +3,23 @@ api.combat.ai_turn — NPC 自动回合 + 结束战斗
 
 从原 combat.py (单体 5368 行) 按功能域拆出，逻辑未改动。
 """
-import uuid
-import random
-from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
-from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
-from models import Character, Session, GameLog, CombatState, Module
-from api.deps import (
-    get_session_or_404, entity_snapshot, serialize_combat,
-    get_user_id, assert_can_act, broadcast_to_session, current_turn_user_id,
-)
-from services.combat_service import CombatService
-from services.dnd_rules import roll_dice, _normalize_class
-from services.combat_narrator import narrate_batch
-from services.character_roster import CharacterRoster
+from models import CombatState, Module
+from api.deps import get_session_or_404
 
 from api.combat._shared import (
-    _DEFAULT_TS, svc,
-    _get_ts, _save_ts, _reset_ts,
-    _broadcast_combat, _calc_entity_turn_limits,
-    _chebyshev_dist, _check_attack_range, _ai_move_toward,
-    _has_adjacent_enemy, _has_ally_adjacent_to,
-    _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
-    _chebyshev, _resolve_opportunity_attacks,
+    _calc_entity_turn_limits,
+    _reset_ts,
 )
-from api.combat.ai_turn_utils import advance_ai_turn, build_reaction_prompt
+from api.combat.ai_turn_utils import advance_ai_turn
 from api.combat.ai_turn_context import build_ai_turn_context
 from api.combat.ai_turn_actions import handle_ai_simple_action
 from api.combat.ai_turn_spell import handle_ai_spell_action
 from api.combat.ai_turn_attack import handle_ai_attack_action
-from api.combat.schemas import (
-    MoveRequest, ConditionRequest, CombatActionRequest, DeathSaveRequest,
-    SmiteRequest, ClassFeatureRequest, ReactionRequest, GrappleShoveRequest,
-    AttackRollRequest, DamageRollRequest, SpellRequest, SpellRollRequest,
-    SpellConfirmRequest, ManeuverRequest,
-)
 from schemas.combat_responses import EndTurnResult
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -83,7 +60,6 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     ai_ctx = await build_ai_turn_context(db, session, combat, actor_id, actor_name, enemies)
     actor_derived = ai_ctx["actor_derived"]
     actor_hp = ai_ctx["actor_hp"]
-    ai_tick_logs = []
     e = ai_ctx["enemy_ref"]  # 敌人实体引用（供回合结束条件tick使用）
     achar = ai_ctx["ally_ref"]  # 队友实体引用（供回合结束条件tick使用）
     player = ai_ctx["player"]

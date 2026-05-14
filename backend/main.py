@@ -6,6 +6,7 @@ from config import settings
 from database import init_db
 from api.auth import router as auth_router
 from api.modules import router as modules_router
+from api.character_inventory import router as character_inventory_router
 from api.characters import router as characters_router
 from api.game import router as game_router
 from api.combat import router as combat_router
@@ -41,6 +42,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(modules_router)
+app.include_router(character_inventory_router)
 app.include_router(characters_router)
 app.include_router(game_router)
 app.include_router(combat_router)

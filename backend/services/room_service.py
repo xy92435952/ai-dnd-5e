@@ -442,17 +442,9 @@ async def fill_with_ai_companions(
     from services.langgraph_client import langgraph_client
     from services.dnd_rules import (
         apply_racial_bonuses, calc_derived,
-        CLASS_SAVE_PROFICIENCIES, CLASS_SKILL_CHOICES,
+        ALL_SKILLS, CLASS_SAVE_PROFICIENCIES, CLASS_SKILL_CHOICES,
+        _normalize_class,
     )
-
-    # 与 characters.py 中 generate_party 使用相同的技能池与规范化
-    try:
-        from api.characters import ALL_SKILLS, _normalize_class
-    except Exception:
-        # 回退：简化版
-        ALL_SKILLS = []
-        def _normalize_class(c: str) -> str:
-            return c or "Fighter"
 
     session = await db.get(Session, session_id)
     if not session or not session.is_multiplayer:

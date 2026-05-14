@@ -22,6 +22,7 @@ from services.combat_service import CombatService
 from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
+from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.character_roster import CharacterRoster
 
 from api.combat._shared import (
@@ -100,15 +101,13 @@ async def end_player_turn(
     # ── 检查战斗结束 ──────────────────────────────────────
     state   = session.game_state or {}
     enemies = list(state.get("enemies", []))
-    player_check         = await db.get(Character, session.player_character_id)
-    combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
-    if combat_over:
-        session.combat_active = False
-        # 清理战斗状态记录，防止下次战斗残留旧数据
-        try:
-            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
-            if _old_cs: await db.delete(_old_cs)
-        except Exception: pass
+    combat_over, outcome = await check_and_cleanup_combat_outcome(
+        db,
+        session=session,
+        session_id=session_id,
+        enemies=enemies,
+        check_combat_over=svc.check_combat_over,
+    )
 
     for tl in tick_logs:
         db.add(tl)
@@ -130,4 +129,3 @@ async def end_player_turn(
 
 
 # ── 反应 (Reaction System, P0-6) ─────────────────────────
-

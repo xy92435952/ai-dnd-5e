@@ -42,6 +42,7 @@ export function useCombatRuntime({
     reactionPrompt,
     setReactionPrompt,
     session,
+    setSession,
     setError,
   } = page
   const {
@@ -132,6 +133,7 @@ export function useCombatRuntime({
 
   return {
     session,
+    setSession,
     playerClass,
     playerSubclass,
     playerLevel,

@@ -23,6 +23,51 @@ export function isConsumableInventoryItem(item) {
   return Boolean(item?.consumable)
 }
 
+const DIRECT_USE_EFFECTS = new Set(['heal', 'antitoxin', 'fire_resistance', 'stabilize'])
+const ITEM_USE_RULES = {
+  'Healing Potion': { effect: 'heal' },
+  'Greater Healing Potion': { effect: 'heal' },
+  Antitoxin: { effect: 'antitoxin' },
+  'Potion of Fire Resistance': { effect: 'fire_resistance' },
+  "Healer's Kit": { effect: 'stabilize', requiresTarget: true, actionLabel: '用于' },
+}
+
+function resolveUseEffect(item) {
+  return item?.effect || ITEM_USE_RULES[item?.name]?.effect || ''
+}
+
+export function getInventoryUseProfile(item) {
+  const effect = resolveUseEffect(item)
+  const rule = ITEM_USE_RULES[item?.name] || {}
+  const usable = isConsumableInventoryItem(item) && DIRECT_USE_EFFECTS.has(effect)
+  const requiresTarget = usable && Boolean(rule.requiresTarget || effect === 'stabilize')
+  return {
+    usable,
+    requiresTarget,
+    effect: usable ? effect : '',
+    actionLabel: requiresTarget ? '用于' : (rule.actionLabel || '使用'),
+  }
+}
+
+export function getInventoryUseSuccessText(item, payload = {}) {
+  const label = getInventoryItemLabel(item)
+  if (payload.effect === 'stabilize') {
+    return `已用 ${label} 稳定 ${payload.target_name || '目标'}`
+  }
+  if (payload.heal_amount) {
+    return `${label} 恢复 ${payload.heal_amount} HP`
+  }
+  return `已使用 ${label}`
+}
+
+export function isUsableInventoryItem(item) {
+  return getInventoryUseProfile(item).usable
+}
+
+export function requiresUseTarget(item) {
+  return getInventoryUseProfile(item).requiresTarget
+}
+
 export function canSellInventoryItem(item) {
   if (!item) return false
   return !item.equipped

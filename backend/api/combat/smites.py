@@ -12,6 +12,7 @@ from api.deps import get_session_or_404, get_user_id
 from api.combat._shared import svc
 from api.combat.schemas import SmiteRequest
 from services.combat_narrator import narrate_action
+from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.dnd_rules import _normalize_class
 from schemas.combat_responses import CombatActionResult
 
@@ -136,15 +137,13 @@ async def divine_smite(
         dice_result = {"type": "divine_smite", "slot_level": req.slot_level, **smite},
     ))
 
-    player_check         = await db.get(Character, session.player_character_id)
-    combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
-    if combat_over:
-        session.combat_active = False
-        # 清理战斗状态记录，防止下次战斗残留旧数据
-        try:
-            _old_cs = (await db.execute(select(CombatState).where(CombatState.session_id == session_id))).scalars().first()
-            if _old_cs: await db.delete(_old_cs)
-        except Exception: pass
+    combat_over, outcome = await check_and_cleanup_combat_outcome(
+        db,
+        session=session,
+        session_id=session_id,
+        enemies=enemies,
+        check_combat_over=svc.check_combat_over,
+    )
 
     await db.commit()
     return {

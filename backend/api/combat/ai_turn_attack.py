@@ -12,6 +12,11 @@ from api.combat._shared import (
     svc,
 )
 from api.combat.ai_turn_utils import advance_ai_turn, build_reaction_prompt
+from services.combat_ai_attack_service import (
+    apply_character_damage_resistance,
+    choose_ai_attack_target,
+    infer_ai_is_ranged,
+)
 from services.combat_narrator import narrate_batch
 from services.dnd_rules import roll_dice, _normalize_class
 
@@ -40,31 +45,22 @@ async def handle_ai_attack_action(
     decision: dict,
 ):
     """Resolve the remaining AI turn as an attack/default action."""
-    target_data = None
-    if decided_target_id:
-        for t in enemies_alive:
-            if str(t.get("id")) == str(decided_target_id):
-                target_data = t
-                break
-        if not target_data:
-            for t in all_characters:
-                if str(t.get("id")) == str(decided_target_id):
-                    target_data = t
-                    break
-
-    if not target_data:
-        target_data = svc.choose_ai_target(
-            actor_is_enemy=is_enemy,
-            player={"id": player.id, "hp_current": player.hp_current, "derived": player.derived or {}} if player else None,
-            allies=companions_alive,
-            enemies_alive=enemies_alive,
-        )
+    target_data = choose_ai_attack_target(
+        decided_target_id=decided_target_id,
+        enemies_alive=enemies_alive,
+        all_characters=all_characters,
+        actor_is_enemy=is_enemy,
+        player=player,
+        companions_alive=companions_alive,
+        combat_service=svc,
+    )
 
     target_id = None
     target_name = ""
     target_new_hp = None
     total_damage = 0
     all_narrations = []
+    state = session.game_state or {}
 
     ai_class = ""
     ai_level = 1
@@ -107,23 +103,11 @@ async def handle_ai_attack_action(
         if target_char_for_shield and "shield_spell" in (target_char_for_shield.conditions or []):
             ai_target_derived["ac"] = ai_target_derived.get("ac", 10) + 5
 
-        ai_is_ranged = False
-        if achar and achar.equipment:
-            ai_weapons = (achar.equipment or {}).get("weapons", [])
-            for w in ai_weapons:
-                wp = (w.get("properties") or "")
-                if isinstance(wp, list):
-                    wp = ",".join(wp)
-                if "远程" in wp or "ranged" in wp.lower() or w.get("type", "") in ("简易远程武器", "军用远程武器"):
-                    ai_is_ranged = True
-                    break
-        if not achar:
-            for enemy in enemies:
-                if str(enemy.get("id")) == str(actor_id):
-                    for act in enemy.get("actions", []):
-                        if "远程" in act.get("type", "") or "ranged" in act.get("type", "").lower():
-                            ai_is_ranged = True
-                    break
+        ai_is_ranged = infer_ai_is_ranged(
+            archer=achar,
+            enemies=enemies,
+            actor_id=actor_id,
+        )
 
         in_range, ai_dist, _ = _check_attack_range(ai_atk_pos, ai_tgt_pos, ai_is_ranged)
         if not in_range and ai_atk_pos and ai_tgt_pos:
@@ -187,6 +171,7 @@ async def handle_ai_attack_action(
                 first_attack_roll = result_obj
 
             atk_damage = result_obj.damage
+            applied_damage = atk_damage
 
             if result_obj.attack_roll["hit"] and achar and ai_class_res.get("raging", False):
                 rage_bonus = svc.get_rage_bonus(ai_level)
@@ -229,23 +214,19 @@ async def handle_ai_attack_action(
                 else:
                     tchar = await db.get(Character, target_id)
                     if tchar:
-                        final_dmg = atk_damage
-                        if tchar and _normalize_class(tchar.char_class) == "Barbarian":
-                            t_res = dict(tchar.class_resources or {})
-                            if t_res.get("raging", False):
-                                dmg_type = actor_derived.get("damage_type", "钝击")
-                                t_sub_effects = (tchar.derived or {}).get("subclass_effects", {})
-                                if t_sub_effects.get("bear_totem"):
-                                    if dmg_type not in ("心灵", "psychic"):
-                                        final_dmg = final_dmg // 2
-                                elif dmg_type in ("钝击", "穿刺", "挥砍", "bludgeoning", "piercing", "slashing"):
-                                    final_dmg = final_dmg // 2
+                        dmg_type = actor_derived.get("damage_type", "钝击")
+                        final_dmg, _resistance_applied = apply_character_damage_resistance(
+                            tchar,
+                            atk_damage,
+                            dmg_type,
+                        )
                         tchar.hp_current = svc.apply_damage(tchar.hp_current, final_dmg, (tchar.derived or {}).get("hp_max", tchar.hp_current))
+                        applied_damage = final_dmg
                         target_new_hp = tchar.hp_current
                         target_name = tchar.name
 
-            total_damage += atk_damage
-            all_narrations.append(svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, atk_damage))
+            total_damage += applied_damage
+            all_narrations.append(svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, applied_damage))
 
             if target_new_hp is not None and target_new_hp <= 0 and not is_enemy and achar:
                 ai_sub_eff = actor_derived.get("subclass_effects", {})

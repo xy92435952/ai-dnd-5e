@@ -20,7 +20,7 @@ def test_find_pending_attack_returns_owner_and_pending():
 
 
 def test_roll_pending_damage_applies_frontend_values_and_crit(monkeypatch):
-    from api.combat import attack_damage
+    from services import combat_damage_bonus_service as attack_damage
 
     rolls = iter([
         {"total": 7, "rolls": [4, 3]},
@@ -63,6 +63,101 @@ def test_apply_basic_damage_bonuses_collects_notes():
     assert dueling_bonus == 2
     assert rage_bonus == 2
     assert feat_bonus == 10
+
+
+def test_apply_divine_fury_adds_once_on_first_raging_hit(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 5, "rolls": [3, 2]})
+
+    result = attack_damage.apply_divine_fury(
+        damage=10,
+        extra_damage_notes=["狂暴+2"],
+        pending={"is_raging": True},
+        subclass_effects={"divine_fury": True},
+        level=5,
+        turn_state={"attacks_made": 1},
+    )
+
+    assert result.damage == 15
+    assert result.extra_damage_notes == ["狂暴+2", "神圣狂怒+5"]
+
+
+def test_apply_sneak_attack_uses_advantage_on_first_rogue_attack(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 7, "rolls": [4, 3]})
+
+    result = attack_damage.apply_sneak_attack(
+        damage=10,
+        extra_damage_notes=[],
+        attacker_class="Rogue",
+        level=5,
+        pending={"advantage": True},
+        subclass_effects={},
+        turn_state={"attacks_made": 1},
+        target_id="enemy-1",
+        attacker_id="rogue-1",
+        ally_list=[],
+        enemies=[],
+        positions={},
+        has_ally_adjacent_to=lambda *args: False,
+        check_sneak_attack=lambda *args, **kwargs: True,
+        calc_sneak_attack_dice=lambda level: 3,
+    )
+
+    assert result.damage == 17
+    assert result.sneak_attack_applied is True
+    assert result.sneak_attack_damage == 7
+    assert result.sneak_attack_dice == "3d6"
+    assert result.extra_damage_notes == ["偷袭3d6=7"]
+
+
+def test_apply_target_resistance_uses_enemy_resistance_lists():
+    from api.combat.attack_damage import apply_target_resistance
+
+    result = apply_target_resistance(
+        damage=12,
+        damage_type="fire",
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1", "resistances": ["fire"], "immunities": [], "vulnerabilities": []}],
+        apply_damage_with_resistance=lambda damage, damage_type, resistances, immunities, vulnerabilities: damage // 2,
+    )
+
+    assert result == 6
+
+
+def test_resolve_damage_extras_combines_sneak_attack_and_resistance(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 6, "rolls": [3, 3]})
+
+    result = attack_damage.resolve_damage_extras(
+        damage=12,
+        extra_damage_notes=[],
+        pending={"advantage": True, "is_raging": False},
+        attacker_class="Rogue",
+        level=5,
+        subclass_effects={},
+        turn_state={"attacks_made": 1},
+        target_id="enemy-1",
+        attacker_id="rogue-1",
+        target_is_enemy=True,
+        ally_list=[],
+        enemies=[{"id": "enemy-1", "resistances": ["piercing"], "immunities": [], "vulnerabilities": []}],
+        positions={},
+        damage_type="piercing",
+        has_ally_adjacent_to=lambda *args: False,
+        check_sneak_attack=lambda *args, **kwargs: True,
+        calc_sneak_attack_dice=lambda level: 3,
+        apply_damage_with_resistance=lambda damage, *_args: damage // 2,
+    )
+
+    assert result.damage == 9
+    assert result.sneak_attack_applied is True
+    assert result.sneak_attack_damage == 6
+    assert result.extra_damage_notes == ["偷袭3d6=6"]
 
 
 async def test_apply_attack_damage_to_enemy_updates_enemy_hp(db_session):

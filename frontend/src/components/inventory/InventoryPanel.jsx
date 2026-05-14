@@ -3,8 +3,9 @@ import { charactersApi } from '../../api/client'
 import {
   canSellInventoryItem,
   categorizeShopInventory,
+  getInventoryUseProfile,
+  getInventoryUseSuccessText,
   hasAmmunition,
-  isConsumableInventoryItem,
   mergeAmmoUpdate,
   normalizeInventoryItem,
   stackInventoryItems,
@@ -33,8 +34,22 @@ function toSellCategory(category) {
   return category
 }
 
+function toTransferCategory(category) {
+  return category
+}
+
+function mergeConditions(current = [], payload = {}) {
+  if (Array.isArray(payload.conditions)) return payload.conditions
+  if (payload.removed_condition) return current.filter(c => c !== payload.removed_condition)
+  if (payload.added_condition && !current.includes(payload.added_condition)) {
+    return [...current, payload.added_condition]
+  }
+  return current
+}
+
 function mergeCharacterInventory(char, payload) {
   const equipment = payload.equipment
+    || payload.source_equipment
     || (payload.weapon && payload.ammo != null
       ? mergeAmmoUpdate(char.equipment || {}, payload)
       : char.equipment)
@@ -43,9 +58,10 @@ function mergeCharacterInventory(char, payload) {
     equipment,
     derived: payload.derived || char.derived,
     hp_current: payload.hp_after ?? char.hp_current,
-    conditions: payload.removed_condition
-      ? (char.conditions || []).filter(c => c !== payload.removed_condition)
-      : char.conditions,
+    conditions: mergeConditions(char.conditions || [], payload),
+    death_saves: payload.target_character_id === char.id && payload.death_saves
+      ? payload.death_saves
+      : char.death_saves,
   }
 }
 
@@ -65,6 +81,18 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
   }), [equipment])
 
   const shop = useMemo(() => categorizeShopInventory(shopInventory || {}), [shopInventory])
+  const useTargets = useMemo(() => {
+    if (!character?.id) return []
+    const seen = new Set([character.id])
+    return [
+      { id: character.id, name: character.name || '自己' },
+      ...partyMembers.filter(member => {
+        if (!member?.id || seen.has(member.id)) return false
+        seen.add(member.id)
+        return true
+      }),
+    ]
+  }, [character?.id, character?.name, partyMembers])
 
   useEffect(() => {
     if (!shopOpen || shopInventory) return
@@ -98,12 +126,12 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
     () => `${item.equipped ? '已卸下' : '已装备'} ${item.label}`,
   )
 
-  const useItem = (item) => runAction(
-    `${item.key}-use`,
-    () => charactersApi.useItem(character.id, item.name),
-    (payload) => payload.heal_amount
-      ? `${item.label} 恢复 ${payload.heal_amount} HP`
-      : `已使用 ${item.label}`,
+  const useItem = (item, targetCharacterId = null) => runAction(
+    `${item.key}-use${targetCharacterId ? `-${targetCharacterId}` : ''}`,
+    () => targetCharacterId
+      ? charactersApi.useItem(character.id, item.name, { target_character_id: targetCharacterId })
+      : charactersApi.useItem(character.id, item.name),
+    (payload) => getInventoryUseSuccessText(item, payload),
   )
 
   const sellItem = (item) => runAction(
@@ -118,7 +146,7 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
       character.id,
       targetCharacterId,
       item.name,
-      toSellCategory(item.category),
+      toTransferCategory(item.category),
       item.indexes?.[0] ?? item.index,
     ),
     (payload) => `已将 ${item.label} 交给 ${partyMembers.find(m => m.id === payload.target_character_id)?.name || '队友'}`,
@@ -191,15 +219,15 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
           <InventoryHeading label="杂物与消耗品" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {sections.gear.map(item => (
-              <InventoryRow
+              <InventoryGearRow
                 key={item.key}
                 item={item}
-                busy={busyKey === `${item.key}-use` || busyKey === `${item.key}-sell`}
-                onPrimary={isConsumableInventoryItem(item) ? () => useItem(item) : null}
-                primaryLabel="使用"
-                onSell={canSellInventoryItem(item) ? () => sellItem(item) : null}
+                busyKey={busyKey}
+                useTargets={useTargets}
                 transferTargets={partyMembers}
-                onTransfer={canSellInventoryItem(item) ? (targetId) => transferItem(item, targetId) : null}
+                onUse={useItem}
+                onSell={sellItem}
+                onTransfer={transferItem}
               />
             ))}
           </div>
@@ -235,7 +263,43 @@ function InventoryHeading({ icon, label }) {
   )
 }
 
-function InventoryRow({ item, busy, onPrimary, primaryLabel, onSell, onAmmo, transferTargets = [], onTransfer }) {
+function InventoryGearRow({
+  item,
+  busyKey,
+  useTargets,
+  transferTargets,
+  onUse,
+  onSell,
+  onTransfer,
+}) {
+  const useProfile = getInventoryUseProfile(item)
+  return (
+    <InventoryRow
+      item={item}
+      busy={busyKey.startsWith(`${item.key}-use`) || busyKey === `${item.key}-sell`}
+      onPrimary={useProfile.usable && !useProfile.requiresTarget ? () => onUse(item) : null}
+      primaryLabel={useProfile.actionLabel}
+      useTargets={useProfile.usable && useProfile.requiresTarget ? useTargets : []}
+      onUseTarget={useProfile.usable && useProfile.requiresTarget ? (targetId) => onUse(item, targetId) : null}
+      onSell={canSellInventoryItem(item) ? () => onSell(item) : null}
+      transferTargets={transferTargets}
+      onTransfer={canSellInventoryItem(item) ? (targetId) => onTransfer(item, targetId) : null}
+    />
+  )
+}
+
+function InventoryRow({
+  item,
+  busy,
+  onPrimary,
+  primaryLabel,
+  onSell,
+  onAmmo,
+  useTargets = [],
+  onUseTarget,
+  transferTargets = [],
+  onTransfer,
+}) {
   const tone = item.category === 'weapon' ? 'var(--red-light)' : item.category === 'gear' ? 'var(--parchment-dark)' : 'var(--blue-light)'
   return (
     <div style={{
@@ -255,6 +319,7 @@ function InventoryRow({ item, busy, onPrimary, primaryLabel, onSell, onAmmo, tra
           {item.damage && <span style={{ color: tone }}>{item.damage}</span>}
           {item.ac != null && <span style={{ color: tone }}>AC {item.ac}</span>}
           {item.ammo != null && <span>弹药 {item.ammo}</span>}
+          {item.uses != null && <span>剩余 {item.uses} 次</span>}
           {item.cost != null && <span>{item.cost} gp</span>}
           {item.description && <span>{item.description}</span>}
         </div>
@@ -274,6 +339,32 @@ function InventoryRow({ item, busy, onPrimary, primaryLabel, onSell, onAmmo, tra
           <button type="button" className="btn-ghost" disabled={busy} onClick={onPrimary} style={{ fontSize: 10, padding: '4px 8px' }}>
             {primaryLabel}
           </button>
+        )}
+        {onUseTarget && useTargets.length > 0 && (
+          <select
+            aria-label={`用于 ${item.label}`}
+            disabled={busy}
+            defaultValue=""
+            onChange={(event) => {
+              const targetId = event.target.value
+              event.target.value = ''
+              if (targetId) onUseTarget(targetId)
+            }}
+            style={{
+              background: 'rgba(10,6,2,0.65)',
+              border: '1px solid var(--wood-light)',
+              color: 'var(--parchment)',
+              borderRadius: 4,
+              fontSize: 10,
+              padding: '4px 6px',
+              maxWidth: 92,
+            }}
+          >
+            <option value="">用于</option>
+            {useTargets.map(target => (
+              <option key={target.id} value={target.id}>{target.name}</option>
+            ))}
+          </select>
         )}
         {onSell && (
           <button type="button" className="btn-ghost" disabled={busy} onClick={onSell} style={{ fontSize: 10, padding: '4px 8px' }}>
