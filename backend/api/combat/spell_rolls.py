@@ -4,7 +4,6 @@ api.combat.spell_rolls — two-step spell roll and confirmation endpoints.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
 from models import Character, CombatState, GameLog
@@ -12,32 +11,21 @@ from api.deps import assert_can_act, get_session_or_404, get_user_id
 from api.combat._shared import (
     _DEFAULT_TS,
     _get_ts,
-    svc,
 )
 from services.combat_pending_spell_service import (
-    complete_pending_spell,
     find_pending_spell,
 )
 from api.combat.schemas import SpellConfirmRequest, SpellRollRequest
-from services.combat_spell_application_service import apply_confirmed_spell_effects
+from services.combat_spell_confirm_service import confirm_pending_spell, spell_actor_class
 from services.combat_spell_prepare_service import prepare_spell_roll
 from services.combat_spell_roll_service import (
     CombatSpellRollError,
 )
 from services.combat_spell_resolution_service import (
     CombatSpellResolutionError,
-    build_spell_mechanical_narration,
-    build_spell_resolution_context,
-    choose_spell_narration_target,
-    consume_spell_slot_for_confirmation,
-)
-from services.combat_wild_magic_service import (
-    apply_wild_magic_mechanical_effect,
-    resolve_wild_magic_for_spell,
 )
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
-from services.dnd_rules import _normalize_class, roll_dice, roll_wild_magic_surge
 from services.spell_service import spell_service
 from schemas.combat_responses import CombatActionResult
 
@@ -151,177 +139,75 @@ async def spell_confirm(
         raise HTTPException(404, "施法���不存在")
 
     spell_name = pending["spell_name"]
-    spell_level = pending["spell_level"]
-    target_ids = pending["target_ids"]
-    is_cantrip = pending["is_cantrip"]
-    is_aoe = pending["is_aoe"]
-    spell_type = pending["spell_type"]
 
     spell = spell_service.get(spell_name)
     if not spell:
         raise HTTPException(400, f"未知法术：{spell_name}")
 
-    # ── 消耗法术位 ──
     try:
-        new_slots = consume_spell_slot_for_confirmation(
-            current_slots=caster.spell_slots,
-            spell_level=spell_level,
-            is_cantrip=is_cantrip,
-            consume_slot=spell_service.consume_slot,
+        confirmed = await confirm_pending_spell(
+            db,
+            session_id=session_id,
+            combat_obj=combat_obj,
+            caster=caster,
+            caster_entity_id=caster_entity_id,
+            pending=pending,
+            spell=spell,
+            state=session.game_state or {},
+            enemies=list((session.game_state or {}).get("enemies", [])),
+            damage_values=req.damage_values,
+            session=session,
+            spell_service_obj=spell_service,
+            check_combat_outcome_func=check_and_cleanup_combat_outcome,
         )
     except CombatSpellResolutionError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
-    caster.spell_slots = new_slots
-
-    # ── 施法属性 ──
-    spell_context = build_spell_resolution_context(caster.derived)
-    spell_mod = spell_context["spell_mod"]
-    spell_save_dc = spell_context["spell_save_dc"]
-    bonus_healing = spell_context["bonus_healing"]
-
-    state = session.game_state or {}
-    enemies = list(state.get("enemies", []))
-
-    spell_application = await apply_confirmed_spell_effects(
-        db,
-        session_id=session_id,
-        enemies=enemies,
-        target_ids=target_ids,
-        is_aoe=is_aoe,
-        spell_type=spell_type,
-        spell_name=spell_name,
-        spell_level=spell_level,
-        spell_mod=spell_mod,
-        bonus_healing=bonus_healing,
-        spell=spell,
-        damage_values=req.damage_values,
-        spell_save_dc=spell_save_dc,
-        resolve_damage=spell_service.resolve_damage,
-        resolve_heal=spell_service.resolve_heal,
-    )
-    result_damage = spell_application.result_damage
-    result_heal = spell_application.result_heal
-    dice_detail = spell_application.dice_detail
-    target_new_hp = spell_application.target_new_hp
-    aoe_results = spell_application.aoe_results
-    conc_logs = spell_application.concentration_logs
-    condition_name = spell_application.condition_name
-    save_detail = spell_application.save_detail
-    if spell_application.enemies_changed:
-        state["enemies"] = enemies
-        session.game_state = dict(state)
-        flag_modified(session, "game_state")
-
-    # ── 专注 ──
-    if spell.get("concentration"):
-        caster.concentration = spell_name
-
-    # ── 叙事 ──
-    mechanical_narration = build_spell_mechanical_narration(
-        caster_name=caster.name,
-        spell_name=spell_name,
-        spell_level=spell_level,
-        is_cantrip=is_cantrip,
-        is_aoe=is_aoe,
-        aoe_results=aoe_results,
-        result_damage=result_damage,
-        result_heal=result_heal,
-        spell_type=spell_type,
-        save_detail=save_detail,
-        condition_name=condition_name,
-    )
 
     # LLM vivid narration for spells
-    spell_target = choose_spell_narration_target(
-        is_aoe=is_aoe,
-        aoe_results=aoe_results,
-        target_ids=target_ids,
-    )
     vivid = await narrate_action(
         actor_name=caster.name,
-        actor_class=_normalize_class(caster.char_class),
-        target_name=spell_target if isinstance(spell_target, str) else str(spell_target),
+        actor_class=spell_actor_class(caster),
+        target_name=confirmed.spell_target,
         action_type="spell",
         spell_name=spell_name,
-        damage=result_damage,
-        heal_amount=result_heal,
+        damage=confirmed.damage,
+        heal_amount=confirmed.heal,
         damage_type=spell.get("damage_type", ""),
     )
-    narration = vivid if vivid else mechanical_narration
+    narration = vivid if vivid else confirmed.narration
+    response_narration = narration
+    if confirmed.wild_magic_narration_append:
+        response_narration += f"\n\n{confirmed.wild_magic_narration_append}"
 
     db.add(GameLog(
         session_id=session_id,
         role="player" if caster.is_player else f"companion_{caster.name}",
         content=narration,
         log_type="combat",
-        dice_result={
-            "dice": dice_detail, "damage": result_damage, "heal": result_heal,
-            "aoe": aoe_results,
-        },
+        dice_result=confirmed.log_dice_result,
     ))
-    for cl in conc_logs:
+    for cl in confirmed.concentration_logs:
         db.add(cl)
-
-    # ── 标记行动已用 ──
-    spell_ts = complete_pending_spell(combat_obj, caster_entity_id, is_cantrip=is_cantrip)
-
-    # ── 野蛮魔法涌动检测（Wild Magic Surge）──
-    wild_magic = resolve_wild_magic_for_spell(
-        caster_name=caster.name,
-        is_cantrip=is_cantrip,
-        derived=caster.derived,
-        class_resources=caster.class_resources,
-        roll_dice=roll_dice,
-        roll_wild_magic_surge=roll_wild_magic_surge,
-    )
-    wild_magic_surge = wild_magic.surge
-    wild_magic_check = wild_magic.check
-    if wild_magic.narration_append:
-        narration += f"\n\n{wild_magic.narration_append}"
-    if wild_magic.updated_class_resources is not None:
-        caster.class_resources = wild_magic.updated_class_resources
-    if wild_magic.log_content:
-        log_kwargs = {
-            "session_id": session_id,
-            "role": "system",
-            "content": wild_magic.log_content,
-            "log_type": "system",
-        }
-        if wild_magic.log_dice_result:
-            log_kwargs["dice_result"] = wild_magic.log_dice_result
-        db.add(GameLog(**log_kwargs))
-    apply_wild_magic_mechanical_effect(
-        caster=caster,
-        surge=wild_magic_surge,
-        roll_dice=roll_dice,
-    )
-
-    # ── 检查战斗结束 ──
-    combat_over, outcome = await check_and_cleanup_combat_outcome(
-        db,
-        session=session,
-        session_id=session_id,
-        enemies=enemies,
-        check_combat_over=svc.check_combat_over,
-    )
+    for wild_magic_log in confirmed.wild_magic_logs:
+        db.add(wild_magic_log)
 
     await db.commit()
 
     return {
-        "narration": narration,
-        "damage": result_damage,
-        "heal": result_heal,
-        "target_id": target_ids[0] if target_ids else None,
-        "target_new_hp": target_new_hp,
-        "aoe_results": aoe_results,
-        "remaining_slots": new_slots,
-        "dice_detail": dice_detail,
-        "dice_result": {"total": result_damage or result_heal or 0},
-        "turn_state": spell_ts,
-        "is_concentration": spell.get("concentration", False),
-        "is_aoe": is_aoe,
-        "combat_over": combat_over,
-        "outcome": outcome,
-        "wild_magic_surge": wild_magic_surge,
-        "wild_magic_check": wild_magic_check,
+        "narration": response_narration,
+        "damage": confirmed.damage,
+        "heal": confirmed.heal,
+        "target_id": confirmed.target_id,
+        "target_new_hp": confirmed.target_new_hp,
+        "aoe_results": confirmed.aoe_results,
+        "remaining_slots": confirmed.remaining_slots,
+        "dice_detail": confirmed.dice_detail,
+        "dice_result": {"total": confirmed.damage or confirmed.heal or 0},
+        "turn_state": confirmed.turn_state,
+        "is_concentration": confirmed.is_concentration,
+        "is_aoe": confirmed.is_aoe,
+        "combat_over": confirmed.combat_over,
+        "outcome": confirmed.outcome,
+        "wild_magic_surge": confirmed.wild_magic_surge,
+        "wild_magic_check": confirmed.wild_magic_check,
     }

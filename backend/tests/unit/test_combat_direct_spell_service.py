@@ -1,0 +1,174 @@
+import pytest
+
+
+class FakeDb:
+    async def get(self, _model, entity_id):
+        return None
+
+
+class FakeCaster:
+    id = "caster-1"
+    name = "法师"
+    is_player = True
+    concentration = None
+    spell_slots = {"1st": 1}
+    derived = {
+        "spell_ability": "int",
+        "ability_modifiers": {"int": 3},
+        "spell_save_dc": 13,
+        "bonus_healing": False,
+    }
+
+
+class FakeCombat:
+    round_number = 2
+    current_turn_index = 1
+
+    def __init__(self):
+        self.turn_states = {
+            "caster-1": {
+                "action_used": False,
+                "bonus_action_used": False,
+                "attacks_made": 0,
+            }
+        }
+
+
+class FakeSession:
+    id = "sess-1"
+    player_character_id = "caster-1"
+    combat_active = True
+
+    def __init__(self):
+        self.game_state = {
+            "enemies": [
+                {
+                    "id": "goblin-1",
+                    "name": "哥布林",
+                    "hp_current": 10,
+                    "derived": {"hp_max": 10},
+                },
+                {
+                    "id": "goblin-2",
+                    "name": "倒下的哥布林",
+                    "hp_current": 0,
+                    "derived": {"hp_max": 8},
+                },
+                {
+                    "id": "orc-1",
+                    "name": "兽人",
+                    "hp_current": 12,
+                    "derived": {"hp_max": 12},
+                },
+            ]
+        }
+
+
+class FakeSpellService:
+    def get(self, name):
+        return {
+            "name": name,
+            "level": 1,
+            "type": "damage",
+            "aoe": True,
+            "concentration": True,
+        }
+
+    def validate_slot_level(self, *_args):
+        return None
+
+    def consume_slot(self, slots, _spell_level):
+        slots = dict(slots)
+        slots["1st"] = slots.get("1st", 0) - 1
+        return slots, None
+
+    def resolve_damage(self, *_args):
+        return 6, {"formula": "1d6+3", "total": 6}
+
+    def resolve_heal(self, *_args):
+        return 0, {}
+
+
+def save_turn_state(combat, entity_id, turn_state):
+    combat.turn_states[str(entity_id)] = turn_state
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_spell_defaults_empty_aoe_damage_to_alive_enemies():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    result = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="burning-hands",
+        spell_level=1,
+        target_id=None,
+        target_ids=[],
+        spell_service_obj=FakeSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert [item["target_id"] for item in result.aoe_results] == ["goblin-1", "orc-1"]
+    assert session.game_state["enemies"][0]["hp_current"] == 4
+    assert session.game_state["enemies"][2]["hp_current"] == 6
+    assert caster.spell_slots == {"1st": 0}
+    assert caster.concentration == "burning-hands"
+    assert result.turn_state["action_used"] is True
+    assert result.next_turn_index == 1
+    assert result.round_number == 2
+    assert result.remaining_slots == {"1st": 0}
+    assert result.is_aoe is True
+    assert result.is_concentration is True
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_spell_keeps_cantrip_action_available():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class CantripSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 0,
+                "type": "damage",
+                "aoe": False,
+            }
+
+        def consume_slot(self, *_args):
+            raise AssertionError("cantrips should not consume spell slots")
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    result = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="fire-bolt",
+        spell_level=0,
+        target_id="goblin-1",
+        target_ids=None,
+        spell_service_obj=CantripSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert result.damage == 6
+    assert result.target_new_hp == 4
+    assert result.turn_state["action_used"] is False
+    assert result.remaining_slots == {"1st": 1}
