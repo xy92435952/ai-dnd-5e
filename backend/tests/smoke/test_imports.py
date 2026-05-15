@@ -15,9 +15,11 @@ def test_import_backend_main():
 def test_import_all_api_modules():
     """所有 api/* 子模块能 import。"""
     from api import auth, game, modules, characters, character_inventory, rooms, ws, deps
+    from api.game_routes import actions, campaign, checks, sessions
     from api import combat
     assert all([auth.router, game.router, modules.router, characters.router,
-                character_inventory.router, rooms.router, ws.router, combat.router])
+                character_inventory.router, rooms.router, ws.router, combat.router,
+                actions.router, campaign.router, checks.router, sessions.router])
 
 
 def test_import_combat_subpackage():
@@ -104,3 +106,21 @@ def test_combat_route_paths_unchanged():
     }
     actual = {r.path for r in router.routes if hasattr(r, "path")}
     assert actual == expected, f"路由集合变化：缺失={expected-actual}，多余={actual-expected}"
+
+
+def test_game_route_paths_unchanged():
+    """拆分 game.py 时 /game 非 combat 路由不能变。"""
+    from api.game import router
+
+    expected = {
+        "/game/action",
+        "/game/sessions",
+        "/game/sessions/{session_id}",
+        "/game/sessions/{session_id}/ai-takeover",
+        "/game/sessions/{session_id}/checkpoint",
+        "/game/sessions/{session_id}/journal",
+        "/game/sessions/{session_id}/rest",
+        "/game/skill-check",
+    }
+    actual = {r.path for r in router.routes if hasattr(r, "path")}
+    assert actual == expected, f"game 路由集合变化：缺失={expected-actual}，多余={actual-expected}"
