@@ -1,613 +1,57 @@
-"""多人联机房间业务逻辑
+"""多人联机房间业务逻辑兼容门面。
 
-职责：
-- 房间码生成（避免易混淆字符 0/O/1/I）
-- 创建/加入/离开/解散房间
-- 成员管理（角色认领、踢人、转让房主）
-- 在线状态判断（基于 last_seen_at 心跳）
+真实实现已按职责拆分到：
+- room_lifecycle_service: 房间码、创建、加入、离开、开始状态判断
+- room_member_service: 成员、角色认领、房主转让、心跳
+- room_ai_companion_service: AI 队友查询与补位
+- room_start_service: 开始游戏流程
+- room_info_service: 房间信息聚合
+- room_group_service: 探索分队与行动队列
 
-不负责：
-- WebSocket 广播（由 ws_manager 处理）
-- 战斗权限校验（由 combat 端点中间件处理）
+这里继续保留旧导入路径，避免 API 层、测试和外部脚本感知拆分。
 """
-import random
-from datetime import datetime, timedelta
-from typing import Optional, List, Tuple
 
-from fastapi import HTTPException
-from sqlalchemy import select, delete
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
-from models import Session, Character, SessionMember, User, Module
-from services import room_group_service
+from services import (
+    room_ai_companion_service,
+    room_group_service,
+    room_info_service,
+    room_lifecycle_service,
+    room_member_service,
+    room_start_service,
+)
 
 
-# ── 常量 ─────────────────────────────────────────────
-
-ROOM_CODE_CHARS = "23456789"  # 8进制，去掉 0/1 易混字符
-ROOM_CODE_LENGTH = 6
-OFFLINE_THRESHOLD_SECONDS = 30  # 超过 30s 无心跳 → 视为离线 → AI 托管
-MAX_CODE_GEN_ATTEMPTS = 20
+ROOM_CODE_CHARS = room_lifecycle_service.ROOM_CODE_CHARS
+ROOM_CODE_LENGTH = room_lifecycle_service.ROOM_CODE_LENGTH
+OFFLINE_THRESHOLD_SECONDS = room_member_service.OFFLINE_THRESHOLD_SECONDS
+MAX_CODE_GEN_ATTEMPTS = room_lifecycle_service.MAX_CODE_GEN_ATTEMPTS
 DEFAULT_GROUP_ID = room_group_service.DEFAULT_GROUP_ID
 DEFAULT_GROUP_NAME = room_group_service.DEFAULT_GROUP_NAME
 DEFAULT_GROUP_LOCATION = room_group_service.DEFAULT_GROUP_LOCATION
 READINESS_STATUSES = room_group_service.READINESS_STATUSES
 
 
-# ── 房间码生成 ───────────────────────────────────────
+generate_unique_room_code = room_lifecycle_service.generate_unique_room_code
+create_room = room_lifecycle_service.create_room
+join_room = room_lifecycle_service.join_room
+leave_room = room_lifecycle_service.leave_room
+
+claim_character = room_member_service.claim_character
+kick_member = room_member_service.kick_member
+transfer_host = room_member_service.transfer_host
+list_members = room_member_service.list_members
+update_heartbeat = room_member_service.update_heartbeat
+mark_offline = room_member_service.mark_offline
+
+start_game = room_start_service.start_game
+list_ai_companions = room_ai_companion_service.list_ai_companions
+fill_with_ai_companions = room_ai_companion_service.fill_with_ai_companions
+get_room_info = room_info_service.get_room_info
 
-async def generate_unique_room_code(db: AsyncSession) -> str:
-    """生成 6 位数字房间码，确保数据库内唯一。"""
-    for _ in range(MAX_CODE_GEN_ATTEMPTS):
-        code = "".join(random.choices(ROOM_CODE_CHARS, k=ROOM_CODE_LENGTH))
-        existing = await db.execute(
-            select(Session.id).where(Session.room_code == code)
-        )
-        if existing.scalar_one_or_none() is None:
-            return code
-    raise HTTPException(500, "房间码生成失败，请重试")
-
-
-# ── 创建/加入/离开 ───────────────────────────────────
-
-async def create_room(
-    db: AsyncSession,
-    user_id: str,
-    module_id: str,
-    save_name: Optional[str],
-    max_players: int,
-) -> Session:
-    """创建多人房间。创建者自动成为 host。"""
-    # 验证模组存在
-    from models import Module
-    module = await db.get(Module, module_id)
-    if not module:
-        raise HTTPException(404, "模组不存在")
-
-    code = await generate_unique_room_code(db)
-    session = Session(
-        user_id=user_id,
-        module_id=module_id,
-        save_name=save_name or f"多人房间 {code}",
-        is_multiplayer=True,
-        room_code=code,
-        host_user_id=user_id,
-        max_players=max_players,
-        game_state={"multiplayer": {"current_speaker_user_id": None,
-                                     "speak_round": 0,
-                                     "pending_actions": [],
-                                     "online_user_ids": [user_id],
-                                     "active_group_id": DEFAULT_GROUP_ID,
-                                     "party_groups": [{
-                                         "id": DEFAULT_GROUP_ID,
-                                         "name": DEFAULT_GROUP_NAME,
-                                         "location": DEFAULT_GROUP_LOCATION,
-                                         "member_user_ids": [user_id],
-                                     }],
-                                     "pending_actions_by_group": {DEFAULT_GROUP_ID: []},
-                                     "group_readiness": {DEFAULT_GROUP_ID: {}}}},
-    )
-    db.add(session)
-    await db.flush()  # 拿到 session.id
-
-    host_member = SessionMember(
-        session_id=session.id,
-        user_id=user_id,
-        role="host",
-    )
-    db.add(host_member)
-    await db.commit()
-    await db.refresh(session)
-    return session
-
-
-async def join_room(
-    db: AsyncSession,
-    user_id: str,
-    room_code: str,
-) -> Tuple[Session, SessionMember]:
-    """通过房间码加入房间。游戏未开始 + 房间未满 才允许加入。"""
-    result = await db.execute(
-        select(Session).where(Session.room_code == room_code)
-    )
-    session = result.scalar_one_or_none()
-    if not session:
-        raise HTTPException(404, "房间码无效")
-    if not session.is_multiplayer:
-        raise HTTPException(400, "该房间不是多人房间")
-    if _is_game_started(session):
-        raise HTTPException(409, "游戏已经开始，无法加入")
-
-    # 检查是否已在房间中
-    existing = await db.execute(
-        select(SessionMember).where(
-            SessionMember.session_id == session.id,
-            SessionMember.user_id == user_id,
-        )
-    )
-    member = existing.scalar_one_or_none()
-    if member:
-        # 已在房间，刷新 last_seen 当作"重连"
-        member.last_seen_at = datetime.utcnow()
-        await db.commit()
-        await db.refresh(member)
-        return session, member
-
-    # 检查房间容量
-    members_count = await _count_members(db, session.id)
-    if members_count >= session.max_players:
-        raise HTTPException(409, "房间已满")
-
-    member = SessionMember(
-        session_id=session.id,
-        user_id=user_id,
-        role="player",
-    )
-    db.add(member)
-    await db.commit()
-    await db.refresh(member)
-    return session, member
-
-
-async def leave_room(
-    db: AsyncSession,
-    user_id: str,
-    session_id: str,
-) -> dict:
-    """离开房间。
-
-    - 房主离开 + 还有其他成员 → 自动转让给最早加入的成员
-    - 房主离开 + 没有其他成员 → 解散房间（清理 session_members，session 保留以归档）
-    - 普通成员离开 → 仅删除 SessionMember 记录；其角色会变为 NPC（is_player=False）
-    """
-    session = await db.get(Session, session_id)
-    if not session or not session.is_multiplayer:
-        raise HTTPException(404, "房间不存在")
-
-    member = await _get_member(db, session.id, user_id)
-    if not member:
-        raise HTTPException(404, "你不在该房间中")
-
-    is_host = member.role == "host"
-
-    # 删除该成员
-    if member.character_id:
-        # 真人角色降级为 AI 托管（is_player=False，user_id 清空）
-        char = await db.get(Character, member.character_id)
-        if char:
-            char.user_id = None
-            char.is_player = False
-    await db.delete(member)
-    await db.flush()
-
-    if is_host:
-        # 找下一位最早加入者作为新 host
-        result = await db.execute(
-            select(SessionMember)
-            .where(SessionMember.session_id == session.id)
-            .order_by(SessionMember.joined_at.asc())
-        )
-        new_host = result.scalars().first()
-        if new_host:
-            new_host.role = "host"
-            session.host_user_id = new_host.user_id
-            transfer_to = new_host.user_id
-        else:
-            # 房间空了，归档：room_code 失效，保留 session 数据
-            session.room_code = None
-            transfer_to = None
-        await db.commit()
-        return {"left": user_id, "host_transferred_to": transfer_to,
-                "room_dissolved": transfer_to is None}
-
-    await db.commit()
-    return {"left": user_id, "host_transferred_to": None, "room_dissolved": False}
-
-
-# ── 角色认领/踢人/转让 ───────────────────────────────
-
-async def claim_character(
-    db: AsyncSession,
-    user_id: str,
-    session_id: str,
-    character_id: str,
-) -> SessionMember:
-    """
-    认领（或接管）一个角色。允许的场景：
-
-      1) 我自己的角色（重连续玩 / 换角色）—— 直接绑回
-      2) "孤儿"角色（session_id 为 None）—— 刚从多人向导创建完，第一次绑
-      3) 房间内的 AI 角色（is_player=False）—— 接管：fill_ai 生成的 / 其他玩家
-         离开后降级的 / 长时间断线被托管的，都允许在线玩家拿回来玩
-
-    拒绝的场景：
-      - 角色属于别的 session
-      - 角色已被**别的活跃 SessionMember** 绑（在线 / 离线但还没触发 leave）
-        → 此时其他玩家有"占有权"，本玩家不能强抢；想抢的话需要房主先 kick
-
-    历史上这里硬性 `is_player=True` 的限制把"接管 AI / 接管离线队友"两个
-    合理需求都堵死了 —— 用户反馈过"断线重连不能接管人机"。
-    """
-    member = await _get_member(db, session_id, user_id)
-    if not member:
-        raise HTTPException(403, "你不在该房间中")
-
-    char = await db.get(Character, character_id)
-    if not char:
-        raise HTTPException(404, "角色不存在")
-    if char.session_id is not None and char.session_id != session_id:
-        raise HTTPException(404, "角色不属于该房间")
-
-    # 检查是否已被**其他**真实成员持有
-    # 注意：拿 SessionMember 判而不是 char.is_player —— is_player 是"当前是否真人控"，
-    # SessionMember.character_id 才是"占有权"
-    existing = await db.execute(
-        select(SessionMember).where(
-            SessionMember.session_id == session_id,
-            SessionMember.character_id == character_id,
-        )
-    )
-    other = existing.scalar_one_or_none()
-    if other and other.user_id != user_id:
-        raise HTTPException(409, "该角色已被其他玩家认领")
-
-    # 如果该玩家之前 claim 过别的角色，先把那个角色降级为 AI（防止脚踩两条船）
-    if member.character_id and member.character_id != character_id:
-        prev = await db.get(Character, member.character_id)
-        if prev:
-            prev.user_id = None
-            prev.is_player = False
-
-    member.character_id = character_id
-    char.user_id = user_id
-    char.is_player = True       # 接管 → 升级为真人控
-    char.session_id = session_id   # 孤儿角色顺带绑定到房间
-    await db.commit()
-    await db.refresh(member)
-    return member
-
-
-async def kick_member(
-    db: AsyncSession,
-    actor_user_id: str,
-    session_id: str,
-    target_user_id: str,
-) -> dict:
-    """房主踢人。"""
-    session = await db.get(Session, session_id)
-    if not session or not session.is_multiplayer:
-        raise HTTPException(404, "房间不存在")
-    if session.host_user_id != actor_user_id:
-        raise HTTPException(403, "只有房主可以踢人")
-    if target_user_id == actor_user_id:
-        raise HTTPException(400, "不能踢出自己，请使用离开房间")
-
-    target = await _get_member(db, session_id, target_user_id)
-    if not target:
-        raise HTTPException(404, "目标成员不在房间中")
-
-    if target.character_id:
-        char = await db.get(Character, target.character_id)
-        if char:
-            char.user_id = None
-            char.is_player = False
-
-    await db.delete(target)
-    await db.commit()
-    return {"kicked": target_user_id}
-
-
-async def transfer_host(
-    db: AsyncSession,
-    actor_user_id: str,
-    session_id: str,
-    new_host_user_id: str,
-) -> dict:
-    """转让房主权限。"""
-    session = await db.get(Session, session_id)
-    if not session or not session.is_multiplayer:
-        raise HTTPException(404, "房间不存在")
-    if session.host_user_id != actor_user_id:
-        raise HTTPException(403, "只有房主可以转让")
-
-    actor = await _get_member(db, session_id, actor_user_id)
-    target = await _get_member(db, session_id, new_host_user_id)
-    if not target:
-        raise HTTPException(404, "目标成员不在房间中")
-    if actor.user_id == target.user_id:
-        raise HTTPException(400, "目标已是房主")
-
-    actor.role = "player"
-    target.role = "host"
-    session.host_user_id = new_host_user_id
-    await db.commit()
-    return {"new_host_user_id": new_host_user_id}
-
-
-# ── 开始游戏 ─────────────────────────────────────────
-
-async def start_game(
-    db: AsyncSession,
-    actor_user_id: str,
-    session_id: str,
-) -> Session:
-    """房主开始游戏。
-
-    要求：
-    - 至少 1 名成员已认领角色（其余空位将由 AI 托管）
-    - 游戏尚未开始
-    """
-    session = await db.get(Session, session_id)
-    if not session or not session.is_multiplayer:
-        raise HTTPException(404, "房间不存在")
-    if session.host_user_id != actor_user_id:
-        raise HTTPException(403, "只有房主可以开始游戏")
-    if _is_game_started(session):
-        raise HTTPException(409, "游戏已经开始")
-
-    members = await _list_members_raw(db, session_id)
-    claimed = [m for m in members if m.character_id]
-    if not claimed:
-        raise HTTPException(400, "至少需要一位玩家认领角色才能开始")
-
-    # ── 首次启动：绑定主角色 + 生成开场白 ──
-    # 单人模式的 /game/sessions POST 里会做这两件事，多人之前漏了，
-    # 导致玩家进入 Adventure 页看到空页。
-    from models import GameLog
-    already_started = bool(session.current_scene)  # 若已有 current_scene，说明之前启动过，仅刷新状态
-
-    if not already_started:
-        # 1. 绑定 session.player_character_id = 第一位 claimed（便于单人场景代码复用）
-        if not session.player_character_id:
-            session.player_character_id = claimed[0].character_id
-
-        # 2. 生成开场白（复用单人模式的 _generate_opening）
-        module = await db.get(Module, session.module_id)
-        parsed = (module.parsed_content or {}) if module else {}
-        scenes = parsed.get("scenes", []) or []
-        raw_scene = scenes[0]["description"] if scenes and isinstance(scenes[0], dict) else ""
-        try:
-            from api.game import _generate_opening  # lazy import 避免循环依赖
-            first_scene = await _generate_opening(parsed, raw_scene)
-        except Exception:
-            first_scene = raw_scene or "冒险正在开始……"
-
-        session.current_scene = first_scene
-
-        # 3. 写入 [开场] GameLog
-        db.add(GameLog(
-            session_id=session_id,
-            role="dm",
-            content=f"[开场] {first_scene}",
-            log_type="narrative",
-        ))
-
-    # 标记游戏已开始：在 game_state 写一个 flag
-    state = session.game_state or {}
-    mp = state.setdefault("multiplayer", {})
-    mp["game_started"] = True
-    mp["online_user_ids"] = [m.user_id for m in members]
-    # 初始发言者：第一位 claimed 玩家
-    mp["current_speaker_user_id"] = claimed[0].user_id
-    mp["speak_round"] = 1
-    mp["pending_actions"] = []
-    session.game_state = state
-    flag_modified(session, "game_state")
-
-    await db.commit()
-    await db.refresh(session)
-    return session
-
-
-# ── 补满 AI 队友 ─────────────────────────────────────
-
-async def list_ai_companions(
-    db: AsyncSession,
-    session_id: str,
-) -> List[dict]:
-    """列出该房间的 AI 队友（session_id 匹配 + is_player=False）。"""
-    result = await db.execute(
-        select(Character)
-        .where(Character.session_id == session_id, Character.is_player == False)
-        .order_by(Character.id.asc())
-    )
-    out = []
-    for c in result.scalars().all():
-        out.append({
-            "id": c.id,
-            "name": c.name,
-            "race": c.race,
-            "char_class": c.char_class,
-            "level": c.level,
-            "hp_max": (c.derived or {}).get("hp_max"),
-        })
-    return out
-
-
-async def fill_with_ai_companions(
-    db: AsyncSession,
-    actor_user_id: str,
-    session_id: str,
-) -> dict:
-    """房主触发：根据 max_players 与已认领人数差额，生成 AI 队友补位。
-
-    要求：
-    - 房主权限
-    - 游戏未开始
-    - 至少 1 名成员已认领角色（以其作为 party 生成参考）
-
-    返回：{"generated": N, "companions": [...], "already_full": bool}
-    """
-    # 延迟导入，避免循环依赖（services 模块之间）
-    from services.langgraph_client import langgraph_client
-    from services.dnd_rules import (
-        apply_racial_bonuses, calc_derived,
-        ALL_SKILLS, CLASS_SAVE_PROFICIENCIES, CLASS_SKILL_CHOICES,
-        _normalize_class,
-    )
-
-    session = await db.get(Session, session_id)
-    if not session or not session.is_multiplayer:
-        raise HTTPException(404, "房间不存在")
-    if session.host_user_id != actor_user_id:
-        raise HTTPException(403, "只有房主可以补 AI 队友")
-    if _is_game_started(session):
-        raise HTTPException(409, "游戏已经开始，无法补位")
-
-    members = await _list_members_raw(db, session_id)
-    claimed = [m for m in members if m.character_id]
-    if not claimed:
-        raise HTTPException(400, "至少需要一位玩家创建并认领角色作为参考")
-
-    existing_ai = await list_ai_companions(db, session_id)
-    target_total = session.max_players or 4
-    need = target_total - len(claimed) - len(existing_ai)
-    if need <= 0:
-        return {"generated": 0, "companions": existing_ai, "already_full": True}
-
-    # 取第一位已认领角色作为 party 生成参考
-    ref_char = await db.get(Character, claimed[0].character_id)
-    if not ref_char:
-        raise HTTPException(500, "参考角色加载失败")
-
-    module = await db.get(Module, session.module_id)
-    if not module:
-        raise HTTPException(404, "模组不存在")
-
-    companions_data = await langgraph_client.generate_party(
-        player_class=ref_char.char_class,
-        player_race=ref_char.race,
-        player_level=ref_char.level,
-        party_size=need,
-        module_data=module.parsed_content or {},
-    )
-
-    new_ids = []
-    for c in companions_data[:need]:
-        base_scores = c.get("ability_scores", {
-            "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10,
-        })
-        companion_race = c.get("race", "人类")
-        companion_class = c.get("class", "Fighter")
-        companion_level = c.get("level", ref_char.level)
-
-        final_scores = apply_racial_bonuses(base_scores, companion_race)
-        cls_key = _normalize_class(companion_class)
-        save_profs = CLASS_SAVE_PROFICIENCIES.get(cls_key, [])
-        ai_skills = c.get("proficient_skills", [])
-        skill_config = CLASS_SKILL_CHOICES.get(cls_key, {"count": 2, "options": ALL_SKILLS})
-        if not ai_skills:
-            ai_skills = (skill_config["options"] or [])[:skill_config["count"]]
-
-        derived = calc_derived(
-            companion_class, companion_level, final_scores, c.get("subclass"),
-            race=companion_race, proficient_skills=ai_skills,
-        )
-        spell_slots = dict(derived.get("spell_slots_max", {}))
-
-        companion = Character(
-            session_id=session_id,
-            is_player=False,
-            user_id=None,
-            name=c.get("name", "未知冒险者"),
-            race=companion_race,
-            char_class=companion_class,
-            subclass=c.get("subclass"),
-            level=companion_level,
-            background=c.get("background"),
-            alignment=c.get("alignment", "中立善良"),
-            ability_scores=final_scores,
-            derived=derived,
-            hp_current=derived["hp_max"],
-            spell_slots=spell_slots,
-            known_spells=c.get("known_spells", []),
-            cantrips=c.get("cantrips", []),
-            proficient_skills=ai_skills,
-            proficient_saves=save_profs,
-            personality=c.get("personality_traits", ""),
-            speech_style=c.get("speech_style", ""),
-            combat_preference=c.get("combat_preference", ""),
-            backstory=c.get("backstory", ""),
-            catchphrase=c.get("catchphrase", ""),
-        )
-        db.add(companion)
-        await db.flush()
-        new_ids.append(companion.id)
-
-    await db.commit()
-    companions = await list_ai_companions(db, session_id)
-    return {"generated": len(new_ids), "companions": companions, "already_full": False}
-
-
-# ── 查询 ─────────────────────────────────────────────
-
-async def list_members(
-    db: AsyncSession,
-    session_id: str,
-) -> List[dict]:
-    """返回成员列表，包含 user 信息、character 名称、在线状态。"""
-    rows = await db.execute(
-        select(SessionMember, User, Character)
-        .join(User, User.id == SessionMember.user_id)
-        .outerjoin(Character, Character.id == SessionMember.character_id)
-        .where(SessionMember.session_id == session_id)
-        .order_by(SessionMember.joined_at.asc())
-    )
-    out = []
-    now = datetime.utcnow()
-    threshold = now - timedelta(seconds=OFFLINE_THRESHOLD_SECONDS)
-    for member, user, char in rows.all():
-        seconds_since_seen = None
-        if member.last_seen_at is not None:
-            seconds_since_seen = max(0, int((now - member.last_seen_at).total_seconds()))
-        out.append({
-            "user_id": member.user_id,
-            "username": user.username,
-            "display_name": user.display_name or user.username,
-            "role": member.role,
-            "character_id": member.character_id,
-            "character_name": char.name if char else None,
-            "is_online": member.last_seen_at is not None and member.last_seen_at >= threshold,
-            "seconds_since_seen": seconds_since_seen,
-            "joined_at": member.joined_at,
-        })
-    return out
-
-
-async def get_room_info(
-    db: AsyncSession,
-    session_id: str,
-) -> dict:
-    session = await db.get(Session, session_id)
-    if not session or not session.is_multiplayer:
-        raise HTTPException(404, "房间不存在")
-    mp_state = await ensure_multiplayer_state(db, session_id)
-    members = await list_members(db, session_id)
-    ai_companions = await list_ai_companions(db, session_id)
-    mp = (session.game_state or {}).get("multiplayer", {})
-    return {
-        "session_id": session.id,
-        "room_code": session.room_code,
-        "module_id": session.module_id,
-        "save_name": session.save_name,
-        "host_user_id": session.host_user_id,
-        "max_players": session.max_players,
-        "is_multiplayer": session.is_multiplayer,
-        "game_started": _is_game_started(session),
-        "members": members,
-        "ai_companions": ai_companions,
-        "current_speaker_user_id": mp.get("current_speaker_user_id"),
-        "speak_round": mp.get("speak_round", 0),
-        "party_groups": mp_state["party_groups"],
-        "active_group_id": mp_state["active_group_id"],
-        "pending_actions_by_group": mp_state["pending_actions_by_group"],
-        "group_readiness": mp_state["group_readiness"],
-        "created_at": session.created_at,
-    }
-
-
-# ── 探索分队 / 行动队列 ─────────────────────────────────
 
 async def ensure_multiplayer_state(
     db: AsyncSession,
@@ -705,74 +149,20 @@ async def clear_group_actions(
     return await get_room_info(db, session_id)
 
 
-# ── 心跳 ─────────────────────────────────────────────
-
-async def update_heartbeat(
-    db: AsyncSession,
-    session_id: str,
-    user_id: str,
-) -> None:
-    """更新成员的 last_seen_at（由 WebSocket 心跳调用）"""
-    member = await _get_member(db, session_id, user_id)
-    if member:
-        member.last_seen_at = datetime.utcnow()
-        await db.commit()
+def _is_game_started(session) -> bool:
+    return room_lifecycle_service.is_game_started(session)
 
 
-async def mark_offline(
-    db: AsyncSession,
-    session_id: str,
-    user_id: str,
-) -> None:
-    """显式断开连接时立即把成员标记为离线。"""
-    member = await _get_member(db, session_id, user_id)
-    if member:
-        member.last_seen_at = None
-        await db.commit()
+async def _get_member(db: AsyncSession, session_id: str, user_id: str):
+    return await room_member_service.get_member(db, session_id, user_id)
 
 
-# ── 内部工具 ─────────────────────────────────────────
-
-def _is_game_started(session: Session) -> bool:
-    """游戏开始的判定：multiplayer.game_started 为 True，
-    或者已有 current_scene/combat_active（向后兼容）"""
-    state = session.game_state or {}
-    if state.get("multiplayer", {}).get("game_started"):
-        return True
-    return bool(session.current_scene) or bool(session.combat_active)
-
-
-async def _get_member(
-    db: AsyncSession,
-    session_id: str,
-    user_id: str,
-) -> Optional[SessionMember]:
-    result = await db.execute(
-        select(SessionMember).where(
-            SessionMember.session_id == session_id,
-            SessionMember.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
-async def _list_members_raw(
-    db: AsyncSession,
-    session_id: str,
-) -> List[SessionMember]:
-    result = await db.execute(
-        select(SessionMember)
-        .where(SessionMember.session_id == session_id)
-        .order_by(SessionMember.joined_at.asc())
-    )
-    return list(result.scalars().all())
+async def _list_members_raw(db: AsyncSession, session_id: str):
+    return await room_member_service.list_members_raw(db, session_id)
 
 
 async def _count_members(db: AsyncSession, session_id: str) -> int:
-    result = await db.execute(
-        select(SessionMember).where(SessionMember.session_id == session_id)
-    )
-    return len(list(result.scalars().all()))
+    return await room_member_service.count_members(db, session_id)
 
 
 def _clean_group_id(group_id: Optional[str]) -> str:
@@ -797,3 +187,35 @@ def _drop_empty_non_default_groups(groups: list[dict]) -> list[dict]:
 
 def _unique_preserve_order(values) -> list:
     return room_group_service._unique_preserve_order(values)
+
+
+__all__ = [
+    "ROOM_CODE_CHARS",
+    "ROOM_CODE_LENGTH",
+    "OFFLINE_THRESHOLD_SECONDS",
+    "MAX_CODE_GEN_ATTEMPTS",
+    "DEFAULT_GROUP_ID",
+    "DEFAULT_GROUP_NAME",
+    "DEFAULT_GROUP_LOCATION",
+    "READINESS_STATUSES",
+    "generate_unique_room_code",
+    "create_room",
+    "join_room",
+    "leave_room",
+    "claim_character",
+    "kick_member",
+    "transfer_host",
+    "start_game",
+    "list_ai_companions",
+    "fill_with_ai_companions",
+    "list_members",
+    "get_room_info",
+    "ensure_multiplayer_state",
+    "set_member_group",
+    "submit_group_action",
+    "set_group_readiness",
+    "set_active_group",
+    "clear_group_actions",
+    "update_heartbeat",
+    "mark_offline",
+]

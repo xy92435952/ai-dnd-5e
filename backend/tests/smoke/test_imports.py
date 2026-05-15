@@ -84,9 +84,39 @@ def test_import_split_dnd_rule_modules():
 
 def test_import_split_room_group_service():
     """room_service.py 对外兼容，分队状态逻辑放在独立服务里。"""
-    from services import room_group_service
+    from services import (
+        room_ai_companion_service,
+        room_group_service,
+        room_info_service,
+        room_lifecycle_service,
+        room_member_service,
+        room_start_service,
+    )
 
     assert room_group_service.DEFAULT_GROUP_ID == "main"
+    assert room_lifecycle_service.create_room is not None
+    assert room_member_service.list_members is not None
+    assert room_ai_companion_service.fill_with_ai_companions is not None
+    assert room_start_service.start_game is not None
+    assert room_info_service.get_room_info is not None
+
+
+def test_import_split_game_combat_action_modules():
+    """自然语言战斗入口保持兼容，动作执行与上下文组装放进独立模块。"""
+    from services import (
+        game_combat_action_context,
+        game_combat_action_executor,
+        game_combat_action_steps,
+        game_combat_creative_service,
+    )
+    from services.game_combat_action_service import _execute_attack_action, _choose_narration_action_type
+
+    assert game_combat_action_context.build_combat_parser_state is not None
+    assert game_combat_action_executor.execute_parsed_combat_actions is not None
+    assert game_combat_action_steps.execute_attack_action is not None
+    assert game_combat_creative_service.execute_creative_action is not None
+    assert _execute_attack_action is not None
+    assert _choose_narration_action_type is not None
 
 
 def test_combat_routes_registered():
