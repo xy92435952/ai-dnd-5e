@@ -251,7 +251,7 @@ async def calc_derived_stats(state: PartyGeneratorState) -> dict:
             companions = json.loads(text)
         except json.JSONDecodeError:
             # 修复 LLM 输出中未转义的引号
-            from services.graphs.module_parser import _try_parse_json
+            from services.graphs.module_parser_helpers import _try_parse_json
             try:
                 parsed = _try_parse_json(text)
                 companions = parsed if isinstance(parsed, list) else parsed.get("companions", []) if isinstance(parsed, dict) else []

@@ -117,7 +117,7 @@ def normalize_dm_output(raw: str, player_action: str) -> tuple[dict, str, list]:
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            from services.graphs.module_parser import _try_parse_json
+            from services.graphs.module_parser_helpers import _try_parse_json
             data = _try_parse_json(text)
         logger.info("[dm_agent_output_normalizer] JSON OK, keys=%s", list(data.keys())[:5])
 

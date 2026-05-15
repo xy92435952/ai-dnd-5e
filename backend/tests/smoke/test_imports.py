@@ -61,6 +61,34 @@ def test_import_all_services():
     assert character_roster.CharacterRoster is not None
 
 
+def test_import_split_dnd_rule_modules():
+    """dnd_rules.py 应保持兼容门面，实际规则分层放在独立模块里。"""
+    from services import (
+        dnd_character_rules,
+        dnd_data,
+        dnd_derived,
+        dnd_dice,
+        dnd_items,
+        dnd_wild_magic,
+    )
+
+    assert all([
+        dnd_character_rules,
+        dnd_data,
+        dnd_derived,
+        dnd_dice,
+        dnd_items,
+        dnd_wild_magic,
+    ])
+
+
+def test_import_split_room_group_service():
+    """room_service.py 对外兼容，分队状态逻辑放在独立服务里。"""
+    from services import room_group_service
+
+    assert room_group_service.DEFAULT_GROUP_ID == "main"
+
+
 def test_combat_routes_registered():
     """combat 子包对外应暴露 23 个路由（拆分不能漏路由）。"""
     from api.combat import router

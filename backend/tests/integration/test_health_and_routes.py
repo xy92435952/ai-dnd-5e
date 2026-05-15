@@ -47,9 +47,15 @@ async def test_spells_by_class(client):
     assert isinstance(spells, list)
 
 
-async def test_nonexistent_session_returns_404(client):
-    """获取不存在的 session 应为 404。"""
-    r = await client.get("/game/sessions/nonexistent-id")
+async def test_nonexistent_session_returns_404(client, sample_user):
+    """已登录用户获取不存在的 session 应为 404。"""
+    login = await client.post("/auth/login", json={
+        "username": sample_user.username,
+        "password": "password",
+    })
+    headers = {"Authorization": f"Bearer {login.json()['token']}"}
+
+    r = await client.get("/game/sessions/nonexistent-id", headers=headers)
     assert r.status_code == 404
 
 

@@ -197,7 +197,6 @@ export interface paths {
         /**
          * Update Equipment
          * @description Update character equipment (equip/unequip weapons/armor).
-         *     Recalculates derived stats when AC-affecting items change.
          */
         patch: operations["update_equipment_characters__character_id__equipment_patch"];
         trace?: never;
@@ -343,6 +342,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{character_id}/transfer-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer Item
+         * @description Move one inventory item from this character to a party member.
+         */
+        post: operations["transfer_item_characters__character_id__transfer_item_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/characters/{character_id}/use-item": {
         parameters: {
             query?: never;
@@ -354,8 +373,7 @@ export interface paths {
         put?: never;
         /**
          * Use Item
-         * @description Use a consumable item (potion, antitoxin, etc.).
-         *     Healing potions roll dice and restore HP.
+         * @description Use a direct-effect consumable item.
          */
         post: operations["use_item_characters__character_id__use_item_post"];
         delete?: never;
@@ -375,14 +393,7 @@ export interface paths {
         put?: never;
         /**
          * Player Action
-         * @description 玩家行动统一入口。
-         *     战斗模式和探索模式都走这里，由 WF3 全能DM代理内部分流处理。
-         *     返回 state_delta 由 StateApplicator 写库，前端通过 action_type 判断渲染方式。
-         *
-         *     多人联机模式：
-         *       - 探索阶段：仅当前发言者（multiplayer.current_speaker_user_id）能调用
-         *       - 战斗阶段：仅当前回合归属玩家能调用
-         *       - player 角色根据 user_id 在 SessionMember 中查找（不再用 session.player_character_id）
+         * @description 玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。
          */
         post: operations["player_action_game_action_post"];
         delete?: never;
@@ -930,6 +941,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/rooms/{session_id}/groups/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Group Action */
+        post: operations["submit_group_action_game_rooms__session_id__groups_actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/rooms/{session_id}/groups/actions/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clear Group Actions */
+        post: operations["clear_group_actions_game_rooms__session_id__groups_actions_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/rooms/{session_id}/groups/focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Focus Group */
+        post: operations["focus_group_game_rooms__session_id__groups_focus_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/rooms/{session_id}/groups/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join Group */
+        post: operations["join_group_game_rooms__session_id__groups_join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/rooms/{session_id}/groups/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Group Readiness */
+        post: operations["set_group_readiness_game_rooms__session_id__groups_readiness_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/rooms/{session_id}/kick": {
         parameters: {
             query?: never;
@@ -1074,18 +1170,7 @@ export interface paths {
         put?: never;
         /**
          * Ai Takeover Action
-         * @description 替断线 / 长时间无心跳的当前发言者 AI 代演一句，然后走完整 DM 流程。
-         *
-         *     触发规则：
-         *       - 仅多人模式
-         *       - 仅探索阶段（战斗轮到他时由 ai_combat_turn 处理，不走这里）
-         *       - 调用方必须是房间成员
-         *       - 当前 speaker 必须存在 + 有绑定的角色 + last_seen_at 超过 OFFLINE_THRESHOLD_SECONDS
-         *
-         *     AI 据该角色的 personality / speech_style / catchphrase 生成 action_text，
-         *     走和 player_action 同样的 ContextBuilder → DM Agent → StateApplicator
-         *     流程，但**用 speaker 的 user_id 而不是调用方的**写 last_turn —— 这样前端
-         *     刷新时仍能正确恢复 last_turn 归属。
+         * @description 替离线的当前发言者 AI 代演一句，然后走完整探索 DM 流程。
          */
         post: operations["ai_takeover_action_game_sessions__session_id__ai_takeover_post"];
         delete?: never;
@@ -1110,9 +1195,6 @@ export interface paths {
         /**
          * Save Checkpoint
          * @description 将当前会话的冒险记录压缩为结构化 Campaign State JSON 并存档。
-         *     - 只提取叙事/队友日志（过滤骰子、系统消息）
-         *     - 新状态与历史档案增量合并（不覆盖已有内容）
-         *     - 下次游戏时 player_action 会自动使用此档案作为长期记忆
          */
         post: operations["save_checkpoint_game_sessions__session_id__checkpoint_post"];
         delete?: never;
@@ -1152,8 +1234,7 @@ export interface paths {
         put?: never;
         /**
          * Take Rest
-         * @description 长休 (long)：HP满值、法术位全部恢复、清除条件与专注
-         *     短休 (short)：消耗一颗生命骰恢复HP；魔契者短休恢复法术位
+         * @description 长休/短休，恢复 HP、法术位、生命骰和职业资源。
          */
         post: operations["take_rest_game_sessions__session_id__rest_post"];
         delete?: never;
@@ -1714,6 +1795,14 @@ export interface components {
             /** Target Id */
             target_id?: string | null;
         };
+        /** ClearGroupActionsRequest */
+        ClearGroupActionsRequest: {
+            /**
+             * Group Id
+             * @default main
+             */
+            group_id: string;
+        };
         /** CombatActionRequest */
         CombatActionRequest: {
             /**
@@ -2076,20 +2165,14 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /**
-         * EquipmentBulkUpdateRequest
-         * @description Accept the full equipment dict from CharacterSheet (equip/unequip toggles).
-         */
+        /** EquipmentBulkUpdateRequest */
         EquipmentBulkUpdateRequest: {
             /** Equipment */
             equipment: {
                 [key: string]: unknown;
             };
         };
-        /**
-         * EquipmentUpdateRequest
-         * @description Equip or unequip a weapon/armor item.
-         */
+        /** EquipmentUpdateRequest */
         EquipmentUpdateRequest: {
             /**
              * Equip
@@ -2129,6 +2212,14 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** FocusGroupRequest */
+        FocusGroupRequest: {
+            /**
+             * Group Id
+             * @default main
+             */
+            group_id: string;
+        };
         /**
          * GameLogEntry
          * @description 对应 api.deps.serialize_log(GameLog) 的返回。
@@ -2148,6 +2239,25 @@ export interface components {
             log_type: string;
             /** Role */
             role: string;
+            /**
+             * Table Decision
+             * @default {}
+             */
+            table_decision: {
+                [key: string]: unknown;
+            };
+            /**
+             * Table Reason
+             * @default
+             */
+            table_reason: string;
+            /**
+             * Visibility
+             * @default {}
+             */
+            visibility: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -2315,6 +2425,8 @@ export interface components {
             joined_at?: string | null;
             /** Role */
             role: string;
+            /** Seconds Since Seen */
+            seconds_since_seen?: number | null;
             /** User Id */
             user_id: string;
             /** Username */
@@ -2450,6 +2562,12 @@ export interface components {
         };
         /** PlayerActionRequest */
         PlayerActionRequest: {
+            /**
+             * Action Source
+             * @default human_input
+             * @enum {string}
+             */
+            action_source: "human_input" | "ai_generated_choice" | "system_action" | "ai_takeover";
             /** Action Text */
             action_text: string;
             /** Session Id */
@@ -2462,9 +2580,7 @@ export interface components {
          */
         PlayerActionResponse: {
             /** Combat End Result */
-            combat_end_result?: {
-                [key: string]: unknown;
-            } | null;
+            combat_end_result?: unknown | null;
             /**
              * Combat Ended
              * @default false
@@ -2505,8 +2621,27 @@ export interface components {
              * @default []
              */
             player_choices: unknown[];
+            /**
+             * Table Decision
+             * @default {}
+             */
+            table_decision: {
+                [key: string]: unknown;
+            };
+            /**
+             * Table Reason
+             * @default
+             */
+            table_reason: string;
             /** Type */
             type: string;
+            /**
+             * Visibility
+             * @default {}
+             */
+            visibility: {
+                [key: string]: unknown;
+            };
         } & {
             [key: string]: unknown;
         };
@@ -2577,6 +2712,8 @@ export interface components {
         };
         /** RoomInfo */
         RoomInfo: {
+            /** Active Group Id */
+            active_group_id?: string | null;
             /**
              * Ai Companions
              * @default []
@@ -2588,6 +2725,13 @@ export interface components {
             current_speaker_user_id?: string | null;
             /** Game Started */
             game_started: boolean;
+            /**
+             * Group Readiness
+             * @default {}
+             */
+            group_readiness: {
+                [key: string]: unknown;
+            };
             /** Host User Id */
             host_user_id: string | null;
             /** Is Multiplayer */
@@ -2601,6 +2745,20 @@ export interface components {
             members: components["schemas"]["MemberInfo"][];
             /** Module Id */
             module_id: string;
+            /**
+             * Party Groups
+             * @default []
+             */
+            party_groups: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Pending Actions By Group
+             * @default {}
+             */
+            pending_actions_by_group: {
+                [key: string]: unknown;
+            };
             /** Room Code */
             room_code: string | null;
             /** Save Name */
@@ -2702,6 +2860,28 @@ export interface components {
             updated_at?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** SetGroupReadinessRequest */
+        SetGroupReadinessRequest: {
+            /**
+             * Group Id
+             * @default main
+             */
+            group_id: string;
+            /** Status */
+            status: string;
+        };
+        /** SetGroupRequest */
+        SetGroupRequest: {
+            /**
+             * Group Id
+             * @default main
+             */
+            group_id: string;
+            /** Group Name */
+            group_name?: string | null;
+            /** Location */
+            location?: string | null;
         };
         /**
          * SkillBarItem
@@ -2850,6 +3030,16 @@ export interface components {
             /** Target Ids */
             target_ids?: string[] | null;
         };
+        /** SubmitGroupActionRequest */
+        SubmitGroupActionRequest: {
+            /** Action Text */
+            action_text: string;
+            /**
+             * Group Id
+             * @default main
+             */
+            group_id: string;
+        };
         /** TokenResponse */
         TokenResponse: {
             /** Display Name */
@@ -2866,10 +3056,33 @@ export interface components {
             /** New Host User Id */
             new_host_user_id: string;
         };
+        /** TransferItemRequest */
+        TransferItemRequest: {
+            /** Item Category */
+            item_category: string;
+            /**
+             * Item Index
+             * @default 0
+             */
+            item_index: number;
+            /** Item Name */
+            item_name: string;
+            /** Target Character Id */
+            target_character_id: string;
+        };
         /** UseItemRequest */
         UseItemRequest: {
             /** Item Name */
             item_name: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Target Character Id */
+            target_character_id?: string | null;
+            /**
+             * Use In Combat
+             * @default false
+             */
+            use_in_combat: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -3408,6 +3621,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SellItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_item_characters__character_id__transfer_item_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferItemRequest"];
             };
         };
         responses: {
@@ -4366,6 +4614,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_group_action_game_rooms__session_id__groups_actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitGroupActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_group_actions_game_rooms__session_id__groups_actions_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClearGroupActionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    focus_group_game_rooms__session_id__groups_focus_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FocusGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    join_group_game_rooms__session_id__groups_join_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_group_readiness_game_rooms__session_id__groups_readiness_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetGroupReadinessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomInfo"];
                 };
             };
             /** @description Validation Error */

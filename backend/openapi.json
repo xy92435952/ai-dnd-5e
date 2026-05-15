@@ -852,6 +852,19 @@
         "title": "ClassFeatureRequest",
         "type": "object"
       },
+      "ClearGroupActionsRequest": {
+        "properties": {
+          "group_id": {
+            "default": "main",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "title": "ClearGroupActionsRequest",
+        "type": "object"
+      },
       "CombatActionRequest": {
         "properties": {
           "action_text": {
@@ -1735,7 +1748,6 @@
         "type": "object"
       },
       "EquipmentBulkUpdateRequest": {
-        "description": "Accept the full equipment dict from CharacterSheet (equip/unequip toggles).",
         "properties": {
           "equipment": {
             "additionalProperties": true,
@@ -1750,7 +1762,6 @@
         "type": "object"
       },
       "EquipmentUpdateRequest": {
-        "description": "Equip or unequip a weapon/armor item.",
         "properties": {
           "equip": {
             "default": true,
@@ -1812,6 +1823,19 @@
         "title": "ExhaustionUpdateResult",
         "type": "object"
       },
+      "FocusGroupRequest": {
+        "properties": {
+          "group_id": {
+            "default": "main",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "title": "FocusGroupRequest",
+        "type": "object"
+      },
       "GameLogEntry": {
         "additionalProperties": true,
         "description": "对应 api.deps.serialize_log(GameLog) 的返回。",
@@ -1854,6 +1878,23 @@
           "role": {
             "title": "Role",
             "type": "string"
+          },
+          "table_decision": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Table Decision",
+            "type": "object"
+          },
+          "table_reason": {
+            "default": "",
+            "title": "Table Reason",
+            "type": "string"
+          },
+          "visibility": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Visibility",
+            "type": "object"
           }
         },
         "required": [
@@ -2229,6 +2270,17 @@
             "title": "Role",
             "type": "string"
           },
+          "seconds_since_seen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds Since Seen"
+          },
           "user_id": {
             "title": "User Id",
             "type": "string"
@@ -2497,6 +2549,17 @@
       },
       "PlayerActionRequest": {
         "properties": {
+          "action_source": {
+            "default": "human_input",
+            "enum": [
+              "human_input",
+              "ai_generated_choice",
+              "system_action",
+              "ai_takeover"
+            ],
+            "title": "Action Source",
+            "type": "string"
+          },
           "action_text": {
             "title": "Action Text",
             "type": "string"
@@ -2519,10 +2582,7 @@
         "properties": {
           "combat_end_result": {
             "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
+              {},
               {
                 "type": "null"
               }
@@ -2590,9 +2650,26 @@
             "title": "Player Choices",
             "type": "array"
           },
+          "table_decision": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Table Decision",
+            "type": "object"
+          },
+          "table_reason": {
+            "default": "",
+            "title": "Table Reason",
+            "type": "string"
+          },
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "visibility": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Visibility",
+            "type": "object"
           }
         },
         "required": [
@@ -2740,6 +2817,17 @@
       },
       "RoomInfo": {
         "properties": {
+          "active_group_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Group Id"
+          },
           "ai_companions": {
             "default": [],
             "items": {
@@ -2775,6 +2863,12 @@
             "title": "Game Started",
             "type": "boolean"
           },
+          "group_readiness": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Group Readiness",
+            "type": "object"
+          },
           "host_user_id": {
             "anyOf": [
               {
@@ -2805,6 +2899,21 @@
           "module_id": {
             "title": "Module Id",
             "type": "string"
+          },
+          "party_groups": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Party Groups",
+            "type": "array"
+          },
+          "pending_actions_by_group": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Pending Actions By Group",
+            "type": "object"
           },
           "room_code": {
             "anyOf": [
@@ -3080,6 +3189,65 @@
           "combat_active"
         ],
         "title": "SessionListItem",
+        "type": "object"
+      },
+      "SetGroupReadinessRequest": {
+        "properties": {
+          "group_id": {
+            "default": "main",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Group Id",
+            "type": "string"
+          },
+          "status": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SetGroupReadinessRequest",
+        "type": "object"
+      },
+      "SetGroupRequest": {
+        "properties": {
+          "group_id": {
+            "default": "main",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Group Id",
+            "type": "string"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          }
+        },
+        "title": "SetGroupRequest",
         "type": "object"
       },
       "SkillBarItem": {
@@ -3392,6 +3560,28 @@
         "title": "SpellRollRequest",
         "type": "object"
       },
+      "SubmitGroupActionRequest": {
+        "properties": {
+          "action_text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Action Text",
+            "type": "string"
+          },
+          "group_id": {
+            "default": "main",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action_text"
+        ],
+        "title": "SubmitGroupActionRequest",
+        "type": "object"
+      },
       "TokenResponse": {
         "properties": {
           "display_name": {
@@ -3433,11 +3623,66 @@
         "title": "TransferHostRequest",
         "type": "object"
       },
+      "TransferItemRequest": {
+        "properties": {
+          "item_category": {
+            "title": "Item Category",
+            "type": "string"
+          },
+          "item_index": {
+            "default": 0,
+            "title": "Item Index",
+            "type": "integer"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          },
+          "target_character_id": {
+            "title": "Target Character Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_character_id",
+          "item_name",
+          "item_category"
+        ],
+        "title": "TransferItemRequest",
+        "type": "object"
+      },
       "UseItemRequest": {
         "properties": {
           "item_name": {
             "title": "Item Name",
             "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "target_character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Character Id"
+          },
+          "use_in_combat": {
+            "default": false,
+            "title": "Use In Combat",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3824,7 +4069,7 @@
     },
     "/characters/{character_id}/equipment": {
       "patch": {
-        "description": "Update character equipment (equip/unequip weapons/armor).\nRecalculates derived stats when AC-affecting items change.",
+        "description": "Update character equipment (equip/unequip weapons/armor).",
         "operationId": "update_equipment_characters__character_id__equipment_patch",
         "parameters": [
           {
@@ -4238,9 +4483,60 @@
         ]
       }
     },
+    "/characters/{character_id}/transfer-item": {
+      "post": {
+        "description": "Move one inventory item from this character to a party member.",
+        "operationId": "transfer_item_characters__character_id__transfer_item_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transfer Item",
+        "tags": [
+          "characters"
+        ]
+      }
+    },
     "/characters/{character_id}/use-item": {
       "post": {
-        "description": "Use a consumable item (potion, antitoxin, etc.).\nHealing potions roll dice and restore HP.",
+        "description": "Use a direct-effect consumable item.",
         "operationId": "use_item_characters__character_id__use_item_post",
         "parameters": [
           {
@@ -4291,7 +4587,7 @@
     },
     "/game/action": {
       "post": {
-        "description": "玩家行动统一入口。\n战斗模式和探索模式都走这里，由 WF3 全能DM代理内部分流处理。\n返回 state_delta 由 StateApplicator 写库，前端通过 action_type 判断渲染方式。\n\n多人联机模式：\n  - 探索阶段：仅当前发言者（multiplayer.current_speaker_user_id）能调用\n  - 战斗阶段：仅当前回合归属玩家能调用\n  - player 角色根据 user_id 在 SessionMember 中查找（不再用 session.player_character_id）",
+        "description": "玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。",
         "operationId": "player_action_game_action_post",
         "requestBody": {
           "content": {
@@ -5622,6 +5918,266 @@
         ]
       }
     },
+    "/game/rooms/{session_id}/groups/actions": {
+      "post": {
+        "operationId": "submit_group_action_game_rooms__session_id__groups_actions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitGroupActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Group Action",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/groups/actions/clear": {
+      "post": {
+        "operationId": "clear_group_actions_game_rooms__session_id__groups_actions_clear_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearGroupActionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Group Actions",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/groups/focus": {
+      "post": {
+        "operationId": "focus_group_game_rooms__session_id__groups_focus_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FocusGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Focus Group",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/groups/join": {
+      "post": {
+        "operationId": "join_group_game_rooms__session_id__groups_join_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Join Group",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/groups/readiness": {
+      "post": {
+        "operationId": "set_group_readiness_game_rooms__session_id__groups_readiness_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGroupReadinessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Group Readiness",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
     "/game/rooms/{session_id}/kick": {
       "post": {
         "operationId": "kick_member_game_rooms__session_id__kick_post",
@@ -5998,7 +6554,7 @@
     },
     "/game/sessions/{session_id}/ai-takeover": {
       "post": {
-        "description": "替断线 / 长时间无心跳的当前发言者 AI 代演一句，然后走完整 DM 流程。\n\n触发规则：\n  - 仅多人模式\n  - 仅探索阶段（战斗轮到他时由 ai_combat_turn 处理，不走这里）\n  - 调用方必须是房间成员\n  - 当前 speaker 必须存在 + 有绑定的角色 + last_seen_at 超过 OFFLINE_THRESHOLD_SECONDS\n\nAI 据该角色的 personality / speech_style / catchphrase 生成 action_text，\n走和 player_action 同样的 ContextBuilder → DM Agent → StateApplicator\n流程，但**用 speaker 的 user_id 而不是调用方的**写 last_turn —— 这样前端\n刷新时仍能正确恢复 last_turn 归属。",
+        "description": "替离线的当前发言者 AI 代演一句，然后走完整探索 DM 流程。",
         "operationId": "ai_takeover_action_game_sessions__session_id__ai_takeover_post",
         "parameters": [
           {
@@ -6080,7 +6636,7 @@
         ]
       },
       "post": {
-        "description": "将当前会话的冒险记录压缩为结构化 Campaign State JSON 并存档。\n- 只提取叙事/队友日志（过滤骰子、系统消息）\n- 新状态与历史档案增量合并（不覆盖已有内容）\n- 下次游戏时 player_action 会自动使用此档案作为长期记忆",
+        "description": "将当前会话的冒险记录压缩为结构化 Campaign State JSON 并存档。",
         "operationId": "save_checkpoint_game_sessions__session_id__checkpoint_post",
         "parameters": [
           {
@@ -6162,7 +6718,7 @@
     },
     "/game/sessions/{session_id}/rest": {
       "post": {
-        "description": "长休 (long)：HP满值、法术位全部恢复、清除条件与专注\n短休 (short)：消耗一颗生命骰恢复HP；魔契者短休恢复法术位",
+        "description": "长休/短休，恢复 HP、法术位、生命骰和职业资源。",
         "operationId": "take_rest_game_sessions__session_id__rest_post",
         "parameters": [
           {
