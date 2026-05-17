@@ -139,7 +139,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$APP_DIR/app/backend
-ExecStart=$APP_DIR/venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecStart=$APP_DIR/venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=always
 RestartSec=5
 Environment=PATH=$APP_DIR/venv/bin:/usr/bin:/usr/local/bin
@@ -175,6 +175,19 @@ server {
         root $APP_DIR/app/frontend/dist;
         index index.html;
         try_files \$uri \$uri/ /index.html;
+    }
+
+    # WebSocket（必须放在 /api/ 前面）
+    location /api/ws/ {
+        proxy_pass http://127.0.0.1:8000/ws/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     }
 
     # 后端 API
@@ -245,8 +258,10 @@ echo "  后端日志:   journalctl -u ai-trpg -f"
 echo ""
 echo "  ── 下一步 ──"
 echo "  1. 编辑 API Key:  nano $APP_DIR/app/backend/.env"
-echo "  2. 重启后端:      systemctl restart ai-trpg"
-echo "  3. 配置域名后:    certbot --nginx -d your-domain.com"
+echo "  2. 生产环境改用 PostgreSQL DATABASE_URL / LANGGRAPH_DB_URL"
+echo "  3. 执行迁移:      cd $APP_DIR/app/backend && source $APP_DIR/venv/bin/activate && alembic upgrade head"
+echo "  4. 重启后端:      systemctl restart ai-trpg"
+echo "  5. 配置域名后:    certbot --nginx -d your-domain.com"
 echo ""
 echo "  ── 常用命令 ──"
 echo "  查看状态:  systemctl status ai-trpg"

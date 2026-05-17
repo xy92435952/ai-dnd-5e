@@ -1,7 +1,7 @@
 # 生产部署清单
 
-> 最后更新：2026-05-07
-> 适用状态：当前 FastAPI + Vite + nginx 静态文件部署，以及可选 Docker Compose 部署。
+> 最后更新：2026-05-17
+> 适用状态：服务器已完成 PostgreSQL 迁移；当前推荐 FastAPI 单 worker + PostgreSQL + Vite 静态构建 + nginx 反代。
 
 ## 1. 发布前本地确认
 
@@ -29,7 +29,7 @@ backend/.venv-codex/bin/pytest \
 
 服务器必须有 `backend/.env`，不要提交到 Git。
 
-最小示例：
+生产最小示例：
 
 ```env
 ENV=production
@@ -40,9 +40,9 @@ LLM_API_KEY=sk-xxxxxxxxxxxxxxxx
 LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-flash
 
-DATABASE_URL=sqlite+aiosqlite:///./ai_trpg.db
+DATABASE_URL=postgresql+asyncpg://ai_trpg:<password>@127.0.0.1:5432/ai_trpg
+LANGGRAPH_DB_URL=postgresql://ai_trpg:<password>@127.0.0.1:5432/ai_trpg
 CHROMADB_PATH=./chromadb_data
-LANGGRAPH_DB_PATH=./langgraph_memory.db
 UPLOAD_DIR=./uploads
 
 # 50 人封闭内测保护阈值（单后端实例）
@@ -56,11 +56,12 @@ MODULE_PARSE_MAX_CONCURRENT=2
 MODULE_PARSE_MAX_BACKLOG=10
 ```
 
-生产 PostgreSQL 示例：
+本地开发仍可使用 SQLite：
 
 ```env
-DATABASE_URL=postgresql+asyncpg://ai_trpg:<password>@127.0.0.1:5432/ai_trpg
-LANGGRAPH_DB_URL=postgresql://ai_trpg:<password>@127.0.0.1:5432/ai_trpg
+ENV=development
+DATABASE_URL=sqlite+aiosqlite:///./ai_trpg.db
+LANGGRAPH_DB_PATH=./langgraph_memory.db
 ```
 
 生成 `JWT_SECRET`：
@@ -95,6 +96,10 @@ npm run build
 包含后端改动：
 
 ```bash
+cd /opt/ai-trpg/app/backend
+source /opt/ai-trpg/venv/bin/activate
+alembic upgrade head
+
 sudo systemctl restart ai-trpg
 # 或服务器实际使用的服务名：
 sudo systemctl restart ai-trpg-backend
@@ -110,6 +115,14 @@ sudo journalctl -u ai-trpg -n 100 --no-pager
 ```
 
 如果服务器后端实际监听 8002，请把命令和 nginx `proxy_pass` 中的端口对应调整。
+
+注意：当前多人 WebSocket 房间状态仍保存在单进程内存中。systemd / uvicorn / gunicorn 都应保持单 worker，例如：
+
+```bash
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+如果开启多 worker，HTTP 请求可能仍能返回，但房间在线状态和 WebSocket 广播会分裂到不同进程，直到接入 Redis pub/sub 前都不要这样部署。
 
 ## 4. Nginx 参考配置
 
@@ -174,22 +187,23 @@ docker compose logs -f backend --tail=100
 
 ## 6. 数据库迁移
 
-项目当前仍在 `main.py` lifespan 中调用 `init_db()`，本地开发可自动建表。生产 PostgreSQL 推荐使用 Alembic 管理 schema。
+服务器生产库已迁移到 PostgreSQL；后续发布只需要在更新后执行 Alembic 增量迁移。项目当前仍在 `main.py` lifespan 中调用 `init_db()`，但生产以 Alembic 为准。
 
-全新 PostgreSQL：
+常规发布：
 
 ```bash
 cd backend
 alembic upgrade head
 ```
 
-已有旧库：
+检查当前版本：
 
 ```bash
 cd backend
 alembic current
-alembic upgrade head
 ```
+
+历史 SQLite 迁 PostgreSQL 只作为老环境补救路径使用，脚本为 [backend/migrate_to_pg.py](/Users/qft/Desktop/ai-dnd-5e/backend/migrate_to_pg.py)。当前服务器已完成迁移，不应在常规发布中重复执行该脚本。
 
 更完整说明见 [backend/alembic/README.md](/Users/qft/Desktop/ai-dnd-5e/backend/alembic/README.md)。
 

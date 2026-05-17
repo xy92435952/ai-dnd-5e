@@ -2,8 +2,9 @@
 
 基于 DnD 5e 规则的 AI 跑团平台。玩家上传模组、创建角色，AI 担任地下城主和队友；支持单人冒险、多人房间、网格战斗、自然语言战斗行动和本地规则结算。
 
-> 当前文档快照：2026-05-09
+> 当前文档快照：2026-05-17
 > 当前重点：DM Agent 四层化（输入 / 规则 / 叙事 / 记忆）、Multiplayer DM 桌面裁决、Living Campaign State、Adventure / Combat 前后端拆分、自然语言战斗体验修复。
+> 生产部署状态：服务器已完成 PostgreSQL 迁移；本地开发仍可使用 SQLite。
 
 ## 当前能力
 
@@ -83,6 +84,14 @@ cd ../frontend
 npm install
 npm run build
 ```
+
+生产环境使用 PostgreSQL，后端重启前先在 `backend/` 目录执行：
+
+```bash
+alembic upgrade head
+```
+
+当前多人 WebSocket 房间状态仍是单进程内存管理，生产后端应保持单 worker，直到接入 Redis pub/sub 前不要开启多 worker。
 
 纯前端改动构建完成后 nginx 通常不需要重启。后端代码同步部署后，需要按服务器当前方式重启后端服务。
 

@@ -5,7 +5,7 @@
 ## 1. 内测容量假设
 
 - 单个后端实例。
-- PostgreSQL 作为生产数据库。
+- 服务器已完成 PostgreSQL 迁移，生产数据库固定使用 PostgreSQL。
 - nginx 反代 HTTP / WebSocket。
 - 同时在线用户建议控制在 50 人以内。
 - WebSocket 连接建议控制在 80 条以内，预留刷新、断线重连和多标签页余量。
@@ -34,6 +34,8 @@ MODULE_PARSE_MAX_CONCURRENT=2
 MODULE_PARSE_MAX_BACKLOG=10
 MAX_UPLOAD_MB=50
 ```
+
+当前生产服务器已经迁移到 PostgreSQL。后续发布只执行 `alembic upgrade head` 做 schema 增量迁移，不再重复执行 SQLite → PostgreSQL 数据搬迁脚本。
 
 `JWT_SECRET` 生成方式：
 
