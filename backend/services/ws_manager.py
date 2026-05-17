@@ -118,6 +118,18 @@ class WSManager:
                 if sid == session_id
             ]
 
+    def stats(self) -> dict:
+        """Return a lightweight in-process occupancy snapshot for beta readiness."""
+        return {
+            "rooms": len(self.rooms),
+            "connections": sum(len(connections) for connections in self.rooms.values()),
+            "users": len(self.user_ws),
+            "room_connections": {
+                session_id: len(connections)
+                for session_id, connections in self.rooms.items()
+            },
+        }
+
     async def _silent_disconnect(self, ws: WebSocket) -> None:
         try:
             await ws.close()

@@ -181,12 +181,16 @@ def test_import_split_character_route_modules():
     from api.characters import (
         _create_player_character,
         _generate_ai_party,
+        _update_character_exhaustion,
+        _update_character_prepared_spells,
         _level_up_character,
     )
 
     assert character_create.create_player_character is _create_player_character
     assert character_party.generate_ai_party is _generate_ai_party
     assert character_progression.level_up_character is _level_up_character
+    assert character_progression.update_character_prepared_spells is _update_character_prepared_spells
+    assert character_progression.update_character_exhaustion is _update_character_exhaustion
 
 
 def test_import_split_ai_combat_agent_modules():
@@ -242,6 +246,48 @@ def test_import_split_context_builder_modules():
     assert context_builder_snapshots.build_game_state_payload is _build_game_state_payload
     assert context_builder_multiplayer.build_multiplayer_context is not None
     assert context_builder_memory.build_campaign_memory is not None
+
+
+def test_split_facades_export_expected_names():
+    """拆分后的兼容门面应显式维护 __all__，避免新模块边界悄悄漂移。"""
+    import services.game_combat_action_service as game_combat_action_service
+    import services.room_service as room_service
+    import services.state_applicator as state_applicator
+
+    assert set(game_combat_action_service.__all__) >= {
+        "execute_natural_language_combat_action",
+        "_apply_creative_damage",
+        "_choose_narration_action_type",
+        "_execute_attack_action",
+        "_execute_creative_action",
+        "_execute_move_action",
+        "_find_closest_alive_enemy_id",
+    }
+    assert set(room_service.__all__) >= {
+        "create_room",
+        "join_room",
+        "leave_room",
+        "claim_character",
+        "kick_member",
+        "transfer_host",
+        "start_game",
+        "list_ai_companions",
+        "fill_with_ai_companions",
+        "list_members",
+        "get_room_info",
+        "ensure_multiplayer_state",
+        "set_member_group",
+        "submit_group_action",
+        "set_group_readiness",
+        "set_active_group",
+        "clear_group_actions",
+        "update_heartbeat",
+        "mark_offline",
+    }
+    assert set(state_applicator.__all__) >= {
+        "ApplyResult",
+        "StateApplicator",
+    }
 
 
 def test_import_split_inventory_modules():

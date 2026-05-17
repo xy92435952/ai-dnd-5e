@@ -144,6 +144,19 @@ def _mock_llm_layer():
         p.stop()
 
 
+@pytest.fixture(autouse=True)
+def _reset_beta_singletons():
+    """Keep in-memory beta guardrails isolated between tests."""
+    from services.background_job_limits import module_parse_limiter
+    from services.rate_limit_service import rate_limiter
+
+    rate_limiter.clear()
+    module_parse_limiter.clear()
+    yield
+    rate_limiter.clear()
+    module_parse_limiter.clear()
+
+
 # ── DB fixtures ──────────────────────────────────────────────────
 
 @pytest_asyncio.fixture(scope="function")

@@ -11,6 +11,7 @@ from config import settings
 from services.module_parser import extract_text, get_file_type, is_allowed_file, truncate_text
 from services.langgraph_client import langgraph_client as dify_client
 from services.local_rag_uploader import rag_uploader
+from services.background_job_limits import JobLimitExceeded, module_parse_limiter
 from api.deps import get_user_id
 from schemas.module_responses import ModuleListItem, ModuleDetail, ModuleUploadResponse
 
@@ -33,6 +34,13 @@ async def upload_module(
     max_bytes = settings.max_upload_mb * 1024 * 1024
     if len(content) > max_bytes:
         raise HTTPException(400, f"文件过大，最大支持 {settings.max_upload_mb}MB")
+
+    try:
+        parse_reservation = module_parse_limiter.reserve(
+            max_backlog=settings.module_parse_max_backlog,
+        )
+    except JobLimitExceeded as exc:
+        raise HTTPException(429, exc.detail) from exc
 
     # 保存文件
     file_type = get_file_type(file.filename)
@@ -60,60 +68,68 @@ async def upload_module(
     await db.refresh(module)
 
     # 后台解析
-    background_tasks.add_task(_parse_module_bg, file_id, str(save_path), file_type)
+    background_tasks.add_task(_parse_module_bg, file_id, str(save_path), file_type, parse_reservation)
 
     return {"id": module.id, "name": module.name, "status": "processing"}
 
 
-async def _parse_module_bg(module_id: str, file_path: str, file_type: str):
+async def _parse_module_bg(module_id: str, file_path: str, file_type: str, parse_reservation=None):
     """后台任务：提取文本 → LangGraph WF1 → 更新数据库 → 上传 RAG chunks"""
     import logging
     logger = logging.getLogger(__name__)
     from database import AsyncSessionLocal
-    async with AsyncSessionLocal() as db:
-        try:
-            text = await extract_text(file_path, file_type)
-            text = truncate_text(text)
-            logger.info(f"模组 {module_id}: 文本提取完成, {len(text)} 字符, 开始 AI 解析...")
+    try:
+        if parse_reservation is not None:
+            await parse_reservation.acquire_run_slot(
+                max_concurrent=settings.module_parse_max_concurrent,
+            )
+        async with AsyncSessionLocal() as db:
+            try:
+                text = await extract_text(file_path, file_type)
+                text = truncate_text(text)
+                logger.info(f"模组 {module_id}: 文本提取完成, {len(text)} 字符, 开始 AI 解析...")
 
-            # WF1 返回 (module_data_dict, rag_chunks_list)
-            parsed, rag_chunks = await dify_client.parse_module(text)
-            print(f"[BG] 模组 {module_id}: parsed keys={list(parsed.keys())[:5]}, monsters={len(parsed.get('monsters',[]))}, chunks={len(rag_chunks)}", flush=True)
-            logger.info(f"模组 {module_id}: AI 解析完成, parsed keys={list(parsed.keys())[:5]}, chunks={len(rag_chunks)}")
+                # WF1 返回 (module_data_dict, rag_chunks_list)
+                parsed, rag_chunks = await dify_client.parse_module(text)
+                print(f"[BG] 模组 {module_id}: parsed keys={list(parsed.keys())[:5]}, monsters={len(parsed.get('monsters',[]))}, chunks={len(rag_chunks)}", flush=True)
+                logger.info(f"模组 {module_id}: AI 解析完成, parsed keys={list(parsed.keys())[:5]}, chunks={len(rag_chunks)}")
 
-            result = await db.execute(select(Module).where(Module.id == module_id))
-            module = result.scalar_one_or_none()
-            if module:
-                module.parsed_content = parsed
-                module.level_min = parsed.get("level_min", 1)
-                module.level_max = parsed.get("level_max", 5)
-                module.recommended_party_size = parsed.get("recommended_party_size", 4)
-                module.parse_status = "done"
-                await db.commit()
-                logger.info(f"模组 {module_id}: 数据库更新完成")
+                result = await db.execute(select(Module).where(Module.id == module_id))
+                module = result.scalar_one_or_none()
+                if module:
+                    module.parsed_content = parsed
+                    module.level_min = parsed.get("level_min", 1)
+                    module.level_max = parsed.get("level_max", 5)
+                    module.recommended_party_size = parsed.get("recommended_party_size", 4)
+                    module.parse_status = "done"
+                    await db.commit()
+                    logger.info(f"模组 {module_id}: 数据库更新完成")
 
-            # 上传 RAG chunks 到 Dify Knowledge Base（失败不影响主流程）
-            if rag_chunks:
-                try:
-                    uploaded = await rag_uploader.upload_module_chunks(module_id, rag_chunks)
-                    import logging
-                    logging.getLogger(__name__).info(
-                        f"模组 {module_id}: RAG 上传完成，共 {uploaded} 个 chunks"
-                    )
-                except Exception as rag_err:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        f"模组 {module_id}: RAG 上传失败（不影响模组使用）: {rag_err}"
-                    )
+                # 上传 RAG chunks 到 Dify Knowledge Base（失败不影响主流程）
+                if rag_chunks:
+                    try:
+                        uploaded = await rag_uploader.upload_module_chunks(module_id, rag_chunks)
+                        import logging
+                        logging.getLogger(__name__).info(
+                            f"模组 {module_id}: RAG 上传完成，共 {uploaded} 个 chunks"
+                        )
+                    except Exception as rag_err:
+                        import logging
+                        logging.getLogger(__name__).warning(
+                            f"模组 {module_id}: RAG 上传失败（不影响模组使用）: {rag_err}"
+                        )
 
-        except Exception as e:
-            logger.error(f"模组 {module_id}: 解析失败: {e}", exc_info=True)
-            result = await db.execute(select(Module).where(Module.id == module_id))
-            module = result.scalar_one_or_none()
-            if module:
-                module.parse_status = "failed"
-                module.parse_error = str(e)
-                await db.commit()
+            except Exception as e:
+                logger.error(f"模组 {module_id}: 解析失败: {e}", exc_info=True)
+                result = await db.execute(select(Module).where(Module.id == module_id))
+                module = result.scalar_one_or_none()
+                if module:
+                    module.parse_status = "failed"
+                    module.parse_error = str(e)
+                    await db.commit()
+    finally:
+        if parse_reservation is not None:
+            parse_reservation.release()
 
 
 @router.get("/", response_model=list[ModuleListItem])

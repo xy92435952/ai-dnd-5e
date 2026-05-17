@@ -19,6 +19,16 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 50
 
+    # 50 人封闭内测保护阈值。单实例内存限流，后续多实例需迁移到 Redis。
+    beta_max_users: int = 50
+    beta_max_ws_connections: int = 80
+    rate_limit_enabled: bool = True
+    rate_limit_default_per_minute: int = 120
+    rate_limit_auth_per_minute: int = 20
+    rate_limit_game_per_minute: int = 30
+    module_parse_max_concurrent: int = 2
+    module_parse_max_backlog: int = 10
+
     # 安全配置（v0.10 上线硬化）
     # JWT 签名密钥：务必在 .env 中设置为独立的强随机值（≥32 字节）
     # 留空时 auth.py 会降级使用 llm_api_key 派生（仅限开发）

@@ -393,6 +393,119 @@ async def test_multiplayer_dm_agent_table_decision_can_switch_focus_without_base
 
 
 @pytest.mark.asyncio
+async def test_multiplayer_dm_agent_does_not_give_host_focus_group_visibility(
+    db_session,
+    sample_module,
+    sample_user,
+):
+    """房主只是玩家；不在焦点分队时，不能因为 host_user_id 被加入分队可见列表。"""
+    session = await room_service.create_room(
+        db_session,
+        user_id=sample_user.id,
+        module_id=sample_module.id,
+        save_name="多人 DM 房主可见性测试",
+        max_players=4,
+    )
+    alley_actor = User(username="alley_actor", password_hash="x", display_name="艾拉")
+    tavern_member = User(username="host_visibility_other", password_hash="x", display_name="凯伦")
+    db_session.add_all([alley_actor, tavern_member])
+    await db_session.flush()
+    db_session.add_all([
+        SessionMember(session_id=session.id, user_id=alley_actor.id, role="player"),
+        SessionMember(session_id=session.id, user_id=tavern_member.id, role="player"),
+    ])
+    await db_session.commit()
+
+    await room_service.set_member_group(db_session, session.id, sample_user.id, "tavern", "酒馆组", "酒馆大厅")
+    await room_service.set_member_group(db_session, session.id, tavern_member.id, "tavern", "酒馆组", "酒馆大厅")
+    await room_service.set_member_group(db_session, session.id, alley_actor.id, "alley", "后巷组", "酒馆后巷")
+    await room_service.submit_group_action(db_session, session.id, tavern_member.id, "tavern", "我继续套老板的话。")
+    await db_session.refresh(session)
+
+    async def fake_table_decider(context, action_text):
+        return {
+            "decision": "switch_focus",
+            "focus_group_id": "alley",
+            "knowledge_scope": "group",
+            "visible_to_user_ids": [],
+            "clear_pending_group_ids": [],
+            "table_message": "镜头转向后巷组。",
+            "reason": "后巷组需要先处理私下行动。",
+        }
+
+    decision = await run_multiplayer_dm_agent(
+        db=db_session,
+        session=session,
+        actor_user_id=alley_actor.id,
+        action_text="先切镜头到后巷。",
+        table_decider=fake_table_decider,
+    )
+
+    assert session.host_user_id == sample_user.id
+    assert decision.visibility["scope"] == "group"
+    assert decision.visibility["visible_to_user_ids"] == [alley_actor.id]
+    assert sample_user.id not in decision.visibility["visible_to_user_ids"]
+
+
+@pytest.mark.asyncio
+async def test_multiplayer_dm_agent_party_scope_keeps_visible_users_empty(
+    db_session,
+    sample_module,
+    sample_user,
+):
+    """party scope 表示全队可见，不应枚举房间成员，更不能制造 host 特权列表。"""
+    session = await room_service.create_room(
+        db_session,
+        user_id=sample_user.id,
+        module_id=sample_module.id,
+        save_name="多人 DM 全队可见性测试",
+        max_players=4,
+    )
+    ally = User(username="party_scope_ally", password_hash="x", display_name="艾拉")
+    other = User(username="party_scope_other", password_hash="x", display_name="凯伦")
+    db_session.add_all([ally, other])
+    await db_session.flush()
+    db_session.add_all([
+        SessionMember(session_id=session.id, user_id=ally.id, role="player"),
+        SessionMember(session_id=session.id, user_id=other.id, role="player"),
+    ])
+    await db_session.commit()
+
+    await room_service.set_member_group(db_session, session.id, sample_user.id, "alley", "后巷组", "酒馆后巷")
+    await room_service.set_member_group(db_session, session.id, ally.id, "alley", "后巷组", "酒馆后巷")
+    await room_service.set_member_group(db_session, session.id, other.id, "tavern", "酒馆组", "酒馆大厅")
+    await room_service.submit_group_action(db_session, session.id, ally.id, "alley", "我检查仓库门锁。")
+    await room_service.submit_group_action(db_session, session.id, other.id, "tavern", "我继续套老板的话。")
+    await db_session.refresh(session)
+
+    async def fake_table_decider(context, action_text):
+        return {
+            "decision": "process_actor_group",
+            "focus_group_id": "alley",
+            "knowledge_scope": "party",
+            "visible_to_user_ids": [],
+            "clear_pending_group_ids": ["alley"],
+            "table_message": None,
+            "reason": "公开桌面节奏，全队都可知道当前处理顺序。",
+        }
+
+    decision = await run_multiplayer_dm_agent(
+        db=db_session,
+        session=session,
+        actor_user_id=sample_user.id,
+        action_text="我撬开后门。",
+        table_decider=fake_table_decider,
+    )
+
+    assert decision.should_call_base_dm is True
+    assert decision.visibility == {
+        "scope": "party",
+        "group_id": "alley",
+        "visible_to_user_ids": [],
+    }
+
+
+@pytest.mark.asyncio
 async def test_multiplayer_dm_agent_falls_back_to_v1_when_table_decision_is_invalid(
     db_session,
     sample_module,

@@ -44,6 +44,16 @@ DATABASE_URL=sqlite+aiosqlite:///./ai_trpg.db
 CHROMADB_PATH=./chromadb_data
 LANGGRAPH_DB_PATH=./langgraph_memory.db
 UPLOAD_DIR=./uploads
+
+# 50 人封闭内测保护阈值（单后端实例）
+BETA_MAX_USERS=50
+BETA_MAX_WS_CONNECTIONS=80
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_DEFAULT_PER_MINUTE=120
+RATE_LIMIT_AUTH_PER_MINUTE=20
+RATE_LIMIT_GAME_PER_MINUTE=30
+MODULE_PARSE_MAX_CONCURRENT=2
+MODULE_PARSE_MAX_BACKLOG=10
 ```
 
 生产 PostgreSQL 示例：
@@ -94,6 +104,7 @@ sudo systemctl restart ai-trpg-backend
 
 ```bash
 curl -s http://127.0.0.1:8000/health
+curl -s http://127.0.0.1:8000/ready
 curl -s https://yourdomain.com/api/health
 sudo journalctl -u ai-trpg -n 100 --no-pager
 ```
@@ -186,6 +197,9 @@ alembic upgrade head
 
 至少手动跑：
 
+0. `/ready` 返回 `status=ready`；如果返回 `503`，先修复配置，不要开放入口。
+   同时确认 `ws.connections` 未接近 `BETA_MAX_WS_CONNECTIONS`，
+   `background_jobs.module_parse.queued/running` 未长期贴近解析阈值。
 1. 注册 / 登录。
 2. 上传一个小模组，等待解析完成。
 3. 创建角色，确认技能/法术/装备步骤可交互。
@@ -195,6 +209,8 @@ alembic upgrade head
 7. 触发战斗，测试移动、攻击、施法、结束回合。
 8. 测试远距离近战自然语言：`我向最近的敌人移动并用长剑攻击它`。如果移动后仍不可达，应只移动，不掷攻击骰。
 9. 多人房间：创建、加入、认领角色、发言轮转、刷新恢复。
+
+50 人封闭内测的完整运行手册见 [Closed_Beta_50_User_Runbook.md](./Closed_Beta_50_User_Runbook.md)。
 
 ## 8. 日志与故障定位
 

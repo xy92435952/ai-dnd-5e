@@ -320,3 +320,9 @@ class StateApplicator:
         full_data: dict,
     ) -> None:
         await write_game_logs(self.db, session=session, ar=ar, full_data=full_data)
+
+
+__all__ = [
+    "ApplyResult",
+    "StateApplicator",
+]

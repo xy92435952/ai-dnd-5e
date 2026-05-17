@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { modulesApi, charactersApi, gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
@@ -15,8 +15,8 @@ import CharacterCreateStepEquipment from '../components/character-create/Charact
 import CharacterCreateStepSpells from '../components/character-create/CharacterCreateStepSpells'
 import CharacterCreateStepFeats from '../components/character-create/CharacterCreateStepFeats'
 import CharacterCreateStepParty from '../components/character-create/CharacterCreateStepParty'
+import { useCharacterCreateState } from '../hooks/useCharacterCreateState'
 import {
-  SCORE_COSTS,
   buildCharacterCreateModel,
   normalizeCharacterOptions,
 } from '../utils/characterCreate'
@@ -31,73 +31,85 @@ export default function CharacterCreate() {
   const isMultiplayerCreate = !!roomSessionId
   const { playerCharacter, setPlayerCharacter, setCompanions, setSelectedModule } = useGameStore()
 
-  const [module,  setModule]  = useState(null)
-  const [options, setOptions] = useState({
-    races:[], classes:[], backgrounds:[], alignments:[],
-    racial_bonuses:{}, class_skill_choices:{}, class_save_proficiencies:{}, all_skills:[],
-    class_cantrips:{}, class_spells:{}, starting_cantrips_count:{}, starting_spells_count:{},
-    spellcaster_classes:[],
-  })
-  const [step, setStep] = useState(1)
+  const state = useCharacterCreateState()
 
-  const [form, setForm] = useState({
-    name:'', race:'', char_class:'', subclass:'', level:1,
-    background:'', alignment:'中立善良',
-    multiclassEnabled:false, multiclass_class:'', multiclass_level:1,
-  })
-  const [scoreMethod,      setScoreMethod]      = useState('pointbuy')
-  const [scores,           setScores]           = useState({ str:8,dex:8,con:8,int:8,wis:8,cha:8 })
-  const [standardAssigned, setStandardAssigned] = useState({})
-  const [chosenSkills,     setChosenSkills]     = useState([])
-  const [chosenCantrips,   setChosenCantrips]   = useState([])
-  const [chosenSpells,     setChosenSpells]     = useState([])
+  const {
+    module,
+    setModule,
+    options,
+    setOptions,
+    step,
+    setStep,
+    form,
+    setForm,
+    scoreMethod,
+    setScoreMethod,
+    scores,
+    setScores,
+    standardAssigned,
+    setStandardAssigned,
+    chosenSkills,
+    setChosenSkills,
+    chosenCantrips,
+    setChosenCantrips,
+    chosenSpells,
+    setChosenSpells,
+    fightingStyle,
+    setFightingStyle,
+    equipChoice,
+    setEquipChoice,
+    bonusLanguages,
+    setBonusLanguages,
+    chosenFeats,
+    setChosenFeats,
+    narrative,
+    setNarrative,
+    partySize,
+    setPartySize,
+    companions,
+    setLocalCompanions,
+    generatingParty,
+    setGeneratingParty,
+    savedCharId,
+    setSavedCharId,
+    saving,
+    setSaving,
+    error,
+    setError,
+    forgeOpen,
+    setForgeOpen,
+    forgeTargetPath,
+    setForgeTargetPath,
+    modal,
+    openModal,
+    closeModal,
+    adjustScore,
+    assignStandard,
+    toggleSkill: toggleSkillState,
+    toggleCantrip: toggleCantripState,
+    toggleSpell: toggleSpellState,
+  } = state
 
-  // Phase 12 新增
-  const [fightingStyle,   setFightingStyle]   = useState('')
-  const [equipChoice,     setEquipChoice]     = useState(0)
-  const [bonusLanguages,  setBonusLanguages]  = useState([])
-  const [chosenFeats,     setChosenFeats]     = useState([])   // [{name:"Alert"}, ...]
-
-  // 角色叙事字段（全部可选）
-  // 价值：玩家断线被 AI 托管时，DM 据此代演不出戏；多人聊天时队友也按 personality 反应
-  const [narrative, setNarrative] = useState({
-    personality:        '',
-    backstory:          '',
-    speech_style:       '',
-    combat_preference:  '',
-    catchphrase:        '',
-  })
-
-  const [partySize,       setPartySize]       = useState(4)
-  const [companions,      setLocalCompanions] = useState([])
-  const [generatingParty, setGeneratingParty] = useState(false)
-  const [savedCharId,     setSavedCharId]     = useState(null)
-  const [saving,          setSaving]          = useState(false)
-  const [error,           setError]           = useState('')
-  // 传奇铸造仪式：创建完成"开始冒险"时弹出 → 4.2s 后 navigate
-  const [forgeOpen,       setForgeOpen]       = useState(false)
-  const [forgeTargetPath, setForgeTargetPath] = useState(null)
-
-  const [modal, setModal] = useState({ type:'', itemKey:'' })
-  const openModal  = (type, itemKey) => setModal({ type, itemKey })
-  const closeModal = () => setModal({ type:'', itemKey:'' })
-
-  useEffect(() => { loadData() }, [moduleId])
   useEffect(() => {
-    setChosenSkills([]); setChosenCantrips([]); setChosenSpells([])
-    setForm(f => ({ ...f, subclass:'' }))
-  }, [form.char_class])
+    let cancelled = false
 
-  const loadData = async () => {
-    try {
-      const [mod, opts] = await Promise.all([modulesApi.get(moduleId), charactersApi.options()])
-      setModule(mod)
-      setSelectedModule(mod)
-      setOptions(normalizeCharacterOptions(opts))
-      setForm(f => ({ ...f, level: mod.level_min || 1 }))
-      setPartySize(mod.recommended_party_size || 4)
-    } catch (e) { setError(e.message) }
-  }
+    const loadData = async () => {
+      try {
+        const [mod, opts] = await Promise.all([modulesApi.get(moduleId), charactersApi.options()])
+        if (cancelled) return
+        setModule(mod)
+        setSelectedModule(mod)
+        setOptions(normalizeCharacterOptions(opts))
+        setForm(f => ({ ...f, level: mod.level_min || 1 }))
+        setPartySize(mod.recommended_party_size || 4)
+      } catch (e) {
+        if (!cancelled) setError(e.message)
+      }
+    }
+
+    loadData()
+    return () => { cancelled = true }
+  }, [moduleId, setModule, setSelectedModule, setOptions, setForm, setPartySize, setError])
 
   const model = useMemo(() => buildCharacterCreateModel({
     form,
@@ -132,20 +144,9 @@ export default function CharacterCreate() {
     showSubclass, subclassOptions, steps: STEPS,
   } = model
 
-  const adjustScore = (ab, delta) => {
-    const cur = scores[ab], next = cur + delta
-    if (next < 8 || next > 15) return
-    if (delta > 0 && (SCORE_COSTS[next]-SCORE_COSTS[cur]) > pointsLeft) return
-    setScores(s => ({ ...s, [ab]: next }))
-  }
-  const assignStandard = (ab, idx) => {
-    if (Object.entries(standardAssigned).some(([a,i]) => a!==ab && i===idx)) return
-    setStandardAssigned(p => ({ ...p, [ab]: idx }))
-  }
-
-  const toggleSkill   = sk => setChosenSkills(p   => p.includes(sk) ? p.filter(x=>x!==sk) : p.length>=skillConfig.count ? p : [...p,sk])
-  const toggleCantrip = nm => setChosenCantrips(p  => p.includes(nm) ? p.filter(x=>x!==nm) : p.length>=cantripCount ? p : [...p,nm])
-  const toggleSpell   = nm => setChosenSpells(p    => p.includes(nm) ? p.filter(x=>x!==nm) : p.length>=spellCount   ? p : [...p,nm])
+  const toggleSkill = sk => toggleSkillState(sk, skillConfig.count)
+  const toggleCantrip = nm => toggleCantripState(nm, cantripCount)
+  const toggleSpell = nm => toggleSpellState(nm, spellCount)
 
   // ── 物品中文名查找 ─────────────────────────────────────
   const getItemZh = (name) => {
