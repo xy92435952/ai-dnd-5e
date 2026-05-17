@@ -16,34 +16,18 @@ StateApplicator — 将 WF3 返回的 state_delta 应用到数据库
 
 import json
 import logging
-from dataclasses import dataclass, field
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from models.character import Character
-from models.session import Session, CombatState, GameLog
-from schemas.game_schemas import GameState, EnemyState
+from models.session import Session, CombatState
 from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
+from services.state_apply_result import ApplyResult
+from services.state_log_service import append_session_history, write_game_logs
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ApplyResult:
-    """apply() 的返回值，供 API 层决策用。"""
-    narrative:          str = ""
-    action_type:        str = "unknown"
-    companion_reactions:str = ""
-    dice_display:       list = field(default_factory=list)
-    player_choices:     list = field(default_factory=list)
-    needs_check:        dict = field(default_factory=lambda: {"required": False})
-    combat_triggered:   bool = False          # 需要初始化战斗
-    combat_ended:       bool = False          # 需要清理战斗
-    combat_end_result:  Optional[str] = None  # "victory" / "defeat" / None
-    initial_enemies:    list = field(default_factory=list)  # 触发战斗时的初始敌人列表
-    errors:             list = field(default_factory=list)
 
 
 class StateApplicator:
@@ -323,27 +307,7 @@ class StateApplicator:
     # ─────────────────────────────────────────────
 
     def _append_session_history(self, session: Session, ar: ApplyResult) -> None:
-        MAX_HISTORY = 4000
-        history = session.session_history or ""
-
-        new_lines = []
-        if ar.narrative:
-            new_lines.append(f"DM：{ar.narrative}")
-        if ar.companion_reactions:
-            new_lines.append(ar.companion_reactions)
-
-        appended = "\n".join(new_lines)
-        combined = f"{history}\n{appended}" if history else appended
-
-        # 从句子边界截断（避免切断中文）
-        if len(combined) > MAX_HISTORY:
-            cutoff = combined[-MAX_HISTORY:]
-            boundary = cutoff.find("\nDM：")
-            if boundary != -1:
-                cutoff = cutoff[boundary:]
-            combined = cutoff
-
-        session.session_history = combined.strip()
+        append_session_history(session, ar)
 
     # ─────────────────────────────────────────────
     # GameLog 写入
@@ -355,43 +319,4 @@ class StateApplicator:
         ar: ApplyResult,
         full_data: dict,
     ) -> None:
-        logs_to_add = []
-        visibility = full_data.get("visibility") if isinstance(full_data.get("visibility"), dict) else None
-        table_reason = full_data.get("table_reason") if isinstance(full_data.get("table_reason"), str) else None
-        table_decision = full_data.get("table_decision") if isinstance(full_data.get("table_decision"), dict) else None
-
-        # DM 叙述
-        if ar.narrative:
-            logs_to_add.append(GameLog(
-                session_id=session.id,
-                role="dm",
-                content=ar.narrative,
-                log_type="narrative" if "combat" not in ar.action_type else "combat",
-                dice_result=ar.dice_display or None,
-                visibility=visibility,
-                table_reason=table_reason,
-                table_decision=table_decision,
-            ))
-
-        # 队友反应
-        if ar.companion_reactions:
-            logs_to_add.append(GameLog(
-                session_id=session.id,
-                role="companion",
-                content=ar.companion_reactions,
-                log_type="companion",
-            ))
-
-        # AI 回合叙述（每个 AI 单位单独一条日志）
-        for ai_turn in full_data.get("ai_turns", []):
-            if ai_turn.get("narrative"):
-                logs_to_add.append(GameLog(
-                    session_id=session.id,
-                    role=f"companion_{ai_turn.get('actor_name', 'ai')}",
-                    content=ai_turn["narrative"],
-                    log_type="combat",
-                    dice_result=ai_turn.get("dice_results"),
-                ))
-
-        for log in logs_to_add:
-            self.db.add(log)
+        await write_game_logs(self.db, session=session, ar=ar, full_data=full_data)
