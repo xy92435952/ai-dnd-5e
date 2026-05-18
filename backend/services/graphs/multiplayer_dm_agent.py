@@ -175,7 +175,7 @@ async def _run_table_decision(
     from langchain_core.messages import HumanMessage, SystemMessage
     from services.llm import get_llm
 
-    llm = get_llm(temperature=0.2, max_tokens=900)
+    llm = get_llm(temperature=0.2, max_tokens=900, task="fast")
     resp = await llm.ainvoke([
         SystemMessage(content=MULTIPLAYER_TABLE_SYSTEM),
         HumanMessage(content=build_table_decision_user_content(context, action_text)),

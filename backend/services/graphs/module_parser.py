@@ -54,7 +54,7 @@ class ModuleParserState(TypedDict):
 
 async def _call_extract_llm(segment_text: str, segment_info: str = "") -> str:
     """单次 LLM 抽取。segment_info 用于 prompt 里标注段号。"""
-    llm = get_llm(temperature=0.2, max_tokens=8000)
+    llm = get_llm(temperature=0.2, max_tokens=8000, task="module")
     user_msg = EXTRACT_USER.format(module_text=segment_text)
     if segment_info:
         user_msg = f"【{segment_info}】\n\n" + user_msg
@@ -152,7 +152,7 @@ async def validate_and_fill(state: ModuleParserState) -> dict:
 
 async def _call_chunks_llm(sub_module_data_json: str, batch_info: str = "") -> list[dict]:
     """单次 LLM 生成 chunks，返回解析后的 list[dict]（失败返回空）。"""
-    llm = get_llm(temperature=0.3, max_tokens=4000)
+    llm = get_llm(temperature=0.3, max_tokens=4000, task="module")
     user_msg = CHUNK_USER.format(module_data_json=sub_module_data_json)
     if batch_info:
         user_msg = f"【{batch_info}】\n\n" + user_msg

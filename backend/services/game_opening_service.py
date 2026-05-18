@@ -30,7 +30,7 @@ async def generate_opening(parsed: dict, raw_scene: str) -> str:
         from services.llm import get_llm
         from langchain_core.messages import HumanMessage, SystemMessage
 
-        llm = get_llm(temperature=0.85, max_tokens=600)
+        llm = get_llm(temperature=0.85, max_tokens=600, task="fast")
         prompt = OPENING_PROMPT.format(
             module_name=parsed.get("name", "未知模组"),
             setting=parsed.get("setting", "一个神秘的奇幻世界"),

@@ -4,6 +4,7 @@ from typing import Any
 from models import Session
 from services.game_combat_action_steps import (
     execute_attack_action as _execute_attack_action,
+    execute_help_action as _execute_help_action,
     execute_move_action as _execute_move_action,
     find_closest_alive_enemy_id as _find_closest_alive_enemy_id,
 )
@@ -30,6 +31,7 @@ def execute_parsed_combat_actions(
     state: dict[str, Any],
     enemies: list[dict[str, Any]],
     player,
+    characters: list[Any] | None = None,
     player_id: str,
     player_derived: dict[str, Any],
     turn_state: dict[str, Any],
@@ -119,6 +121,17 @@ def execute_parsed_combat_actions(
             action_results.append("脱离接战，移动不触发借机攻击")
             executed_action_types.append("disengage")
             action_used = True
+
+        elif action_type == "help" and not action_used:
+            action_used = _execute_help_action(
+                combat_state=combat_state,
+                characters=characters or [],
+                player_id=player_id,
+                action=action,
+                action_results=action_results,
+                executed_action_types=executed_action_types,
+                save_turn_state=save_turn_state,
+            )
 
     if action_used:
         turn_state["action_used"] = True

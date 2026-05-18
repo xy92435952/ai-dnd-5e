@@ -13,7 +13,7 @@ const {
   rollDice3DMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     smite: smiteMock,
     useReaction: useReactionMock,

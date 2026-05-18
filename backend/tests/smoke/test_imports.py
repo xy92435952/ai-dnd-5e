@@ -379,6 +379,7 @@ def test_game_route_paths_unchanged():
 
     expected = {
         "/game/action",
+        "/game/action/stream",
         "/game/sessions",
         "/game/sessions/{session_id}",
         "/game/sessions/{session_id}/ai-takeover",

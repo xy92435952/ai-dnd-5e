@@ -18,7 +18,16 @@ import SpellModalTabs from './SpellModalTabs'
 import SpellModalList from './SpellModalList'
 import SpellModalActions from './SpellModalActions'
 
-export default function SpellModal({ spells, cantrips, slots, onCast, onClose, onSpellHover }) {
+export default function SpellModal({
+  spells,
+  cantrips,
+  slots,
+  onCast,
+  onClose,
+  onSpellHover,
+  selectedTargetName = '',
+  selectedTargetCount = 0,
+}) {
   const [selectedSpell, setSelectedSpell] = useState(null)
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
 
@@ -29,11 +38,16 @@ export default function SpellModal({ spells, cantrips, slots, onCast, onClose, o
   const spellList   = spells.filter(s => s.level > 0 && !cantrips?.includes(s.name))
   const shownSpells = level === 0 ? cantripList : spellList.filter(s => s.level <= level)
 
-  const canCast = selectedSpell
-    ? (selectedSpell.level === 0 || cantrips?.includes(selectedSpell.name))
-      ? true
-      : available(level) > 0
+  const requiresTarget = selectedSpell?.type === 'damage'
+  const hasTarget = !requiresTarget || Boolean(selectedTargetName || selectedTargetCount > 0)
+  const hasSlot = selectedSpell
+    ? (selectedSpell.level === 0 || cantrips?.includes(selectedSpell.name)) || available(level) > 0
     : false
+  const canCast = Boolean(selectedSpell && hasSlot && hasTarget)
+  const targetWarning = selectedSpell && requiresTarget && !hasTarget ? '请选择目标' : ''
+  const targetHint = selectedSpell && hasTarget && selectedTargetName
+    ? `${selectedSpell.aoe ? '范围中心' : '目标'}：${selectedTargetName}${selectedTargetCount > 1 ? ` · 预计影响 ${selectedTargetCount} 个目标` : ''}`
+    : ''
 
   return (
     <div onClick={onClose} style={{
@@ -69,6 +83,8 @@ export default function SpellModal({ spells, cantrips, slots, onCast, onClose, o
           selectedSpell={selectedSpell}
           setSelectedSpell={setSelectedSpell}
           onSpellHover={onSpellHover}
+          selectedTargetName={selectedTargetName}
+          selectedTargetCount={selectedTargetCount}
         />
 
         <SpellModalActions
@@ -77,6 +93,8 @@ export default function SpellModal({ spells, cantrips, slots, onCast, onClose, o
           level={level}
           onCast={onCast}
           onClose={onClose}
+          targetHint={targetHint}
+          targetWarning={targetWarning}
         />
       </div>
     </div>

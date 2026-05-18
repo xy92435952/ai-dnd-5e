@@ -89,56 +89,78 @@ export async function rollDice3D(faces = 20, count = 1) {
 }
 
 // 实际执行投掷（由组件点击事件调用）
+function fallbackDiceRoll(faces, count) {
+  const diceCount = Math.max(1, Math.min(count, 10))
+  const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * faces) + 1)
+  return { total: rolls.reduce((a, b) => a + b, 0), rolls }
+}
+
+export function rollDiceBoxWithTimeout(box, faces, count, timeoutMs = 8000) {
+  const diceCount = Math.max(1, Math.min(count, 10))
+
+  return new Promise(resolve => {
+    let settled = false
+    let timeoutId = null
+    const finish = result => {
+      if (settled) return
+      settled = true
+      if (timeoutId) clearTimeout(timeoutId)
+      box._onSettled = null
+      resolve(result)
+    }
+
+    box._onSettled = (results) => {
+      if (results && results.length > 0) {
+        const allRolls = []
+        let total = 0
+        for (const group of results) {
+          if (group.rolls) {
+            for (const r of group.rolls) {
+              allRolls.push(r.value)
+              total += r.value
+            }
+          } else if (group.value != null) {
+            allRolls.push(group.value)
+            total += group.value
+          }
+        }
+        finish({ total, rolls: allRolls })
+      } else {
+        finish(fallbackDiceRoll(faces, diceCount))
+      }
+    }
+
+    timeoutId = setTimeout(() => {
+      try { box.clear() } catch (_) {}
+      finish(fallbackDiceRoll(faces, diceCount))
+    }, timeoutMs)
+
+    Promise.resolve()
+      .then(() => box.roll(`${diceCount}d${faces}`))
+      .catch(err => {
+        console.warn('Roll error:', err)
+        try { box.clear() } catch (_) {}
+        finish(fallbackDiceRoll(faces, diceCount))
+      })
+  })
+}
+
 async function _executeRoll(faces, count) {
   // Juice：投掷开始时播放骰子音效（WebAudio 合成木桌上的骰声）
   try { window.JuiceAudio?.dice?.() } catch (e) {}
 
   const box = diceBoxInstance
   if (!box) {
-    const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1)
-    return { total: rolls.reduce((a, b) => a + b, 0), rolls }
+    return fallbackDiceRoll(faces, count)
   }
 
   try {
     box.clear()
-    const diceCount = Math.max(1, Math.min(count, 10))
-
-    const rollPromise = new Promise(resolve => {
-      box._onSettled = (results) => {
-        if (results && results.length > 0) {
-          const allRolls = []
-          let total = 0
-          for (const group of results) {
-            if (group.rolls) {
-              for (const r of group.rolls) {
-                allRolls.push(r.value)
-                total += r.value
-              }
-            } else if (group.value != null) {
-              allRolls.push(group.value)
-              total += group.value
-            }
-          }
-          resolve({ total, rolls: allRolls })
-        } else {
-          const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * faces) + 1)
-          resolve({ total: rolls.reduce((a, b) => a + b, 0), rolls })
-        }
-      }
-      // 安全超时
-      setTimeout(() => {
-        const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * faces) + 1)
-        resolve({ total: rolls.reduce((a, b) => a + b, 0), rolls })
-      }, 8000)
-    })
-
-    await box.roll(`${diceCount}d${faces}`)
-    return await rollPromise
+    return await rollDiceBoxWithTimeout(box, faces, count)
   } catch (err) {
     console.warn('Roll error:', err)
     try { box.clear() } catch (_) {}
-    const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * faces) + 1)
-    return { total: rolls.reduce((a, b) => a + b, 0), rolls }
+    return fallbackDiceRoll(faces, count)
   }
 }
 

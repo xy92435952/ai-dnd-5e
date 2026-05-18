@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { roomsApi } from '../../../api/client'
+import { roomsApi } from '../../../api/rooms'
 import MultiplayerPartyPanel from '../MultiplayerPartyPanel'
 
-vi.mock('../../../api/client', () => ({
+vi.mock('../../../api/rooms', () => ({
   roomsApi: {
     submitGroupAction: vi.fn(),
     joinGroup: vi.fn(),

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import char_brief, get_session_or_404, get_user_id
@@ -24,11 +25,21 @@ from schemas.game_responses import PlayerActionResponse
 from services.character_roster import CharacterRoster
 from services.game_action_source_service import normalize_action_source
 from services.game_combat_action_service import execute_natural_language_combat_action
-from services.game_exploration_service import execute_exploration_action
+from services.game_exploration_service import execute_exploration_action, execute_exploration_action_stream
 from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
+from services.streaming_json import format_sse_event
 
 router = APIRouter(prefix="/game", tags=["game"])
+
+
+async def _stream_single_final(payload: dict):
+    yield format_sse_event("final", payload)
+
+
+async def _stream_events(events):
+    async for item in events:
+        yield format_sse_event(item.get("event", "message"), item.get("data", {}))
 
 
 @router.post("/action", response_model=PlayerActionResponse)
@@ -127,6 +138,124 @@ async def player_action(
         action_source=action_source,
         combat_state=combat_state,
         after_success=after_multiplayer_success if multiplayer_decision else None,
+    )
+
+
+@router.post("/action/stream")
+async def player_action_stream(
+    req: PlayerActionRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    """玩家行动流式入口：SSE 叙事增量 + 最终 PlayerActionResponse。"""
+    session = await get_session_or_404(req.session_id, db)
+    module = await db.get(Module, session.module_id)
+    action_source = normalize_action_source(session, req.action_text, req.action_source)
+    effective_action_text = req.action_text
+    multiplayer_decision = None
+
+    if session.is_multiplayer:
+        player = await _resolve_multiplayer_player(db, session, user_id)
+        if not session.combat_active:
+            _assert_current_speaker(session, user_id)
+            multiplayer_decision = await _run_multiplayer_table_gate(
+                db=db,
+                session=session,
+                user_id=user_id,
+                req=req,
+            )
+            if not multiplayer_decision.should_call_base_dm:
+                payload = await _handle_multiplayer_table_only_result(
+                    db=db,
+                    session=session,
+                    req=req,
+                    user_id=user_id,
+                    multiplayer_decision=multiplayer_decision,
+                )
+                return StreamingResponse(
+                    _stream_single_final(payload),
+                    media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+                )
+            effective_action_text = multiplayer_decision.effective_action_text or req.action_text
+        await _broadcast_dm_thinking(session.id, user_id, req.action_text)
+    else:
+        player = await db.get(Character, session.player_character_id)
+
+    roster = CharacterRoster(db, session)
+    characters = ([player] if player else []) + await roster.companions()
+    combat_state = await _load_latest_combat_state(db, session.id) if session.combat_active else None
+
+    db.add(GameLog(
+        session_id=req.session_id,
+        role="player",
+        content=req.action_text,
+        log_type="narrative" if not session.combat_active else "combat",
+    ))
+
+    if session.combat_active:
+        blocked = await _maybe_block_combat_input(
+            db=db,
+            session_id=req.session_id,
+            action_text=req.action_text,
+            action_source=action_source,
+        )
+        if blocked:
+            return StreamingResponse(
+                _stream_single_final(blocked),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+
+    if session.combat_active and combat_state and player:
+        payload = await execute_natural_language_combat_action(
+            db=db,
+            session=session,
+            combat_state=combat_state,
+            player=player,
+            characters=characters,
+            action_text=req.action_text,
+        )
+        return StreamingResponse(
+            _stream_single_final(payload),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    async def after_multiplayer_success():
+        await apply_multiplayer_room_decision(
+            db=db,
+            session=session,
+            actor_user_id=user_id,
+            multiplayer_decision=multiplayer_decision,
+        )
+
+    after_multiplayer_success.multiplayer_visibility = (
+        multiplayer_decision.visibility if multiplayer_decision else {}
+    )
+    after_multiplayer_success.multiplayer_table_reason = (
+        multiplayer_decision.table_reason if multiplayer_decision else ""
+    )
+    after_multiplayer_success.multiplayer_table_decision = (
+        multiplayer_decision.table_decision if multiplayer_decision else {}
+    )
+
+    events = execute_exploration_action_stream(
+        db=db,
+        session=session,
+        module=module,
+        characters=characters,
+        actor=player,
+        actor_user_id=user_id,
+        action_text=effective_action_text,
+        action_source=action_source,
+        combat_state=combat_state,
+        after_success=after_multiplayer_success if multiplayer_decision else None,
+    )
+    return StreamingResponse(
+        _stream_events(events),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

@@ -12,6 +12,7 @@ export default function AdventureStage({
   hasDmContent,
   sceneVibe,
   isLoading,
+  streamingNarrative,
 }) {
   return (
     <div className="dialogue-stage" style={{ position: 'relative' }}>
@@ -63,7 +64,7 @@ export default function AdventureStage({
       </div>
 
       <div className="stage-letterbox bottom" />
-      <DMThinkingOverlay visible={isLoading} />
+      <DMThinkingOverlay visible={isLoading} streamingNarrative={streamingNarrative} />
     </div>
   )
 }

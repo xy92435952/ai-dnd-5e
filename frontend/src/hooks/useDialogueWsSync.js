@@ -24,7 +24,7 @@
  * @returns {(event: import('../types/ws').WSEvent) => void}
  */
 import { useCallback } from 'react'
-import { roomsApi } from '../api/client'
+import { roomsApi } from '../api/rooms'
 import { mergeRealtimeRoomEvent } from './useRoomRealtime'
 
 function isVisibleToMe(event, myUserId) {

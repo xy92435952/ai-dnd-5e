@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { applyHpUpdate, getPlayerTurnState } from '../utils/combat'
 
 const AI_TURN_LIMIT = 20

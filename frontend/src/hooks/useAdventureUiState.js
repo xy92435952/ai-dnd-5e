@@ -10,6 +10,7 @@ export function useAdventureUiState() {
   const [journalOpen, setJournalOpen] = useState(false)
   const [journalText, setJournalText] = useState('')
   const [journalLoading, setJournalLoading] = useState(false)
+  const [streamingNarrative, setStreamingNarrative] = useState('')
 
   const addLog = useCallback((role, content, logType = 'narrative', extra = {}) => {
     setLogs(prev => [...prev, {
@@ -32,6 +33,7 @@ export function useAdventureUiState() {
     journalOpen, setJournalOpen,
     journalText, setJournalText,
     journalLoading, setJournalLoading,
+    streamingNarrative, setStreamingNarrative,
   }
 }
 

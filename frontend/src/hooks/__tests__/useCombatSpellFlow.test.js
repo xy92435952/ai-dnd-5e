@@ -7,7 +7,7 @@ const { spellRollMock, spellConfirmMock, rollDice3DMock } = vi.hoisted(() => ({
   rollDice3DMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     spellRoll: spellRollMock,
     spellConfirm: spellConfirmMock,
@@ -116,5 +116,66 @@ describe('useCombatSpellFlow', () => {
     expect(setSelectedTarget).toHaveBeenCalledWith(null)
     expect(processingRef.current).toBe(false)
     expect(setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
+  it('logs AoE mechanical results separately from narration', async () => {
+    const processingRef = { current: false }
+    const addLog = vi.fn()
+    spellRollMock.mockResolvedValue({
+      pending_spell_id: 'pending-spell-aoe',
+      damage_dice: '8d6',
+      targets: [
+        { id: 'enemy-1', name: '哥布林' },
+        { id: 'enemy-2', name: '骷髅' },
+      ],
+      turn_state: { action_used: true },
+    })
+    spellConfirmMock.mockResolvedValue({
+      remaining_slots: { '3rd': 0 },
+      narration: '火球在敌群中炸开。',
+      turn_state: { action_used: true, spell_cast: true },
+      combat_over: false,
+      aoe_results: [
+        { target_id: 'enemy-1', name: '哥布林', damage: 12, new_hp: 0 },
+        { target_id: 'enemy-2', name: '骷髅', damage: 6, new_hp: 2 },
+      ],
+    })
+    rollDice3DMock.mockResolvedValue({ total: 18, rolls: [4, 4, 3, 2, 1, 1, 2, 1] })
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'char-1',
+      selectedTarget: 'enemy-1',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog,
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice: vi.fn(),
+    }))
+
+    await act(async () => {
+      await result.current({ name: '火球术', type: 'damage', aoe: { radius: 20 } }, 3)
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200)
+    })
+
+    expect(addLog).toHaveBeenCalledWith({
+      role: 'system',
+      content: '范围结算：哥布林 12伤害；骷髅 6伤害',
+      log_type: 'combat_mechanics',
+    })
+    expect(addLog).toHaveBeenLastCalledWith({
+      role: 'player',
+      content: '火球在敌群中炸开。',
+      log_type: 'combat',
+    })
   })
 })

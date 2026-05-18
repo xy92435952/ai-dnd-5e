@@ -4,7 +4,7 @@
  */
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { roomsApi } from '../api/client'
+import { roomsApi } from '../api/rooms'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useUser } from '../hooks/useUser'
 import { normalizeRealtimeRoom } from '../hooks/useRoomRealtime'
@@ -13,6 +13,7 @@ import RoomActionsPanel from '../components/room/RoomActionsPanel'
 import RoomAiCompanionsSection from '../components/room/RoomAiCompanionsSection'
 import RoomMembersGrid from '../components/room/RoomMembersGrid'
 import RoomMultiplayerStatusPanel from '../components/room/RoomMultiplayerStatusPanel'
+import { LoadingState } from '../components/feedback/AsyncState'
 
 export default function Room() {
   const { sessionId } = useParams()
@@ -123,15 +124,7 @@ export default function Room() {
     finally { setBusy(false) }
   }
 
-  if (!room) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1 }}>
-        <div className="panel-ornate" style={{ padding: 28, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
-          ✦ 召唤房间信息中… ✦
-        </div>
-      </div>
-    )
-  }
+  if (!room) return <LoadingState text="召唤房间信息中…" />
 
   const canStart = isHost && (room.members || []).some(m => m.character_id)
   const aiCompanions = room.ai_companions || []

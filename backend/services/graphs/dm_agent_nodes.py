@@ -8,6 +8,7 @@ import json
 import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.config import get_stream_writer
 
 from services.graphs.dm_agent_messages import build_combat_user_content, build_explore_user_content
 from services.graphs.dm_agent_prompts import COMBAT_SYSTEM as COMBAT_SYSTEM_PROMPT
@@ -23,6 +24,45 @@ from services.graphs.dm_agent_utils import (
 from services.llm import get_llm
 
 logger = logging.getLogger(__name__)
+
+
+def _content_to_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, dict):
+                parts.append(str(part.get("text") or part.get("content") or ""))
+            else:
+                parts.append(str(part))
+        return "".join(parts)
+    return str(content or "")
+
+
+async def _invoke_dm_llm(messages: list, *, temperature: float, max_tokens: int, stream_tokens: bool) -> str:
+    llm = get_llm(temperature=temperature, max_tokens=max_tokens)
+    if not stream_tokens:
+        resp = await llm.ainvoke(messages)
+        return _content_to_text(resp.content)
+
+    try:
+        writer = get_stream_writer()
+    except RuntimeError:
+        writer = None
+
+    if writer is None or not hasattr(llm, "astream"):
+        resp = await llm.ainvoke(messages)
+        return _content_to_text(resp.content)
+
+    chunks: list[str] = []
+    async for chunk in llm.astream(messages):
+        text = _content_to_text(getattr(chunk, "content", ""))
+        if not text:
+            continue
+        chunks.append(text)
+        writer({"type": "llm_token", "content": text})
+    return "".join(chunks)
 
 
 async def input_layer(state: DMAgentState) -> dict:
@@ -93,21 +133,29 @@ def route_by_mode(state: DMAgentState) -> str:
 
 
 async def combat_dm(state: DMAgentState) -> dict:
-    llm = get_llm(temperature=0.72, max_tokens=2000)
-    resp = await llm.ainvoke([
-        SystemMessage(content=COMBAT_SYSTEM_PROMPT),
-        HumanMessage(content=build_combat_user_content(state)),
-    ])
-    return {"llm_output": resp.content}
+    output = await _invoke_dm_llm(
+        [
+            SystemMessage(content=COMBAT_SYSTEM_PROMPT),
+            HumanMessage(content=build_combat_user_content(state)),
+        ],
+        temperature=0.72,
+        max_tokens=2000,
+        stream_tokens=bool(state.get("stream_tokens")),
+    )
+    return {"llm_output": output}
 
 
 async def explore_dm(state: DMAgentState) -> dict:
-    llm = get_llm(temperature=0.82, max_tokens=2000)
-    resp = await llm.ainvoke([
-        SystemMessage(content=EXPLORE_SYSTEM_PROMPT),
-        HumanMessage(content=build_explore_user_content(state)),
-    ])
-    return {"llm_output": resp.content}
+    output = await _invoke_dm_llm(
+        [
+            SystemMessage(content=EXPLORE_SYSTEM_PROMPT),
+            HumanMessage(content=build_explore_user_content(state)),
+        ],
+        temperature=0.82,
+        max_tokens=2000,
+        stream_tokens=bool(state.get("stream_tokens")),
+    )
+    return {"llm_output": output}
 
 
 async def parse_validate(state: DMAgentState) -> dict:

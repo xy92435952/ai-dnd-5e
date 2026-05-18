@@ -6,7 +6,7 @@ const { endTurnMock, getCombatMock } = vi.hoisted(() => ({
   getCombatMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     endTurn: endTurnMock,
     getCombat: getCombatMock,

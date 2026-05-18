@@ -5,7 +5,7 @@ const { roomsGetMock } = vi.hoisted(() => ({
   roomsGetMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/rooms', () => ({
   roomsApi: {
     get: roomsGetMock,
   },

@@ -7,6 +7,7 @@ import {
   buildGridTerrainSets,
   buildInitiativeChips,
   buildThreatCells,
+  countEntitiesInAoe,
   getAoePreviewCenterKey,
   getCombatPredictionActionKey,
   getCameraWindow,
@@ -190,6 +191,23 @@ describe('combat grid helpers', () => {
     expect(updated.entities.a.hp_current).toBe(5)
     expect(updated.entities.b.hp_current).toBe(0)
     expect(updated.entities.c).toBe(combat.entities.c)
+  })
+
+  it('countEntitiesInAoe 统计范围中心附近的存活实体', () => {
+    expect(countEntitiesInAoe({
+      spell: { name: '火球术', aoe: { radius: 20 }, desc: '20尺半径' },
+      selectedTarget: 'a',
+      entityPositions: {
+        a: { x: 5, y: 5 },
+        b: { x: 7, y: 5 },
+        c: { x: 12, y: 12 },
+      },
+      entities: {
+        a: { hp_current: 3 },
+        b: { hp_current: 4 },
+        c: { hp_current: 4 },
+      },
+    })).toBe(2)
   })
 
   it('isPlayerCombatTurn 识别当前回合是否为玩家', () => {

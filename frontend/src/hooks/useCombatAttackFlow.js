@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 import { applyHpUpdate, parseDiceNotation } from '../utils/combat'
 import { rollDice3D } from '../components/DiceRollerOverlay'

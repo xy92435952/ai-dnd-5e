@@ -5,7 +5,8 @@
  * 但单个子组件不该知道”的动作收拢在一起，Combat.jsx 只保留布局和状态拼装。
  */
 import { useCallback } from 'react'
-import { gameApi, roomsApi } from '../api/client'
+import { gameApi } from '../api/game'
+import { roomsApi } from '../api/rooms'
 import { getAoePreviewCenterKey, aoeRadiusCells } from '../utils/combat'
 import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
 import { mergeRealtimeRoomEvent } from './useRoomRealtime'

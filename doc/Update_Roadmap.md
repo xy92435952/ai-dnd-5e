@@ -1,7 +1,7 @@
 # 更新路线图
 
 **项目：** AI 跑团平台（DnD 5e）
-**文档更新时间：** 2026-05-07
+**文档更新时间：** 2026-05-18
 **当前状态：** v0.11-dev，结构化拆分与 DM Agent 重构阶段。
 
 ## 当前路线图
@@ -91,19 +91,19 @@ backend/.venv-codex/bin/pytest \
 
 最近一次验证：
 
-- `scripts/check.sh`：通过。
-- 后端 pytest：315 passed。
-- 前端 Vitest：32 files / 141 tests passed。
-- 前端 Vite build：成功。
+- `scripts/check.sh`：通过。后端 537 passed；前端 Vitest 58 files / 242 tests passed；前端 Vite build 成功。
+- `npm run lint`：0 errors，仍有 26 个历史 warning。
+- P2 定向回归：后端 11 passed；前端 5 files / 27 tests passed。
+- 本地浏览器烟测：`/health`、`/ready`、Vite 首页、新手教程 welcome/runner、移动端教程位置均正常；浏览器控制台 0 error。
 
 ## 下一阶段优先级
 
 ### P0：稳定可部署
 
 - [ ] 继续用真实模组跑探索 + 战斗 + 多人一轮完整冒烟。
-- [ ] 清理 `npm run lint` 中的历史噪声，至少把 `public/design-preview-*` 排除或降级。
-- [ ] 把服务器 `update_server.sh` 和实际 systemd 服务名统一。
-- [ ] 确认生产 `.env` 中 `LLM_MODEL`、`LLM_BASE_URL`、`CORS_ALLOW_ORIGINS` 和服务端口一致。
+- [x] 清理 `npm run lint` 中的历史噪声，至少把 `public/design-preview-*` 排除或降级。
+- [x] 把服务器 `update_server.sh` 和实际 systemd 服务名统一。
+- [x] 确认生产 `.env` 中 `LLM_MODEL`、`LLM_BASE_URL`、`CORS_ALLOW_ORIGINS` 和服务端口一致。
 
 ### P1：DM 可维护性
 
@@ -131,10 +131,10 @@ backend/.venv-codex/bin/pytest \
 
 - [x] Adventure 页面继续拆出多人房间 hook、UI state hook、session 恢复工具与对话队列纯函数。
 - [x] Combat 页面继续拆出页面常量、可选副作用工具、页面状态 hook、导航动作 hook 和 runtime 接线 hook。
-- [ ] 自然语言战斗支持更多动作：撤离、冲刺、帮助、躲避、掩体、指定坐标。
-- [ ] 移动后不可达时前端提示“已靠近，下一回合可继续攻击”。
-- [ ] 战斗日志中区分机械结果和 DM 叙事，便于玩家理解。
-- [ ] 法术 AOE 和目标选择前端继续补强。
+- [x] 自然语言战斗支持更多动作：撤离、冲刺、帮助、躲避、掩体、指定坐标。
+- [x] 移动后不可达时前端提示“已靠近，下一回合可继续攻击”。
+- [x] 战斗日志中区分机械结果和 DM 叙事，便于玩家理解。
+- [x] 法术 AOE 和目标选择前端继续补强。
 
 ### P3：前端结构
 
@@ -171,7 +171,7 @@ backend/.venv-codex/bin/pytest \
 ## 当前已知限制
 
 - 许多 5e 高级规则仍是近似实现，尤其召唤物、部分子职业细节和复杂反应窗口。
-- `npm run lint` 当前不是发布门禁，存在历史设计稿和 React Compiler 风格规则噪声。
+- `npm run lint` 当前 0 errors，但仍有未使用变量和 hooks 依赖类历史 warning，暂不作为发布阻断。
 - 多人 WebSocket 为进程内管理，暂不适合多后端实例横向扩容。
 - DM prompt 仍有进一步模块化空间。
-- 生产和本地端口在不同脚本中可能出现 8000 / 8002 差异，部署时以 nginx 和 systemd 实际配置为准。
+- 生产脚本默认后端端口 8000；本地开发 Vite 代理仍默认 8002，部署时可用 `AI_TRPG_BACKEND_PORT` 显式覆盖。

@@ -142,9 +142,64 @@ async def test_natural_language_unreachable_melee_moves_without_fake_attack(
 
     assert data["type"] == "combat_action"
     assert data["dice_display"] == []
-    assert data["action_results"] == ["移动了 30ft"]
+    assert data["action_results"] == ["移动了 30ft", "已靠近，下一回合可继续攻击"]
     assert captured["action_type"] == "move"
     assert "目标不在攻击范围内" not in data["narrative"]
+
+
+async def test_natural_language_help_marks_named_ally_as_helped(
+    client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
+):
+    """自然语言协助应给指定队友写入 being_helped，而不是掉到纯叙事。"""
+    import uuid as _uuid
+    from models import Character
+    from sqlalchemy.orm.attributes import flag_modified
+    import services.combat_narrator as narrator
+
+    ally = Character(
+        id=str(_uuid.uuid4()),
+        session_id=sample_session.id,
+        user_id=None,
+        is_player=False,
+        name="米拉",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Scout",
+        ability_scores={"str": 10, "dex": 16, "con": 12, "int": 10, "wis": 12, "cha": 10},
+        derived={"hp_max": 9, "ac": 14, "ability_modifiers": {"dex": 3}},
+        hp_current=9,
+    )
+    db_session.add(ally)
+    sample_session.game_state = {
+        **(sample_session.game_state or {}),
+        "companion_ids": [ally.id],
+    }
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    monkeypatch.setattr(narrator, "narrate_action", fake_narrate_action)
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(
+        "/game/action",
+        headers=headers,
+        json={
+            "session_id": sample_session.id,
+            "action_text": "我协助米拉攻击哥布林。",
+        },
+    )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["type"] == "combat_action"
+    assert data["action_results"] == ["协助 米拉，下次攻击或检定具有优势"]
+
+    await db_session.refresh(combat_state)
+    assert combat_state.turn_states[str(ally.id)]["being_helped"] is True
 
 
 @pytest_asyncio.fixture
@@ -419,6 +474,27 @@ async def test_spell_roll_then_confirm_applies_damage_and_consumes_slot(
     assert confirm_data["target_new_hp"] == 1
     assert confirm_data["remaining_slots"]["1st"] == 0
     assert "pending_spell" not in confirm_data["turn_state"]
+
+
+async def test_spell_roll_missing_caster_error_text_is_readable(
+    client, sample_session, combat_state, sample_user,
+):
+    """缺失施法者的 404 文案不应出现编码损坏字符。"""
+    headers = await _auth_headers(client, sample_user)
+
+    r = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": str(_uuid.uuid4()),
+            "spell_name": "魔法飞弹",
+            "spell_level": 1,
+            "target_id": "goblin-1",
+        },
+    )
+
+    assert r.status_code == 404, r.text
+    assert r.json()["detail"] == "施法者不存在"
 
 
 async def test_condition_add_and_remove(client, sample_session, combat_state, sample_user, sample_character):

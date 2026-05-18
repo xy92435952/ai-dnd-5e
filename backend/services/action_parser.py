@@ -18,12 +18,15 @@ from services.action_parser_local import (
     ATTACK_WORDS as _ATTACK_WORDS,
     MOVE_WORDS as _MOVE_WORDS,
     RANGED_WORDS as _RANGED_WORDS,
+    UNREACHABLE_MELEE_HINT as _UNREACHABLE_MELEE_HINT,
     can_reach_melee_after_move as _can_reach_melee_after_move,
     dist as _dist,
     enemy_name_matches as _enemy_name_matches,
     living_enemies as _living_enemies,
     nearest_enemy as _nearest_enemy,
+    parse_target_pos as _parse_target_pos,
     parse_local_combat_action as _parse_local_combat_action,
+    target_ally_from_text as _target_ally_from_text,
     target_enemy_from_text as _target_enemy_from_text,
 )
 from services.action_parser_prompts import PARSE_PROMPT

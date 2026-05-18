@@ -31,5 +31,6 @@ class DMAgentState(TypedDict):
     memory_context: str
     guard_verdict: str
     guard_refusal: str
+    stream_tokens: bool
     result: dict
     error: str

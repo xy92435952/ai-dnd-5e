@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 // vi.mock 提升到文件顶部 —— 必须用 factory 函数
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     skillCheck: vi.fn(),
   },
@@ -20,7 +20,7 @@ vi.mock('../../juice', () => ({
   shake:      vi.fn(),
 }))
 
-import { gameApi } from '../../api/client'
+import { gameApi } from '../../api/game'
 import { rollDice3D } from '../../components/DiceRollerOverlay'
 import { JuiceAudio } from '../../juice'
 import { useSkillCheck } from '../useSkillCheck'

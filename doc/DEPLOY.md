@@ -1,7 +1,9 @@
 # 生产部署清单
 
-> 最后更新：2026-05-17
+> 最后更新：2026-05-18
 > 适用状态：服务器已完成 PostgreSQL 迁移；当前推荐 FastAPI 单 worker + PostgreSQL + Vite 静态构建 + nginx 反代。
+
+运行时边界和扩容前置条件集中记录在 [Runtime_Boundaries.md](./Runtime_Boundaries.md)。50 人内测阶段请按该文档保持单 worker 部署。
 
 ## 1. 发布前本地确认
 
@@ -17,6 +19,8 @@ backend/.venv-codex/bin/pytest \
   backend/tests/unit/test_action_parser.py \
   backend/tests/integration/test_combat_endpoints.py \
   backend/tests/smoke/test_imports.py -q
+
+scripts/check_deploy_env.sh backend/.env
 ```
 
 当前已知非阻塞 warning：
@@ -101,8 +105,18 @@ source /opt/ai-trpg/venv/bin/activate
 alembic upgrade head
 
 sudo systemctl restart ai-trpg
-# 或服务器实际使用的服务名：
-sudo systemctl restart ai-trpg-backend
+```
+
+当前仓库的 `update_server.sh` 默认服务名为 `ai-trpg`，与 `deploy.sh` 创建的 systemd unit 保持一致。老服务器如果仍使用旧服务名，可临时覆盖：
+
+```bash
+AI_TRPG_SERVICE_NAME=ai-trpg-backend bash /opt/ai-trpg/app/update_server.sh
+```
+
+如果服务器监听端口不是 8000，也显式覆盖：
+
+```bash
+AI_TRPG_BACKEND_PORT=8002 bash /opt/ai-trpg/app/update_server.sh
 ```
 
 检查：
@@ -115,6 +129,15 @@ sudo journalctl -u ai-trpg -n 100 --no-pager
 ```
 
 如果服务器后端实际监听 8002，请把命令和 nginx `proxy_pass` 中的端口对应调整。
+
+生产 `.env` 发布前建议执行：
+
+```bash
+cd /opt/ai-trpg/app
+scripts/check_deploy_env.sh backend/.env
+```
+
+该脚本只检查关键项是否存在和明显错误，不会打印密钥值。
 
 注意：当前多人 WebSocket 房间状态仍保存在单进程内存中。systemd / uvicorn / gunicorn 都应保持单 worker，例如：
 
@@ -221,7 +244,7 @@ alembic current
 5. 点击 AI 生成选项，确认不会被规则拦截。
 6. 输入明显无关内容，确认 DM 会拒绝。
 7. 触发战斗，测试移动、攻击、施法、结束回合。
-8. 测试远距离近战自然语言：`我向最近的敌人移动并用长剑攻击它`。如果移动后仍不可达，应只移动，不掷攻击骰。
+8. 测试远距离近战自然语言：`我向最近的敌人移动并用长剑攻击它`。如果移动后仍不可达，应只移动，不掷攻击骰，并提示“已靠近，下一回合可继续攻击”。
 9. 多人房间：创建、加入、认领角色、发言轮转、刷新恢复。
 
 50 人封闭内测的完整运行手册见 [Closed_Beta_50_User_Runbook.md](./Closed_Beta_50_User_Runbook.md)。

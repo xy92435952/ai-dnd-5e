@@ -8,7 +8,7 @@ from typing import Optional
 
 from services.graphs.module_parser import run_module_parser
 from services.graphs.party_generator import run_party_generator
-from services.graphs.dm_agent import run_dm_agent, run_campaign_state_generator
+from services.graphs.dm_agent import run_dm_agent, run_campaign_state_generator, stream_dm_agent
 
 
 class LangGraphClient:
@@ -51,6 +51,27 @@ class LangGraphClient:
             action_source=action_source,
             session_id=conversation_id,
         )
+
+    async def stream_dm_agent(
+        self,
+        player_action: str,
+        game_state: str,
+        module_context: str,
+        campaign_memory: str = "",
+        retrieved_context: str = "",
+        action_source: str = "human_input",
+        conversation_id: Optional[str] = None,
+    ):
+        async for event in stream_dm_agent(
+            player_action=player_action,
+            game_state=game_state,
+            module_context=module_context,
+            campaign_memory=campaign_memory,
+            retrieved_context=retrieved_context,
+            action_source=action_source,
+            session_id=conversation_id,
+        ):
+            yield event
 
     async def generate_campaign_state(
         self,
@@ -110,7 +131,7 @@ class LangGraphClient:
 直接输出行动文本，不要前缀、引号或解释。"""
 
         try:
-            llm = get_llm(temperature=0.85, max_tokens=200)
+            llm = get_llm(temperature=0.85, max_tokens=200, task="fast")
             resp = await llm.ainvoke(prompt)
             text = (resp.content or "").strip().strip('"\'')
             if not text:

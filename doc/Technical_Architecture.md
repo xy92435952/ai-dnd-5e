@@ -4,6 +4,8 @@
 **文档更新时间：** 2026-05-09
 **当前状态：** Adventure / Combat / DM Agent 已进入结构化拆分阶段，多人联机已加入分队焦点和 Multiplayer DM 桌面裁决。
 
+运行时边界：当前生产适合 50 人封闭内测，但多人 WebSocket、限流和后台任务仍是单进程边界。扩容前置条件见 [Runtime_Boundaries.md](./Runtime_Boundaries.md)。
+
 ## 1. 总览
 
 ```text

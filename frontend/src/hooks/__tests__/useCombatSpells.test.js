@@ -5,7 +5,7 @@ const { getSpellsMock } = vi.hoisted(() => ({
   getSpellsMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     getSpells: getSpellsMock,
   },

@@ -5,7 +5,7 @@ const { getSkillBarMock } = vi.hoisted(() => ({
   getSkillBarMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     getSkillBar: getSkillBarMock,
   },

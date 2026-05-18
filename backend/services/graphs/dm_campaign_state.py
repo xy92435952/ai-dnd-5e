@@ -43,7 +43,7 @@ async def run_campaign_state_generator(
     module_summary: str,
     existing_state: dict,
 ) -> dict:
-    llm = get_llm(temperature=0.3, max_tokens=2000)
+    llm = get_llm(temperature=0.3, max_tokens=2000, task="fast")
     prompt = (
         f"{CAMPAIGN_STATE_PROMPT}\n\n"
         f"## 模组背景\n{module_summary}\n\n"

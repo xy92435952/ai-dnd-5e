@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { charactersApi, gameApi } from '../api/client'
+import { charactersApi } from '../api/characters'
+import { gameApi } from '../api/game'
 import {
   BackIcon, ShieldIcon, HeartIcon, DiceD20Icon,
   BookIcon, ClassIcon, MagicIcon,
@@ -37,7 +38,7 @@ const SKILL_ABILITY_MAP = {
 const ALL_SKILLS = [
   '运动',
   '体操', '巧手', '隐匿',
-  '奥秘', '历史', '调查', '自然', '���教',
+  '奥秘', '历史', '调查', '自然', '宗教',
   '驯兽', '洞悉', '医药', '感知', '求生',
   '欺瞒', '恐吓', '表演', '游说',
 ]

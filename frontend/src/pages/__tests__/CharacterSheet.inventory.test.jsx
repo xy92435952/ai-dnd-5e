@@ -43,7 +43,7 @@ const {
   gameGetSessionMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/characters', () => ({
   charactersApi: {
     get: charactersGetMock,
     getShopInventory: vi.fn(),
@@ -54,6 +54,9 @@ vi.mock('../../api/client', () => ({
     buyItem: vi.fn(),
     updateAmmo: vi.fn(),
   },
+}))
+
+vi.mock('../../api/game', () => ({
   gameApi: {
     getSession: gameGetSessionMock,
   },
@@ -129,6 +132,22 @@ describe('CharacterSheet inventory integration', () => {
       expect(screen.getByText('治疗药水 恢复 5 HP')).toBeInTheDocument()
       expect(screen.getByText('9 / 12')).toBeInTheDocument()
     })
+
+    cleanup()
+  })
+
+  it('renders the Religion skill label without mojibake', async () => {
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('宗教')
+
+    expect(screen.queryByText('���教')).not.toBeInTheDocument()
 
     cleanup()
   })

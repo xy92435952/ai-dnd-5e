@@ -1,7 +1,19 @@
 import { useCallback } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyAoeHpUpdates, applyHpUpdate, parseDiceNotation } from '../utils/combat'
+
+function formatAoeMechanicalSummary(results = []) {
+  const parts = results
+    .map(result => {
+      const name = result.name || result.target_name || result.target_id || '目标'
+      const damage = result.damage ?? result.damage_total ?? result.total_damage
+      if (damage == null) return null
+      return `${name} ${damage}伤害`
+    })
+    .filter(Boolean)
+  return parts.length ? `范围结算：${parts.join('；')}` : ''
+}
 
 export function useCombatSpellFlow({
   sessionId,
@@ -76,6 +88,10 @@ export function useCombatSpellFlow({
 
           if (confirmResult.aoe_results?.length) {
             setCombat(prev => applyAoeHpUpdates(prev, confirmResult.aoe_results))
+            const summary = formatAoeMechanicalSummary(confirmResult.aoe_results)
+            if (summary) {
+              addLog({ role: 'system', content: summary, log_type: 'combat_mechanics' })
+            }
           }
 
           if (confirmResult.turn_state) setTurnState(confirmResult.turn_state)

@@ -58,7 +58,7 @@ async def spell_roll(
 
     caster = await db.get(Character, req.caster_id)
     if not caster:
-        raise HTTPException(404, "施法者不��在")
+        raise HTTPException(404, "施法者不存在")
 
     # ── 检查行动配额 ──
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
@@ -136,7 +136,7 @@ async def spell_confirm(
 
     caster = await db.get(Character, caster_entity_id)
     if not caster:
-        raise HTTPException(404, "施法���不存在")
+        raise HTTPException(404, "施法者不存在")
 
     spell_name = pending["spell_name"]
 

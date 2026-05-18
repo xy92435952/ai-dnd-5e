@@ -19,7 +19,7 @@
  */
 import { useState, useCallback } from 'react'
 import { useGameStore } from '../store/gameStore'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 

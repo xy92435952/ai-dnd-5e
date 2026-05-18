@@ -79,7 +79,7 @@ async def get_ai_decision(
                 actor_personality=actor_personality,
             )
 
-        llm = get_llm(temperature=0.6, max_tokens=300)
+        llm = get_llm(temperature=0.6, max_tokens=300, task="fast")
         resp = await asyncio.wait_for(
             llm.ainvoke([
                 SystemMessage(content="你是 DnD 5e 战斗 AI。只返回 JSON 决策，不要有任何其他文字。"),

@@ -7,7 +7,7 @@ const { combatActionMock, classFeatureMock, rollDice3DMock } = vi.hoisted(() => 
   rollDice3DMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     combatAction: combatActionMock,
     classFeature: classFeatureMock,

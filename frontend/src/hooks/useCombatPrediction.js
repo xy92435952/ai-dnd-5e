@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { getCombatPredictionActionKey } from '../utils/combat'
 
 export function useCombatPrediction({

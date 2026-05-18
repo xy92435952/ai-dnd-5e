@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { getPlayerTurnState } from '../utils/combat'
 
 export function useCombatTurnControls({

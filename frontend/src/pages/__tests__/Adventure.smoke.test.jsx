@@ -47,17 +47,24 @@ const {
   setGroupReadinessMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     getSession: getSessionMock,
     action:     actionMock,
+    actionStream: actionMock,
     skillCheck: vi.fn(),
     rest:       vi.fn(),
     saveCheckpoint:  vi.fn(),
     getCheckpoint:   vi.fn(),
     generateJournal: vi.fn(),
   },
+}))
+
+vi.mock('../../api/characters', () => ({
   charactersApi: { prepareSpells: vi.fn() },
+}))
+
+vi.mock('../../api/rooms', () => ({
   roomsApi: {
     get: roomsGetMock,
     submitGroupAction: submitGroupActionMock,
@@ -218,7 +225,9 @@ describe('Adventure render smoke', () => {
         session_id: 'sess-1',
         action_text: '伸手触碰低处的符文',
         action_source: 'ai_generated_choice',
-      })
+      }, expect.objectContaining({
+        onNarrativeDelta: expect.any(Function),
+      }))
     })
 
     cleanup()
@@ -313,7 +322,9 @@ describe('Adventure render smoke', () => {
         session_id: 'sess-1',
         action_text: '我撬开后门。',
         action_source: 'human_input',
-      })
+      }, expect.objectContaining({
+        onNarrativeDelta: expect.any(Function),
+      }))
     })
     const payload = actionMock.mock.calls[0][0]
     expect(payload.action_text).not.toContain('队友意图')

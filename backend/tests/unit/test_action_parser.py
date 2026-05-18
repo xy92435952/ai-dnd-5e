@@ -5,7 +5,10 @@ from services.action_parser import parse_combat_action
 
 def _state():
     return {
-        "characters": [{"id": "pc-1", "name": "洛温", "hp_current": 12, "hp_max": 12}],
+        "characters": [
+            {"id": "pc-1", "name": "洛温", "hp_current": 12, "hp_max": 12},
+            {"id": "ally-1", "name": "米拉", "hp_current": 8, "hp_max": 10},
+        ],
         "enemies": [
             {"id": "skel-1", "name": "潮湿骷髅", "hp_current": 7, "hp_max": 7},
             {"id": "rat-1", "name": "巨鼠", "hp_current": 5, "hp_max": 5},
@@ -16,6 +19,7 @@ def _state():
 def _positions():
     return {
         "pc-1": {"x": 2, "y": 3},
+        "ally-1": {"x": 2, "y": 4},
         "skel-1": {"x": 7, "y": 3},
         "rat-1": {"x": 12, "y": 9},
     }
@@ -24,6 +28,7 @@ def _positions():
 def _far_positions():
     return {
         "pc-1": {"x": 2, "y": 3},
+        "ally-1": {"x": 2, "y": 4},
         "skel-1": {"x": 17, "y": 8},
         "rat-1": {"x": 12, "y": 9},
     }
@@ -115,5 +120,81 @@ async def test_unreachable_melee_target_moves_only_without_fake_attack(monkeypat
     )
 
     assert result["actions"] == [
-        {"type": "move", "target_id": "skel-1", "target_pos": None, "reason": "靠近目标"},
+        {
+            "type": "move",
+            "target_id": "skel-1",
+            "target_pos": None,
+            "reason": "靠近目标",
+            "followup_hint": "已靠近，下一回合可继续攻击",
+        },
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("text", "expected"), [
+    ("我采取闪避动作", {"type": "dodge"}),
+    ("我使用冲刺", {"type": "dash"}),
+    ("我脱离接战后退", {"type": "disengage"}),
+])
+async def test_local_parser_handles_common_tactical_actions_without_llm(monkeypatch, text, expected):
+    async def fail_if_llm_called(*args, **kwargs):
+        raise AssertionError("LLM should not be called for common tactical actions")
+
+    monkeypatch.setattr("services.action_parser._parse_with_llm", fail_if_llm_called)
+
+    result = await parse_combat_action(
+        player_input=text,
+        game_state=_state(),
+        player_id="pc-1",
+        player_data={"name": "洛温"},
+        positions=_positions(),
+        move_remaining=6,
+    )
+
+    assert result["_fallback"] is False
+    assert result["actions"] == [expected]
+
+
+@pytest.mark.asyncio
+async def test_local_parser_handles_help_action_with_named_ally_without_llm(monkeypatch):
+    async def fail_if_llm_called(*args, **kwargs):
+        raise AssertionError("LLM should not be called for common help action")
+
+    monkeypatch.setattr("services.action_parser._parse_with_llm", fail_if_llm_called)
+
+    result = await parse_combat_action(
+        player_input="我协助米拉攻击潮湿骷髅",
+        game_state=_state(),
+        player_id="pc-1",
+        player_data={"name": "洛温"},
+        positions=_positions(),
+        move_remaining=6,
+    )
+
+    assert result["_fallback"] is False
+    assert result["actions"] == [{"type": "help", "target_id": "ally-1", "reason": "协助盟友"}]
+
+
+@pytest.mark.asyncio
+async def test_local_parser_handles_cover_movement_to_coordinates_without_llm(monkeypatch):
+    async def fail_if_llm_called(*args, **kwargs):
+        raise AssertionError("LLM should not be called for coordinate cover movement")
+
+    monkeypatch.setattr("services.action_parser._parse_with_llm", fail_if_llm_called)
+
+    result = await parse_combat_action(
+        player_input="我移动到 8,3 的掩体后",
+        game_state=_state(),
+        player_id="pc-1",
+        player_data={"name": "洛温"},
+        positions=_positions(),
+        move_remaining=6,
+    )
+
+    assert result["_fallback"] is False
+    assert result["actions"] == [{
+        "type": "move",
+        "target_id": None,
+        "target_pos": {"x": 8, "y": 3},
+        "reason": "移动到掩体后",
+    }]

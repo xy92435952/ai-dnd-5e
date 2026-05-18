@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { charactersApi } from '../../../api/client'
+import { charactersApi } from '../../../api/characters'
 import InventoryPanel from '../InventoryPanel'
 
-vi.mock('../../../api/client', () => ({
+vi.mock('../../../api/characters', () => ({
   charactersApi: {
     getShopInventory: vi.fn(),
     equipItem: vi.fn(),

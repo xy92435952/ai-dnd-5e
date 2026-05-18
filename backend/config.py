@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://aihubmix.com/v1"
     llm_model: str = "claude-sonnet-4-6"
+    llm_fast_model: str = ""
+    llm_module_model: str = ""
+    module_context_max_chars: int = 6000
 
     # ChromaDB（本地 RAG 向量库）
     chromadb_path: str = "./chromadb_data"

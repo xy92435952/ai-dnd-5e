@@ -55,7 +55,7 @@ async def parse_with_llm(
         player_input=player_input,
     )
 
-    llm = get_llm(temperature=0.3, max_tokens=500)
+    llm = get_llm(temperature=0.3, max_tokens=500, task="fast")
     resp = await asyncio.wait_for(
         llm.ainvoke([
             SystemMessage(content="你是 DnD 5e 战斗行动解析器。只返回 JSON。"),

@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 
 export function useCombatNavigationActions({ sessionId, navigate }) {
   const returnToAdventure = useCallback(() => {

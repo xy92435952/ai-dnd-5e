@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/rooms', () => ({
   roomsApi: {
     get: vi.fn().mockResolvedValue({
       is_multiplayer: true,
@@ -20,7 +20,7 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
-import { roomsApi } from '../../api/client'
+import { roomsApi } from '../../api/rooms'
 import { useDialogueWsSync } from '../useDialogueWsSync'
 
 

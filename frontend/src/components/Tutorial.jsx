@@ -361,7 +361,9 @@ function TutorialSpotlight({ rect }) {
 function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSkip }) {
   const pos = useMemo(() => {
     if (!rect) {
-      return { left: window.innerWidth / 2 - 170, top: window.innerHeight - 320, dir: null }
+      const W = 340
+      const top = Math.max(96, Math.min(window.innerHeight - 260, Math.round(window.innerHeight * 0.24)))
+      return { left: Math.max(16, window.innerWidth / 2 - W / 2), top, dir: null }
     }
     const W = 340, H = 220, gap = 24
     const dir = step.dir && step.dir !== 'auto'

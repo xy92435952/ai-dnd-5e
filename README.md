@@ -92,6 +92,13 @@ alembic upgrade head
 ```
 
 当前多人 WebSocket 房间状态仍是单进程内存管理，生产后端应保持单 worker，直到接入 Redis pub/sub 前不要开启多 worker。
+更完整的单实例边界和扩容前置条件见 [doc/Runtime_Boundaries.md](/Users/qft/Desktop/ai-dnd-5e/doc/Runtime_Boundaries.md)。
+
+服务器更新脚本默认重启 `ai-trpg` systemd 服务；旧环境可用 `AI_TRPG_SERVICE_NAME=ai-trpg-backend` 覆盖。发布前可执行：
+
+```bash
+scripts/check_deploy_env.sh backend/.env
+```
 
 纯前端改动构建完成后 nginx 通常不需要重启。后端代码同步部署后，需要按服务器当前方式重启后端服务。
 

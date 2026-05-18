@@ -59,6 +59,35 @@ async def test_player_action_succeeds(client, sample_session, sample_user):
     assert data["narrative"].startswith("（测试叙事）") or data["narrative"]
 
 
+async def test_player_action_stream_sends_narrative_delta_before_final(client, sample_session, sample_user):
+    """流式 action 应先给前端叙事增量，最后再给完整 PlayerActionResponse。"""
+    import json
+
+    headers = await _auth_headers(client, sample_user)
+    async with client.stream("POST", "/game/action/stream", headers=headers, json={
+        "session_id": sample_session.id,
+        "action_text": "我看看四周",
+    }) as r:
+        assert r.status_code == 200, await r.aread()
+        body = (await r.aread()).decode("utf-8")
+
+    assert "event: narrative_delta" in body
+    assert "event: final" in body
+    assert body.index("event: narrative_delta") < body.index("event: final")
+
+    final_payload = None
+    for frame in body.strip().split("\n\n"):
+        lines = frame.splitlines()
+        if "event: final" not in lines:
+            continue
+        data_line = next(line for line in lines if line.startswith("data: "))
+        final_payload = json.loads(data_line.removeprefix("data: "))
+        break
+
+    assert final_payload is not None
+    assert final_payload["narrative"].startswith("（测试叙事）")
+
+
 async def test_skill_check_endpoint(client, sample_session, sample_user, sample_character):
     """本地计算，不用 LLM。"""
     headers = await _auth_headers(client, sample_user)

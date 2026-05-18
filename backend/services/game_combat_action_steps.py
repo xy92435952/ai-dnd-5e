@@ -3,6 +3,7 @@ from typing import Any
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Session
+from services.combat_turn_state_service import DEFAULT_TURN_STATE
 
 
 def execute_move_action(
@@ -38,6 +39,8 @@ def execute_move_action(
     move_remaining -= result["steps"]
     save_turn_state(combat_state, player_id, turn_state)
     action_results.append(f"移动了 {result['steps'] * 5}ft")
+    if action.get("followup_hint"):
+        action_results.append(str(action["followup_hint"]))
     executed_action_types.append("move")
     return move_remaining
 
@@ -132,6 +135,43 @@ def execute_attack_action(
     flag_modified(session, "game_state")
     executed_action_types.append("attack")
     return total_damage
+
+
+def execute_help_action(
+    *,
+    combat_state,
+    characters: list[Any],
+    player_id: str,
+    action: dict[str, Any],
+    action_results: list[str],
+    executed_action_types: list[str],
+    save_turn_state,
+) -> bool:
+    target_id = action.get("target_id")
+    allies = [
+        character for character in characters
+        if str(getattr(character, "id", "")) != str(player_id) and getattr(character, "hp_current", 0) > 0
+    ]
+    target = None
+    if target_id:
+        target = next((character for character in allies if str(character.id) == str(target_id)), None)
+    elif len(allies) == 1:
+        target = allies[0]
+
+    if not target:
+        action_results.append("没有可协助的盟友")
+        executed_action_types.append("help")
+        return True
+
+    target_state = {
+        **DEFAULT_TURN_STATE,
+        **dict((combat_state.turn_states or {}).get(str(target.id), {})),
+    }
+    target_state["being_helped"] = True
+    save_turn_state(combat_state, str(target.id), target_state)
+    action_results.append(f"协助 {target.name}，下次攻击或检定具有优势")
+    executed_action_types.append("help")
+    return True
 
 
 def find_closest_alive_enemy_id(

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { roomsApi } from '../../api/client'
+import { roomsApi } from '../../api/rooms'
 import {
   getGroupMemberStatuses,
   getGroupPendingActions,

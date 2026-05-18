@@ -4,6 +4,7 @@ import {
   buildGridTerrainSets,
   buildInitiativeChips,
   buildThreatCells,
+  countEntitiesInAoe,
   getCameraWindow,
   getCombatSkillBar,
   getCurrentTurnLabel,
@@ -70,6 +71,15 @@ export function useCombatDerivedState({
   const isPlayerTurn = isPlayerCombatTurn(combat)
   const { walls, hazards } = buildGridTerrainSets(combat?.grid_data || {})
   const selectedTargetEntity = selectedTarget ? entities[selectedTarget] : null
+  const selectedSpell = aoePreview?.spellName
+    ? playerAvailableSpells.find(spell => spell.name === aoePreview.spellName)
+    : null
+  const selectedTargetCount = countEntitiesInAoe({
+    spell: selectedSpell,
+    selectedTarget,
+    entityPositions,
+    entities,
+  })
   const initiativeChips = buildInitiativeChips({
     turnOrder: combat?.turn_order || [],
     currentTurnIndex: combat?.current_turn_index ?? 0,
@@ -89,6 +99,7 @@ export function useCombatDerivedState({
     walls,
     hazards,
     selectedTargetEntity,
+    selectedTargetCount,
     initiativeChips,
     skillBar,
     playerAvailableSpells,

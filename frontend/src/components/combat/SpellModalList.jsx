@@ -8,7 +8,17 @@ export default function SpellModalList({
   selectedSpell,
   setSelectedSpell,
   onSpellHover,
+  selectedTargetName,
+  selectedTargetCount = 0,
 }) {
+  const aoeLabel = (spell) => {
+    if (!spell?.aoe) return ''
+    const radius = spell.aoe.radius || spell.aoe.radius_ft
+    if (radius) return `范围：${radius}ft`
+    const descMatch = (spell.desc || '').match(/(\d+)\s*(?:尺|ft)/i)
+    return descMatch ? `范围：${descMatch[1]}ft` : '范围法术'
+  }
+
   return (
     <div className="space-y-1.5 overflow-y-auto flex-1" style={{ maxHeight:260 }}>
       {shownSpells.length === 0 ? (
@@ -43,7 +53,16 @@ export default function SpellModalList({
                 {spell.type==='damage' ? spell.damage : spell.heal}
               </span>
             </div>
-            {spell.desc && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-dim)' }}>{spell.desc}</p>}
+            {(spell.desc || spell.aoe) && (
+              <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-dim)' }}>
+                {[aoeLabel(spell), spell.desc].filter(Boolean).join(' · ')}
+              </p>
+            )}
+            {isSel && spell.aoe && (
+              <p className="text-xs mt-1" style={{ color: 'var(--amber)' }}>
+                中心：{selectedTargetName || '请选择目标'}{selectedTargetCount > 0 ? ` · 预计影响 ${selectedTargetCount} 个目标` : ''}
+              </p>
+            )}
           </div>
         )
       })}

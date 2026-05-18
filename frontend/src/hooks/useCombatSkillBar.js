@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 
 export function useCombatSkillBar({ sessionId, playerId, refreshKey }) {
   const [skillBar, setSkillBar] = useState(null)

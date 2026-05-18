@@ -5,7 +5,7 @@ const { predictMock } = vi.hoisted(() => ({
   predictMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     predict: predictMock,
   },

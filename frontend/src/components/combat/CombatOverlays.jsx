@@ -11,6 +11,8 @@ export default function CombatOverlays({
   spellModalOpen,
   playerAvailableSpells,
   playerCantrips,
+  selectedTargetEntity,
+  selectedTargetCount,
   onCastSpell,
   onCloseSpell,
   onSpellHover,
@@ -38,6 +40,8 @@ export default function CombatOverlays({
           spells={playerAvailableSpells}
           cantrips={playerCantrips}
           slots={playerSpellSlots}
+          selectedTargetName={selectedTargetEntity?.name || ''}
+          selectedTargetCount={selectedTargetCount}
           onCast={onCastSpell}
           onClose={onCloseSpell}
           onSpellHover={onSpellHover}

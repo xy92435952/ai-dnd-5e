@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { modulesApi, gameApi } from '../api/client'
+import { gameApi } from '../api/game'
+import { modulesApi } from '../api/modules'
 import { useGameStore } from '../store/gameStore'
 import { Divider } from '../components/Ornaments'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { TutorialEntryCard, TutorialHost, getTutorialProgress } from '../components/Tutorial'
 import { useUser } from '../hooks/useUser'
+import { EmptyState, ErrorState } from '../components/feedback/AsyncState'
+import { useAsyncStatus } from '../hooks/useAsyncStatus'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -17,6 +20,8 @@ export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [tab, setTab] = useState('modules')
+  const modulesStatus = useAsyncStatus()
+  const sessionsStatus = useAsyncStatus()
   // 新手教程 —— 首次登录自动弹出 welcome；之后从入口卡手动触发
   const [tutorialOpen, setTutorialOpen] = useState(() => {
     try {
@@ -31,10 +36,10 @@ export default function Home() {
   useEffect(() => { resetGame(); loadModules(); loadSessions() }, [])
 
   const loadModules = async () => {
-    try { setModules(await modulesApi.list()) } catch (e) { console.error(e) }
+    try { setModules(await modulesStatus.run(() => modulesApi.list())) } catch (e) { console.error(e) }
   }
   const loadSessions = async () => {
-    try { setSessions(await gameApi.listSessions()) } catch (e) { console.error(e) }
+    try { setSessions(await sessionsStatus.run(() => gameApi.listSessions())) } catch (e) { console.error(e) }
   }
 
   const handleFileUpload = async (e) => {
@@ -192,13 +197,12 @@ export default function Home() {
             </p>
           )}
 
-          {modules.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0', opacity: 0.5 }}>
-              <div style={{ fontSize: 48, marginBottom: 6 }}>📜</div>
-              <p style={{ fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
-                还没有模组，上传一个开始冒险吧
-              </p>
-            </div>
+          {modulesStatus.isLoading ? (
+            <EmptyState icon="✦" title="正在翻检模组库…" />
+          ) : modulesStatus.isError ? (
+            <ErrorState error={modulesStatus.error} onRetry={loadModules} />
+          ) : modules.length === 0 ? (
+            <EmptyState icon="📜" title="还没有模组，上传一个开始冒险吧" />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
               {modules.map((m, i) => (
@@ -213,13 +217,12 @@ export default function Home() {
 
       {tab === 'saves' && (
         <div>
-          {sessions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0', opacity: 0.5 }}>
-              <div style={{ fontSize: 48, marginBottom: 6 }}>❦</div>
-              <p style={{ fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
-                还没有存档，选择一个模组开始冒险吧
-              </p>
-            </div>
+          {sessionsStatus.isLoading ? (
+            <EmptyState icon="✦" title="正在读取存档档案…" />
+          ) : sessionsStatus.isError ? (
+            <ErrorState error={sessionsStatus.error} onRetry={loadSessions} />
+          ) : sessions.length === 0 ? (
+            <EmptyState icon="❦" title="还没有存档，选择一个模组开始冒险吧" />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 12 }}>
               {sessions.map(s => (

@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     endCombat: vi.fn(),
   },
 }))
 
-import { gameApi } from '../../api/client'
+import { gameApi } from '../../api/game'
 import { useCombatNavigationActions } from '../useCombatNavigationActions'
 
 beforeEach(() => {

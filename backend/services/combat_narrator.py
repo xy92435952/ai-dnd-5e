@@ -112,7 +112,7 @@ async def narrate_action(
 
     try:
         import asyncio
-        llm = get_llm(temperature=0.9, max_tokens=200)
+        llm = get_llm(temperature=0.9, max_tokens=200, task="fast")
         resp = await asyncio.wait_for(
             llm.ainvoke([
                 SystemMessage(content=NARRATOR_SYSTEM),
@@ -128,7 +128,7 @@ async def narrate_action(
     except Exception as e:
         logger.warning(f"Combat narration failed: {e}")
 
-    # Fallback: 返回空字符串，让调用方使��原有机械描述
+    # Fallback: 返回空字符串，让调用方使用原有机械描述
     return ""
 
 
@@ -152,7 +152,7 @@ async def narrate_batch(actions: list[dict]) -> list[str]:
 
     try:
         import asyncio, re
-        llm = get_llm(temperature=0.9, max_tokens=150 * len(actions))
+        llm = get_llm(temperature=0.9, max_tokens=150 * len(actions), task="fast")
         resp = await asyncio.wait_for(
             llm.ainvoke([
                 SystemMessage(content=NARRATOR_SYSTEM),

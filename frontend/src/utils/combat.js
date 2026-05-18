@@ -346,3 +346,25 @@ export function getAoePreviewCenterKey({
   }
   return playerPos ? `${playerPos.x}_${playerPos.y}` : null
 }
+
+export function countEntitiesInAoe({
+  spell,
+  selectedTarget,
+  entityPositions = {},
+  entities = {},
+}) {
+  if (!spell?.aoe || !selectedTarget || !entityPositions[selectedTarget]) {
+    return selectedTarget ? 1 : 0
+  }
+  const radius = aoeRadiusCells(spell)
+  const center = entityPositions[selectedTarget]
+  let count = 0
+  for (const [id, pos] of Object.entries(entityPositions)) {
+    const entity = entities[id]
+    if (!entity || entity.hp_current <= 0) continue
+    if (Math.max(Math.abs(pos.x - center.x), Math.abs(pos.y - center.y)) <= radius) {
+      count += 1
+    }
+  }
+  return Math.max(count, 1)
+}

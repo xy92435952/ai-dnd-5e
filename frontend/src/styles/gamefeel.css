@@ -1378,6 +1378,8 @@
 .log-entry.crit .roll { color: var(--arcane-light, #5fd8e8); text-shadow: 0 0 6px var(--arcane-light, #5fd8e8); }
 .log-entry.miss .roll { color: var(--parchment-dark); }
 .log-entry.dmg  .roll { color: #f04040; }
+.log-entry.mechanics .roll { color: var(--amber); }
+.log-entry.mechanics span:last-child { color: var(--parchment); }
 
 /* 选中目标信息 */
 .target-card {

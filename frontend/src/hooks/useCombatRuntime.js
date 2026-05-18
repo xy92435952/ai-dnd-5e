@@ -129,7 +129,7 @@ export function useCombatRuntime({
     onLoadCombat: flow.loadCombat,
   })
 
-  useWebSocket(room ? sessionId : null, onWsEvent)
+  const { connected: wsConnected } = useWebSocket(room ? sessionId : null, onWsEvent)
 
   return {
     session,
@@ -150,6 +150,7 @@ export function useCombatRuntime({
     classResources,
     reactionPrompt,
     prediction,
+    wsConnected,
     logs,
     logsEndRef,
     derived,

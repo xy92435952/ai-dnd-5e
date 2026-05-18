@@ -42,6 +42,7 @@ def build_initial_state(
     campaign_memory: str = "",
     retrieved_context: str = "",
     action_source: str = "human_input",
+    stream_tokens: bool = False,
 ) -> dict:
     return {
         "player_action": player_action,
@@ -59,6 +60,7 @@ def build_initial_state(
         "memory_context": "",
         "guard_verdict": "",
         "guard_refusal": "",
+        "stream_tokens": stream_tokens,
         "result": {},
         "error": "",
     }

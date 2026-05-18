@@ -1,17 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     action: vi.fn(),
+    actionStream: vi.fn(),
     getSession: vi.fn().mockResolvedValue({ player: null, companions: [] }),
   },
+}))
+
+vi.mock('../../api/characters', () => ({
   charactersApi: {
     prepareSpells: vi.fn(),
   },
 }))
 
-import { gameApi } from '../../api/client'
+import { gameApi } from '../../api/game'
 import { useAdventureActions } from '../useAdventureActions'
 
 
@@ -32,6 +36,7 @@ function makeDeps(overrides = {}) {
     setJournalLoading: vi.fn(),
     setJournalText: vi.fn(),
     setPendingCheck: vi.fn(),
+    setStreamingNarrative: vi.fn(),
     setPlayer: vi.fn(),
     setPrepareOpen: vi.fn(),
     setRestOpen: vi.fn(),
@@ -53,7 +58,7 @@ beforeEach(() => {
 describe('useAdventureActions', () => {
   it('attaches HTTP action visibility to DM theatre segments', async () => {
     const visibility = { scope: 'group', group_id: 'alley', visible_to_user_ids: ['me'] }
-    gameApi.action.mockResolvedValue({
+    gameApi.actionStream.mockResolvedValue({
       type: 'exploration',
       narrative: '后巷门锁弹开。',
       companion_reactions: '',
@@ -77,7 +82,7 @@ describe('useAdventureActions', () => {
   })
 
   it('attaches multiplayer table reason to DM theatre segments', async () => {
-    gameApi.action.mockResolvedValue({
+    gameApi.actionStream.mockResolvedValue({
       type: 'multiplayer_table',
       narrative: '镜头转向酒馆组，请酒馆组玩家先行动。',
       table_reason: '酒馆组已有待处理行动，玩家明确要求切镜头。',
@@ -114,5 +119,40 @@ describe('useAdventureActions', () => {
         },
       },
     ])
+  })
+
+  it('updates streaming narrative preview before the final response is applied', async () => {
+    let streaming = ''
+    const streamingSnapshots = []
+    const setStreamingNarrative = vi.fn((next) => {
+      streaming = typeof next === 'function' ? next(streaming) : next
+      streamingSnapshots.push(streaming)
+    })
+    gameApi.actionStream.mockImplementation(async (_payload, handlers) => {
+      handlers.onNarrativeDelta('雾')
+      handlers.onNarrativeDelta('散')
+      return {
+        type: 'exploration',
+        narrative: '雾散。',
+        companion_reactions: '',
+        dice_display: [],
+        player_choices: [],
+        needs_check: { required: false },
+        combat_triggered: false,
+        combat_ended: false,
+      }
+    })
+    const deps = makeDeps({ setStreamingNarrative })
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleAction()
+    })
+
+    expect(gameApi.actionStream).toHaveBeenCalled()
+    expect(streamingSnapshots).toContain('雾')
+    expect(streamingSnapshots).toContain('雾散')
+    expect(streamingSnapshots.at(-1)).toBe('')
+    expect(deps.enterDialogueStage).toHaveBeenCalled()
   })
 })

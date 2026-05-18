@@ -39,7 +39,7 @@ const {
   focusGroupMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/rooms', () => ({
   roomsApi: {
     get: roomsGetMock,
     start: vi.fn(),

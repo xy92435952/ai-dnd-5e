@@ -13,7 +13,8 @@
  * 抽出后，Adventure 只负责把 state/setter 传进来并把返回的 handler 塞回现有子组件。
  */
 import { useCallback } from 'react'
-import { gameApi, charactersApi } from '../api/client'
+import { charactersApi } from '../api/characters'
+import { gameApi } from '../api/game'
 
 export function useAdventureActions({
   sessionId,
@@ -31,6 +32,7 @@ export function useAdventureActions({
   setJournalLoading,
   setJournalText,
   setPendingCheck,
+  setStreamingNarrative = () => {},
   setPlayer,
   setPrepareOpen,
   setRestOpen,
@@ -57,15 +59,24 @@ export function useAdventureActions({
     setInput('')
     setError('')
     setPendingCheck(null)
+    setStreamingNarrative('')
     setChoices([])
     setIsLoading(true)
     addLog('player', text, 'narrative')
     try {
-      const resp = await gameApi.action({
+      const payload = {
         session_id: sessionId,
         action_text: text,
         action_source: options.actionSource || 'human_input',
-      })
+      }
+      const resp = options.stream === false
+        ? await gameApi.action(payload)
+        : await gameApi.actionStream(payload, {
+          onNarrativeDelta: (delta) => {
+            setStreamingNarrative(prev => `${prev || ''}${delta}`)
+          },
+        })
+      setStreamingNarrative('')
 
       const queue = buildDialogueQueue(resp.narrative, resp.companion_reactions, companions)
       if (resp.visibility && Array.isArray(queue)) {
@@ -113,6 +124,7 @@ export function useAdventureActions({
       }
       if (resp.type !== 'parse_error') await refreshCharacters()
     } catch (e) {
+      setStreamingNarrative('')
       setError(e.message)
       addLog('system', `⚠ AI响应失败: ${e.message}`, 'system')
     } finally {
@@ -135,6 +147,7 @@ export function useAdventureActions({
     setInput,
     setIsLoading,
     setPendingCheck,
+    setStreamingNarrative,
   ])
 
   const handleDiceRoll = useCallback(async () => {

@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/rooms', () => ({
   roomsApi: {
     get: vi.fn(),
   },
 }))
 
-import { roomsApi } from '../../api/client'
+import { roomsApi } from '../../api/rooms'
 import { normalizeAdventureRoom, useAdventureRoom } from '../useAdventureRoom'
 
 beforeEach(() => {

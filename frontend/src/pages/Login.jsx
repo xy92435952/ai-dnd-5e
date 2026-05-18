@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authApi } from '../api/client'
+import { authApi } from '../api/auth'
 import { Divider } from '../components/Ornaments'
 import { setUser } from '../hooks/useUser'
 

@@ -40,7 +40,7 @@ async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
         from langchain_core.messages import HumanMessage as _HM, SystemMessage as _SM
         from services.llm import get_llm
 
-        llm = get_llm(temperature=0.8, max_tokens=800)
+        llm = get_llm(temperature=0.8, max_tokens=800, task="fast")
         resp = await llm.ainvoke([
             _SM(content="你是一位文笔出众的 DnD 5e 编年史作者，擅长将冒险记录改写为史诗般的战役日志。"),
             _HM(content=(

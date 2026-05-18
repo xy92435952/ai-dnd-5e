@@ -11,6 +11,9 @@ set -e
 
 APP_DIR="/opt/ai-trpg"
 REPO_DIR="$APP_DIR/app"
+SERVICE_NAME="${AI_TRPG_SERVICE_NAME:-ai-trpg}"
+LEGACY_SERVICE_NAME="${AI_TRPG_LEGACY_SERVICE_NAME:-ai-trpg-backend}"
+BACKEND_PORT="${AI_TRPG_BACKEND_PORT:-8000}"
 
 echo "══════════════════════════════════════"
 echo "  AI跑团平台 — 更新到最新版本"
@@ -66,14 +69,19 @@ fi
 
 # ── 5. 重启服务 ──
 echo ""
-echo "[5/5] 重启服务..."
-# 尝试 systemd
-if systemctl is-active ai-trpg-backend &>/dev/null; then
-    sudo systemctl restart ai-trpg-backend
-    echo "  后端服务已重启 (systemd)"
-elif systemctl is-active ai-trpg &>/dev/null; then
-    sudo systemctl restart ai-trpg
-    echo "  服务已重启 (systemd)"
+echo "[5/5] 检查配置并重启服务..."
+if [ -x "$REPO_DIR/scripts/check_deploy_env.sh" ]; then
+    AI_TRPG_BACKEND_PORT="$BACKEND_PORT" "$REPO_DIR/scripts/check_deploy_env.sh" "$REPO_DIR/backend/.env"
+else
+    echo "  跳过环境自检（脚本不存在）"
+fi
+
+if systemctl list-unit-files "${SERVICE_NAME}.service" &>/dev/null || systemctl status "$SERVICE_NAME" &>/dev/null; then
+    sudo systemctl restart "$SERVICE_NAME"
+    echo "  服务已重启 (systemd: $SERVICE_NAME)"
+elif [ -n "$LEGACY_SERVICE_NAME" ] && { systemctl list-unit-files "${LEGACY_SERVICE_NAME}.service" &>/dev/null || systemctl status "$LEGACY_SERVICE_NAME" &>/dev/null; }; then
+    sudo systemctl restart "$LEGACY_SERVICE_NAME"
+    echo "  服务已重启 (legacy systemd: $LEGACY_SERVICE_NAME)"
 else
     # 手动重启
     echo "  未检测到 systemd 服务，手动重启..."
@@ -81,7 +89,7 @@ else
     sleep 1
     cd "$REPO_DIR/backend"
     source "$APP_DIR/venv/bin/activate" 2>/dev/null || source ".venv/bin/activate" 2>/dev/null
-    nohup python3 -m uvicorn main:app --host 127.0.0.1 --port 8000 > "$APP_DIR/uvicorn.log" 2>&1 &
+    nohup python3 -m uvicorn main:app --host 127.0.0.1 --port "$BACKEND_PORT" > "$APP_DIR/uvicorn.log" 2>&1 &
     echo "  后端已启动 (PID: $!)"
 fi
 

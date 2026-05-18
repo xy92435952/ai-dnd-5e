@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     getSession: vi.fn(),
   },
@@ -17,7 +17,7 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }))
 
-import { gameApi } from '../../api/client'
+import { gameApi } from '../../api/game'
 import { useAdventureSession } from '../useAdventureSession'
 
 

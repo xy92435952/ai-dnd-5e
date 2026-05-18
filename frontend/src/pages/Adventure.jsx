@@ -17,7 +17,7 @@
  */
 import { useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { useGameStore } from '../store/gameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import DiceRollerOverlay from '../components/DiceRollerOverlay'
@@ -42,6 +42,7 @@ import AdventureBottomHud from '../components/adventure/AdventureBottomHud'
 import MultiplayerPartyPanel from '../components/adventure/MultiplayerPartyPanel'
 import MultiplayerTableNotice from '../components/adventure/MultiplayerTableNotice'
 import MultiplayerTimelinePanel from '../components/adventure/MultiplayerTimelinePanel'
+import { LoadingState, ReconnectNotice } from '../components/feedback/AsyncState'
 import { buildDialogueQueue as buildDialogueQueueFromText } from '../utils/dialogue'
 import { getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
 
@@ -63,6 +64,7 @@ export default function Adventure() {
     journalOpen, setJournalOpen,
     journalText, setJournalText,
     journalLoading, setJournalLoading,
+    streamingNarrative, setStreamingNarrative,
   } = useAdventureUiState()
 
   // 对话流系统（v0.10.1）— 状态机 + 打字机 + 空格推进都在 useDialogueFlow 里
@@ -192,6 +194,7 @@ export default function Adventure() {
     setJournalLoading,
     setJournalText,
     setPendingCheck,
+    setStreamingNarrative,
     setPlayer,
     setPrepareOpen,
     setRestOpen,
@@ -216,13 +219,7 @@ export default function Adventure() {
   } = useAdventureDerivedState({ session, player, companions, logs })
 
   // 早期 loading 状态
-  if (!session) return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1 }}>
-      <div className="panel-ornate" style={{ padding: 28, fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
-        ✦ 召唤冒险中… ✦
-      </div>
-    </div>
-  )
+  if (!session) return <LoadingState text="召唤冒险中…" />
 
   // 对话史册视图（全屏覆盖）
   if (showHistory) {
@@ -258,6 +255,7 @@ export default function Adventure() {
           }
         }}
       />
+      {room && <ReconnectNotice connected={wsConnected} label="多人连接" />}
 
       <AdventureTopBar
         session={session}
@@ -284,6 +282,7 @@ export default function Adventure() {
           hasDmContent={!!latestDmLine}
           sceneVibe={sceneVibe}
           isLoading={isLoading}
+          streamingNarrative={streamingNarrative}
         />
 
         <DialoguePanel

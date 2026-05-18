@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import RoomMultiplayerStatusPanel from '../RoomMultiplayerStatusPanel'
 
-vi.mock('../../../api/client', () => ({
+vi.mock('../../../api/rooms', () => ({
   roomsApi: {
     focusGroup: vi.fn(),
   },

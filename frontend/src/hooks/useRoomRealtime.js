@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { roomsApi } from '../api/client'
+import { roomsApi } from '../api/rooms'
 
 export function normalizeRealtimeRoom(room) {
   if (!room?.is_multiplayer) return null

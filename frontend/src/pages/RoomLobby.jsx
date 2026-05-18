@@ -8,7 +8,8 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { modulesApi, roomsApi } from '../api/client'
+import { modulesApi } from '../api/modules'
+import { roomsApi } from '../api/rooms'
 import { Divider } from '../components/Ornaments'
 
 export default function RoomLobby() {

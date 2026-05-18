@@ -230,7 +230,7 @@ async def generate_companions(state: PartyGeneratorState) -> dict:
     if state["companions_needed"] <= 0:
         return {"llm_output": "[]"}
 
-    llm = get_llm(temperature=0.85, max_tokens=4000)
+    llm = get_llm(temperature=0.85, max_tokens=4000, task="module")
     user_msg = GEN_USER.format(
         module_setting=state["module_setting"],
         module_tone=state["module_tone"],

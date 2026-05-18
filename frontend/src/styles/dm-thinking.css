@@ -336,6 +336,35 @@
   flex-shrink: 0;
 }
 
+.dm-thinking-stream {
+  width: min(720px, calc(100vw - 48px));
+  max-height: min(28vh, 220px);
+  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid rgba(240, 208, 96, .28);
+  border-radius: 6px;
+  background: rgba(8, 6, 14, .78);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .28), inset 0 0 18px rgba(127, 232, 248, .08);
+  color: #fff4c8;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  text-align: left;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .75);
+}
+
+.dm-thinking-caret {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--arcane-light);
+  animation: dmCaretBlink .9s step-end infinite;
+}
+
+@keyframes dmCaretBlink {
+  50% { opacity: 0; }
+}
+
 @keyframes dmHintSlide {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -372,6 +401,13 @@
   .dm-thinking-content { gap: 14px; padding: 20px 16px; }
   .dm-thinking-title { font-size: 15px; }
   .dm-thinking-hint { font-size: 12.5px; }
+  .dm-thinking-stream {
+    width: min(92vw, 720px);
+    max-height: 24vh;
+    font-size: 13.5px;
+    line-height: 1.65;
+    padding: 12px 13px;
+  }
 }
 
 /* ── 减动画媒体查询 ── */

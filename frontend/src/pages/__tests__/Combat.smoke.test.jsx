@@ -91,7 +91,7 @@ const {
   useItemMock: vi.fn(),
 }))
 
-vi.mock('../../api/client', () => ({
+vi.mock('../../api/game', () => ({
   gameApi: {
     getCombat: getCombatMock,
     getSession: getSessionMock,
@@ -101,9 +101,15 @@ vi.mock('../../api/client', () => ({
     endCombat: vi.fn().mockResolvedValue({}),
     endTurn: vi.fn().mockResolvedValue({}),
   },
+}))
+
+vi.mock('../../api/characters', () => ({
   charactersApi: {
     useItem: useItemMock,
   },
+}))
+
+vi.mock('../../api/rooms', () => ({
   roomsApi: {
     get: vi.fn().mockRejectedValue(new Error('not multiplayer')),
   },

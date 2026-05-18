@@ -104,3 +104,48 @@ async def run_dm_agent(
     config = {"configurable": {"thread_id": session_id or "default"}}
     final_state = await graph.ainvoke(initial_state, config=config)
     return wrap_final_state(final_state, session_id=session_id)
+
+
+async def stream_dm_agent(
+    player_action: str,
+    game_state: str,
+    module_context: str,
+    campaign_memory: str = "",
+    retrieved_context: str = "",
+    action_source: str = "human_input",
+    session_id: str | None = None,
+):
+    """Run the DM Agent graph and yield raw token events plus the final result."""
+    graph = await build_dm_agent_graph()
+
+    initial_state = build_initial_state(
+        player_action=player_action,
+        game_state=game_state,
+        module_context=module_context,
+        campaign_memory=campaign_memory,
+        retrieved_context=retrieved_context,
+        action_source=action_source,
+        stream_tokens=True,
+    )
+    config = {"configurable": {"thread_id": session_id or "default"}}
+    final_state = None
+    async for mode, payload in graph.astream(initial_state, config=config, stream_mode=["custom", "values"]):
+        if mode == "custom":
+            yield payload
+        elif mode == "values":
+            final_state = payload
+
+    if final_state is None:
+        yield {
+            "type": "final",
+            "payload": {
+                "success": False,
+                "error": "DM Agent 未返回最终状态",
+            },
+        }
+        return
+
+    yield {
+        "type": "final",
+        "payload": wrap_final_state(final_state, session_id=session_id),
+    }

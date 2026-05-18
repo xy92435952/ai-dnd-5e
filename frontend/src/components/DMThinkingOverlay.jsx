@@ -11,7 +11,7 @@
  * 顶部额外浮动一条金色流光条（z-index 最高）。
  *
  * 用法：
- *   <DMThinkingOverlay visible={isLoading} />
+ *   <DMThinkingOverlay visible={isLoading} streamingNarrative={text} />
  */
 
 import { useEffect, useState } from 'react'
@@ -33,7 +33,7 @@ const HINTS = [
 
 const ORBIT_NODES = 8
 
-export default function DMThinkingOverlay({ visible }) {
+export default function DMThinkingOverlay({ visible, streamingNarrative = '' }) {
   const [hintIdx, setHintIdx] = useState(() => Math.floor(Math.random() * HINTS.length))
 
   useEffect(() => {
@@ -151,6 +151,13 @@ export default function DMThinkingOverlay({ visible }) {
         <div className="dm-thinking-hint" key={hintIdx}>
           ✦ {HINTS[hintIdx]} ✦
         </div>
+
+        {streamingNarrative && (
+          <div className="dm-thinking-stream">
+            {streamingNarrative}
+            <span className="dm-thinking-caret" aria-hidden="true">▋</span>
+          </div>
+        )}
       </div>
     </div>
   )

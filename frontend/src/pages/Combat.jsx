@@ -15,6 +15,7 @@ import InitiativeRibbon from '../components/combat/InitiativeRibbon'
 import CombatStage from '../components/combat/CombatStage'
 import CombatHud from '../components/combat/CombatHud'
 import CombatOverlays from '../components/combat/CombatOverlays'
+import { ErrorState, LoadingState, ReconnectNotice } from '../components/feedback/AsyncState'
 import { COMBAT_GRID, ignoreOptionalEffect } from '../utils/combatPage'
 
 export default function Combat() {
@@ -87,6 +88,7 @@ export default function Combat() {
     walls,
     hazards,
     selectedTargetEntity,
+    selectedTargetCount,
     initiativeChips,
     skillBar,
     playerAvailableSpells,
@@ -123,13 +125,9 @@ export default function Combat() {
 
   // ── 渲染 ───────────────────────────────────────────────
   if (!combat) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        {error
-          ? <p style={{ color: 'var(--red-light)' }}>{error}</p>
-          : <p className="animate-pulse" style={{ color: 'var(--gold)' }}>加载战斗...</p>}
-      </div>
-    )
+    return error
+      ? <ErrorState error={error} fullScreen />
+      : <LoadingState text="加载战斗中…" />
   }
 
   return (
@@ -146,6 +144,7 @@ export default function Combat() {
         controllerName={currentTurnControllerName}
         currentTurnCharacterId={currentTurnEntry?.character_id}
       />
+      {room && <ReconnectNotice connected={runtime.wsConnected} label="多人连接" />}
 
       <TurnBanner
         roundNumber={combat?.round_number || 1}
@@ -222,6 +221,8 @@ export default function Combat() {
         spellModalOpen={spellModalOpen}
         playerAvailableSpells={playerAvailableSpells}
         playerCantrips={playerCantrips}
+        selectedTargetEntity={selectedTargetEntity}
+        selectedTargetCount={selectedTargetCount}
         onCastSpell={handleCastSpell}
         onCloseSpell={() => { setSpellModalOpen(false); clearAoePreview() }}
         onSpellHover={handleSpellHover}

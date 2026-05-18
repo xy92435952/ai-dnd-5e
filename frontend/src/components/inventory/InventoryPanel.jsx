@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { charactersApi } from '../../api/client'
+import { charactersApi } from '../../api/characters'
 import {
   canSellInventoryItem,
   categorizeShopInventory,

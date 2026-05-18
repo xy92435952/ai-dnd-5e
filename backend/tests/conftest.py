@@ -67,6 +67,14 @@ def _mock_llm_layer():
             "combat_triggered": False,
         }
 
+    async def fake_stream_dm_agent(**kwargs):
+        result = await fake_call_dm_agent(**kwargs)
+        raw = result["result"]
+        midpoint = max(1, len(raw) // 2)
+        yield {"type": "llm_token", "content": raw[:midpoint]}
+        yield {"type": "llm_token", "content": raw[midpoint:]}
+        yield {"type": "final", "payload": result}
+
     async def fake_parse_module(text):
         return (
             {
@@ -101,6 +109,7 @@ def _mock_llm_layer():
 
     import services.langgraph_client as lc
     patches.append(patch.object(lc.langgraph_client, "call_dm_agent",             fake_call_dm_agent))
+    patches.append(patch.object(lc.langgraph_client, "stream_dm_agent",           fake_stream_dm_agent))
     patches.append(patch.object(lc.langgraph_client, "parse_module",              fake_parse_module))
     patches.append(patch.object(lc.langgraph_client, "generate_party",            fake_generate_party))
     patches.append(patch.object(lc.langgraph_client, "generate_campaign_state",   fake_generate_campaign_state))
@@ -135,7 +144,7 @@ def _mock_llm_layer():
             return _Resp()
 
     import services.llm as llm_module
-    patches.append(patch.object(llm_module, "get_llm", lambda *args, **kwargs: _FakeLLM()))
+    patches.append(patch.object(llm_module, "ChatOpenAI", lambda *args, **kwargs: _FakeLLM()))
 
     for p in patches:
         p.start()

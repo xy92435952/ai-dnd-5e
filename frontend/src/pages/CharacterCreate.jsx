@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { modulesApi, charactersApi, gameApi, roomsApi } from '../api/client'
+import { charactersApi } from '../api/characters'
+import { gameApi } from '../api/game'
+import { modulesApi } from '../api/modules'
+import { roomsApi } from '../api/rooms'
 import { useGameStore } from '../store/gameStore'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
@@ -20,6 +23,7 @@ import {
   buildCharacterCreateModel,
   normalizeCharacterOptions,
 } from '../utils/characterCreate'
+import { ErrorState, LoadingState } from '../components/feedback/AsyncState'
 
 // ── 主组件 ────────────────────────────────────────────────
 export default function CharacterCreate() {
@@ -243,11 +247,11 @@ export default function CharacterCreate() {
     }
   }
 
-  if (!module) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--gold)', animation: 'pulse 2s infinite' }}>加载模组信息...</p>
-    </div>
-  )
+  if (!module) {
+    return error
+      ? <ErrorState error={error} fullScreen />
+      : <LoadingState text="加载模组信息中…" />
+  }
 
   const ctx = {
     module,

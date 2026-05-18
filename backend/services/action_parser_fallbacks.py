@@ -1,4 +1,9 @@
-from services.action_parser_local import can_reach_melee_after_move, dist, nearest_enemy
+from services.action_parser_local import (
+    UNREACHABLE_MELEE_HINT,
+    can_reach_melee_after_move,
+    dist,
+    nearest_enemy,
+)
 
 
 def fallback_combat_action(
@@ -23,6 +28,7 @@ def fallback_combat_action(
                 "reason": "靠近最近敌人",
             })
             if not can_reach_melee_after_move(distance, move_remaining):
+                actions[-1]["followup_hint"] = UNREACHABLE_MELEE_HINT
                 return {
                     "actions": actions,
                     "narrative_hint": player_input,

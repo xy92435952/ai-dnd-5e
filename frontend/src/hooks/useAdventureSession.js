@@ -21,7 +21,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { gameApi } from '../api/client'
+import { gameApi } from '../api/game'
 import { useGameStore } from '../store/gameStore'
 
 export function useAdventureSession({ sessionId, onLoaded, onError }) {
