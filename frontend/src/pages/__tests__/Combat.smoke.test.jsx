@@ -185,6 +185,29 @@ describe('Combat render smoke', () => {
     errSpy.mockRestore()
   })
 
+  it('初始战斗加载失败时显示可重试错误并能恢复', async () => {
+    getCombatMock
+      .mockRejectedValueOnce(new Error('combat missing'))
+      .mockResolvedValueOnce(combatFixture)
+
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/combat missing/)
+    fireEvent.click(screen.getByRole('button', { name: /重试/ }))
+
+    await waitFor(() => {
+      expect(getCombatMock).toHaveBeenCalledTimes(2)
+    })
+    expect(await screen.findByText(/结束回合/)).toBeInTheDocument()
+    expect(screen.queryByText(/combat missing/)).not.toBeInTheDocument()
+  })
+
   it('can open the player character sheet from combat', async () => {
     render(
       <MemoryRouter initialEntries={['/combat/sess-1']}>

@@ -1,9 +1,5 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { charactersApi } from '../api/characters'
-import { gameApi } from '../api/game'
-import { modulesApi } from '../api/modules'
-import { roomsApi } from '../api/rooms'
 import { useGameStore } from '../store/gameStore'
 import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
@@ -18,10 +14,10 @@ import CharacterCreateStepEquipment from '../components/character-create/Charact
 import CharacterCreateStepSpells from '../components/character-create/CharacterCreateStepSpells'
 import CharacterCreateStepFeats from '../components/character-create/CharacterCreateStepFeats'
 import CharacterCreateStepParty from '../components/character-create/CharacterCreateStepParty'
+import { useCharacterCreateFlow } from '../hooks/useCharacterCreateFlow'
 import { useCharacterCreateState } from '../hooks/useCharacterCreateState'
 import {
   buildCharacterCreateModel,
-  normalizeCharacterOptions,
 } from '../utils/characterCreate'
 import { ErrorState, LoadingState } from '../components/feedback/AsyncState'
 
@@ -94,27 +90,6 @@ export default function CharacterCreate() {
     toggleSpell: toggleSpellState,
   } = state
 
-  useEffect(() => {
-    let cancelled = false
-
-    const loadData = async () => {
-      try {
-        const [mod, opts] = await Promise.all([modulesApi.get(moduleId), charactersApi.options()])
-        if (cancelled) return
-        setModule(mod)
-        setSelectedModule(mod)
-        setOptions(normalizeCharacterOptions(opts))
-        setForm(f => ({ ...f, level: mod.level_min || 1 }))
-        setPartySize(mod.recommended_party_size || 4)
-      } catch (e) {
-        if (!cancelled) setError(e.message)
-      }
-    }
-
-    loadData()
-    return () => { cancelled = true }
-  }, [moduleId, setModule, setSelectedModule, setOptions, setForm, setPartySize, setError])
-
   const model = useMemo(() => buildCharacterCreateModel({
     form,
     options,
@@ -161,91 +136,45 @@ export default function CharacterCreate() {
     return name
   }
 
-  // ── 保存角色 ───────────────────────────────────────────
-  const handleSaveAndContinue = async () => {
-    setSaving(true); setError('')
-    try {
-      const multiclassInfo = form.multiclassEnabled && form.multiclass_class
-        ? { char_class: form.multiclass_class, level: form.multiclass_level } : null
-      // 叙事字段：空串发 null 让后端识别"未填"
-      const narrativePayload = {
-        personality:       narrative.personality.trim()       || null,
-        backstory:         narrative.backstory.trim()         || null,
-        speech_style:      narrative.speech_style.trim()      || null,
-        combat_preference: narrative.combat_preference.trim() || null,
-        catchphrase:       narrative.catchphrase.trim()       || null,
-      }
-      const char = await charactersApi.create({
-        module_id:         moduleId,
-        name:              form.name,
-        race:              form.race,
-        char_class:        form.char_class,
-        subclass:          form.subclass || null,
-        level:             form.level,
-        background:        form.background || null,
-        alignment:         form.alignment,
-        ability_scores:    baseScores,
-        proficient_skills: chosenSkills,
-        known_spells:      chosenSpells,
-        cantrips:          chosenCantrips,
-        multiclass_info:   multiclassInfo,
-        fighting_style:    fightingStyle || null,
-        equipment_choice:  equipChoice,
-        bonus_languages:   bonusLanguages,
-        feats:             chosenFeats,
-        ...narrativePayload,
-      })
-      setSavedCharId(char.id)
-      setPlayerCharacter(char)
-
-      if (isMultiplayerCreate) {
-        // 多人模式：角色创建完 → 认领到房间 → 返回房间页
-        try {
-          await roomsApi.claimChar(roomSessionId, char.id)
-        } catch (e) {
-          // 认领失败：保持在创角页并报错，避免用户回到房间看到"还需创建角色"
-          setError(`角色认领失败：${e?.message || '未知错误'}。角色已保存，请重试或联系管理员。`)
-          return
-        }
-        navigate(`/room/${roomSessionId}`)
-        return
-      }
-
-      // 单人模式：继续生成队伍流程
-      setStep(partyStep)
-      await handleGenerateParty(char.id)
-    } catch (e) { setError(e.message) }
-    finally { setSaving(false) }
-  }
-
-  const handleGenerateParty = async (charId) => {
-    setGeneratingParty(true)
-    try {
-      const result = await charactersApi.generateParty({
-        module_id: moduleId, player_character_id: charId || savedCharId, party_size: partySize,
-      })
-      setLocalCompanions(result.companions)
-      setCompanions(result.companions)
-    } catch (e) { setError(`队伍生成失败: ${e.message}`) }
-    finally { setGeneratingParty(false) }
-  }
-
-  const handleStartAdventure = async () => {
-    setSaving(true)
-    try {
-      const result = await gameApi.createSession({
-        module_id: moduleId, player_character_id: savedCharId,
-        companion_ids: companions.map(c => c.id),
-        save_name: `${form.name}的冒险`,
-      })
-      // 先触发"传奇诞生"仪式（4.2s），结束后 navigate
-      setForgeTargetPath(`/adventure/${result.session_id}`)
-      setForgeOpen(true)
-    } catch (e) {
-      setError(e.message)
-      setSaving(false)
-    }
-  }
+  const {
+    handleGenerateParty,
+    handleSaveAndContinue,
+    handleStartAdventure,
+  } = useCharacterCreateFlow({
+    moduleId,
+    roomSessionId,
+    isMultiplayerCreate,
+    form,
+    baseScores,
+    chosenSkills,
+    chosenSpells,
+    chosenCantrips,
+    fightingStyle,
+    equipChoice,
+    bonusLanguages,
+    chosenFeats,
+    narrative,
+    partySize,
+    partyStep,
+    savedCharId,
+    companions,
+    setModule,
+    setSelectedModule,
+    setOptions,
+    setForm,
+    setPartySize,
+    setError,
+    setSaving,
+    setSavedCharId,
+    setPlayerCharacter,
+    setStep,
+    setGeneratingParty,
+    setLocalCompanions,
+    setCompanions,
+    setForgeTargetPath,
+    setForgeOpen,
+    navigate,
+  })
 
   if (!module) {
     return error

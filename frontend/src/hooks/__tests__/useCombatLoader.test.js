@@ -56,7 +56,7 @@ describe('useCombatLoader', () => {
     return { deps, aiTimer, ...renderHook(() => useCombatLoader(deps)) }
   }
 
-  it('loads combat/session data and shows the first-round initiative roll', async () => {
+  it('loads combat/session data and shows server initiative without blocking on a local roll', async () => {
     getCombatMock.mockResolvedValue({
       round_number: 1,
       current_turn_index: 0,
@@ -82,7 +82,7 @@ describe('useCombatLoader', () => {
     expect(getSessionMock).toHaveBeenCalledWith('sess-1')
     expect(deps.setPlayerId).toHaveBeenCalledWith('char-1')
     expect(deps.setInitiativeShown).toHaveBeenCalledWith(true)
-    expect(rollDice3DMock).toHaveBeenCalledWith(20)
+    expect(rollDice3DMock).not.toHaveBeenCalled()
     expect(deps.showDice).toHaveBeenCalledWith({ faces: 20, result: 12, label: '先攻检定' })
   })
 

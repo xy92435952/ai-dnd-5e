@@ -173,6 +173,41 @@ describe('Adventure render smoke', () => {
     cleanup()
   })
 
+  it('初始会话加载失败时显示可重试错误并能恢复', async () => {
+    getSessionMock
+      .mockRejectedValueOnce(new Error('session missing'))
+      .mockResolvedValueOnce({
+        ...sessionFixture,
+        player: {
+          id: 'char-1',
+          name: 'Tester',
+          char_class: 'Wizard',
+          hp_current: 10,
+          derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+          proficient_skills: [],
+        },
+      })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/session missing/)
+    fireEvent.click(screen.getByRole('button', { name: /重试/ }))
+
+    await waitFor(() => {
+      expect(getSessionMock).toHaveBeenCalledTimes(2)
+    })
+    expect(await screen.findByText(/Test Module/)).toBeInTheDocument()
+    expect(screen.queryByText(/session missing/)).not.toBeInTheDocument()
+
+    cleanup()
+  })
+
   it('点击 DM 生成的普通选项时带 ai_generated_choice 来源', async () => {
     actionMock.mockResolvedValue({
       type: 'exploration',

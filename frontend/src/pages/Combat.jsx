@@ -126,7 +126,7 @@ export default function Combat() {
   // ── 渲染 ───────────────────────────────────────────────
   if (!combat) {
     return error
-      ? <ErrorState error={error} fullScreen />
+      ? <ErrorState error={error} onRetry={runtime.loadCombat} fullScreen />
       : <LoadingState text="加载战斗中…" />
   }
 

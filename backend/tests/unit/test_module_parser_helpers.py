@@ -1,6 +1,9 @@
 import json
 
+import pytest
+
 from services.graphs.module_parser import _try_parse_json as facade_try_parse_json
+from services.graphs import module_parser
 from services.graphs.module_parser_helpers import (
     _fill_monster_defaults,
     _merge_module_partials,
@@ -88,3 +91,18 @@ def test_fill_monster_defaults_adds_combat_ready_fields():
     assert monster["hp_dice"]
     assert monster["tactics"]
     json.dumps(monster, ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_generate_rag_chunks_degrades_to_empty_when_single_batch_llm_fails(monkeypatch):
+    async def fail_chunks(*args, **kwargs):
+        raise RuntimeError("upstream disconnected")
+
+    monkeypatch.setattr(module_parser, "_call_chunks_llm", fail_chunks)
+
+    result = await module_parser.generate_rag_chunks({
+        "module_data": {"name": "矿洞", "scenes": [{"name": "入口"}]},
+        "module_data_json": json.dumps({"name": "矿洞", "scenes": [{"name": "入口"}]}, ensure_ascii=False),
+    })
+
+    assert json.loads(result["llm_chunk_output"]) == []

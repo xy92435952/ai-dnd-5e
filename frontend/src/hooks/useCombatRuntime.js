@@ -153,6 +153,7 @@ export function useCombatRuntime({
     wsConnected,
     logs,
     logsEndRef,
+    loadCombat: flow.loadCombat,
     derived,
     actions: {
       onSkillClick,

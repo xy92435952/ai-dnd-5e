@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react'
 import { gameApi } from '../api/game'
-import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyCombatSessionSnapshot } from '../utils/combatSession'
 
 export function useCombatLoader({
@@ -30,6 +29,7 @@ export function useCombatLoader({
     try {
       const data = await gameApi.getCombat(sessionId)
       const sessionData = await gameApi.getSession(sessionId)
+      setError('')
       const { playerId: pid, playerEntry } = applyCombatSessionSnapshot({
         combatData: data,
         sessionData,
@@ -51,8 +51,7 @@ export function useCombatLoader({
       if (data.round_number === 1 && !initiativeShown && pid) {
         if (playerEntry && playerEntry.initiative != null) {
           setInitiativeShown(true)
-          await rollDice3D(20)
-          const d20Val = playerEntry.d20 || playerEntry.initiative
+          const d20Val = playerEntry.d20 ?? playerEntry.initiative
           showDice({ faces: 20, result: d20Val, label: '先攻检定' })
         }
       }

@@ -7,6 +7,8 @@ WF3 — DM Agent LangGraph 图
 
 from __future__ import annotations
 
+import asyncio
+
 from langgraph.graph import END, StateGraph
 
 from services.graphs.dm_agent_nodes import (
@@ -46,36 +48,49 @@ _build_input_meta = build_input_meta
 # Build graph
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+_compiled_graph = None
+_graph_compile_lock = asyncio.Lock()
+
+
 async def build_dm_agent_graph():
-    checkpointer = await get_memory_saver()
+    global _compiled_graph
+    if _compiled_graph is not None:
+        return _compiled_graph
 
-    g = StateGraph(DMAgentState)
-    g.add_node("input_layer", input_layer)
-    g.add_node("refuse_and_end", refuse_and_end)
-    g.add_node("rules_layer", rules_layer)
-    g.add_node("pre_roll_dice", pre_roll_dice)
-    g.add_node("combat_dm", combat_dm)
-    g.add_node("explore_dm", explore_dm)
-    g.add_node("memory_layer", memory_layer)
-    g.add_node("parse_validate", parse_validate)
+    async with _graph_compile_lock:
+        if _compiled_graph is not None:
+            return _compiled_graph
 
-    g.set_entry_point("input_layer")
-    g.add_conditional_edges("input_layer", route_after_guard, {
-        "proceed": "pre_roll_dice",
-        "refuse": "refuse_and_end",
-    })
-    g.add_edge("refuse_and_end", END)
-    g.add_edge("pre_roll_dice", "rules_layer")
-    g.add_edge("rules_layer", "memory_layer")
-    g.add_conditional_edges("memory_layer", route_by_mode, {
-        "combat_dm": "combat_dm",
-        "explore_dm": "explore_dm",
-    })
-    g.add_edge("combat_dm", "parse_validate")
-    g.add_edge("explore_dm", "parse_validate")
-    g.add_edge("parse_validate", END)
+        checkpointer = await get_memory_saver()
 
-    return g.compile(checkpointer=checkpointer)
+        g = StateGraph(DMAgentState)
+        g.add_node("input_layer", input_layer)
+        g.add_node("refuse_and_end", refuse_and_end)
+        g.add_node("rules_layer", rules_layer)
+        g.add_node("pre_roll_dice", pre_roll_dice)
+        g.add_node("combat_dm", combat_dm)
+        g.add_node("explore_dm", explore_dm)
+        g.add_node("memory_layer", memory_layer)
+        g.add_node("parse_validate", parse_validate)
+
+        g.set_entry_point("input_layer")
+        g.add_conditional_edges("input_layer", route_after_guard, {
+            "proceed": "pre_roll_dice",
+            "refuse": "refuse_and_end",
+        })
+        g.add_edge("refuse_and_end", END)
+        g.add_edge("pre_roll_dice", "rules_layer")
+        g.add_edge("rules_layer", "memory_layer")
+        g.add_conditional_edges("memory_layer", route_by_mode, {
+            "combat_dm": "combat_dm",
+            "explore_dm": "explore_dm",
+        })
+        g.add_edge("combat_dm", "parse_validate")
+        g.add_edge("explore_dm", "parse_validate")
+        g.add_edge("parse_validate", END)
+
+        _compiled_graph = g.compile(checkpointer=checkpointer)
+        return _compiled_graph
 
 
 async def run_dm_agent(

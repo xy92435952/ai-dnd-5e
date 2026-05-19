@@ -186,7 +186,14 @@ async def generate_rag_chunks(state: ModuleParserState) -> dict:
 
     # 单批：走原逻辑（保持与短模组行为兼容）
     if len(sub_batches) == 1:
-        chunks = await _call_chunks_llm(state["module_data_json"])
+        try:
+            chunks = await _call_chunks_llm(state["module_data_json"])
+        except Exception as exc:
+            logger.warning(
+                "module_parser: RAG chunks 生成失败，降级为空 chunks，不阻断模组解析: %s",
+                exc,
+            )
+            chunks = []
         return {"llm_chunk_output": json.dumps(chunks, ensure_ascii=False)}
 
     # 多批：分批生成 + 合并

@@ -42,7 +42,7 @@ import AdventureBottomHud from '../components/adventure/AdventureBottomHud'
 import MultiplayerPartyPanel from '../components/adventure/MultiplayerPartyPanel'
 import MultiplayerTableNotice from '../components/adventure/MultiplayerTableNotice'
 import MultiplayerTimelinePanel from '../components/adventure/MultiplayerTimelinePanel'
-import { LoadingState, ReconnectNotice } from '../components/feedback/AsyncState'
+import { ErrorState, LoadingState, ReconnectNotice } from '../components/feedback/AsyncState'
 import { buildDialogueQueue as buildDialogueQueueFromText } from '../utils/dialogue'
 import { getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
 
@@ -104,6 +104,7 @@ export default function Adventure() {
   // 3. handleSessionLoaded —— 函数定义不触发 body 内部 TDZ；body 中引用的 setPendingCheck /
   //    setChoices 在调用时（loadSession async 完成）必然已初始化
   const handleSessionLoaded = (data) => {
+    setError('')
     const restored = getRestoredTurnState(data, myUserId)
     if (restored.clearTurnState) {
       setChoices([])
@@ -219,7 +220,11 @@ export default function Adventure() {
   } = useAdventureDerivedState({ session, player, companions, logs })
 
   // 早期 loading 状态
-  if (!session) return <LoadingState text="召唤冒险中…" />
+  if (!session) {
+    return error
+      ? <ErrorState error={error} onRetry={loadSession} fullScreen />
+      : <LoadingState text="召唤冒险中…" />
+  }
 
   // 对话史册视图（全屏覆盖）
   if (showHistory) {
@@ -238,7 +243,15 @@ export default function Adventure() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#06040a', position: 'relative', zIndex: 1 }}>
       <DiceRollerOverlay />
       {prepareOpen && player && <PrepareSpellsModal player={player} onSave={handlePrepareSpells} onClose={() => setPrepareOpen(false)} />}
-      {journalOpen && <JournalModal text={journalText} loading={journalLoading} onGenerate={handleGenerateJournal} onClose={() => setJournalOpen(false)} />}
+      {journalOpen && (
+        <JournalModal
+          text={journalText}
+          loading={journalLoading}
+          campaignState={session?.campaign_state}
+          onGenerate={handleGenerateJournal}
+          onClose={() => setJournalOpen(false)}
+        />
+      )}
       {restOpen && <RestModal onRest={handleRest} onClose={() => setRestOpen(false)} />}
 
       <MultiplayerSpeakBar

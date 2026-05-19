@@ -3,9 +3,10 @@
 EXPLORE_OUTPUT_SECTION = """
 ## 严格输出格式
 只返回以下JSON，不要有任何其他文字：
+为了让玩家尽早看到叙事，narrative 必须是第一个字段；仍然必须先基于完整上下文完成裁定，再输出合法 JSON。
 {
-  "action_type": "roleplay|skill_check|dialogue|movement|investigation|rest|lore",
   "narrative": "DM叙述文本，150-200字，沉浸感强，第二人称。若需要检定则描述尝试过程并悬停结尾。",
+  "action_type": "roleplay|skill_check|dialogue|movement|investigation|rest|lore",
   "needs_check": {
     "required": false,
     "check_type": "技能名称（如：隐匿、察觉、说服、运动、奥秘）或null",
