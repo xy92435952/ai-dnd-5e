@@ -32,8 +32,18 @@ export default function AdventureBottomHud({
         keyDecisions={keyDecisions}
       />
 
-      <div style={{ display: 'flex', gap: 4 }}>
-        <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenJournal}>☰ 卷宗</button>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+        <button
+          type="button"
+          className="skill-chip"
+          data-testid="open-journal-button"
+          aria-label="打开卷宗"
+          title="打开卷宗"
+          style={{ padding: '6px 12px', fontSize: 10 }}
+          onClick={onOpenJournal}
+        >
+          ☰ 卷宗
+        </button>
       </div>
     </div>
   )

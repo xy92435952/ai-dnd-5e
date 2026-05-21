@@ -10,11 +10,15 @@ export default function DialogueStagePlayer({
   if (!dialogueQueue[dialogueIdx]) return null
 
   return (
-    <div
+    <button
+      type="button"
+      aria-label="继续对话"
       onClick={onAdvanceDialogue}
       style={{
         padding: '20px 28px 10px', maxWidth: 900, margin: '0 auto',
         cursor: 'pointer', userSelect: 'none',
+        display: 'block', width: '100%',
+        background: 'none', border: 'none', textAlign: 'left',
       }}
     >
       <StageBubble seg={dialogueQueue[dialogueIdx]} typingText={typingText} typingDone={typingDone} />
@@ -28,6 +32,6 @@ export default function DialogueStagePlayer({
           {typingDone ? '▸ 点击继续（空格/回车）' : '… 打字中（点击跳过）'}
         </span>
       </div>
-    </div>
+    </button>
   )
 }
