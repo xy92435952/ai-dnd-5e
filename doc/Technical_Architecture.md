@@ -445,8 +445,8 @@ npm run build
 
 ## 10. 已知技术债
 
-- `npm run lint` 会扫到 `frontend/public/design-preview-*` 旧设计稿和部分 React Compiler 风格规则报错；当前发布以 `npm test` 和 `npm run build` 为准。
-- 前端 chunk 较大，Dice / world 资源后续适合动态 import。
+- `npm run lint` 当前应为 0 errors；仍可能存在未使用变量和 hooks 依赖类历史 warning，暂不作为发布阻断。
+- 前端部分 chunk 仍偏大；DiceBox 已按需动态 import，world / 其他大资源后续适合继续拆分。
 - DM Agent prompt 和规则层还可以继续拆成更小的 prompt 模板和 policy 文件。
 - 部分 5e 子职业/反应/召唤物等高级规则仍为近似实现。
 - 多人 WebSocket 仍是进程内管理，横向扩容需要 Redis pub/sub 或外部消息层。

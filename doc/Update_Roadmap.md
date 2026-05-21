@@ -123,8 +123,8 @@ backend/.venv-codex/bin/pytest \
 - [x] `campaign_delta` 输出契约接入探索 prompt。
 - [x] `StateApplicator` 将 `campaign_delta` 写入 `session.campaign_state` 和 `session.game_state.scene_vibe`。
 - [x] Adventure HUD 显示最近任务、线索、NPC 关系和关键决定。
-- [ ] 卷宗 / Journal 面板升级：按任务、线索、NPC、关键决定分栏浏览。
-- [ ] 为 NPC 关系变化增加更明确的前端提示或日志条目。
+- [x] 卷宗 / Journal 面板升级：按任务、线索、NPC、关键决定分栏浏览。
+- [~] 为 NPC 关系变化增加更明确的前端提示或日志条目：Adventure HUD 已显示 NPC 关系和关键决定；仍可继续补更显眼的日志条目。
 - [ ] 给真实 LLM 冒险测试增加 campaign memory 断言。
 
 ### P2：战斗体验
@@ -138,17 +138,17 @@ backend/.venv-codex/bin/pytest \
 
 ### P3：前端结构
 
-- [ ] CharacterCreate 继续拆 hook，降低页面状态密度。
-- [ ] Dice / world 大 chunk 动态加载。
-- [ ] 统一 Adventure / Combat 错误态和 loading 态，避免无效 session 长时间只显示加载。
-- [ ] 给新增组件补齐 smoke / interaction 测试。
+- [x] CharacterCreate 继续拆 hook，降低页面状态密度：`useCharacterCreateState` 和 `useCharacterCreateFlow` 已接入页面。
+- [~] Dice / world 大 chunk 动态加载：DiceBox 已按需 `import()`；world / 其他大资源仍可继续拆。
+- [x] 统一 Adventure / Combat 错误态和 loading 态，避免无效 session 长时间只显示加载。
+- [~] 给新增组件补齐 smoke / interaction 测试：Journal、Adventure/Combat 初始失败重试、CharacterCreate hooks、多人分队面板/桌面提示已有覆盖；后续新增组件仍按需补。
 
 ### P4：多人和部署
 
 - [ ] WebSocket 房间状态横向扩容方案：Redis pub/sub 或外部消息层。
-- [ ] 离线玩家自动跳过 / AI 代演策略可配置。
-- [ ] 房主控制：跳过、重骰、长休、补 AI 队友。
-- [ ] 部署脚本区分本地 SQLite、生产 PostgreSQL、Docker 三条路径。
+- [~] 离线玩家自动跳过 / AI 代演策略可配置：离线当前发言者 AI 代演已接入；自动跳过和策略配置仍未产品化。
+- [~] 房主控制：踢人、转让、开始游戏、补 AI 队友已有；重骰和专属长休/跳过控制仍未完整产品化。
+- [~] 部署脚本区分本地 SQLite、生产 PostgreSQL、Docker 三条路径：文档、Docker Compose、生产 PostgreSQL 检查和本地 SQLite 路径已有；脚本入口仍可继续收敛。
 
 ## 历史里程碑
 
@@ -175,3 +175,7 @@ backend/.venv-codex/bin/pytest \
 - 多人 WebSocket 为进程内管理，暂不适合多后端实例横向扩容。
 - DM prompt 仍有进一步模块化空间。
 - 生产脚本默认后端端口 8000；本地开发 Vite 代理仍默认 8002，部署时可用 `AI_TRPG_BACKEND_PORT` 显式覆盖。
+
+## 文档同步记录
+
+- 2026-05-21：按实际代码同步路线图状态。Journal 分栏、Adventure / Combat 初始错误重试、CharacterCreate state/flow hooks、DiceBox 按需加载、多人分队状态与 RoomStateUpdated、Adventure Party Panel 已落地；Redis pub/sub、Redis-backed rate limit、worker 队列、对象存储/RAG 外部化和部分房主高级控制仍为后续工作。

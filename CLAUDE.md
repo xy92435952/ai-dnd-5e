@@ -1012,20 +1012,22 @@ endTurn(sessionId)
 
 ### 5e 规则合规性待办（Phase 13 全面审计结果）
 
+> **状态同步（2026-05-21）：** 下表是历史审计清单。P0 中多项已经在后续版本实现或部分实现，当前开发请以 `doc/Update_Roadmap.md` 和实际测试为准。
+
 #### P0 — 核心规则缺失（影响游戏平衡）
 
-| # | 功能 | 说明 | 涉及文件 |
-|---|------|------|----------|
-| P0-1 | **Extra Attack** | Lv5+ 战士/圣武士/游侠/野蛮人/武僧每回合 2 次攻击 | combat.py `/action` |
-| P0-2 | **Divine Smite** | 圣骑士命中后消耗法术位 +2d8 辐射伤害（+1d8/环级） | combat.py 新端点 |
-| P0-3 | **Sneak Attack** | 游荡者有优势或盟友相邻时 +Nd6 伤害（N=等级/2 向上取整） | combat_service.py |
-| P0-4 | **Rage（狂暴）** | 野蛮人：+伤害/物理抗性/力量优势，持续1分钟 | combat_service.py |
-| P0-5 | **核心职业特性** | Cunning Action(游荡者)/Second Wind(战士)/Action Surge(战士)/Flurry of Blows(武僧) | combat.py |
-| P0-6 | **反应系统** | 敌人攻击时玩家选择窗口：Shield法术(+5AC)/Uncanny Dodge(伤害减半)/Hellish Rebuke | combat.py + Combat.jsx |
-| P0-7 | **借机攻击前端** | 后端已实现，前端需要：移动时弹出提示 + 反应选择 | Combat.jsx |
-| P0-8 | **掩体系统** | 半掩体+2AC / 3/4掩体+5AC / 完全掩体不可瞄准 | combat_service.py |
-| P0-9 | **升级系统** | XP/里程碑追踪 → HP增长 → 新法术位 → ASI/专长 | dnd_rules.py + 新端点 |
-| P0-10 | **生命骰池** | 短休时消耗生命骰恢复HP（当前无限制） | game.py `/rest` |
+| # | 功能 | 当前状态 | 说明 | 涉及文件 |
+|---|------|----------|------|----------|
+| P0-1 | **Extra Attack** | 已实现 | Lv5+ 战斗职业每回合多次攻击，已接入回合行动上限和攻击准备流程 | `combat_turn_limits_service.py` / `combat_attack_prepare_service.py` |
+| P0-2 | **Divine Smite** | 已实现 | 圣骑士命中后消耗法术位追加辐光伤害，前端有 SmitePrompt | `api/combat/smites.py` / `CombatOverlays.jsx` |
+| P0-3 | **Sneak Attack** | 已实现 | 游荡者优势或盟友相邻时追加偷袭伤害 | `combat_attack_damage_service.py` |
+| P0-4 | **Rage（狂暴）** | 已实现 | 狂暴资源、开关、伤害加值和物理抗性已接入 | `combat_class_feature_service.py` / `combat_attack_damage_service.py` |
+| P0-5 | **核心职业特性** | 已实现/持续扩展 | Cunning Action、Second Wind、Action Surge、Flurry of Blows 等已接入，更多子职业能力仍持续补强 | `api/combat/class_features.py` |
+| P0-6 | **反应系统** | 已实现/持续扩展 | Shield、Uncanny Dodge、Hellish Rebuke 有反应端点和前端提示；复杂反应窗口仍可继续打磨 | `api/combat/reactions.py` / `ReactionPrompt.jsx` |
+| P0-7 | **借机攻击前端** | 部分实现 | 后端已实现借机攻击；前端已有反应提示体系，移动风险提示仍可继续增强 | `api/combat/movement.py` / `ReactionPrompt.jsx` |
+| P0-8 | **掩体系统** | 已实现/近似 | 攻击准备阶段计算 cover bonus；完全掩体和复杂地形仍可继续精细化 | `combat_attack_prepare_service.py` / `combat_tactical_service.py` |
+| P0-9 | **升级系统** | 已实现/基础版 | 已有 level-up 端点、HP 增长、ASI/专长选择和法术位更新；XP/里程碑产品流仍可继续完善 | `api/character_progression.py` |
+| P0-10 | **生命骰池** | 已实现 | 短休消耗生命骰恢复 HP，长休恢复部分生命骰 | `api/game_routes/campaign.py` |
 
 #### P1 — 重要平衡功能
 
