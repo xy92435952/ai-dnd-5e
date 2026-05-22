@@ -41,6 +41,20 @@ async def test_rate_limit_middleware_can_be_disabled(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_rate_limit_uses_full_bearer_token_identity(client, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_default_per_minute", 1)
+    rate_limiter.clear()
+
+    prefix = "Bearer " + ("x" * 40)
+    first = await client.get("/health", headers={"Authorization": prefix + "a"})
+    second = await client.get("/health", headers={"Authorization": prefix + "b"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_ready_reports_beta_limits_and_ws_status(client, monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", False)
     monkeypatch.setattr(settings, "env", "development")

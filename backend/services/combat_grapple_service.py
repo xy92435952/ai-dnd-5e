@@ -36,6 +36,7 @@ async def resolve_grapple_shove(
     action_type: str,
     target_id: str,
     shove_type: str = "prone",
+    actor_id: str | None = None,
     combat_service: CombatService = svc,
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     save_turn_state_func: Callable[[Any, str, dict[str, Any]], None] = save_turn_state,
@@ -46,11 +47,11 @@ async def resolve_grapple_shove(
     if not combat:
         raise CombatGrappleError(404, "战斗状态不存在")
 
-    player = await db.get(Character, session.player_character_id)
+    player_id = actor_id or session.player_character_id
+    player = await db.get(Character, player_id)
     if not player:
         raise CombatGrappleError(404, "玩家角色不存在")
 
-    player_id = session.player_character_id
     turn_state = get_turn_state(combat, player_id)
     max_attacks = combat_service.get_attack_count(
         player.derived or {},

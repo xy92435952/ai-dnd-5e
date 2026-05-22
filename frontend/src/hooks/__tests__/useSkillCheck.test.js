@@ -78,6 +78,8 @@ describe('useSkillCheck', () => {
       skill:        '运动',
       dc:           15,
       d20_value:    17,
+      advantage:    false,
+      disadvantage: false,
     })
     // 写了一条 dice log
     expect(addLog).toHaveBeenCalledWith(
@@ -92,6 +94,35 @@ describe('useSkillCheck', () => {
     // pending 清空、rolling 复位
     expect(result.current.pendingCheck).toBeNull()
     expect(result.current.checkRolling).toBe(false)
+  })
+
+  it('rollPending uses the higher d20 for advantage checks', async () => {
+    rollDice3D
+      .mockResolvedValueOnce({ total: 8 })
+      .mockResolvedValueOnce({ total: 17 })
+    gameApi.skillCheck.mockResolvedValue({
+      d20: 17, modifier: 4, total: 21, success: true, proficient: true,
+      advantage: true, disadvantage: false,
+    })
+
+    const { result } = createHook()
+    act(() => {
+      result.current.setPendingCheck({
+        check_type: '运动',
+        dc: 15,
+        advantage: true,
+        disadvantage: false,
+      })
+    })
+
+    await act(async () => { await result.current.rollPending() })
+
+    expect(rollDice3D).toHaveBeenCalledTimes(2)
+    expect(gameApi.skillCheck).toHaveBeenCalledWith(expect.objectContaining({
+      d20_value: 17,
+      advantage: true,
+      disadvantage: false,
+    }))
   })
 
   it('自然 20：触发 crit 音效', async () => {

@@ -90,6 +90,11 @@ export function useDialogueWsSync({
         setRoom(prev => mergeRealtimeRoomEvent(prev, event))
         break
 
+      case 'rest_vote_resolved':
+        setIsLoading(false)
+        loadSession()
+        break
+
       case 'member_online':
       case 'member_offline':
       case 'member_joined':

@@ -69,6 +69,8 @@ export function useCombatRuntime({
   })
   const flow = useCombatFlowHandlers({
     sessionId,
+    room,
+    myCharacterId,
     showDice,
     page,
     targeting,
@@ -101,14 +103,16 @@ export function useCombatRuntime({
     viewWidth: COMBAT_GRID.viewWidth,
     viewHeight: COMBAT_GRID.viewHeight,
   })
+  const canActInCombat = room?.is_multiplayer ? derived.isMyTurnMP : derived.isPlayerTurn
 
   const { onWsEvent, onSkillClick, handleMoveTo, handleSpellHover } = useCombatPageActions({
     sessionId,
     setRoom,
     myCharacterId,
+    playerId,
     moveMode,
     isProcessing,
-    isPlayerTurn: derived.isPlayerTurn,
+    isPlayerTurn: canActInCombat,
     selectedTarget,
     entityPositions: derived.entityPositions,
     playerPos: derived.playerPos,

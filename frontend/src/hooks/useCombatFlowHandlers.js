@@ -6,10 +6,12 @@ import { useCombatPlayerActions } from './useCombatPlayerActions'
 import { useCombatSpecialActions } from './useCombatSpecialActions'
 import { useCombatSpellFlow } from './useCombatSpellFlow'
 import { useCombatTurnControls } from './useCombatTurnControls'
-import { isPlayerCombatTurn } from '../utils/combat'
+import { isMyCombatTurn, isPlayerCombatTurn } from '../utils/combat'
 
 export function useCombatFlowHandlers({
   sessionId,
+  room,
+  myCharacterId,
   showDice,
   page,
   targeting,
@@ -54,7 +56,13 @@ export function useCombatFlowHandlers({
   } = targeting
   const { setLogs, addLog } = log
 
-  const isPlayerTurn = useCallback((combatState) => isPlayerCombatTurn(combatState), [])
+  const isHumanPlayerTurn = useCallback((combatState) => isPlayerCombatTurn(combatState), [])
+  const canActInCombat = useCallback((combatState) => {
+    if (room?.is_multiplayer) {
+      return isMyCombatTurn({ room, combat: combatState, myCharacterId })
+    }
+    return isPlayerCombatTurn(combatState)
+  }, [room, myCharacterId])
 
   const { triggerAiTurn } = useCombatAiTurns({
     sessionId,
@@ -89,14 +97,14 @@ export function useCombatFlowHandlers({
     setError,
     showDice,
     triggerAiTurn,
-    isPlayerTurn,
+    isPlayerTurn: isHumanPlayerTurn,
   })
 
   const { handleEndTurn } = useCombatTurnControls({
     sessionId,
     combat,
     isProcessing,
-    isPlayerTurn,
+    isPlayerTurn: canActInCombat,
     processingRef,
     aiTimer,
     setIsProcessing,
@@ -117,7 +125,7 @@ export function useCombatFlowHandlers({
     isRanged,
     combat,
     isProcessing,
-    isPlayerTurn,
+    isPlayerTurn: canActInCombat,
     processingRef,
     setIsProcessing,
     setError,
@@ -135,6 +143,8 @@ export function useCombatFlowHandlers({
     playerId,
     selectedTarget,
     isProcessing,
+    isPlayerTurn: canActInCombat,
+    combat,
     processingRef,
     setIsProcessing,
     setSpellModalOpen,
@@ -158,7 +168,7 @@ export function useCombatFlowHandlers({
     playerId,
     combat,
     isProcessing,
-    isPlayerTurn,
+    isPlayerTurn: canActInCombat,
     processingRef,
     setIsProcessing,
     setError,
@@ -177,6 +187,8 @@ export function useCombatFlowHandlers({
     sessionId,
     selectedTarget,
     isProcessing,
+    isPlayerTurn: canActInCombat,
+    combat,
     smitePrompt,
     playerSubclassEffects,
     processingRef,
@@ -195,7 +207,7 @@ export function useCombatFlowHandlers({
   })
 
   return {
-    isPlayerTurn,
+    isPlayerTurn: canActInCombat,
     loadCombat,
     handleEndTurn,
     handleAttack,

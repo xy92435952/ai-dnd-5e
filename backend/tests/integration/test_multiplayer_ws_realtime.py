@@ -171,6 +171,13 @@ async def test_ws_typing_and_speak_done_drive_table_realtime_events(
         assert host_turn == guest_turn
         assert host_turn["user_id"] == guest["user_id"]
         assert host_turn["auto"] is False
+
+        room = await client.get(
+            f"/game/rooms/{created['session_id']}",
+            headers=_h(host["token"]),
+        )
+        assert room.status_code == 200, room.text
+        assert room.json()["current_speaker_user_id"] == guest["user_id"]
     finally:
         await host_ws.disconnect()
         await guest_ws.disconnect()

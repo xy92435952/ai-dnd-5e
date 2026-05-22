@@ -176,6 +176,9 @@ export default function Adventure() {
     handleAction,
     handleDiceRoll,
     handleRest,
+    handleCreateRestVote,
+    handleRestVote,
+    handleCancelRestVote,
     handleGenerateJournal,
     handlePrepareSpells,
     handleCheckpoint,
@@ -204,6 +207,7 @@ export default function Adventure() {
     buildDialogueQueue,
     enterDialogueStage,
     rollPending,
+    setRoom,
   })
 
   // 打字机效果 + 空格推进 + advanceDialogue 全部抽到 useDialogueFlow
@@ -252,7 +256,18 @@ export default function Adventure() {
           onClose={() => setJournalOpen(false)}
         />
       )}
-      {restOpen && <RestModal onRest={handleRest} onClose={() => setRestOpen(false)} />}
+      {restOpen && (
+        <RestModal
+          onRest={handleRest}
+          onClose={() => setRestOpen(false)}
+          room={room}
+          myUserId={myUserId}
+          onCreateVote={handleCreateRestVote}
+          onVote={handleRestVote}
+          onCancelVote={handleCancelRestVote}
+          busy={isLoading}
+        />
+      )}
 
       <MultiplayerSpeakBar
         room={room}

@@ -26,8 +26,10 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models import SessionMember
 from models.character import Character
 from models.session import Session
 
@@ -65,6 +67,28 @@ class CharacterRoster:
         self._player_cache = await self.db.get(Character, pid)
         return self._player_cache
 
+    async def player_characters(self) -> list[Character]:
+        """加载本 session 中所有真人玩家角色。"""
+        if not self.session.is_multiplayer:
+            player = await self.player()
+            return [player] if player else []
+
+        rows = await self.db.execute(
+            select(SessionMember)
+            .where(SessionMember.session_id == self.session.id)
+            .order_by(SessionMember.joined_at.asc())
+        )
+        players: list[Character] = []
+        seen: set[str] = set()
+        for member in rows.scalars().all():
+            if not member.character_id or member.character_id in seen:
+                continue
+            char = await self.db.get(Character, member.character_id)
+            if char is not None:
+                players.append(char)
+                seen.add(char.id)
+        return players
+
     async def companions(self) -> list[Character]:
         """加载全部 AI 队友（按 game_state.companion_ids 顺序，跳过已删除）。"""
         if self._companions_cache is not None:
@@ -79,9 +103,10 @@ class CharacterRoster:
 
     async def party(self) -> list[Character]:
         """返回 [player] + companions，player 缺失时跳过。"""
-        player = await self.player()
+        players = await self.player_characters()
         comps = await self.companions()
-        return ([player] if player else []) + comps
+        seen = {player.id for player in players}
+        return players + [comp for comp in comps if comp.id not in seen]
 
     async def allies_alive(self) -> list[Character]:
         """战斗场景常用：整个队伍中 HP > 0 的成员。"""

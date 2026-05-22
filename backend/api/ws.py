@@ -11,6 +11,7 @@ from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 
 from database import AsyncSessionLocal
 from models import SessionMember, Session
@@ -121,8 +122,8 @@ async def _advance_speaker(db: AsyncSession, session_id: str, current_user_id: s
     session = await db.get(Session, session_id)
     if not session:
         return None
-    state = session.game_state or {}
-    mp = state.setdefault("multiplayer", {})
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
 
     members = await room_service.list_members(db, session_id)
     online_user_ids = [m["user_id"] for m in members if m["is_online"]]
@@ -140,6 +141,9 @@ async def _advance_speaker(db: AsyncSession, session_id: str, current_user_id: s
     mp["current_speaker_user_id"] = next_user
     if next_idx == 0:
         mp["speak_round"] = (mp.get("speak_round", 0) or 0) + 1
+    mp["speaker_turn_started_at"] = datetime.utcnow().isoformat()
+    state["multiplayer"] = mp
     session.game_state = state
+    flag_modified(session, "game_state")
     await db.commit()
     return next_user

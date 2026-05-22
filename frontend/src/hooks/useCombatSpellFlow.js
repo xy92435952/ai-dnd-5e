@@ -20,6 +20,8 @@ export function useCombatSpellFlow({
   playerId,
   selectedTarget,
   isProcessing,
+  isPlayerTurn,
+  combat,
   processingRef,
   setIsProcessing,
   setSpellModalOpen,
@@ -33,7 +35,7 @@ export function useCombatSpellFlow({
   showDice,
 }) {
   return useCallback(async (spell, level) => {
-    if (!playerId || isProcessing) return
+    if (!playerId || isProcessing || (isPlayerTurn && !isPlayerTurn(combat))) return
     const target = selectedTarget || null
     const effectiveTarget = spell.type === 'heal' ? (target || playerId) : target
 
@@ -147,6 +149,8 @@ export function useCombatSpellFlow({
     }
   }, [
     addLog,
+    combat,
+    isPlayerTurn,
     isProcessing,
     playerId,
     processingRef,

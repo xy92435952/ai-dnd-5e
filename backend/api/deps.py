@@ -7,7 +7,7 @@ from fastapi import HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import Session, Character, GameLog, CombatState
+from models import Session, Character, GameLog, CombatState, SessionMember
 
 
 # ── JWT 鉴权依赖 ─────────────────────────────────────
@@ -138,9 +138,19 @@ async def assert_can_act(
     if not session.is_multiplayer:
         return
 
+    member_result = await db.execute(
+        select(SessionMember).where(
+            SessionMember.session_id == session.id,
+            SessionMember.user_id == user_id,
+        )
+    )
+    member = member_result.scalar_one_or_none()
+    if member is None:
+        raise HTTPException(403, "你不在该房间")
+
     char = await db.get(Character, entity_id)
     if char is None:
-        return  # 让上层端点自己处理 404
+        raise HTTPException(403, "该实体不能由玩家操作")
 
     # AI 托管的角色（未被认领或已降级）→ 房间任意成员可触发
     if not char.is_player or char.user_id is None:
@@ -204,3 +214,39 @@ def current_turn_user_id(session: Session, combat: Optional[CombatState], charac
     except (IndexError, AttributeError):
         pass
     return None
+
+
+async def resolve_controlled_player_character(
+    session: Session,
+    user_id: str,
+    db: AsyncSession,
+) -> Character:
+    """Resolve the player character controlled by this user in the session."""
+    if not session.is_multiplayer:
+        if not session.player_character_id:
+            raise HTTPException(404, "玩家角色不存在")
+        player = await db.get(Character, session.player_character_id)
+        if not player:
+            raise HTTPException(404, "玩家角色不存在")
+        return player
+
+    member_result = await db.execute(
+        select(SessionMember).where(
+            SessionMember.session_id == session.id,
+            SessionMember.user_id == user_id,
+        )
+    )
+    member = member_result.scalar_one_or_none()
+    if member is None:
+        raise HTTPException(403, "你不在该房间")
+    if not member.character_id:
+        raise HTTPException(403, "你在该房间没有绑定角色")
+
+    player = await db.get(Character, member.character_id)
+    if not player:
+        raise HTTPException(404, "玩家角色不存在")
+    if player.session_id and player.session_id != session.id:
+        raise HTTPException(403, "角色不属于该房间")
+    if not player.is_player or player.user_id != user_id:
+        raise HTTPException(403, "这不是你的角色")
+    return player

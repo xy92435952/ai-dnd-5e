@@ -95,7 +95,7 @@ export interface paths {
         put?: never;
         /**
          * Generate Party
-         * @description 生成AI队友（调用 Dify WF2），自动应用种族加值和熟练
+         * @description 生成 AI 队友，自动应用种族加值和熟练。
          */
         post: operations["generate_party_characters_generate_party_post"];
         delete?: never;
@@ -272,8 +272,7 @@ export interface paths {
         put?: never;
         /**
          * Level Up
-         * @description 角色升级：递增等级，重算衍生属性，增加HP，更新法术位。
-         *     ASI 等级（4,8,12,16,19; Fighter额外6,14; Rogue额外10）可增加属性或选择专长。
+         * @description 角色升级：递增等级，重算衍生属性、HP、法术位和 ASI/专长。
          */
         post: operations["level_up_characters__character_id__level_up_post"];
         delete?: never;
@@ -391,11 +390,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Player Action
-         * @description 玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。
-         */
+        /** Player Action */
         post: operations["player_action_game_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/action/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Player Action Stream */
+        post: operations["player_action_stream_game_action_stream_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1379,6 +1392,23 @@ export interface paths {
          * @description 删除模组
          */
         delete: operations["delete_module_modules__module_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ready */
+        get: operations["ready_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2932,12 +2962,22 @@ export interface components {
         };
         /** SkillCheckRequest */
         SkillCheckRequest: {
+            /**
+             * Advantage
+             * @default false
+             */
+            advantage: boolean;
             /** Character Id */
             character_id: string;
             /** D20 Value */
             d20_value?: number | null;
             /** Dc */
             dc: number;
+            /**
+             * Disadvantage
+             * @default false
+             */
+            disadvantage: boolean;
             /** Session Id */
             session_id: string;
             /** Skill */
@@ -3734,6 +3774,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayerActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    player_action_stream_game_action_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5454,6 +5527,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ready_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

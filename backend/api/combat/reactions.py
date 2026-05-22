@@ -17,6 +17,7 @@ from models import Character, Session, GameLog, CombatState, Module
 from api.deps import (
     get_session_or_404, entity_snapshot, serialize_combat,
     get_user_id, assert_can_act, broadcast_to_session, current_turn_user_id,
+    resolve_controlled_player_character,
 )
 from services.combat_service import CombatService
 from services.spell_service import spell_service
@@ -49,6 +50,7 @@ async def use_reaction(
     session_id: str,
     req: ReactionRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """
     Player uses reaction during enemy turn.
@@ -64,11 +66,9 @@ async def use_reaction(
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
-    player = await db.get(Character, session.player_character_id)
-    if not player:
-        raise HTTPException(404, "玩家角色不存在")
-
-    player_id = session.player_character_id
+    player = await resolve_controlled_player_character(session, user_id, db)
+    player_id = player.id
+    await assert_can_act(session, user_id, player_id, db, require_current_turn=False)
     ts = _get_ts(combat, player_id)
     if ts.get("reaction_used"):
         raise HTTPException(400, "本回合反应已用尽")

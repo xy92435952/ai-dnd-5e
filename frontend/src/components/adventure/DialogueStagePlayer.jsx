@@ -12,6 +12,7 @@ export default function DialogueStagePlayer({
   return (
     <button
       type="button"
+      data-testid="dialogue-stage-continue"
       aria-label="继续对话"
       onClick={onAdvanceDialogue}
       style={{

@@ -88,6 +88,32 @@ class TestRollDice:
 
 
 class TestSkillCheck:
+    def test_advantage_flags_are_preserved(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"str": 2},
+                "proficiency_bonus": 2,
+            },
+            "proficient_skills": ["运动"],
+        }
+        result = roll_skill_check(char, "运动", dc=10, advantage=True)
+        assert result["advantage"] is True
+        assert result["disadvantage"] is False
+        assert result["other_roll"] is not None
+
+    def test_advantage_and_disadvantage_cancel(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"str": 2},
+                "proficiency_bonus": 2,
+            },
+            "proficient_skills": ["运动"],
+        }
+        result = roll_skill_check(char, "运动", dc=10, advantage=True, disadvantage=True)
+        assert result["advantage"] is False
+        assert result["disadvantage"] is False
+        assert result["other_roll"] is None
+
     def test_proficient_adds_prof_bonus(self):
         """熟练技能应加上熟练加值。"""
         char = {

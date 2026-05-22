@@ -39,3 +39,32 @@ async def init_db():
         if _is_sqlite:
             await conn.execute(text("PRAGMA journal_mode=WAL"))
             await conn.execute(text("PRAGMA busy_timeout=30000"))
+            await _ensure_sqlite_compat_columns(conn)
+
+
+async def _ensure_sqlite_compat_columns(conn) -> None:
+    """Patch local SQLite dev databases that predate recent Alembic columns.
+
+    `create_all()` creates missing tables but does not alter existing tables.
+    Local beta databases may therefore miss columns added by Alembic and fail
+    at runtime before a developer has run `alembic upgrade head`.
+    """
+    await _ensure_sqlite_table_columns(
+        conn,
+        "game_logs",
+        {
+            "visibility": "JSON",
+            "table_reason": "TEXT",
+            "table_decision": "JSON",
+        },
+    )
+
+
+async def _ensure_sqlite_table_columns(conn, table_name: str, columns: dict[str, str]) -> None:
+    existing = await conn.execute(text(f"PRAGMA table_info({table_name})"))
+    existing_names = {row[1] for row in existing.fetchall()}
+    if not existing_names:
+        return
+    for column_name, column_type in columns.items():
+        if column_name not in existing_names:
+            await conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))

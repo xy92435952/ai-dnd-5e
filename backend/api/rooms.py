@@ -10,12 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from api.deps import get_user_id
 from services import room_service
+from services import room_rest_vote_service
 from services.ws_manager import ws_manager
 from schemas.room_schemas import (
     CreateRoomRequest, JoinRoomRequest, ClaimCharacterRequest,
     KickMemberRequest, TransferHostRequest,
     SetGroupRequest, SubmitGroupActionRequest, ClearGroupActionsRequest,
     FocusGroupRequest, SetGroupReadinessRequest,
+    CreateRestVoteRequest, CastRestVoteRequest,
     CreateRoomResponse, JoinRoomResponse, RoomInfo, MemberInfo,
 )
 from schemas.ws_events import (
@@ -269,6 +271,63 @@ async def focus_group(
         session_id=session_id,
         group_id=req.group_id,
         actor_user_id=user_id,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
+
+
+# 鈹€鈹€ 浼戞伅鎶曠エ 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+@router.post("/{session_id}/rest-vote", response_model=RoomInfo)
+async def create_rest_vote(
+    session_id: str,
+    req: CreateRestVoteRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_rest_vote_service.create_rest_vote(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        rest_type=req.rest_type,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
+
+
+@router.post("/{session_id}/rest-vote/vote")
+async def cast_rest_vote(
+    session_id: str,
+    req: CastRestVoteRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room, rest_result = await room_rest_vote_service.cast_rest_vote(
+        db,
+        session_id=session_id,
+        user_id=user_id,
+        vote_value=req.vote,
+    )
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    if rest_result:
+        await ws_manager.broadcast(session_id, {
+            "type": "rest_vote_resolved",
+            "rest_type": rest_result.get("rest_type"),
+            "rest_result": rest_result,
+        })
+    return {"room": room, "rest_result": rest_result}
+
+
+@router.post("/{session_id}/rest-vote/cancel", response_model=RoomInfo)
+async def cancel_rest_vote(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    room = await room_rest_vote_service.cancel_rest_vote(
+        db,
+        session_id=session_id,
+        user_id=user_id,
     )
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
     return RoomInfo(**room)

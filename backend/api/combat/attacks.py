@@ -12,6 +12,9 @@ from database import get_db
 from models import Character, GameLog, CombatState
 from api.deps import (
     get_session_or_404,
+    get_user_id,
+    assert_can_act,
+    resolve_controlled_player_character,
 )
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
@@ -42,6 +45,7 @@ async def combat_action(
     session_id: str,
     req:        CombatActionRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """
     玩家战斗行动（攻击 / 闪避 / 冲刺 / 脱离接战 / 协助）。
@@ -59,8 +63,9 @@ async def combat_action(
         raise HTTPException(404, "战斗状态不存在")
 
     await db.refresh(session)  # 确保读取最新 game_state
-    player      = await db.get(Character, session.player_character_id)
-    player_id   = session.player_character_id
+    player      = await resolve_controlled_player_character(session, user_id, db)
+    player_id   = player.id
+    await assert_can_act(session, user_id, player_id, db)
     player_name = player.name if player else "你"
     state       = session.game_state or {}
     enemies     = list(state.get("enemies", []))

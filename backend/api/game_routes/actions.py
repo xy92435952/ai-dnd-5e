@@ -28,6 +28,7 @@ from services.game_combat_action_service import execute_natural_language_combat_
 from services.game_exploration_service import execute_exploration_action, execute_exploration_action_stream
 from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
+from services.session_action_lock import acquire_session_action_lock, session_action_lock
 from services.streaming_json import format_sse_event
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -42,8 +43,23 @@ async def _stream_events(events):
         yield format_sse_event(item.get("event", "message"), item.get("data", {}))
 
 
-@router.post("/action", response_model=PlayerActionResponse)
-async def player_action(
+async def _stream_events_with_lock(events, lock_handle):
+    try:
+        async for item in events:
+            yield format_sse_event(item.get("event", "message"), item.get("data", {}))
+    finally:
+        lock_handle.release()
+
+
+async def _stream_body_with_lock(body_iterator, lock_handle):
+    try:
+        async for chunk in body_iterator:
+            yield chunk
+    finally:
+        lock_handle.release()
+
+
+async def _player_action_unlocked(
     req: PlayerActionRequest,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
@@ -141,8 +157,17 @@ async def player_action(
     )
 
 
-@router.post("/action/stream")
-async def player_action_stream(
+@router.post("/action", response_model=PlayerActionResponse)
+async def player_action(
+    req: PlayerActionRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    async with session_action_lock(req.session_id):
+        return await _player_action_unlocked(req, db, user_id)
+
+
+async def _player_action_stream_unlocked(
     req: PlayerActionRequest,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
@@ -257,6 +282,23 @@ async def player_action_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/action/stream")
+async def player_action_stream(
+    req: PlayerActionRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    lock_handle = await acquire_session_action_lock(req.session_id)
+    try:
+        response = await _player_action_stream_unlocked(req, db, user_id)
+    except Exception:
+        lock_handle.release()
+        raise
+
+    response.body_iterator = _stream_body_with_lock(response.body_iterator, lock_handle)
+    return response
 
 
 @router.post("/sessions/{session_id}/ai-takeover", response_model=PlayerActionResponse)

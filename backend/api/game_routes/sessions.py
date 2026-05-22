@@ -2,7 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import can_user_see_log, char_brief, get_session_or_404, get_user_id, serialize_log
+from api.deps import (
+    can_user_see_log,
+    char_brief,
+    get_session_or_404,
+    get_user_id,
+    resolve_controlled_player_character,
+    serialize_log,
+)
 from database import get_db
 from models import Character, CombatState, GameLog, Module, Session
 from schemas.game_requests import CreateSessionRequest
@@ -94,7 +101,13 @@ async def get_session(
     """获取会话完整状态（用于恢复游戏）"""
     session = await get_session_or_404(session_id, db)
     roster = CharacterRoster(db, session)
-    player = await roster.player()
+    if session.is_multiplayer:
+        try:
+            player = await resolve_controlled_player_character(session, user_id, db)
+        except HTTPException:
+            player = await roster.player()
+    else:
+        player = await roster.player()
     module = await db.get(Module, session.module_id) if session.module_id else None
     companions = [char_brief(character) for character in await roster.companions()]
 
@@ -117,6 +130,8 @@ async def get_session(
         "companions": companions,
         "logs": [serialize_log(log) for log in logs if can_user_see_log(log, user_id)],
         "campaign_state": session.campaign_state or {},
+        "is_multiplayer": session.is_multiplayer,
+        "room_code": session.room_code,
     }
 
 

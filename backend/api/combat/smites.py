@@ -7,8 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
-from models import Character, CombatState, GameLog
-from api.deps import get_session_or_404, get_user_id
+from models import CombatState, GameLog
+from api.deps import (
+    get_session_or_404,
+    get_user_id,
+    assert_can_act,
+    resolve_controlled_player_character,
+)
 from api.combat._shared import svc
 from api.combat.schemas import SmiteRequest
 from services.combat_narrator import narrate_action
@@ -34,23 +39,8 @@ async def divine_smite(
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
-    # 多人联机：根据 user_id 查找该用户在房间内绑定的角色
-    if session.is_multiplayer:
-        from models import SessionMember
-        member_q = await db.execute(
-            select(SessionMember).where(
-                SessionMember.session_id == session_id,
-                SessionMember.user_id == user_id,
-            )
-        )
-        member = member_q.scalar_one_or_none()
-        if not member or not member.character_id:
-            raise HTTPException(403, "你在该房间没有绑定角色")
-        player = await db.get(Character, member.character_id)
-    else:
-        player = await db.get(Character, session.player_character_id)
-    if not player:
-        raise HTTPException(404, "玩家角色不存在")
+    player = await resolve_controlled_player_character(session, user_id, db)
+    await assert_can_act(session, user_id, player.id, db)
 
     p_class = _normalize_class(player.char_class)
     if p_class != "Paladin":
@@ -84,7 +74,7 @@ async def divine_smite(
         # Fallback：从 pending_attack 或最近日志推断
         if combat:
             all_ts = dict(combat.turn_states or {})
-            player_ts = all_ts.get(str(session.player_character_id), {})
+            player_ts = all_ts.get(str(player.id), {})
             smite_target_id = player_ts.get("last_attack_target")
         if not smite_target_id:
             # 最后兜底：第一个存活敌人

@@ -95,6 +95,7 @@ export default function Combat() {
     threatCells,
     aoeCells,
   } = derived
+  const canActInCombat = room?.is_multiplayer ? isMyTurnMP : isPlayerTurnV10
   const currentTurnControllerName = room && currentTurnEntry
     ? (room.members || []).find(member => member.character_id === currentTurnEntry.character_id)?.display_name
     : ''
@@ -198,7 +199,7 @@ export default function Combat() {
         logsEndRef={logsEndRef}
         playerSpellSlots={playerSpellSlots}
         isProcessing={isProcessing}
-        isPlayerTurn={isPlayerTurnV10}
+        isPlayerTurn={canActInCombat}
         moveMode={moveMode}
         isRanged={isRanged}
         onSessionChange={runtime.setSession}

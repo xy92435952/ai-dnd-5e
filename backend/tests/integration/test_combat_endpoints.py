@@ -24,6 +24,20 @@ async def _auth_headers(client, sample_user):
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
 
+async def _register_user(client, username, password="password", display_name=None):
+    r = await client.post("/auth/register", json={
+        "username": username,
+        "password": password,
+        "display_name": display_name or username,
+    })
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest_asyncio.fixture
 async def combat_state(db_session, sample_session, sample_character):
     """手动注入一个进行中的战斗 + 一个敌人，供端点测试使用。"""
@@ -332,7 +346,7 @@ async def test_ai_fire_attack_respects_player_fire_resistance(
 
 
 async def test_assassinate_action_hit_does_not_500(
-    client, db_session, sample_session, combat_state, sample_character, monkeypatch,
+    client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
 ):
     """旧 /action 攻击路径触发 Assassinate 自动暴击时不应因局部变量顺序报 500。"""
     from services.combat_service import AttackResult
@@ -377,8 +391,10 @@ async def test_assassinate_action_hit_does_not_500(
     monkeypatch.setattr(attacks, "narrate_action", fake_narrate_action)
     monkeypatch.setattr(direct_attack, "roll_dice", lambda expr: {"formula": expr, "rolls": [3], "total": 3})
 
+    headers = await _auth_headers(client, sample_user)
     r = await client.post(
         f"/game/combat/{sample_session.id}/action",
+        headers=headers,
         json={"action_text": "普通攻击", "target_id": "goblin-1"},
     )
     assert r.status_code == 200, r.text
@@ -513,6 +529,228 @@ async def test_condition_add_and_remove(client, sample_session, combat_state, sa
         json={"entity_id": sample_character.id, "condition": "poisoned", "is_enemy": False},
     )
     assert r.status_code == 200, r.text
+
+
+async def _seed_multiplayer_combat(client, db_session, sample_module):
+    import uuid as _uuid
+    from sqlalchemy.orm.attributes import flag_modified
+    from models import Character, CombatState, Session
+
+    host = await _register_user(client, f"combat_host_{_uuid.uuid4().hex[:8]}")
+    guest = await _register_user(client, f"combat_guest_{_uuid.uuid4().hex[:8]}")
+    create = (await client.post("/game/rooms/create", headers=_headers(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "Combat MP",
+        "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_headers(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    def make_char(owner, name, char_class="Fighter", level=1, derived_extra=None):
+        derived = {
+            "hp_max": 12,
+            "ac": 16,
+            "initiative": 2,
+            "proficiency_bonus": 2,
+            "attack_bonus": 5,
+            "ability_modifiers": {"str": 3, "dex": 2, "con": 2, "int": 0, "wis": 1, "cha": -1},
+            "spell_slots_max": {},
+            **(derived_extra or {}),
+        }
+        return Character(
+            id=str(_uuid.uuid4()),
+            session_id=sid,
+            user_id=owner["user_id"],
+            is_player=True,
+            name=name,
+            race="Human",
+            char_class=char_class,
+            level=level,
+            background="Soldier",
+            ability_scores={"str": 16, "dex": 14, "con": 15, "int": 10, "wis": 12, "cha": 8},
+            derived=derived,
+            hp_current=12,
+            proficient_skills=["运动", "感知"],
+            proficient_saves=["str", "con"],
+        )
+
+    host_char = make_char(host, "Host Fighter")
+    guest_char = make_char(guest, "Guest Fighter")
+    db_session.add_all([host_char, guest_char])
+    await db_session.commit()
+
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_headers(host["token"]), json={"character_id": host_char.id})
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_headers(guest["token"]), json={"character_id": guest_char.id})
+    await client.post(f"/game/rooms/{sid}/start", headers=_headers(host["token"]))
+
+    session = await db_session.get(Session, sid)
+    session.combat_active = True
+    session.game_state = {
+        **(session.game_state or {}),
+        "enemies": [{
+            "id": "mp-goblin-1",
+            "name": "多人哥布林",
+            "hp_current": 30,
+            "max_hp": 30,
+            "conditions": [],
+            "derived": {"hp_max": 30, "ac": 10, "ability_modifiers": {"dex": 1, "str": 0, "wis": 0}},
+        }],
+    }
+    flag_modified(session, "game_state")
+
+    cs = CombatState(
+        id=str(_uuid.uuid4()),
+        session_id=sid,
+        grid_data={},
+        entity_positions={
+            host_char.id: {"x": 5, "y": 5},
+            guest_char.id: {"x": 7, "y": 5},
+            "mp-goblin-1": {"x": 6, "y": 5},
+        },
+        turn_order=[
+            {"character_id": host_char.id, "name": host_char.name, "initiative": 18, "is_player": True, "is_enemy": False},
+            {"character_id": guest_char.id, "name": guest_char.name, "initiative": 15, "is_player": True, "is_enemy": False},
+            {"character_id": "mp-goblin-1", "name": "多人哥布林", "initiative": 10, "is_player": False, "is_enemy": True},
+        ],
+        current_turn_index=0,
+        round_number=1,
+        combat_log=[],
+        turn_states={},
+    )
+    db_session.add(cs)
+    await db_session.commit()
+    await db_session.refresh(host_char)
+    await db_session.refresh(guest_char)
+    await db_session.refresh(cs)
+    return {
+        "session_id": sid,
+        "host": host,
+        "guest": guest,
+        "host_char": host_char,
+        "guest_char": guest_char,
+        "combat": cs,
+        "enemy_id": "mp-goblin-1",
+    }
+
+
+async def test_multiplayer_guest_cannot_act_during_host_combat_turn(
+    client, db_session, sample_module, monkeypatch,
+):
+    """多人战斗中，访客不能在房主角色回合通过旧接口或实体参数越权。"""
+    import api.combat.attacks as attacks
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    monkeypatch.setattr(attacks, "narrate_action", fake_narrate_action)
+
+    setup = await _seed_multiplayer_combat(client, db_session, sample_module)
+    sid = setup["session_id"]
+    guest_headers = _headers(setup["guest"]["token"])
+
+    guest_end = await client.post(f"/game/combat/{sid}/end-turn", headers=guest_headers)
+    assert guest_end.status_code == 403
+
+    guest_moves_host = await client.post(
+        f"/game/combat/{sid}/move",
+        headers=guest_headers,
+        json={"entity_id": setup["host_char"].id, "to_x": 5, "to_y": 6},
+    )
+    assert guest_moves_host.status_code == 403
+
+    guest_moves_enemy = await client.post(
+        f"/game/combat/{sid}/move",
+        headers=guest_headers,
+        json={"entity_id": setup["enemy_id"], "to_x": 8, "to_y": 8},
+    )
+    assert guest_moves_enemy.status_code == 403
+
+    guest_old_action = await client.post(
+        f"/game/combat/{sid}/action",
+        headers=guest_headers,
+        json={"action_text": "普通攻击", "target_id": setup["enemy_id"]},
+    )
+    assert guest_old_action.status_code == 403
+
+
+async def test_multiplayer_session_detail_returns_current_users_character(
+    client, db_session, sample_module,
+):
+    """多人 Combat 页面恢复 session 时，每个用户应拿到自己认领的角色。"""
+    setup = await _seed_multiplayer_combat(client, db_session, sample_module)
+    sid = setup["session_id"]
+
+    host_session = await client.get(f"/game/sessions/{sid}", headers=_headers(setup["host"]["token"]))
+    guest_session = await client.get(f"/game/sessions/{sid}", headers=_headers(setup["guest"]["token"]))
+
+    assert host_session.status_code == 200, host_session.text
+    assert guest_session.status_code == 200, guest_session.text
+    assert host_session.json()["player"]["id"] == setup["host_char"].id
+    assert guest_session.json()["player"]["id"] == setup["guest_char"].id
+
+
+async def test_multiplayer_combat_state_includes_all_claimed_player_entities(
+    client, db_session, sample_module,
+):
+    """多人 Combat 状态应包含所有认领角色，保证双方页面都有战斗实体。"""
+    setup = await _seed_multiplayer_combat(client, db_session, sample_module)
+    sid = setup["session_id"]
+
+    response = await client.get(f"/game/combat/{sid}", headers=_headers(setup["guest"]["token"]))
+
+    assert response.status_code == 200, response.text
+    entities = response.json()["entities"]
+    assert setup["host_char"].id in entities
+    assert setup["guest_char"].id in entities
+    assert entities[setup["host_char"].id]["name"] == setup["host_char"].name
+    assert entities[setup["guest_char"].id]["name"] == setup["guest_char"].name
+
+
+async def test_multiplayer_old_action_uses_current_users_claimed_character(
+    client, db_session, sample_module, monkeypatch,
+):
+    """旧 /action 路径在多人中应使用当前用户认领角色，而不是 session.player_character_id。"""
+    import api.combat.attacks as attacks
+    from services.combat_service import AttackResult
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    def fake_resolve_melee_attack(**kwargs):
+        return AttackResult(
+            attack_roll={
+                "d20": 12,
+                "attack_bonus": 5,
+                "attack_total": 17,
+                "target_ac": 10,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            },
+            damage=1,
+            damage_roll={"formula": "1d8+3", "rolls": [1], "total": 4},
+            narration="测试命中",
+        )
+
+    monkeypatch.setattr(attacks, "narrate_action", fake_narrate_action)
+    monkeypatch.setattr(attacks.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+
+    setup = await _seed_multiplayer_combat(client, db_session, sample_module)
+    sid = setup["session_id"]
+    host_headers = _headers(setup["host"]["token"])
+
+    r = await client.post(
+        f"/game/combat/{sid}/action",
+        headers=host_headers,
+        json={"action_text": "普通攻击", "target_id": setup["enemy_id"]},
+    )
+    assert r.status_code == 200, r.text
+
+    await db_session.refresh(setup["combat"])
+    assert setup["combat"].turn_states[str(setup["host_char"].id)]["attacks_made"] == 1
+    assert str(setup["guest_char"].id) not in (setup["combat"].turn_states or {})
 
 
 async def test_end_combat_clears_flag(client, sample_session, combat_state, db_session, sample_user):

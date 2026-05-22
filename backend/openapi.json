@@ -3314,6 +3314,11 @@
       },
       "SkillCheckRequest": {
         "properties": {
+          "advantage": {
+            "default": false,
+            "title": "Advantage",
+            "type": "boolean"
+          },
           "character_id": {
             "title": "Character Id",
             "type": "string"
@@ -3332,6 +3337,11 @@
           "dc": {
             "title": "Dc",
             "type": "integer"
+          },
+          "disadvantage": {
+            "default": false,
+            "title": "Disadvantage",
+            "type": "boolean"
           },
           "session_id": {
             "title": "Session Id",
@@ -3890,7 +3900,7 @@
     },
     "/characters/generate-party": {
       "post": {
-        "description": "生成AI队友（调用 Dify WF2），自动应用种族加值和熟练",
+        "description": "生成 AI 队友，自动应用种族加值和熟练。",
         "operationId": "generate_party_characters_generate_party_post",
         "requestBody": {
           "content": {
@@ -4277,7 +4287,7 @@
     },
     "/characters/{character_id}/level-up": {
       "post": {
-        "description": "角色升级：递增等级，重算衍生属性，增加HP，更新法术位。\nASI 等级（4,8,12,16,19; Fighter额外6,14; Rogue额外10）可增加属性或选择专长。",
+        "description": "角色升级：递增等级，重算衍生属性、HP、法术位和 ASI/专长。",
         "operationId": "level_up_characters__character_id__level_up_post",
         "parameters": [
           {
@@ -4587,7 +4597,6 @@
     },
     "/game/action": {
       "post": {
-        "description": "玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。",
         "operationId": "player_action_game_action_post",
         "requestBody": {
           "content": {
@@ -4622,6 +4631,45 @@
           }
         },
         "summary": "Player Action",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/action/stream": {
+      "post": {
+        "operationId": "player_action_stream_game_action_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Player Action Stream",
         "tags": [
           "game"
         ]
@@ -7046,6 +7094,22 @@
         "tags": [
           "modules"
         ]
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
       }
     }
   }

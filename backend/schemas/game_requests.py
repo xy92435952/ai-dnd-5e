@@ -22,6 +22,8 @@ class SkillCheckRequest(BaseModel):
     skill: str
     dc: int
     d20_value: Optional[int] = None
+    advantage: bool = False
+    disadvantage: bool = False
 
 
 class AITakeoverRequest(BaseModel):

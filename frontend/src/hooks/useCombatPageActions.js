@@ -92,7 +92,7 @@ export function useCombatPageActions({
     } catch (e) {
       setError(e.message)
     }
-  }, [isPlayerTurn, isProcessing, myCharacterId, moveMode, sessionId, setCombat, setError, setMoveMode, setTurnState])
+  }, [isPlayerTurn, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
   const handleSpellHover = useCallback((spell) => {
     if (spell && spell.aoe) {

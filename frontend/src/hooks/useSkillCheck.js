@@ -23,6 +23,37 @@ import { gameApi } from '../api/game'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 
+function getCheckRollMode(check) {
+  const advantage = Boolean(check?.advantage && !check?.disadvantage)
+  const disadvantage = Boolean(check?.disadvantage && !check?.advantage)
+  return { advantage, disadvantage }
+}
+
+async function rollCheckD20(pendingCheck, showDice) {
+  const { advantage, disadvantage } = getCheckRollMode(pendingCheck)
+  const labelPrefix = pendingCheck.check_type
+  if (!advantage && !disadvantage) {
+    const { total } = await rollDice3D(20)
+    showDice({ faces: 20, result: total, label: `${labelPrefix} check` })
+    return { d20: total, advantage, disadvantage }
+  }
+
+  const first = await rollDice3D(20)
+  const second = await rollDice3D(20)
+  const firstTotal = first.total
+  const secondTotal = second.total
+  const d20 = advantage
+    ? Math.max(firstTotal, secondTotal)
+    : Math.min(firstTotal, secondTotal)
+  const rollModeLabel = advantage ? 'advantage' : 'disadvantage'
+  showDice({
+    faces: 20,
+    result: d20,
+    label: `${labelPrefix} ${rollModeLabel} (${firstTotal}/${secondTotal})`,
+  })
+  return { d20, otherRoll: d20 === firstTotal ? secondTotal : firstTotal, advantage, disadvantage }
+}
+
 export function useSkillCheck({ sessionId, playerId, addLog }) {
   const showDice = useGameStore(s => s.showDice)
 
@@ -40,8 +71,8 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
     setCheckRolling(true)
     try {
       // 3D 骰子动画 → 服务端计算
-      const { total: d20 } = await rollDice3D(20)
-      showDice({ faces: 20, result: d20, label: `${pendingCheck.check_type}检定` })
+      const roll = await rollCheckD20(pendingCheck, showDice)
+      const d20 = roll.d20
 
       const result = await gameApi.skillCheck({
         session_id:   sessionId,
@@ -49,6 +80,8 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
         skill:        pendingCheck.check_type,
         dc:           pendingCheck.dc,
         d20_value:    d20,
+        advantage:    roll.advantage,
+        disadvantage: roll.disadvantage,
       })
 
       const summary =

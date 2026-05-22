@@ -36,6 +36,8 @@ async def test_get_session_shape(client, sample_session, sample_user):
     assert data["player"]["name"] == "测试战士"
     assert isinstance(data["companions"], list)
     assert data["combat_active"] is False
+    assert data["is_multiplayer"] is False
+    assert data["room_code"] is None
 
 
 async def test_list_sessions_for_user(client, sample_session, sample_user):
@@ -101,6 +103,28 @@ async def test_skill_check_endpoint(client, sample_session, sample_user, sample_
     data = r.json()
     for key in ("d20", "modifier", "total", "success"):
         assert key in data
+
+
+async def test_skill_check_endpoint_preserves_advantage_with_manual_d20(
+    client, sample_session, sample_user, sample_character,
+):
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post("/game/skill-check", headers=headers, json={
+        "session_id":   sample_session.id,
+        "character_id": sample_character.id,
+        "skill":        "运动",
+        "dc":           25,
+        "d20_value":    15,
+        "advantage":    True,
+        "disadvantage": False,
+    })
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["d20"] == 15
+    assert data["advantage"] is True
+    assert data["disadvantage"] is False
+    assert data["total"] == 20
+    assert data["success"] is False
 
 
 async def test_delete_session_cleans_ai_companions(

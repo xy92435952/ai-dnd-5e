@@ -36,7 +36,7 @@ export const gameApi = {
   actionStream: (data, handlers = {}) => actionStream(data, handlers),
 
   /**
-   * @param {{session_id:string, character_id:string, skill:string, dc:number, d20_value?:number}} data
+   * @param {{session_id:string, character_id:string, skill:string, dc:number, d20_value?:number, advantage?:boolean, disadvantage?:boolean}} data
    * @returns {Promise<SkillCheckResult>}
    */
   skillCheck: (data) => api.post('/game/skill-check', data),

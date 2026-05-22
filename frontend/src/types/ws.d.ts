@@ -137,6 +137,12 @@ export interface RoomStateUpdated {
   room: unknown
 }
 
+export interface RestVoteResolved {
+  type: 'rest_vote_resolved'
+  rest_type: 'long' | 'short' | string
+  rest_result: unknown
+}
+
 // ─── 战斗 ────────────────────────────────────────────────
 
 export interface CombatUpdate {
@@ -179,6 +185,7 @@ export type WSEvent =
   | DMResponded
   | DMSpeakTurn
   | RoomStateUpdated
+  | RestVoteResolved
   | CombatUpdate
   | TurnChanged
   | EntityMoved

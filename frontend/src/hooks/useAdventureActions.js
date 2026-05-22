@@ -15,6 +15,7 @@
 import { useCallback } from 'react'
 import { charactersApi } from '../api/characters'
 import { gameApi } from '../api/game'
+import { roomsApi } from '../api/rooms'
 
 export function useAdventureActions({
   sessionId,
@@ -41,6 +42,7 @@ export function useAdventureActions({
   buildDialogueQueue,
   enterDialogueStage,
   rollPending,
+  setRoom = () => {},
 }) {
   const refreshCharacters = useCallback(async () => {
     try {
@@ -173,6 +175,55 @@ export function useAdventureActions({
     }
   }, [addLog, refreshCharacters, sessionId, setError, setIsLoading, setRestOpen])
 
+  const handleCreateRestVote = useCallback(async (restType) => {
+    setIsLoading(true)
+    try {
+      const updated = await roomsApi.createRestVote(sessionId, restType)
+      setRoom(updated?.is_multiplayer ? { ...updated, _currentSpeaker: updated.current_speaker_user_id } : updated)
+      addLog('system', `已发起${restType === 'long' ? '长休' : '短休'}投票。`, 'system')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [addLog, sessionId, setError, setIsLoading, setRoom])
+
+  const handleRestVote = useCallback(async (vote) => {
+    setIsLoading(true)
+    try {
+      const result = await roomsApi.castRestVote(sessionId, vote)
+      const updated = result?.room
+      if (updated) {
+        setRoom(updated?.is_multiplayer ? { ...updated, _currentSpeaker: updated.current_speaker_user_id } : updated)
+      }
+      if (result?.rest_result) {
+        const restType = result.rest_result.rest_type
+        const summary = result.rest_result.characters?.map(c => `${c.name} HP+${c.hp_recovered} → ${c.hp_current}`).join(' | ')
+        addLog('system', `🌙 投票通过，完成${restType === 'long' ? '长休' : '短休'}。${summary || ''}`, 'system')
+        setRestOpen(false)
+        await refreshCharacters()
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [addLog, refreshCharacters, sessionId, setError, setIsLoading, setRestOpen, setRoom])
+
+  const handleCancelRestVote = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const updated = await roomsApi.cancelRestVote(sessionId)
+      setRoom(updated?.is_multiplayer ? { ...updated, _currentSpeaker: updated.current_speaker_user_id } : updated)
+      addLog('system', '休息投票已取消。', 'system')
+      setRestOpen(false)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [addLog, sessionId, setError, setIsLoading, setRestOpen, setRoom])
+
   const handleGenerateJournal = useCallback(async () => {
     setJournalLoading(true)
     setJournalText('')
@@ -210,6 +261,9 @@ export function useAdventureActions({
     handleAction,
     handleDiceRoll,
     handleRest,
+    handleCreateRestVote,
+    handleRestVote,
+    handleCancelRestVote,
     handleGenerateJournal,
     handlePrepareSpells,
     handleCheckpoint,

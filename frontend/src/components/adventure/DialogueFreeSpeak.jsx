@@ -13,6 +13,7 @@ export default function DialogueFreeSpeak({
     <div className="free-speak">
       <span className="label">✎ 自由行动</span>
       <input
+        data-testid="adventure-free-action-input"
         ref={inputRef}
         value={input}
         onChange={e => setInput(e.target.value)}
@@ -21,6 +22,7 @@ export default function DialogueFreeSpeak({
         disabled={disabled}
       />
       <button
+        data-testid="adventure-free-action-submit"
         className="skill-chip"
         onClick={() => onAction()}
         disabled={isLoading || !input.trim() || (room && !isMySpeakTurn)}

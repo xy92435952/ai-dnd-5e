@@ -24,13 +24,19 @@ async def skill_check(req: SkillCheckRequest, db: AsyncSession = Depends(get_db)
         },
         skill=req.skill,
         dc=req.dc,
+        advantage=req.advantage,
+        disadvantage=req.disadvantage,
     )
     if req.d20_value is not None:
+        advantage = bool(req.advantage and not req.disadvantage)
+        disadvantage = bool(req.disadvantage and not req.advantage)
         modifier = result["modifier"]
         total = req.d20_value + modifier
         result = {
             **result,
             "d20": req.d20_value,
+            "advantage": advantage,
+            "disadvantage": disadvantage,
             "total": total,
             "success": total >= req.dc,
         }

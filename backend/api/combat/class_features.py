@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Character, CombatState, GameLog
-from api.deps import get_session_or_404
+from api.deps import (
+    get_session_or_404,
+    get_user_id,
+    assert_can_act,
+    resolve_controlled_player_character,
+)
 from api.combat._shared import _get_ts, svc
 from api.combat.schemas import ClassFeatureRequest
 from services.combat_class_feature_service import (
@@ -26,6 +31,7 @@ async def use_class_feature(
     session_id: str,
     req: ClassFeatureRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """
     使用职业战斗特性：
@@ -40,16 +46,14 @@ async def use_class_feature(
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
-    player = await db.get(Character, session.player_character_id)
-    if not player:
-        raise HTTPException(404, "玩家角色不存在")
-
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
-    player_id = session.player_character_id
+    player = await resolve_controlled_player_character(session, user_id, db)
+    player_id = player.id
+    await assert_can_act(session, user_id, player_id, db)
     turn_state = _get_ts(combat, player_id)
     try:
         result = resolve_combat_class_feature(

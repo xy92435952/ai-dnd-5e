@@ -44,6 +44,7 @@ export default function IsoBattlefield({
     return (
       <IsoBattlefieldCell
         key={key}
+        testId={`combat-cell-${x}-${y}`}
         className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ' aoe' : ''}${isAoeCenter ? ' aoe-center' : ''}`}
         onClick={() => {
           if (ent && !isWall) {

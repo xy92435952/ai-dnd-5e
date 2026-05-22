@@ -1,4 +1,5 @@
 export default function IsoBattlefieldCell({
+  testId,
   className,
   onClick,
   onMouseEnter,
@@ -7,6 +8,7 @@ export default function IsoBattlefieldCell({
 }) {
   return (
     <div
+      data-testid={testId}
       className={className}
       onClick={onClick}
       onMouseEnter={onMouseEnter}

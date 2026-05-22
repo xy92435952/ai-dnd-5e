@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import hashlib
 from pathlib import Path
 
 from config import settings
@@ -63,7 +64,8 @@ async def beta_rate_limit_middleware(request, call_next):
         request.client.host if request.client else "unknown"
     )
     auth = request.headers.get("authorization", "")
-    token_key = auth.removeprefix("Bearer ").strip()[:32] if auth.startswith("Bearer ") else ""
+    token = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else ""
+    token_key = hashlib.sha256(token.encode("utf-8")).hexdigest()[:32] if token else ""
     key = f"token:{token_key}" if token_key else f"ip:{client_ip}"
 
     try:
@@ -116,6 +118,7 @@ def _readiness_problems() -> list[str]:
 @app.get("/ready")
 async def ready():
     from services.background_job_limits import module_parse_limiter
+    from services.session_action_lock import session_action_lock_stats
     from services.ws_manager import ws_manager
 
     problems = _readiness_problems()
@@ -136,6 +139,7 @@ async def ready():
         "background_jobs": {
             "module_parse": module_parse_limiter.stats(),
         },
+        "session_action_locks": session_action_lock_stats(),
         "ws": ws_manager.stats(),
     }
     if problems:

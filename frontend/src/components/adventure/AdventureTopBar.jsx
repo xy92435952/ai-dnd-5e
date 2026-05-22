@@ -44,12 +44,13 @@ export default function AdventureTopBar({
       </div>
       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
         <button
+          data-testid="adventure-history-open"
           className="btn-ghost"
           style={{ padding: '4px 10px', fontSize: 10, borderColor: 'rgba(127,232,248,.5)', color: 'var(--arcane-light)' }}
           onClick={onShowHistory}
         >☰ 对话历史</button>
-        <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenJournal}>✎ 日志</button>
-        <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenRest}>☾ 休息</button>
+        <button data-testid="adventure-journal-open" className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenJournal}>✎ 日志</button>
+        <button data-testid="adventure-rest-open" className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenRest}>☾ 休息</button>
         {canPrepareSpells && (
           <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenPrepare}>✧ 备法</button>
         )}

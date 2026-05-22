@@ -21,10 +21,13 @@ const {
   actionMock,
   getSessionMock,
   roomsGetMock,
-  submitGroupActionMock,
-  joinGroupMock,
-  setGroupReadinessMock,
-} = vi.hoisted(() => ({
+    submitGroupActionMock,
+    joinGroupMock,
+    setGroupReadinessMock,
+    createRestVoteMock,
+    castRestVoteMock,
+    cancelRestVoteMock,
+  } = vi.hoisted(() => ({
   sessionFixture: {
     session_id:    'sess-1',
     save_name:     'Test',
@@ -45,6 +48,9 @@ const {
   submitGroupActionMock: vi.fn(),
   joinGroupMock: vi.fn(),
   setGroupReadinessMock: vi.fn(),
+  createRestVoteMock: vi.fn(),
+  castRestVoteMock: vi.fn(),
+  cancelRestVoteMock: vi.fn(),
 }))
 
 vi.mock('../../api/game', () => ({
@@ -70,6 +76,9 @@ vi.mock('../../api/rooms', () => ({
     submitGroupAction: submitGroupActionMock,
     joinGroup: joinGroupMock,
     setGroupReadiness: setGroupReadinessMock,
+    createRestVote: createRestVoteMock,
+    castRestVote: castRestVoteMock,
+    cancelRestVote: cancelRestVoteMock,
   },
 }))
 
@@ -99,6 +108,9 @@ describe('Adventure render smoke', () => {
     submitGroupActionMock.mockResolvedValue({})
     joinGroupMock.mockResolvedValue({})
     setGroupReadinessMock.mockResolvedValue({})
+    createRestVoteMock.mockResolvedValue({})
+    castRestVoteMock.mockResolvedValue({})
+    cancelRestVoteMock.mockResolvedValue({})
   })
 
   it('能挂载且不抛 TDZ / hook 顺序错误', () => {

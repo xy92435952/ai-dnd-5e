@@ -31,6 +31,12 @@ export const roomsApi = {
     api.post(`/game/rooms/${sessionId}/groups/readiness`, { group_id: groupId, status }),
   focusGroup: (sessionId, groupId) =>
     api.post(`/game/rooms/${sessionId}/groups/focus`, { group_id: groupId }),
+  createRestVote: (sessionId, restType) =>
+    api.post(`/game/rooms/${sessionId}/rest-vote`, { rest_type: restType }),
+  castRestVote: (sessionId, vote) =>
+    api.post(`/game/rooms/${sessionId}/rest-vote/vote`, { vote }),
+  cancelRestVote: (sessionId) =>
+    api.post(`/game/rooms/${sessionId}/rest-vote/cancel`),
   get: (sessionId) => api.get(`/game/rooms/${sessionId}`),
   members: (sessionId) => api.get(`/game/rooms/${sessionId}/members`),
 }

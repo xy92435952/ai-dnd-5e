@@ -196,6 +196,7 @@ export default function MultiplayerPartyPanel({
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ color: 'var(--parchment-dark)' }}>我的状态：{getReadinessLabel(myReadiness)}</span>
         <button
+          data-testid="multiplayer-group-ready"
           onClick={() => setReadiness('ready')}
           disabled={busy || isLoading || myReadiness === 'ready'}
           className="btn-ghost"
@@ -229,6 +230,7 @@ export default function MultiplayerPartyPanel({
       {!isMySpeakTurn && (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input
+            data-testid="multiplayer-group-action-input"
             value={actionText}
             onChange={event => setActionText(event.target.value)}
             onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); submitAction() } }}
@@ -238,6 +240,7 @@ export default function MultiplayerPartyPanel({
             style={{ flex: 1, minWidth: 180, padding: '6px 8px', fontSize: 11 }}
           />
           <button
+            data-testid="multiplayer-group-action-submit"
             onClick={submitAction}
             disabled={busy || isLoading || !actionText.trim()}
             className="btn-ghost"
@@ -246,6 +249,7 @@ export default function MultiplayerPartyPanel({
             提交意图
           </button>
           <button
+            data-testid="multiplayer-group-action-submit-ready"
             onClick={() => submitAction({ confirm: true })}
             disabled={busy || isLoading || !actionText.trim()}
             className="btn-ghost"

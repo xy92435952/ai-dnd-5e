@@ -21,6 +21,7 @@ from services import (
     room_info_service,
     room_lifecycle_service,
     room_member_service,
+    room_rest_vote_service,
     room_start_service,
 )
 
@@ -33,6 +34,7 @@ DEFAULT_GROUP_ID = room_group_service.DEFAULT_GROUP_ID
 DEFAULT_GROUP_NAME = room_group_service.DEFAULT_GROUP_NAME
 DEFAULT_GROUP_LOCATION = room_group_service.DEFAULT_GROUP_LOCATION
 READINESS_STATUSES = room_group_service.READINESS_STATUSES
+REST_VOTE_TIMEOUT_SECONDS = room_rest_vote_service.REST_VOTE_TIMEOUT_SECONDS
 
 
 generate_unique_room_code = room_lifecycle_service.generate_unique_room_code
@@ -218,4 +220,5 @@ __all__ = [
     "clear_group_actions",
     "update_heartbeat",
     "mark_offline",
+    "REST_VOTE_TIMEOUT_SECONDS",
 ]

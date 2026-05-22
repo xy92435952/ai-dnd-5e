@@ -273,6 +273,12 @@ async def test_get_room_returns_full_info(client, sample_module):
     assert info["pending_actions_by_group"] == {"main": []}
     assert info["group_readiness"] == {"main": {}}
 
+    session_resp = await client.get(f"/game/sessions/{create['session_id']}", headers=_h(host["token"]))
+    assert session_resp.status_code == 200, session_resp.text
+    session_info = session_resp.json()
+    assert session_info["is_multiplayer"] is True
+    assert session_info["room_code"] == create["room_code"]
+
 
 async def test_party_group_endpoints_update_room_snapshot(client, sample_module):
     host = await _register(client, "host_groups")
@@ -345,6 +351,74 @@ async def test_focus_group_endpoint_changes_active_group(client, sample_module):
     )
     assert focused.status_code == 200, focused.text
     assert focused.json()["active_group_id"] == "main"
+
+
+async def test_multiplayer_rest_requires_vote_and_majority_applies_rest(
+    client, db_session, sample_module, monkeypatch,
+):
+    """多人模式不能直接休息；在线且已认领角色的多数同意后才结算休息。"""
+    import uuid as _uuid
+    from models import Character
+    import services.ws_manager as ws_module
+
+    broadcasts = []
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append(payload)
+        return 1
+
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
+
+    host = await _register(client, "rest_vote_host")
+    guest = await _register(client, "rest_vote_guest")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "Rest vote", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={"room_code": create["room_code"]})
+
+    chars = []
+    for owner, name in [(host, "Host Fighter"), (guest, "Guest Fighter")]:
+        char = Character(
+            id=str(_uuid.uuid4()), name=name,
+            race="Human", char_class="Fighter", level=1,
+            ability_scores={"str": 14, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 10},
+            derived={"hp_max": 12, "spell_slots_max": {}, "ability_modifiers": {"con": 2}},
+            hp_current=3, is_player=True, session_id=sid,
+        )
+        chars.append((owner, char))
+    db_session.add_all([char for _, char in chars])
+    await db_session.commit()
+    for owner, char in chars:
+        await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(owner["token"]), json={"character_id": char.id})
+
+    direct = await client.post(f"/game/sessions/{sid}/rest?rest_type=long", headers=_h(host["token"]))
+    assert direct.status_code == 409
+
+    created = await client.post(
+        f"/game/rooms/{sid}/rest-vote",
+        headers=_h(host["token"]),
+        json={"rest_type": "long"},
+    )
+    assert created.status_code == 200, created.text
+    vote = created.json()["rest_vote"]
+    assert vote["rest_type"] == "long"
+    assert vote["yes_count"] == 1
+    assert vote["required_yes"] == 2
+
+    resolved = await client.post(
+        f"/game/rooms/{sid}/rest-vote/vote",
+        headers=_h(guest["token"]),
+        json={"vote": "yes"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    body = resolved.json()
+    assert body["room"]["rest_vote"] is None
+    assert body["rest_result"]["rest_type"] == "long"
+    assert all(item["hp_current"] == 12 for item in body["rest_result"]["characters"])
+    assert any(event["type"] == "room_state_updated" for event in broadcasts)
+    assert any(event["type"] == "rest_vote_resolved" for event in broadcasts)
 
 
 async def test_multiplayer_player_action_aggregates_group_actions_on_backend(

@@ -4,6 +4,7 @@ import { getSpriteKind } from '../../utils/combat'
 export default function IsoUnit({ ent, entId, playerId, isCurTurn, isTarget }) {
   return (
     <div
+      data-testid={`combat-unit-${entId}`}
       className={`iso-unit ${ent.is_enemy ? 'enemy' : (entId === playerId ? 'player' : 'ally')} ${isCurTurn ? 'active' : ''} ${(ent.hp_current / (ent.hp_max || 1)) < .34 ? 'low' : ''}`}
       style={{
         '--c-light': ent.is_enemy ? '#f04848' : (entId === playerId ? '#6ae884' : '#7fc8f8'),

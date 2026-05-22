@@ -52,6 +52,14 @@ class SetGroupReadinessRequest(BaseModel):
     status: str = Field(min_length=1, max_length=20)
 
 
+class CreateRestVoteRequest(BaseModel):
+    rest_type: str = Field(default="long", min_length=4, max_length=5)
+
+
+class CastRestVoteRequest(BaseModel):
+    vote: str = Field(min_length=2, max_length=3)
+
+
 # ── 响应 ─────────────────────────────────────────────
 
 class MemberInfo(BaseModel):
@@ -98,6 +106,7 @@ class RoomInfo(BaseModel):
     active_group_id: Optional[str] = None
     pending_actions_by_group: dict = {}
     group_readiness: dict = {}
+    rest_vote: Optional[dict] = None
     created_at: Optional[datetime] = None
 
 
