@@ -1362,3 +1362,100 @@ async def test_reclaim_own_character_after_leave_and_rejoin(
     await db_session.refresh(char)
     assert char.is_player is True
     assert char.user_id == p2["user_id"]
+
+
+async def test_fifty_online_users_are_partitioned_across_four_player_rooms(
+    client, sample_module,
+):
+    """
+    50 在线用户不是"一局 50 人"：每局仍最多 4 人。
+
+    这里模拟 50 个用户分布在 13 个房间中（12 间满 4 人，最后一间 2 人），
+    并验证成员列表、默认分队、DM 风格、满员拒绝都按房间隔离。
+    """
+    users = [
+        await _register(client, f"capacity_user_{idx:02d}")
+        for idx in range(50)
+    ]
+
+    rooms = []
+    cursor = 0
+    room_sizes = [4] * 12 + [2]
+    style_by_room = ["classic", "dark_fantasy", "lighthearted", "epic_crpg", "hardcore"]
+
+    for room_idx, size in enumerate(room_sizes):
+        host = users[cursor]
+        dm_style = style_by_room[room_idx % len(style_by_room)]
+        created = (await client.post(
+            "/game/rooms/create",
+            headers=_h(host["token"]),
+            json={
+                "module_id": sample_module.id,
+                "save_name": f"容量隔离房 {room_idx}",
+                "max_players": 4,
+                "dm_style": dm_style,
+            },
+        )).json()
+        room_user_ids = [host["user_id"]]
+        cursor += 1
+
+        for _ in range(size - 1):
+            guest = users[cursor]
+            joined = await client.post(
+                "/game/rooms/join",
+                headers=_h(guest["token"]),
+                json={"room_code": created["room_code"]},
+            )
+            assert joined.status_code == 200, joined.text
+            room_user_ids.append(guest["user_id"])
+            cursor += 1
+
+        rooms.append({
+            "session_id": created["session_id"],
+            "room_code": created["room_code"],
+            "host": host,
+            "dm_style": dm_style,
+            "user_ids": room_user_ids,
+        })
+
+    assert cursor == 50
+    assert len({room["room_code"] for room in rooms}) == len(rooms)
+
+    overflow = await _register(client, "capacity_overflow")
+    full_room = rooms[0]
+    full_join = await client.post(
+        "/game/rooms/join",
+        headers=_h(overflow["token"]),
+        json={"room_code": full_room["room_code"]},
+    )
+    assert full_join.status_code == 409
+    assert "房间已满" in full_join.text
+
+    all_seen_user_ids = set()
+    for room_idx, room in enumerate(rooms):
+        info_resp = await client.get(
+            f"/game/rooms/{room['session_id']}",
+            headers=_h(room["host"]["token"]),
+        )
+        assert info_resp.status_code == 200, info_resp.text
+        info = info_resp.json()
+
+        member_ids = {member["user_id"] for member in info["members"]}
+        expected_ids = set(room["user_ids"])
+        assert member_ids == expected_ids
+        assert len(member_ids) <= 4
+        assert info["max_players"] == 4
+        assert info["room_code"] == room["room_code"]
+        assert info["host_user_id"] == room["host"]["user_id"]
+        assert info["dm_style"]["key"] == room["dm_style"]
+
+        groups = {group["id"]: group for group in info["party_groups"]}
+        assert groups["main"]["member_user_ids"] == room["user_ids"]
+        assert set(info["group_readiness"]["main"]).issubset(member_ids)
+
+        all_seen_user_ids.update(member_ids)
+
+        if room_idx > 0:
+            assert member_ids.isdisjoint(set(rooms[room_idx - 1]["user_ids"]))
+
+    assert all_seen_user_ids == {user["user_id"] for user in users}
