@@ -12,8 +12,10 @@ from api.deps import (
     get_session_or_404,
     get_user_id,
 )
+from api.combat._shared import _broadcast_combat
 from api.combat.schemas import SpellRequest
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -69,4 +71,20 @@ async def cast_spell(
         db.add(concentration_log)
 
     await db.commit()
-    return result.to_response()
+    response = result.to_response()
+    await _broadcast_combat(
+        session,
+        combat_obj,
+        CombatUpdate(
+            actor_id=str(req.caster_id),
+            actor_name=caster.name,
+            narration=result.narration,
+            action="spell",
+            target_id=response.get("target_id"),
+            target_new_hp=response.get("target_new_hp"),
+            combat_over=response.get("combat_over", False),
+            outcome=response.get("outcome"),
+        ),
+        db=db,
+    )
+    return response

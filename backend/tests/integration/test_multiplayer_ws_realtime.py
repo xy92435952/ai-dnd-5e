@@ -758,6 +758,292 @@ async def test_multiplayer_ai_turn_targets_guest_and_broadcasts_combat_update(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_guest_reaction_uses_guest_character_and_broadcasts_update(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Guest-owned reactions should mutate the guest character and refresh the room."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+    import services.combat_narrator as narrator
+    from services.combat_service import AttackResult
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "combat_start",
+                "narrative": "A sentry draws a blade.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {
+                    "combat_trigger": True,
+                    "initial_enemies": [
+                        {
+                            "name": "Clockwork Sentry",
+                            "hp": 12,
+                            "ac": 13,
+                            "attack_bonus": 3,
+                            "damage_dice": "1d6+1",
+                        }
+                    ],
+                },
+                "needs_check": {"required": False},
+                "combat_triggered": True,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    async def fake_get_ai_decision(**kwargs):
+        return {"action_type": "attack", "target_id": guest_char.id, "reason": "test guest reaction"}
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 18,
+                "target_ac": 12,
+            },
+            damage=3,
+            damage_roll={"formula": "1d6+1", "rolls": [2], "total": 3},
+            narration="hit",
+        )
+
+    async def fake_narrate_batch(actions):
+        return ["" for _ in actions]
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(narrator, "narrate_batch", fake_narrate_batch)
+    monkeypatch.setattr(ai_turn_attack, "narrate_batch", fake_narrate_batch)
+    monkeypatch.setattr(narrator, "narrate_action", fake_narrate_action)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_guest_reaction",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    guest_char = room_data["guest_char"]
+
+    guest_char.known_spells = ["Hellish Rebuke"]
+    guest_char.spell_slots = {"1st": 1}
+    await db_session.commit()
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        start_response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I start the fight.",
+        })
+        assert start_response.status_code == 200, start_response.text
+        await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+
+        combat_payload = (await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))).json()
+        enemy = next(entity for entity in combat_payload["entities"].values() if entity["is_enemy"])
+        enemy_turn_index = next(
+            index
+            for index, turn in enumerate(combat_payload["turn_order"])
+            if turn["character_id"] == enemy["id"]
+        )
+
+        from models import CombatState
+        from sqlalchemy import select
+
+        combat_row = (
+            await db_session.execute(select(CombatState).where(CombatState.session_id == sid))
+        ).scalars().first()
+        combat_row.current_turn_index = enemy_turn_index
+        positions = dict(combat_row.entity_positions or {})
+        positions[enemy["id"]] = {"x": 5, "y": 5}
+        positions[guest_char.id] = {"x": 6, "y": 5}
+        combat_row.entity_positions = positions
+        await db_session.commit()
+
+        before_ai_count = len(guest_ws.sent)
+        ai_result = await client.post(f"/game/combat/{sid}/ai-turn", headers=_h(host["token"]))
+        assert ai_result.status_code == 200, ai_result.text
+        assert ai_result.json()["target_id"] == guest_char.id
+        assert ai_result.json()["player_can_react"] is True
+        assert ai_result.json()["reaction_prompt"]["reactor_character_id"] == guest_char.id
+        assert ai_result.json()["reaction_prompt"]["options"][0]["type"] == "hellish_rebuke"
+        assert ai_result.json()["reaction_prompt"]["options"][0]["character_id"] == guest_char.id
+
+        await _wait_for_event(guest_ws, "combat_update", timeout=2, start_index=before_ai_count)
+
+        before_reaction_count = len(host_ws.sent)
+        reaction = await client.post(
+            f"/game/combat/{sid}/reaction",
+            headers=_h(guest["token"]),
+            json={
+                "reaction_type": "hellish_rebuke",
+                "target_id": enemy["id"],
+                "character_id": guest_char.id,
+            },
+        )
+        assert reaction.status_code == 200, reaction.text
+
+        await db_session.refresh(guest_char)
+        assert guest_char.spell_slots["1st"] == 0
+
+        reaction_update = await _wait_for_event(host_ws, "combat_update", timeout=2, start_index=before_reaction_count)
+        assert reaction_update["actor_id"] == guest_char.id
+        assert reaction_update["reaction_type"] == "hellish_rebuke"
+        assert reaction_update["combat"]["turn_states"][guest_char.id]["reaction_used"] is True
+        assert reaction_update["combat"]["entities"][enemy["id"]]["hp_current"] < enemy["hp_current"]
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_multiplayer_death_save_broadcasts_character_state(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Death saves should refresh every combat client in the room."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "combat_start",
+                "narrative": "A sentry presses the attack.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {
+                    "combat_trigger": True,
+                    "initial_enemies": [{"name": "Clockwork Sentry", "hp": 9, "ac": 13}],
+                },
+                "needs_check": {"required": False},
+                "combat_triggered": True,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_death_save",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    guest_char = room_data["guest_char"]
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        start_response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I start the fight.",
+        })
+        assert start_response.status_code == 200, start_response.text
+        await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+
+        from models import CombatState
+        from sqlalchemy import select
+
+        combat_row = (
+            await db_session.execute(select(CombatState).where(CombatState.session_id == sid))
+        ).scalars().first()
+        guest_turn_index = next(
+            index
+            for index, turn in enumerate(combat_row.turn_order)
+            if turn["character_id"] == guest_char.id
+        )
+        combat_row.current_turn_index = guest_turn_index
+        guest_char.hp_current = 0
+        guest_char.death_saves = {"successes": 0, "failures": 0, "stable": False}
+        await db_session.commit()
+
+        before_count = len(host_ws.sent)
+        response = await client.post(
+            f"/game/combat/{sid}/death-save",
+            headers=_h(guest["token"]),
+            json={"character_id": guest_char.id, "d20_value": 20},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["outcome"] == "revive"
+
+        update = await _wait_for_event(host_ws, "combat_update", timeout=2, start_index=before_count)
+        assert update["actor_id"] == guest_char.id
+        assert update["death_save"]["outcome"] == "revive"
+        assert update["combat"]["entities"][guest_char.id]["hp_current"] == 1
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_end_turn_ticks_current_player_conditions(
     client,
     db_session,

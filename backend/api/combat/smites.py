@@ -9,12 +9,13 @@ from sqlalchemy.orm.attributes import flag_modified
 from database import get_db
 from models import Character, CombatState, GameLog
 from api.deps import get_session_or_404, get_user_id
-from api.combat._shared import svc
+from api.combat._shared import _broadcast_combat, svc
 from api.combat.schemas import SmiteRequest
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.dnd_rules import _normalize_class
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -146,6 +147,20 @@ async def divine_smite(
     )
 
     await db.commit()
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            actor_id=str(player.id),
+            actor_name=player.name,
+            narration=narration,
+            target_id=smite_target_id,
+            target_new_hp=target_new_hp,
+            combat_over=combat_over,
+            outcome=outcome,
+        ),
+        db=db,
+    )
     return {
         "action":          "divine_smite",
         "narration":       narration,

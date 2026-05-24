@@ -10,6 +10,7 @@ from models import Character, CombatState, GameLog
 from api.deps import assert_can_act, get_session_or_404, get_user_id
 from api.combat._shared import (
     _DEFAULT_TS,
+    _broadcast_combat,
     _get_ts,
 )
 from services.combat_pending_spell_service import (
@@ -28,6 +29,7 @@ from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.spell_service import spell_service
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -84,6 +86,17 @@ async def spell_roll(
         raise HTTPException(exc.status_code, exc.detail) from exc
 
     await db.commit()
+
+    await _broadcast_combat(
+        session,
+        combat_obj,
+        CombatUpdate(
+            actor_id=str(req.caster_id),
+            actor_name=caster.name,
+            action="spell_roll",
+        ),
+        db=db,
+    )
 
     return {
         "spell_name": req.spell_name,
@@ -192,6 +205,21 @@ async def spell_confirm(
         db.add(wild_magic_log)
 
     await db.commit()
+    await _broadcast_combat(
+        session,
+        combat_obj,
+        CombatUpdate(
+            actor_id=str(caster_entity_id),
+            actor_name=caster.name,
+            narration=response_narration,
+            action="spell",
+            target_id=confirmed.target_id,
+            target_new_hp=confirmed.target_new_hp,
+            combat_over=confirmed.combat_over,
+            outcome=confirmed.outcome,
+        ),
+        db=db,
+    )
 
     return {
         "narration": response_narration,

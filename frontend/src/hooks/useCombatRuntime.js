@@ -60,11 +60,12 @@ export function useCombatRuntime({
     clearAoePreview,
   } = targeting
   const { logs, logsEndRef } = log
+  const controlledPlayerId = room && myCharacterId ? myCharacterId : playerId
 
   const spells = useCombatSpells(sessionId)
   const skillBarV10 = useCombatSkillBar({
     sessionId,
-    playerId,
+    playerId: controlledPlayerId,
     refreshKey: playerSpellSlots,
   })
   const flow = useCombatFlowHandlers({
@@ -73,10 +74,11 @@ export function useCombatRuntime({
     page,
     targeting,
     log,
+    controlledPlayerId,
   })
   const prediction = useCombatPrediction({
     sessionId,
-    playerId,
+    playerId: controlledPlayerId,
     selectedTarget,
     playerClass,
     isRanged,
@@ -86,7 +88,7 @@ export function useCombatRuntime({
     combat,
     room,
     myCharacterId,
-    playerId,
+    playerId: controlledPlayerId,
     selectedTarget,
     showThreat,
     aoePreview,
@@ -106,6 +108,7 @@ export function useCombatRuntime({
     sessionId,
     setRoom,
     myCharacterId,
+    playerId: controlledPlayerId,
     moveMode,
     isProcessing,
     isPlayerTurn: derived.isPlayerTurn,

@@ -80,6 +80,7 @@ export default function Combat() {
     entityPositions,
     entities,
     cam,
+    effectivePlayerId,
     currentTurnEntry,
     isPlayerTurn: isPlayerTurnV10,
     isMyTurnMP,
@@ -176,7 +177,7 @@ export default function Combat() {
         moveMode={moveMode}
         aoePreview={aoePreview}
         aoeHover={aoeHover}
-        playerId={playerId}
+        playerId={effectivePlayerId || playerId}
         prediction={prediction}
         floats={floats}
         combatOver={combatOver}

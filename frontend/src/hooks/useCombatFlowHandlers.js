@@ -14,6 +14,7 @@ export function useCombatFlowHandlers({
   page,
   targeting,
   log,
+  controlledPlayerId = null,
 }) {
   const {
     combat,
@@ -52,6 +53,7 @@ export function useCombatFlowHandlers({
     setHelpMode,
   } = targeting
   const { setLogs, addLog } = log
+  const actorId = controlledPlayerId || playerId
 
   const isPlayerTurn = useCallback((combatState) => isPlayerCombatTurn(combatState), [])
 
@@ -111,7 +113,7 @@ export function useCombatFlowHandlers({
 
   const handleAttack = useCombatAttackFlow({
     sessionId,
-    playerId,
+    playerId: actorId,
     selectedTarget,
     isRanged,
     combat,
@@ -131,7 +133,7 @@ export function useCombatFlowHandlers({
 
   const handleCastSpell = useCombatSpellFlow({
     sessionId,
-    playerId,
+    playerId: actorId,
     selectedTarget,
     isProcessing,
     processingRef,
@@ -154,7 +156,7 @@ export function useCombatFlowHandlers({
     handleDisengage,
   } = useCombatPlayerActions({
     sessionId,
-    playerId,
+    playerId: actorId,
     combat,
     isProcessing,
     isPlayerTurn,

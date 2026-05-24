@@ -47,6 +47,7 @@ class ClassFeatureRequest(BaseModel):
 class ReactionRequest(BaseModel):
     reaction_type: str      # "shield" | "uncanny_dodge" | "hellish_rebuke" | "opportunity_attack"
     target_id: Optional[str] = None  # For hellish_rebuke / opportunity_attack
+    character_id: Optional[str] = None  # Reacting character; important in multiplayer rooms
 
 
 class GrappleShoveRequest(BaseModel):

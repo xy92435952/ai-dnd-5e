@@ -95,6 +95,7 @@ export function useCombatPageActions({
     if (!moveMode || !isPlayerTurn || isProcessing) return
     try {
       const entityId = playerId || myCharacterId
+      if (!entityId) return
       const result = await gameApi.move(sessionId, entityId, x, y)
       if (result) {
         setCombat(prev => prev ? { ...prev, entity_positions: result.entity_positions || prev.entity_positions } : prev)

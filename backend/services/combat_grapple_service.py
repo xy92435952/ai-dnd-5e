@@ -46,11 +46,20 @@ async def resolve_grapple_shove(
     if not combat:
         raise CombatGrappleError(404, "战斗状态不存在")
 
-    player = await db.get(Character, session.player_character_id)
+    player_id = session.player_character_id
+    if getattr(session, "is_multiplayer", False) and combat.turn_order:
+        try:
+            current = combat.turn_order[combat.current_turn_index or 0]
+            current_id = current.get("character_id") if isinstance(current, dict) else None
+            if current_id:
+                player_id = current_id
+        except (IndexError, AttributeError):
+            pass
+
+    player = await db.get(Character, player_id)
     if not player:
         raise CombatGrappleError(404, "玩家角色不存在")
 
-    player_id = session.player_character_id
     turn_state = get_turn_state(combat, player_id)
     max_attacks = combat_service.get_attack_count(
         player.derived or {},

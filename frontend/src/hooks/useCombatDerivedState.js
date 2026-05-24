@@ -58,7 +58,8 @@ export function useCombatDerivedState({
     buildAoeCells({ aoePreview, aoeHover }),
   [aoePreview, aoeHover])
 
-  const playerPos = playerId ? entityPositions[playerId] : null
+  const effectivePlayerId = room && myCharacterId ? myCharacterId : playerId
+  const playerPos = effectivePlayerId ? entityPositions[effectivePlayerId] : null
   const cam = getCameraWindow({
     playerPos,
     totalWidth: gridWidth,
@@ -81,6 +82,7 @@ export function useCombatDerivedState({
     entityPositions,
     entities,
     playerPos,
+    effectivePlayerId,
     cam,
     currentTurnEntry,
     isPlayerTurn,

@@ -299,7 +299,21 @@ async def handle_ai_attack_action(
     await advance_ai_turn(combat, session, db, turn_order, next_index)
 
     player_check = await db.get(Character, session.player_character_id)
-    combat_over, outcome = svc.check_combat_over(enemies, player_check.hp_current if player_check else 0)
+    party_characters = [
+        await db.get(Character, str(character["id"]))
+        for character in all_characters
+        if character.get("id")
+    ]
+    alive_party = [
+        character
+        for character in party_characters
+        if character and character.hp_current > 0
+    ]
+    player_hp_for_outcome = max(
+        [character.hp_current for character in alive_party],
+        default=player_check.hp_current if player_check else 0,
+    )
+    combat_over, outcome = svc.check_combat_over(enemies, player_hp_for_outcome)
     if combat_over:
         session.combat_active = False
         try:
@@ -309,13 +323,18 @@ async def handle_ai_attack_action(
         except Exception:
             pass
 
-    player_targeted = (is_enemy and target_id == session.player_character_id)
+    target_player = None
+    if is_enemy and target_id:
+        target_player = await db.get(Character, target_id)
+        if target_player and not target_player.is_player:
+            target_player = None
+    player_targeted = target_player is not None
     player_can_react = False
     reaction_prompt = None
-    if player_targeted and player_check:
-        player_ts = _get_ts(combat, session.player_character_id)
+    if player_targeted and target_player:
+        player_ts = _get_ts(combat, target_player.id)
         player_can_react, has_prompt, reaction_prompt = build_reaction_prompt(
-            player_check, player_ts, target_id, actor_name, actor_id, total_damage, result_obj
+            target_player, player_ts, target_id, actor_name, actor_id, total_damage, result_obj
         )
         if not has_prompt:
             reaction_prompt = None

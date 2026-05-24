@@ -64,7 +64,7 @@ export function useCombatSpecialActions({
     smitePrompt,
   ])
 
-  const handleReaction = useCallback(async (reactionType, targetId = null) => {
+  const handleReaction = useCallback(async (reactionType, targetId = null, characterId = null) => {
     setReactionPrompt(null)
     processingRef.current = true
     setIsProcessing(true)
@@ -73,7 +73,7 @@ export function useCombatSpecialActions({
         const { total } = await rollDice3D(10, 2)
         showDice({ faces: 10, result: total, label: '地狱斥责 2d10', count: 2 })
       }
-      const result = await gameApi.useReaction(sessionId, reactionType, targetId)
+      const result = await gameApi.useReaction(sessionId, reactionType, targetId, characterId)
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.turn_state) setTurnState(result.turn_state)
       processingRef.current = false

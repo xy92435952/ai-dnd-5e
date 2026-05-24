@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import CombatState, GameLog
-from api.deps import get_session_or_404
+from api.deps import assert_can_act, get_optional_user_id, get_session_or_404
+from api.combat._shared import _broadcast_combat
 from api.combat.schemas import GrappleShoveRequest
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 from services.combat_grapple_service import CombatGrappleError, resolve_grapple_shove
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -20,6 +22,7 @@ async def grapple_shove(
     session_id: str,
     req: GrappleShoveRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """
     Grapple or Shove action. Replaces one attack.
@@ -29,6 +32,16 @@ async def grapple_shove(
     session = await get_session_or_404(session_id, db)
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()
+    if combat and session.is_multiplayer and combat.turn_order:
+        try:
+            current = combat.turn_order[combat.current_turn_index or 0]
+            actor_id = current.get("character_id") if isinstance(current, dict) else None
+            if actor_id:
+                if not user_id:
+                    raise HTTPException(401, "Login required for multiplayer combat")
+                await assert_can_act(session, user_id, actor_id, db)
+        except (IndexError, AttributeError):
+            pass
 
     try:
         result = await resolve_grapple_shove(
@@ -50,4 +63,14 @@ async def grapple_shove(
         dice_result=result.log_dice_result,
     ))
     await db.commit()
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            narration=result.narration,
+            action=req.action_type,
+            target_id=req.target_id,
+        ),
+        db=db,
+    )
     return result.payload

@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Character, CombatState, GameLog
-from api.deps import get_session_or_404
-from api.combat._shared import _get_ts, svc
+from api.deps import assert_can_act, get_optional_user_id, get_session_or_404
+from api.combat._shared import _broadcast_combat, _get_ts, svc
 from api.combat.schemas import ClassFeatureRequest
 from services.combat_class_feature_service import (
     CombatClassFeatureError,
@@ -17,6 +17,7 @@ from services.combat_class_feature_service import (
 from services.combat_narrator import narrate_action
 from services.dnd_rules import roll_dice
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -26,6 +27,7 @@ async def use_class_feature(
     session_id: str,
     req: ClassFeatureRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """
     使用职业战斗特性：
@@ -50,6 +52,23 @@ async def use_class_feature(
         raise HTTPException(404, "战斗状态不存在")
 
     player_id = session.player_character_id
+    if session.is_multiplayer and combat.turn_order:
+        try:
+            current = combat.turn_order[combat.current_turn_index or 0]
+            current_id = current.get("character_id") if isinstance(current, dict) else None
+            if current_id:
+                player_id = current_id
+        except (IndexError, AttributeError):
+            pass
+    if session.is_multiplayer:
+        if not user_id:
+            raise HTTPException(401, "Login required for multiplayer combat")
+        await assert_can_act(session, user_id, player_id, db)
+    if player_id != session.player_character_id:
+        player = await db.get(Character, player_id)
+        if not player:
+            raise HTTPException(404, "Player character not found")
+
     turn_state = _get_ts(combat, player_id)
     try:
         result = resolve_combat_class_feature(
@@ -83,6 +102,17 @@ async def use_class_feature(
         dice_result={"type": "class_feature", "feature": req.feature_name},
     ))
     await db.commit()
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            actor_id=str(player_id),
+            actor_name=player.name,
+            narration=narration,
+            feature=req.feature_name,
+        ),
+        db=db,
+    )
 
     return {
         "action": "class_feature",

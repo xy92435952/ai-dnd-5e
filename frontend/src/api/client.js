@@ -215,10 +215,11 @@ export const gameApi = {
     }),
 
   // 反应 (Reaction)
-  useReaction: (sessionId, reactionType, targetId = null) =>
+  useReaction: (sessionId, reactionType, targetId = null, characterId = null) =>
     api.post(`/game/combat/${sessionId}/reaction`, {
       reaction_type: reactionType,
       ...(targetId ? { target_id: targetId } : {}),
+      ...(characterId ? { character_id: characterId } : {}),
     }),
 
   // 擒抱/推撞 (Grapple/Shove)

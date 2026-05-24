@@ -11,7 +11,9 @@ from sqlalchemy.orm.attributes import flag_modified
 from database import get_db
 from models import Character, GameLog, CombatState
 from api.deps import (
+    assert_can_act,
     get_session_or_404,
+    get_optional_user_id,
 )
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
@@ -24,6 +26,7 @@ from services.combat_direct_attack_service import (
 )
 
 from api.combat._shared import (
+    _broadcast_combat,
     svc,
     _save_ts,
     _has_ally_adjacent_to,
@@ -33,6 +36,7 @@ from api.combat.schemas import (
     CombatActionRequest,
 )
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -42,6 +46,7 @@ async def combat_action(
     session_id: str,
     req:        CombatActionRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """
     玩家战斗行动（攻击 / 闪避 / 冲刺 / 脱离接战 / 协助）。
@@ -59,8 +64,20 @@ async def combat_action(
         raise HTTPException(404, "战斗状态不存在")
 
     await db.refresh(session)  # 确保读取最新 game_state
-    player      = await db.get(Character, session.player_character_id)
-    player_id   = session.player_character_id
+    player_id = session.player_character_id
+    if session.is_multiplayer and combat.turn_order:
+        try:
+            current = combat.turn_order[combat.current_turn_index or 0]
+            current_id = current.get("character_id") if isinstance(current, dict) else None
+            if current_id:
+                player_id = current_id
+        except (IndexError, AttributeError):
+            pass
+    if session.is_multiplayer:
+        if not user_id:
+            raise HTTPException(401, "Login required for multiplayer combat")
+        await assert_can_act(session, user_id, player_id, db)
+    player      = await db.get(Character, player_id)
     player_name = player.name if player else "你"
     state       = session.game_state or {}
     enemies     = list(state.get("enemies", []))
@@ -79,6 +96,21 @@ async def combat_action(
         enemies=enemies,
     )
     if pre_action is not None:
+        await _broadcast_combat(
+            session,
+            combat,
+            CombatUpdate(
+                actor_id=str(player_id),
+                actor_name=player_name,
+                narration=pre_action.get("narration"),
+                action=pre_action.get("action"),
+                target_id=pre_action.get("target_id"),
+                target_new_hp=pre_action.get("target_new_hp"),
+                combat_over=pre_action.get("combat_over", False),
+                outcome=pre_action.get("outcome"),
+            ),
+            db=db,
+        )
         return pre_action
 
     try:
@@ -180,6 +212,21 @@ async def combat_action(
     )
 
     await db.commit()
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            actor_id=str(player_id),
+            actor_name=player_name,
+            narration=narration,
+            action="attack",
+            target_id=prepared.target_id,
+            target_new_hp=target_new_hp,
+            combat_over=combat_over,
+            outcome=outcome,
+        ),
+        db=db,
+    )
     return {
         "action":               "attack",
         "narration":            narration,

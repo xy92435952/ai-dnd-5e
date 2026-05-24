@@ -16,7 +16,7 @@ from database import get_db
 from models import Character, Session, GameLog, CombatState, Module
 from api.deps import (
     get_session_or_404, entity_snapshot, serialize_combat,
-    get_user_id, assert_can_act, broadcast_to_session, current_turn_user_id,
+    get_optional_user_id, assert_can_act, broadcast_to_session, current_turn_user_id,
 )
 from services.combat_service import CombatService
 from services.spell_service import spell_service
@@ -40,6 +40,7 @@ from api.combat.schemas import (
     SpellConfirmRequest, ManeuverRequest,
 )
 from schemas.combat_responses import CombatActionResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -49,6 +50,7 @@ async def use_reaction(
     session_id: str,
     req: ReactionRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id),
 ):
     """
     Player uses reaction during enemy turn.
@@ -64,11 +66,33 @@ async def use_reaction(
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
-    player = await db.get(Character, session.player_character_id)
+    player_id = req.character_id or session.player_character_id
+    if session.is_multiplayer and not req.character_id:
+        if not user_id:
+            raise HTTPException(401, "Login required for multiplayer combat")
+        from models import SessionMember
+        member_result = await db.execute(
+            select(SessionMember).where(
+                SessionMember.session_id == session_id,
+                SessionMember.user_id == user_id,
+            )
+        )
+        member = member_result.scalar_one_or_none()
+        if member and member.character_id:
+            player_id = member.character_id
+
+    if session.is_multiplayer:
+        if not user_id:
+            raise HTTPException(401, "Login required for multiplayer combat")
+        await assert_can_act(session, user_id, player_id, db, require_current_turn=False)
+
+    player = await db.get(Character, player_id)
     if not player:
         raise HTTPException(404, "玩家角色不存在")
 
-    player_id = session.player_character_id
+    if player.session_id and str(player.session_id) != str(session_id):
+        raise HTTPException(403, "Character does not belong to this combat session")
+
     ts = _get_ts(combat, player_id)
     if ts.get("reaction_used"):
         raise HTTPException(400, "本回合反应已用尽")
@@ -174,6 +198,18 @@ async def use_reaction(
         dice_result={"type": "reaction", "reaction_type": req.reaction_type, **reaction_effect},
     ))
     await db.commit()
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            actor_id=str(player_id),
+            actor_name=player.name,
+            narration=narration,
+            reaction_type=req.reaction_type,
+            target_id=req.target_id,
+        ),
+        db=db,
+    )
 
     # 反应骰子动画
     reaction_dice = None

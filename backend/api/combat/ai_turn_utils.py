@@ -38,7 +38,7 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
         available_reactions.append({
             "id": "shield",
             "name": "Shield",
-            "type": "spell",
+            "type": "shield",
             "cost": "1st-level spell slot",
             "slot_level": "1st",
             "slots_remaining": p_slots.get("1st", 0),
@@ -50,7 +50,7 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
         available_reactions.append({
             "id": "uncanny_dodge",
             "name": "Uncanny Dodge",
-            "type": "class_feature",
+            "type": "uncanny_dodge",
             "cost": "reaction",
             "effect": f"将此次攻击的伤害减半（{total_damage} → {total_damage // 2}）",
             "reduced_damage": total_damage // 2,
@@ -60,7 +60,7 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
         available_reactions.append({
             "id": "hellish_rebuke",
             "name": "Hellish Rebuke",
-            "type": "spell",
+            "type": "hellish_rebuke",
             "cost": "1st-level spell slot",
             "slot_level": "1st",
             "slots_remaining": p_slots.get("1st", 0),
@@ -101,6 +101,17 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
         "incoming_damage": total_damage,
         "attacker_name": actor_name,
         "attacker_id": actor_id,
+        "reactor_character_id": str(player_check.id),
+        "target_id": actor_id,
         "spell_slots": p_slots,
         "available_reactions": available_reactions,
+        "options": [
+            {
+                "type": reaction["type"],
+                "target_id": actor_id,
+                "character_id": str(player_check.id),
+                "label": f"{reaction['name']} - {reaction.get('effect', '')}".strip(" -"),
+            }
+            for reaction in available_reactions
+        ],
     }

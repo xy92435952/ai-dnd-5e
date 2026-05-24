@@ -101,11 +101,11 @@ describe('useCombatSpecialActions', () => {
     const { result, deps } = renderActions()
 
     await act(async () => {
-      await result.current.handleReaction('hellish_rebuke', 'enemy-1')
+      await result.current.handleReaction('hellish_rebuke', 'enemy-1', 'char-2')
     })
 
     expect(rollDice3DMock).toHaveBeenCalledWith(10, 2)
-    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'hellish_rebuke', 'enemy-1')
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'hellish_rebuke', 'enemy-1', 'char-2')
     expect(deps.setTurnState).toHaveBeenCalledWith({ reaction_used: true })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })

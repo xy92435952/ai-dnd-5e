@@ -40,6 +40,7 @@ from api.combat.schemas import (
     SpellConfirmRequest, ManeuverRequest,
 )
 from schemas.combat_responses import ConditionUpdateResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -90,6 +91,15 @@ async def add_condition(
         log_type   = "system",
     ))
     await db.commit()
+    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat = combat_result.scalars().first()
+    if combat:
+        await _broadcast_combat(
+            session,
+            combat,
+            CombatUpdate(actor_id=req.entity_id, condition=req.condition, condition_action="add"),
+            db=db,
+        )
     return {"entity_id": req.entity_id, "conditions": conditions}
 
 
@@ -126,6 +136,15 @@ async def remove_condition(
         log_type   = "system",
     ))
     await db.commit()
+    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat = combat_result.scalars().first()
+    if combat:
+        await _broadcast_combat(
+            session,
+            combat,
+            CombatUpdate(actor_id=req.entity_id, condition=req.condition, condition_action="remove"),
+            db=db,
+        )
     return {"entity_id": req.entity_id, "conditions": conditions}
 
 

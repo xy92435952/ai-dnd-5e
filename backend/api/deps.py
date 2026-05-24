@@ -22,6 +22,16 @@ async def get_current_user(request: Request) -> dict:
     return decode_token(token)
 
 
+async def get_optional_user_id(request: Request) -> Optional[str]:
+    """Return the authenticated user id when a bearer token is present."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    from api.auth import decode_token
+    return decode_token(token)["user_id"]
+
+
 def get_user_id(user: dict = Depends(get_current_user)) -> str:
     """快捷依赖：只返回 user_id 字符串。"""
     return user["user_id"]

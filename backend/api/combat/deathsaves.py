@@ -40,6 +40,7 @@ from api.combat.schemas import (
     SpellConfirmRequest, ManeuverRequest,
 )
 from schemas.combat_responses import DeathSaveResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -124,6 +125,20 @@ async def death_saving_throw(
         dice_result = result,
     ))
     await db.commit()
+    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat = combat_result.scalars().first()
+    if combat:
+        await _broadcast_combat(
+            session,
+            combat,
+            CombatUpdate(
+                actor_id=str(req.character_id),
+                actor_name=char.name,
+                narration=msg,
+                death_save=result,
+            ),
+            db=db,
+        )
     return {
         "character_id": req.character_id,
         "character_name": char.name,

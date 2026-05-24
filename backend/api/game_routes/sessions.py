@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import can_user_see_log, char_brief, get_session_or_404, get_user_id, serialize_log
 from database import get_db
-from models import Character, CombatState, GameLog, Module, Session
+from models import Character, CombatState, GameLog, Module, Session, SessionMember
 from schemas.game_requests import CreateSessionRequest
 from schemas.game_responses import CreateSessionResponse, SessionDetail, SessionListItem
 from services.character_roster import CharacterRoster
@@ -97,6 +97,17 @@ async def get_session(
     session = await get_session_or_404(session_id, db)
     roster = CharacterRoster(db, session)
     player = await roster.player()
+    controlled_player = player
+    if session.is_multiplayer:
+        member_result = await db.execute(
+            select(SessionMember).where(
+                SessionMember.session_id == session_id,
+                SessionMember.user_id == user_id,
+            )
+        )
+        member = member_result.scalar_one_or_none()
+        if member and member.character_id:
+            controlled_player = await db.get(Character, member.character_id) or player
     module = await db.get(Module, session.module_id) if session.module_id else None
     companions = [char_brief(character) for character in await roster.companions()]
 
@@ -115,7 +126,7 @@ async def get_session(
         "current_scene": session.current_scene,
         "combat_active": session.combat_active,
         "game_state": session.game_state or {},
-        "player": char_brief(player) if player else None,
+        "player": char_brief(controlled_player) if controlled_player else None,
         "companions": companions,
         "logs": [serialize_log(log) for log in logs if can_user_see_log(log, user_id)],
         "campaign_state": session.campaign_state or {},
