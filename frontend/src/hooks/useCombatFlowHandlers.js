@@ -47,7 +47,6 @@ export function useCombatFlowHandlers({
   const {
     selectedTarget,
     setSelectedTarget,
-    moveMode,
     setMoveMode,
     isRanged,
     setHelpMode,

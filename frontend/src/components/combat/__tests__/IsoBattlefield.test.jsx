@@ -12,7 +12,7 @@ describe('IsoBattlefield', () => {
     const onMoveTo = vi.fn()
     const onAoeHover = vi.fn()
 
-    const { container, getByText } = render(
+    const { container } = render(
       <IsoBattlefield
         viewWidth={1}
         viewHeight={1}

@@ -26,7 +26,7 @@ export default function Home() {
   })
   const tutorialProgress = getTutorialProgress()
 
-  const { user: me, displayName } = useUser()
+  const { displayName } = useUser()
 
   useEffect(() => { resetGame(); loadModules(); loadSessions() }, [])
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { charactersApi, gameApi } from '../api/client'
 import {
@@ -51,9 +51,7 @@ export default function CharacterSheet() {
   const [partyMembers, setPartyMembers] = useState([])
   const [error, setError] = useState('')
 
-  useEffect(() => { loadCharacter() }, [characterId])
-
-  const loadCharacter = async () => {
+  const loadCharacter = useCallback(async () => {
     try {
       const data = await charactersApi.get(characterId)
       setChar(data)
@@ -70,7 +68,9 @@ export default function CharacterSheet() {
     } catch (e) {
       setError(e.message)
     }
-  }
+  }, [characterId, searchParams])
+
+  useEffect(() => { loadCharacter() }, [loadCharacter])
 
   if (error && !char) {
     return (

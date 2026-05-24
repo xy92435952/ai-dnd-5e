@@ -92,7 +92,7 @@ export default function CombatQuickInventory({
     return `${label}${item.quantity > 1 ? ` x${item.quantity}` : ''}`
   }
 
-  const useConsumable = async (item, targetCharacterId = null) => {
+  const handleUseConsumable = async (item, targetCharacterId = null) => {
     if (disabled || actionUsed || waitingTurn || busyName) return
     setBusyName(item.name)
     setMessage('')
@@ -145,7 +145,7 @@ export default function CombatQuickInventory({
                   onChange={(event) => {
                     const targetId = event.target.value
                     event.target.value = ''
-                    if (targetId) useConsumable(item, targetId)
+                    if (targetId) handleUseConsumable(item, targetId)
                   }}
                   style={{
                     background: 'rgba(10,6,2,0.65)',
@@ -170,7 +170,7 @@ export default function CombatQuickInventory({
                 type="button"
                 className="btn-ghost"
                 disabled={disabled || actionUsed || waitingTurn || Boolean(busyName)}
-                onClick={() => useConsumable(item)}
+                onClick={() => handleUseConsumable(item)}
                 aria-label={`使用 ${label}`}
                 style={{ fontSize: 10, padding: '4px 7px' }}
               >

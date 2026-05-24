@@ -9,10 +9,9 @@
  *   dialogueMode   'chat' | 'stage'
  *   currentSeg     stage 模式下当前段 { role, speaker }
  *   companions     队友列表（用于 companion 段匹配头像）
- *   player         未使用（保留以备将来玩家头像扩展）
  *   hasDmContent   chat 模式时控制是否显示
  */
-export default function StageLeftFigure({ dialogueMode, currentSeg, companions, player, hasDmContent }) {
+export default function StageLeftFigure({ dialogueMode, currentSeg, companions, hasDmContent }) {
   // 决定当前左侧应展示的身份
   let role = 'dm'
   let speaker = '地下城主'

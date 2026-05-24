@@ -143,7 +143,9 @@ export default function Adventure() {
   })
 
   // 6. 把 DM 响应拼成剧场队列（HTTP 响应和 WS dm_responded 都用这个）
-  const buildDialogueQueue = useCallback(buildDialogueQueueFromText, [])
+  const buildDialogueQueue = useCallback((text, options) => (
+    buildDialogueQueueFromText(text, options)
+  ), [])
 
   // 7. WS 事件处理 —— 整段 switch 抽到 useDialogueWsSync 里
   const onWsEvent = useDialogueWsSync({

@@ -30,10 +30,7 @@ const CLOTH_RED = '#a82830';  const CLOTH_RED_DK  = '#5a1018';
 const CLOTH_DRK = '#1a1418';  const CLOTH_DRK_DK  = '#000000';
 const BONE = '#e8dcb8';       const BONE_DK = '#8a7c5a';
 
-// px helper: 每个像素 2px 大小
 const P = 2;
-const px = (x, y, c) =>
-  <rect key={`${x},${y},${c}`} x={x*P} y={y*P} width={P} height={P} fill={c} shapeRendering="crispEdges" />;
 
 // 画一个像素串："5,3,#ff0000 6,3,#ff0000 ..." 用数组更省事
 // 我们用紧凑的格式：每个角色定义一个 pixel map [x, y, color]
@@ -399,7 +396,7 @@ const SPRITES = {
 // ══════════════════════════════════════════════════════════════
 function PixelSprite({ kind, size = 44, dead = false, dim = false }) {
   const gen = SPRITES[kind] || SPRITES.paladin;
-  const pixels = useMemo(() => gen(), [kind]);
+  const pixels = useMemo(() => gen(), [gen]);
   const W = 16 * P;   // 32
   const H = 24 * P;   // 48
   return (

@@ -4,7 +4,7 @@
  * 外部依赖（mock）：gameApi.skillCheck / rollDice3D / juice.JuiceAudio / juice.shake
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 
 // vi.mock 提升到文件顶部 —— 必须用 factory 函数
 vi.mock('../../api/client', () => ({

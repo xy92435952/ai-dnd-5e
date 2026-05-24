@@ -10,8 +10,6 @@ import {
   getClassEnKey,
   getRaceEnKey,
   normalizeCharacterOptions,
-  modifier,
-  modStr,
 } from '../characterCreate'
 
 function makeOptions(overrides = {}) {
