@@ -7,6 +7,7 @@ export function useCombatSpecialActions({
   sessionId,
   selectedTarget,
   isProcessing,
+  canActThisTurn = true,
   smitePrompt,
   playerSubclassEffects,
   processingRef,
@@ -24,7 +25,7 @@ export function useCombatSpecialActions({
   addLog,
 }) {
   const handleSmite = useCallback(async (slotLevel) => {
-    if (isProcessing) return
+    if (!canActThisTurn || isProcessing) return
     processingRef.current = true
     setIsProcessing(true)
     const currentSmiteTarget = smitePrompt?.targetId
@@ -51,6 +52,7 @@ export function useCombatSpecialActions({
     }
   }, [
     addLog,
+    canActThisTurn,
     isProcessing,
     processingRef,
     sessionId,
@@ -98,7 +100,7 @@ export function useCombatSpecialActions({
   ])
 
   const handleManeuver = useCallback(async (maneuverName) => {
-    if (isProcessing || !selectedTarget) return
+    if (!canActThisTurn || isProcessing || !selectedTarget) return
     processingRef.current = true
     setIsProcessing(true)
     setError('')
@@ -135,6 +137,7 @@ export function useCombatSpecialActions({
     }
   }, [
     addLog,
+    canActThisTurn,
     isProcessing,
     playerSubclassEffects,
     processingRef,

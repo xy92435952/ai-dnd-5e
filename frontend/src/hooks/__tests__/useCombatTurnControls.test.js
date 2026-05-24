@@ -100,4 +100,15 @@ describe('useCombatTurnControls', () => {
 
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false })
   })
+
+  it('does not end turn when a multiplayer observer is watching another player turn', async () => {
+    const { result, deps } = renderControls({ canActThisTurn: false })
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(endTurnMock).not.toHaveBeenCalled()
+    expect(deps.setIsProcessing).not.toHaveBeenCalled()
+  })
 })

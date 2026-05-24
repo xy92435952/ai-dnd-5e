@@ -4,6 +4,7 @@ import {
   buildGridTerrainSets,
   buildInitiativeChips,
   buildThreatCells,
+  canActInCombatTurn,
   getCameraWindow,
   getCombatSkillBar,
   getCurrentTurnLabel,
@@ -69,6 +70,7 @@ export function useCombatDerivedState({
   })
   const currentTurnEntry = combat?.turn_order?.[combat?.current_turn_index ?? 0]
   const isPlayerTurn = isPlayerCombatTurn(combat)
+  const canActThisTurn = canActInCombatTurn({ room, combat, myCharacterId })
   const { walls, hazards } = buildGridTerrainSets(combat?.grid_data || {})
   const selectedTargetEntity = selectedTarget ? entities[selectedTarget] : null
   const initiativeChips = buildInitiativeChips({
@@ -86,6 +88,7 @@ export function useCombatDerivedState({
     cam,
     currentTurnEntry,
     isPlayerTurn,
+    canActThisTurn,
     isMyTurnMP,
     currentTurnLabel,
     walls,

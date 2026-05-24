@@ -117,4 +117,36 @@ describe('useCombatSpellFlow', () => {
     expect(processingRef.current).toBe(false)
     expect(setIsProcessing).toHaveBeenLastCalledWith(false)
   })
+
+  it('does not cast when the current user does not control this turn', async () => {
+    const setIsProcessing = vi.fn()
+    const setSpellModalOpen = vi.fn()
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'char-1',
+      selectedTarget: 'enemy-1',
+      isProcessing: false,
+      canActThisTurn: false,
+      processingRef: { current: false },
+      setIsProcessing,
+      setSpellModalOpen,
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice: vi.fn(),
+    }))
+
+    await act(async () => {
+      await result.current({ name: '魔法飞弹', type: 'damage' }, 1)
+    })
+
+    expect(spellRollMock).not.toHaveBeenCalled()
+    expect(setSpellModalOpen).not.toHaveBeenCalled()
+    expect(setIsProcessing).not.toHaveBeenCalled()
+  })
 })

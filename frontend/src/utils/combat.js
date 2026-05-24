@@ -251,6 +251,14 @@ export function isMyCombatTurn({ room, combat, myCharacterId }) {
 }
 
 /**
+ * 当前登录用户是否能主动操作本回合。
+ */
+export function canActInCombatTurn({ room, combat, myCharacterId }) {
+  if (!room) return isPlayerCombatTurn(combat)
+  return isMyCombatTurn({ room, combat, myCharacterId })
+}
+
+/**
  * 多人战斗顶部当前回合标签。
  */
 export function getCurrentTurnLabel({ room, combat }) {

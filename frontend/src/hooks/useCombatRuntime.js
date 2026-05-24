@@ -68,14 +68,6 @@ export function useCombatRuntime({
     playerId: controlledPlayerId,
     refreshKey: playerSpellSlots,
   })
-  const flow = useCombatFlowHandlers({
-    sessionId,
-    showDice,
-    page,
-    targeting,
-    log,
-    controlledPlayerId,
-  })
   const prediction = useCombatPrediction({
     sessionId,
     playerId: controlledPlayerId,
@@ -104,6 +96,16 @@ export function useCombatRuntime({
     viewHeight: COMBAT_GRID.viewHeight,
   })
 
+  const flow = useCombatFlowHandlers({
+    sessionId,
+    showDice,
+    page,
+    targeting,
+    log,
+    controlledPlayerId,
+    canActThisTurn: derived.canActThisTurn,
+  })
+
   const { onWsEvent, onSkillClick, handleMoveTo, handleSpellHover } = useCombatPageActions({
     sessionId,
     setRoom,
@@ -111,7 +113,7 @@ export function useCombatRuntime({
     playerId: controlledPlayerId,
     moveMode,
     isProcessing,
-    isPlayerTurn: derived.isPlayerTurn,
+    canActThisTurn: derived.canActThisTurn,
     selectedTarget,
     entityPositions: derived.entityPositions,
     playerPos: derived.playerPos,

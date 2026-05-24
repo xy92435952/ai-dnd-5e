@@ -99,4 +99,16 @@ describe('useCombatPlayerActions', () => {
       },
     }).entities['char-1'].hp_current).toBe(9)
   })
+
+  it('does not run class features when the current user does not control this turn', async () => {
+    const { result, deps } = renderActions({ canActThisTurn: false })
+
+    await act(async () => {
+      await result.current.handleClassFeature('second_wind')
+    })
+
+    expect(classFeatureMock).not.toHaveBeenCalled()
+    expect(rollDice3DMock).not.toHaveBeenCalled()
+    expect(deps.setIsProcessing).not.toHaveBeenCalled()
+  })
 })

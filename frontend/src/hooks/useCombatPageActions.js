@@ -17,7 +17,7 @@ export function useCombatPageActions({
   playerId,
   moveMode,
   isProcessing,
-  isPlayerTurn,
+  canActThisTurn,
   selectedTarget,
   entityPositions,
   playerPos,
@@ -76,7 +76,7 @@ export function useCombatPageActions({
 
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,
-    getIsPlayerTurn: () => isPlayerTurn,
+    getIsPlayerTurn: () => canActThisTurn,
     getSelectedTarget: () => selectedTarget,
     setError,
     handleAttack,
@@ -92,7 +92,7 @@ export function useCombatPageActions({
   })
 
   const handleMoveTo = useCallback(async (x, y) => {
-    if (!moveMode || !isPlayerTurn || isProcessing) return
+    if (!moveMode || !canActThisTurn || isProcessing) return
     try {
       const entityId = playerId || myCharacterId
       if (!entityId) return
@@ -105,7 +105,7 @@ export function useCombatPageActions({
     } catch (e) {
       setError(e.message)
     }
-  }, [isPlayerTurn, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
+  }, [canActThisTurn, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
   const handleSpellHover = useCallback((spell) => {
     if (spell && spell.aoe) {

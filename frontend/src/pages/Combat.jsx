@@ -82,7 +82,7 @@ export default function Combat() {
     cam,
     effectivePlayerId,
     currentTurnEntry,
-    isPlayerTurn: isPlayerTurnV10,
+    canActThisTurn,
     isMyTurnMP,
     currentTurnLabel,
     walls,
@@ -200,7 +200,7 @@ export default function Combat() {
         logsEndRef={logsEndRef}
         playerSpellSlots={playerSpellSlots}
         isProcessing={isProcessing}
-        isPlayerTurn={isPlayerTurnV10}
+        isPlayerTurn={canActThisTurn}
         moveMode={moveMode}
         isRanged={isRanged}
         onSessionChange={runtime.setSession}

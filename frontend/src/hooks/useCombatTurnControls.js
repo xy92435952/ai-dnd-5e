@@ -6,6 +6,7 @@ export function useCombatTurnControls({
   sessionId,
   combat,
   isProcessing,
+  canActThisTurn = true,
   isPlayerTurn,
   processingRef,
   aiTimer,
@@ -20,7 +21,7 @@ export function useCombatTurnControls({
   triggerAiTurn,
 }) {
   const handleEndTurn = useCallback(async () => {
-    if (!isPlayerTurn(combat) || isProcessing) return
+    if (!canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
     processingRef.current = true
     setIsProcessing(true)
     setMoveMode(false)
@@ -73,6 +74,7 @@ export function useCombatTurnControls({
     addLog,
     aiTimer,
     combat,
+    canActThisTurn,
     isPlayerTurn,
     isProcessing,
     processingRef,

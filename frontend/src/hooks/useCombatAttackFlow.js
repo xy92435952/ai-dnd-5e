@@ -19,6 +19,7 @@ export function useCombatAttackFlow({
   isRanged,
   combat,
   isProcessing,
+  canActThisTurn = true,
   isPlayerTurn,
   processingRef,
   setIsProcessing,
@@ -32,7 +33,7 @@ export function useCombatAttackFlow({
   setCombatOver,
 }) {
   return useCallback(async () => {
-    if (!selectedTarget || !isPlayerTurn(combat) || isProcessing) return
+    if (!selectedTarget || !canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
     processingRef.current = true
     setIsProcessing(true)
     setError('')
@@ -128,6 +129,7 @@ export function useCombatAttackFlow({
   }, [
     addLog,
     combat,
+    canActThisTurn,
     isPlayerTurn,
     isProcessing,
     isRanged,

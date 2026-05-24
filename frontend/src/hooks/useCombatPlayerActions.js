@@ -16,6 +16,7 @@ export function useCombatPlayerActions({
   playerId,
   combat,
   isProcessing,
+  canActThisTurn = true,
   isPlayerTurn,
   processingRef,
   setIsProcessing,
@@ -27,7 +28,7 @@ export function useCombatPlayerActions({
   addLog,
 }) {
   const runSimpleAction = useCallback(async (actionText, fallbackNarration) => {
-    if (!isPlayerTurn(combat) || isProcessing) return
+    if (!canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
     processingRef.current = true
     setIsProcessing(true)
     try {
@@ -43,6 +44,7 @@ export function useCombatPlayerActions({
   }, [
     addLog,
     combat,
+    canActThisTurn,
     isPlayerTurn,
     isProcessing,
     processingRef,
@@ -53,7 +55,7 @@ export function useCombatPlayerActions({
   ])
 
   const handleClassFeature = useCallback(async (featureName) => {
-    if (isProcessing) return
+    if (!canActThisTurn || isProcessing) return
     processingRef.current = true
     setIsProcessing(true)
     setError('')
@@ -77,6 +79,7 @@ export function useCombatPlayerActions({
     }
   }, [
     addLog,
+    canActThisTurn,
     isProcessing,
     playerId,
     processingRef,

@@ -58,6 +58,7 @@ describe('useCombatDerivedState', () => {
     expect(result.current.selectedTargetEntity.name).toBe('Goblin')
     expect(result.current.initiativeChips).toHaveLength(2)
     expect(result.current.isPlayerTurn).toBe(true)
+    expect(result.current.canActThisTurn).toBe(true)
     expect(result.current.isMyTurnMP).toBe(true)
     expect(result.current.currentTurnLabel).toBe('当前回合：Alice（Hero）')
     expect(result.current.playerAvailableSpells.map(s => s.name)).toEqual(['Magic Missile'])
@@ -91,7 +92,36 @@ describe('useCombatDerivedState', () => {
     expect(result.current.entityPositions).toEqual({})
     expect(result.current.currentTurnEntry).toBeUndefined()
     expect(result.current.isPlayerTurn).toBe(false)
+    expect(result.current.canActThisTurn).toBe(false)
     expect(result.current.isMyTurnMP).toBe(true)
     expect(result.current.currentTurnLabel).toBe('')
+  })
+
+  it('多人房间中队友回合仍是玩家回合，但当前用户不可主动行动', () => {
+    const { result } = renderHook(() => useCombatDerivedState({
+      combat,
+      room: {
+        members: [{ character_id: 'player', display_name: 'Alice' }],
+      },
+      myCharacterId: 'other-player',
+      playerId: 'other-player',
+      selectedTarget: 'enemy',
+      showThreat: false,
+      aoePreview: null,
+      aoeHover: null,
+      spells: [],
+      playerKnownSpells: [],
+      playerCantrips: [],
+      playerClass: '',
+      skillBarV10: [],
+      gridWidth: 20,
+      gridHeight: 12,
+      viewWidth: 12,
+      viewHeight: 8,
+    }))
+
+    expect(result.current.isPlayerTurn).toBe(true)
+    expect(result.current.isMyTurnMP).toBe(false)
+    expect(result.current.canActThisTurn).toBe(false)
   })
 })

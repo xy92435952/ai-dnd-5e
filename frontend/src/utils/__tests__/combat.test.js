@@ -7,6 +7,7 @@ import {
   buildGridTerrainSets,
   buildInitiativeChips,
   buildThreatCells,
+  canActInCombatTurn,
   getAoePreviewCenterKey,
   getCombatPredictionActionKey,
   getCameraWindow,
@@ -226,6 +227,13 @@ describe('combat grid helpers', () => {
     expect(isMyCombatTurn({ room, combat, myCharacterId: 'c1' })).toBe(true)
     expect(isMyCombatTurn({ room, combat, myCharacterId: 'c2' })).toBe(false)
     expect(isMyCombatTurn({ room: null, combat, myCharacterId: null })).toBe(true)
+    expect(canActInCombatTurn({ room, combat, myCharacterId: 'c1' })).toBe(true)
+    expect(canActInCombatTurn({ room, combat, myCharacterId: 'c2' })).toBe(false)
+    expect(canActInCombatTurn({
+      room: null,
+      combat: { ...combat, turn_order: [{ ...combat.turn_order[0], is_player: true }] },
+      myCharacterId: null,
+    })).toBe(true)
     expect(getCurrentTurnLabel({ room, combat })).toBe('当前回合：Alice（AliceHero）')
     expect(getCurrentTurnLabel({ room, combat: { ...combat, turn_order: [{ character_id: 'bot', name: 'Enemy' }] } }))
       .toBe('当前回合：Enemy（AI 托管）')
