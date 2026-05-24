@@ -178,3 +178,131 @@ async def test_ws_typing_and_speak_done_drive_table_realtime_events(
         ws_manager.rooms.clear()
         ws_manager.user_ws.clear()
         ws_manager.ws_meta.clear()
+
+
+async def test_fifty_websocket_users_stay_isolated_across_four_player_rooms(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """50 个在线 WS 连接分布在多房间时，心跳与广播都只作用于各自房间。"""
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    users = [
+        await _register(client, f"ws_capacity_user_{idx:02d}")
+        for idx in range(50)
+    ]
+
+    rooms = []
+    cursor = 0
+    for room_idx, size in enumerate([4] * 12 + [2]):
+        host = users[cursor]
+        created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+            "module_id": sample_module.id,
+            "save_name": f"WS 容量房 {room_idx}",
+            "max_players": 4,
+        })).json()
+        room_users = [host]
+        cursor += 1
+
+        for _ in range(size - 1):
+            guest = users[cursor]
+            joined = await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+                "room_code": created["room_code"],
+            })
+            assert joined.status_code == 200, joined.text
+            room_users.append(guest)
+            cursor += 1
+
+        rooms.append({
+            "session_id": created["session_id"],
+            "users": room_users,
+        })
+
+    assert cursor == 50
+
+    sockets = []
+    tasks = []
+    try:
+        for room in rooms:
+            for user in room["users"]:
+                ws = QueueWebSocket()
+                task = asyncio.create_task(
+                    ws_api.ws_endpoint(ws, room["session_id"], token=user["token"])
+                )
+                sockets.append({
+                    "ws": ws,
+                    "task": task,
+                    "session_id": room["session_id"],
+                    "user_id": user["user_id"],
+                })
+                tasks.append(task)
+
+        await asyncio.wait_for(
+            asyncio.gather(*(item["ws"].accepted.wait() for item in sockets)),
+            timeout=3,
+        )
+
+        for item in sockets:
+            await item["ws"].push({"type": "ping"})
+
+        await asyncio.wait_for(
+            asyncio.gather(*(
+                _wait_for_event(item["ws"], "pong", timeout=2)
+                for item in sockets
+            )),
+            timeout=5,
+        )
+
+        expected_by_room = {
+            room["session_id"]: [user["user_id"] for user in room["users"]]
+            for room in rooms
+        }
+        for session_id, expected_user_ids in expected_by_room.items():
+            assert sorted(await ws_manager.online_users(session_id)) == sorted(expected_user_ids)
+
+        first_room_id = rooms[0]["session_id"]
+        sender = next(item for item in sockets if item["session_id"] == first_room_id)
+        same_room_receivers = [
+            item for item in sockets
+            if item["session_id"] == first_room_id and item["user_id"] != sender["user_id"]
+        ]
+        other_room_sockets = [
+            item for item in sockets
+            if item["session_id"] != first_room_id
+        ]
+
+        before_counts = {id(item["ws"]): len(item["ws"].sent) for item in sockets}
+        await sender["ws"].push({"type": "typing", "is_typing": True})
+        typing_events = await asyncio.gather(*(
+            _wait_for_event(item["ws"], "typing", timeout=2)
+            for item in same_room_receivers
+        ))
+
+        assert len(typing_events) == 3
+        assert all(event["user_id"] == sender["user_id"] for event in typing_events)
+        assert not any(event.get("type") == "typing" for event in sender["ws"].sent)
+
+        await asyncio.sleep(0.05)
+        for item in other_room_sockets:
+            new_events = item["ws"].sent[before_counts[id(item["ws"])]:]
+            assert not any(event.get("type") == "typing" for event in new_events)
+    finally:
+        for item in sockets:
+            await item["ws"].disconnect()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
