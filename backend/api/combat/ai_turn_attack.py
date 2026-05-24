@@ -18,6 +18,7 @@ from services.combat_ai_attack_service import (
     infer_ai_is_ranged,
 )
 from services.combat_narrator import narrate_batch
+from services.combat_reaction_service import build_pending_attack_reaction
 from services.dnd_rules import roll_dice, _normalize_class
 
 
@@ -60,6 +61,7 @@ async def handle_ai_attack_action(
     target_new_hp = None
     total_damage = 0
     all_narrations = []
+    target_attack_events = []
     state = session.game_state or {}
 
     ai_class = ""
@@ -214,6 +216,7 @@ async def handle_ai_attack_action(
                 else:
                     tchar = await db.get(Character, target_id)
                     if tchar:
+                        hp_before_damage = tchar.hp_current
                         dmg_type = actor_derived.get("damage_type", "钝击")
                         final_dmg, _resistance_applied = apply_character_damage_resistance(
                             tchar,
@@ -224,6 +227,15 @@ async def handle_ai_attack_action(
                         applied_damage = final_dmg
                         target_new_hp = tchar.hp_current
                         target_name = tchar.name
+                        if tchar.is_player and applied_damage > 0:
+                            target_attack_events.append({
+                                "attack_total": result_obj.attack_roll.get("attack_total", 0),
+                                "target_ac": result_obj.attack_roll.get("target_ac", target_derived.get("ac", 10)),
+                                "damage": applied_damage,
+                                "hp_before": hp_before_damage,
+                                "hp_after": target_new_hp,
+                                "hit": True,
+                            })
 
             total_damage += applied_damage
             all_narrations.append(svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, applied_damage))
@@ -333,6 +345,15 @@ async def handle_ai_attack_action(
     reaction_prompt = None
     if player_targeted and target_player:
         player_ts = _get_ts(combat, target_player.id)
+        pending_reaction = build_pending_attack_reaction(
+            attacker_id=actor_id,
+            attacker_name=actor_name,
+            target_id=target_player.id,
+            attack_events=target_attack_events,
+        )
+        if pending_reaction:
+            player_ts["pending_attack_reaction"] = pending_reaction
+            _save_ts(combat, target_player.id, player_ts)
         player_can_react, has_prompt, reaction_prompt = build_reaction_prompt(
             target_player, player_ts, target_id, actor_name, actor_id, total_damage, result_obj
         )

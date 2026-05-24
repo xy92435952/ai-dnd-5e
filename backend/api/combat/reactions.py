@@ -22,6 +22,11 @@ from services.combat_service import CombatService
 from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
+from services.combat_reaction_service import (
+    calculate_shield_prevention,
+    calculate_uncanny_dodge_prevention,
+    restore_prevented_damage,
+)
 from services.character_roster import CharacterRoster
 
 from api.combat._shared import (
@@ -100,6 +105,7 @@ async def use_reaction(
     p_class = _normalize_class(player.char_class)
     p_level = player.level
     derived = player.derived or {}
+    pending_reaction = ts.get("pending_attack_reaction") or {}
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))
     narration = ""
@@ -118,7 +124,6 @@ async def use_reaction(
         player.spell_slots = slots
 
         ts["reaction_used"] = True
-        _save_ts(combat, player_id, ts)
 
         # Temporarily boost AC (tracked in conditions until next turn)
         conditions = list(player.conditions or [])
@@ -131,8 +136,25 @@ async def use_reaction(
 
         old_ac = derived.get("ac", 10)
         new_ac = old_ac + 5
+        shield_result = calculate_shield_prevention(pending_reaction)
+        hp_result = restore_prevented_damage(
+            player,
+            pending_reaction,
+            shield_result["damage_prevented"],
+        )
+        ts.pop("pending_attack_reaction", None)
+        _save_ts(combat, player_id, ts)
+
         narration = f"🛡️ {player.name} 用反应施放「护盾术」！AC {old_ac} → {new_ac}（持续至下回合）"
-        reaction_effect = {"ac_bonus": 5, "new_ac": new_ac, "slot_used": "1st"}
+        if hp_result["hp_restored"] > 0:
+            narration += f" 护盾让 {shield_result['blocked_attacks']} 次攻击落空，恢复 {hp_result['hp_restored']} 点已结算伤害。"
+        reaction_effect = {
+            "ac_bonus": 5,
+            "new_ac": new_ac,
+            "slot_used": "1st",
+            **shield_result,
+            **hp_result,
+        }
 
     elif req.reaction_type == "uncanny_dodge":
         # Rogue 5+: halve incoming damage
@@ -141,12 +163,20 @@ async def use_reaction(
         if p_level < 5:
             raise HTTPException(400, "需要游荡者5级以上才能使用灵巧闪避")
 
+        dodge_result = calculate_uncanny_dodge_prevention(pending_reaction)
+        hp_result = restore_prevented_damage(
+            player,
+            pending_reaction,
+            dodge_result["damage_prevented"],
+        )
         ts["reaction_used"] = True
+        ts.pop("pending_attack_reaction", None)
         _save_ts(combat, player_id, ts)
 
-        # Mark for damage halving (frontend applies before confirming damage)
         narration = f"⚡ {player.name} 使用「灵巧闪避」！本次受到的伤害减半！"
-        reaction_effect = {"damage_halved": True}
+        if hp_result["hp_restored"] > 0:
+            narration += f" 恢复 {hp_result['hp_restored']} 点已结算伤害。"
+        reaction_effect = {"damage_halved": True, **dodge_result, **hp_result}
 
     elif req.reaction_type == "hellish_rebuke":
         # Tiefling racial / Warlock: deal 2d10 fire damage to attacker
@@ -157,6 +187,7 @@ async def use_reaction(
         player.spell_slots = slots
 
         ts["reaction_used"] = True
+        ts.pop("pending_attack_reaction", None)
         _save_ts(combat, player_id, ts)
 
         rebuke_roll = roll_dice("2d10")

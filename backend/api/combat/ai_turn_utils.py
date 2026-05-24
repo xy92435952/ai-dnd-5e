@@ -2,6 +2,10 @@
 api.combat.ai_turn_utils — shared helpers for AI combat turns.
 """
 from api.combat._shared import _calc_entity_turn_limits, _reset_ts
+from services.combat_reaction_service import (
+    calculate_shield_prevention,
+    calculate_uncanny_dodge_prevention,
+)
 from services.dnd_rules import _normalize_class
 
 
@@ -16,7 +20,15 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int) -> N
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
 
 
-def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: str, actor_id: str, total_damage: int, result_obj):
+def build_reaction_prompt(
+    player_check,
+    player_ts: dict,
+    target_id,
+    actor_name: str,
+    actor_id: str,
+    total_damage: int,
+    result_obj,
+):
     """Build the reaction prompt shown when the player is targeted."""
     if not player_check:
         return False, False, None
@@ -32,9 +44,11 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
     p_level = player_check.level or 1
     known_spells = set(player_check.known_spells or []) | set(player_check.prepared_spells or [])
     p_slots = dict(player_check.spell_slots or {})
+    pending_reaction = player_ts.get("pending_attack_reaction") or {}
     available_reactions = []
 
     if ("Shield" in known_spells or "shield" in known_spells) and p_slots.get("1st", 0) > 0:
+        shield_preview = calculate_shield_prevention(pending_reaction)
         available_reactions.append({
             "id": "shield",
             "name": "Shield",
@@ -44,16 +58,20 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
             "slots_remaining": p_slots.get("1st", 0),
             "effect": "+5 AC（持续到你的下个回合开始）",
             "resulting_ac": p_derived_r.get("ac", 10) + 5,
+            "damage_prevented": shield_preview["damage_prevented"],
+            "blocked_attacks": shield_preview["blocked_attacks"],
         })
 
     if p_cls == "Rogue" and p_level >= 5:
+        dodge_preview = calculate_uncanny_dodge_prevention(pending_reaction)
         available_reactions.append({
             "id": "uncanny_dodge",
             "name": "Uncanny Dodge",
             "type": "uncanny_dodge",
             "cost": "reaction",
-            "effect": f"将此次攻击的伤害减半（{total_damage} → {total_damage // 2}）",
-            "reduced_damage": total_damage // 2,
+            "effect": f"将此次攻击的伤害减半（{dodge_preview['original_damage']} → {dodge_preview['reduced_damage']}）",
+            "reduced_damage": dodge_preview["reduced_damage"],
+            "damage_prevented": dodge_preview["damage_prevented"],
         })
 
     if ("Hellish Rebuke" in known_spells or "hellish_rebuke" in known_spells) and p_slots.get("1st", 0) > 0:
