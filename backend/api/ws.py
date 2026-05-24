@@ -11,6 +11,7 @@ from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 
 from database import AsyncSessionLocal
 from models import SessionMember, Session
@@ -141,5 +142,6 @@ async def _advance_speaker(db: AsyncSession, session_id: str, current_user_id: s
     if next_idx == 0:
         mp["speak_round"] = (mp.get("speak_round", 0) or 0) + 1
     session.game_state = state
+    flag_modified(session, "game_state")
     await db.commit()
     return next_user

@@ -180,6 +180,288 @@ async def test_ws_typing_and_speak_done_drive_table_realtime_events(
         ws_manager.ws_meta.clear()
 
 
+async def test_http_multiplayer_action_reaches_room_websocket_clients(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """HTTP /game/action should drive the same realtime room events players see in the UI."""
+    import json
+    import uuid as _uuid
+    from models import Character
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "The stuck gate gives way with a clean metallic click.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {},
+                "needs_check": {"required": False},
+                "combat_triggered": False,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    host = await _register(client, "ws_action_host", display_name="Host Player")
+    guest = await _register(client, "ws_action_guest", display_name="Guest Player")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS action room",
+        "max_players": 4,
+    })).json()
+    sid = created["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": created["room_code"],
+    })
+
+    host_char = Character(
+        id=str(_uuid.uuid4()),
+        name="Lorin",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        ability_scores={"str": 10, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10},
+        hp_current=8,
+        is_player=True,
+        session_id=sid,
+    )
+    guest_char = Character(
+        id=str(_uuid.uuid4()),
+        name="Aela",
+        race="Elf",
+        char_class="Wizard",
+        level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10},
+        hp_current=6,
+        is_player=True,
+        session_id=sid,
+    )
+    db_session.add_all([host_char, guest_char])
+    await db_session.commit()
+
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char.id},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(guest["token"]),
+        json={"character_id": guest_char.id},
+    )
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I ease the gate open.",
+        })
+
+        assert response.status_code == 200, response.text
+        assert response.json()["narrative"] == "The stuck gate gives way with a clean metallic click."
+
+        thinking = await _wait_for_event(guest_ws, "dm_thinking_start", timeout=2)
+        assert thinking["by_user_id"] == host["user_id"]
+        assert thinking["action_text"] == "I ease the gate open."
+
+        dm_response = await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+        assert dm_response["by_user_id"] == host["user_id"]
+        assert dm_response["action_type"] == "exploration"
+        assert dm_response["narrative"] == "The stuck gate gives way with a clean metallic click."
+        assert dm_response["combat_triggered"] is False
+
+        speaker = await _wait_for_event(guest_ws, "dm_speak_turn", timeout=2)
+        assert speaker["user_id"] == guest["user_id"]
+        assert speaker["auto"] is True
+
+        room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
+        assert room["current_speaker_user_id"] == guest["user_id"]
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_http_multiplayer_combat_trigger_notifies_room_websocket_clients(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """When exploration triggers combat, realtime clients should see the combat transition signal."""
+    import json
+    import uuid as _uuid
+    from models import Character
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "combat_start",
+                "narrative": "Two clockwork sentries unfold from the gate and attack.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {
+                    "combat_trigger": True,
+                    "combat_trigger_reason": "The sentries attack the party.",
+                    "initial_enemies": [
+                        {
+                            "name": "Clockwork Sentry",
+                            "hp": 9,
+                            "ac": 13,
+                            "attack_bonus": 3,
+                            "damage_dice": "1d6+1",
+                        }
+                    ],
+                },
+                "needs_check": {"required": False},
+                "combat_triggered": True,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    host = await _register(client, "ws_combat_host", display_name="Combat Host")
+    guest = await _register(client, "ws_combat_guest", display_name="Combat Guest")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS combat room",
+        "max_players": 4,
+    })).json()
+    sid = created["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": created["room_code"],
+    })
+
+    host_char = Character(
+        id=str(_uuid.uuid4()),
+        name="Mara",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 10},
+        hp_current=12,
+        is_player=True,
+        session_id=sid,
+    )
+    guest_char = Character(
+        id=str(_uuid.uuid4()),
+        name="Nim",
+        race="Halfling",
+        char_class="Rogue",
+        level=1,
+        ability_scores={"str": 8, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10},
+        hp_current=8,
+        is_player=True,
+        session_id=sid,
+    )
+    db_session.add_all([host_char, guest_char])
+    await db_session.commit()
+
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char.id},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(guest["token"]),
+        json={"character_id": guest_char.id},
+    )
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I force the gate open.",
+        })
+
+        assert response.status_code == 200, response.text
+        assert response.json()["combat_triggered"] is True
+
+        dm_response = await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+        assert dm_response["by_user_id"] == host["user_id"]
+        assert dm_response["action_type"] == "combat_start"
+        assert dm_response["combat_triggered"] is True
+        assert dm_response["narrative"] == "Two clockwork sentries unfold from the gate and attack."
+
+        session_payload = (await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))).json()
+        assert session_payload["combat_active"] is True
+        assert session_payload["game_state"]["enemies"][0]["name"] == "Clockwork Sentry"
+
+        combat_payload = (await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))).json()
+        assert combat_payload["session_id"] == sid
+        assert any(
+            entity["name"] == "Clockwork Sentry" and entity["is_enemy"] is True
+            for entity in combat_payload["entities"].values()
+        )
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_fifty_websocket_users_stay_isolated_across_four_player_rooms(
     client,
     engine,
