@@ -117,7 +117,7 @@ async def end_player_turn(
     await _broadcast_combat(session, combat, TurnChanged(
         round_number=combat.round_number,
         next_turn_index=next_index,
-    ))
+    ), db=db)
 
     return {
         "next_turn_index":    next_index,

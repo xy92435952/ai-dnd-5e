@@ -25,6 +25,83 @@ def _h(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _create_multiplayer_combat_room(client, db_session, sample_module, *, name_prefix: str):
+    import uuid as _uuid
+    from models import Character
+
+    host = await _register(client, f"{name_prefix}_host", display_name="Host Player")
+    guest = await _register(client, f"{name_prefix}_guest", display_name="Guest Player")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": f"{name_prefix} room",
+        "max_players": 4,
+    })).json()
+    sid = created["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": created["room_code"],
+    })
+
+    host_char = Character(
+        id=str(_uuid.uuid4()),
+        name=f"{name_prefix} Hero",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 12,
+            "ac": 16,
+            "initiative": 2,
+            "attack_bonus": 5,
+            "damage_dice": "1d8+3",
+            "ability_modifiers": {"str": 3, "dex": 1, "con": 2, "int": 0, "wis": 0, "cha": 0},
+        },
+        hp_current=12,
+        is_player=True,
+        session_id=sid,
+    )
+    guest_char = Character(
+        id=str(_uuid.uuid4()),
+        name=f"{name_prefix} Ally",
+        race="Elf",
+        char_class="Wizard",
+        level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 6,
+            "ac": 12,
+            "initiative": 1,
+            "ability_modifiers": {"str": -1, "dex": 2, "con": 1, "int": 3, "wis": 0, "cha": 0},
+        },
+        hp_current=6,
+        is_player=True,
+        session_id=sid,
+    )
+    db_session.add_all([host_char, guest_char])
+    await db_session.commit()
+
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char.id},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(guest["token"]),
+        json={"character_id": guest_char.id},
+    )
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+    return {
+        "host": host,
+        "guest": guest,
+        "session_id": sid,
+        "host_char": host_char,
+        "guest_char": guest_char,
+    }
+
+
 class QueueWebSocket:
     def __init__(self):
         self.incoming = asyncio.Queue()
@@ -54,11 +131,16 @@ class QueueWebSocket:
         await self.incoming.put(WebSocketDisconnect())
 
 
-async def _wait_for_event(ws: QueueWebSocket, event_type: str, timeout: float = 1.0):
+async def _wait_for_event(
+    ws: QueueWebSocket,
+    event_type: str,
+    timeout: float = 1.0,
+    start_index: int = 0,
+):
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     while loop.time() < deadline:
-        for event in ws.sent:
+        for event in ws.sent[start_index:]:
             if event.get("type") == event_type:
                 return event
         await asyncio.sleep(0.01)
@@ -189,8 +271,6 @@ async def test_http_multiplayer_action_reaches_room_websocket_clients(
 ):
     """HTTP /game/action should drive the same realtime room events players see in the UI."""
     import json
-    import uuid as _uuid
-    from models import Character
     import api.ws as ws_api
     import services.langgraph_client as lc
     from services.ws_manager import ws_manager
@@ -222,55 +302,15 @@ async def test_http_multiplayer_action_reaches_room_websocket_clients(
 
     monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
 
-    host = await _register(client, "ws_action_host", display_name="Host Player")
-    guest = await _register(client, "ws_action_guest", display_name="Guest Player")
-    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
-        "module_id": sample_module.id,
-        "save_name": "WS action room",
-        "max_players": 4,
-    })).json()
-    sid = created["session_id"]
-    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
-        "room_code": created["room_code"],
-    })
-
-    host_char = Character(
-        id=str(_uuid.uuid4()),
-        name="Lorin",
-        race="Human",
-        char_class="Rogue",
-        level=1,
-        ability_scores={"str": 10, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10},
-        hp_current=8,
-        is_player=True,
-        session_id=sid,
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_action",
     )
-    guest_char = Character(
-        id=str(_uuid.uuid4()),
-        name="Aela",
-        race="Elf",
-        char_class="Wizard",
-        level=1,
-        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10},
-        hp_current=6,
-        is_player=True,
-        session_id=sid,
-    )
-    db_session.add_all([host_char, guest_char])
-    await db_session.commit()
-
-    await client.post(
-        f"/game/rooms/{sid}/claim-character",
-        headers=_h(host["token"]),
-        json={"character_id": host_char.id},
-    )
-    await client.post(
-        f"/game/rooms/{sid}/claim-character",
-        headers=_h(guest["token"]),
-        json={"character_id": guest_char.id},
-    )
-    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
-    assert started.status_code == 200, started.text
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
 
     host_ws = QueueWebSocket()
     guest_ws = QueueWebSocket()
@@ -324,8 +364,6 @@ async def test_http_multiplayer_combat_trigger_notifies_room_websocket_clients(
 ):
     """When exploration triggers combat, realtime clients should see the combat transition signal."""
     import json
-    import uuid as _uuid
-    from models import Character
     import api.ws as ws_api
     import services.langgraph_client as lc
     from services.ws_manager import ws_manager
@@ -369,55 +407,17 @@ async def test_http_multiplayer_combat_trigger_notifies_room_websocket_clients(
 
     monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
 
-    host = await _register(client, "ws_combat_host", display_name="Combat Host")
-    guest = await _register(client, "ws_combat_guest", display_name="Combat Guest")
-    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
-        "module_id": sample_module.id,
-        "save_name": "WS combat room",
-        "max_players": 4,
-    })).json()
-    sid = created["session_id"]
-    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
-        "room_code": created["room_code"],
-    })
-
-    host_char = Character(
-        id=str(_uuid.uuid4()),
-        name="Mara",
-        race="Human",
-        char_class="Fighter",
-        level=1,
-        ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 10},
-        hp_current=12,
-        is_player=True,
-        session_id=sid,
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_combat",
     )
-    guest_char = Character(
-        id=str(_uuid.uuid4()),
-        name="Nim",
-        race="Halfling",
-        char_class="Rogue",
-        level=1,
-        ability_scores={"str": 8, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10},
-        hp_current=8,
-        is_player=True,
-        session_id=sid,
-    )
-    db_session.add_all([host_char, guest_char])
-    await db_session.commit()
-
-    await client.post(
-        f"/game/rooms/{sid}/claim-character",
-        headers=_h(host["token"]),
-        json={"character_id": host_char.id},
-    )
-    await client.post(
-        f"/game/rooms/{sid}/claim-character",
-        headers=_h(guest["token"]),
-        json={"character_id": guest_char.id},
-    )
-    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
-    assert started.status_code == 200, started.text
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    host_char = room_data["host_char"]
+    guest_char = room_data["guest_char"]
 
     host_ws = QueueWebSocket()
     guest_ws = QueueWebSocket()
@@ -448,11 +448,157 @@ async def test_http_multiplayer_combat_trigger_notifies_room_websocket_clients(
         assert session_payload["game_state"]["enemies"][0]["name"] == "Clockwork Sentry"
 
         combat_payload = (await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))).json()
+        assert host_char.id in combat_payload["entities"]
+        assert guest_char.id in combat_payload["entities"]
+        assert any(turn["character_id"] == host_char.id for turn in combat_payload["turn_order"])
+        assert any(turn["character_id"] == guest_char.id for turn in combat_payload["turn_order"])
         assert combat_payload["session_id"] == sid
         assert any(
             entity["name"] == "Clockwork Sentry" and entity["is_enemy"] is True
             for entity in combat_payload["entities"].values()
         )
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_multiplayer_damage_roll_broadcasts_combat_update(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Damage rolls should refresh other players' combat UI through WebSocket."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    import services.combat_narrator as narrator
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "combat_start",
+                "narrative": "A clockwork sentry blocks the gate.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {
+                    "combat_trigger": True,
+                    "initial_enemies": [
+                        {
+                            "name": "Clockwork Sentry",
+                            "hp": 9,
+                            "ac": 13,
+                            "attack_bonus": 3,
+                            "damage_dice": "1d6+1",
+                        }
+                    ],
+                },
+                "needs_check": {"required": False},
+                "combat_triggered": True,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+    monkeypatch.setattr(narrator, "narrate_action", fake_narrate_action)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_damage",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    host_char = room_data["host_char"]
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        start_response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I draw the sentry into melee.",
+        })
+        assert start_response.status_code == 200, start_response.text
+        await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+
+        combat_payload = (await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))).json()
+        enemy = next(entity for entity in combat_payload["entities"].values() if entity["is_enemy"])
+        host_turn_index = next(
+            index
+            for index, turn in enumerate(combat_payload["turn_order"])
+            if turn["character_id"] == host_char.id
+        )
+        from models import CombatState
+        from sqlalchemy import select
+
+        combat_row = (
+            await db_session.execute(select(CombatState).where(CombatState.session_id == sid))
+        ).scalars().first()
+        combat_row.current_turn_index = host_turn_index
+        positions = dict(combat_row.entity_positions or {})
+        positions[host_char.id] = {"x": 5, "y": 5}
+        positions[enemy["id"]] = {"x": 6, "y": 5}
+        combat_row.entity_positions = positions
+        await db_session.commit()
+
+        before_count = len(guest_ws.sent)
+        attack = await client.post(
+            f"/game/combat/{sid}/attack-roll",
+            headers=_h(host["token"]),
+            json={
+                "entity_id": host_char.id,
+                "target_id": enemy["id"],
+                "action_type": "melee",
+                "d20_value": 18,
+            },
+        )
+        assert attack.status_code == 200, attack.text
+        assert attack.json()["hit"] is True
+
+        damage = await client.post(
+            f"/game/combat/{sid}/damage-roll",
+            headers=_h(host["token"]),
+            json={
+                "pending_attack_id": attack.json()["pending_attack_id"],
+                "damage_values": [4],
+            },
+        )
+        assert damage.status_code == 200, damage.text
+
+        update = await _wait_for_event(guest_ws, "combat_update", timeout=2, start_index=before_count)
+        assert update["current_entity_id"] == host_char.id
+        updated_enemy = update["combat"]["entities"][enemy["id"]]
+        assert updated_enemy["hp_current"] == damage.json()["target_new_hp"]
+        assert updated_enemy["hp_current"] < enemy["hp_current"]
     finally:
         await host_ws.disconnect()
         await guest_ws.disconnect()

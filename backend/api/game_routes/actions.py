@@ -68,7 +68,7 @@ async def player_action(
         player = await db.get(Character, session.player_character_id)
 
     roster = CharacterRoster(db, session)
-    characters = ([player] if player else []) + await roster.companions()
+    characters = await roster.party()
     combat_state = await _load_latest_combat_state(db, session.id) if session.combat_active else None
 
     db.add(GameLog(

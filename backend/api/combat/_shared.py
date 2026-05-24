@@ -3,8 +3,10 @@ api.combat._shared — 战斗模块的共享常量 / 单例 / 辅助函数。
 
 这里定义的每样东西被多个端点模块调用。改动前请用 grep 确认影响范围。
 """
-from models import Session, CombatState
-from api.deps import serialize_combat, broadcast_to_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models import Character, Session, CombatState
+from api.deps import entity_snapshot, serialize_combat, broadcast_to_session
 from services.combat_service import CombatService
 from services.combat_concentration_service import do_concentration_check as _do_concentration_check
 from services.combat_condition_duration_service import (
@@ -31,8 +33,66 @@ from services.combat_turn_state_service import (
 from services.combat_turn_limits_service import (
     calculate_entity_turn_limits as _calc_entity_turn_limits,
 )
+from services.character_roster import CharacterRoster
 
 svc = CombatService()
+
+
+async def _build_combat_snapshot(
+    db: AsyncSession,
+    session: Session,
+    combat: CombatState,
+) -> dict:
+    """Return the full combat payload consumed by HTTP and realtime clients."""
+    state = session.game_state or {}
+    enemies = state.get("enemies", []) or []
+    entities: dict = {}
+    seen_character_ids: set[str] = set()
+
+    async def add_character(character_id: str | None = None, character: Character | None = None) -> None:
+        if character is None and character_id:
+            character = await db.get(Character, character_id)
+        if not character:
+            return
+        cid = str(character.id)
+        entities[cid] = entity_snapshot(character, is_enemy=False)
+        seen_character_ids.add(cid)
+
+    roster = CharacterRoster(db, session)
+    for character in await roster.party():
+        await add_character(character=character)
+
+    for turn in combat.turn_order or []:
+        if not isinstance(turn, dict) or turn.get("is_enemy"):
+            continue
+        character_id = turn.get("character_id") or turn.get("id")
+        if character_id and str(character_id) not in seen_character_ids:
+            await add_character(character_id=str(character_id))
+
+    for enemy in enemies:
+        enemy_id = enemy.get("id")
+        if not enemy_id:
+            continue
+        derived = enemy.get("derived") or {}
+        hp_max = derived.get("hp_max", enemy.get("hp_max", 10))
+        ac = derived.get("ac", enemy.get("ac", 10))
+        entities[str(enemy_id)] = {
+            "id": str(enemy_id),
+            "name": enemy.get("name", "Enemy"),
+            "is_player": False,
+            "is_enemy": True,
+            "hp_current": enemy.get("hp_current", 0),
+            "hp_max": hp_max,
+            "ac": ac,
+            "conditions": enemy.get("conditions", []),
+            "derived": {**derived, "hp_max": hp_max, "ac": ac},
+        }
+
+    return {
+        **serialize_combat(combat),
+        "entities": entities,
+        "turn_states": combat.turn_states or {},
+    }
 
 
 # ── 多人联机：战斗状态广播辅助 ──────────────────────────
@@ -46,6 +106,7 @@ async def _broadcast_combat(
     session: Session,
     combat: CombatState | None,
     event: _PydBase,
+    db: AsyncSession | None = None,
 ) -> None:
     """
     广播一个战斗相关 WS 事件。调用方构造 Pydantic 实例
@@ -62,7 +123,11 @@ async def _broadcast_combat(
     # 自动注入通用字段
     if combat is not None:
         if payload.get("combat") is None:
-            payload["combat"] = serialize_combat(combat)
+            payload["combat"] = (
+                await _build_combat_snapshot(db, session, combat)
+                if db is not None
+                else serialize_combat(combat)
+            )
         if payload.get("current_entity_id") is None and combat.turn_order:
             try:
                 cur = combat.turn_order[combat.current_turn_index or 0]

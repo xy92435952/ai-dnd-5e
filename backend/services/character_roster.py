@@ -26,10 +26,12 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.character import Character
 from models.session import Session
+from models.session_member import SessionMember
 
 
 class CharacterRoster:
@@ -45,6 +47,7 @@ class CharacterRoster:
         self.db = db
         self.session = session
         self._player_cache: Optional[Character] = None
+        self._players_cache: Optional[list[Character]] = None
         self._companions_cache: Optional[list[Character]] = None
 
     # ─────────────────────────────────────────────
@@ -65,23 +68,55 @@ class CharacterRoster:
         self._player_cache = await self.db.get(Character, pid)
         return self._player_cache
 
+    async def players(self) -> list[Character]:
+        """Load player-controlled characters for this session."""
+        if self._players_cache is not None:
+            return self._players_cache
+        if not self.session.is_multiplayer:
+            player = await self.player()
+            self._players_cache = [player] if player else []
+            return self._players_cache
+
+        rows = await self.db.execute(
+            select(Character)
+            .join(SessionMember, SessionMember.character_id == Character.id)
+            .where(
+                SessionMember.session_id == self.session.id,
+                SessionMember.character_id.is_not(None),
+            )
+            .order_by(SessionMember.joined_at.asc())
+        )
+        self._players_cache = list(rows.scalars().all())
+        return self._players_cache
+
     async def companions(self) -> list[Character]:
         """加载全部 AI 队友（按 game_state.companion_ids 顺序，跳过已删除）。"""
         if self._companions_cache is not None:
             return self._companions_cache
         result: list[Character] = []
-        for cid in self.companion_ids():
-            c = await self.db.get(Character, cid)
-            if c is not None:
-                result.append(c)
+        if self.session.is_multiplayer:
+            rows = await self.db.execute(
+                select(Character)
+                .where(
+                    Character.session_id == self.session.id,
+                    Character.is_player == False,
+                )
+                .order_by(Character.id.asc())
+            )
+            result = list(rows.scalars().all())
+        else:
+            for cid in self.companion_ids():
+                c = await self.db.get(Character, cid)
+                if c is not None:
+                    result.append(c)
         self._companions_cache = result
         return result
 
     async def party(self) -> list[Character]:
         """返回 [player] + companions，player 缺失时跳过。"""
-        player = await self.player()
+        players = await self.players()
         comps = await self.companions()
-        return ([player] if player else []) + comps
+        return players + comps
 
     async def allies_alive(self) -> list[Character]:
         """战斗场景常用：整个队伍中 HP > 0 的成员。"""

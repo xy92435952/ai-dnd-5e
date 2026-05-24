@@ -120,7 +120,7 @@ async def combat_move(
     await _broadcast_combat(session, combat, EntityMoved(
         entity_id=req.entity_id,
         position={"x": req.to_x, "y": req.to_y},
-    ))
+    ), db=db)
     return {
         "entity_id":               req.entity_id,
         "x":                       req.to_x,

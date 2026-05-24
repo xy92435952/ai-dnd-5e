@@ -11,6 +11,7 @@ from models import Character, CombatState, GameLog
 from api.deps import assert_can_act, get_session_or_404, get_user_id
 from api.combat._shared import (
     _get_ts,
+    _broadcast_combat,
     _has_ally_adjacent_to,
     _save_ts,
     svc,
@@ -273,6 +274,9 @@ async def damage_roll(
     )
 
     await db.commit()
+
+    from schemas.ws_events import CombatUpdate
+    await _broadcast_combat(session, combat, CombatUpdate(), db=db)
 
     # Check if paladin can smite
     can_smite = damage_resolution.player_class in ("Paladin",) and not combat_over

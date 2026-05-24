@@ -12,13 +12,12 @@ from pydantic import BaseModel
 from database import get_db
 from models import Character, CombatState
 from api.deps import (
-    get_session_or_404, entity_snapshot, serialize_combat, get_user_id,
+    get_session_or_404, get_user_id,
 )
-from services.character_roster import CharacterRoster
 from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
 
-from api.combat._shared import svc
+from api.combat._shared import _build_combat_snapshot, svc
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -38,27 +37,7 @@ async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
 
     session = await get_session_or_404(session_id, db)
     await db.refresh(session)  # 确保读取最新的 game_state
-    state   = session.game_state or {}
-    enemies = state.get("enemies", [])
-    entities: dict = {}
-
-    roster = CharacterRoster(db, session)
-    for c in await roster.party():
-        entities[c.id] = entity_snapshot(c, is_enemy=False)
-
-    for e in enemies:
-        entities[e["id"]] = {
-            "id":         e["id"],
-            "name":       e["name"],
-            "is_player":  False,
-            "is_enemy":   True,
-            "hp_current": e.get("hp_current", 0),
-            "hp_max":     e.get("derived", {}).get("hp_max", 10),
-            "ac":         e.get("derived", {}).get("ac", 10),
-            "conditions": e.get("conditions", []),
-        }
-
-    return {**serialize_combat(combat), "entities": entities, "turn_states": combat.turn_states or {}}
+    return await _build_combat_snapshot(db, session, combat)
 
 
 # ═══════════════════════════════════════════════════════════
