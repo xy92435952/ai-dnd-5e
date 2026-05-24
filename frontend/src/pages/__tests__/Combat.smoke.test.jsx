@@ -5,7 +5,7 @@
  * 但 React 运行时会报 hook 顺序变化并导致页面不可用。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const {
@@ -15,7 +15,13 @@ const {
   getSessionMock,
   getSpellsMock,
   getSkillBarMock,
+  roomsGetMock,
+  attackRollMock,
+  damageRollMock,
+  moveMock,
+  endTurnMock,
   useItemMock,
+  wsEvents,
 } = vi.hoisted(() => ({
   combatFixture: {
     round_number: 2,
@@ -88,7 +94,13 @@ const {
   getSessionMock: vi.fn(),
   getSpellsMock: vi.fn(),
   getSkillBarMock: vi.fn(),
+  roomsGetMock: vi.fn(),
+  attackRollMock: vi.fn(),
+  damageRollMock: vi.fn(),
+  moveMock: vi.fn(),
+  endTurnMock: vi.fn(),
   useItemMock: vi.fn(),
+  wsEvents: { current: null },
 }))
 
 vi.mock('../../api/client', () => ({
@@ -99,18 +111,24 @@ vi.mock('../../api/client', () => ({
     getSkillBar: getSkillBarMock,
     predict: vi.fn().mockResolvedValue(null),
     endCombat: vi.fn().mockResolvedValue({}),
-    endTurn: vi.fn().mockResolvedValue({}),
+    endTurn: endTurnMock,
+    attackRoll: attackRollMock,
+    damageRoll: damageRollMock,
+    move: moveMock,
   },
   charactersApi: {
     useItem: useItemMock,
   },
   roomsApi: {
-    get: vi.fn().mockRejectedValue(new Error('not multiplayer')),
+    get: roomsGetMock,
   },
 }))
 
 vi.mock('../../hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: false, send: () => false }),
+  useWebSocket: (_sessionId, onEvent) => {
+    wsEvents.current = onEvent
+    return { connected: false, send: () => false }
+  },
 }))
 
 vi.mock('../../components/DiceRollerOverlay', () => ({
@@ -135,10 +153,42 @@ import Combat from '../Combat'
 describe('Combat render smoke', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    wsEvents.current = null
     getCombatMock.mockResolvedValue(combatFixture)
     getSessionMock.mockResolvedValue(sessionFixture)
     getSpellsMock.mockResolvedValue([])
     getSkillBarMock.mockResolvedValue({ bar: [] })
+    roomsGetMock.mockRejectedValue(new Error('not multiplayer'))
+    endTurnMock.mockResolvedValue({})
+    attackRollMock.mockResolvedValue({
+      d20: 10,
+      attack_bonus: 5,
+      attack_total: 15,
+      target_ac: 10,
+      hit: true,
+      is_crit: false,
+      is_fumble: false,
+      target_name: '训练假人',
+      attacker_name: 'Guest Hero',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8',
+      pending_attack_id: 'pa-1',
+      turn_state: { action_used: true, attacks_made: 1, attacks_max: 1 },
+    })
+    damageRollMock.mockResolvedValue({
+      target_id: 'enemy-1',
+      target_new_hp: 2,
+      damage_total: 5,
+      total_damage: 5,
+      narration: 'Guest Hero 命中训练假人',
+      turn_state: { action_used: true, attacks_made: 1, attacks_max: 1 },
+      combat_over: false,
+    })
+    moveMock.mockResolvedValue({
+      entity_positions: combatFixture.entity_positions,
+      turn_state: { movement_used: 1, movement_max: 6 },
+    })
     useItemMock.mockResolvedValue({
       item: 'Healing Potion',
       heal_amount: 5,
@@ -155,6 +205,7 @@ describe('Combat render smoke', () => {
   })
 
   afterEach(() => {
+    localStorage.removeItem('user')
     cleanup()
   })
 
@@ -216,5 +267,121 @@ describe('Combat render smoke', () => {
       })
       expect(screen.getByText(/治疗药水 恢复 5 HP/)).toBeInTheDocument()
     })
+  })
+
+  it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {
+    const hostTurnCombat = {
+      ...combatFixture,
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'host-char', name: 'Host Hero', is_player: true, initiative: 18 },
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 16 },
+        { character_id: 'enemy-1', name: '训练假人', is_enemy: true, initiative: 8 },
+      ],
+      entities: {
+        ...combatFixture.entities,
+        'host-char': {
+          id: 'host-char',
+          name: 'Host Hero',
+          is_enemy: false,
+          hp_current: 12,
+          hp_max: 12,
+          ac: 16,
+          char_class: 'Fighter',
+        },
+        'guest-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'guest-char',
+          name: 'Guest Hero',
+        },
+      },
+      entity_positions: {
+        ...combatFixture.entity_positions,
+        'host-char': { x: 4, y: 5 },
+        'guest-char': { x: 5, y: 5 },
+      },
+      turn_states: {
+        'host-char': { action_used: false, movement_used: 0, movement_max: 6 },
+        'guest-char': { action_used: false, movement_used: 0, movement_max: 6 },
+      },
+    }
+    const guestTurnCombat = {
+      ...hostTurnCombat,
+      current_turn_index: 1,
+    }
+    const guestSession = {
+      ...sessionFixture,
+      player: {
+        ...sessionFixture.player,
+        id: 'guest-char',
+        name: 'Guest Hero',
+      },
+    }
+    const room = {
+      is_multiplayer: true,
+      session_id: 'sess-1',
+      room_code: '234567',
+      members: [
+        { user_id: 'host-user', display_name: 'Host', character_id: 'host-char', is_online: true },
+        { user_id: 'guest-user', display_name: 'Guest', character_id: 'guest-char', is_online: true },
+      ],
+    }
+
+    localStorage.setItem('user', JSON.stringify({ user_id: 'guest-user', display_name: 'Guest' }))
+    window.dispatchEvent(new Event('user-changed'))
+
+    roomsGetMock.mockResolvedValue(room)
+    getCombatMock.mockResolvedValueOnce(hostTurnCombat)
+    getSessionMock.mockResolvedValue(guestSession)
+    getSkillBarMock.mockResolvedValue({
+      bar: [
+        { k: 'atk', label: '攻击', glyph: 'A', cost: '动作', key: '1', kind: 'attack', available: true },
+      ],
+    })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    const getAttackSlot = () => {
+      const attackSlot = container.querySelector('.slot-key.attack')
+      expect(attackSlot).toBeTruthy()
+      return attackSlot
+    }
+
+    const endTurnButton = await screen.findByRole('button', { name: /结束回合/ })
+    expect(endTurnButton).toBeDisabled()
+    expect(screen.getByText(/Host 在线 · 等待其完成回合/)).toBeInTheDocument()
+
+    fireEvent.click(getAttackSlot())
+    expect(attackRollMock).not.toHaveBeenCalled()
+    fireEvent.click(endTurnButton)
+    expect(endTurnMock).not.toHaveBeenCalled()
+
+    getCombatMock.mockResolvedValue(guestTurnCombat)
+    await act(async () => {
+      wsEvents.current?.({ type: 'combat_update', combat: guestTurnCombat })
+    })
+    await waitFor(() => expect(screen.getByText(/你的回合/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: /结束回合/ })).not.toBeDisabled())
+
+    const enemyChip = container.querySelector('.unit-chip.enemy')
+    expect(enemyChip).toBeTruthy()
+    fireEvent.click(enemyChip)
+    await waitFor(() => {
+      expect(container.querySelector('.target-card')).toHaveTextContent(guestTurnCombat.entities['enemy-1'].name)
+    })
+    fireEvent.click(getAttackSlot())
+
+    await waitFor(() => {
+      expect(attackRollMock).toHaveBeenCalledWith('sess-1', 'guest-char', 'enemy-1', 'melee', false, 10)
+    })
+
+    await waitFor(() => {
+      expect(damageRollMock).toHaveBeenCalledWith('sess-1', 'pa-1', [10])
+    }, { timeout: 3000 })
   })
 })
