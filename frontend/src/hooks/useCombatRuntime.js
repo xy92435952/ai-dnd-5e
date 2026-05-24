@@ -127,6 +127,7 @@ export function useCombatRuntime({
     setAoeHover,
     clearAoePreview,
     onLoadCombat: flow.loadCombat,
+    setCombatOver: page.setCombatOver,
   })
 
   useWebSocket(room ? sessionId : null, onWsEvent)

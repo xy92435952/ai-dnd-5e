@@ -36,10 +36,23 @@ export function useCombatPageActions({
   setAoeHover,
   clearAoePreview,
   onLoadCombat,
+  setCombatOver,
 }) {
   const onWsEvent = useCallback((event) => {
     switch (event.type) {
       case 'combat_update':
+        if (event.combat) {
+          setCombat(event.combat)
+          const entry = event.combat.turn_order?.[event.combat.current_turn_index]
+          if (entry?.character_id && event.combat.turn_states) {
+            setTurnState(event.combat.turn_states[entry.character_id] || null)
+          }
+        }
+        if (event.combat_over) {
+          setCombatOver?.(event.outcome)
+        }
+        onLoadCombat()
+        break
       case 'turn_changed':
       case 'entity_moved':
       case 'dm_responded':
@@ -59,7 +72,7 @@ export function useCombatPageActions({
       default:
         break
     }
-  }, [sessionId, setRoom, onLoadCombat])
+  }, [sessionId, setRoom, setCombat, setCombatOver, setTurnState, onLoadCombat])
 
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,
@@ -91,7 +104,7 @@ export function useCombatPageActions({
     } catch (e) {
       setError(e.message)
     }
-  }, [isPlayerTurn, isProcessing, myCharacterId, moveMode, sessionId, setCombat, setError, setMoveMode, setTurnState])
+  }, [isPlayerTurn, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
   const handleSpellHover = useCallback((spell) => {
     if (spell && spell.aoe) {

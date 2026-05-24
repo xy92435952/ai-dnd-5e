@@ -29,9 +29,9 @@ async def build_ai_turn_context(db, session: Session, combat: CombatState, actor
 
     _roster = CharacterRoster(db, session)
     player = await _roster.player()
-    companions_alive = []
-    for c in await _roster.companions_alive():
-        companions_alive.append({
+    party_alive = []
+    for c in await _roster.allies_alive():
+        party_alive.append({
             "id": c.id, "name": c.name, "char_class": c.char_class, "level": c.level,
             "hp_current": c.hp_current, "hp_max": (c.derived or {}).get("hp_max", c.hp_current),
             "ac": (c.derived or {}).get("ac", 10), "derived": c.derived or {},
@@ -40,19 +40,12 @@ async def build_ai_turn_context(db, session: Session, combat: CombatState, actor
             "spell_slots": c.spell_slots or {}, "is_player": c.is_player,
             "equipment": c.equipment or {},
         })
+    companions_alive = [c for c in party_alive if str(c["id"]) != str(session.player_character_id)]
 
     enemies_alive = [x for x in enemies if x.get("hp_current", 0) > 0]
 
     all_characters = []
-    if player and player.hp_current > 0:
-        all_characters.append({
-            "id": player.id, "name": player.name, "char_class": player.char_class, "level": player.level,
-            "hp_current": player.hp_current, "hp_max": (player.derived or {}).get("hp_max", player.hp_current),
-            "ac": (player.derived or {}).get("ac", 10), "derived": player.derived or {},
-            "conditions": player.conditions or [], "concentration": player.concentration,
-            "is_player": True,
-        })
-    all_characters.extend(companions_alive)
+    all_characters.extend(party_alive)
 
     actor_full = dict(actor_derived)
     actor_full["id"] = actor_id

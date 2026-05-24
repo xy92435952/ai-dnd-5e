@@ -55,6 +55,23 @@ def test_choose_ai_attack_target_falls_back_to_combat_service():
     assert target == {"id": "fallback-1", "name": "备用目标"}
 
 
+def test_enemy_ai_target_fallback_uses_full_party_lowest_hp():
+    target = choose_ai_attack_target(
+        decided_target_id=None,
+        enemies_alive=[],
+        all_characters=[
+            {"id": "host-char", "name": "Host", "hp_current": 12},
+            {"id": "guest-char", "name": "Guest", "hp_current": 5},
+        ],
+        actor_is_enemy=True,
+        player=FakeCharacter(),
+        companions_alive=[],
+        combat_service=FakeCombatService(),
+    )
+
+    assert target == {"id": "guest-char", "name": "Guest", "hp_current": 5}
+
+
 def test_infer_ai_is_ranged_from_character_equipment_or_enemy_actions():
     archer = FakeCharacter(equipment={"weapons": [{"properties": ["ranged"]}]})
     assert infer_ai_is_ranged(archer=archer, enemies=[], actor_id="ally-1") is True

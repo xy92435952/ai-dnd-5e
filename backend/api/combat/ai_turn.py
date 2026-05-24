@@ -12,6 +12,7 @@ from models import CombatState, Module
 from api.deps import get_session_or_404
 
 from api.combat._shared import (
+    _broadcast_combat,
     _calc_entity_turn_limits,
     _reset_ts,
 )
@@ -21,8 +22,34 @@ from api.combat.ai_turn_actions import handle_ai_simple_action
 from api.combat.ai_turn_spell import handle_ai_spell_action
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
+from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
+
+
+async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) -> dict | None:
+    if result is None:
+        return result
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            combat_over=result.get("combat_over", False),
+            outcome=result.get("outcome"),
+            actor_id=result.get("actor_id"),
+            actor_name=result.get("actor_name"),
+            narration=result.get("narration"),
+            next_turn_index=result.get("next_turn_index"),
+            round_number=result.get("round_number"),
+            target_id=result.get("target_id"),
+            target_new_hp=result.get("target_new_hp"),
+            player_targeted=result.get("player_targeted", False),
+            player_can_react=result.get("player_can_react", False),
+            reaction_prompt=result.get("reaction_prompt"),
+        ),
+        db=db,
+    )
+    return result
 
 
 @router.post("/combat/{session_id}/ai-turn", response_model=EndTurnResult)
@@ -73,13 +100,14 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
         await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
-        return {
+        return await _broadcast_ai_turn_result(session, combat, db, {
             "actor_name": actor_name, "narration": f"{actor_name} 已倒下，跳过回合。",
+            "actor_id": actor_id,
             "attack_result": {}, "damage": 0, "target_id": None, "target_new_hp": None,
             "next_turn_index": next_index, "round_number": combat.round_number,
             "combat_over": False, "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
-        }
+        })
 
     # ── 计算下一回合索引（多处提前返回需要使用）────────────
     next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
@@ -128,7 +156,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         positions,
     )
     if simple_response is not None:
-        return simple_response
+        return await _broadcast_ai_turn_result(session, combat, db, simple_response)
 
     spell_response = await handle_ai_spell_action(
         session_id,
@@ -151,7 +179,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         all_characters,
     )
     if spell_response is not None:
-        return spell_response
+        return await _broadcast_ai_turn_result(session, combat, db, spell_response)
 
     attack_response = await handle_ai_attack_action(
         session_id,
@@ -177,7 +205,7 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
         decision,
     )
     if attack_response is not None:
-        return attack_response
+        return await _broadcast_ai_turn_result(session, combat, db, attack_response)
 
 
 # ── 移动 ─────────────────────────────────────────────────

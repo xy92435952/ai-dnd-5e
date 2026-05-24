@@ -76,7 +76,7 @@ async def end_player_turn(
     # ── 当前实体条件倒计时 ────────────────────────────────
     tick_logs = []
     if current.get("is_player"):
-        player = await db.get(Character, session.player_character_id)
+        player = await db.get(Character, current_cid)
         if player:
             removed = _tick_conditions_char(player)
             for c in removed:

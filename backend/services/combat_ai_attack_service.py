@@ -23,13 +23,22 @@ def choose_ai_attack_target(
     combat_service: CombatService = svc,
 ) -> dict[str, Any] | None:
     """Resolve a decided AI target, falling back to the existing combat target heuristic."""
+    alive_characters = [
+        character
+        for character in all_characters
+        if character.get("hp_current", 0) > 0
+    ]
+
     if decided_target_id:
         for target in enemies_alive:
             if str(target.get("id")) == str(decided_target_id):
                 return target
-        for target in all_characters:
+        for target in alive_characters:
             if str(target.get("id")) == str(decided_target_id):
                 return target
+
+    if actor_is_enemy and alive_characters:
+        return min(alive_characters, key=lambda x: x.get("hp_current", 999))
 
     player_payload = None
     if player:
