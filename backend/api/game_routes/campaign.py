@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from api.deps import get_session_or_404, get_user_id
+from api.deps import get_authorized_session, get_session_or_404, get_user_id
 from database import get_db
 from models import GameLog, Module
 from schemas.game_responses import RestResponse
@@ -14,9 +14,13 @@ router = APIRouter(prefix="/game", tags=["game"])
 
 
 @router.post("/sessions/{session_id}/journal")
-async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
+async def generate_journal(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """Generate a short campaign journal from recent adventure logs."""
-    session = await get_session_or_404(session_id, db)
+    session = await get_authorized_session(session_id, db, user_id)
     module = await db.get(Module, session.module_id)
     log_result = await db.execute(
         select(GameLog)
@@ -61,9 +65,13 @@ async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/sessions/{session_id}/checkpoint")
-async def save_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
+async def save_checkpoint(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """Compress recent adventure logs into structured campaign state."""
-    session = await get_session_or_404(session_id, db)
+    session = await get_authorized_session(session_id, db, user_id)
     module = await db.get(Module, session.module_id)
     log_result = await db.execute(
         select(GameLog)
@@ -93,9 +101,13 @@ async def save_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sessions/{session_id}/checkpoint")
-async def get_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_checkpoint(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """Return the current structured campaign checkpoint."""
-    session = await get_session_or_404(session_id, db)
+    session = await get_authorized_session(session_id, db, user_id)
     return {
         "session_id": session_id,
         "campaign_state": session.campaign_state or {},
@@ -108,13 +120,13 @@ async def take_rest(
     session_id: str,
     rest_type: str = "long",
     db: AsyncSession = Depends(get_db),
-    _user_id: str = Depends(get_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Apply a party rest. Multiplayer rooms must use rest voting instead."""
     if rest_type not in ("long", "short"):
         raise HTTPException(400, "rest_type 必须为 'long' 或 'short'")
 
-    session = await get_session_or_404(session_id, db)
+    session = await get_authorized_session(session_id, db, user_id)
     if session.is_multiplayer:
         raise HTTPException(409, "多人模式下休息需要通过房间投票")
 

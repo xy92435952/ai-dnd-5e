@@ -9,9 +9,10 @@ from sqlalchemy import select
 
 from database import get_db
 from models import CombatState, Module
-from api.deps import get_session_or_404
+from api.deps import assert_session_access, get_session_or_404, get_user_id
 
 from api.combat._shared import (
+    _broadcast_combat,
     _calc_entity_turn_limits,
     _reset_ts,
 )
@@ -21,14 +22,36 @@ from api.combat.ai_turn_actions import handle_ai_simple_action
 from api.combat.ai_turn_spell import handle_ai_spell_action
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
+from schemas.ws_events import CombatUpdate
+from services.session_action_lock import session_action_lock
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
 @router.post("/combat/{session_id}/ai-turn", response_model=EndTurnResult)
-async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
+async def ai_combat_turn(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    async with session_action_lock(session_id):
+        result = await _ai_combat_turn_locked(session_id, db, user_id)
+        await _broadcast_ai_turn_update(session_id, db)
+        return result
+
+
+async def _broadcast_ai_turn_update(session_id: str, db: AsyncSession) -> None:
+    session = await get_session_or_404(session_id, db)
+    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat = combat_result.scalars().first()
+    if combat:
+        await _broadcast_combat(session, combat, CombatUpdate())
+
+
+async def _ai_combat_turn_locked(session_id: str, db: AsyncSession, user_id: str):
     """处理当前 AI 实体的回合（队友或敌人）"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
@@ -41,8 +64,52 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     if not turn_order:
         raise HTTPException(400, "先攻顺序为空")
 
+    pending_reaction_owner = next(
+        (
+            entity_id
+            for entity_id, turn_state in (combat.turn_states or {}).items()
+            if isinstance(turn_state, dict) and turn_state.get("pending_ai_attack")
+        ),
+        None,
+    )
+    if pending_reaction_owner:
+        return {
+            "actor_name": "",
+            "actor_id": None,
+            "narration": "",
+            "attack_result": {},
+            "damage": 0,
+            "target_id": pending_reaction_owner,
+            "target_new_hp": None,
+            "next_turn_index": combat.current_turn_index,
+            "round_number": combat.round_number,
+            "combat_over": False,
+            "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
+            "skipped": True,
+            "pending_reaction": True,
+            "skip_reason": "pending_reaction",
+        }
+
     current    = turn_order[combat.current_turn_index]
     if current.get("is_player"):
+        if session.is_multiplayer:
+            return {
+                "actor_name": current.get("name", "player"),
+                "actor_id": current.get("character_id"),
+                "narration": "",
+                "attack_result": {},
+                "damage": 0,
+                "target_id": None,
+                "target_new_hp": None,
+                "next_turn_index": combat.current_turn_index,
+                "round_number": combat.round_number,
+                "combat_over": False,
+                "outcome": None,
+                "entity_positions": dict(combat.entity_positions or {}),
+                "skipped": True,
+                "skip_reason": "current_turn_is_player",
+            }
         raise HTTPException(400, "当前是玩家回合，请使用 /action 接口")
 
     actor_id   = current.get("character_id", "")

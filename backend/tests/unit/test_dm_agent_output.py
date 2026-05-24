@@ -37,6 +37,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
         "check_type": None,
         "ability": None,
         "dc": 10,
+        "check_kind": "none",
     }
     assert isinstance(messages[0], HumanMessage)
     assert isinstance(messages[1], AIMessage)
@@ -54,6 +55,7 @@ def test_normalize_dm_output_parses_markdown_json_block():
     assert data["needs_check"]["required"] is True
     assert data["needs_check"]["dc"] == 14
     assert data["needs_check"]["check_type"] is None
+    assert data["needs_check"]["check_kind"] == "skill_check"
     assert data["state_delta"]["combat_trigger"] is False
 
 
@@ -86,6 +88,8 @@ def test_normalize_dm_output_preserves_check_advantage_flags_and_choice_metadata
     assert error == ""
     assert data["needs_check"]["advantage"] is True
     assert data["needs_check"]["disadvantage"] is False
+    assert data["needs_check"]["check_kind"] == "skill_check"
+    assert data["needs_check"]["ability"] == "int"
     assert data["needs_check"]["context"] == "帮助动作给予优势"
     assert data["player_choices"][0]["skill_check"] is True
     assert data["player_choices"][0]["tags"][0]["kind"] == "check"
@@ -118,6 +122,7 @@ def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types()
 
     assert error == ""
     assert data["needs_check"]["required"] is True
+    assert data["needs_check"]["check_kind"] == "skill_check"
     assert data["needs_check"]["advantage"] is False
     assert data["needs_check"]["disadvantage"] is False
     assert data["player_choices"] == []
@@ -182,3 +187,50 @@ def test_normalize_dm_output_falls_back_with_extracted_narrative():
     assert data["needs_check"] == {"required": False}
     assert messages[0].content == "推开门"
     assert messages[1].content == "门后的风突然停了。"
+
+
+def test_normalize_dm_output_structures_saving_throw_request():
+    raw = json.dumps({
+        "action_type": "hazard",
+        "narrative": "地砖下喷出一股绿色毒雾，你必须屏住呼吸。",
+        "needs_check": {
+            "required": True,
+            "check_kind": "saving_throw",
+            "check_type": "CON save",
+            "ability": "constitution",
+            "dc": "13",
+            "context": "毒雾迫使体质豁免",
+            "advantage": True,
+            "disadvantage": True,
+        },
+        "player_choices": ["继续前进"],
+    }, ensure_ascii=False)
+
+    data, error, _messages = normalize_dm_output(raw, "踏进甬道")
+
+    assert error == ""
+    assert data["needs_check"]["required"] is True
+    assert data["needs_check"]["check_kind"] == "saving_throw"
+    assert data["needs_check"]["ability"] == "con"
+    assert data["needs_check"]["dc"] == 13
+    assert data["needs_check"]["advantage"] is False
+    assert data["needs_check"]["disadvantage"] is False
+    assert data["player_choices"] == []
+
+
+def test_normalize_dm_output_infers_saving_throw_from_context():
+    raw = json.dumps({
+        "narrative": "吊顶坍塌，碎石朝你砸下。",
+        "needs_check": {
+            "required": True,
+            "check_type": "豁免",
+            "dc": 15,
+            "context": "敏捷豁免以避开落石",
+        },
+    }, ensure_ascii=False)
+
+    data, error, _messages = normalize_dm_output(raw, "穿过大厅")
+
+    assert error == ""
+    assert data["needs_check"]["check_kind"] == "saving_throw"
+    assert data["needs_check"]["ability"] == "dex"

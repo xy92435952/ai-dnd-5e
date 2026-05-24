@@ -8,6 +8,25 @@ export function getSpeakTurnStatusText({ isMySpeakTurn, currentSpeakerName }) {
   return '等待其他玩家发言 · 你可以阅读剧情或查看角色卡'
 }
 
+export function getRoomPresenceSummary(room) {
+  if (!room?.is_multiplayer) {
+    return { onlineCount: 0, totalCount: 0, maxPlayers: null, label: '', offlineLabel: '' }
+  }
+  const members = Array.isArray(room.members) ? room.members : []
+  const onlineCount = members.filter(member => member?.is_online).length
+  const totalCount = members.length
+  const maxPlayers = room.max_players ?? room.maxPlayers ?? null
+  const capText = maxPlayers ? ` / ${maxPlayers}` : ''
+  const label = `在线 ${onlineCount}/${totalCount}${capText}`
+  const offlineNames = members
+    .filter(member => member && member.is_online === false)
+    .map(member => member.display_name || member.username || '玩家')
+  const offlineLabel = offlineNames.length
+    ? `离线：${offlineNames.slice(0, 3).join('、')}${offlineNames.length > 3 ? ` +${offlineNames.length - 3}` : ''}`
+    : ''
+  return { onlineCount, totalCount, maxPlayers, label, offlineLabel }
+}
+
 export function getCombatTurnStatusText({ isMyTurnMP, controllerName }) {
   if (isMyTurnMP) {
     return '你的回合 · 请选择移动、攻击、施法或结束回合'

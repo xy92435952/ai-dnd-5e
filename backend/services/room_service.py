@@ -46,6 +46,7 @@ claim_character = room_member_service.claim_character
 kick_member = room_member_service.kick_member
 transfer_host = room_member_service.transfer_host
 list_members = room_member_service.list_members
+require_room_member = room_member_service.require_room_member
 update_heartbeat = room_member_service.update_heartbeat
 mark_offline = room_member_service.mark_offline
 
@@ -211,6 +212,7 @@ __all__ = [
     "list_ai_companions",
     "fill_with_ai_companions",
     "list_members",
+    "require_room_member",
     "get_room_info",
     "ensure_multiplayer_state",
     "set_member_group",

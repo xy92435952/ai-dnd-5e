@@ -10,6 +10,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 vi.mock('../../api/game', () => ({
   gameApi: {
     skillCheck: vi.fn(),
+    savingThrow: vi.fn(),
   },
 }))
 vi.mock('../../components/DiceRollerOverlay', () => ({
@@ -57,6 +58,7 @@ describe('useSkillCheck', () => {
     expect(val).toBeNull()
     expect(rollDice3D).not.toHaveBeenCalled()
     expect(gameApi.skillCheck).not.toHaveBeenCalled()
+    expect(gameApi.savingThrow).not.toHaveBeenCalled()
   })
 
   it('rollPending 走完成功流程：调 API、写 log、返回 autoMsg', async () => {
@@ -123,6 +125,51 @@ describe('useSkillCheck', () => {
       advantage: true,
       disadvantage: false,
     }))
+  })
+
+  it('rollPending routes saving throw checks to gameApi.savingThrow', async () => {
+    rollDice3D.mockResolvedValue({ total: 14 })
+    gameApi.savingThrow.mockResolvedValue({
+      ability: 'dex',
+      d20: 14,
+      modifier: 3,
+      total: 17,
+      dc: 15,
+      success: true,
+      proficient: true,
+    })
+
+    const { result, addLog } = createHook()
+    act(() => {
+      result.current.setPendingCheck({
+        check_kind: 'saving_throw',
+        ability: 'dex',
+        dc: 15,
+        context: '躲开落石',
+      })
+    })
+
+    let autoMsg
+    await act(async () => { autoMsg = await result.current.rollPending() })
+
+    expect(gameApi.skillCheck).not.toHaveBeenCalled()
+    expect(gameApi.savingThrow).toHaveBeenCalledWith({
+      session_id:   'sess-1',
+      character_id: 'char-1',
+      ability:      'dex',
+      dc:           15,
+      d20_value:    14,
+      advantage:    false,
+      disadvantage: false,
+    })
+    expect(addLog).toHaveBeenCalledWith(
+      'dice',
+      expect.stringContaining('DEX save'),
+      'dice',
+      expect.objectContaining({ dice_result: expect.any(Object) }),
+    )
+    expect(autoMsg).toContain('DEX save success')
+    expect(autoMsg).toContain('躲开落石')
   })
 
   it('自然 20：触发 crit 音效', async () => {

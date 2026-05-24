@@ -1,3 +1,5 @@
+import { getRoomPresenceSummary } from '../../utils/multiplayerStatus'
+
 export default function MultiplayerSessionStatusBar({
   room,
   label,
@@ -9,6 +11,7 @@ export default function MultiplayerSessionStatusBar({
   children = null,
 }) {
   if (!room?.is_multiplayer) return null
+  const presence = getRoomPresenceSummary(room)
 
   const isActionable = tone === 'active'
   const borderColor = isActionable ? 'rgba(92,211,123,.5)' : 'rgba(240,208,96,.24)'
@@ -59,6 +62,16 @@ export default function MultiplayerSessionStatusBar({
         <span style={{ color: 'var(--emerald-light)' }}>{nextLabel}</span>
       )}
       {children}
+      {presence.label && (
+        <span style={{ color: 'var(--parchment-dark)' }}>
+          {presence.label}
+        </span>
+      )}
+      {presence.offlineLabel && (
+        <span style={{ color: 'var(--danger)' }}>
+          {presence.offlineLabel}
+        </span>
+      )}
       {room.room_code && (
         <span style={{ color: 'var(--parchment-dark)', marginLeft: 'auto' }}>
           房间 {room.room_code}

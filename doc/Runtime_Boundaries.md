@@ -1,6 +1,6 @@
 # 运行时边界与扩容前置条件
 
-> 最后更新：2026-05-17
+> 最后更新：2026-05-24
 > 适用阶段：50 人封闭内测。目标是稳定试玩，不是多实例平台化。
 
 ## 结论
@@ -27,6 +27,7 @@
 - `LANGGRAPH_DB_URL` 使用 PostgreSQL，避免 LangGraph 记忆仍落到本地 SQLite。
 - nginx WebSocket 反代必须保留 `Upgrade` / `Connection`。
 - `/ready` 返回 503 时不要开放玩家入口。
+- `/ready.runtime.single_worker_required` 当前固定为 `true`；只要 `coordination=in_process`，就不要开启多 worker。
 
 推荐启动形态：
 

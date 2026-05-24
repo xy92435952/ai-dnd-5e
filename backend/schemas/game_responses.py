@@ -141,6 +141,21 @@ class SkillCheckResult(BaseModel):
     disadvantage: bool = False
 
 
+class SavingThrowResult(BaseModel):
+    """Response shape for services.dnd_rules.roll_saving_throw."""
+    model_config = ConfigDict(extra="allow")
+
+    ability: str
+    d20: int
+    modifier: int
+    total: int
+    dc: int
+    success: bool
+    proficient: bool = False
+    advantage: bool = False
+    disadvantage: bool = False
+
+
 # ─── /game/sessions/{id}/rest ──────────────────────────────
 
 class CharacterRestResult(BaseModel):

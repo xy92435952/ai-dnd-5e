@@ -1,5 +1,22 @@
 import { getPlayerTurnState } from './combat'
 
+function pendingAiAttackToReactionPrompt(turnState) {
+  const pending = turnState?.pending_ai_attack
+  if (!pending) return null
+
+  return {
+    can_react: true,
+    context: 'Choose a reaction',
+    attack_roll: pending.attack_roll?.attack_total || 0,
+    incoming_damage: pending.damage || 0,
+    attacker_name: pending.actor_name,
+    attacker_id: pending.actor_id,
+    pending_attack_id: pending.pending_attack_id,
+    available_reactions: pending.available_reactions || [],
+    options: pending.options || [],
+  }
+}
+
 export function applyCombatSessionSnapshot({
   combatData,
   sessionData,
@@ -15,6 +32,7 @@ export function applyCombatSessionSnapshot({
   setPlayerSubclass,
   setPlayerSubclassEffects,
   setTurnState,
+  setReactionPrompt,
   setLogs,
 }) {
   setCombat(combatData)
@@ -34,6 +52,10 @@ export function applyCombatSessionSnapshot({
   if (player?.derived?.subclass_effects) setPlayerSubclassEffects(player.derived.subclass_effects)
 
   if (playerId) setTurnState(getPlayerTurnState(combatData, playerId))
+  const playerTurnState = playerId ? getPlayerTurnState(combatData, playerId) : null
+  if (setReactionPrompt) {
+    setReactionPrompt(pendingAiAttackToReactionPrompt(playerTurnState))
+  }
 
   const combatLogs = (sessionData?.logs || []).filter(l =>
     l.log_type === 'combat' || l.log_type === 'system'

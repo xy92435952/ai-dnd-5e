@@ -76,6 +76,26 @@ let _pendingRollConfig = null
  * 流程：显示"点击投掷"提示 → 玩家点击 → 3D 骰子飞出 → 物理落定 → 返回结果
  */
 export async function rollDice3D(faces = 20, count = 1) {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = window.localStorage?.getItem('__ai_dnd_test_dice_queue')
+      if (raw) {
+        const queue = JSON.parse(raw)
+        if (Array.isArray(queue) && queue.length) {
+          const next = queue.shift()
+          window.localStorage.setItem('__ai_dnd_test_dice_queue', JSON.stringify(queue))
+          const rolls = Array.isArray(next?.rolls)
+            ? next.rolls
+            : [Number(next?.total ?? next)]
+          const total = Number(next?.total ?? rolls.reduce((a, b) => a + Number(b || 0), 0))
+          return { total, rolls }
+        }
+      }
+    } catch {
+      window.localStorage?.removeItem('__ai_dnd_test_dice_queue')
+    }
+  }
+
   // 预初始化 DiceBox
   await ensureDiceBox()
 

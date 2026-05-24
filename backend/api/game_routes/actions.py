@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import char_brief, get_session_or_404, get_user_id
+from api.deps import assert_session_access, char_brief, get_session_or_404, get_user_id
 from api.game_routes.action_multiplayer import (
     assert_current_speaker as _assert_current_speaker,
     handle_multiplayer_table_only_result as _handle_multiplayer_table_only_result,
@@ -66,6 +66,7 @@ async def _player_action_unlocked(
 ):
     """玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。"""
     session = await get_session_or_404(req.session_id, db)
+    await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id)
     action_source = normalize_action_source(session, req.action_text, req.action_source)
     effective_action_text = req.action_text
@@ -174,6 +175,7 @@ async def _player_action_stream_unlocked(
 ):
     """玩家行动流式入口：SSE 叙事增量 + 最终 PlayerActionResponse。"""
     session = await get_session_or_404(req.session_id, db)
+    await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id)
     action_source = normalize_action_source(session, req.action_text, req.action_source)
     effective_action_text = req.action_text
@@ -311,6 +313,7 @@ async def ai_takeover_action(
     from services.room_service import OFFLINE_THRESHOLD_SECONDS
 
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     if not session.is_multiplayer:
         raise HTTPException(400, "仅多人模式可用")
     if session.combat_active:

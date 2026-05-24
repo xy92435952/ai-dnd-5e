@@ -4,6 +4,7 @@ import { api } from './http'
 /** @typedef {import('../types/api-responses').SessionDetail} SessionDetail */
 /** @typedef {import('../types/api-responses').PlayerActionResponse} PlayerActionResponse */
 /** @typedef {import('../types/api-responses').SkillCheckResult} SkillCheckResult */
+/** @typedef {import('../types/api-responses').SavingThrowResult} SavingThrowResult */
 /** @typedef {import('../types/api-responses').RestResponse} RestResponse */
 /** @typedef {import('../types/api-responses').CombatStateResponse} CombatStateResponse */
 /** @typedef {import('../types/api-responses').SkillBarResponse} SkillBarResponse */
@@ -40,6 +41,12 @@ export const gameApi = {
    * @returns {Promise<SkillCheckResult>}
    */
   skillCheck: (data) => api.post('/game/skill-check', data),
+
+  /**
+   * @param {{session_id:string, character_id:string, ability:'str'|'dex'|'con'|'int'|'wis'|'cha', dc:number, d20_value?:number, advantage?:boolean, disadvantage?:boolean}} data
+   * @returns {Promise<SavingThrowResult>}
+   */
+  savingThrow: (data) => api.post('/game/saving-throw', data),
 
   /**
    * @param {string} sessionId

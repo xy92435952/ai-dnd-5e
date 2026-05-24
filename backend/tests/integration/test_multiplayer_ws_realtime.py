@@ -185,3 +185,109 @@ async def test_ws_typing_and_speak_done_drive_table_realtime_events(
         ws_manager.rooms.clear()
         ws_manager.user_ws.clear()
         ws_manager.ws_meta.clear()
+
+
+async def test_ws_rejects_non_member_before_accepting(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    host = await _register(client, "ws_auth_host")
+    outsider = await _register(client, "ws_auth_outsider")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "ws auth room",
+        "max_players": 4,
+    })).json()
+
+    outsider_ws = QueueWebSocket()
+    await ws_api.ws_endpoint(
+        outsider_ws,
+        created["session_id"],
+        token=outsider["token"],
+    )
+
+    assert outsider_ws.accepted.is_set() is False
+    assert outsider_ws.closed["code"] == 4403
+    assert ws_manager.stats()["connections"] == 0
+
+
+async def test_same_user_ws_disconnect_is_session_scoped(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    shared = await _register(client, "ws_multiroom_user")
+    room_a = (await client.post("/game/rooms/create", headers=_h(shared["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "ws room a",
+        "max_players": 4,
+    })).json()
+    room_b = (await client.post("/game/rooms/create", headers=_h(shared["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "ws room b",
+        "max_players": 4,
+    })).json()
+
+    ws_a = QueueWebSocket()
+    ws_b = QueueWebSocket()
+    task_a = asyncio.create_task(ws_api.ws_endpoint(ws_a, room_a["session_id"], token=shared["token"]))
+    task_b = asyncio.create_task(ws_api.ws_endpoint(ws_b, room_b["session_id"], token=shared["token"]))
+
+    try:
+        await asyncio.wait_for(ws_a.accepted.wait(), timeout=1)
+        await asyncio.wait_for(ws_b.accepted.wait(), timeout=1)
+        assert sorted(await ws_manager.online_users(room_a["session_id"])) == [shared["user_id"]]
+        assert sorted(await ws_manager.online_users(room_b["session_id"])) == [shared["user_id"]]
+
+        await ws_a.disconnect()
+        await asyncio.wait_for(task_a, timeout=1)
+
+        assert await ws_manager.online_users(room_a["session_id"]) == []
+        assert await ws_manager.online_users(room_b["session_id"]) == [shared["user_id"]]
+
+        room_a_state = await client.get(
+            f"/game/rooms/{room_a['session_id']}",
+            headers=_h(shared["token"]),
+        )
+        room_b_state = await client.get(
+            f"/game/rooms/{room_b['session_id']}",
+            headers=_h(shared["token"]),
+        )
+        assert room_a_state.status_code == 200, room_a_state.text
+        assert room_b_state.status_code == 200, room_b_state.text
+        assert room_a_state.json()["members"][0]["is_online"] is False
+        assert room_b_state.json()["members"][0]["is_online"] is True
+    finally:
+        await ws_a.disconnect()
+        await ws_b.disconnect()
+        await asyncio.gather(task_a, task_b, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()

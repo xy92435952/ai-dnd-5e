@@ -147,6 +147,49 @@ class TestSkillCheck:
         assert result["proficient"] is False
 
 
+class TestSavingThrow:
+    def test_uses_derived_saving_throw_modifier_and_flags_proficiency(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"dex": 2},
+                "saving_throws": {"dex": 5},
+                "proficiency_bonus": 3,
+            },
+            "proficient_saves": ["dex"],
+        }
+        result = roll_saving_throw(char, "dex", dc=12, disadvantage=True)
+        assert result["ability"] == "dex"
+        assert result["modifier"] == 5
+        assert result["proficient"] is True
+        assert result["advantage"] is False
+        assert result["disadvantage"] is True
+        assert result["other_roll"] is not None
+
+    def test_falls_back_to_ability_mod_plus_proficiency(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"wis": 1},
+                "proficiency_bonus": 2,
+            },
+            "proficient_saves": ["wis"],
+        }
+        result = roll_saving_throw(char, "wis", dc=10)
+        assert result["modifier"] == 3
+        assert result["proficient"] is True
+
+    def test_advantage_and_disadvantage_cancel(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"con": 2},
+            },
+            "proficient_saves": [],
+        }
+        result = roll_saving_throw(char, "con", dc=10, advantage=True, disadvantage=True)
+        assert result["advantage"] is False
+        assert result["disadvantage"] is False
+        assert result["other_roll"] is None
+
+
 class TestCalcDerived:
     def test_fighter_lv1(self):
         scores = {"str": 16, "dex": 14, "con": 15, "int": 10, "wis": 12, "cha": 8}

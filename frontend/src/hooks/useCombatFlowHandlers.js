@@ -66,6 +66,7 @@ export function useCombatFlowHandlers({
 
   const { triggerAiTurn } = useCombatAiTurns({
     sessionId,
+    playerId,
     processingRef,
     setIsProcessing,
     setCombat,
@@ -92,6 +93,7 @@ export function useCombatFlowHandlers({
     setPlayerSubclass,
     setPlayerSubclassEffects,
     setTurnState,
+    setReactionPrompt,
     setLogs,
     setInitiativeShown,
     setError,

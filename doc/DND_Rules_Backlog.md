@@ -14,7 +14,7 @@
 | Rule area | Why it matters | First implementation slice | Tests |
 | --- | --- | --- | --- |
 | Advantage/disadvantage | Central to DnD feel and tactical choices. | Add a shared roll mode to skill checks, attacks, saves, and UI dice display. | Unit tests for roll selection; Adventure skill-check click path. |
-| Saving throws | Many spells and hazards depend on saves. | Add save roll helper and endpoint/service path for DM-generated save requests. | `dnd_rules` unit tests; Adventure hazard flow. |
+| Saving throws | Many spells and hazards depend on saves. | Implemented shared save roll result shape, `/game/saving-throw`, and Adventure hook routing for DM-generated save requests. | `dnd_rules` unit tests; game flow endpoint tests; `useSkillCheck` saving-throw routing test. |
 | Passive perception/investigation | Makes exploration feel less binary. | Expose passive scores in ContextBuilder and choice preview. | Context builder tests; Adventure choice tests. |
 | Inspiration | Simple, high-impact player agency. | Store inspiration on character/session, spend for advantage. | Character/resource tests; UI spend path. |
 | Group checks | Multiplayer and party exploration need fair group resolution. | Resolve majority success and aggregate dice display. | Service tests for mixed party results. |
@@ -71,4 +71,10 @@ Advantage/disadvantage first slice is now implemented for Adventure skill checks
 - `roll_skill_check()` returns normalized roll-mode flags and `other_roll` when applicable.
 - `useSkillCheck` rolls two d20s for advantage/disadvantage, picks the correct die, and sends the selected value to the backend.
 
-Next rule slice should extend the same roll-mode shape into explicit DM-generated saving throws or inspiration spending.
+Saving throws first slice is now implemented:
+
+- `roll_saving_throw()` returns normalized roll-mode flags, `other_roll`, and proficiency state.
+- `/game/saving-throw` applies session/character-control authorization and writes a dice log.
+- `useSkillCheck` routes DM-generated `check_kind: "saving_throw"` requests to the saving throw endpoint while keeping legacy skill checks unchanged.
+
+Next rule slice should extend the same roll-mode shape into inspiration spending, group checks, or save-for-half spell resolution.

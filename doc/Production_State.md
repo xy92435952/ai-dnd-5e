@@ -1,6 +1,6 @@
 # 生产环境状态记录
 
-> 更新时间：2026-05-17
+> 更新时间：2026-05-24
 
 ## 当前结论
 
@@ -22,6 +22,7 @@ alembic upgrade head
 - `DATABASE_URL` 必须使用 `postgresql+asyncpg://...`。
 - `LANGGRAPH_DB_URL` 必须使用 `postgresql://...`。
 - `ENV=production` 时，如果仍配置 SQLite，`/ready` 会返回 503。
+- `/ready.runtime` 会暴露当前协调层状态；在 `coordination=in_process` 且 `single_worker_required=true` 时，不要把后端扩成多 worker。
 
 ## 50 人封闭内测建议值
 

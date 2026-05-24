@@ -6,7 +6,15 @@ describe('MultiplayerSessionStatusBar', () => {
   it('renders shared multiplayer table status with reason, focus and next step', () => {
     render(
       <MultiplayerSessionStatusBar
-        room={{ is_multiplayer: true, room_code: '123456' }}
+        room={{
+          is_multiplayer: true,
+          room_code: '123456',
+          max_players: 4,
+          members: [
+            { display_name: '洛林', is_online: true },
+            { display_name: '凯伦', is_online: false },
+          ],
+        }}
         label="DM 调度"
         title="切换镜头"
         reason="酒馆组已有待处理行动，玩家明确要求切镜头。"
@@ -20,6 +28,8 @@ describe('MultiplayerSessionStatusBar', () => {
     expect(screen.getByText('酒馆组已有待处理行动，玩家明确要求切镜头。')).toBeInTheDocument()
     expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
     expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(screen.getByText('在线 1/2 / 4')).toBeInTheDocument()
+    expect(screen.getByText('离线：凯伦')).toBeInTheDocument()
     expect(screen.getByText('房间 123456')).toBeInTheDocument()
   })
 

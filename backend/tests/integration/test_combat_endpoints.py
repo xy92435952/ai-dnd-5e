@@ -263,7 +263,7 @@ async def ai_turn_combat(db_session, sample_session, sample_character):
 
 
 async def test_ai_turn_dash_decision_does_not_500(
-    client, sample_session, ai_turn_combat, monkeypatch,
+    client, sample_session, ai_turn_combat, sample_user, monkeypatch,
 ):
     """/ai-turn 选择 dash 时应稳定返回，不应因为局部变量顺序报 500。"""
     import services.ai_combat_agent as ai_agent
@@ -279,7 +279,8 @@ async def test_ai_turn_dash_decision_does_not_500(
     monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
     monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
 
-    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn")
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["actor_name"] == "兽人"
@@ -287,7 +288,7 @@ async def test_ai_turn_dash_decision_does_not_500(
 
 
 async def test_ai_fire_attack_respects_player_fire_resistance(
-    client, db_session, sample_session, sample_character, ai_turn_combat, monkeypatch,
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):
     """火焰抗性药水写入的 fire_resistance 条件应在 AI 火焰伤害中真实减半。"""
     from sqlalchemy.orm.attributes import flag_modified
@@ -335,7 +336,8 @@ async def test_ai_fire_attack_respects_player_fire_resistance(
     monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
     monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
 
-    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn")
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
 
     assert r.status_code == 200, r.text
     data = r.json()
@@ -753,6 +755,133 @@ async def test_multiplayer_old_action_uses_current_users_claimed_character(
     assert str(setup["guest_char"].id) not in (setup["combat"].turn_states or {})
 
 
+async def test_multiplayer_reaction_uses_current_users_character_and_broadcasts(
+    client, db_session, sample_module, monkeypatch,
+):
+    """Reactions can be used outside the actor's turn and broadcast fresh combat state."""
+    import api.combat.reactions as reactions
+
+    broadcast_calls = []
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    async def fake_broadcast(session, combat, event):
+        broadcast_calls.append({
+            "session_id": session.id,
+            "combat_id": combat.id,
+            "event_type": event.type,
+        })
+
+    monkeypatch.setattr(reactions, "narrate_action", fake_narrate_action)
+    monkeypatch.setattr(reactions, "_broadcast_combat", fake_broadcast)
+
+    setup = await _seed_multiplayer_combat(client, db_session, sample_module)
+    sid = setup["session_id"]
+    host_char = setup["host_char"]
+
+    host_char.known_spells = ["Shield"]
+    host_char.spell_slots = {"1st": 1}
+    await db_session.commit()
+
+    r = await client.post(
+        f"/game/combat/{sid}/reaction",
+        headers=_headers(setup["host"]["token"]),
+        json={"reaction_type": "shield", "target_id": setup["enemy_id"]},
+    )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["reaction_type"] == "shield"
+    assert data["turn_state"]["reaction_used"] is True
+
+    await db_session.refresh(host_char)
+    await db_session.refresh(setup["combat"])
+    assert host_char.spell_slots["1st"] == 0
+    assert "shield_spell" in (host_char.conditions or [])
+    assert setup["combat"].turn_states[str(host_char.id)]["reaction_used"] is True
+    assert broadcast_calls == [{
+        "session_id": sid,
+        "combat_id": setup["combat"].id,
+        "event_type": "combat_update",
+    }]
+
+
+async def test_multiplayer_ai_attack_can_prompt_guest_reaction(
+    client, db_session, sample_module, monkeypatch,
+):
+    """When an enemy targets the guest, pending reaction state must belong to the guest character."""
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as attack_module
+    from services.combat_service import AttackResult
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": setup["guest_char"].id,
+            "reason": "target guest",
+        }
+
+    def fake_resolve_melee_attack(**kwargs):
+        return AttackResult(
+            attack_roll={
+                "d20": 13,
+                "attack_bonus": 5,
+                "attack_total": 18,
+                "target_ac": 13,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            },
+            damage=5,
+            damage_roll={"formula": "1d6+2", "rolls": [3], "total": 5},
+            narration="guest hit",
+        )
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(attack_module.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(attack_module, "narrate_batch", lambda actions: [None])
+
+    setup = await _seed_multiplayer_combat(client, db_session, sample_module)
+    sid = setup["session_id"]
+    guest_char = setup["guest_char"]
+    host_char = setup["host_char"]
+
+    guest_char.known_spells = ["Shield"]
+    guest_char.prepared_spells = ["Shield"]
+    guest_char.spell_slots = {"1st": 1}
+    guest_char.derived = {
+        **(guest_char.derived or {}),
+        "ac": 13,
+        "hp_max": 12,
+    }
+    setup["combat"].current_turn_index = 2
+    setup["combat"].entity_positions = {
+        host_char.id: {"x": 5, "y": 5},
+        guest_char.id: {"x": 7, "y": 5},
+        setup["enemy_id"]: {"x": 6, "y": 5},
+    }
+    await db_session.commit()
+
+    r = await client.post(f"/game/combat/{sid}/ai-turn", headers=_headers(setup["host"]["token"]))
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["pending_reaction"] is True
+    assert data["target_id"] == guest_char.id
+    assert data["target_new_hp"] == 12
+
+    await db_session.refresh(setup["combat"])
+    await db_session.refresh(guest_char)
+    assert guest_char.hp_current == 12
+    assert "pending_ai_attack" not in (setup["combat"].turn_states.get(host_char.id) or {})
+    guest_pending = setup["combat"].turn_states[guest_char.id]["pending_ai_attack"]
+    assert guest_pending["target_id"] == guest_char.id
+    assert guest_pending["available_reactions"][0]["id"] == "shield"
+    assert guest_pending["options"][0]["type"] == "shield"
+
+
 async def test_end_combat_clears_flag(client, sample_session, combat_state, db_session, sample_user):
     """POST /game/combat/{id}/end — ai_turn.py 模块里定义的结束战斗端点。"""
     headers = await _auth_headers(client, sample_user)
@@ -760,3 +889,197 @@ async def test_end_combat_clears_flag(client, sample_session, combat_state, db_s
     assert r.status_code == 200, r.text
     await db_session.refresh(sample_session)
     assert sample_session.combat_active is False
+
+
+async def test_ai_turn_broadcasts_combat_update(
+    client, db_session, sample_session, ai_turn_combat, sample_user, monkeypatch,
+):
+    """AI turns must broadcast so non-triggering multiplayer clients refresh."""
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn as ai_turn_module
+
+    sample_session.is_multiplayer = True
+    from models import SessionMember
+    db_session.add(SessionMember(
+        session_id=sample_session.id,
+        user_id=sample_user.id,
+        role="host",
+    ))
+    await db_session.commit()
+    broadcast_calls = []
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "dash",
+            "target_id": sample_session.player_character_id,
+            "action_name": None,
+            "reason": "test dash",
+        }
+
+    async def fake_broadcast(session, combat, event):
+        broadcast_calls.append({
+            "session_id": session.id,
+            "combat_id": combat.id,
+            "event_type": event.type,
+        })
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_module, "_broadcast_combat", fake_broadcast)
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert r.status_code == 200, r.text
+    assert broadcast_calls == [{
+        "session_id": sample_session.id,
+        "combat_id": ai_turn_combat.id,
+        "event_type": "combat_update",
+    }]
+
+
+async def test_ai_attack_waits_for_shield_before_applying_damage(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    """Shield should be offered before damage lands and can turn the hit into a miss."""
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as attack_module
+    from services.combat_service import AttackResult
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "reason": "test shield timing",
+        }
+
+    def fake_resolve_melee_attack(**kwargs):
+        return AttackResult(
+            attack_roll={
+                "d20": 12,
+                "attack_bonus": 4,
+                "attack_total": 16,
+                "target_ac": 13,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            },
+            damage=6,
+            damage_roll={"formula": "1d8+2", "rolls": [4], "total": 6},
+            narration="test hit",
+        )
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(attack_module.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(attack_module, "narrate_batch", lambda actions: [None])
+
+    sample_character.known_spells = ["Shield"]
+    sample_character.spell_slots = {"1st": 1}
+    sample_character.hp_current = 13
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "hp_max": 13,
+        "ac": 13,
+    }
+    ai_turn_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "orc-1": {"x": 6, "y": 5},
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["pending_reaction"] is True
+    assert data["reaction_prompt"]["pending_attack_id"]
+    assert data["target_new_hp"] == 13
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ai_turn_combat)
+    assert sample_character.hp_current == 13
+    assert ai_turn_combat.current_turn_index == 0
+    pending = ai_turn_combat.turn_states[sample_character.id]["pending_ai_attack"]
+    assert pending["damage"] == 6
+
+    headers = await _auth_headers(client, sample_user)
+    shield = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={"reaction_type": "shield", "target_id": "orc-1"},
+    )
+
+    assert shield.status_code == 200, shield.text
+    shield_data = shield.json()
+    assert shield_data["damage"] == 0
+    assert shield_data["target_new_hp"] == 13
+    assert shield_data["reaction_effect"]["attack_negated"] is True
+    assert shield_data["attack_result"]["hit"] is False
+    assert shield_data["next_turn_index"] == 1
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ai_turn_combat)
+    assert sample_character.hp_current == 13
+    assert sample_character.spell_slots["1st"] == 0
+    assert "pending_ai_attack" not in ai_turn_combat.turn_states[sample_character.id]
+    assert ai_turn_combat.current_turn_index == 1
+
+
+async def test_multiplayer_ai_turn_on_player_turn_is_idempotent(
+    client, db_session, sample_session, ai_turn_combat, sample_user,
+):
+    """Duplicate queued AI requests should not surface as 400s in multiplayer rooms."""
+    sample_session.is_multiplayer = True
+    from models import SessionMember
+    db_session.add(SessionMember(
+        session_id=sample_session.id,
+        user_id=sample_user.id,
+        role="host",
+    ))
+    ai_turn_combat.current_turn_index = 1
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["skipped"] is True
+    assert data["skip_reason"] == "current_turn_is_player"
+    assert data["next_turn_index"] == 1
+
+
+async def test_ai_turn_pauses_while_pending_reaction_exists(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user,
+):
+    """Duplicate AI requests should not advance combat while a reaction prompt is unresolved."""
+    ai_turn_combat.turn_states = {
+        sample_character.id: {
+            "reaction_used": False,
+            "pending_ai_attack": {
+                "pending_attack_id": "pai-1",
+                "actor_id": "orc-1",
+                "target_id": sample_character.id,
+                "damage": 4,
+                "next_turn_index": 1,
+            },
+        },
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["skipped"] is True
+    assert data["pending_reaction"] is True
+    assert data["skip_reason"] == "pending_reaction"
+    assert data["target_id"] == sample_character.id
+    assert data["next_turn_index"] == 0
+
+    await db_session.refresh(ai_turn_combat)
+    assert ai_turn_combat.current_turn_index == 0
+    assert ai_turn_combat.turn_states[sample_character.id]["pending_ai_attack"]["pending_attack_id"] == "pai-1"

@@ -194,6 +194,20 @@ async def get_member(
     return result.scalar_one_or_none()
 
 
+async def require_room_member(
+    db: AsyncSession,
+    session_id: str,
+    user_id: str,
+) -> SessionMember:
+    session = await db.get(Session, session_id)
+    if not session or not session.is_multiplayer:
+        raise HTTPException(404, "room not found")
+    member = await get_member(db, session_id, user_id)
+    if not member:
+        raise HTTPException(403, "user is not a member of this room")
+    return member
+
+
 async def list_members_raw(
     db: AsyncSession,
     session_id: str,

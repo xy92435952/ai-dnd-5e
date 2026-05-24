@@ -2,6 +2,22 @@ import pytest
 from models import Character, CombatState
 
 
+async def _auth_headers(client, sample_user):
+    response = await client.post("/auth/login", json={
+        "username": sample_user.username,
+        "password": "password",
+    })
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['token']}"}
+
+
+@pytest.fixture(autouse=True)
+async def _auth_inventory_client(client, sample_user):
+    client.headers.update(await _auth_headers(client, sample_user))
+    yield
+    client.headers.clear()
+
+
 @pytest.mark.asyncio
 async def test_buy_item_deducts_gold_and_adds_gear(client, db_session, sample_character):
     sample_character.equipment = {"gold": 51, "gear": []}
@@ -247,8 +263,9 @@ async def test_use_healers_kit_rejects_target_outside_same_session_without_consu
         },
     )
 
-    assert response.status_code == 400
-    assert "同一队伍" in response.json()["detail"]
+    assert response.status_code == 403
+    assert response.json()["detail"] == "character does not belong to this session"
+    # The permission layer rejects this before item consumption.
     await db_session.refresh(sample_character)
     await db_session.refresh(target)
     assert sample_character.equipment["gear"][0]["uses"] == 10
@@ -551,7 +568,9 @@ async def test_transfer_item_moves_unequipped_shield_between_session_characters(
 
 
 @pytest.mark.asyncio
-async def test_transfer_item_rejects_target_outside_same_session(client, db_session, sample_character, sample_session):
+async def test_transfer_item_rejects_target_outside_same_session(
+    client, db_session, sample_character, sample_session,
+):
     target = Character(
         session_id=None,
         user_id=None,
@@ -585,5 +604,5 @@ async def test_transfer_item_rejects_target_outside_same_session(client, db_sess
         },
     )
 
-    assert response.status_code == 400
-    assert "同一队伍" in response.json()["detail"]
+    assert response.status_code == 403
+    assert response.json()["detail"] == "character does not belong to this session"

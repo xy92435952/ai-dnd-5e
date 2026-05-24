@@ -69,6 +69,10 @@ async def test_ready_reports_beta_limits_and_ws_status(client, monkeypatch):
     assert payload["status"] == "ready"
     assert payload["beta"]["max_users"] == 50
     assert payload["beta"]["max_ws_connections"] == 80
+    assert payload["runtime"]["single_worker_required"] is True
+    assert payload["runtime"]["coordination"] == "in_process"
+    assert payload["runtime"]["external_realtime_bus"] is False
+    assert payload["runtime"]["external_rate_limit_store"] is False
     assert "ws" in payload
     assert payload["background_jobs"]["module_parse"] == {"queued": 0, "running": 0}
 

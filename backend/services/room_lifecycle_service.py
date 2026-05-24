@@ -39,6 +39,8 @@ async def create_room(
 ) -> Session:
     """创建多人房间。创建者自动成为 host。"""
     module = await db.get(Module, module_id)
+    if module and module.user_id is not None and module.user_id != user_id:
+        raise HTTPException(403, "not authorized for this module")
     if not module:
         raise HTTPException(404, "模组不存在")
 

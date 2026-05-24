@@ -8,11 +8,26 @@ function logLabel(log) {
 }
 
 function logClass(log) {
-  if (log.dice_result?.is_crit) return 'crit'
-  if (log.dice_result?.is_fumble) return 'miss'
+  const attack = log.dice_result?.attack || log.dice_result
+  if (attack?.is_crit) return 'crit'
+  if (attack?.is_fumble) return 'miss'
   if (log.log_type === 'combat_mechanics') return 'mechanics'
   if (log.log_type === 'combat') return 'dmg'
   return 'normal'
+}
+
+function rollLabel(log) {
+  const dice = log.dice_result
+  if (!dice) return logLabel(log)
+
+  const attack = dice.attack || dice
+  if (attack?.d20 !== undefined) return `d20=${attack.d20}`
+  if (dice.total !== undefined) return `骰点=${dice.total}`
+  if (dice.damage !== undefined) {
+    const damage = typeof dice.damage === 'object' ? dice.damage.total : dice.damage
+    return damage !== undefined ? `伤害=${damage}` : '骰点'
+  }
+  return '骰点'
 }
 
 export default function CombatHudCombatLog({ logs, logsEndRef }) {
@@ -21,7 +36,7 @@ export default function CombatHudCombatLog({ logs, logsEndRef }) {
       {logs.slice(-8).map((log, i) => (
         <div key={log.id || i} className={`log-entry ${logClass(log)}`}>
           <span className="roll">
-            {log.dice_result ? `d20=${log.dice_result.d20 || log.dice_result.total}` : logLabel(log)}
+            {rollLabel(log)}
           </span>
           <span>{(log.content || '').slice(0, 80)}</span>
         </div>

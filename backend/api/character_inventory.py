@@ -14,6 +14,7 @@ from api.character_inventory_shop import (
     transfer_character_item as _transfer_character_item,
 )
 from api.character_inventory_use_item import use_character_item as _use_character_item
+from api.deps import get_authorized_character, get_user_id
 from database import get_db
 from schemas.character_requests import (
     AmmoRequest,
@@ -46,8 +47,10 @@ async def update_gold(
     character_id: str,
     req: GoldRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Add or spend gold. Equipment.gold tracks the character's gold."""
+    await get_authorized_character(character_id, db, user_id, require_control=True)
     return await _update_character_gold(
         db=db,
         character_id=character_id,
@@ -61,8 +64,10 @@ async def update_ammo(
     character_id: str,
     req: AmmoRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Track ammunition for ranged weapons."""
+    await get_authorized_character(character_id, db, user_id, require_control=True)
     return await _update_character_ammo(
         db=db,
         character_id=character_id,
@@ -76,8 +81,10 @@ async def update_equipment(
     character_id: str,
     req: EquipmentUpdateRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Update character equipment (equip/unequip weapons/armor)."""
+    await get_authorized_character(character_id, db, user_id, require_control=True)
     return await _update_character_equipment(
         db=db,
         character_id=character_id,
@@ -92,8 +99,10 @@ async def update_equipment_bulk(
     character_id: str,
     req: EquipmentBulkUpdateRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Replace full equipment dict and recalculate derived stats."""
+    await get_authorized_character(character_id, db, user_id, require_control=True)
     return await _update_character_equipment_bulk(
         db=db,
         character_id=character_id,
@@ -106,8 +115,10 @@ async def buy_item(
     character_id: str,
     req: BuyItemRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Buy an item from the shop. Deducts gold and adds to equipment."""
+    await get_authorized_character(character_id, db, user_id, require_control=True)
     return await _buy_character_item(
         db=db,
         character_id=character_id,
@@ -122,8 +133,10 @@ async def sell_item(
     character_id: str,
     req: SellItemRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Sell an item for half its purchase price. Removes from equipment."""
+    await get_authorized_character(character_id, db, user_id, require_control=True)
     return await _sell_character_item(
         db=db,
         character_id=character_id,
@@ -138,8 +151,16 @@ async def transfer_item(
     character_id: str,
     req: TransferItemRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Move one inventory item from this character to a party member."""
+    source = await get_authorized_character(character_id, db, user_id, require_control=True)
+    await get_authorized_character(
+        req.target_character_id,
+        db,
+        user_id,
+        session_id=source.session_id,
+    )
     return await _transfer_character_item(
         db=db,
         character_id=character_id,
@@ -155,8 +176,24 @@ async def use_item(
     character_id: str,
     req: UseItemRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """Use a direct-effect consumable item."""
+    actor = await get_authorized_character(
+        character_id,
+        db,
+        user_id,
+        require_control=True,
+        session_id=req.session_id,
+    )
+    session_id = req.session_id or actor.session_id
+    if req.target_character_id:
+        await get_authorized_character(
+            req.target_character_id,
+            db,
+            user_id,
+            session_id=session_id,
+        )
     return await _use_character_item(
         db=db,
         character_id=character_id,

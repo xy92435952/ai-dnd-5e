@@ -25,6 +25,7 @@ describe('useCombatAiTurns', () => {
     const processingRef = { current: false }
     const deps = {
       sessionId: 'sess-1',
+      playerId: 'char-1',
       processingRef,
       setIsProcessing: vi.fn(),
       setCombat: vi.fn(),
@@ -130,6 +131,104 @@ describe('useCombatAiTurns', () => {
     })
 
     expect(deps.setReactionPrompt).toHaveBeenCalledWith({ context: '可用反应' })
+    expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
+  it('does not show a returned reaction prompt to the wrong client character', async () => {
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    aiTurnMock.mockResolvedValue({
+      actor_id: 'enemy-1',
+      actor_name: 'Goblin',
+      narration: '',
+      attack_result: {},
+      target_id: 'guest-char',
+      target_new_hp: 10,
+      next_turn_index: 0,
+      round_number: 1,
+      reaction_prompt: { context: 'guest reaction only' },
+      player_can_react: true,
+    })
+
+    const { result, deps } = renderAiTurns({ playerId: 'host-char' })
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(deps.setReactionPrompt).not.toHaveBeenCalled()
+  })
+
+  it('does not call ai-turn while any pending ai reaction exists', async () => {
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'guest-char': {
+          pending_ai_attack: {
+            pending_attack_id: 'pai-1',
+            actor_id: 'enemy-1',
+          },
+        },
+      },
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(aiTurnMock).not.toHaveBeenCalled()
+    expect(deps.addLog).not.toHaveBeenCalled()
+    expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
+  it('reconciles state without logging when a duplicate ai request is skipped', async () => {
+    getCombatMock
+      .mockResolvedValueOnce({
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      })
+      .mockResolvedValueOnce({
+        current_turn_index: 1,
+        turn_order: [
+          { character_id: 'enemy-1', is_player: false },
+          { character_id: 'char-1', is_player: true },
+        ],
+        turn_states: {
+          'char-1': { action_used: false, movement_used: 5 },
+        },
+      })
+    aiTurnMock.mockResolvedValue({
+      skipped: true,
+      skip_reason: 'current_turn_is_player',
+      next_turn_index: 1,
+      round_number: 1,
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(aiTurnMock).toHaveBeenCalledWith('sess-1')
+    expect(getCombatMock).toHaveBeenCalledTimes(2)
+    expect(deps.setCombat).toHaveBeenLastCalledWith({
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'char-1', is_player: true },
+      ],
+      turn_states: {
+        'char-1': { action_used: false, movement_used: 5 },
+      },
+    })
+    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false, movement_used: 5 })
+    expect(deps.addLog).not.toHaveBeenCalled()
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 })

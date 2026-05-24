@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps import (
     can_user_see_log,
     char_brief,
-    get_session_or_404,
+    get_authorized_character,
+    get_authorized_module,
+    get_authorized_session,
     get_user_id,
     resolve_controlled_player_character,
     serialize_log,
@@ -26,11 +28,8 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
-    """创建游戏会话（开始新冒险）"""
-    mod_result = await db.execute(select(Module).where(Module.id == req.module_id))
-    module = mod_result.scalar_one_or_none()
-    if not module:
-        raise HTTPException(404, "模组不存在")
+    module = await get_authorized_module(req.module_id, db, user_id)
+    await get_authorized_character(req.player_character_id, db, user_id, require_control=True)
 
     parsed = module.parsed_content or {}
     scenes = parsed.get("scenes", [])
@@ -71,8 +70,9 @@ async def list_sessions(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
-    """获取当前用户的存档"""
-    result = await db.execute(select(Session).where(Session.user_id == user_id).order_by(Session.updated_at.desc()))
+    result = await db.execute(
+        select(Session).where(Session.user_id == user_id).order_by(Session.updated_at.desc())
+    )
     sessions = result.scalars().all()
     out = []
     for session in sessions:
@@ -98,8 +98,7 @@ async def get_session(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
-    """获取会话完整状态（用于恢复游戏）"""
-    session = await get_session_or_404(session_id, db)
+    session = await get_authorized_session(session_id, db, user_id)
     roster = CharacterRoster(db, session)
     if session.is_multiplayer:
         try:
@@ -141,13 +140,7 @@ async def delete_session(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
-    """删除游戏存档及关联数据"""
-    result = await db.execute(select(Session).where(Session.id == session_id))
-    session = result.scalar_one_or_none()
-    if not session:
-        raise HTTPException(404, "存档不存在")
-    if session.user_id and session.user_id != user_id:
-        raise HTTPException(403, "无权删除他人的存档")
+    session = await get_authorized_session(session_id, db, user_id)
 
     from sqlalchemy import delete as sql_delete
     from sqlalchemy import update as sql_update
@@ -164,7 +157,6 @@ async def delete_session(
 
 
 async def _generate_opening_with_legacy_patch(parsed: dict, raw_scene: str) -> str:
-    """Honor historical tests/tools that monkeypatch api.game._generate_opening."""
     try:
         import api.game as game_module
         patched = getattr(game_module, "_generate_opening", None)

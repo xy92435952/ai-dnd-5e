@@ -1,6 +1,8 @@
 """
 api.combat.ai_turn_attack — AI combat attack branch.
 """
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -220,6 +222,54 @@ async def handle_ai_attack_action(
                             atk_damage,
                             dmg_type,
                         )
+                        target_ts = _get_ts(combat, target_id)
+                        player_can_react, has_prompt, reaction_prompt = build_reaction_prompt(
+                            tchar,
+                            target_ts,
+                            target_id,
+                            actor_name,
+                            actor_id,
+                            final_dmg,
+                            result_obj,
+                        )
+                        if has_prompt:
+                            pending_attack_id = str(uuid.uuid4())
+                            target_ts["pending_ai_attack"] = {
+                                "pending_attack_id": pending_attack_id,
+                                "actor_id": actor_id,
+                                "actor_name": actor_name,
+                                "target_id": str(target_id),
+                                "target_name": tchar.name,
+                                "attack_roll": dict(result_obj.attack_roll or {}),
+                                "damage": final_dmg,
+                                "raw_damage": atk_damage,
+                                "damage_type": dmg_type,
+                                "next_turn_index": next_index,
+                                "entity_positions": dict(combat.entity_positions or {}),
+                                "available_reactions": reaction_prompt.get("available_reactions", []),
+                                "options": reaction_prompt.get("options", []),
+                            }
+                            _save_ts(combat, target_id, target_ts)
+                            reaction_prompt["pending_attack_id"] = pending_attack_id
+                            await db.commit()
+                            return {
+                                "actor_name": actor_name,
+                                "actor_id": actor_id,
+                                "narration": "",
+                                "attack_result": result_obj.attack_roll if result_obj else {},
+                                "damage": final_dmg,
+                                "target_id": target_id,
+                                "target_new_hp": tchar.hp_current,
+                                "player_targeted": True,
+                                "player_can_react": player_can_react,
+                                "reaction_prompt": reaction_prompt,
+                                "pending_reaction": True,
+                                "next_turn_index": combat.current_turn_index,
+                                "round_number": combat.round_number,
+                                "combat_over": False,
+                                "outcome": None,
+                                "entity_positions": dict(combat.entity_positions or {}),
+                            }
                         tchar.hp_current = svc.apply_damage(tchar.hp_current, final_dmg, (tchar.derived or {}).get("hp_max", tchar.hp_current))
                         applied_damage = final_dmg
                         target_new_hp = tchar.hp_current

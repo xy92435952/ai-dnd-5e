@@ -1,19 +1,20 @@
 import uuid
 import aiofiles
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.deps import get_authorized_module, get_user_id
+from config import settings
 from database import get_db
 from models import Module
-from config import settings
-from services.module_parser import extract_text, get_file_type, is_allowed_file, truncate_text
+from schemas.module_responses import ModuleDetail, ModuleListItem, ModuleUploadResponse
+from services.background_job_limits import JobLimitExceeded, module_parse_limiter
 from services.langgraph_client import langgraph_client as dify_client
 from services.local_rag_uploader import rag_uploader
-from services.background_job_limits import JobLimitExceeded, module_parse_limiter
-from api.deps import get_user_id
-from schemas.module_responses import ModuleListItem, ModuleDetail, ModuleUploadResponse
+from services.module_parser import extract_text, get_file_type, is_allowed_file, truncate_text
 
 router = APIRouter(prefix="/modules", tags=["modules"])
 
@@ -25,15 +26,13 @@ async def upload_module(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
-    """上传模组文件，异步解析"""
     if not is_allowed_file(file.filename):
-        raise HTTPException(400, "不支持的文件格式，请上传 PDF / DOCX / MD / TXT")
+        raise HTTPException(400, "unsupported file type")
 
-    # 检查文件大小
     content = await file.read()
     max_bytes = settings.max_upload_mb * 1024 * 1024
     if len(content) > max_bytes:
-        raise HTTPException(400, f"文件过大，最大支持 {settings.max_upload_mb}MB")
+        raise HTTPException(400, f"file too large, max {settings.max_upload_mb}MB")
 
     try:
         parse_reservation = module_parse_limiter.reserve(
@@ -42,7 +41,6 @@ async def upload_module(
     except JobLimitExceeded as exc:
         raise HTTPException(429, exc.detail) from exc
 
-    # 保存文件
     file_type = get_file_type(file.filename)
     file_id = str(uuid.uuid4())
     save_name = f"{file_id}.{file_type}"
@@ -51,14 +49,10 @@ async def upload_module(
     async with aiofiles.open(save_path, "wb") as f:
         await f.write(content)
 
-    # 去掉扩展名作为模组名
-    module_name = Path(file.filename).stem
-
-    # 创建数据库记录
     module = Module(
         id=file_id,
         user_id=user_id,
-        name=module_name,
+        name=Path(file.filename).stem,
         file_path=str(save_path),
         file_type=file_type,
         parse_status="processing",
@@ -67,17 +61,23 @@ async def upload_module(
     await db.commit()
     await db.refresh(module)
 
-    # 后台解析
-    background_tasks.add_task(_parse_module_bg, file_id, str(save_path), file_type, parse_reservation)
+    background_tasks.add_task(
+        _parse_module_bg,
+        file_id,
+        str(save_path),
+        file_type,
+        parse_reservation,
+    )
 
     return {"id": module.id, "name": module.name, "status": "processing"}
 
 
 async def _parse_module_bg(module_id: str, file_path: str, file_type: str, parse_reservation=None):
-    """后台任务：提取文本 → LangGraph WF1 → 更新数据库 → 上传 RAG chunks"""
     import logging
+
     logger = logging.getLogger(__name__)
     from database import AsyncSessionLocal
+
     try:
         if parse_reservation is not None:
             await parse_reservation.acquire_run_slot(
@@ -87,12 +87,13 @@ async def _parse_module_bg(module_id: str, file_path: str, file_type: str, parse
             try:
                 text = await extract_text(file_path, file_type)
                 text = truncate_text(text)
-                logger.info(f"模组 {module_id}: 文本提取完成, {len(text)} 字符, 开始 AI 解析...")
 
-                # WF1 返回 (module_data_dict, rag_chunks_list)
                 parsed, rag_chunks = await dify_client.parse_module(text)
-                print(f"[BG] 模组 {module_id}: parsed keys={list(parsed.keys())[:5]}, monsters={len(parsed.get('monsters',[]))}, chunks={len(rag_chunks)}", flush=True)
-                logger.info(f"模组 {module_id}: AI 解析完成, parsed keys={list(parsed.keys())[:5]}, chunks={len(rag_chunks)}")
+                print(
+                    f"[BG] module {module_id}: parsed keys={list(parsed.keys())[:5]}, "
+                    f"monsters={len(parsed.get('monsters', []))}, chunks={len(rag_chunks)}",
+                    flush=True,
+                )
 
                 result = await db.execute(select(Module).where(Module.id == module_id))
                 module = result.scalar_one_or_none()
@@ -103,24 +104,20 @@ async def _parse_module_bg(module_id: str, file_path: str, file_type: str, parse
                     module.recommended_party_size = parsed.get("recommended_party_size", 4)
                     module.parse_status = "done"
                     await db.commit()
-                    logger.info(f"模组 {module_id}: 数据库更新完成")
 
-                # 上传 RAG chunks 到 Dify Knowledge Base（失败不影响主流程）
                 if rag_chunks:
                     try:
                         uploaded = await rag_uploader.upload_module_chunks(module_id, rag_chunks)
-                        import logging
-                        logging.getLogger(__name__).info(
-                            f"模组 {module_id}: RAG 上传完成，共 {uploaded} 个 chunks"
-                        )
+                        logger.info("module %s: uploaded %s RAG chunks", module_id, uploaded)
                     except Exception as rag_err:
-                        import logging
-                        logging.getLogger(__name__).warning(
-                            f"模组 {module_id}: RAG 上传失败（不影响模组使用）: {rag_err}"
+                        logger.warning(
+                            "module %s: RAG upload failed without blocking module use: %s",
+                            module_id,
+                            rag_err,
                         )
 
             except Exception as e:
-                logger.error(f"模组 {module_id}: 解析失败: {e}", exc_info=True)
+                logger.error("module %s: parse failed: %s", module_id, e, exc_info=True)
                 result = await db.execute(select(Module).where(Module.id == module_id))
                 module = result.scalar_one_or_none()
                 if module:
@@ -133,9 +130,13 @@ async def _parse_module_bg(module_id: str, file_path: str, file_type: str, parse
 
 
 @router.get("/", response_model=list[ModuleListItem])
-async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depends(get_user_id)):
-    """获取当前用户的模组列表"""
-    result = await db.execute(select(Module).where(Module.user_id == user_id).order_by(Module.created_at.desc()))
+async def list_modules(
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    result = await db.execute(
+        select(Module).where(Module.user_id == user_id).order_by(Module.created_at.desc())
+    )
     modules = result.scalars().all()
     return [
         {
@@ -155,12 +156,12 @@ async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depend
 
 
 @router.get("/{module_id}", response_model=ModuleDetail)
-async def get_module(module_id: str, db: AsyncSession = Depends(get_db)):
-    """获取模组详情"""
-    result = await db.execute(select(Module).where(Module.id == module_id))
-    module = result.scalar_one_or_none()
-    if not module:
-        raise HTTPException(404, "模组不存在")
+async def get_module(
+    module_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    module = await get_authorized_module(module_id, db, user_id)
     return {
         "id": module.id,
         "name": module.name,
@@ -176,26 +177,25 @@ async def get_module(module_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{module_id}")
-async def delete_module(module_id: str, db: AsyncSession = Depends(get_db)):
-    """删除模组"""
-    result = await db.execute(select(Module).where(Module.id == module_id))
-    module = result.scalar_one_or_none()
-    if not module:
-        raise HTTPException(404, "模组不存在")
+async def delete_module(
+    module_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    module = await get_authorized_module(module_id, db, user_id, require_owner=True)
 
-    # 删除文件
     file_path = Path(module.file_path)
-    if file_path.exists():
+    if module.file_path and file_path.exists():
         file_path.unlink()
 
     await db.delete(module)
     await db.commit()
 
-    # 清理 Dify Knowledge Base 中的对应 chunks（异步，失败不影响主流程）
     try:
         await rag_uploader.delete_module_chunks(module_id)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).warning(f"清理模组 RAG chunks 失败: {e}")
+
+        logging.getLogger(__name__).warning("RAG cleanup failed for module %s: %s", module_id, e)
 
     return {"ok": True}

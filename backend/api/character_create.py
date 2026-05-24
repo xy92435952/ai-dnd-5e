@@ -27,6 +27,7 @@ async def create_player_character(
     *,
     db: AsyncSession,
     req: CreateCharacterRequest,
+    user_id: str,
 ) -> dict:
     result = await db.execute(select(Module).where(Module.id == req.module_id))
     module = result.scalar_one_or_none()
@@ -101,6 +102,7 @@ async def create_player_character(
 
     character = Character(
         is_player=True,
+        user_id=user_id,
         name=req.name,
         race=req.race,
         char_class=req.char_class,

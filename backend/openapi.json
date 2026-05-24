@@ -232,6 +232,21 @@
         "title": "BuyItemRequest",
         "type": "object"
       },
+      "CastRestVoteRequest": {
+        "properties": {
+          "vote": {
+            "maxLength": 3,
+            "minLength": 2,
+            "title": "Vote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vote"
+        ],
+        "title": "CastRestVoteRequest",
+        "type": "object"
+      },
       "CharacterBrief": {
         "additionalProperties": true,
         "description": "对应 api.deps.char_brief(Character) 的返回。",
@@ -1344,6 +1359,19 @@
           "ability_scores"
         ],
         "title": "CreateCharacterRequest",
+        "type": "object"
+      },
+      "CreateRestVoteRequest": {
+        "properties": {
+          "rest_type": {
+            "default": "long",
+            "maxLength": 5,
+            "minLength": 4,
+            "title": "Rest Type",
+            "type": "string"
+          }
+        },
+        "title": "CreateRestVoteRequest",
         "type": "object"
       },
       "CreateRoomRequest": {
@@ -2915,6 +2943,18 @@
             "title": "Pending Actions By Group",
             "type": "object"
           },
+          "rest_vote": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Vote"
+          },
           "room_code": {
             "anyOf": [
               {
@@ -2958,6 +2998,118 @@
           "game_started"
         ],
         "title": "RoomInfo",
+        "type": "object"
+      },
+      "SavingThrowRequest": {
+        "properties": {
+          "ability": {
+            "enum": [
+              "str",
+              "dex",
+              "con",
+              "int",
+              "wis",
+              "cha"
+            ],
+            "title": "Ability",
+            "type": "string"
+          },
+          "advantage": {
+            "default": false,
+            "title": "Advantage",
+            "type": "boolean"
+          },
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20 Value"
+          },
+          "dc": {
+            "title": "Dc",
+            "type": "integer"
+          },
+          "disadvantage": {
+            "default": false,
+            "title": "Disadvantage",
+            "type": "boolean"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "character_id",
+          "ability",
+          "dc"
+        ],
+        "title": "SavingThrowRequest",
+        "type": "object"
+      },
+      "SavingThrowResult": {
+        "additionalProperties": true,
+        "description": "Response shape for services.dnd_rules.roll_saving_throw.",
+        "properties": {
+          "ability": {
+            "title": "Ability",
+            "type": "string"
+          },
+          "advantage": {
+            "default": false,
+            "title": "Advantage",
+            "type": "boolean"
+          },
+          "d20": {
+            "title": "D20",
+            "type": "integer"
+          },
+          "dc": {
+            "title": "Dc",
+            "type": "integer"
+          },
+          "disadvantage": {
+            "default": false,
+            "title": "Disadvantage",
+            "type": "boolean"
+          },
+          "modifier": {
+            "title": "Modifier",
+            "type": "integer"
+          },
+          "proficient": {
+            "default": false,
+            "title": "Proficient",
+            "type": "boolean"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ability",
+          "d20",
+          "modifier",
+          "total",
+          "dc",
+          "success"
+        ],
+        "title": "SavingThrowResult",
         "type": "object"
       },
       "SellItemRequest": {
@@ -3858,7 +4010,6 @@
     },
     "/characters/create": {
       "post": {
-        "description": "创建玩家角色（含种族加值、熟练校验）",
         "operationId": "create_character_characters_create_post",
         "requestBody": {
           "content": {
@@ -3900,7 +4051,6 @@
     },
     "/characters/generate-party": {
       "post": {
-        "description": "生成 AI 队友，自动应用种族加值和熟练。",
         "operationId": "generate_party_characters_generate_party_post",
         "requestBody": {
           "content": {
@@ -3942,7 +4092,6 @@
     },
     "/characters/options": {
       "get": {
-        "description": "获取角色创建所有可选项，含种族加值/职业技能选择等元数据",
         "operationId": "get_character_options_characters_options_get",
         "responses": {
           "200": {
@@ -4181,7 +4330,6 @@
     },
     "/characters/{character_id}/exhaustion": {
       "patch": {
-        "description": "Increase or decrease exhaustion level (0-6). Level 6 = death.",
         "operationId": "update_exhaustion_characters__character_id__exhaustion_patch",
         "parameters": [
           {
@@ -4287,7 +4435,6 @@
     },
     "/characters/{character_id}/level-up": {
       "post": {
-        "description": "角色升级：递增等级，重算衍生属性、HP、法术位和 ASI/专长。",
         "operationId": "level_up_characters__character_id__level_up_post",
         "parameters": [
           {
@@ -4340,7 +4487,6 @@
     },
     "/characters/{character_id}/prepared-spells": {
       "patch": {
-        "description": "更新已准备法术（法师/牧师/德鲁伊专用，上限 = 等级 + 施法调整值）",
         "operationId": "update_prepared_spells_characters__character_id__prepared_spells_patch",
         "parameters": [
           {
@@ -4773,7 +4919,6 @@
     },
     "/game/combat/{session_id}/ai-turn": {
       "post": {
-        "description": "处理当前 AI 实体的回合（队友或敌人）",
         "operationId": "ai_combat_turn_game_combat__session_id__ai_turn_post",
         "parameters": [
           {
@@ -4922,7 +5067,6 @@
     },
     "/game/combat/{session_id}/condition/add": {
       "post": {
-        "description": "向战斗实体添加状态条件（角色或敌人）",
         "operationId": "add_condition_game_combat__session_id__condition_add_post",
         "parameters": [
           {
@@ -4975,7 +5119,6 @@
     },
     "/game/combat/{session_id}/condition/remove": {
       "post": {
-        "description": "从战斗实体移除状态条件",
         "operationId": "remove_condition_game_combat__session_id__condition_remove_post",
         "parameters": [
           {
@@ -6362,6 +6505,150 @@
         ]
       }
     },
+    "/game/rooms/{session_id}/rest-vote": {
+      "post": {
+        "operationId": "create_rest_vote_game_rooms__session_id__rest_vote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRestVoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Rest Vote",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/rest-vote/cancel": {
+      "post": {
+        "operationId": "cancel_rest_vote_game_rooms__session_id__rest_vote_cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Rest Vote",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/rest-vote/vote": {
+      "post": {
+        "operationId": "cast_rest_vote_game_rooms__session_id__rest_vote_vote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CastRestVoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cast Rest Vote",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
     "/game/rooms/{session_id}/start": {
       "post": {
         "operationId": "start_game_game_rooms__session_id__start_post",
@@ -6452,9 +6739,49 @@
         ]
       }
     },
+    "/game/saving-throw": {
+      "post": {
+        "operationId": "saving_throw_game_saving_throw_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavingThrowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavingThrowResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Saving Throw",
+        "tags": [
+          "game"
+        ]
+      }
+    },
     "/game/sessions": {
       "get": {
-        "description": "获取当前用户的存档",
         "operationId": "list_sessions_game_sessions_get",
         "responses": {
           "200": {
@@ -6478,7 +6805,6 @@
         ]
       },
       "post": {
-        "description": "创建游戏会话（开始新冒险）",
         "operationId": "create_session_game_sessions_post",
         "requestBody": {
           "content": {
@@ -6520,7 +6846,6 @@
     },
     "/game/sessions/{session_id}": {
       "delete": {
-        "description": "删除游戏存档及关联数据",
         "operationId": "delete_session_game_sessions__session_id__delete",
         "parameters": [
           {
@@ -6559,7 +6884,6 @@
         ]
       },
       "get": {
-        "description": "获取会话完整状态（用于恢复游戏）",
         "operationId": "get_session_game_sessions__session_id__get",
         "parameters": [
           {
@@ -6645,7 +6969,7 @@
     },
     "/game/sessions/{session_id}/checkpoint": {
       "get": {
-        "description": "获取当前战役档案（用于前端展示存档详情）",
+        "description": "Return the current structured campaign checkpoint.",
         "operationId": "get_checkpoint_game_sessions__session_id__checkpoint_get",
         "parameters": [
           {
@@ -6684,7 +7008,7 @@
         ]
       },
       "post": {
-        "description": "将当前会话的冒险记录压缩为结构化 Campaign State JSON 并存档。",
+        "description": "Compress recent adventure logs into structured campaign state.",
         "operationId": "save_checkpoint_game_sessions__session_id__checkpoint_post",
         "parameters": [
           {
@@ -6725,7 +7049,7 @@
     },
     "/game/sessions/{session_id}/journal": {
       "post": {
-        "description": "生成本次冒险的叙事日志摘要（调用 DM Agent Chatflow，独立新对话）",
+        "description": "Generate a short campaign journal from recent adventure logs.",
         "operationId": "generate_journal_game_sessions__session_id__journal_post",
         "parameters": [
           {
@@ -6766,7 +7090,7 @@
     },
     "/game/sessions/{session_id}/rest": {
       "post": {
-        "description": "长休/短休，恢复 HP、法术位、生命骰和职业资源。",
+        "description": "Apply a party rest. Multiplayer rooms must use rest voting instead.",
         "operationId": "take_rest_game_sessions__session_id__rest_post",
         "parameters": [
           {
@@ -6819,7 +7143,6 @@
     },
     "/game/skill-check": {
       "post": {
-        "description": "执行技能检定（正确检查角色是否熟练）",
         "operationId": "skill_check_game_skill_check_post",
         "requestBody": {
           "content": {
@@ -6948,7 +7271,6 @@
     },
     "/modules/": {
       "get": {
-        "description": "获取当前用户的模组列表",
         "operationId": "list_modules_modules__get",
         "responses": {
           "200": {
@@ -6974,7 +7296,6 @@
     },
     "/modules/upload": {
       "post": {
-        "description": "上传模组文件，异步解析",
         "operationId": "upload_module_modules_upload_post",
         "requestBody": {
           "content": {
@@ -7016,7 +7337,6 @@
     },
     "/modules/{module_id}": {
       "delete": {
-        "description": "删除模组",
         "operationId": "delete_module_modules__module_id__delete",
         "parameters": [
           {
@@ -7055,7 +7375,6 @@
         ]
       },
       "get": {
-        "description": "获取模组详情",
         "operationId": "get_module_modules__module_id__get",
         "parameters": [
           {

@@ -4,6 +4,7 @@ import {
   getAiTakeoverStatus,
   getCombatTurnStatusText,
   getCombatTurnControllerStatus,
+  getRoomPresenceSummary,
   getSpeakerOnlineStatus,
   getSpeakTurnStatusText,
 } from '../multiplayerStatus'
@@ -25,6 +26,26 @@ describe('multiplayer status helpers', () => {
       .toBe('等待 Bob 操作 · 你正在观战')
     expect(getCombatTurnStatusText({ isMyTurnMP: false, controllerName: '' }))
       .toBe('AI 托管行动中 · 你正在观战')
+  })
+
+  it('summarizes room presence and the four-player room cap', () => {
+    const room = {
+      is_multiplayer: true,
+      max_players: 4,
+      members: [
+        { display_name: 'Alice', is_online: true },
+        { display_name: 'Bob', is_online: false },
+        { username: 'Cara', is_online: false },
+      ],
+    }
+    expect(getRoomPresenceSummary(room)).toEqual({
+      onlineCount: 1,
+      totalCount: 3,
+      maxPlayers: 4,
+      label: '在线 1/3 / 4',
+      offlineLabel: '离线：Bob、Cara',
+    })
+    expect(getRoomPresenceSummary({ is_multiplayer: false }).label).toBe('')
   })
 
   it('explains offline combat controller status', () => {

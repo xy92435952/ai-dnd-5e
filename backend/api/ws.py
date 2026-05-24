@@ -18,6 +18,7 @@ from models import SessionMember, Session
 from api.auth import decode_token
 from services.ws_manager import ws_manager
 from services import room_service
+from services.session_action_lock import session_action_lock
 from schemas.ws_events import MemberOnline, MemberOffline, Typing, DMSpeakTurn
 
 logger = logging.getLogger(__name__)
@@ -81,8 +82,9 @@ async def ws_endpoint(
 
             elif msg_type == "speak_done":
                 # 轮流发言：当前发言者按"我说完了"，推进到下一人（A7 阶段实现完整逻辑）
-                async with AsyncSessionLocal() as db:
-                    next_user = await _advance_speaker(db, session_id, user_id)
+                async with session_action_lock(session_id):
+                    async with AsyncSessionLocal() as db:
+                        next_user = await _advance_speaker(db, session_id, user_id)
                 if next_user:
                     await ws_manager.broadcast(
                         session_id,

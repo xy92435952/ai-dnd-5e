@@ -16,6 +16,7 @@ from schemas.game_requests import (
     AITakeoverRequest,
     CreateSessionRequest,
     PlayerActionRequest,
+    SavingThrowRequest,
     SkillCheckRequest,
 )
 from services.game_action_source_service import (
@@ -48,6 +49,7 @@ delete_session = sessions.delete_session
 player_action = actions.player_action
 ai_takeover_action = actions.ai_takeover_action
 skill_check = checks.skill_check
+saving_throw = checks.saving_throw
 generate_journal = campaign.generate_journal
 save_checkpoint = campaign.save_checkpoint
 get_checkpoint = campaign.get_checkpoint
@@ -58,6 +60,7 @@ __all__ = [
     "CreateSessionRequest",
     "PlayerActionRequest",
     "SkillCheckRequest",
+    "SavingThrowRequest",
     "AITakeoverRequest",
     "_choice_text",
     "_normalize_action_source",
@@ -76,6 +79,7 @@ __all__ = [
     "player_action",
     "ai_takeover_action",
     "skill_check",
+    "saving_throw",
     "generate_journal",
     "save_checkpoint",
     "get_checkpoint",

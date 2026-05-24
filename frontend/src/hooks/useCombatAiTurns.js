@@ -1,11 +1,12 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/game'
-import { applyHpUpdate, getPlayerTurnState } from '../utils/combat'
+import { applyHpUpdate, getPlayerTurnState, hasPendingAiReaction } from '../utils/combat'
 
 const AI_TURN_LIMIT = 20
 
 export function useCombatAiTurns({
   sessionId,
+  playerId,
   processingRef,
   setIsProcessing,
   setCombat,
@@ -37,6 +38,10 @@ export function useCombatAiTurns({
         if (!fresh) break
         setCombat(fresh)
 
+        if (hasPendingAiReaction(fresh)) {
+          break
+        }
+
         if (fresh.current_turn_index === lastTurnIndex) {
           console.warn('AI turn index not advancing, breaking loop')
           break
@@ -56,6 +61,22 @@ export function useCombatAiTurns({
           result = await gameApi.aiTurn(sessionId)
         } catch (e) {
           addLog({ role: 'system', content: `AI行动错误: ${e.message}`, log_type: 'system' })
+          break
+        }
+
+        if (result.skipped) {
+          try {
+            const latest = await gameApi.getCombat(sessionId)
+            if (latest) {
+              setCombat(latest)
+              const latestEntry = latest.turn_order?.[latest.current_turn_index]
+              if (latestEntry?.is_player) {
+                setTurnState(getPlayerTurnState(latest, latestEntry.character_id))
+              }
+            }
+          } catch {
+            // A websocket update or the next manual refresh can reconcile this state.
+          }
           break
         }
 
@@ -88,7 +109,9 @@ export function useCombatAiTurns({
         })
 
         if (result.reaction_prompt && result.player_can_react) {
-          setReactionPrompt(result.reaction_prompt)
+          if (result.target_id === playerId) {
+            setReactionPrompt(result.reaction_prompt)
+          }
           processingRef.current = false
           setIsProcessing(false)
           break
@@ -107,6 +130,7 @@ export function useCombatAiTurns({
     }
   }, [
     addLog,
+    playerId,
     processingRef,
     sessionId,
     setCombat,

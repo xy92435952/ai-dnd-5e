@@ -7,7 +7,7 @@ from fastapi import HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import Session, Character, GameLog, CombatState, SessionMember
+from models import Session, Character, GameLog, CombatState, Module, SessionMember
 
 
 # ── JWT 鉴权依赖 ─────────────────────────────────────
@@ -33,6 +33,179 @@ async def get_session_or_404(session_id: str, db: AsyncSession) -> Session:
     if not session:
         raise HTTPException(404, "会话不存在")
     return session
+
+
+async def assert_session_access(session: Session, user_id: str, db: AsyncSession) -> None:
+    if session.is_multiplayer:
+        member_result = await db.execute(
+            select(SessionMember.id).where(
+                SessionMember.session_id == session.id,
+                SessionMember.user_id == user_id,
+            )
+        )
+        if member_result.scalar_one_or_none() is None:
+            raise HTTPException(403, "user is not a member of this room")
+        return
+    if not session.user_id:
+        raise HTTPException(403, "not authorized for this session")
+    if session.user_id != user_id:
+        raise HTTPException(403, "not authorized for this session")
+
+
+async def get_authorized_session(session_id: str, db: AsyncSession, user_id: str) -> Session:
+    session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
+    return session
+
+
+async def assert_module_access(
+    module: Module,
+    user_id: str,
+    *,
+    require_owner: bool = False,
+    allow_shared: bool = True,
+) -> None:
+    if require_owner:
+        if not module.user_id or module.user_id != user_id:
+            raise HTTPException(403, "not authorized for this module")
+        return
+    if module.user_id is None:
+        if allow_shared:
+            return
+        raise HTTPException(403, "not authorized for this module")
+    if module.user_id != user_id:
+        raise HTTPException(403, "not authorized for this module")
+
+
+async def get_authorized_module(
+    module_id: str,
+    db: AsyncSession,
+    user_id: str,
+    *,
+    require_owner: bool = False,
+    allow_shared: bool = True,
+) -> Module:
+    module = await db.get(Module, module_id)
+    if not module:
+        raise HTTPException(404, "module not found")
+    await assert_module_access(
+        module,
+        user_id,
+        require_owner=require_owner,
+        allow_shared=allow_shared,
+    )
+    return module
+
+
+async def _get_session_member(
+    session: Session,
+    user_id: str,
+    db: AsyncSession,
+) -> Optional[SessionMember]:
+    result = await db.execute(
+        select(SessionMember).where(
+            SessionMember.session_id == session.id,
+            SessionMember.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _character_is_bound_to_session(
+    character: Character,
+    session: Session,
+    db: AsyncSession,
+) -> bool:
+    if character.session_id == session.id:
+        return True
+    if session.player_character_id and character.id == session.player_character_id:
+        return True
+    if character.id in ((session.game_state or {}).get("companion_ids") or []):
+        return True
+    if session.is_multiplayer:
+        result = await db.execute(
+            select(SessionMember.id).where(
+                SessionMember.session_id == session.id,
+                SessionMember.character_id == character.id,
+            )
+        )
+        return result.scalar_one_or_none() is not None
+    return False
+
+
+async def assert_character_control(
+    character: Character,
+    session: Session,
+    user_id: str,
+    db: AsyncSession,
+) -> None:
+    if session.is_multiplayer:
+        member = await _get_session_member(session, user_id, db)
+        if member is None:
+            raise HTTPException(403, "user is not a member of this room")
+        if not character.is_player or character.user_id is None:
+            return
+        if character.user_id != user_id:
+            raise HTTPException(403, "not authorized for this character")
+        if member.character_id != character.id or character.user_id != user_id:
+            raise HTTPException(403, "not authorized for this character")
+        return
+
+    if not character.is_player:
+        return
+    if character.user_id and character.user_id != user_id:
+        raise HTTPException(403, "not authorized for this character")
+    if character.user_id is None and session.player_character_id != character.id:
+        raise HTTPException(403, "not authorized for this character")
+
+
+async def assert_character_access(
+    character: Character,
+    user_id: str,
+    db: AsyncSession,
+    *,
+    require_control: bool = False,
+    session_id: Optional[str] = None,
+) -> None:
+    if session_id:
+        session = await get_authorized_session(session_id, db, user_id)
+        if not await _character_is_bound_to_session(character, session, db):
+            raise HTTPException(403, "character does not belong to this session")
+        if require_control:
+            await assert_character_control(character, session, user_id, db)
+        return
+
+    if character.session_id:
+        session = await get_authorized_session(character.session_id, db, user_id)
+        if require_control:
+            await assert_character_control(character, session, user_id, db)
+        return
+
+    if character.user_id and character.user_id == user_id:
+        return
+
+    raise HTTPException(403, "not authorized for this character")
+
+
+async def get_authorized_character(
+    character_id: str,
+    db: AsyncSession,
+    user_id: str,
+    *,
+    require_control: bool = False,
+    session_id: Optional[str] = None,
+) -> Character:
+    character = await db.get(Character, character_id)
+    if not character:
+        raise HTTPException(404, "character not found")
+    await assert_character_access(
+        character,
+        user_id,
+        db,
+        require_control=require_control,
+        session_id=session_id,
+    )
+    return character
 
 
 def char_brief(char: Character) -> dict:
@@ -135,7 +308,12 @@ async def assert_can_act(
       - 真人玩家角色：必须是 character.user_id == user_id
       - 战斗中且 require_current_turn=True：还要求是当前回合实体
     """
+    await assert_session_access(session, user_id, db)
+
     if not session.is_multiplayer:
+        char = await db.get(Character, entity_id)
+        if char is not None and not await _character_is_bound_to_session(char, session, db):
+            raise HTTPException(403, "character does not belong to this session")
         return
 
     member_result = await db.execute(

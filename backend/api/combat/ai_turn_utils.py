@@ -1,6 +1,5 @@
-"""
-api.combat.ai_turn_utils — shared helpers for AI combat turns.
-"""
+"""Shared helpers for AI combat turns."""
+
 from api.combat._shared import _calc_entity_turn_limits, _reset_ts
 from services.dnd_rules import _normalize_class
 
@@ -16,8 +15,36 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int) -> N
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
 
 
+def _knows_spell(known_spells: set[str], *names: str) -> bool:
+    normalized = {str(spell).strip().lower().replace(" ", "_") for spell in known_spells}
+    return any(name.lower().replace(" ", "_") in normalized for name in names)
+
+
+def _reaction_option(item: dict, attacker_id: str) -> dict:
+    return {
+        "type": item["id"],
+        "label": item["name"],
+        "target_id": attacker_id,
+        "cost": item.get("cost"),
+        "effect": item.get("effect"),
+    }
+
+
+async def advance_after_pending_ai_attack(combat, session, db, pending: dict) -> None:
+    next_index = pending.get("next_turn_index")
+    turn_order = combat.turn_order or []
+    if next_index is None or not turn_order:
+        return
+    await advance_ai_turn(combat, session, db, turn_order, int(next_index))
+
+
 def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: str, actor_id: str, total_damage: int, result_obj):
-    """Build the reaction prompt shown when the player is targeted."""
+    """Build the weapon-attack reaction prompt shown when the player is targeted.
+
+    Keep this list aligned with /combat/{session_id}/reaction. Spell reactions
+    that need a different trigger, such as Counterspell, should be offered by
+    the spell-casting path instead of this weapon-attack prompt.
+    """
     if not player_check:
         return False, False, None
 
@@ -34,7 +61,7 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
     p_slots = dict(player_check.spell_slots or {})
     available_reactions = []
 
-    if ("Shield" in known_spells or "shield" in known_spells) and p_slots.get("1st", 0) > 0:
+    if _knows_spell(known_spells, "Shield") and p_slots.get("1st", 0) > 0:
         available_reactions.append({
             "id": "shield",
             "name": "Shield",
@@ -42,7 +69,7 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
             "cost": "1st-level spell slot",
             "slot_level": "1st",
             "slots_remaining": p_slots.get("1st", 0),
-            "effect": "+5 AC（持续到你的下个回合开始）",
+            "effect": "+5 AC until the start of your next turn",
             "resulting_ac": p_derived_r.get("ac", 10) + 5,
         })
 
@@ -52,11 +79,11 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
             "name": "Uncanny Dodge",
             "type": "class_feature",
             "cost": "reaction",
-            "effect": f"将此次攻击的伤害减半（{total_damage} → {total_damage // 2}）",
+            "effect": f"Halve this attack's damage ({total_damage} -> {total_damage // 2})",
             "reduced_damage": total_damage // 2,
         })
 
-    if ("Hellish Rebuke" in known_spells or "hellish_rebuke" in known_spells) and p_slots.get("1st", 0) > 0:
+    if _knows_spell(known_spells, "Hellish Rebuke") and p_slots.get("1st", 0) > 0:
         available_reactions.append({
             "id": "hellish_rebuke",
             "name": "Hellish Rebuke",
@@ -64,30 +91,8 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
             "cost": "1st-level spell slot",
             "slot_level": "1st",
             "slots_remaining": p_slots.get("1st", 0),
-            "effect": "对攻击者造成 2d10 火焰伤害（DEX豁免成功减半）",
+            "effect": "Deal 2d10 fire damage to the attacker",
             "damage_dice": "2d10",
-        })
-
-    if ("Absorb Elements" in known_spells or "absorb_elements" in known_spells) and p_slots.get("1st", 0) > 0:
-        available_reactions.append({
-            "id": "absorb_elements",
-            "name": "Absorb Elements",
-            "type": "spell",
-            "cost": "1st-level spell slot",
-            "slot_level": "1st",
-            "slots_remaining": p_slots.get("1st", 0),
-            "effect": "获得触发元素的伤害抗性（持续到下回合开始），下次近战+1d6该元素伤害",
-        })
-
-    if ("Counterspell" in known_spells or "counterspell" in known_spells) and p_slots.get("3rd", 0) > 0:
-        available_reactions.append({
-            "id": "counterspell",
-            "name": "Counterspell",
-            "type": "spell",
-            "cost": "3rd-level spell slot",
-            "slot_level": "3rd",
-            "slots_remaining": p_slots.get("3rd", 0),
-            "effect": "反制敌人施放的法术（3环或以下自动成功，更高需检定）",
         })
 
     if not available_reactions:
@@ -103,4 +108,5 @@ def build_reaction_prompt(player_check, player_ts: dict, target_id, actor_name: 
         "attacker_id": actor_id,
         "spell_slots": p_slots,
         "available_reactions": available_reactions,
+        "options": [_reaction_option(item, actor_id) for item in available_reactions],
     }

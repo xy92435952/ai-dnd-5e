@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { gameApi } from '../api/game'
 import { applyCombatSessionSnapshot } from '../utils/combatSession'
+import { hasPendingAiReaction } from '../utils/combat'
 
 export function useCombatLoader({
   sessionId,
@@ -18,6 +19,7 @@ export function useCombatLoader({
   setPlayerSubclass,
   setPlayerSubclassEffects,
   setTurnState,
+  setReactionPrompt,
   setLogs,
   setInitiativeShown,
   setError,
@@ -45,6 +47,7 @@ export function useCombatLoader({
         setPlayerSubclass,
         setPlayerSubclassEffects,
         setTurnState,
+        setReactionPrompt,
         setLogs,
       })
 
@@ -56,7 +59,7 @@ export function useCombatLoader({
         }
       }
 
-      if (!isPlayerTurn(data)) {
+      if (!isPlayerTurn(data) && !hasPendingAiReaction(data)) {
         aiTimer.current = setTimeout(() => triggerAiTurn(), 1000)
       }
     } catch (e) {
@@ -80,6 +83,7 @@ export function useCombatLoader({
     setPlayerSpellSlots,
     setPlayerSubclass,
     setPlayerSubclassEffects,
+    setReactionPrompt,
     setSession,
     setTurnState,
     showDice,

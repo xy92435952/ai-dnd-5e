@@ -9,6 +9,7 @@ EXPLORE_OUTPUT_SECTION = """
   "action_type": "roleplay|skill_check|dialogue|movement|investigation|rest|lore",
   "needs_check": {
     "required": false,
+    "check_kind": "skill_check|saving_throw|none",
     "check_type": "技能名称（如：隐匿、察觉、说服、运动、奥秘）或null",
     "ability": "对应的能力值缩写（str/dex/con/int/wis/cha）或null",
     "dc": 15,
@@ -72,9 +73,10 @@ EXPLORE_OUTPUT_SECTION = """
 - scene_vibe 用于当前地点、时间和紧张度，场景未变化时可为 null。
 
 ## needs_check 示例
-玩家说"我悄悄靠近守卫" → needs_check: {required:true, check_type:"隐匿", ability:"dex", dc:14, ...}
+玩家说"我悄悄靠近守卫" → needs_check: {required:true, check_kind:"skill_check", check_type:"隐匿", ability:"dex", dc:14, ...}
 玩家说"我和酒馆老板聊天" → needs_check: {required:false, ...}
-玩家说"我检查这扇门是否有机关" → needs_check: {required:true, check_type:"调查", ability:"int", dc:15, ...}
+玩家说"我检查这扇门是否有机关" → needs_check: {required:true, check_kind:"skill_check", check_type:"调查", ability:"int", dc:15, ...}
+玩家触发落石、毒气、火焰、精神控制或怪物法术 → needs_check: {required:true, check_kind:"saving_throw", check_type:"DEX save/CON save/WIS save", ability:"dex/con/wis", dc:15, ...}
 
 ## 重要规则：needs_check 与 player_choices 的关系
 - 当 needs_check.required = true 时，player_choices 必须留空数组 []

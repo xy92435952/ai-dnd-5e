@@ -23,6 +23,7 @@ export type GameLogEntry         = Schemas['GameLogEntry']
 
 // ─── 检定 / 休息 ────────────────────────────────────────
 export type SkillCheckResult     = Schemas['SkillCheckResult']
+export type SavingThrowResult    = Schemas['SavingThrowResult']
 export type RestResponse         = Schemas['RestResponse']
 export type CharacterRestResult  = Schemas['CharacterRestResult']
 

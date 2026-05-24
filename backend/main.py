@@ -139,6 +139,17 @@ async def ready():
         "background_jobs": {
             "module_parse": module_parse_limiter.stats(),
         },
+        "runtime": {
+            "single_worker_required": True,
+            "coordination": "in_process",
+            "external_realtime_bus": False,
+            "external_rate_limit_store": False,
+            "notes": [
+                "WebSocket room connections are tracked in process memory.",
+                "Session action locks are in process memory.",
+                "Use one backend worker until Redis/pubsub and external locks are added.",
+            ],
+        },
         "session_action_locks": session_action_lock_stats(),
         "ws": ws_manager.stats(),
     }

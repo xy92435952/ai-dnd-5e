@@ -5,6 +5,8 @@
 WS 广播由 broadcast_to_session 在背后做（mock 没接 ws_manager.broadcast 的具体实现，
 但调用不会抛错）。
 """
+import asyncio
+
 import pytest
 import pytest_asyncio
 
@@ -64,6 +66,35 @@ async def test_second_player_joins_via_room_code(client, sample_module):
     user_ids = {m["user_id"] for m in members}
     assert host["user_id"] in user_ids
     assert guest["user_id"] in user_ids
+
+
+async def test_concurrent_join_never_exceeds_room_size(client, sample_module):
+    host = await _register(client, "join_cap_host")
+    guests = [await _register(client, f"join_cap_guest_{idx}") for idx in range(4)]
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "join cap",
+        "max_players": 4,
+    })).json()
+
+    responses = await asyncio.gather(*[
+        client.post(
+            "/game/rooms/join",
+            headers=_h(guest["token"]),
+            json={"room_code": created["room_code"]},
+        )
+        for guest in guests
+    ])
+
+    status_codes = sorted(response.status_code for response in responses)
+    assert status_codes == [200, 200, 200, 409]
+
+    room = await client.get(
+        f"/game/rooms/{created['session_id']}/members",
+        headers=_h(host["token"]),
+    )
+    assert room.status_code == 200, room.text
+    assert len(room.json()) == 4
 
 
 async def test_join_with_invalid_code_404(client):
@@ -280,6 +311,27 @@ async def test_get_room_returns_full_info(client, sample_module):
     assert session_info["room_code"] == create["room_code"]
 
 
+async def test_room_queries_reject_non_members(client, sample_module):
+    host = await _register(client, "host_info_private")
+    outsider = await _register(client, "room_info_outsider")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    own_room = await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))
+    assert own_room.status_code == 200, own_room.text
+    own_members = await client.get(f"/game/rooms/{sid}/members", headers=_h(host["token"]))
+    assert own_members.status_code == 200, own_members.text
+
+    outsider_room = await client.get(f"/game/rooms/{sid}", headers=_h(outsider["token"]))
+    assert outsider_room.status_code == 403
+    outsider_members = await client.get(f"/game/rooms/{sid}/members", headers=_h(outsider["token"]))
+    assert outsider_members.status_code == 403
+    outsider_session = await client.get(f"/game/sessions/{sid}", headers=_h(outsider["token"]))
+    assert outsider_session.status_code == 403
+
+
 async def test_party_group_endpoints_update_room_snapshot(client, sample_module):
     host = await _register(client, "host_groups")
     guest = await _register(client, "guest_groups")
@@ -351,6 +403,82 @@ async def test_focus_group_endpoint_changes_active_group(client, sample_module):
     )
     assert focused.status_code == 200, focused.text
     assert focused.json()["active_group_id"] == "main"
+
+
+async def test_group_state_and_broadcasts_are_session_scoped(
+    client, sample_module, monkeypatch,
+):
+    import services.ws_manager as ws_module
+
+    broadcasts = []
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append({"session_id": session_id, "payload": payload})
+        return 1
+
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
+
+    host_a = await _register(client, "iso_room_host_a")
+    guest_a = await _register(client, "iso_room_guest_a")
+    host_b = await _register(client, "iso_room_host_b")
+    guest_b = await _register(client, "iso_room_guest_b")
+    room_a = (await client.post("/game/rooms/create", headers=_h(host_a["token"]), json={
+        "module_id": sample_module.id, "save_name": "room a", "max_players": 4,
+    })).json()
+    room_b = (await client.post("/game/rooms/create", headers=_h(host_b["token"]), json={
+        "module_id": sample_module.id, "save_name": "room b", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest_a["token"]), json={"room_code": room_a["room_code"]})
+    await client.post("/game/rooms/join", headers=_h(guest_b["token"]), json={"room_code": room_b["room_code"]})
+
+    for room, guest, action_text in [
+        (room_a, guest_a, "room-a scout intent"),
+        (room_b, guest_b, "room-b scout intent"),
+    ]:
+        joined = await client.post(
+            f"/game/rooms/{room['session_id']}/groups/join",
+            headers=_h(guest["token"]),
+            json={"group_id": "scout", "group_name": "Scout", "location": "Side path"},
+        )
+        assert joined.status_code == 200, joined.text
+        submitted = await client.post(
+            f"/game/rooms/{room['session_id']}/groups/actions",
+            headers=_h(guest["token"]),
+            json={"group_id": "scout", "action_text": action_text},
+        )
+        assert submitted.status_code == 200, submitted.text
+        ready = await client.post(
+            f"/game/rooms/{room['session_id']}/groups/readiness",
+            headers=_h(guest["token"]),
+            json={"group_id": "scout", "status": "ready"},
+        )
+        assert ready.status_code == 200, ready.text
+
+    state_a = (await client.get(
+        f"/game/rooms/{room_a['session_id']}",
+        headers=_h(host_a["token"]),
+    )).json()
+    state_b = (await client.get(
+        f"/game/rooms/{room_b['session_id']}",
+        headers=_h(host_b["token"]),
+    )).json()
+
+    assert state_a["pending_actions_by_group"]["scout"][0]["text"] == "room-a scout intent"
+    assert state_b["pending_actions_by_group"]["scout"][0]["text"] == "room-b scout intent"
+    assert guest_a["user_id"] in state_a["group_readiness"]["scout"]
+    assert guest_b["user_id"] in state_b["group_readiness"]["scout"]
+    assert guest_a["user_id"] not in state_b["group_readiness"]["scout"]
+    assert guest_b["user_id"] not in state_a["group_readiness"]["scout"]
+
+    room_update_sessions = [
+        item["session_id"]
+        for item in broadcasts
+        if item["payload"].get("type") == "room_state_updated"
+    ]
+    assert room_a["session_id"] in room_update_sessions
+    assert room_b["session_id"] in room_update_sessions
+    assert set(room_update_sessions).issubset({room_a["session_id"], room_b["session_id"]})
 
 
 async def test_multiplayer_rest_requires_vote_and_majority_applies_rest(

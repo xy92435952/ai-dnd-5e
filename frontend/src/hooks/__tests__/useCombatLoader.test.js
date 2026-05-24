@@ -45,6 +45,7 @@ describe('useCombatLoader', () => {
       setPlayerSubclass: vi.fn(),
       setPlayerSubclassEffects: vi.fn(),
       setTurnState: vi.fn(),
+      setReactionPrompt: vi.fn(),
       setLogs: vi.fn(),
       setInitiativeShown: vi.fn(),
       setError: vi.fn(),
@@ -105,5 +106,85 @@ describe('useCombatLoader', () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('does not schedule ai turns while a pending ai reaction exists', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'guest-char': {
+          pending_ai_attack: {
+            pending_attack_id: 'pai-1',
+            actor_id: 'enemy-1',
+          },
+        },
+      },
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'host-char' }, logs: [] })
+
+    const { result, deps, aiTimer } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(aiTimer.current).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
+  it('derives a reaction prompt from the current client character pending ai attack', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'guest-char': {
+          pending_ai_attack: {
+            pending_attack_id: 'pai-1',
+            actor_id: 'enemy-1',
+            actor_name: 'Goblin',
+            attack_roll: { attack_total: 16 },
+            damage: 6,
+            available_reactions: [{ id: 'shield', name: 'Shield' }],
+            options: [{ type: 'shield', label: 'Shield', target_id: 'enemy-1' }],
+          },
+        },
+        'host-char': {
+          pending_ai_attack: {
+            pending_attack_id: 'pai-host',
+            actor_id: 'enemy-2',
+            actor_name: 'Orc',
+            damage: 4,
+          },
+        },
+      },
+    })
+    getSessionMock.mockResolvedValue({
+      player: { id: 'guest-char', char_class: 'Wizard', level: 1 },
+      logs: [],
+    })
+
+    const { result, deps } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      can_react: true,
+      context: 'Choose a reaction',
+      attack_roll: 16,
+      incoming_damage: 6,
+      attacker_name: 'Goblin',
+      attacker_id: 'enemy-1',
+      pending_attack_id: 'pai-1',
+      available_reactions: [{ id: 'shield', name: 'Shield' }],
+      options: [{ type: 'shield', label: 'Shield', target_id: 'enemy-1' }],
+    })
   })
 })

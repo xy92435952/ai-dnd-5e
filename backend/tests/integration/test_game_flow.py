@@ -127,6 +127,31 @@ async def test_skill_check_endpoint_preserves_advantage_with_manual_d20(
     assert data["success"] is False
 
 
+async def test_saving_throw_endpoint_preserves_advantage_with_manual_d20(
+    client, sample_session, sample_user, sample_character,
+):
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post("/game/saving-throw", headers=headers, json={
+        "session_id":   sample_session.id,
+        "character_id": sample_character.id,
+        "ability":      "con",
+        "dc":           15,
+        "d20_value":    11,
+        "advantage":    True,
+        "disadvantage": False,
+    })
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["ability"] == "con"
+    assert data["d20"] == 11
+    assert data["modifier"] == 4
+    assert data["proficient"] is True
+    assert data["advantage"] is True
+    assert data["disadvantage"] is False
+    assert data["total"] == 15
+    assert data["success"] is True
+
+
 async def test_delete_session_cleans_ai_companions(
     client, db_session, sample_session, sample_user,
 ):

@@ -13,6 +13,7 @@ export default function CombatHudSkillBar({ skillBar, session, entities, selecte
           return (
             <div
               key={s.k}
+              data-testid={`combat-skill-${s.k}`}
               className={`slot-key ${s.kind} ${!s.available ? 'used' : ''}`}
               onClick={() => onSkillClick(s)}
               onMouseEnter={() => { try { JuiceAudio.hover() } catch {} }}

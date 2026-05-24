@@ -29,9 +29,55 @@ function getCheckRollMode(check) {
   return { advantage, disadvantage }
 }
 
+const SAVE_ABILITY_LABELS = {
+  str: 'STR',
+  dex: 'DEX',
+  con: 'CON',
+  int: 'INT',
+  wis: 'WIS',
+  cha: 'CHA',
+}
+
+function normalizeAbility(value) {
+  const raw = String(value || '').trim().toLowerCase()
+  const aliases = {
+    strength: 'str',
+    dexterity: 'dex',
+    constitution: 'con',
+    intelligence: 'int',
+    wisdom: 'wis',
+    charisma: 'cha',
+  }
+  return aliases[raw] || raw
+}
+
+function getPendingCheckKind(check) {
+  if (check?.check_kind === 'saving_throw' || check?.kind === 'saving_throw') return 'saving_throw'
+  const checkType = String(check?.check_type || '').trim().toLowerCase()
+  if (checkType.endsWith('_save') || checkType.endsWith(' save')) return 'saving_throw'
+  if (check?.save === true || check?.saving_throw === true) return 'saving_throw'
+  return 'skill_check'
+}
+
+function getSavingThrowAbility(check) {
+  const explicit = normalizeAbility(check?.ability)
+  if (SAVE_ABILITY_LABELS[explicit]) return explicit
+  const checkType = String(check?.check_type || '').trim().toLowerCase()
+  const match = checkType.match(/^(str|dex|con|int|wis|cha)(?:[_\s-]?save)$/)
+  return match ? match[1] : null
+}
+
+function getCheckLabel(check) {
+  if (getPendingCheckKind(check) === 'saving_throw') {
+    const ability = getSavingThrowAbility(check)
+    return `${SAVE_ABILITY_LABELS[ability] || check?.ability || check?.check_type || 'Save'} save`
+  }
+  return check?.check_type || 'check'
+}
+
 async function rollCheckD20(pendingCheck, showDice) {
   const { advantage, disadvantage } = getCheckRollMode(pendingCheck)
-  const labelPrefix = pendingCheck.check_type
+  const labelPrefix = getCheckLabel(pendingCheck)
   if (!advantage && !disadvantage) {
     const { total } = await rollDice3D(20)
     showDice({ faces: 20, result: total, label: `${labelPrefix} check` })
@@ -74,21 +120,42 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
       const roll = await rollCheckD20(pendingCheck, showDice)
       const d20 = roll.d20
 
-      const result = await gameApi.skillCheck({
-        session_id:   sessionId,
-        character_id: pendingCheck.character_id || playerId,
-        skill:        pendingCheck.check_type,
-        dc:           pendingCheck.dc,
-        d20_value:    d20,
-        advantage:    roll.advantage,
-        disadvantage: roll.disadvantage,
-      })
+      const checkKind = getPendingCheckKind(pendingCheck)
+      const ability = getSavingThrowAbility(pendingCheck)
+      const result = checkKind === 'saving_throw'
+        ? await gameApi.savingThrow({
+          session_id:   sessionId,
+          character_id: pendingCheck.character_id || playerId,
+          ability,
+          dc:           pendingCheck.dc,
+          d20_value:    d20,
+          advantage:    roll.advantage,
+          disadvantage: roll.disadvantage,
+        })
+        : await gameApi.skillCheck({
+          session_id:   sessionId,
+          character_id: pendingCheck.character_id || playerId,
+          skill:        pendingCheck.check_type,
+          dc:           pendingCheck.dc,
+          d20_value:    d20,
+          advantage:    roll.advantage,
+          disadvantage: roll.disadvantage,
+        })
+      const checkLabel = checkKind === 'saving_throw'
+        ? `${SAVE_ABILITY_LABELS[result.ability] || result.ability?.toUpperCase() || 'SAVE'} save`
+        : `${pendingCheck.check_type}检定`
+      const outcomeText = checkKind === 'saving_throw'
+        ? (result.success ? 'success' : 'failure')
+        : (result.success ? '成功' : '失败')
+      const proficientText = result.proficient
+        ? (checkKind === 'saving_throw' ? ' [proficient]' : ' [熟练]')
+        : ''
 
       const summary =
-        `${pendingCheck.check_type}检定 (DC ${pendingCheck.dc})：` +
+        `${checkLabel} (DC ${pendingCheck.dc})：` +
         `d20=${result.d20} ${result.modifier >= 0 ? '+' : ''}${result.modifier}` +
-        `${result.proficient ? ' [熟练]' : ''} = ${result.total} → ` +
-        `${result.success ? '✅ 成功' : '❌ 失败'}`
+        `${proficientText} = ${result.total} → ` +
+        `${checkKind === 'saving_throw' ? outcomeText : (result.success ? '✅ 成功' : '❌ 失败')}`
       addLog('dice', summary, 'dice', { dice_result: result })
 
       // Juice：关键成功/失败的音效 + 震屏
@@ -102,7 +169,7 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
       // 带 context（原选项文本）一起送给 DM，不丢行动语义
       const ctxPart = pendingCheck.context ? ` 我的行动："${pendingCheck.context}"` : ''
       const autoMsg =
-        `[${pendingCheck.check_type}检定 ${result.success ? '成功' : '失败'}: ` +
+        `[${checkLabel} ${outcomeText}: ` +
         `${result.total} vs DC${pendingCheck.dc}]${ctxPart}`
 
       setPendingCheck(null)

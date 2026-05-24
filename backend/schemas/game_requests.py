@@ -26,5 +26,15 @@ class SkillCheckRequest(BaseModel):
     disadvantage: bool = False
 
 
+class SavingThrowRequest(BaseModel):
+    session_id: str
+    character_id: str
+    ability: Literal["str", "dex", "con", "int", "wis", "cha"]
+    dc: int
+    d20_value: Optional[int] = None
+    advantage: bool = False
+    disadvantage: bool = False
+
+
 class AITakeoverRequest(BaseModel):
     session_id: str

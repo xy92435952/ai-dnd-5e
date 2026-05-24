@@ -12,6 +12,63 @@ from services.campaign_delta import normalize_campaign_delta
 
 logger = logging.getLogger(__name__)
 
+VALID_ABILITIES = {"str", "dex", "con", "int", "wis", "cha"}
+ABILITY_ALIASES = {
+    "strength": "str",
+    "力量": "str",
+    "dexterity": "dex",
+    "敏捷": "dex",
+    "constitution": "con",
+    "体质": "con",
+    "intelligence": "int",
+    "智力": "int",
+    "wisdom": "wis",
+    "感知": "wis",
+    "感知力": "wis",
+    "charisma": "cha",
+    "魅力": "cha",
+}
+SAVE_KEYWORDS = ("save", "saving", "豁免", "闪避", "抵抗", "避开", "躲避")
+SKILL_TO_ABILITY = {
+    "运动": "str",
+    "athletics": "str",
+    "特技": "dex",
+    "隐匿": "dex",
+    "巧手": "dex",
+    "acrobatics": "dex",
+    "stealth": "dex",
+    "sleight of hand": "dex",
+    "奥秘": "int",
+    "调查": "int",
+    "历史": "int",
+    "自然": "int",
+    "宗教": "int",
+    "arcana": "int",
+    "investigation": "int",
+    "history": "int",
+    "nature": "int",
+    "religion": "int",
+    "察觉": "wis",
+    "洞察": "wis",
+    "生存": "wis",
+    "医药": "wis",
+    "驯兽": "wis",
+    "perception": "wis",
+    "insight": "wis",
+    "survival": "wis",
+    "medicine": "wis",
+    "animal handling": "wis",
+    "游说": "cha",
+    "说服": "cha",
+    "威吓": "cha",
+    "欺瞒": "cha",
+    "表演": "cha",
+    "persuasion": "cha",
+    "intimidation": "cha",
+    "deception": "cha",
+    "performance": "cha",
+}
+
 
 def strip_code_block(text: str) -> str:
     """去除 LLM 输出中的 Markdown 代码块包裹（```json ... ```）"""
@@ -76,10 +133,82 @@ def normalize_needs_check(needs_check: Any) -> dict:
     needs_check.setdefault("check_type", None)
     needs_check.setdefault("ability", None)
     needs_check.setdefault("dc", 10)
+    try:
+        needs_check["dc"] = int(needs_check.get("dc") or 10)
+    except (TypeError, ValueError):
+        needs_check["dc"] = 10
+    if not needs_check.get("required") and not (needs_check.get("check_type") or needs_check.get("ability")):
+        needs_check["check_kind"] = "none"
+    else:
+        needs_check["check_kind"] = _normalize_check_kind(needs_check)
+        needs_check["ability"] = _normalize_check_ability(needs_check)
+        if needs_check["check_kind"] == "saving_throw" and not needs_check["ability"]:
+            needs_check["ability"] = "dex"
     if needs_check.get("advantage") and needs_check.get("disadvantage"):
         needs_check["advantage"] = False
         needs_check["disadvantage"] = False
     return needs_check
+
+
+def _normalize_check_kind(needs_check: dict) -> str:
+    explicit = str(
+        needs_check.get("check_kind")
+        or needs_check.get("kind")
+        or needs_check.get("type")
+        or ""
+    ).strip().lower()
+    if explicit in {"saving_throw", "save", "saving throw", "豁免"}:
+        return "saving_throw"
+    if explicit in {"skill_check", "skill", "ability_check", "check", "检定", "技能检定"}:
+        return "skill_check"
+
+    check_type = str(needs_check.get("check_type") or "").strip().lower()
+    context = str(needs_check.get("context") or "").strip().lower()
+    combined = f"{check_type} {context}"
+    if any(keyword in combined for keyword in SAVE_KEYWORDS):
+        return "saving_throw"
+    return "skill_check"
+
+
+def _normalize_check_ability(needs_check: dict) -> str | None:
+    ability = _normalize_ability(needs_check.get("ability"))
+    if ability:
+        return ability
+
+    check_type = str(needs_check.get("check_type") or "").strip().lower()
+    for raw, normalized in ABILITY_ALIASES.items():
+        if raw in check_type:
+            return normalized
+    for ability_key in VALID_ABILITIES:
+        if re.search(rf"\b{ability_key}\b", check_type):
+            return ability_key
+
+    context = str(needs_check.get("context") or "").strip().lower()
+    for raw, normalized in ABILITY_ALIASES.items():
+        if raw in context:
+            return normalized
+    for ability_key in VALID_ABILITIES:
+        if re.search(rf"\b{ability_key}\b", context):
+            return ability_key
+
+    if needs_check.get("check_kind") == "saving_throw":
+        if any(word in f"{check_type} {context}" for word in ("poison", "毒", "窒息", "寒冷", "饥饿")):
+            return "con"
+        if any(word in f"{check_type} {context}" for word in ("charm", "fear", "恐惧", "魅惑", "幻觉", "意志")):
+            return "wis"
+        if any(word in f"{check_type} {context}" for word in ("grapple", "shove", "拉扯", "推倒", "束缚")):
+            return "str"
+        return None
+    return SKILL_TO_ABILITY.get(check_type)
+
+
+def _normalize_ability(value: Any) -> str | None:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return None
+    if raw in VALID_ABILITIES:
+        return raw
+    return ABILITY_ALIASES.get(raw)
 
 
 def normalize_player_choices(player_choices: Any, needs_check: dict) -> list:

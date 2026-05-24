@@ -240,6 +240,10 @@ export function getPlayerTurnState(combat, playerId) {
   return combat.turn_states?.[playerId] || null
 }
 
+export function hasPendingAiReaction(combat) {
+  return Object.values(combat?.turn_states || {}).some(ts => Boolean(ts?.pending_ai_attack))
+}
+
 /**
  * 多人战斗中判断当前回合是否归当前用户控制的角色。
  */

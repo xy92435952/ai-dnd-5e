@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from database import get_db
 from models import Character, CombatState
 from api.deps import (
-    get_session_or_404, entity_snapshot, serialize_combat, get_user_id,
+    assert_session_access, get_session_or_404, entity_snapshot, serialize_combat, get_user_id,
 )
 from services.character_roster import CharacterRoster
 from services.combat_prediction_service import build_combat_prediction
@@ -29,7 +29,11 @@ from schemas.game_responses import CombatStateResponse, SkillBarResponse
 
 
 @router.get("/combat/{session_id}", response_model=CombatStateResponse)
-async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_combat_state(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """获取当前战斗状态（含完整实体数据）"""
     result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = result.scalars().first()
@@ -37,6 +41,7 @@ async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "当前没有进行中的战斗")
 
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     await db.refresh(session)  # 确保读取最新的 game_state
     state   = session.game_state or {}
     enemies = state.get("enemies", [])
@@ -84,6 +89,7 @@ async def get_skill_bar_endpoint(
     entity_id 可选，默认使用当前用户绑定的角色。
     """
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
 
     # 解析目标角色
     if entity_id:
@@ -131,6 +137,7 @@ async def predict_action_endpoint(
     仅作为 UI 参考值展示；实际战斗仍以 /attack-roll / /spell-roll 为准。
     """
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     attacker = await db.get(Character, req.attacker_id)
     if not attacker:
         raise HTTPException(404, "攻击者不存在")

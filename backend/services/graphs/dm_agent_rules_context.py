@@ -60,4 +60,9 @@ def build_rules_context(state: dict[str, Any]) -> str:
 - “帮助动作/help action/协助”是合法 5e 行动，通常给予下一次相关检定或攻击优势；不要因为出现“优势”而拒绝。
 - 只有玩家宣告结果本身越权时才拒绝，例如自动命中、自动暴击、跳过豁免、凭空加满 HP/金币/神器。
 - 若合法性依赖资源但上下文不足，优先给出需要确认或需要检定的裁定，不要直接判作 rule_violation。
+
+## needs_check 结构化裁定
+- 主动尝试用技能解决问题时使用 `check_kind="skill_check"`，`check_type` 填技能名，`ability` 填 str/dex/con/int/wis/cha。
+- 被陷阱、法术、毒素、爆炸、坠落、精神影响等危险迫使反应时使用 `check_kind="saving_throw"`，`check_type` 可写 "DEX save"/"CON save"/"WIS save"，`ability` 必须填对应能力。
+- 不要让 AI 代掷；只声明 DC、能力、优势/劣势和上下文，骰子由本地系统处理。
 """

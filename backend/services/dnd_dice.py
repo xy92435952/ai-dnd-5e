@@ -130,9 +130,16 @@ def roll_saving_throw(
     豁免检定
     ability: "str"/"dex"/"con"/"int"/"wis"/"cha"
     """
+    ability = (ability or "").lower()
     derived    = character.get("derived", {})
     saves      = derived.get("saving_throws", {})
-    total_mod  = saves.get(ability, derived.get("ability_modifiers", {}).get(ability, 0))
+    proficient = ability in (character.get("proficient_saves") or [])
+    if ability in saves:
+        total_mod = saves[ability]
+    else:
+        total_mod = derived.get("ability_modifiers", {}).get(ability, 0)
+        if proficient:
+            total_mod += derived.get("proficiency_bonus", character.get("proficiency_bonus", 2))
 
     if advantage and not disadvantage:
         d20_result = roll_advantage("1d20")
@@ -147,10 +154,14 @@ def roll_saving_throw(
     return {
         "ability":  ability,
         "d20":      d20,
+        "other_roll": d20_result.get("other_roll"),
+        "advantage": bool(advantage and not disadvantage),
+        "disadvantage": bool(disadvantage and not advantage),
         "modifier": total_mod,
         "total":    total,
         "dc":       dc,
         "success":  total >= dc,
+        "proficient": proficient,
     }
 
 

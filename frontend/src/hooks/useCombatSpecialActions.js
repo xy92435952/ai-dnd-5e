@@ -80,9 +80,28 @@ export function useCombatSpecialActions({
       const result = await gameApi.useReaction(sessionId, reactionType, targetId)
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.turn_state) setTurnState(result.turn_state)
+      setCombat(prev => {
+        if (!prev) return prev
+        let next = prev
+        if (result.target_id && result.target_new_hp !== undefined && result.target_new_hp !== null) {
+          next = applyHpUpdate(next, result.target_id, result.target_new_hp)
+        }
+        if (result.next_turn_index !== undefined && result.next_turn_index !== null) {
+          next = {
+            ...next,
+            current_turn_index: result.next_turn_index,
+            round_number: result.round_number ?? next.round_number,
+            ...(result.entity_positions ? { entity_positions: result.entity_positions } : {}),
+          }
+        }
+        return next
+      })
+      if (result.combat_over) setCombatOver(result.outcome)
       processingRef.current = false
       setIsProcessing(false)
-      triggerAiTurn()
+      if (result.pending_reaction || result.next_turn_index === undefined || result.next_turn_index === null) {
+        triggerAiTurn()
+      }
     } catch (e) {
       setError(e.message)
       processingRef.current = false
@@ -97,6 +116,8 @@ export function useCombatSpecialActions({
     setIsProcessing,
     setReactionPrompt,
     setTurnState,
+    setCombat,
+    setCombatOver,
     showDice,
     triggerAiTurn,
   ])
