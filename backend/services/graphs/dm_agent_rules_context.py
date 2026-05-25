@@ -32,9 +32,23 @@ def extract_current_actor(game_state: str) -> dict:
     }
 
 
+def extract_combat_state_flags(game_state: str) -> dict:
+    try:
+        gs = json.loads(game_state or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {"combat_active": False}
+
+    return {
+        "combat_active": bool(gs.get("combat_active", False)),
+        "current_turn_index": gs.get("current_turn_index"),
+        "round_number": gs.get("round_number"),
+    }
+
+
 def build_rules_context(state: dict[str, Any]) -> str:
     meta = state.get("input_meta") or build_input_meta(state)
     actor = extract_current_actor(state.get("game_state", ""))
+    combat_flags = extract_combat_state_flags(state.get("game_state", ""))
     source = meta.get("source", "human_input")
     trusted_note = (
         "此行动来自系统/AI生成选项，视为已由系统提供给玩家的可选行动；"
@@ -42,6 +56,17 @@ def build_rules_context(state: dict[str, Any]) -> str:
         if source in TRUSTED_ACTION_SOURCES else
         "此行动来自玩家自由输入：安全守卫已过滤高置信度离题、注入和明显作弊；"
         "复杂规则合法性仍由你按当前状态裁定。"
+    )
+    combat_note = (
+        """## 战斗系统机制边界
+- 当前处于 combat_active=true；后端战斗端点与当前 game_state/turn_state 是命中、伤害、HP、法术位、动作经济、反应和死亡豁免的权威来源。
+- 若请求中已经包含端点结算结果或序列化 combat 状态，只解释这些结果并保持叙事一致，不要再次掷骰、重算伤害、重复扣法术位、重复消耗 reaction，或写出冲突的 state_delta。
+- 只有系统尚未覆盖的创意战术、环境互动、临时条件和叙事后果，才需要你按 5e 保守裁定并返回机械变化。
+"""
+        if combat_flags.get("combat_active") else
+        """## 非战斗规则边界
+- 当前未处于 combat_active=true；不要凭空进入回合制战斗、创建敌人或修改 HP，除非玩家行动与场景明确触发战斗或伤害。
+"""
     )
 
     return f"""## 规则层上下文（裁定优先于叙事）
@@ -53,6 +78,8 @@ def build_rules_context(state: dict[str, Any]) -> str:
 
 ## 来源与安全边界
 {trusted_note}
+
+{combat_note}
 
 ## 优势 / 劣势 / 激励骰裁定规则
 - “优势骰/优势/advantage”本身不是作弊词；只要来自帮助动作、环境优势、隐藏、职业能力、系统选项或 DM 已给出的上下文，就应作为合法机械修正处理。

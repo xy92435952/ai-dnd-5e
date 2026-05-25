@@ -41,6 +41,34 @@ def test_rules_layer_mentions_advantage_and_inspiration_as_legal_terms():
     assert "本身不是作弊词" in context
 
 
+def test_rules_layer_adds_backend_mechanics_boundary_during_combat():
+    context = dm_agent._build_rules_context({
+        "action_source": "human_input",
+        "player_action": "我攻击最近的地精",
+        "game_state": '{"combat_active": true, "current_actor_id":"c1","current_actor_name":"洛林","characters":[{"id":"c1","name":"洛林","char_class":"Fighter","level":2}]}',
+        "input_meta": {"source": "human_input"},
+    })
+
+    assert "战斗系统机制边界" in context
+    assert "后端战斗端点" in context
+    assert "权威来源" in context
+    assert "不要再次掷骰" in context
+    assert "重复消耗 reaction" in context
+
+
+def test_rules_layer_warns_against_unprompted_hp_changes_outside_combat():
+    context = dm_agent._build_rules_context({
+        "action_source": "human_input",
+        "player_action": "我调查钟楼",
+        "game_state": '{"combat_active": false}',
+        "input_meta": {"source": "human_input"},
+    })
+
+    assert "非战斗规则边界" in context
+    assert "不要凭空进入回合制战斗" in context
+    assert "修改 HP" in context
+
+
 def test_memory_context_marks_retrieval_as_reference_only():
     context = dm_agent._build_memory_context({
         "campaign_memory": "旧日志说队伍曾遇到灰狼。",

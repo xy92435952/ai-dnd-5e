@@ -30,3 +30,17 @@ def test_explore_prompt_contains_all_maintenance_sections():
 
     for section in expected_sections:
         assert section in EXPLORE_SYSTEM
+
+
+def test_combat_prompt_prioritizes_backend_combat_mechanics():
+    expected_sections = [
+        "系统机制优先边界",
+        "后端战斗系统已经负责",
+        "Shield / Uncanny Dodge / Hellish Rebuke",
+        "权威结果",
+        "不得重新掷骰",
+        "不要为了叙事爽感赠送额外动作",
+    ]
+
+    for section in expected_sections:
+        assert section in COMBAT_SYSTEM
