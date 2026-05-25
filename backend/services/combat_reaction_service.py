@@ -78,6 +78,41 @@ def calculate_uncanny_dodge_prevention(pending_reaction: dict[str, Any] | None) 
     }
 
 
+def calculate_reaction_save(
+    target_derived: dict[str, Any] | None,
+    *,
+    ability: str,
+    dc: int,
+    d20: int,
+) -> dict[str, Any]:
+    """Resolve a saving throw detail for reaction spells such as Hellish Rebuke."""
+    derived = target_derived or {}
+    saves = derived.get("saving_throws", {}) or {}
+    modifiers = derived.get("ability_modifiers", {}) or {}
+    modifier = int(saves.get(ability, modifiers.get(ability, 0)) or 0)
+    total = int(d20) + modifier
+    return {
+        "ability": ability,
+        "dc": int(dc),
+        "d20": int(d20),
+        "modifier": modifier,
+        "total": total,
+        "success": total >= int(dc),
+    }
+
+
+def calculate_hellish_rebuke_damage(base_damage: int, save_detail: dict[str, Any] | None) -> dict[str, int | bool]:
+    """Hellish Rebuke deals half fire damage on a successful DEX save."""
+    rolled_damage = max(int(base_damage or 0), 0)
+    saved = bool((save_detail or {}).get("success"))
+    damage_dealt = rolled_damage // 2 if saved else rolled_damage
+    return {
+        "rolled_damage": rolled_damage,
+        "damage_dealt": damage_dealt,
+        "save_success": saved,
+    }
+
+
 def restore_prevented_damage(character, pending_reaction: dict[str, Any] | None, damage_prevented: int) -> dict[str, int]:
     """Retroactively restore HP without exceeding the pre-attack HP snapshot."""
     before_hp = int(character.hp_current or 0)

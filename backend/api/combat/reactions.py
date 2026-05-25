@@ -23,6 +23,8 @@ from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.combat_reaction_service import (
+    calculate_hellish_rebuke_damage,
+    calculate_reaction_save,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
     restore_prevented_damage,
@@ -180,6 +182,9 @@ async def use_reaction(
 
     elif req.reaction_type == "hellish_rebuke":
         # Tiefling racial / Warlock: deal 2d10 fire damage to attacker
+        known = set(player.known_spells or []) | set(player.prepared_spells or [])
+        if "Hellish Rebuke" not in known and "hellish_rebuke" not in known:
+            raise HTTPException(400, "You have not learned Hellish Rebuke")
         slots = dict(player.spell_slots or {})
         if slots.get("1st", 0) <= 0:
             raise HTTPException(400, "没有可用的1环法术位")
@@ -192,14 +197,25 @@ async def use_reaction(
 
         rebuke_roll = roll_dice("2d10")
         rebuke_damage = rebuke_roll["total"]
+        spell_save_dc = int(derived.get("spell_save_dc") or 13)
+        save_detail = None
+        damage_result = calculate_hellish_rebuke_damage(rebuke_damage, save_detail)
 
         # Apply damage to the attacking enemy
         target_name = "攻击者"
         if req.target_id:
             for e in enemies:
                 if e["id"] == req.target_id and e.get("hp_current", 0) > 0:
+                    save_roll = roll_dice("1d20")["rolls"][0]
+                    save_detail = calculate_reaction_save(
+                        e.get("derived", {}),
+                        ability="dex",
+                        dc=spell_save_dc,
+                        d20=save_roll,
+                    )
+                    damage_result = calculate_hellish_rebuke_damage(rebuke_damage, save_detail)
                     e["hp_current"] = svc.apply_damage(
-                        e["hp_current"], rebuke_damage,
+                        e["hp_current"], damage_result["damage_dealt"],
                         e.get("derived", {}).get("hp_max", 10),
                     )
                     target_name = e["name"]
@@ -208,7 +224,20 @@ async def use_reaction(
 
         reaction_target_name = target_name
         narration = f"🔥 {player.name} 使用「地狱斥责」！2d10={rebuke_damage} 火焰伤害反击 {target_name}！"
-        reaction_effect = {"damage_dealt": rebuke_damage, "target": target_name}
+        if save_detail:
+            save_outcome = "success, half damage" if save_detail["success"] else "failed, full damage"
+            narration += (
+                f" DEX save DC{save_detail['dc']}: "
+                f"d20={save_detail['d20']}+{save_detail['modifier']}={save_detail['total']} "
+                f"{save_outcome}; final damage {damage_result['damage_dealt']}."
+            )
+        reaction_effect = {
+            "damage_dealt": damage_result["damage_dealt"],
+            "rolled_damage": damage_result["rolled_damage"],
+            "save_success": damage_result["save_success"],
+            "save": save_detail,
+            "target": target_name,
+        }
 
     else:
         raise HTTPException(400, f"未知反应类型：{req.reaction_type}")

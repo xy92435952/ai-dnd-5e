@@ -2,6 +2,8 @@ from types import SimpleNamespace
 
 from services.combat_reaction_service import (
     build_pending_attack_reaction,
+    calculate_hellish_rebuke_damage,
+    calculate_reaction_save,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
     restore_prevented_damage,
@@ -59,6 +61,51 @@ def test_uncanny_dodge_halves_first_qualifying_hit():
         "original_damage": 7,
         "reduced_damage": 3,
         "damage_prevented": 4,
+    }
+
+
+def test_reaction_save_uses_saving_throw_before_ability_modifier():
+    result = calculate_reaction_save(
+        {
+            "saving_throws": {"dex": 5},
+            "ability_modifiers": {"dex": 2},
+        },
+        ability="dex",
+        dc=13,
+        d20=8,
+    )
+
+    assert result == {
+        "ability": "dex",
+        "dc": 13,
+        "d20": 8,
+        "modifier": 5,
+        "total": 13,
+        "success": True,
+    }
+
+
+def test_hellish_rebuke_halves_damage_on_successful_dex_save():
+    save_detail = {"success": True}
+
+    result = calculate_hellish_rebuke_damage(17, save_detail)
+
+    assert result == {
+        "rolled_damage": 17,
+        "damage_dealt": 8,
+        "save_success": True,
+    }
+
+
+def test_hellish_rebuke_deals_full_damage_on_failed_save():
+    save_detail = {"success": False}
+
+    result = calculate_hellish_rebuke_damage(17, save_detail)
+
+    assert result == {
+        "rolled_damage": 17,
+        "damage_dealt": 17,
+        "save_success": False,
     }
 
 
