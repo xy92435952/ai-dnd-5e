@@ -233,7 +233,7 @@ async def test_host_transfers_then_old_host_loses_perm(client, sample_module):
     assert bad.status_code == 403
 
 
-async def test_non_host_cannot_kick(client, sample_module):
+async def test_two_player_room_cannot_start_kick_vote(client, sample_module):
     host = await _register(client, "host_kick")
     p2   = await _register(client, "guest_kick")
 
@@ -244,11 +244,66 @@ async def test_non_host_cannot_kick(client, sample_module):
         "room_code": create["room_code"],
     })
 
-    # p2 尝试踢 host —— 没权限
+    # 两人房只有 1 个非目标投票人，不允许单人决定移出另一个玩家。
     r = await client.post(f"/game/rooms/{create['session_id']}/kick",
                            headers=_h(p2["token"]),
                            json={"user_id": host["user_id"]})
-    assert r.status_code == 403
+    assert r.status_code == 409
+    assert "至少需要 3 名成员" in r.text
+
+
+async def test_kick_member_requires_room_vote_majority(client, sample_module):
+    host = await _register(client, "vote_host")
+    p2 = await _register(client, "vote_p2")
+    p3 = await _register(client, "vote_p3")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    for user in (p2, p3):
+        joined = await client.post("/game/rooms/join", headers=_h(user["token"]), json={
+            "room_code": create["room_code"],
+        })
+        assert joined.status_code == 200, joined.text
+
+    first_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(p2["token"]),
+        json={"user_id": p3["user_id"]},
+    )
+    assert first_vote.status_code == 200, first_vote.text
+    first_body = first_vote.json()
+    assert first_body["kicked"] is None
+    assert first_body["vote_pending"] is True
+    assert first_body["vote"]["target_user_id"] == p3["user_id"]
+    assert first_body["vote"]["yes_user_ids"] == [p2["user_id"]]
+    assert first_body["vote"]["threshold"] == 2
+
+    room_after_first = (await client.get(
+        f"/game/rooms/{create['session_id']}",
+        headers=_h(host["token"]),
+    )).json()
+    assert room_after_first["room_votes"][0]["target_user_id"] == p3["user_id"]
+
+    second_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(host["token"]),
+        json={"user_id": p3["user_id"]},
+    )
+    assert second_vote.status_code == 200, second_vote.text
+    second_body = second_vote.json()
+    assert second_body["kicked"] == p3["user_id"]
+    assert second_body["vote_pending"] is False
+
+    room_after_pass = (await client.get(
+        f"/game/rooms/{create['session_id']}",
+        headers=_h(host["token"]),
+    )).json()
+    assert {member["user_id"] for member in room_after_pass["members"]} == {
+        host["user_id"],
+        p2["user_id"],
+    }
+    assert room_after_pass["room_votes"] == []
 
 
 # ─── 开始游戏 ───────────────────────────────────────────

@@ -86,7 +86,7 @@ export default function Room() {
   }
 
   const onKick = async (uid) => {
-    if (!confirm('确认踢出该成员？')) return
+    if (!confirm('发起或赞成移出该成员的投票？达到多数后才会执行。')) return
     setBusy(true)
     try { await roomsApi.kick(sessionId, uid); await refresh() }
     catch (e) { setError(e.message) }
@@ -205,6 +205,7 @@ export default function Room() {
         members={room.members || []}
         myUserId={myUserId}
         isHost={isHost}
+        roomVotes={room.room_votes || []}
         onTransfer={onTransfer}
         onKick={onKick}
       />

@@ -3005,6 +3005,15 @@
             ],
             "title": "Room Code"
           },
+          "room_votes": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Room Votes",
+            "type": "array"
+          },
           "save_name": {
             "anyOf": [
               {

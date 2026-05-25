@@ -2127,6 +2127,11 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** EndTurnRequest */
+        EndTurnRequest: {
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
+        };
         /**
          * EndTurnResult
          * @description /end-turn / /ai-turn / /end 等回合推进类端点。
@@ -2792,6 +2797,13 @@ export interface components {
             };
             /** Room Code */
             room_code: string | null;
+            /**
+             * Room Votes
+             * @default []
+             */
+            room_votes: {
+                [key: string]: unknown;
+            }[];
             /** Save Name */
             save_name: string | null;
             /** Session Id */
@@ -4151,7 +4163,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EndTurnRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

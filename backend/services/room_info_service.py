@@ -10,6 +10,7 @@ from services.room_group_service import ensure_multiplayer_state
 from services.room_lifecycle_service import is_game_started
 from services.room_member_service import list_members
 from services.room_start_service import get_start_ready_user_ids
+from services.room_vote_service import ensure_room_votes
 
 
 async def get_room_info(
@@ -20,6 +21,7 @@ async def get_room_info(
     if not session or not session.is_multiplayer:
         raise HTTPException(404, "房间不存在")
     mp_state = await ensure_multiplayer_state(db, session_id)
+    room_votes = await ensure_room_votes(db, session_id)
     members = await list_members(db, session_id)
     ai_companions = await list_ai_companions(db, session_id)
     mp = (session.game_state or {}).get("multiplayer", {})
@@ -40,6 +42,7 @@ async def get_room_info(
         "active_group_id": mp_state["active_group_id"],
         "pending_actions_by_group": mp_state["pending_actions_by_group"],
         "group_readiness": mp_state["group_readiness"],
+        "room_votes": room_votes,
         "start_ready_user_ids": get_start_ready_user_ids(session, members),
         "dm_style": serialize_dm_style((session.game_state or {}).get("dm_style")),
         "created_at": session.created_at,

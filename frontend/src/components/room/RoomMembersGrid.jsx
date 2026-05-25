@@ -5,62 +5,91 @@ export default function RoomMembersGrid({
   members,
   myUserId,
   isHost,
+  roomVotes = [],
   onTransfer,
   onKick,
 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14, marginTop: 18 }}>
-      {(members || []).map((member) => (
-        <div
-          key={member.user_id}
-          className="panel-ornate"
-          style={{
-            padding: 14,
-            display: 'flex',
-            gap: 14,
-            alignItems: 'center',
-            opacity: member.is_online ? 1 : 0.5,
-          }}
-        >
-          <div style={{ position: 'relative' }}>
-            <Portrait cls={classKey(member.character_name ? 'fighter' : 'dm')} size="md" />
-            <span style={{
-              position: 'absolute',
-              bottom: 0,
-              right: 0,
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              background: member.is_online ? 'var(--emerald-light)' : 'var(--bark-light)',
-              border: '2px solid var(--void)',
-              boxShadow: member.is_online ? '0 0 8px var(--emerald-light)' : 'none',
-            }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {(members || []).map((member) => {
+        const vote = (roomVotes || []).find(item => (
+          item.type === 'kick'
+          && item.status === 'open'
+          && item.target_user_id === member.user_id
+        ))
+        const yesCount = vote?.yes_user_ids?.length || 0
+        const threshold = vote?.threshold || 0
+        const hasVoted = !!vote?.yes_user_ids?.includes(myUserId)
+        const voteLabel = vote
+          ? (hasVoted ? `已赞成 ${yesCount}/${threshold}` : `赞成移出 ${yesCount}/${threshold}`)
+          : '发起移出投票'
+
+        return (
+          <div
+            key={member.user_id}
+            className="panel-ornate"
+            style={{
+              padding: 14,
+              display: 'flex',
+              gap: 14,
+              alignItems: 'center',
+              opacity: member.is_online ? 1 : 0.5,
+            }}
+          >
+            <div style={{ position: 'relative' }}>
+              <Portrait cls={classKey(member.character_name ? 'fighter' : 'dm')} size="md" />
               <span style={{
-                fontFamily: 'var(--font-heading)',
-                color: 'var(--parchment)',
-                fontSize: 14,
-                fontWeight: 600,
-              }}>{member.display_name}</span>
-              {member.role === 'host' && <span className="tag tag-gold" style={{ fontSize: 9 }}>★ 房主</span>}
-              {member.user_id === myUserId && <span className="tag tag-blue" style={{ fontSize: 9 }}>我</span>}
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                background: member.is_online ? 'var(--emerald-light)' : 'var(--bark-light)',
+                border: '2px solid var(--void)',
+                boxShadow: member.is_online ? '0 0 8px var(--emerald-light)' : 'none',
+              }} />
             </div>
-            <div style={{ fontSize: 11, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-              {member.character_name
-                ? `角色：${member.character_name}`
-                : (member.is_online ? '○ 尚未选择角色' : '◌ 离线')}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--parchment)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}>{member.display_name}</span>
+                {member.role === 'host' && <span className="tag tag-gold" style={{ fontSize: 9 }}>★ 房主</span>}
+                {member.user_id === myUserId && <span className="tag tag-blue" style={{ fontSize: 9 }}>我</span>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                {member.character_name
+                  ? `角色：${member.character_name}`
+                  : (member.is_online ? '○ 尚未选择角色' : '◌ 离线')}
+              </div>
+              {vote && (
+                <div style={{ fontSize: 10, color: 'var(--amber)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+                  移出投票：{yesCount}/{threshold}
+                </div>
+              )}
             </div>
+            {member.user_id !== myUserId && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {isHost && (
+                  <button onClick={() => onTransfer(member.user_id)} className="btn-ghost" style={{ fontSize: 10, padding: '4px 8px' }}>转让</button>
+                )}
+                <button
+                  onClick={() => onKick(member.user_id)}
+                  disabled={hasVoted}
+                  className="btn-ghost"
+                  style={{ fontSize: 10, padding: '4px 8px', borderColor: 'var(--blood)', color: '#ffaaaa', opacity: hasVoted ? 0.6 : 1 }}
+                >
+                  {voteLabel}
+                </button>
+              </div>
+            )}
           </div>
-          {isHost && member.user_id !== myUserId && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <button onClick={() => onTransfer(member.user_id)} className="btn-ghost" style={{ fontSize: 10, padding: '4px 8px' }}>转让</button>
-              <button onClick={() => onKick(member.user_id)} className="btn-ghost" style={{ fontSize: 10, padding: '4px 8px', borderColor: 'var(--blood)', color: '#ffaaaa' }}>踢出</button>
-            </div>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

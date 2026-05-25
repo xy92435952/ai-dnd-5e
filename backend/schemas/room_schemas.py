@@ -103,6 +103,7 @@ class RoomInfo(BaseModel):
     active_group_id: Optional[str] = None
     pending_actions_by_group: dict = {}
     group_readiness: dict = {}
+    room_votes: List[dict] = []
     start_ready_user_ids: List[str] = []
     dm_style: Optional[dict] = None
     created_at: Optional[datetime] = None

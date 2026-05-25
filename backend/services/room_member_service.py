@@ -90,18 +90,41 @@ async def kick_member(
     session_id: str,
     target_user_id: str,
 ) -> dict:
-    """房主踢人。"""
+    """Vote to remove a room member; remove them once the vote passes."""
     session = await db.get(Session, session_id)
     if not session or not session.is_multiplayer:
         raise HTTPException(404, "房间不存在")
-    if session.host_user_id != actor_user_id:
-        raise HTTPException(403, "只有房主可以踢人")
     if target_user_id == actor_user_id:
-        raise HTTPException(400, "不能踢出自己，请使用离开房间")
+        raise HTTPException(400, "不能投票踢出自己，请使用离开房间")
 
     target = await get_member(db, session_id, target_user_id)
     if not target:
         raise HTTPException(404, "目标成员不在房间中")
+
+    from services import room_vote_service
+
+    vote_result = await room_vote_service.vote_to_kick_member(
+        db,
+        actor_user_id=actor_user_id,
+        session_id=session_id,
+        target_user_id=target_user_id,
+    )
+    if not vote_result["passed"]:
+        return {
+            "kicked": None,
+            "vote_pending": True,
+            "vote": vote_result["vote"],
+        }
+
+    target = await get_member(db, session_id, target_user_id)
+    if not target:
+        return {
+            "kicked": target_user_id,
+            "vote_pending": False,
+            "vote": vote_result["vote"],
+        }
+
+    was_host = target.role == "host" or session.host_user_id == target_user_id
 
     if target.character_id:
         char = await db.get(Character, target.character_id)
@@ -110,8 +133,35 @@ async def kick_member(
             char.is_player = False
 
     await db.delete(target)
+    await db.flush()
+
+    host_transferred_to = None
+    room_dissolved = False
+    if was_host:
+        result = await db.execute(
+            select(SessionMember)
+            .where(SessionMember.session_id == session_id)
+            .order_by(SessionMember.joined_at.asc())
+        )
+        new_host = result.scalars().first()
+        if new_host:
+            new_host.role = "host"
+            session.host_user_id = new_host.user_id
+            host_transferred_to = new_host.user_id
+        else:
+            session.room_code = None
+            session.host_user_id = None
+            room_dissolved = True
+
     await db.commit()
-    return {"kicked": target_user_id}
+    await room_vote_service.ensure_room_votes(db, session_id)
+    return {
+        "kicked": target_user_id,
+        "vote_pending": False,
+        "vote": vote_result["vote"],
+        "host_transferred_to": host_transferred_to,
+        "room_dissolved": room_dissolved,
+    }
 
 
 async def transfer_host(

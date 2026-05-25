@@ -154,12 +154,18 @@ async def kick_member(
         db, actor_user_id=user_id,
         session_id=session_id, target_user_id=req.user_id,
     )
-    members = await room_service.list_members(db, session_id)
-    await ws_manager.broadcast(session_id, MemberKicked(
-        user_id=req.user_id,
-        by_user_id=user_id,
-        members=members,
-    ))
+    if result.get("room_dissolved"):
+        await ws_manager.broadcast(session_id, RoomDissolved(by_user_id=user_id))
+        return result
+
+    room = await room_service.get_room_info(db, session_id)
+    if result.get("kicked"):
+        await ws_manager.broadcast(session_id, MemberKicked(
+            user_id=req.user_id,
+            by_user_id=user_id,
+            members=room["members"],
+        ))
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
     return result
 
 

@@ -27,9 +27,38 @@ describe('Room sections', () => {
     expect(screen.getByText('○ 尚未选择角色')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '转让' }))
-    fireEvent.click(screen.getByRole('button', { name: '踢出' }))
+    fireEvent.click(screen.getByRole('button', { name: '发起移出投票' }))
     expect(onTransfer).toHaveBeenCalledWith('u2')
     expect(onKick).toHaveBeenCalledWith('u2')
+  })
+
+  it('shows active kick vote progress and disables repeated votes', () => {
+    const onKick = vi.fn()
+
+    render(
+      <RoomMembersGrid
+        members={[
+          { user_id: 'me', display_name: '我', role: 'player', character_id: 'c1', character_name: '战士', is_online: true },
+          { user_id: 'u2', display_name: '队友', role: 'host', character_id: 'c2', character_name: '法师', is_online: true },
+        ]}
+        myUserId="me"
+        isHost={false}
+        roomVotes={[{
+          id: 'kick:u2',
+          type: 'kick',
+          target_user_id: 'u2',
+          status: 'open',
+          yes_user_ids: ['me'],
+          threshold: 2,
+        }]}
+        onTransfer={vi.fn()}
+        onKick={onKick}
+      />
+    )
+
+    expect(screen.getByText('移出投票：1/2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '已赞成 1/2' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '转让' })).not.toBeInTheDocument()
   })
 
   it('renders AI companions without room lifecycle controls', () => {
