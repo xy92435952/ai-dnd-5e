@@ -92,6 +92,12 @@ export interface Typing {
   is_typing: boolean
 }
 
+export interface WSError {
+  type: 'error'
+  code: string
+  message: string
+}
+
 // ─── DM 流程 ─────────────────────────────────────────────
 
 export interface DMThinkingStart {
@@ -175,6 +181,7 @@ export type WSEvent =
   | MemberOnline
   | MemberOffline
   | Typing
+  | WSError
   | DMThinkingStart
   | DMResponded
   | DMSpeakTurn

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import CombatState, GameLog
-from api.deps import get_session_or_404
+from api.deps import assert_can_act, get_session_or_404, get_user_id
 from api.combat._shared import _broadcast_combat
 from api.combat.schemas import ManeuverRequest
 from schemas.combat_responses import CombatActionResult
@@ -22,6 +22,7 @@ async def use_maneuver(
     session_id: str,
     req: ManeuverRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """
     Battle Master maneuver: consume 1 superiority die and apply effect.
@@ -30,6 +31,14 @@ async def use_maneuver(
     session = await get_session_or_404(session_id, db)
     result_db = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = result_db.scalars().first()
+    if combat and combat.turn_order:
+        try:
+            current = combat.turn_order[combat.current_turn_index or 0]
+            actor_id = current.get("character_id") if isinstance(current, dict) else None
+            if actor_id:
+                await assert_can_act(session, user_id, actor_id, db)
+        except (IndexError, AttributeError):
+            pass
 
     try:
         result = await resolve_maneuver(

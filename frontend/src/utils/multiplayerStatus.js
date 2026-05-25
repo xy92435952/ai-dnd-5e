@@ -68,8 +68,7 @@ export function getSpeakerOnlineStatus(room, currentSpeakerUid) {
 }
 
 export function canRequestAiTakeover({ room, currentSpeakerUid, isMySpeakTurn }) {
-  if (!room || !currentSpeakerUid || isMySpeakTurn) return false
-  return getSpeakerOnlineStatus(room, currentSpeakerUid).isOnline === false
+  return getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn }).canTakeover
 }
 
 export function getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn, thresholdSeconds = 30 }) {

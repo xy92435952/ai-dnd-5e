@@ -66,6 +66,7 @@ describe('multiplayer status helpers', () => {
       members: [
         { user_id: 'u1', is_online: true, seconds_since_seen: 8 },
         { user_id: 'u2', is_online: false, seconds_since_seen: 42 },
+        { user_id: 'u3', is_online: false, seconds_since_seen: 8 },
       ],
     }
     expect(getAiTakeoverStatus({ room, currentSpeakerUid: 'u1', isMySpeakTurn: false })).toEqual({
@@ -77,6 +78,12 @@ describe('multiplayer status helpers', () => {
       canTakeover: true,
       label: '玩家离线，可 AI 代演',
       secondsRemaining: 0,
+    })
+    expect(canRequestAiTakeover({ room, currentSpeakerUid: 'u3', isMySpeakTurn: false })).toBe(false)
+    expect(getAiTakeoverStatus({ room, currentSpeakerUid: 'u3', isMySpeakTurn: false })).toEqual({
+      canTakeover: false,
+      label: '8秒无动作，22秒后可代演',
+      secondsRemaining: 22,
     })
   })
 })

@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react'
 import { gameApi } from '../api/client'
-import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyCombatSessionSnapshot } from '../utils/combatSession'
 
 export function useCombatLoader({
@@ -25,6 +24,7 @@ export function useCombatLoader({
   showDice,
   triggerAiTurn,
   isPlayerTurn,
+  canDriveAiTurns = true,
 }) {
   const loadCombat = useCallback(async () => {
     try {
@@ -51,13 +51,13 @@ export function useCombatLoader({
       if (data.round_number === 1 && !initiativeShown && pid) {
         if (playerEntry && playerEntry.initiative != null) {
           setInitiativeShown(true)
-          await rollDice3D(20)
           const d20Val = playerEntry.d20 || playerEntry.initiative
+          // Initiative has already been settled by the backend; avoid opening an interactive roll prompt on load.
           showDice({ faces: 20, result: d20Val, label: '先攻检定' })
         }
       }
 
-      if (!isPlayerTurn(data)) {
+      if (canDriveAiTurns && !isPlayerTurn(data)) {
         aiTimer.current = setTimeout(() => triggerAiTurn(), 1000)
       }
     } catch (e) {
@@ -65,6 +65,7 @@ export function useCombatLoader({
     }
   }, [
     aiTimer,
+    canDriveAiTurns,
     initiativeShown,
     isPlayerTurn,
     sessionId,

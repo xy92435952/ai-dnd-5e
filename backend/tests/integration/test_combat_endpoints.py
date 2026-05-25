@@ -193,8 +193,24 @@ async def ai_turn_combat(db_session, sample_session, sample_character):
     return cs
 
 
+async def test_ai_turn_rejects_stale_expected_turn_token(
+    client, db_session, sample_session, ai_turn_combat, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(
+        f"/game/combat/{sample_session.id}/ai-turn",
+        headers=headers,
+        json={"expected_turn_token": "1:0:not-the-current-actor"},
+    )
+
+    assert r.status_code == 409, r.text
+    assert "stale" in r.text
+    await db_session.refresh(ai_turn_combat)
+    assert ai_turn_combat.current_turn_index == 0
+
+
 async def test_ai_turn_dash_decision_does_not_500(
-    client, sample_session, ai_turn_combat, monkeypatch,
+    client, sample_session, ai_turn_combat, sample_user, monkeypatch,
 ):
     """/ai-turn 选择 dash 时应稳定返回，不应因为局部变量顺序报 500。"""
     import services.ai_combat_agent as ai_agent
@@ -210,7 +226,8 @@ async def test_ai_turn_dash_decision_does_not_500(
     monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
     monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
 
-    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn")
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["actor_name"] == "兽人"
@@ -218,7 +235,7 @@ async def test_ai_turn_dash_decision_does_not_500(
 
 
 async def test_ai_fire_attack_respects_player_fire_resistance(
-    client, db_session, sample_session, sample_character, ai_turn_combat, monkeypatch,
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):
     """火焰抗性药水写入的 fire_resistance 条件应在 AI 火焰伤害中真实减半。"""
     from sqlalchemy.orm.attributes import flag_modified
@@ -266,7 +283,8 @@ async def test_ai_fire_attack_respects_player_fire_resistance(
     monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
     monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
 
-    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn")
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
 
     assert r.status_code == 200, r.text
     data = r.json()

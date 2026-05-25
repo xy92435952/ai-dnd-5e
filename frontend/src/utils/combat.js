@@ -258,6 +258,32 @@ export function canActInCombatTurn({ room, combat, myCharacterId }) {
   return isMyCombatTurn({ room, combat, myCharacterId })
 }
 
+export function getAiCombatTurnDriverUserId(room) {
+  if (!room) return null
+  const members = Array.isArray(room.members)
+    ? room.members.filter(member => member?.user_id)
+    : []
+  const onlineMembers = members.filter(member => member.is_online !== false)
+  const candidates = onlineMembers.length ? onlineMembers : members
+  const host = candidates.find(member => member.user_id === room.host_user_id)
+  return host?.user_id || candidates[0]?.user_id || room.host_user_id || null
+}
+
+export function canDriveAiCombatTurns({ room, myUserId }) {
+  if (!room) return true
+  if (!myUserId) return false
+  return getAiCombatTurnDriverUserId(room) === myUserId
+}
+
+export function getCombatTurnToken(combat) {
+  if (!combat?.turn_order?.length) return null
+  const turnIndex = combat.current_turn_index ?? 0
+  const current = combat.turn_order[turnIndex]
+  const actorId = current?.character_id || current?.id
+  if (!actorId) return null
+  return `${combat.round_number || 1}:${turnIndex}:${actorId}`
+}
+
 /**
  * 多人战斗顶部当前回合标签。
  */

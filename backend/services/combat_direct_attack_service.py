@@ -71,7 +71,7 @@ async def prepare_direct_attack(
             raise CombatAttackRollError(400, "本回合行动已用尽，请使用「结束回合」")
         raise CombatAttackRollError(400, "本回合攻击次数已达上限")
 
-    target = await resolve_attack_target(db, target_id, enemies, allow_auto_enemy=True)
+    target = await resolve_attack_target(db, target_id, enemies, allow_auto_enemy=True, session=session)
     if not target:
         raise CombatAttackRollError(400, "没有可攻击的目标")
 

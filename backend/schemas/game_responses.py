@@ -76,6 +76,9 @@ class SessionListItem(BaseModel):
     player_class: Optional[str] = None
     player_level: Optional[int] = None
     player_race:  Optional[str] = None
+    is_multiplayer: bool = False
+    room_code: Optional[str] = None
+    host_user_id: Optional[str] = None
 
 
 # ─── /game/sessions/{id} 存档详情 ────────────────────────────

@@ -44,10 +44,12 @@ claim_character = room_member_service.claim_character
 kick_member = room_member_service.kick_member
 transfer_host = room_member_service.transfer_host
 list_members = room_member_service.list_members
+require_member = room_member_service.require_member
 update_heartbeat = room_member_service.update_heartbeat
 mark_offline = room_member_service.mark_offline
 
 start_game = room_start_service.start_game
+set_start_ready = room_start_service.set_start_ready
 list_ai_companions = room_ai_companion_service.list_ai_companions
 fill_with_ai_companions = room_ai_companion_service.fill_with_ai_companions
 get_room_info = room_info_service.get_room_info
@@ -206,9 +208,11 @@ __all__ = [
     "kick_member",
     "transfer_host",
     "start_game",
+    "set_start_ready",
     "list_ai_companions",
     "fill_with_ai_companions",
     "list_members",
+    "require_member",
     "get_room_info",
     "ensure_multiplayer_state",
     "set_member_group",

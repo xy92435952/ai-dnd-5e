@@ -59,8 +59,10 @@ describe('Room sections', () => {
         canStart
         slotsAvailable={2}
         claimedCount={1}
+        memberCount={1}
         myMember={{ user_id: 'me', character_id: null }}
         onCreateChar={onCreateChar}
+        onToggleStartReady={vi.fn()}
         onFillAi={onFillAi}
         onStart={onStart}
         onLeave={onLeave}
@@ -76,5 +78,54 @@ describe('Room sections', () => {
     expect(onFillAi).toHaveBeenCalledTimes(1)
     expect(onStart).toHaveBeenCalledTimes(1)
     expect(onLeave).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps start disabled until every room member has claimed a character', () => {
+    render(
+      <RoomActionsPanel
+        isHost
+        busy={false}
+        canStart={false}
+        slotsAvailable={2}
+        claimedCount={1}
+        memberCount={2}
+        myMember={{ user_id: 'me', character_id: 'c1' }}
+        onCreateChar={vi.fn()}
+        onToggleStartReady={vi.fn()}
+        onFillAi={vi.fn()}
+        onStart={vi.fn()}
+        onLeave={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: '✦ 开启冒险 ✦' })).toBeDisabled()
+    expect(screen.getByText('1/2 位玩家已认领，所有真人玩家认领后才能开始')).toBeInTheDocument()
+  })
+
+  it('lets claimed players toggle their start-ready vote', () => {
+    const onToggleStartReady = vi.fn()
+
+    render(
+      <RoomActionsPanel
+        isHost
+        busy={false}
+        canStart={false}
+        slotsAvailable={0}
+        claimedCount={2}
+        memberCount={2}
+        startReadyCount={1}
+        isStartReady={false}
+        myMember={{ user_id: 'me', character_id: 'c1' }}
+        onCreateChar={vi.fn()}
+        onToggleStartReady={onToggleStartReady}
+        onFillAi={vi.fn()}
+        onStart={vi.fn()}
+        onLeave={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '✦ 确认准备 ✦' }))
+    expect(onToggleStartReady).toHaveBeenCalledWith(true)
+    expect(screen.getByText('1/2 位玩家已准备，等待全员确认')).toBeInTheDocument()
   })
 })

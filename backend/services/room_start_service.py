@@ -9,6 +9,52 @@ from services.room_lifecycle_service import is_game_started
 from services.room_member_service import list_members_raw
 
 
+def get_start_ready_user_ids(session: Session, members) -> list[str]:
+    member_ids = {
+        member.get("user_id") if isinstance(member, dict) else member.user_id
+        for member in members
+        if (member.get("character_id") if isinstance(member, dict) else member.character_id)
+    }
+    raw = ((session.game_state or {}).get("multiplayer", {}) or {}).get("start_ready_user_ids") or []
+    return [user_id for user_id in raw if user_id in member_ids]
+
+
+async def set_start_ready(
+    db: AsyncSession,
+    actor_user_id: str,
+    session_id: str,
+    ready: bool,
+) -> dict:
+    """Mark whether a room member is ready for the host to start the adventure."""
+    session = await db.get(Session, session_id)
+    if not session or not session.is_multiplayer:
+        raise HTTPException(404, "房间不存在")
+    if is_game_started(session):
+        raise HTTPException(409, "游戏已经开始")
+
+    members = await list_members_raw(db, session_id)
+    member = next((item for item in members if item.user_id == actor_user_id), None)
+    if not member:
+        raise HTTPException(403, "你不在该房间中")
+    if ready and not member.character_id:
+        raise HTTPException(400, "认领角色后才能确认准备")
+
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
+    ready_ids = get_start_ready_user_ids(session, members)
+    if ready:
+        ready_ids = [*ready_ids, actor_user_id] if actor_user_id not in ready_ids else ready_ids
+    else:
+        ready_ids = [user_id for user_id in ready_ids if user_id != actor_user_id]
+
+    mp["start_ready_user_ids"] = ready_ids
+    state["multiplayer"] = mp
+    session.game_state = state
+    flag_modified(session, "game_state")
+    await db.commit()
+    return {"ready": ready, "start_ready_user_ids": ready_ids}
+
+
 async def start_game(
     db: AsyncSession,
     actor_user_id: str,
@@ -25,8 +71,13 @@ async def start_game(
 
     members = await list_members_raw(db, session_id)
     claimed = [m for m in members if m.character_id]
-    if not claimed:
-        raise HTTPException(400, "至少需要一位玩家认领角色才能开始")
+    unclaimed = [m for m in members if not m.character_id]
+    if unclaimed:
+        raise HTTPException(400, "所有玩家都需要认领角色后才能开始")
+    ready_ids = set(get_start_ready_user_ids(session, members))
+    unready = [m for m in members if m.user_id not in ready_ids]
+    if unready:
+        raise HTTPException(400, "所有玩家都需要确认准备后才能开始")
 
     already_started = bool(session.current_scene)
     if not already_started:

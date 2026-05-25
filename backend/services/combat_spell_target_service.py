@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from models import Character
 from services.combat_grid_service import chebyshev_distance
+from services.session_access_service import assert_character_in_session
 
 
 def collect_spell_target_ids(
@@ -24,16 +25,19 @@ async def collect_spell_target_names(
     db,
     target_ids: list[str],
     enemies: list[dict[str, Any]],
+    session=None,
 ) -> list[str]:
     target_names = []
     for target_id in target_ids:
         enemy = next((item for item in enemies if item["id"] == target_id), None)
         if enemy:
-            target_names.append(enemy["name"])
+            target_names.append(enemy.get("name", "Enemy"))
             continue
 
         target_character = await db.get(Character, target_id)
         if target_character:
+            if session is not None:
+                await assert_character_in_session(target_character, session, db)
             target_names.append(target_character.name)
     return target_names
 

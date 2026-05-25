@@ -14,6 +14,7 @@ from services.graphs.dm_agent_prompts import COMBAT_SYSTEM as COMBAT_SYSTEM_PROM
 from services.graphs.dm_agent_prompts import EXPLORE_SYSTEM as EXPLORE_SYSTEM_PROMPT
 from services.graphs.dm_agent_runtime import build_pre_rolled_dice, read_combat_active
 from services.graphs.dm_agent_state import DMAgentState
+from services.graphs.dm_agent_output_validator import validate_dm_output_adjudication
 from services.graphs.dm_agent_utils import (
     build_input_meta,
     build_memory_context,
@@ -114,6 +115,9 @@ async def parse_validate(state: DMAgentState) -> dict:
     raw = state.get("llm_output", "")
     logger.info("[parse_validate] raw len=%s, starts_with=%r", len(raw), raw[:40])
     data, error, new_messages = normalize_dm_output(raw, state.get("player_action", ""))
+    data, warnings = validate_dm_output_adjudication(data, state)
+    if warnings:
+        logger.warning("[parse_validate] adjudication repaired output: %s", warnings)
     if not state.get("combat_active"):
         data["companion_reactions"] = ""
     return {

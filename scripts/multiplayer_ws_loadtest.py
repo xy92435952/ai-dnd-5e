@@ -2,9 +2,9 @@
 """Run a real local multiplayer WebSocket load smoke test.
 
 This script talks to a running backend (default: http://127.0.0.1:8002) instead
-of using pytest mocks. It creates 50 users across 13 four-player rooms, opens
-50 WebSocket connections, verifies ping/pong and same-room typing isolation,
-then deletes the test sessions it created.
+of using pytest mocks. It creates 50 users across 12 four-player rooms and one
+two-player room, opens 50 WebSocket connections, verifies ping/pong and
+same-room typing isolation, then leaves and dissolves the test rooms it created.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sqlite3
 import statistics
 import time
 import uuid
@@ -24,6 +25,7 @@ import websockets
 
 DEFAULT_ROOM_SIZES = [4] * 12 + [2]
 DEFAULT_DM_STYLES = ["classic", "dark_fantasy", "lighthearted", "epic_crpg", "hardcore"]
+MAX_USERNAME_LENGTH = 30
 SMOKE_MODULE_TEXT = """Codex Load Test Module
 
 Name: The Clockwork Crossing
@@ -96,6 +98,91 @@ def ws_url(base_url: str, session_id: str, token: str) -> str:
     else:
         raise LoadTestError(f"Unsupported base URL: {base_url}")
     return f"{ws_base.rstrip('/')}/ws/sessions/{session_id}?token={token}"
+
+
+def smoke_module_content() -> dict[str, Any]:
+    return {
+        "setting": "The Clockwork Crossing",
+        "tone": "Practical heroic fantasy with clear tactical stakes.",
+        "plot_summary": "The party reaches a compact keep built around an unstable planar gate.",
+        "scenes": [
+            {
+                "title": "Gatehouse Arrival",
+                "description": "Brass sentries scan the road as the party approaches the gatehouse.",
+            },
+            {
+                "title": "Keeper Mara",
+                "description": "A cautious warden can explain why the crossing has become unstable.",
+            },
+            {
+                "title": "Training Constructs",
+                "description": "Two constructs block the crossing if talks fail.",
+            },
+        ],
+        "npcs": [
+            {
+                "name": "Keeper Mara",
+                "role": "Gate warden",
+                "motivation": "Stabilize the crossing without needless bloodshed.",
+            }
+        ],
+        "monsters": [
+            {
+                "name": "Training Construct",
+                "cr": "1/4",
+                "armor_class": 13,
+                "hit_points": 11,
+            }
+        ],
+        "magic_items": [],
+    }
+
+
+def seed_sqlite_module(db_path: str, prefix: str) -> str:
+    module_id = str(uuid.uuid4())
+    name = f"{prefix or 'loadtest'} seeded module"[:255]
+    with sqlite3.connect(db_path) as conn:
+        table = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'modules'"
+        ).fetchone()
+        if table is None:
+            raise LoadTestError(f"SQLite DB is not initialized or has no modules table: {db_path}")
+        conn.execute(
+            """
+            INSERT INTO modules (
+                id, user_id, name, file_path, file_type, parsed_content,
+                level_min, level_max, recommended_party_size, parse_status, parse_error
+            )
+            VALUES (?, NULL, ?, ?, 'txt', ?, 1, 3, 4, 'done', NULL)
+            """,
+            (
+                module_id,
+                name,
+                "seeded-loadtest-module.txt",
+                json.dumps(smoke_module_content(), ensure_ascii=False),
+            ),
+        )
+        conn.commit()
+    return module_id
+
+
+def cleanup_seeded_sqlite_module(db_path: str, module_id: str | None) -> dict[str, Any] | None:
+    if not db_path or not module_id:
+        return None
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.execute("DELETE FROM modules WHERE id = ?", (module_id,))
+            conn.commit()
+        return {"module_id": module_id, "deleted_rows": cursor.rowcount, "ok": True}
+    except Exception as exc:
+        return {"module_id": module_id, "ok": False, "error": str(exc)}
+
+
+def username_for(prefix: str, index: int) -> str:
+    clean_prefix = "".join(ch.lower() if ch.isalnum() else "_" for ch in prefix).strip("_") or "lt"
+    suffix = f"_{uuid.uuid5(uuid.NAMESPACE_DNS, prefix).hex[:6]}_{index:02d}"
+    stem = clean_prefix[: MAX_USERNAME_LENGTH - len(suffix)]
+    return f"{stem}{suffix}"
 
 
 async def timed(label: str, timings: dict[str, list[float]], coro):
@@ -195,7 +282,7 @@ async def register_users(
 
     async def one(index: int) -> UserRecord:
         async with sem:
-            username = f"{prefix}_u{index:02d}"
+            username = username_for(prefix, index)
             await wait_for_auth_slot()
             _, payload = await request_json_with_retry(
                 client,
@@ -583,23 +670,60 @@ async def cleanup_rooms(
 ) -> list[dict[str, Any]]:
     results = []
     for room in rooms:
-        try:
-            response = await client.delete(
-                api_url(base_url, f"/game/sessions/{room.session_id}"),
-                headers={"Authorization": f"Bearer {room.host.token}"},
-            )
-            results.append({
-                "session_id": room.session_id,
-                "status_code": response.status_code,
-                "ok": response.status_code == 200,
-            })
-        except Exception as exc:
-            results.append({
-                "session_id": room.session_id,
-                "status_code": None,
-                "ok": False,
-                "error": str(exc),
-            })
+        room_result: dict[str, Any] = {
+            "session_id": room.session_id,
+            "room_code": room.room_code,
+            "ok": True,
+            "room_dissolved": False,
+            "leaves": [],
+        }
+        leave_order = [user for user in room.users if user.user_id != room.host.user_id]
+        leave_order.append(room.host)
+        final_payload: Any = None
+
+        for user in leave_order:
+            try:
+                response = await client.post(
+                    api_url(base_url, f"/game/rooms/{room.session_id}/leave"),
+                    headers={"Authorization": f"Bearer {user.token}"},
+                )
+                try:
+                    payload = response.json() if response.text else None
+                except ValueError:
+                    payload = response.text
+                final_payload = payload
+                leave_ok = response.status_code == 200
+                room_result["leaves"].append({
+                    "user_id": user.user_id,
+                    "username": user.username,
+                    "status_code": response.status_code,
+                    "ok": leave_ok,
+                    "room_dissolved": (
+                        payload.get("room_dissolved")
+                        if isinstance(payload, dict)
+                        else None
+                    ),
+                })
+                if not leave_ok:
+                    room_result["ok"] = False
+                    break
+            except Exception as exc:
+                room_result["ok"] = False
+                room_result["leaves"].append({
+                    "user_id": user.user_id,
+                    "username": user.username,
+                    "status_code": None,
+                    "ok": False,
+                    "error": str(exc),
+                })
+                break
+
+        room_result["room_dissolved"] = bool(
+            isinstance(final_payload, dict) and final_payload.get("room_dissolved")
+        )
+        if not room_result["room_dissolved"]:
+            room_result["ok"] = False
+        results.append(room_result)
     return results
 
 
@@ -650,11 +774,19 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     users: list[UserRecord] = []
     module_id: str | None = None
     created_module_id: str | None = None
+    seeded_module_id: str | None = None
+    seed_module_cleanup: dict[str, Any] | None = None
     started = time.perf_counter()
 
     async with httpx.AsyncClient(timeout=args.http_timeout) as client:
         try:
             await request_json(client, "GET", api_url(args.base_url, "/health"))
+            module_arg = args.module_id
+            if args.seed_sqlite_module:
+                if args.module_id:
+                    raise LoadTestError("--seed-sqlite-module cannot be combined with --module-id")
+                seeded_module_id = seed_sqlite_module(args.seed_sqlite_module, prefix)
+                module_arg = seeded_module_id
             users = await register_users(
                 client,
                 args.base_url,
@@ -681,7 +813,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 users[0].token,
                 prefix,
                 timings,
-                args.module_id,
+                module_arg,
                 not args.no_auto_module,
                 args.module_timeout,
                 args.module_poll_interval,
@@ -714,6 +846,23 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 created_module_id,
                 users[0].token if users else None,
             )
+            if seeded_module_id and not args.keep_seeded_module:
+                seed_module_cleanup = cleanup_seeded_sqlite_module(args.seed_sqlite_module, seeded_module_id)
+
+    cleanup_ok = all(item.get("ok") for item in cleanup) if cleanup else True
+    module_cleanup_ok = module_cleanup is None or bool(module_cleanup.get("ok"))
+    seed_module_cleanup_ok = seed_module_cleanup is None or bool(seed_module_cleanup.get("ok"))
+    cleanup_errors = []
+    if not cleanup_ok:
+        cleanup_errors.append("room cleanup failed")
+    if not module_cleanup_ok:
+        cleanup_errors.append("module cleanup failed")
+    if not seed_module_cleanup_ok:
+        cleanup_errors.append("seed module cleanup failed")
+    if cleanup_errors:
+        ok = False
+        if error is None:
+            error = "; ".join(cleanup_errors)
 
     elapsed_ms = (time.perf_counter() - started) * 1000
     return {
@@ -723,12 +872,17 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         "prefix": prefix,
         "module_id": module_id,
         "created_module_id": created_module_id,
+        "seeded_module_id": seeded_module_id,
         "users": args.users,
         "rooms": len(rooms),
         "websockets": len(ws_records),
         "room_sizes": [len(room.users) for room in rooms],
+        "cleanup_ok": cleanup_ok,
         "cleanup": cleanup,
+        "module_cleanup_ok": module_cleanup_ok,
         "module_cleanup": module_cleanup,
+        "seed_module_cleanup_ok": seed_module_cleanup_ok,
+        "seed_module_cleanup": seed_module_cleanup,
         "elapsed_ms": round(elapsed_ms, 2),
         "timings": summarize_timings(timings),
     }
@@ -744,6 +898,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--auth-delay", type=float, default=0.5)
     parser.add_argument("--auth-retries", type=int, default=5)
     parser.add_argument("--module-id", default="")
+    parser.add_argument(
+        "--seed-sqlite-module",
+        default="",
+        help="Path to a SQLite backend DB where a ready smoke module should be inserted before the run.",
+    )
+    parser.add_argument("--keep-seeded-module", action="store_true")
     parser.add_argument("--no-auto-module", action="store_true")
     parser.add_argument("--module-timeout", type=float, default=90)
     parser.add_argument("--module-poll-interval", type=float, default=1.0)

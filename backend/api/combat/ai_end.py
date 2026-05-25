@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import CombatState, GameLog
-from api.deps import broadcast_to_session, get_session_or_404
+from api.deps import assert_session_access, broadcast_to_session, get_session_or_404, get_user_id
 from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
 
@@ -15,8 +15,13 @@ router = APIRouter(prefix="/game", tags=["combat"])
 
 
 @router.post("/combat/{session_id}/end", response_model=EndTurnResult)
-async def end_combat(session_id: str, db: AsyncSession = Depends(get_db)):
+async def end_combat(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     session.combat_active = False
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()

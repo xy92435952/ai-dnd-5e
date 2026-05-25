@@ -5,7 +5,6 @@
  * Adventure.jsx 中，避免展示组件知道 API 细节。
  */
 import {
-  canRequestAiTakeover,
   getAiTakeoverStatus,
   getSpeakTurnStatusText,
   getSpeakerOnlineStatus,
@@ -23,7 +22,7 @@ export default function MultiplayerSpeakBar({
   const statusText = getSpeakTurnStatusText({ isMySpeakTurn, currentSpeakerName })
   const speakerStatus = getSpeakerOnlineStatus(room, currentSpeakerUid)
   const takeoverStatus = getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn })
-  const canTakeover = takeoverStatus.canTakeover || canRequestAiTakeover({ room, currentSpeakerUid, isMySpeakTurn })
+  const canTakeover = takeoverStatus.canTakeover
 
   return (
     <div style={{

@@ -269,6 +269,71 @@ describe('Combat render smoke', () => {
     })
   })
 
+  it('lets the active multiplayer owner end their combat turn', async () => {
+    const ownerCombat = {
+      ...combatFixture,
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 16 },
+        { character_id: 'enemy-1', name: '训练假人', is_enemy: true, initiative: 8 },
+      ],
+      entities: {
+        ...combatFixture.entities,
+        'guest-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'guest-char',
+          name: 'Guest Hero',
+        },
+      },
+      entity_positions: {
+        ...combatFixture.entity_positions,
+        'guest-char': { x: 5, y: 5 },
+      },
+      turn_states: {
+        'guest-char': { action_used: false, movement_used: 0, movement_max: 6 },
+      },
+    }
+    const ownerSession = {
+      ...sessionFixture,
+      player: {
+        ...sessionFixture.player,
+        id: 'guest-char',
+        name: 'Guest Hero',
+      },
+    }
+    const room = {
+      is_multiplayer: true,
+      session_id: 'sess-1',
+      room_code: '234567',
+      members: [
+        { user_id: 'guest-user', display_name: 'Guest', character_id: 'guest-char', is_online: true },
+      ],
+    }
+
+    localStorage.setItem('user', JSON.stringify({ user_id: 'guest-user', display_name: 'Guest' }))
+    window.dispatchEvent(new Event('user-changed'))
+    roomsGetMock.mockResolvedValue(room)
+    getCombatMock.mockResolvedValue(ownerCombat)
+    getSessionMock.mockResolvedValue(ownerSession)
+    endTurnMock.mockResolvedValue({ next_turn_index: 1, round_number: 1 })
+
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const endTurnButton = await screen.findByRole('button', { name: /结束回合/ })
+    await waitFor(() => expect(endTurnButton).not.toBeDisabled())
+    fireEvent.click(endTurnButton)
+
+    await waitFor(() => {
+      expect(endTurnMock).toHaveBeenCalledWith('sess-1')
+    })
+  })
+
   it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {
     const hostTurnCombat = {
       ...combatFixture,
@@ -331,7 +396,7 @@ describe('Combat render smoke', () => {
     window.dispatchEvent(new Event('user-changed'))
 
     roomsGetMock.mockResolvedValue(room)
-    getCombatMock.mockResolvedValueOnce(hostTurnCombat)
+    getCombatMock.mockResolvedValue(hostTurnCombat)
     getSessionMock.mockResolvedValue(guestSession)
     getSkillBarMock.mockResolvedValue({
       bar: [

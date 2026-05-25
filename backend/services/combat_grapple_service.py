@@ -8,6 +8,7 @@ from services.combat_narrator import narrate_action
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import _normalize_class
+from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
 
@@ -75,7 +76,7 @@ async def resolve_grapple_shove(
 
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))
-    target = await _resolve_grapple_target(db, enemies=enemies, target_id=target_id)
+    target = await _resolve_grapple_target(db, session=session, enemies=enemies, target_id=target_id)
     if not target:
         raise CombatGrappleError(404, "目标不存在")
 
@@ -160,9 +161,10 @@ async def resolve_grapple_shove(
     )
 
 
-async def _resolve_grapple_target(db, *, enemies: list[dict[str, Any]], target_id: str) -> dict[str, Any] | None:
+async def _resolve_grapple_target(db, *, session, enemies: list[dict[str, Any]], target_id: str) -> dict[str, Any] | None:
     target_character = await db.get(Character, target_id)
     if target_character:
+        await assert_character_in_session(target_character, session, db)
         return {
             "name": target_character.name,
             "derived": target_character.derived or {},

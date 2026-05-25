@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from models import Character
+from services.session_access_service import assert_character_in_session
 
 
 @dataclass(frozen=True)
@@ -18,11 +19,14 @@ async def resolve_attack_target(
     enemies: list[dict[str, Any]],
     *,
     allow_auto_enemy: bool,
+    session=None,
 ) -> AttackTarget | None:
     """Resolve a target id against characters, then enemies, with optional enemy fallback."""
     if target_id:
         target_character = await db.get(Character, target_id)
         if target_character:
+            if session is not None:
+                await assert_character_in_session(target_character, session, db)
             return AttackTarget(
                 id=target_character.id,
                 name=target_character.name,

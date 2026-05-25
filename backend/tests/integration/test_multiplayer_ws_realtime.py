@@ -90,6 +90,16 @@ async def _create_multiplayer_combat_room(client, db_session, sample_module, *, 
         headers=_h(guest["token"]),
         json={"character_id": guest_char.id},
     )
+    await client.post(
+        f"/game/rooms/{sid}/start-ready",
+        headers=_h(host["token"]),
+        json={"ready": True},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/start-ready",
+        headers=_h(guest["token"]),
+        json={"ready": True},
+    )
     started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
     assert started.status_code == 200, started.text
 
@@ -145,6 +155,108 @@ async def _wait_for_event(
                 return event
         await asyncio.sleep(0.01)
     raise AssertionError(f"did not receive {event_type}; sent={ws.sent!r}")
+
+
+async def test_ws_connect_sends_online_snapshot_to_connecting_member(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Connecting clients need their own online snapshot so the UI can clear stale offline state."""
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    host = await _register(client, "ws_self_host", display_name="Host Player")
+    guest = await _register(client, "ws_self_guest", display_name="Guest Player")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS self online room",
+        "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": created["room_code"],
+    })
+
+    host_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, created["session_id"], token=host["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        online = await _wait_for_event(host_ws, "member_online")
+        assert online["user_id"] == host["user_id"]
+        self_member = next(item for item in online["members"] if item["user_id"] == host["user_id"])
+        assert self_member["is_online"] is True
+        snapshot = await _wait_for_event(host_ws, "room_state_updated")
+        assert snapshot["room"]["session_id"] == created["session_id"]
+        assert snapshot["room"]["members"][0]["is_online"] is True
+        assert set(snapshot["room"]["party_groups"][0]["member_user_ids"]) == {
+            host["user_id"],
+            guest["user_id"],
+        }
+    finally:
+        await host_ws.disconnect()
+        await asyncio.gather(host_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_ws_speak_done_rejected_without_initialized_speaker(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """未初始化当前发言者时，任意客户端都不能用 speak_done 偷偷推进发言权。"""
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    host = await _register(client, "ws_no_speaker_host", display_name="Host Player")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS no speaker room",
+        "max_players": 4,
+    })).json()
+
+    host_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, created["session_id"], token=host["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+        before = len(host_ws.sent)
+
+        await host_ws.push({"type": "speak_done"})
+        error = await _wait_for_event(host_ws, "error", start_index=before)
+
+        assert error["code"] == "not_current_speaker"
+        await asyncio.sleep(0.05)
+        assert not any(event.get("type") == "dm_speak_turn" for event in host_ws.sent[before:])
+    finally:
+        await host_ws.disconnect()
+        await asyncio.gather(host_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
 
 
 async def test_ws_disconnect_marks_member_offline_in_realtime_snapshot(
@@ -203,6 +315,7 @@ async def test_ws_disconnect_marks_member_offline_in_realtime_snapshot(
 
 async def test_ws_typing_and_speak_done_drive_table_realtime_events(
     client,
+    db_session,
     engine,
     sample_module,
     monkeypatch,
@@ -230,6 +343,17 @@ async def test_ws_typing_and_speak_done_drive_table_realtime_events(
     await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
         "room_code": created["room_code"],
     })
+    from models import Session
+    from sqlalchemy.orm.attributes import flag_modified
+
+    session = await db_session.get(Session, created["session_id"])
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
+    mp["current_speaker_user_id"] = host["user_id"]
+    state["multiplayer"] = mp
+    session.game_state = state
+    flag_modified(session, "game_state")
+    await db_session.commit()
 
     host_ws = QueueWebSocket()
     guest_ws = QueueWebSocket()
@@ -247,12 +371,33 @@ async def test_ws_typing_and_speak_done_drive_table_realtime_events(
         assert typing["is_typing"] is True
         assert not any(event.get("type") == "typing" for event in host_ws.sent)
 
+        host_before_invalid = len(host_ws.sent)
+        guest_before_invalid = len(guest_ws.sent)
+        await guest_ws.push({"type": "speak_done"})
+        error = await _wait_for_event(guest_ws, "error", start_index=guest_before_invalid)
+        assert error["code"] == "not_current_speaker"
+        await asyncio.sleep(0.05)
+        assert not any(
+            event.get("type") == "dm_speak_turn"
+            for event in host_ws.sent[host_before_invalid:]
+        )
+        assert not any(
+            event.get("type") == "dm_speak_turn"
+            for event in guest_ws.sent[guest_before_invalid:]
+        )
+
+        host_before_valid = len(host_ws.sent)
+        guest_before_valid = len(guest_ws.sent)
         await host_ws.push({"type": "speak_done"})
-        host_turn = await _wait_for_event(host_ws, "dm_speak_turn")
-        guest_turn = await _wait_for_event(guest_ws, "dm_speak_turn")
+        host_turn = await _wait_for_event(host_ws, "dm_speak_turn", start_index=host_before_valid)
+        guest_turn = await _wait_for_event(guest_ws, "dm_speak_turn", start_index=guest_before_valid)
         assert host_turn == guest_turn
         assert host_turn["user_id"] == guest["user_id"]
         assert host_turn["auto"] is False
+        host_room = await _wait_for_event(host_ws, "room_state_updated", start_index=host_before_valid)
+        guest_room = await _wait_for_event(guest_ws, "room_state_updated", start_index=guest_before_valid)
+        assert host_room["room"]["current_speaker_user_id"] == guest["user_id"]
+        assert guest_room["room"]["current_speaker_user_id"] == guest["user_id"]
     finally:
         await host_ws.disconnect()
         await guest_ws.disconnect()

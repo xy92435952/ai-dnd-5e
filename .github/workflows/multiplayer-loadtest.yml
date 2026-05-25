@@ -1,0 +1,78 @@
+name: Multiplayer Load Smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  multiplayer-load-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start backend
+        working-directory: backend
+        env:
+          LLM_API_KEY: ci-dummy
+          JWT_SECRET: ci-test-secret-at-least-32-bytes-long
+          DATABASE_URL: sqlite+aiosqlite:///./ai_trpg.db
+          CHROMADB_PATH: ./chromadb_ci
+          LANGGRAPH_DB_PATH: ./langgraph_memory_ci.db
+          ENV: development
+        run: |
+          python -m uvicorn main:app --host 127.0.0.1 --port 8002 > ../backend-loadtest.log 2>&1 &
+          echo $! > ../backend-loadtest.pid
+
+      - name: Wait for backend
+        run: |
+          python - <<'PY'
+          import time
+          import urllib.request
+
+          deadline = time.time() + 60
+          last_error = None
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8002/health", timeout=2) as response:
+                      if response.status == 200:
+                          raise SystemExit(0)
+              except Exception as exc:
+                  last_error = exc
+                  time.sleep(1)
+          raise SystemExit(f"backend did not become healthy: {last_error}")
+          PY
+
+      - name: Run 50-user multiplayer load smoke
+        run: |
+          python scripts/multiplayer_ws_loadtest.py \
+            --base-url http://127.0.0.1:8002 \
+            --seed-sqlite-module backend/ai_trpg.db \
+            --prefix "ci_load_${{ github.run_id }}"
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f backend-loadtest.pid ]; then
+            kill "$(cat backend-loadtest.pid)" || true
+          fi
+
+      - name: Upload backend log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-loadtest-log
+          path: backend-loadtest.log

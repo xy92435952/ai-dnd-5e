@@ -8,6 +8,7 @@ from services.graphs.dm_agent_output_normalizer import (
     normalize_player_choices,
     strip_code_block,
 )
+from services.graphs.dm_agent_output_validator import validate_dm_output_adjudication
 from services.graphs.dm_agent_rules_context import build_rules_context, extract_current_actor
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "normalize_needs_check",
     "normalize_player_choices",
     "strip_code_block",
+    "validate_dm_output_adjudication",
 ]

@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps import assert_module_access
 from models import Character, Module
 from schemas.character_requests import CreateCharacterRequest
 from services.character_creation_service import (
@@ -27,11 +28,14 @@ async def create_player_character(
     *,
     db: AsyncSession,
     req: CreateCharacterRequest,
+    user_id: str | None = None,
 ) -> dict:
     result = await db.execute(select(Module).where(Module.id == req.module_id))
     module = result.scalar_one_or_none()
     if not module:
         raise HTTPException(404, "模组不存在")
+    if user_id is not None:
+        assert_module_access(module, user_id)
     if module.parse_status != "done":
         raise HTTPException(400, "模组尚未解析完成，请稍后再试")
     if not (1 <= req.level <= 20):
@@ -100,6 +104,7 @@ async def create_player_character(
     class_resources = get_class_resource_defaults(cls_key, req.level, subclass=req.subclass)
 
     character = Character(
+        user_id=user_id,
         is_player=True,
         name=req.name,
         race=req.race,

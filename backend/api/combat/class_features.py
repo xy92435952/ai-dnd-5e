@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Character, CombatState, GameLog
-from api.deps import assert_can_act, get_optional_user_id, get_session_or_404
+from api.deps import assert_can_act, assert_optional_session_access, get_optional_user_id, get_session_or_404
 from api.combat._shared import _broadcast_combat, _get_ts, svc
 from api.combat.schemas import ClassFeatureRequest
 from services.combat_class_feature_service import (
@@ -39,6 +39,7 @@ async def use_class_feature(
     - cunning_action_hide: Rogue 2+, 附赠行动隐匿
     """
     session = await get_session_or_404(session_id, db)
+    await assert_optional_session_access(session, user_id, db)
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 

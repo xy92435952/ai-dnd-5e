@@ -21,7 +21,9 @@ async def resolve_multiplayer_player(db: AsyncSession, session, user_id: str):
 def assert_current_speaker(session, user_id: str) -> None:
     multiplayer_state = (session.game_state or {}).get("multiplayer", {})
     speaker = multiplayer_state.get("current_speaker_user_id")
-    if speaker and speaker != user_id:
+    if not speaker:
+        raise HTTPException(409, "当前没有发言者，请刷新房间状态")
+    if speaker != user_id:
         raise HTTPException(403, "现在不是你的发言时机，请等待 / 发言")
 
 

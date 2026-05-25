@@ -3,13 +3,16 @@ api.combat.ai_turn — NPC 自动回合 + 结束战斗
 
 从原 combat.py (单体 5368 行) 按功能域拆出，逻辑未改动。
 """
-from fastapi import APIRouter, HTTPException, Depends
+import asyncio
+
+from fastapi import APIRouter, Body, HTTPException, Depends
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database import get_db
 from models import CombatState, Module
-from api.deps import get_session_or_404
+from api.deps import assert_session_access, get_session_or_404, get_user_id
 
 from api.combat._shared import (
     _broadcast_combat,
@@ -25,6 +28,27 @@ from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
+_AI_TURN_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+class AITurnRequest(BaseModel):
+    expected_turn_token: str | None = None
+
+
+def _ai_turn_token(combat: CombatState, current: dict | None = None) -> str:
+    turn_index = combat.current_turn_index or 0
+    if current is None:
+        current = (combat.turn_order or [])[turn_index]
+    actor_id = current.get("character_id") or current.get("id") or ""
+    return f"{combat.round_number or 1}:{turn_index}:{actor_id}"
+
+
+def _get_ai_turn_lock(session_id: str) -> asyncio.Lock:
+    lock = _AI_TURN_LOCKS.get(session_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _AI_TURN_LOCKS[session_id] = lock
+    return lock
 
 
 async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) -> dict | None:
@@ -53,13 +77,35 @@ async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) ->
 
 
 @router.post("/combat/{session_id}/ai-turn", response_model=EndTurnResult)
-async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
+async def ai_combat_turn(
+    session_id: str,
+    req: AITurnRequest = Body(default_factory=AITurnRequest),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """处理当前 AI 实体的回合（队友或敌人）"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
+
+    async with _get_ai_turn_lock(session_id):
+        return await _ai_combat_turn_locked(session_id, req, db, session)
+
+
+async def _ai_combat_turn_locked(
+    session_id: str,
+    req: AITurnRequest,
+    db: AsyncSession,
+    session,
+):
+    await db.refresh(session)
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
-    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat_result = await db.execute(
+        select(CombatState)
+        .where(CombatState.session_id == session_id)
+        .order_by(CombatState.created_at.desc())
+    )
     combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
@@ -68,7 +114,12 @@ async def ai_combat_turn(session_id: str, db: AsyncSession = Depends(get_db)):
     if not turn_order:
         raise HTTPException(400, "先攻顺序为空")
 
-    current    = turn_order[combat.current_turn_index]
+    turn_index = combat.current_turn_index or 0
+    current    = turn_order[turn_index]
+    expected_token = req.expected_turn_token
+    current_token = _ai_turn_token(combat, current)
+    if expected_token and expected_token != current_token:
+        raise HTTPException(409, "AI turn token is stale; refresh combat state")
     if current.get("is_player"):
         raise HTTPException(400, "当前是玩家回合，请使用 /action 接口")
 

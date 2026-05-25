@@ -95,7 +95,7 @@ export interface paths {
         put?: never;
         /**
          * Generate Party
-         * @description 生成AI队友（调用 Dify WF2），自动应用种族加值和熟练
+         * @description 生成 AI 队友，自动应用种族加值和熟练。
          */
         post: operations["generate_party_characters_generate_party_post"];
         delete?: never;
@@ -272,8 +272,7 @@ export interface paths {
         put?: never;
         /**
          * Level Up
-         * @description 角色升级：递增等级，重算衍生属性，增加HP，更新法术位。
-         *     ASI 等级（4,8,12,16,19; Fighter额外6,14; Rogue额外10）可增加属性或选择专长。
+         * @description 角色升级：递增等级，重算衍生属性、HP、法术位和 ASI/专长。
          */
         post: operations["level_up_characters__character_id__level_up_post"];
         delete?: never;
@@ -1094,6 +1093,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/rooms/{session_id}/start-ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Start Ready */
+        post: operations["set_start_ready_game_rooms__session_id__start_ready_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/rooms/{session_id}/transfer": {
         parameters: {
             query?: never;
@@ -1388,6 +1404,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AITurnRequest */
+        AITurnRequest: {
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
+        };
         /** AbilityScores */
         AbilityScores: {
             /** Cha */
@@ -2015,6 +2036,8 @@ export interface components {
         };
         /** CreateRoomRequest */
         CreateRoomRequest: {
+            /** Dm Style */
+            dm_style?: string | null;
             /**
              * Max Players
              * @default 4
@@ -2038,6 +2061,8 @@ export interface components {
         CreateSessionRequest: {
             /** Companion Ids */
             companion_ids: string[];
+            /** Dm Style */
+            dm_style?: string | null;
             /** Module Id */
             module_id: string;
             /** Player Character Id */
@@ -2681,6 +2706,8 @@ export interface components {
         };
         /** ReactionRequest */
         ReactionRequest: {
+            /** Character Id */
+            character_id?: string | null;
             /** Reaction Type */
             reaction_type: string;
             /** Target Id */
@@ -2723,6 +2750,10 @@ export interface components {
             created_at?: string | null;
             /** Current Speaker User Id */
             current_speaker_user_id?: string | null;
+            /** Dm Style */
+            dm_style?: {
+                [key: string]: unknown;
+            } | null;
             /** Game Started */
             game_started: boolean;
             /**
@@ -2770,6 +2801,11 @@ export interface components {
              * @default 0
              */
             speak_round: number;
+            /**
+             * Start Ready User Ids
+             * @default []
+             */
+            start_ready_user_ids: string[];
         };
         /** SellItemRequest */
         SellItemRequest: {
@@ -2842,8 +2878,15 @@ export interface components {
         SessionListItem: {
             /** Combat Active */
             combat_active: boolean;
+            /** Host User Id */
+            host_user_id?: string | null;
             /** Id */
             id: string;
+            /**
+             * Is Multiplayer
+             * @default false
+             */
+            is_multiplayer: boolean;
             /** Module Name */
             module_name: string;
             /** Player Class */
@@ -2854,6 +2897,8 @@ export interface components {
             player_name?: string | null;
             /** Player Race */
             player_race?: string | null;
+            /** Room Code */
+            room_code?: string | null;
             /** Save Name */
             save_name?: string | null;
             /** Updated At */
@@ -2882,6 +2927,14 @@ export interface components {
             group_name?: string | null;
             /** Location */
             location?: string | null;
+        };
+        /** SetStartReadyRequest */
+        SetStartReadyRequest: {
+            /**
+             * Ready
+             * @default true
+             */
+            ready: boolean;
         };
         /**
          * SkillBarItem
@@ -3822,7 +3875,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AITurnRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4917,6 +4974,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_start_ready_game_rooms__session_id__start_ready_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetStartReadyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoomInfo"];
                 };
             };
             /** @description Validation Error */

@@ -16,7 +16,7 @@ from database import get_db
 from models import Character, Session, GameLog, CombatState, Module
 from api.deps import (
     get_session_or_404, entity_snapshot, serialize_combat,
-    get_user_id, assert_can_act, broadcast_to_session, current_turn_user_id,
+    get_user_id, assert_can_act, assert_character_in_session, assert_session_access, broadcast_to_session, current_turn_user_id,
 )
 from services.combat_service import CombatService
 from services.spell_service import spell_service
@@ -50,9 +50,11 @@ async def add_condition(
     session_id: str,
     req: ConditionRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """向战斗实体添加状态条件（角色或敌人）"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     state   = session.game_state or {}
 
     rounds_str = f"（{req.rounds}回合）" if req.rounds else "（永久）"
@@ -75,6 +77,7 @@ async def add_condition(
         char = await db.get(Character, req.entity_id)
         if not char:
             raise HTTPException(404, "角色不存在")
+        await assert_character_in_session(char, session, db)
         conditions = list(char.conditions or [])
         if req.condition not in conditions:
             conditions.append(req.condition)
@@ -108,9 +111,11 @@ async def remove_condition(
     session_id: str,
     req: ConditionRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """从战斗实体移除状态条件"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     state   = session.game_state or {}
 
     if req.is_enemy:
@@ -126,6 +131,7 @@ async def remove_condition(
         char = await db.get(Character, req.entity_id)
         if not char:
             raise HTTPException(404, "角色不存在")
+        await assert_character_in_session(char, session, db)
         conditions = [c for c in (char.conditions or []) if c != req.condition]
         char.conditions = conditions
 

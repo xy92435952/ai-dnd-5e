@@ -9,6 +9,7 @@ from database import get_db
 from models import Character, CombatState, GameLog
 from api.deps import (
     assert_can_act,
+    assert_character_in_session,
     get_session_or_404,
     get_user_id,
 )
@@ -40,6 +41,8 @@ async def cast_spell(
     caster = await db.get(Character, req.caster_id)
     if not caster:
         raise HTTPException(404, "施法者不存在")
+
+    await assert_character_in_session(caster, session, db)
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat_obj = combat_result.scalars().first()

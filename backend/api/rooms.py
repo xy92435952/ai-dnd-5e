@@ -15,7 +15,7 @@ from schemas.room_schemas import (
     CreateRoomRequest, JoinRoomRequest, ClaimCharacterRequest,
     KickMemberRequest, TransferHostRequest,
     SetGroupRequest, SubmitGroupActionRequest, ClearGroupActionsRequest,
-    FocusGroupRequest, SetGroupReadinessRequest,
+    FocusGroupRequest, SetGroupReadinessRequest, SetStartReadyRequest,
     CreateRoomResponse, JoinRoomResponse, RoomInfo, MemberInfo,
 )
 from schemas.ws_events import (
@@ -105,6 +105,24 @@ async def start_game(
         current_speaker_user_id=session.game_state.get("multiplayer", {}).get("current_speaker_user_id"),
     ))
     return {"started": True, "session_id": session.id}
+
+
+@router.post("/{session_id}/start-ready", response_model=RoomInfo)
+async def set_start_ready(
+    session_id: str,
+    req: SetStartReadyRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    await room_service.set_start_ready(
+        db,
+        actor_user_id=user_id,
+        session_id=session_id,
+        ready=req.ready,
+    )
+    room = await room_service.get_room_info(db, session_id)
+    await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    return RoomInfo(**room)
 
 
 @router.post("/{session_id}/fill-ai")
@@ -283,6 +301,7 @@ async def get_room(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
+    await room_service.require_member(db, session_id, user_id)
     info = await room_service.get_room_info(db, session_id)
     return RoomInfo(**info)
 
@@ -293,5 +312,6 @@ async def list_members(
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
+    await room_service.require_member(db, session_id, user_id)
     members = await room_service.list_members(db, session_id)
     return [MemberInfo(**m) for m in members]

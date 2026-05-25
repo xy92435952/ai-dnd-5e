@@ -113,6 +113,15 @@ export default function Room() {
     finally { setBusy(false) }
   }
 
+  const onToggleStartReady = async (ready) => {
+    setBusy(true); setError('')
+    try {
+      const updated = await roomsApi.setStartReady(sessionId, ready)
+      setRoom(normalizeRealtimeRoom(updated))
+    } catch (e) { setError(e.message) }
+    finally { setBusy(false) }
+  }
+
   const onFocusGroup = async (groupId) => {
     if (!groupId) return
     setBusy(true); setError('')
@@ -133,11 +142,17 @@ export default function Room() {
     )
   }
 
-  const canStart = isHost && (room.members || []).some(m => m.character_id)
   const aiCompanions = room.ai_companions || []
   const claimedCount = (room.members || []).filter(m => m.character_id).length
   const memberCount = (room.members || []).length
-  const slotsAvailable = Math.max(0, (room.max_players || 4) - claimedCount - aiCompanions.length)
+  const startReadyUserIds = room.start_ready_user_ids || []
+  const startReadySet = new Set(startReadyUserIds)
+  const startReadyCount = (room.members || []).filter(m => startReadySet.has(m.user_id)).length
+  const isStartReady = !!(myUserId && startReadySet.has(myUserId))
+  const allMembersClaimed = memberCount > 0 && claimedCount === memberCount
+  const allMembersStartReady = memberCount > 0 && startReadyCount === memberCount
+  const canStart = isHost && allMembersClaimed && allMembersStartReady
+  const slotsAvailable = Math.max(0, (room.max_players || 4) - memberCount - aiCompanions.length)
 
   return (
     <div style={{ minHeight: '100vh', padding: 28, maxWidth: 900, margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -212,8 +227,12 @@ export default function Room() {
         canStart={canStart}
         slotsAvailable={slotsAvailable}
         claimedCount={claimedCount}
+        memberCount={memberCount}
+        startReadyCount={startReadyCount}
+        isStartReady={isStartReady}
         myMember={myMember}
         onCreateChar={onCreateChar}
+        onToggleStartReady={onToggleStartReady}
         onFillAi={onFillAi}
         onStart={onStart}
         onLeave={onLeave}

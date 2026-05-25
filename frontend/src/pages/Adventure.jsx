@@ -17,7 +17,7 @@
  */
 import { useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { gameApi } from '../api/client'
+import { gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
 import { useWebSocket } from '../hooks/useWebSocket'
 import DiceRollerOverlay from '../components/DiceRollerOverlay'
@@ -72,7 +72,7 @@ export default function Adventure() {
   const inputRef = useRef(null)
 
   const { userId: myUserId } = useUser()
-  const { room, setRoom } = useAdventureRoom(sessionId)
+  const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId)
 
   // ════════════════════════════════════════════════════════
   // hooks 顺序约定（必须严格按依赖链声明，否则 useCallback / useEffect
@@ -166,6 +166,7 @@ export default function Adventure() {
     wsConnected,
     session,
     loadSession,
+    refreshRoom,
   })
 
   // 8. UI 副作用 effect
@@ -253,10 +254,25 @@ export default function Adventure() {
         currentSpeakerName={currentSpeakerName}
         onSkipTurn={() => wsSend({ type: 'speak_done' })}
         onAiTakeover={async () => {
+          setError('')
+          setIsLoading(true)
           try {
-            await gameApi.aiTakeover(sessionId)
+            const resp = await gameApi.aiTakeover(sessionId)
+            if (!wsConnected && resp?.narrative) {
+              const queue = buildDialogueQueue(resp.narrative, resp.companion_reactions, companions)
+              if (queue.length > 0) enterDialogueStage(queue)
+              await loadSession()
+            }
+            try {
+              const updated = await roomsApi.get(sessionId)
+              setRoom(updated?.is_multiplayer ? { ...updated, _currentSpeaker: updated.current_speaker_user_id } : updated)
+            } catch {
+              // Room refresh is best-effort; WS or the next session load can repair it.
+            }
           } catch (e) {
             setError(e.message || '无法触发 AI 代演')
+          } finally {
+            setIsLoading(false)
           }
         }}
       />

@@ -8,8 +8,11 @@ import {
   buildInitiativeChips,
   buildThreatCells,
   canActInCombatTurn,
+  canDriveAiCombatTurns,
   getAoePreviewCenterKey,
+  getAiCombatTurnDriverUserId,
   getCombatPredictionActionKey,
+  getCombatTurnToken,
   getCameraWindow,
   getCombatSkillBar,
   getCurrentTurnLabel,
@@ -237,6 +240,44 @@ describe('combat grid helpers', () => {
     expect(getCurrentTurnLabel({ room, combat })).toBe('当前回合：Alice（AliceHero）')
     expect(getCurrentTurnLabel({ room, combat: { ...combat, turn_order: [{ character_id: 'bot', name: 'Enemy' }] } }))
       .toBe('当前回合：Enemy（AI 托管）')
+  })
+
+  it('多人 AI 回合只由一个确定客户端自动推进', () => {
+    const room = {
+      host_user_id: 'host',
+      members: [
+        { user_id: 'host', is_online: true },
+        { user_id: 'guest', is_online: true },
+      ],
+    }
+
+    expect(getAiCombatTurnDriverUserId(room)).toBe('host')
+    expect(canDriveAiCombatTurns({ room, myUserId: 'host' })).toBe(true)
+    expect(canDriveAiCombatTurns({ room, myUserId: 'guest' })).toBe(false)
+    expect(canDriveAiCombatTurns({
+      room: {
+        ...room,
+        members: [
+          { user_id: 'host', is_online: false },
+          { user_id: 'guest', is_online: true },
+        ],
+      },
+      myUserId: 'guest',
+    })).toBe(true)
+    expect(canDriveAiCombatTurns({ room: null, myUserId: null })).toBe(true)
+  })
+
+  it('getCombatTurnToken 以回合数、先攻索引和当前施动者生成幂等牌', () => {
+    expect(getCombatTurnToken({
+      round_number: 2,
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'hero-1' },
+        { character_id: 'enemy-1' },
+      ],
+    })).toBe('2:1:enemy-1')
+    expect(getCombatTurnToken({ turn_order: [] })).toBeNull()
+    expect(getCombatTurnToken(null)).toBeNull()
   })
 
   it('applyPlayerHpUpdate 只更新指定玩家 HP', () => {

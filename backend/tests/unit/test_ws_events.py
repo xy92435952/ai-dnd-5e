@@ -15,7 +15,7 @@ from schemas.ws_events import (
     WSEvent, WS_EVENT_TYPES,
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
-    MemberOnline, MemberOffline, Typing,
+    MemberOnline, MemberOffline, Typing, WSError,
     DMThinkingStart, DMResponded, DMSpeakTurn,
     RoomStateUpdated, CombatUpdate, TurnChanged, EntityMoved,
 )
@@ -24,7 +24,7 @@ from schemas.ws_events import (
 ALL_CLASSES = [
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
-    MemberOnline, MemberOffline, Typing,
+    MemberOnline, MemberOffline, Typing, WSError,
     DMThinkingStart, DMResponded, DMSpeakTurn,
     RoomStateUpdated, CombatUpdate, TurnChanged, EntityMoved,
 ]
@@ -103,6 +103,13 @@ class TestSampleEvents:
         """auto 默认 False（玩家手动推进）；自动推进时调用方显式传 True。"""
         e = DMSpeakTurn(user_id="u1")
         assert e.auto is False
+
+    def test_ws_error_shape(self):
+        e = WSError(code="not_current_speaker", message="Only current speaker")
+        d = e.model_dump(mode="json")
+        assert d["type"] == "error"
+        assert d["code"] == "not_current_speaker"
+        assert d["message"] == "Only current speaker"
 
     def test_room_state_updated_carries_full_room_snapshot(self):
         """房间协作状态变化时可广播完整 room 快照，前端直接合并。"""

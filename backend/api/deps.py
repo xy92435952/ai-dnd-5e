@@ -7,7 +7,8 @@ from fastapi import HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import Session, Character, GameLog, CombatState
+from models import Session, Character, GameLog, CombatState, Module, SessionMember
+from services.session_access_service import assert_character_in_session
 
 
 # ── JWT 鉴权依赖 ─────────────────────────────────────
@@ -43,6 +44,77 @@ async def get_session_or_404(session_id: str, db: AsyncSession) -> Session:
     if not session:
         raise HTTPException(404, "会话不存在")
     return session
+
+
+async def assert_session_access(
+    session: Session,
+    user_id: str,
+    db: AsyncSession,
+) -> Optional[SessionMember]:
+    """Ensure the current user may read or mutate this game session.
+
+    Single-player sessions are owned by ``Session.user_id``. Multiplayer
+    sessions are readable only by room members, so unrelated logged-in users
+    cannot restore another room by guessing a session id.
+    """
+    if session.is_multiplayer:
+        result = await db.execute(
+            select(SessionMember).where(
+                SessionMember.session_id == session.id,
+                SessionMember.user_id == user_id,
+            )
+        )
+        member = result.scalar_one_or_none()
+        if not member:
+            raise HTTPException(403, "你不在该房间中")
+        return member
+
+    if session.user_id and session.user_id != user_id:
+        raise HTTPException(403, "无权访问该存档")
+    return None
+
+
+async def assert_optional_session_access(
+    session: Session,
+    user_id: Optional[str],
+    db: AsyncSession,
+) -> Optional[SessionMember]:
+    """Permit legacy unauthenticated single-player calls, but guard multiplayer rooms."""
+    if user_id is None:
+        if session.is_multiplayer:
+            raise HTTPException(401, "Login required for multiplayer session")
+        return None
+    return await assert_session_access(session, user_id, db)
+
+
+async def assert_character_access(
+    character: Character,
+    user_id: str,
+    db: AsyncSession,
+    *,
+    allow_room_ai: bool = True,
+) -> None:
+    """Ensure the current user may inspect or mutate a character."""
+    if character.user_id:
+        if character.user_id != user_id:
+            raise HTTPException(403, "这不是你的角色")
+        return
+
+    if character.session_id:
+        session = await get_session_or_404(character.session_id, db)
+        if session.is_multiplayer and allow_room_ai:
+            await assert_session_access(session, user_id, db)
+            return
+        if not session.is_multiplayer and session.user_id == user_id:
+            return
+
+    raise HTTPException(403, "无权访问该角色")
+
+
+def assert_module_access(module: Module, user_id: str) -> None:
+    """Ensure the current user may use a parsed module."""
+    if module.user_id and module.user_id != user_id:
+        raise HTTPException(403, "No access to this module")
 
 
 def char_brief(char: Character) -> dict:
@@ -145,6 +217,8 @@ async def assert_can_act(
       - 真人玩家角色：必须是 character.user_id == user_id
       - 战斗中且 require_current_turn=True：还要求是当前回合实体
     """
+    await assert_session_access(session, user_id, db)
+
     if not session.is_multiplayer:
         return
 
@@ -152,16 +226,11 @@ async def assert_can_act(
     if char is None:
         return  # 让上层端点自己处理 404
 
-    # AI 托管的角色（未被认领或已降级）→ 房间任意成员可触发
-    if not char.is_player or char.user_id is None:
-        return
-
-    if char.user_id != user_id:
-        raise HTTPException(403, "这不是你的角色")
-
     if require_current_turn and session.combat_active:
         result = await db.execute(
-            select(CombatState).where(CombatState.session_id == session.id)
+            select(CombatState)
+            .where(CombatState.session_id == session.id)
+            .order_by(CombatState.created_at.desc())
         )
         cs = result.scalars().first()
         if cs and cs.turn_order:
@@ -172,6 +241,13 @@ async def assert_can_act(
                     raise HTTPException(403, "现在不是你的回合")
             except (IndexError, AttributeError):
                 pass
+
+    # AI 托管的角色（未被认领或已降级）→ 房间任意成员可在该角色回合触发
+    if not char.is_player or char.user_id is None:
+        return
+
+    if char.user_id != user_id:
+        raise HTTPException(403, "这不是你的角色")
 
 
 async def broadcast_to_session(session: Session, event) -> None:

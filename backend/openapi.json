@@ -1,6 +1,23 @@
 {
   "components": {
     "schemas": {
+      "AITurnRequest": {
+        "properties": {
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          }
+        },
+        "title": "AITurnRequest",
+        "type": "object"
+      },
       "AbilityScores": {
         "properties": {
           "cha": {
@@ -1348,6 +1365,17 @@
       },
       "CreateRoomRequest": {
         "properties": {
+          "dm_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dm Style"
+          },
           "max_players": {
             "default": 4,
             "maximum": 4.0,
@@ -1408,6 +1436,17 @@
             },
             "title": "Companion Ids",
             "type": "array"
+          },
+          "dm_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dm Style"
           },
           "module_id": {
             "title": "Module Id",
@@ -2748,6 +2787,17 @@
       },
       "ReactionRequest": {
         "properties": {
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
           "reaction_type": {
             "title": "Reaction Type",
             "type": "string"
@@ -2859,6 +2909,18 @@
             ],
             "title": "Current Speaker User Id"
           },
+          "dm_style": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dm Style"
+          },
           "game_started": {
             "title": "Game Started",
             "type": "boolean"
@@ -2945,6 +3007,14 @@
             "default": 0,
             "title": "Speak Round",
             "type": "integer"
+          },
+          "start_ready_user_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Start Ready User Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -3108,9 +3178,25 @@
             "title": "Combat Active",
             "type": "boolean"
           },
+          "host_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host User Id"
+          },
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "is_multiplayer": {
+            "default": false,
+            "title": "Is Multiplayer",
+            "type": "boolean"
           },
           "module_name": {
             "title": "Module Name",
@@ -3159,6 +3245,17 @@
               }
             ],
             "title": "Player Race"
+          },
+          "room_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Code"
           },
           "save_name": {
             "anyOf": [
@@ -3248,6 +3345,17 @@
           }
         },
         "title": "SetGroupRequest",
+        "type": "object"
+      },
+      "SetStartReadyRequest": {
+        "properties": {
+          "ready": {
+            "default": true,
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "title": "SetStartReadyRequest",
         "type": "object"
       },
       "SkillBarItem": {
@@ -3890,7 +3998,7 @@
     },
     "/characters/generate-party": {
       "post": {
-        "description": "生成AI队友（调用 Dify WF2），自动应用种族加值和熟练",
+        "description": "生成 AI 队友，自动应用种族加值和熟练。",
         "operationId": "generate_party_characters_generate_party_post",
         "requestBody": {
           "content": {
@@ -4277,7 +4385,7 @@
     },
     "/characters/{character_id}/level-up": {
       "post": {
-        "description": "角色升级：递增等级，重算衍生属性，增加HP，更新法术位。\nASI 等级（4,8,12,16,19; Fighter额外6,14; Rogue额外10）可增加属性或选择专长。",
+        "description": "角色升级：递增等级，重算衍生属性、HP、法术位和 ASI/专长。",
         "operationId": "level_up_characters__character_id__level_up_post",
         "parameters": [
           {
@@ -4738,6 +4846,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AITurnRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -6349,6 +6466,58 @@
           }
         },
         "summary": "Start Game",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/game/rooms/{session_id}/start-ready": {
+      "post": {
+        "operationId": "set_start_ready_game_rooms__session_id__start_ready_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetStartReadyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Start Ready",
         "tags": [
           "rooms"
         ]

@@ -41,6 +41,7 @@ describe('useCombatAiTurns', () => {
   it('applies an ai result, waits, then stops when the next fresh combat is a player turn', async () => {
     getCombatMock
       .mockResolvedValueOnce({
+        round_number: 1,
         current_turn_index: 0,
         turn_order: [{ character_id: 'enemy-1', is_player: false }],
       })
@@ -77,7 +78,7 @@ describe('useCombatAiTurns', () => {
       await promise
     })
 
-    expect(aiTurnMock).toHaveBeenCalledWith('sess-1')
+    expect(aiTurnMock).toHaveBeenCalledWith('sess-1', '1:0:enemy-1')
     expect(deps.addLog).toHaveBeenCalledWith({
       role: 'enemy',
       content: '哥布林挥刀',
@@ -107,6 +108,7 @@ describe('useCombatAiTurns', () => {
 
   it('pauses the ai loop when a reaction prompt is returned', async () => {
     getCombatMock.mockResolvedValue({
+      round_number: 1,
       current_turn_index: 0,
       turn_order: [{ character_id: 'enemy-1', is_player: false }],
     })
@@ -130,6 +132,25 @@ describe('useCombatAiTurns', () => {
     })
 
     expect(deps.setReactionPrompt).toHaveBeenCalledWith({ context: '可用反应' })
+    expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
+  it('quietly stops when the backend rejects a stale ai turn token', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    aiTurnMock.mockRejectedValue(new Error('AI turn token is stale; refresh combat state'))
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(aiTurnMock).toHaveBeenCalledWith('sess-1', '1:0:enemy-1')
+    expect(deps.addLog).not.toHaveBeenCalled()
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 })

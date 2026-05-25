@@ -99,6 +99,12 @@ class Typing(_BaseEvent):
     is_typing: bool
 
 
+class WSError(_BaseEvent):
+    type: Literal["error"] = "error"
+    code: str
+    message: str
+
+
 # ─── DM 流程 ─────────────────────────────────────────────────
 
 class DMThinkingStart(_BaseEvent):
@@ -171,7 +177,7 @@ class EntityMoved(_BaseEvent):
 WSEvent = Union[
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
-    MemberOnline, MemberOffline, Typing,
+    MemberOnline, MemberOffline, Typing, WSError,
     DMThinkingStart, DMResponded, DMSpeakTurn, RoomStateUpdated,
     CombatUpdate, TurnChanged, EntityMoved,
 ]
@@ -180,7 +186,7 @@ WSEvent = Union[
 WS_EVENT_TYPES = frozenset({
     "member_joined", "member_left", "room_dissolved", "game_started",
     "ai_companions_filled", "member_kicked", "host_transferred", "character_claimed",
-    "member_online", "member_offline", "typing",
+    "member_online", "member_offline", "typing", "error",
     "dm_thinking_start", "dm_responded", "dm_speak_turn", "room_state_updated",
     "combat_update", "turn_changed", "entity_moved",
 })
@@ -192,7 +198,7 @@ __all__ = [
     "MemberJoined", "MemberLeft", "RoomDissolved", "GameStarted",
     "AiCompanionsFilled", "MemberKicked", "HostTransferred", "CharacterClaimed",
     # 在线
-    "MemberOnline", "MemberOffline", "Typing",
+    "MemberOnline", "MemberOffline", "Typing", "WSError",
     # DM
     "DMThinkingStart", "DMResponded", "DMSpeakTurn", "RoomStateUpdated",
     # 战斗

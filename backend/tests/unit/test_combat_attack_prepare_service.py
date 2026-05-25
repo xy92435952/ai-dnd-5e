@@ -65,6 +65,7 @@ async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_at
     prepared = await prepare_attack_roll(
         FakeDb(),
         combat=combat,
+        session=None,
         player=FakePlayer(),
         player_id="char-1",
         target_id="goblin-1",
@@ -106,6 +107,7 @@ async def test_prepare_attack_roll_rejects_melee_target_out_of_range():
         await prepare_attack_roll(
             FakeDb(),
             combat=combat,
+            session=None,
             player=FakePlayer(),
             player_id="char-1",
             target_id="goblin-1",
@@ -125,3 +127,45 @@ async def test_prepare_attack_roll_rejects_melee_target_out_of_range():
 
     assert exc.value.status_code == 400
     assert "目标不在近战范围内" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_prepare_ranged_attack_against_distant_prone_target_has_disadvantage():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["goblin-1"] = {"x": 4, "y": 0}
+    captured = {}
+
+    def capture_roll_attack(**kwargs):
+        captured.update(kwargs)
+        return fixed_roll_attack(**kwargs)
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="ranged",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": ["prone"],
+        }],
+        roll_attack_func=capture_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.advantage is False
+    assert prepared.disadvantage is True
+    assert prepared.pending_attack["advantage"] is False
+    assert prepared.pending_attack["disadvantage"] is True
+    assert captured["advantage"] is False
+    assert captured["disadvantage"] is True

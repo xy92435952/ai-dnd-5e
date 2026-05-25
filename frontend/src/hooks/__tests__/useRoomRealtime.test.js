@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 
 const { roomsGetMock } = vi.hoisted(() => ({
   roomsGetMock: vi.fn(),
@@ -103,5 +103,24 @@ describe('useRoomRealtime', () => {
     await waitFor(() => expect(roomsGetMock).toHaveBeenCalledWith('solo-1'))
     expect(result.current.room).toBeNull()
     await waitFor(() => expect(result.current.error).toBe('not found'))
+  })
+
+  it('can preserve the previous room snapshot on transient refresh errors', async () => {
+    roomsGetMock.mockResolvedValueOnce({
+      is_multiplayer: true,
+      current_speaker_user_id: 'u1',
+      members: [{ user_id: 'u1', character_id: 'c1' }],
+    })
+
+    const { result } = renderHook(() => useRoomRealtime('sess-1', 'u1'))
+
+    await waitFor(() => expect(result.current.room?._currentSpeaker).toBe('u1'))
+    roomsGetMock.mockRejectedValueOnce(new Error('network blip'))
+    await act(async () => {
+      await result.current.refreshRoom({ preserveOnError: true })
+    })
+
+    expect(result.current.room?._currentSpeaker).toBe('u1')
+    await waitFor(() => expect(result.current.error).toBe('network blip'))
   })
 })

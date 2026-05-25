@@ -4,18 +4,42 @@ export default function RoomActionsPanel({
   canStart,
   slotsAvailable,
   claimedCount,
+  memberCount = claimedCount,
+  startReadyCount = 0,
+  isStartReady = false,
   myMember,
   onCreateChar,
+  onToggleStartReady,
   onFillAi,
   onStart,
   onLeave,
 }) {
+  const allMembersClaimed = memberCount > 0 && claimedCount === memberCount
+  const startHint = claimedCount <= 0
+    ? '至少需要一位玩家创建并认领角色'
+    : !allMembersClaimed
+      ? `${claimedCount}/${memberCount} 位玩家已认领，所有真人玩家认领后才能开始`
+      : `${startReadyCount}/${memberCount} 位玩家已准备，等待全员确认`
+
   return (
     <>
       {myMember && !myMember.character_id && (
         <div style={{ marginTop: 22, textAlign: 'center' }}>
           <button onClick={onCreateChar} disabled={busy} className="btn-gold" style={{ padding: '12px 32px', fontSize: 14 }}>
             ✦ 创建你的英雄 ✦
+          </button>
+        </div>
+      )}
+
+      {myMember?.character_id && (
+        <div style={{ marginTop: 14, textAlign: 'center' }}>
+          <button
+            onClick={() => onToggleStartReady?.(!isStartReady)}
+            disabled={busy}
+            className={isStartReady ? 'btn-ghost' : 'btn-gold'}
+            style={{ padding: '10px 24px', fontSize: 12, letterSpacing: '.14em' }}
+          >
+            {isStartReady ? '✓ 已准备，取消' : '✦ 确认准备 ✦'}
           </button>
         </div>
       )}
@@ -48,7 +72,7 @@ export default function RoomActionsPanel({
           </button>
           {!canStart && (
             <div style={{ fontSize: 11, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
-              至少需要一位玩家创建并认领角色
+              {startHint}
             </div>
           )}
         </div>

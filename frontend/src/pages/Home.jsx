@@ -72,10 +72,14 @@ export default function Home() {
     catch (err) { alert(err.message) }
   }
 
-  const handleDeleteSession = async (id, e) => {
+  const handleDeleteSession = async (session, e) => {
     e.stopPropagation()
+    if (session.is_multiplayer) {
+      navigate(`/room/${session.id}`)
+      return
+    }
     if (!confirm('确定要删除这个存档吗？删除后无法恢复。')) return
-    try { await gameApi.deleteSession(id); setSessions(prev => prev.filter(s => s.id !== id)) }
+    try { await gameApi.deleteSession(session.id); setSessions(prev => prev.filter(s => s.id !== session.id)) }
     catch (err) { alert(err.message) }
   }
 
@@ -240,6 +244,11 @@ export default function Home() {
                       {s.player_name ? `${s.player_name} · ${s.player_race} ${s.player_class}` : s.module_name}
                     </div>
                     <div style={{ fontSize: 10, marginTop: 2 }}>
+                      {s.is_multiplayer && (
+                        <span style={{ color: 'var(--mana-light)', marginRight: 6 }}>
+                          房间 {s.room_code || ''}
+                        </span>
+                      )}
                       <span style={{ color: s.combat_active ? 'var(--blood-light)' : 'var(--amber)' }}>
                         {s.combat_active ? '⚔ 战斗中' : '🗺 探索中'}
                       </span>
@@ -249,8 +258,8 @@ export default function Home() {
                     </div>
                   </div>
                   <button
-                    onClick={(e) => handleDeleteSession(s.id, e)}
-                    title="删除存档"
+                    onClick={(e) => handleDeleteSession(s, e)}
+                    title={s.is_multiplayer ? '返回房间' : '删除存档'}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
                       color: 'var(--parchment-dark)', padding: 4, fontSize: 16,
@@ -258,7 +267,7 @@ export default function Home() {
                     }}
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--blood-light)'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--parchment-dark)'}
-                  >🗑</button>
+                  >{s.is_multiplayer ? '↩' : '🗑'}</button>
                 </div>
               ))}
             </div>

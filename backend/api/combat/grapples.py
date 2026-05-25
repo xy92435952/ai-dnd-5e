@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import CombatState, GameLog
-from api.deps import assert_can_act, get_optional_user_id, get_session_or_404
+from api.deps import assert_can_act, assert_optional_session_access, get_optional_user_id, get_session_or_404
 from api.combat._shared import _broadcast_combat
 from api.combat.schemas import GrappleShoveRequest
 from schemas.combat_responses import CombatActionResult
@@ -30,6 +30,7 @@ async def grapple_shove(
     Shove: contested Athletics check, success → target prone or pushed 5ft
     """
     session = await get_session_or_404(session_id, db)
+    await assert_optional_session_access(session, user_id, db)
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()
     if combat and session.is_multiplayer and combat.turn_order:

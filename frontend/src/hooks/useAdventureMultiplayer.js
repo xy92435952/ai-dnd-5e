@@ -13,9 +13,10 @@ export function useAdventureMultiplayer({
   wsConnected,
   session,
   loadSession,
+  refreshRoom,
 }) {
   const currentSpeakerUid = room?._currentSpeaker
-  const isMySpeakTurn = !room || !currentSpeakerUid || currentSpeakerUid === myUserId
+  const isMySpeakTurn = !room || (!!currentSpeakerUid && currentSpeakerUid === myUserId)
   const currentSpeakerName = useMemo(() => (
     (room?.members || []).find(m => m.user_id === currentSpeakerUid)?.display_name
   ), [room, currentSpeakerUid])
@@ -25,11 +26,13 @@ export function useAdventureMultiplayer({
     if (!room) return
     const wasDisconnected = !prevWsConnectedRef.current
     if (wsConnected && wasDisconnected && session) {
-      loadSession()
+      void Promise.allSettled([
+        loadSession?.(),
+        refreshRoom?.({ preserveOnError: true }),
+      ])
     }
     prevWsConnectedRef.current = wsConnected
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wsConnected, room])
+  }, [wsConnected, room, session, loadSession, refreshRoom])
 
   const prevSpeakerRef = useRef(null)
   useEffect(() => {

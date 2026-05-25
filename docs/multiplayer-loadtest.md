@@ -1,0 +1,98 @@
+# Multiplayer WebSocket Load Smoke
+
+This runbook covers the local smoke test for the multiplayer target:
+50 users online on one backend, with each game room capped at 4 players.
+
+## Prerequisites
+
+Start the backend first:
+
+```powershell
+cd backend
+python -m uvicorn main:app --host 127.0.0.1 --port 8002
+```
+
+The script needs a parsed module. To avoid invoking the LLM parser during load
+testing, either pass an existing module id whose `parse_status` is `done`, or
+let the script seed a temporary ready module directly into the local SQLite DB.
+
+## Command
+
+```powershell
+python scripts/multiplayer_ws_loadtest.py `
+  --base-url http://127.0.0.1:8002 `
+  --seed-sqlite-module backend/ai_trpg.db `
+  --prefix codex_load_YYYYMMDD_HHMM
+```
+
+If you want to reuse an existing parsed module instead:
+
+```powershell
+python scripts/multiplayer_ws_loadtest.py `
+  --base-url http://127.0.0.1:8002 `
+  --module-id <ready-module-id> `
+  --prefix codex_load_YYYYMMDD_HHMM
+```
+
+The default test shape is fixed on purpose:
+
+- 50 registered/logged-in users
+- 13 rooms total
+- room sizes: 12 rooms with 4 players, 1 room with 2 players
+- every room is created with `max_players=4`
+- 50 simultaneous WebSocket connections
+
+## What It Verifies
+
+The script checks that:
+
+- the backend health endpoint responds
+- users can register or log in
+- rooms can be created and joined
+- a full 4-player room rejects an overflow join
+- all 50 users can connect through WebSocket
+- WebSocket ping/pong works for every connection
+- room state keeps `max_players=4`
+- DM style survives room creation
+- party group membership matches room membership
+- typing events broadcast only inside the sender's room
+- typing events do not echo back to the sender
+- created test room members leave, and the rooms are dissolved at the end
+
+## Check Script
+
+The load smoke is opt-in from `scripts/check.sh` because it requires a running
+backend and takes longer than normal unit/build checks.
+
+With a seeded module:
+
+```powershell
+$env:RUN_MULTIPLAYER_LOADTEST = "1"
+$env:LOADTEST_SQLITE_DB = "backend/ai_trpg.db"
+scripts/check.sh
+```
+
+With an existing ready module:
+
+```powershell
+$env:RUN_MULTIPLAYER_LOADTEST = "1"
+$env:LOADTEST_MODULE_ID = "<ready-module-id>"
+scripts/check.sh
+```
+
+## GitHub Actions
+
+Use the manual `Multiplayer Load Smoke` workflow when you want CI to run the
+50-user WebSocket smoke. It starts a local backend, seeds a temporary ready
+module in SQLite, runs the load script, uploads the backend log, and then stops
+the backend.
+
+## Notes
+
+The script intentionally leaves created users in the database so repeated runs
+with the same prefix can log them in. Test room members leave through the normal
+multiplayer `/leave` endpoint, and the final host leave dissolves each room.
+The multiplayer `Session` rows may remain as dissolved room records because the
+backend intentionally blocks direct session deletion for multiplayer rooms.
+SQLite-seeded modules are cleaned up by default unless `--keep-seeded-module`
+is provided.

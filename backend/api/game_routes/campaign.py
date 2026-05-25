@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from api.deps import get_session_or_404
+from api.deps import assert_session_access, can_user_see_log, get_session_or_404, get_user_id
 from database import get_db
 from models import GameLog, Module
 from schemas.game_responses import RestResponse
@@ -20,9 +20,14 @@ router = APIRouter(prefix="/game", tags=["game"])
 
 
 @router.post("/sessions/{session_id}/journal")
-async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
+async def generate_journal(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """生成本次冒险的叙事日志摘要（调用 DM Agent Chatflow，独立新对话）"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id)
     log_result = await db.execute(
         select(GameLog)
@@ -30,7 +35,7 @@ async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
         .order_by(GameLog.created_at.asc())
         .limit(80)
     )
-    logs = log_result.scalars().all()
+    logs = [log for log in log_result.scalars().all() if can_user_see_log(log, user_id)]
     if not logs:
         return {"journal": "还没有冒险记录可以生成日志。"}
 
@@ -67,9 +72,14 @@ async def generate_journal(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/sessions/{session_id}/checkpoint")
-async def save_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
+async def save_checkpoint(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """将当前会话的冒险记录压缩为结构化 Campaign State JSON 并存档。"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id)
     log_result = await db.execute(
         select(GameLog)
@@ -78,7 +88,7 @@ async def save_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
         .order_by(GameLog.created_at.asc())
         .limit(120)
     )
-    logs = log_result.scalars().all()
+    logs = [log for log in log_result.scalars().all() if can_user_see_log(log, user_id)]
     if not logs:
         return {"ok": False, "message": "没有可以存档的内容"}
 
@@ -99,9 +109,14 @@ async def save_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/sessions/{session_id}/checkpoint")
-async def get_checkpoint(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_checkpoint(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """获取当前战役档案（用于前端展示存档详情）"""
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     return {
         "session_id": session_id,
         "campaign_state": session.campaign_state or {},
@@ -114,12 +129,14 @@ async def take_rest(
     session_id: str,
     rest_type: str = "long",
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
 ):
     """长休/短休，恢复 HP、法术位、生命骰和职业资源。"""
     if rest_type not in ("long", "short"):
         raise HTTPException(400, "rest_type 必须为 'long' 或 'short'")
 
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     roster = CharacterRoster(db, session)
     results = []
     for character in await roster.party():

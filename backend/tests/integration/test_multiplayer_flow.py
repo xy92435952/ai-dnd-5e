@@ -26,6 +26,30 @@ def _h(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _create_character(client, token, module_id, name="测试角色"):
+    r = await client.post("/characters/create", headers=_h(token), json={
+        "module_id": module_id,
+        "name": name,
+        "race": "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "ability_scores": {"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        "proficient_skills": ["运动", "感知"],
+    })
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+async def _ready_for_start(client, session_id, *users):
+    for user in users:
+        r = await client.post(
+            f"/game/rooms/{session_id}/start-ready",
+            headers=_h(user["token"]),
+            json={"ready": True},
+        )
+        assert r.status_code == 200, r.text
+
+
 # ─── 创建 / 加入 / 离开 ─────────────────────────────────
 
 async def test_host_creates_room_gets_room_code(client, sample_module):
@@ -72,6 +96,24 @@ async def test_join_with_invalid_code_404(client):
         "room_code": "AAAAAA",
     })
     assert r.status_code in (404, 400)
+
+
+async def test_non_member_cannot_restore_multiplayer_room_or_session(client, sample_module):
+    host = await _register(client, "mp_boundary_host")
+    stranger = await _register(client, "mp_boundary_stranger")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    room = await client.get(f"/game/rooms/{sid}", headers=_h(stranger["token"]))
+    assert room.status_code == 403
+
+    members = await client.get(f"/game/rooms/{sid}/members", headers=_h(stranger["token"]))
+    assert members.status_code == 403
+
+    session = await client.get(f"/game/sessions/{sid}", headers=_h(stranger["token"]))
+    assert session.status_code == 403
 
 
 async def test_member_leaves_room(client, sample_module):
@@ -226,6 +268,52 @@ async def test_start_game_requires_at_least_one_claimed_character(
     assert r.status_code == 400, r.text
 
 
+async def test_start_game_requires_every_room_member_to_claim_character(
+    client, sample_module,
+):
+    """多人房开局前，当前房间里的每位真人成员都必须已有角色。"""
+    host = await _register(client, "host_claim_all")
+    guest = await _register(client, "guest_claim_all")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    host_char = await _create_character(client, host["token"], sample_module.id, "房主角色")
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char["id"]},
+    )
+
+    blocked = await client.post(f"/game/rooms/{create['session_id']}/start", headers=_h(host["token"]))
+    assert blocked.status_code == 400, blocked.text
+    assert "所有玩家都需要认领角色" in blocked.text
+
+    guest_char = await _create_character(client, guest["token"], sample_module.id, "队友角色")
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(guest["token"]),
+        json={"character_id": guest_char["id"]},
+    )
+    await client.post(
+        f"/game/rooms/{create['session_id']}/start-ready",
+        headers=_h(host["token"]),
+        json={"ready": True},
+    )
+    await client.post(
+        f"/game/rooms/{create['session_id']}/start-ready",
+        headers=_h(guest["token"]),
+        json={"ready": True},
+    )
+
+    started = await client.post(f"/game/rooms/{create['session_id']}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+
 async def test_start_game_after_claim_works(client, sample_module):
     """认领角色后开始游戏 → 200，game_state.multiplayer.game_started=True。"""
     host = await _register(client, "host_full")
@@ -247,6 +335,9 @@ async def test_start_game_after_claim_works(client, sample_module):
     await client.post(f"/game/rooms/{create['session_id']}/claim-character",
                        headers=_h(host["token"]),
                        json={"character_id": char["id"]})
+    await client.post(f"/game/rooms/{create['session_id']}/start-ready",
+                       headers=_h(host["token"]),
+                       json={"ready": True})
 
     r = await client.post(f"/game/rooms/{create['session_id']}/start",
                            headers=_h(host["token"]))
@@ -256,6 +347,184 @@ async def test_start_game_after_claim_works(client, sample_module):
     room = (await client.get(f"/game/rooms/{create['session_id']}", headers=_h(host["token"]))).json()
     assert room["game_started"] is True
     assert room["current_speaker_user_id"] == host["user_id"]
+
+
+async def test_multiplayer_action_requires_initialized_current_speaker(client, sample_module):
+    """多人探索行动必须有明确当前发言者，不能由未开局房间任意玩家触发。"""
+    host = await _register(client, "host_no_speaker")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    char = await _create_character(client, host["token"], sample_module.id, "未开局角色")
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": char["id"]},
+    )
+
+    r = await client.post("/game/action", headers=_h(host["token"]), json={
+        "session_id": create["session_id"],
+        "action_text": "我先行动。",
+    })
+
+    assert r.status_code == 409, r.text
+    assert "当前没有发言者" in r.text
+
+
+async def test_multiplayer_action_rejects_non_current_speaker(client, sample_module):
+    """当前发言者之外的玩家不能抢先提交探索行动。"""
+    host = await _register(client, "host_speaker_guard")
+    guest = await _register(client, "guest_speaker_guard")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+    for user, name in [(host, "房主发言者"), (guest, "队友非发言者")]:
+        char = await _create_character(client, user["token"], sample_module.id, name)
+        await client.post(
+            f"/game/rooms/{create['session_id']}/claim-character",
+            headers=_h(user["token"]),
+            json={"character_id": char["id"]},
+        )
+    await _ready_for_start(client, create["session_id"], host, guest)
+    started = await client.post(f"/game/rooms/{create['session_id']}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+    r = await client.post("/game/action", headers=_h(guest["token"]), json={
+        "session_id": create["session_id"],
+        "action_text": "我抢先行动。",
+    })
+
+    assert r.status_code == 403, r.text
+    assert "现在不是你的发言时机" in r.text
+
+
+async def test_start_game_requires_ready_votes_after_characters_are_claimed(client, sample_module):
+    """所有人认领角色后，还需要每位真人玩家确认准备，房主才能开局。"""
+    host = await _register(client, "host_ready_vote")
+    guest = await _register(client, "guest_ready_vote")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    for user, name in [(host, "房主已认领"), (guest, "队友已认领")]:
+        char = await _create_character(client, user["token"], sample_module.id, name)
+        await client.post(
+            f"/game/rooms/{create['session_id']}/claim-character",
+            headers=_h(user["token"]),
+            json={"character_id": char["id"]},
+        )
+
+    host_ready = await client.post(
+        f"/game/rooms/{create['session_id']}/start-ready",
+        headers=_h(host["token"]),
+        json={"ready": True},
+    )
+    assert host_ready.status_code == 200, host_ready.text
+    assert host["user_id"] in host_ready.json()["start_ready_user_ids"]
+
+    blocked = await client.post(f"/game/rooms/{create['session_id']}/start", headers=_h(host["token"]))
+    assert blocked.status_code == 400, blocked.text
+    assert "确认准备" in blocked.text
+
+    guest_ready = await client.post(
+        f"/game/rooms/{create['session_id']}/start-ready",
+        headers=_h(guest["token"]),
+        json={"ready": True},
+    )
+    assert guest_ready.status_code == 200, guest_ready.text
+    assert set(guest_ready.json()["start_ready_user_ids"]) == {host["user_id"], guest["user_id"]}
+
+    started = await client.post(f"/game/rooms/{create['session_id']}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+
+async def test_claiming_character_clears_previous_start_ready_vote(client, sample_module):
+    """玩家换角色后需要重新确认准备，避免旧准备票误用到新角色。"""
+    host = await _register(client, "host_ready_clear")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+
+    char_a = await _create_character(client, host["token"], sample_module.id, "旧角色")
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": char_a["id"]},
+    )
+    ready = await client.post(
+        f"/game/rooms/{create['session_id']}/start-ready",
+        headers=_h(host["token"]),
+        json={"ready": True},
+    )
+    assert ready.json()["start_ready_user_ids"] == [host["user_id"]]
+
+    char_b = await _create_character(client, host["token"], sample_module.id, "新角色")
+    claimed = await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": char_b["id"]},
+    )
+    assert claimed.status_code == 200, claimed.text
+    room = (await client.get(f"/game/rooms/{create['session_id']}", headers=_h(host["token"]))).json()
+    assert room["start_ready_user_ids"] == []
+
+
+async def test_fill_ai_reserves_slots_for_unclaimed_room_members(client, sample_module, monkeypatch):
+    """AI 补位按真人成员数预留位置，避免未认领玩家之后再加入队伍导致超过 4 人。"""
+    host = await _register(client, "host_fill_reserve")
+    guest = await _register(client, "guest_fill_reserve")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    host_char = await _create_character(client, host["token"], sample_module.id, "补位参照角色")
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char["id"]},
+    )
+
+    async def fake_generate_party(**kwargs):
+        assert kwargs["party_size"] == 2
+        return [
+            {
+                "name": "补位牧师",
+                "race": "Human",
+                "class": "Cleric",
+                "level": 1,
+                "ability_scores": {"str": 10, "dex": 10, "con": 12, "int": 10, "wis": 15, "cha": 10},
+                "proficient_skills": ["感知", "医药"],
+            },
+            {
+                "name": "补位游荡者",
+                "race": "Human",
+                "class": "Rogue",
+                "level": 1,
+                "ability_scores": {"str": 10, "dex": 15, "con": 12, "int": 12, "wis": 10, "cha": 10},
+                "proficient_skills": ["隐匿", "调查"],
+            },
+        ]
+
+    from services.langgraph_client import langgraph_client
+    monkeypatch.setattr(langgraph_client, "generate_party", fake_generate_party)
+
+    filled = await client.post(f"/game/rooms/{create['session_id']}/fill-ai", headers=_h(host["token"]))
+    assert filled.status_code == 200, filled.text
+    assert filled.json()["generated"] == 2
 
 
 async def test_get_room_returns_full_info(client, sample_module):
@@ -410,7 +679,9 @@ async def test_multiplayer_player_action_aggregates_group_actions_on_backend(
     await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(host["token"]), json={"character_id": host_char.id})
     await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(supporter["token"]), json={"character_id": supporter_char.id})
     await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(tavern_player["token"]), json={"character_id": tavern_char.id})
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, supporter, tavern_player)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
     await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(host["token"]),
                       json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
     await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(supporter["token"]),
@@ -511,7 +782,9 @@ async def test_multiplayer_table_decision_updates_focus_without_base_dm(
     await db_session.commit()
     await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(host["token"]), json={"character_id": host_char.id})
     await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(guest["token"]), json={"character_id": guest_char.id})
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, guest)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
     await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(host["token"]),
                       json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
     await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(guest["token"]),
@@ -652,7 +925,9 @@ async def test_group_visible_dm_response_is_sent_only_to_visible_users(
     await db_session.commit()
     for token_owner, char in chars:
         await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(token_owner["token"]), json={"character_id": char.id})
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, ally, outsider)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
     await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(host["token"]),
                       json={"group_id": "alley", "group_name": "后巷组", "location": "酒馆后巷"})
     await client.post(f"/game/rooms/{sid}/groups/join", headers=_h(ally["token"]),
@@ -765,7 +1040,9 @@ async def test_simulated_multiplayer_split_party_turn_preserves_other_group_queu
             headers=_h(token_owner["token"]),
             json={"character_id": char.id},
         )
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, ally, tavern)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
     await client.post(
         f"/game/rooms/{sid}/groups/join",
         headers=_h(host["token"]),
@@ -824,7 +1101,7 @@ async def test_simulated_multiplayer_split_party_turn_preserves_other_group_queu
     assert tavern["user_id"] not in visible_user_ids
     assert any(
         event["type"] == "room_state_updated"
-        and event["room"]["pending_actions_by_group"]["alley"] == []
+        and event["room"]["pending_actions_by_group"].get("alley") == []
         and (event["room"]["pending_actions_by_group"].get("tavern") or [{}])[0].get("text") == "我继续和老板套话。"
         for event in broadcasts
     )
@@ -865,7 +1142,9 @@ async def test_session_logs_hide_group_private_entries_from_other_groups(
     await db_session.commit()
     for token_owner, char in chars:
         await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(token_owner["token"]), json={"character_id": char.id})
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, ally, outsider)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
 
     db_session.add_all([
         GameLog(
@@ -927,7 +1206,9 @@ async def test_room_host_cannot_restore_private_logs_unless_visible(
     await db_session.commit()
     for token_owner, char in chars:
         await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(token_owner["token"]), json={"character_id": char.id})
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, ally, outsider)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
 
     db_session.add(GameLog(
         session_id=sid,
@@ -951,6 +1232,122 @@ async def test_room_host_cannot_restore_private_logs_unless_visible(
 
 
 # ─── 接管 AI 角色 / 重连续玩（用户反馈过的 bug） ─────────
+
+async def test_checkpoint_generation_uses_only_visible_multiplayer_logs(
+    client, db_session, sample_module, monkeypatch,
+):
+    import uuid as _uuid
+    from models import Character, GameLog
+    import services.langgraph_client as lc
+
+    seen = {}
+
+    async def fake_generate_campaign_state(**kwargs):
+        seen["log_text"] = kwargs["log_text"]
+        return {"quest_log": [], "world_flags": {"visible_only": True}}
+
+    monkeypatch.setattr(lc.langgraph_client, "generate_campaign_state", fake_generate_campaign_state)
+
+    host = await _register(client, "mp_checkpoint_host")
+    ally = await _register(client, "mp_checkpoint_private_target")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(ally["token"]), json={"room_code": create["room_code"]})
+
+    host_char = Character(
+        id=str(_uuid.uuid4()), name="checkpoint-host",
+        race="Human", char_class="Rogue", level=1,
+        ability_scores={"str": 10, "dex": 14, "con": 12, "int": 12, "wis": 10, "cha": 10},
+        hp_current=8, is_player=True, session_id=sid,
+    )
+    db_session.add(host_char)
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(host["token"]), json={"character_id": host_char.id})
+
+    db_session.add_all([
+        GameLog(
+            session_id=sid,
+            role="dm",
+            content="public bell",
+            log_type="narrative",
+            visibility={"scope": "party", "visible_to_user_ids": []},
+        ),
+        GameLog(
+            session_id=sid,
+            role="dm",
+            content="ally private mark",
+            log_type="narrative",
+            visibility={"scope": "private", "visible_to_user_ids": [ally["user_id"]]},
+        ),
+    ])
+    await db_session.commit()
+
+    response = await client.post(f"/game/sessions/{sid}/checkpoint", headers=_h(host["token"]))
+
+    assert response.status_code == 200, response.text
+    assert "public bell" in seen["log_text"]
+    assert "ally private mark" not in seen["log_text"]
+
+
+async def test_skill_check_requires_room_membership_and_bound_character(
+    client, db_session, sample_module,
+):
+    import uuid as _uuid
+    from models import Character
+
+    host = await _register(client, "mp_skill_host")
+    guest = await _register(client, "mp_skill_guest")
+    stranger = await _register(client, "mp_skill_stranger")
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={"room_code": create["room_code"]})
+
+    host_char = Character(
+        id=str(_uuid.uuid4()), name="skill-host",
+        race="Human", char_class="Rogue", level=1,
+        ability_scores={"str": 10, "dex": 14, "con": 12, "int": 12, "wis": 10, "cha": 10},
+        hp_current=8, is_player=True, session_id=sid,
+    )
+    guest_char = Character(
+        id=str(_uuid.uuid4()), name="skill-guest",
+        race="Human", char_class="Wizard", level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10},
+        hp_current=6, is_player=True, session_id=sid,
+    )
+    db_session.add_all([host_char, guest_char])
+    await db_session.commit()
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(host["token"]), json={"character_id": host_char.id})
+    await client.post(f"/game/rooms/{sid}/claim-character", headers=_h(guest["token"]), json={"character_id": guest_char.id})
+
+    stranger_roll = await client.post("/game/skill-check", headers=_h(stranger["token"]), json={
+        "session_id": sid,
+        "character_id": host_char.id,
+        "skill": "Athletics",
+        "dc": 10,
+    })
+    assert stranger_roll.status_code == 403
+
+    guest_roll_host_character = await client.post("/game/skill-check", headers=_h(guest["token"]), json={
+        "session_id": sid,
+        "character_id": host_char.id,
+        "skill": "Athletics",
+        "dc": 10,
+    })
+    assert guest_roll_host_character.status_code == 403
+
+    guest_roll_own_character = await client.post("/game/skill-check", headers=_h(guest["token"]), json={
+        "session_id": sid,
+        "character_id": guest_char.id,
+        "skill": "Athletics",
+        "dc": 10,
+        "d20_value": 12,
+    })
+    assert guest_roll_own_character.status_code == 200, guest_roll_own_character.text
+
 
 async def test_claim_ai_character_promotes_to_player(
     client, db_session, sample_module,
@@ -1121,7 +1518,7 @@ async def test_switching_character_demotes_previous_one(
 
 
 async def test_ai_takeover_speaker_offline_succeeds(
-    client, db_session, sample_module,
+    client, db_session, sample_module, monkeypatch,
 ):
     """
     场景：speaker 长时间无心跳（离线）→ 另一个在线玩家点"代他出招"→
@@ -1129,7 +1526,17 @@ async def test_ai_takeover_speaker_offline_succeeds(
     """
     from datetime import datetime, timedelta
     from models import Character, SessionMember
+    import services.ws_manager as ws_module
     import uuid as _uuid
+
+    broadcasts = []
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append(payload)
+        return 1
+
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
 
     host    = await _register(client, "host_takeover_off")
     offline = await _register(client, "offline_speaker")
@@ -1170,7 +1577,9 @@ async def test_ai_takeover_speaker_offline_succeeds(
                        json={"character_id": host_char.id})
 
     # 启动游戏
-    await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    await _ready_for_start(client, sid, host, offline)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
 
     # 把 speaker 强行设为 offline 用户
     from sqlalchemy.orm.attributes import flag_modified
@@ -1181,14 +1590,7 @@ async def test_ai_takeover_speaker_offline_succeeds(
     sess.game_state = gs
     flag_modified(sess, "game_state")
 
-    # 把 offline 的 last_seen_at 改成 60 秒前 → 视为离线
-    sm_q = await db_session.execute(
-        SessionMember.__table__.select().where(
-            (SessionMember.session_id == sid) &
-            (SessionMember.user_id == offline["user_id"])
-        )
-    )
-    # 简单写法：直接拉 SessionMember ORM 对象再改
+    # 把 speaker 和请求者都改成心跳过期；HTTP 代演请求本身应刷新请求者在线状态。
     from sqlalchemy import select as _select
     sm_orm = (await db_session.execute(
         _select(SessionMember).where(
@@ -1197,6 +1599,13 @@ async def test_ai_takeover_speaker_offline_succeeds(
         )
     )).scalar_one()
     sm_orm.last_seen_at = datetime.utcnow() - timedelta(seconds=120)
+    host_sm = (await db_session.execute(
+        _select(SessionMember).where(
+            SessionMember.session_id == sid,
+            SessionMember.user_id == host["user_id"],
+        )
+    )).scalar_one()
+    host_sm.last_seen_at = datetime.utcnow() - timedelta(seconds=120)
     await db_session.commit()
 
     # host 触发 AI 代演
@@ -1219,6 +1628,16 @@ async def test_ai_takeover_speaker_offline_succeeds(
     assert lt.get("last_actor_user_id") == offline["user_id"]
     assert lt.get("ai_takeover") is True
     assert lt.get("takeover_by") == host["user_id"]
+    assert sess.game_state["multiplayer"]["current_speaker_user_id"] == host["user_id"]
+    assert any(
+        event["type"] == "dm_speak_turn" and event["user_id"] == host["user_id"]
+        for event in broadcasts
+    )
+    room_updates = [event["room"] for event in broadcasts if event["type"] == "room_state_updated"]
+    assert any(room["current_speaker_user_id"] == host["user_id"] for room in room_updates)
+    latest_room = room_updates[-1]
+    host_member = next(member for member in latest_room["members"] if member["user_id"] == host["user_id"])
+    assert host_member["is_online"] is True
 
 
 async def test_ai_takeover_rejected_when_speaker_online(

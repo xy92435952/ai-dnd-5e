@@ -1,10 +1,9 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getCombatMock, getSessionMock, rollDice3DMock } = vi.hoisted(() => ({
+const { getCombatMock, getSessionMock } = vi.hoisted(() => ({
   getCombatMock: vi.fn(),
   getSessionMock: vi.fn(),
-  rollDice3DMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
@@ -14,17 +13,12 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
-vi.mock('../../components/DiceRollerOverlay', () => ({
-  rollDice3D: rollDice3DMock,
-}))
-
 import { useCombatLoader } from '../useCombatLoader'
 
 describe('useCombatLoader', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
-    rollDice3DMock.mockResolvedValue({ total: 15, rolls: [15] })
   })
 
   function renderLoader(overrides = {}) {
@@ -56,7 +50,7 @@ describe('useCombatLoader', () => {
     return { deps, aiTimer, ...renderHook(() => useCombatLoader(deps)) }
   }
 
-  it('loads combat/session data and shows the first-round initiative roll', async () => {
+  it('loads combat/session data and shows the settled first-round initiative result', async () => {
     getCombatMock.mockResolvedValue({
       round_number: 1,
       current_turn_index: 0,
@@ -82,7 +76,6 @@ describe('useCombatLoader', () => {
     expect(getSessionMock).toHaveBeenCalledWith('sess-1')
     expect(deps.setPlayerId).toHaveBeenCalledWith('char-1')
     expect(deps.setInitiativeShown).toHaveBeenCalledWith(true)
-    expect(rollDice3DMock).toHaveBeenCalledWith(20)
     expect(deps.showDice).toHaveBeenCalledWith({ faces: 20, result: 12, label: '先攻检定' })
   })
 
@@ -105,5 +98,26 @@ describe('useCombatLoader', () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('does not schedule multiplayer ai turns on non-driver clients', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'char-1' }, logs: [] })
+
+    const { result, deps, aiTimer } = renderLoader({ canDriveAiTurns: false })
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(aiTimer.current).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
   })
 })

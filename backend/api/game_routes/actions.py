@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import char_brief, get_session_or_404, get_user_id
+from api.deps import assert_session_access, char_brief, get_session_or_404, get_user_id
 from api.game_routes.action_multiplayer import (
     assert_current_speaker as _assert_current_speaker,
     handle_multiplayer_table_only_result as _handle_multiplayer_table_only_result,
@@ -27,6 +27,7 @@ from services.game_combat_action_service import execute_natural_language_combat_
 from services.game_exploration_service import execute_exploration_action
 from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
+from services import room_service
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -39,12 +40,14 @@ async def player_action(
 ):
     """玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。"""
     session = await get_session_or_404(req.session_id, db)
+    await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id)
     action_source = normalize_action_source(session, req.action_text, req.action_source)
     effective_action_text = req.action_text
     multiplayer_decision = None
 
     if session.is_multiplayer:
+        await room_service.update_heartbeat(db, session.id, user_id)
         player = await _resolve_multiplayer_player(db, session, user_id)
         if not session.combat_active:
             _assert_current_speaker(session, user_id)
@@ -137,9 +140,8 @@ async def ai_takeover_action(
     user_id: str = Depends(get_user_id),
 ):
     """替离线的当前发言者 AI 代演一句，然后走完整探索 DM 流程。"""
-    from services.room_service import OFFLINE_THRESHOLD_SECONDS
-
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     if not session.is_multiplayer:
         raise HTTPException(400, "仅多人模式可用")
     if session.combat_active:
@@ -147,6 +149,7 @@ async def ai_takeover_action(
 
     if not await _get_session_member(db, session.id, user_id):
         raise HTTPException(403, "你不在该房间中")
+    await room_service.update_heartbeat(db, session.id, user_id)
 
     speaker_uid = ((session.game_state or {}).get("multiplayer", {}) or {}).get("current_speaker_user_id")
     if not speaker_uid:
@@ -158,7 +161,7 @@ async def ai_takeover_action(
     if not speaker_member or not speaker_member.character_id:
         raise HTTPException(400, "当前发言者没有绑定角色")
 
-    threshold = datetime.utcnow() - timedelta(seconds=OFFLINE_THRESHOLD_SECONDS)
+    threshold = datetime.utcnow() - timedelta(seconds=room_service.OFFLINE_THRESHOLD_SECONDS)
     if speaker_member.last_seen_at and speaker_member.last_seen_at >= threshold:
         raise HTTPException(409, "该玩家仍在线，无法触发 AI 代演（请等他出招或转发言权）")
 

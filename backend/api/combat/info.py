@@ -12,7 +12,11 @@ from pydantic import BaseModel
 from database import get_db
 from models import Character, CombatState
 from api.deps import (
-    get_session_or_404, get_user_id,
+    assert_character_access,
+    assert_character_in_session,
+    assert_session_access,
+    get_session_or_404,
+    get_user_id,
 )
 from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
@@ -28,7 +32,11 @@ from schemas.game_responses import CombatStateResponse, SkillBarResponse
 
 
 @router.get("/combat/{session_id}", response_model=CombatStateResponse)
-async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_combat_state(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """获取当前战斗状态（含完整实体数据）"""
     result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = result.scalars().first()
@@ -36,6 +44,7 @@ async def get_combat_state(session_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "当前没有进行中的战斗")
 
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     await db.refresh(session)  # 确保读取最新的 game_state
     return await _build_combat_snapshot(db, session, combat)
 
@@ -63,10 +72,14 @@ async def get_skill_bar_endpoint(
     entity_id 可选，默认使用当前用户绑定的角色。
     """
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
 
     # 解析目标角色
     if entity_id:
         player = await db.get(Character, entity_id)
+        if player:
+            await assert_character_access(player, user_id, db)
+            await assert_character_in_session(player, session, db)
     elif session.is_multiplayer:
         from models import SessionMember
         mem = await db.execute(
@@ -110,9 +123,13 @@ async def predict_action_endpoint(
     仅作为 UI 参考值展示；实际战斗仍以 /attack-roll / /spell-roll 为准。
     """
     session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
     attacker = await db.get(Character, req.attacker_id)
     if not attacker:
         raise HTTPException(404, "攻击者不存在")
+
+    await assert_character_access(attacker, user_id, db)
+    await assert_character_in_session(attacker, session, db)
 
     a_derived = attacker.derived or {}
 
@@ -126,6 +143,7 @@ async def predict_action_endpoint(
 
     tgt_char = await db.get(Character, req.target_id)
     if tgt_char:
+        await assert_character_in_session(tgt_char, session, db)
         target_ac = (tgt_char.derived or {}).get("ac", 10)
         target_name = tgt_char.name
         target_hp = tgt_char.hp_current

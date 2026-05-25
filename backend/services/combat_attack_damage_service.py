@@ -20,6 +20,7 @@ from services.combat_damage_bonus_service import (
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state
 from services.dnd_rules import _normalize_class
+from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
 
@@ -167,6 +168,7 @@ async def apply_attack_damage_to_target(
     target_id: str,
     target_is_enemy: bool,
     damage: int,
+    session=None,
 ):
     """Apply final weapon damage to an enemy dict or Character."""
     if target_is_enemy:
@@ -184,6 +186,8 @@ async def apply_attack_damage_to_target(
     target_character = await db.get(Character, target_id)
     if not target_character:
         return None, None
+    if session is not None:
+        await assert_character_in_session(target_character, session, db)
 
     target_character.hp_current = svc.apply_damage(
         target_character.hp_current,

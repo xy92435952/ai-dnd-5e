@@ -8,7 +8,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
 from models import Character, CombatState, GameLog
-from api.deps import get_session_or_404, get_user_id
+from api.deps import assert_can_act, get_session_or_404, get_user_id
 from api.combat._shared import _broadcast_combat, svc
 from api.combat.schemas import SmiteRequest
 from services.combat_narrator import narrate_action
@@ -52,6 +52,8 @@ async def divine_smite(
         player = await db.get(Character, session.player_character_id)
     if not player:
         raise HTTPException(404, "玩家角色不存在")
+
+    await assert_can_act(session, user_id, player.id, db, require_current_turn=False)
 
     p_class = _normalize_class(player.char_class)
     if p_class != "Paladin":

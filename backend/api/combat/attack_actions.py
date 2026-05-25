@@ -11,6 +11,7 @@ from api.combat._shared import _get_ts, _save_ts
 from services.character_roster import CharacterRoster
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_offhand_attack_service import resolve_offhand_attack
+from services.session_access_service import assert_character_in_session
 
 
 async def maybe_handle_pre_attack_action(
@@ -80,6 +81,7 @@ async def maybe_handle_pre_attack_action(
             _save_ts(combat, target_id, t_ts)
             tchar = await db.get(Character, target_id)
             if tchar:
+                await assert_character_in_session(tchar, session, db)
                 helped_name = tchar.name
         else:
             _roster = CharacterRoster(db, session)

@@ -49,6 +49,7 @@ export default function Combat() {
     sessionId,
     room,
     setRoom,
+    myUserId,
     myCharacterId,
     showDice,
     page,

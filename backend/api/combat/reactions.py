@@ -16,7 +16,8 @@ from database import get_db
 from models import Character, Session, GameLog, CombatState, Module
 from api.deps import (
     get_session_or_404, entity_snapshot, serialize_combat,
-    get_optional_user_id, assert_can_act, broadcast_to_session, current_turn_user_id,
+    get_optional_user_id, assert_can_act, assert_character_in_session, assert_optional_session_access,
+    broadcast_to_session, current_turn_user_id,
 )
 from services.combat_service import CombatService
 from services.spell_service import spell_service
@@ -65,6 +66,7 @@ async def use_reaction(
     Called by frontend when enemy attacks player and player has reaction available.
     """
     session = await get_session_or_404(session_id, db)
+    await assert_optional_session_access(session, user_id, db)
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
@@ -97,8 +99,7 @@ async def use_reaction(
     if not player:
         raise HTTPException(404, "玩家角色不存在")
 
-    if player.session_id and str(player.session_id) != str(session_id):
-        raise HTTPException(403, "Character does not belong to this combat session")
+    await assert_character_in_session(player, session, db)
 
     ts = _get_ts(combat, player_id)
     if ts.get("reaction_used"):

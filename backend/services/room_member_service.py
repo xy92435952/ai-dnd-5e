@@ -6,11 +6,26 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, Session, SessionMember, User
 
 
 OFFLINE_THRESHOLD_SECONDS = 30
+
+
+def _clear_start_ready_for_user(session: Session, user_id: str) -> None:
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
+    ready_ids = [
+        ready_user_id
+        for ready_user_id in (mp.get("start_ready_user_ids") or [])
+        if ready_user_id != user_id
+    ]
+    mp["start_ready_user_ids"] = ready_ids
+    state["multiplayer"] = mp
+    session.game_state = state
+    flag_modified(session, "game_state")
 
 
 async def claim_character(
@@ -61,6 +76,9 @@ async def claim_character(
     char.user_id = user_id
     char.is_player = True
     char.session_id = session_id
+    session = await db.get(Session, session_id)
+    if session:
+        _clear_start_ready_for_user(session, user_id)
     await db.commit()
     await db.refresh(member)
     return member
@@ -192,6 +210,17 @@ async def get_member(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def require_member(
+    db: AsyncSession,
+    session_id: str,
+    user_id: str,
+) -> SessionMember:
+    member = await get_member(db, session_id, user_id)
+    if not member:
+        raise HTTPException(403, "你不在该房间中")
+    return member
 
 
 async def list_members_raw(

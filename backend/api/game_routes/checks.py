@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps import assert_can_act, assert_session_access, get_session_or_404, get_user_id
 from database import get_db
 from models import Character, GameLog
 from schemas.game_requests import SkillCheckRequest
@@ -11,15 +12,31 @@ router = APIRouter(prefix="/game", tags=["game"])
 
 
 @router.post("/skill-check", response_model=SkillCheckResult)
-async def skill_check(req: SkillCheckRequest, db: AsyncSession = Depends(get_db)):
+async def skill_check(
+    req: SkillCheckRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """执行技能检定（正确检查角色是否熟练）"""
+    session = await get_session_or_404(req.session_id, db)
+    await assert_session_access(session, user_id, db)
     character = await db.get(Character, req.character_id)
     if not character:
         raise HTTPException(404, "角色不存在")
 
+    if character.session_id != req.session_id:
+        raise HTTPException(403, "瑙掕壊涓嶅睘浜庤浼氳瘽")
+    await assert_can_act(
+        session,
+        user_id,
+        req.character_id,
+        db,
+        require_current_turn=False,
+    )
+
     result = roll_skill_check(
         character={
-            "derived": character.derived,
+            "derived": character.derived or {},
             "proficient_skills": character.proficient_skills or [],
         },
         skill=req.skill,

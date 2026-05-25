@@ -45,6 +45,7 @@ async def prepare_attack_roll(
     db,
     *,
     combat,
+    session,
     player,
     player_id: str,
     target_id: str,
@@ -72,7 +73,7 @@ async def prepare_attack_roll(
         is_offhand=is_offhand,
     )
 
-    target = await resolve_attack_target(db, target_id, enemies, allow_auto_enemy=False)
+    target = await resolve_attack_target(db, target_id, enemies, allow_auto_enemy=False, session=session)
     if not target:
         raise CombatAttackRollError(400, "目标不存在")
 
@@ -84,7 +85,7 @@ async def prepare_attack_roll(
     attacker_position = positions.get(str(player_id))
     target_position = positions.get(str(resolved_target_id))
     is_ranged = action_type == "ranged"
-    in_range, _distance, range_error = check_attack_range_func(
+    in_range, distance, range_error = check_attack_range_func(
         attacker_position,
         target_position,
         is_ranged,
@@ -97,6 +98,10 @@ async def prepare_attack_roll(
 
     attacker_advantage, attacker_disadvantage = combat_service.get_attack_modifiers(player_conditions)
     defense_advantage, defense_disadvantage = combat_service.get_defense_modifiers(target_conditions)
+    if "prone" in target_conditions and distance > 1:
+        non_prone_conditions = [condition for condition in target_conditions if condition != "prone"]
+        defense_advantage, defense_disadvantage = combat_service.get_defense_modifiers(non_prone_conditions)
+        defense_disadvantage = True
 
     if turn_state.get("being_helped"):
         attacker_advantage = True

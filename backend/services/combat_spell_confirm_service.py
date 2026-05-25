@@ -13,6 +13,7 @@ from services.combat_spell_resolution_service import (
     choose_spell_narration_target,
     consume_spell_slot_for_confirmation,
 )
+from services.combat_spell_target_service import collect_spell_target_names
 from services.combat_wild_magic_service import (
     apply_wild_magic_mechanical_effect,
     resolve_wild_magic_for_spell,
@@ -74,6 +75,8 @@ async def confirm_pending_spell(
     is_cantrip = pending["is_cantrip"]
     is_aoe = pending["is_aoe"]
     spell_type = pending["spell_type"]
+
+    await collect_spell_target_names(db, target_ids, enemies, session=session)
 
     new_slots = consume_spell_slot_for_confirmation(
         current_slots=caster.spell_slots,

@@ -53,6 +53,10 @@ class SetGroupReadinessRequest(BaseModel):
     status: str = Field(min_length=1, max_length=20)
 
 
+class SetStartReadyRequest(BaseModel):
+    ready: bool = True
+
+
 # ── 响应 ─────────────────────────────────────────────
 
 class MemberInfo(BaseModel):
@@ -99,6 +103,7 @@ class RoomInfo(BaseModel):
     active_group_id: Optional[str] = None
     pending_actions_by_group: dict = {}
     group_readiness: dict = {}
+    start_ready_user_ids: List[str] = []
     dm_style: Optional[dict] = None
     created_at: Optional[datetime] = None
 

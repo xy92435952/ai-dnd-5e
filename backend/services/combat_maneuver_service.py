@@ -6,6 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.dnd_rules import roll_dice
+from services.session_access_service import assert_character_in_session
 
 
 @dataclass
@@ -69,7 +70,7 @@ async def resolve_maneuver(
 
     game_state = session.game_state or {}
     enemies = game_state.get("enemies", [])
-    target = await _resolve_maneuver_target(db, enemies=enemies, target_id=target_id)
+    target = await _resolve_maneuver_target(db, session=session, enemies=enemies, target_id=target_id)
     target_name = target["name"]
 
     payload = {
@@ -112,7 +113,7 @@ async def resolve_maneuver(
     )
 
 
-async def _resolve_maneuver_target(db, *, enemies: list[dict[str, Any]], target_id: str) -> dict[str, Any]:
+async def _resolve_maneuver_target(db, *, session, enemies: list[dict[str, Any]], target_id: str) -> dict[str, Any]:
     for enemy in enemies:
         if str(enemy.get("id")) == target_id:
             return {
@@ -123,6 +124,8 @@ async def _resolve_maneuver_target(db, *, enemies: list[dict[str, Any]], target_
             }
 
     target_char = await db.get(Character, target_id)
+    if target_char:
+        await assert_character_in_session(target_char, session, db)
     return {
         "enemy": None,
         "character": target_char,

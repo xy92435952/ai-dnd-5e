@@ -20,6 +20,7 @@ async def test_prepare_spell_roll_builds_cantrip_preview_without_consuming_slot(
     prepared = await prepare_spell_roll(
         FakeDb(),
         combat_obj=None,
+        session=None,
         caster=FakeCaster(),
         caster_id="caster-1",
         spell_name="Fire Bolt",
@@ -52,6 +53,7 @@ async def test_prepare_spell_roll_raises_slot_error():
         await prepare_spell_roll(
             FakeDb(),
             combat_obj=None,
+            session=None,
             caster=FakeCaster(),
             caster_id="caster-1",
             spell_name="Magic Missile",

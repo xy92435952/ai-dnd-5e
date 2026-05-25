@@ -34,6 +34,7 @@ const {
       main: { me: 'drafting' },
       alley: { u2: 'ready' },
     },
+    start_ready_user_ids: [],
   },
   roomsGetMock: vi.fn(),
   focusGroupMock: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock('../../api/client', () => ({
   roomsApi: {
     get: roomsGetMock,
     start: vi.fn(),
+    setStartReady: vi.fn(),
     leave: vi.fn(),
     kick: vi.fn(),
     transfer: vi.fn(),

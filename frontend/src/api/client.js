@@ -151,7 +151,11 @@ export const gameApi = {
       pending_attack_id: pendingAttackId,
       ...(damageValues ? { damage_values: damageValues } : {}),
     }),
-  aiTurn:       (sessionId) => api.post(`/game/combat/${sessionId}/ai-turn`),
+  aiTurn:       (sessionId, expectedTurnToken = null) =>
+    api.post(
+      `/game/combat/${sessionId}/ai-turn`,
+      expectedTurnToken ? { expected_turn_token: expectedTurnToken } : undefined,
+    ),
   endCombat:    (sessionId) => api.post(`/game/combat/${sessionId}/end`),
   move:         (sessionId, entityId, toX, toY) =>
     api.post(`/game/combat/${sessionId}/move`, { entity_id: entityId, to_x: toX, to_y: toY }),
@@ -259,6 +263,8 @@ export const roomsApi = {
     api.post('/game/rooms/join', { room_code: roomCode }),
   leave:      (sessionId) => api.post(`/game/rooms/${sessionId}/leave`),
   start:      (sessionId) => api.post(`/game/rooms/${sessionId}/start`),
+  setStartReady: (sessionId, ready) =>
+    api.post(`/game/rooms/${sessionId}/start-ready`, { ready }),
   kick:       (sessionId, userId) =>
     api.post(`/game/rooms/${sessionId}/kick`, { user_id: userId }),
   transfer:   (sessionId, newHostUserId) =>

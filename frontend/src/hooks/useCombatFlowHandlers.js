@@ -16,6 +16,7 @@ export function useCombatFlowHandlers({
   log,
   controlledPlayerId = null,
   canActThisTurn = true,
+  canDriveAiTurns = true,
 }) {
   const {
     combat,
@@ -92,6 +93,7 @@ export function useCombatFlowHandlers({
     showDice,
     triggerAiTurn,
     isPlayerTurn,
+    canDriveAiTurns,
   })
 
   const { handleEndTurn } = useCombatTurnControls({
@@ -111,6 +113,7 @@ export function useCombatFlowHandlers({
     setCombatOver,
     addLog,
     triggerAiTurn,
+    canDriveAiTurns,
   })
 
   const handleAttack = useCombatAttackFlow({

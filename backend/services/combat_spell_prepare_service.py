@@ -33,6 +33,7 @@ async def prepare_spell_roll(
     db,
     *,
     combat_obj,
+    session,
     caster,
     caster_id: str,
     spell_name: str,
@@ -58,7 +59,7 @@ async def prepare_spell_roll(
 
     is_aoe = spell.get("aoe", False)
     raw_ids = collect_spell_target_ids(target_id, target_ids, enemies, is_aoe=is_aoe)
-    target_names = await collect_spell_target_names(db, raw_ids, enemies)
+    target_names = await collect_spell_target_names(db, raw_ids, enemies, session=session)
 
     positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
     validate_spell_range(

@@ -13,6 +13,7 @@ from services.combat_spell_resolution_service import (
     build_spell_resolution_context,
     consume_spell_slot_for_confirmation,
 )
+from services.combat_spell_target_service import collect_spell_target_names
 from services.combat_turn_state_service import DEFAULT_TURN_STATE, get_turn_state, save_turn_state
 from services.spell_service import spell_service
 
@@ -107,17 +108,6 @@ async def cast_direct_spell(
     if spell_turn_state.get("action_used") and not is_cantrip:
         raise CombatDirectSpellError(400, "本回合行动已用尽")
 
-    try:
-        new_slots = consume_spell_slot_for_confirmation(
-            current_slots=caster.spell_slots,
-            spell_level=spell_level,
-            is_cantrip=is_cantrip,
-            consume_slot=spell_service_obj.consume_slot,
-        )
-    except CombatSpellResolutionError as exc:
-        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
-    caster.spell_slots = new_slots
-
     spell_context = build_spell_resolution_context(caster.derived)
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))
@@ -132,6 +122,18 @@ async def cast_direct_spell(
         target_id=target_id,
         target_ids=target_ids,
     )
+    await collect_spell_target_names(db, resolved_target_ids, enemies, session=session)
+
+    try:
+        new_slots = consume_spell_slot_for_confirmation(
+            current_slots=caster.spell_slots,
+            spell_level=spell_level,
+            is_cantrip=is_cantrip,
+            consume_slot=spell_service_obj.consume_slot,
+        )
+    except CombatSpellResolutionError as exc:
+        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
+    caster.spell_slots = new_slots
 
     result_damage = 0
     result_heal = 0

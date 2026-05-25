@@ -8,7 +8,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
 from models import Character, CombatState, GameLog
-from api.deps import assert_can_act, get_session_or_404, get_user_id
+from api.deps import assert_can_act, assert_character_in_session, get_session_or_404, get_user_id
 from api.combat._shared import (
     _get_ts,
     _broadcast_combat,
@@ -57,6 +57,7 @@ async def attack_roll(
     player    = await db.get(Character, req.entity_id)
     if not player:
         raise HTTPException(404, "攻击者不存在")
+    await assert_character_in_session(player, session, db)
     player_id   = req.entity_id
     state       = session.game_state or {}
     enemies     = list(state.get("enemies", []))
@@ -65,6 +66,7 @@ async def attack_roll(
         prepared = await prepare_attack_roll(
             db,
             combat=combat,
+            session=session,
             player=player,
             player_id=player_id,
             target_id=req.target_id,
@@ -175,6 +177,7 @@ async def damage_roll(
     if not player:
         raise HTTPException(404, "攻击者角色不存在")
 
+    await assert_character_in_session(player, session, db)
     player_name = player.name
     damage_resolution = await resolve_pending_attack_damage(
         db,
@@ -222,6 +225,7 @@ async def damage_roll(
         target_id=damage_resolution.target_id,
         target_is_enemy=damage_resolution.target_is_enemy,
         damage=damage_resolution.total_damage,
+        session=session,
     )
     if damage_resolution.target_is_enemy:
         state["enemies"]   = enemies

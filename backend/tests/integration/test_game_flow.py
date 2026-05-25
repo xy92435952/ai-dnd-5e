@@ -38,6 +38,19 @@ async def test_get_session_shape(client, sample_session, sample_user):
     assert data["combat_active"] is False
 
 
+async def test_get_session_rejects_other_single_player_user(client, sample_session):
+    other = await client.post("/auth/register", json={
+        "username": "session_intruder",
+        "password": "password",
+        "display_name": "session_intruder",
+    })
+    assert other.status_code == 200, other.text
+    headers = {"Authorization": f"Bearer {other.json()['token']}"}
+
+    r = await client.get(f"/game/sessions/{sample_session.id}", headers=headers)
+    assert r.status_code == 403
+
+
 async def test_list_sessions_for_user(client, sample_session, sample_user):
     headers = await _auth_headers(client, sample_user)
     r = await client.get("/game/sessions", headers=headers)
@@ -72,6 +85,26 @@ async def test_skill_check_endpoint(client, sample_session, sample_user, sample_
     data = r.json()
     for key in ("d20", "modifier", "total", "success"):
         assert key in data
+
+
+async def test_skill_check_rejects_other_single_player_user(
+    client, sample_session, sample_character,
+):
+    other = await client.post("/auth/register", json={
+        "username": "skill_intruder",
+        "password": "password",
+        "display_name": "skill_intruder",
+    })
+    assert other.status_code == 200, other.text
+    headers = {"Authorization": f"Bearer {other.json()['token']}"}
+
+    r = await client.post("/game/skill-check", headers=headers, json={
+        "session_id": sample_session.id,
+        "character_id": sample_character.id,
+        "skill": "Athletics",
+        "dc": 10,
+    })
+    assert r.status_code == 403
 
 
 async def test_delete_session_cleans_ai_companions(

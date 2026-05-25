@@ -2,13 +2,24 @@ import pytest
 from models import Character, CombatState
 
 
+async def _auth_headers(client, sample_user):
+    response = await client.post("/auth/login", json={
+        "username": sample_user.username,
+        "password": "password",
+    })
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['token']}"}
+
+
 @pytest.mark.asyncio
-async def test_buy_item_deducts_gold_and_adds_gear(client, db_session, sample_character):
+async def test_buy_item_deducts_gold_and_adds_gear(client, db_session, sample_user, sample_character):
     sample_character.equipment = {"gold": 51, "gear": []}
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/shop/buy",
+        headers=headers,
         json={
             "item_name": "Healing Potion",
             "item_category": "gear",
@@ -25,12 +36,14 @@ async def test_buy_item_deducts_gold_and_adds_gear(client, db_session, sample_ch
 
 
 @pytest.mark.asyncio
-async def test_buy_item_rejects_non_positive_quantity(client, db_session, sample_character):
+async def test_buy_item_rejects_non_positive_quantity(client, db_session, sample_user, sample_character):
     sample_character.equipment = {"gold": 51, "gear": []}
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/shop/buy",
+        headers=headers,
         json={
             "item_name": "Healing Potion",
             "item_category": "gear",
@@ -43,7 +56,7 @@ async def test_buy_item_rejects_non_positive_quantity(client, db_session, sample
 
 
 @pytest.mark.asyncio
-async def test_sell_item_rejects_equipped_weapon(client, db_session, sample_character):
+async def test_sell_item_rejects_equipped_weapon(client, db_session, sample_user, sample_character):
     sample_character.equipment = {
         "gold": 10,
         "weapons": [
@@ -51,9 +64,11 @@ async def test_sell_item_rejects_equipped_weapon(client, db_session, sample_char
         ],
     }
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/shop/sell",
+        headers=headers,
         json={
             "item_name": "Longsword",
             "item_category": "weapon",
@@ -66,16 +81,18 @@ async def test_sell_item_rejects_equipped_weapon(client, db_session, sample_char
 
 
 @pytest.mark.asyncio
-async def test_equipping_shield_recalculates_ac(client, db_session, sample_character):
+async def test_equipping_shield_recalculates_ac(client, db_session, sample_user, sample_character):
     sample_character.equipment = {
         "gold": 10,
         "armor": [],
         "shield": {"name": "Shield", "zh": "盾牌", "ac": 2, "equipped": False},
     }
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.patch(
         f"/characters/{sample_character.id}/equipment",
+        headers=headers,
         json={
             "item_name": "Shield",
             "item_category": "shield",
@@ -90,7 +107,7 @@ async def test_equipping_shield_recalculates_ac(client, db_session, sample_chara
 
 
 @pytest.mark.asyncio
-async def test_use_item_returns_updated_equipment(client, db_session, sample_character):
+async def test_use_item_returns_updated_equipment(client, db_session, sample_user, sample_character):
     sample_character.hp_current = 4
     sample_character.equipment = {
         "gold": 10,
@@ -105,9 +122,11 @@ async def test_use_item_returns_updated_equipment(client, db_session, sample_cha
         ],
     }
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={"item_name": "Healing Potion"},
     )
 
@@ -120,7 +139,7 @@ async def test_use_item_returns_updated_equipment(client, db_session, sample_cha
 
 @pytest.mark.asyncio
 async def test_use_fire_resistance_potion_adds_condition_and_consumes_item(
-    client, db_session, sample_character,
+    client, db_session, sample_user, sample_character,
 ):
     sample_character.conditions = []
     sample_character.equipment = {
@@ -135,9 +154,11 @@ async def test_use_fire_resistance_potion_adds_condition_and_consumes_item(
         ],
     }
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={"item_name": "Potion of Fire Resistance"},
     )
 
@@ -152,7 +173,7 @@ async def test_use_fire_resistance_potion_adds_condition_and_consumes_item(
 
 @pytest.mark.asyncio
 async def test_use_healers_kit_stabilizes_target_and_decrements_uses(
-    client, db_session, sample_character, sample_session,
+    client, db_session, sample_user, sample_character, sample_session,
 ):
     target = Character(
         session_id=sample_session.id,
@@ -182,9 +203,11 @@ async def test_use_healers_kit_stabilizes_target_and_decrements_uses(
     db_session.add(target)
     await db_session.commit()
     await db_session.refresh(target)
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={
             "item_name": "Healer's Kit",
             "target_character_id": target.id,
@@ -208,7 +231,7 @@ async def test_use_healers_kit_stabilizes_target_and_decrements_uses(
 
 @pytest.mark.asyncio
 async def test_use_healers_kit_rejects_target_outside_same_session_without_consuming(
-    client, db_session, sample_character, sample_session,
+    client, db_session, sample_user, sample_character, sample_session,
 ):
     target = Character(
         session_id=None,
@@ -238,9 +261,11 @@ async def test_use_healers_kit_rejects_target_outside_same_session_without_consu
     db_session.add(target)
     await db_session.commit()
     await db_session.refresh(target)
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={
             "item_name": "Healer's Kit",
             "target_character_id": target.id,
@@ -248,7 +273,7 @@ async def test_use_healers_kit_rejects_target_outside_same_session_without_consu
     )
 
     assert response.status_code == 400
-    assert "同一队伍" in response.json()["detail"]
+    assert "same party" in response.json()["detail"]
     await db_session.refresh(sample_character)
     await db_session.refresh(target)
     assert sample_character.equipment["gear"][0]["uses"] == 10
@@ -257,7 +282,7 @@ async def test_use_healers_kit_rejects_target_outside_same_session_without_consu
 
 @pytest.mark.asyncio
 async def test_use_item_rejects_consumable_without_direct_effect_without_consuming(
-    client, db_session, sample_character,
+    client, db_session, sample_user, sample_character,
 ):
     sample_character.equipment = {
         "gold": 10,
@@ -271,9 +296,11 @@ async def test_use_item_rejects_consumable_without_direct_effect_without_consumi
         ],
     }
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={"item_name": "Torch"},
     )
 
@@ -285,7 +312,7 @@ async def test_use_item_rejects_consumable_without_direct_effect_without_consumi
 
 @pytest.mark.asyncio
 async def test_use_item_in_combat_consumes_current_turn_action(
-    client, db_session, sample_character, sample_session,
+    client, db_session, sample_user, sample_character, sample_session,
 ):
     sample_character.hp_current = 4
     sample_character.equipment = {
@@ -325,9 +352,11 @@ async def test_use_item_in_combat_consumes_current_turn_action(
     )
     db_session.add(combat)
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={
             "item_name": "Healing Potion",
             "session_id": sample_session.id,
@@ -345,7 +374,7 @@ async def test_use_item_in_combat_consumes_current_turn_action(
 
 @pytest.mark.asyncio
 async def test_use_item_in_combat_rejects_when_action_already_used(
-    client, db_session, sample_character, sample_session,
+    client, db_session, sample_user, sample_character, sample_session,
 ):
     sample_character.hp_current = 4
     sample_character.equipment = {
@@ -385,9 +414,11 @@ async def test_use_item_in_combat_rejects_when_action_already_used(
     )
     db_session.add(combat)
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={
             "item_name": "Healing Potion",
             "session_id": sample_session.id,
@@ -403,7 +434,7 @@ async def test_use_item_in_combat_rejects_when_action_already_used(
 
 @pytest.mark.asyncio
 async def test_use_item_in_combat_rejects_out_of_turn_without_consuming(
-    client, db_session, sample_character, sample_session,
+    client, db_session, sample_user, sample_character, sample_session,
 ):
     sample_character.hp_current = 4
     sample_character.equipment = {
@@ -450,9 +481,11 @@ async def test_use_item_in_combat_rejects_out_of_turn_without_consuming(
     )
     db_session.add(combat)
     await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/use-item",
+        headers=headers,
         json={
             "item_name": "Healing Potion",
             "session_id": sample_session.id,
@@ -467,7 +500,7 @@ async def test_use_item_in_combat_rejects_out_of_turn_without_consuming(
 
 
 @pytest.mark.asyncio
-async def test_transfer_item_moves_gear_between_session_characters(client, db_session, sample_character, sample_session):
+async def test_transfer_item_moves_gear_between_session_characters(client, db_session, sample_user, sample_character, sample_session):
     target = Character(
         session_id=sample_session.id,
         user_id=None,
@@ -491,9 +524,11 @@ async def test_transfer_item_moves_gear_between_session_characters(client, db_se
     db_session.add(target)
     await db_session.commit()
     await db_session.refresh(target)
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/transfer-item",
+        headers=headers,
         json={
           "target_character_id": target.id,
           "item_name": "Healing Potion",
@@ -511,7 +546,7 @@ async def test_transfer_item_moves_gear_between_session_characters(client, db_se
 
 @pytest.mark.asyncio
 async def test_transfer_item_moves_unequipped_shield_between_session_characters(
-    client, db_session, sample_character, sample_session,
+    client, db_session, sample_user, sample_character, sample_session,
 ):
     target = Character(
         session_id=sample_session.id,
@@ -533,9 +568,11 @@ async def test_transfer_item_moves_unequipped_shield_between_session_characters(
     db_session.add(target)
     await db_session.commit()
     await db_session.refresh(target)
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/transfer-item",
+        headers=headers,
         json={
             "target_character_id": target.id,
             "item_name": "Shield",
@@ -551,7 +588,7 @@ async def test_transfer_item_moves_unequipped_shield_between_session_characters(
 
 
 @pytest.mark.asyncio
-async def test_transfer_item_rejects_target_outside_same_session(client, db_session, sample_character, sample_session):
+async def test_transfer_item_rejects_target_outside_same_session(client, db_session, sample_user, sample_character, sample_session):
     target = Character(
         session_id=None,
         user_id=None,
@@ -574,9 +611,11 @@ async def test_transfer_item_rejects_target_outside_same_session(client, db_sess
     db_session.add(target)
     await db_session.commit()
     await db_session.refresh(target)
+    headers = await _auth_headers(client, sample_user)
 
     response = await client.post(
         f"/characters/{sample_character.id}/transfer-item",
+        headers=headers,
         json={
             "target_character_id": target.id,
             "item_name": "Healing Potion",

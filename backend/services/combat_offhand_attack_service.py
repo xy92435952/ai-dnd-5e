@@ -8,6 +8,7 @@ from services.combat_attack_damage_service import apply_attack_damage_to_target
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
+from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
 
@@ -48,7 +49,7 @@ async def resolve_offhand_attack(
     if turn_state.get("bonus_action_used"):
         raise CombatAttackRollError(400, "本回合附赠行动已用尽")
 
-    target = await _resolve_offhand_target(db, target_id, enemies)
+    target = await _resolve_offhand_target(db, session=session, target_id=target_id, enemies=enemies)
     if not target:
         raise CombatAttackRollError(400, "没有可攻击的目标")
 
@@ -68,6 +69,7 @@ async def resolve_offhand_attack(
             target_id=target["id"],
             target_is_enemy=target["is_enemy"],
             damage=attack.damage,
+            session=session,
         )
         if target["is_enemy"]:
             state["enemies"] = enemies
@@ -111,12 +113,15 @@ async def resolve_offhand_attack(
 
 async def _resolve_offhand_target(
     db,
+    *,
+    session,
     target_id: str | None,
     enemies: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     if target_id:
         target_character = await db.get(Character, target_id)
         if target_character:
+            await assert_character_in_session(target_character, session, db)
             return {
                 "id": target_character.id,
                 "name": target_character.name,

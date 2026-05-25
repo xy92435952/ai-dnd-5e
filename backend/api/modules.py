@@ -11,7 +11,7 @@ from config import settings
 from services.module_parser import extract_text, get_file_type, is_allowed_file, truncate_text
 from services.langgraph_client import langgraph_client as dify_client
 from services.local_rag_uploader import rag_uploader
-from api.deps import get_user_id
+from api.deps import assert_module_access, get_user_id
 from schemas.module_responses import ModuleListItem, ModuleDetail, ModuleUploadResponse
 
 router = APIRouter(prefix="/modules", tags=["modules"])
@@ -139,12 +139,17 @@ async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depend
 
 
 @router.get("/{module_id}", response_model=ModuleDetail)
-async def get_module(module_id: str, db: AsyncSession = Depends(get_db)):
+async def get_module(
+    module_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """获取模组详情"""
     result = await db.execute(select(Module).where(Module.id == module_id))
     module = result.scalar_one_or_none()
     if not module:
         raise HTTPException(404, "模组不存在")
+    assert_module_access(module, user_id)
     return {
         "id": module.id,
         "name": module.name,
@@ -160,7 +165,11 @@ async def get_module(module_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{module_id}")
-async def delete_module(module_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_module(
+    module_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
     """删除模组"""
     result = await db.execute(select(Module).where(Module.id == module_id))
     module = result.scalar_one_or_none()
@@ -168,6 +177,8 @@ async def delete_module(module_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "模组不存在")
 
     # 删除文件
+    assert_module_access(module, user_id)
+
     file_path = Path(module.file_path)
     if file_path.exists():
         file_path.unlink()

@@ -65,7 +65,7 @@ async def fill_with_ai_companions(
 
     existing_ai = await list_ai_companions(db, session_id)
     target_total = session.max_players or 4
-    need = target_total - len(claimed) - len(existing_ai)
+    need = target_total - len(members) - len(existing_ai)
     if need <= 0:
         return {"generated": 0, "companions": existing_ai, "already_full": True}
 

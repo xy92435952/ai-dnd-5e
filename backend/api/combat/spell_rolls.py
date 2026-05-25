@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Character, CombatState, GameLog
-from api.deps import assert_can_act, get_session_or_404, get_user_id
+from api.deps import assert_can_act, assert_character_in_session, get_session_or_404, get_user_id
 from api.combat._shared import (
     _DEFAULT_TS,
     _broadcast_combat,
@@ -63,12 +63,15 @@ async def spell_roll(
         raise HTTPException(404, "施法者不��在")
 
     # ── 检查行动配额 ──
+    await assert_character_in_session(caster, session, db)
+
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat_obj = combat_result.scalars().first()
     try:
         prepared = await prepare_spell_roll(
             db,
             combat_obj=combat_obj,
+            session=session,
             caster=caster,
             caster_id=req.caster_id,
             spell_name=req.spell_name,
@@ -150,6 +153,8 @@ async def spell_confirm(
     caster = await db.get(Character, caster_entity_id)
     if not caster:
         raise HTTPException(404, "施法���不存在")
+
+    await assert_character_in_session(caster, session, db)
 
     spell_name = pending["spell_name"]
 

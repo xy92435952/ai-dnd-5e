@@ -8,6 +8,15 @@ from services.dnd_rules import calc_derived
 pytestmark = pytest.mark.integration
 
 
+async def _auth_headers(client, sample_user):
+    response = await client.post("/auth/login", json={
+        "username": sample_user.username,
+        "password": "password",
+    })
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['token']}"}
+
+
 async def test_level_up_adds_new_spell_slots_without_refilling_spent_slots(client, db_session, sample_user):
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")
@@ -29,7 +38,12 @@ async def test_level_up_adds_new_spell_slots_without_refilling_spent_slots(clien
     db_session.add(wizard)
     await db_session.commit()
 
-    response = await client.post(f"/characters/{wizard.id}/level-up", json={"use_average_hp": True})
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{wizard.id}/level-up",
+        headers=headers,
+        json={"use_average_hp": True},
+    )
 
     assert response.status_code == 200, response.text
     data = response.json()["character"]

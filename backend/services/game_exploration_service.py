@@ -180,7 +180,7 @@ async def _broadcast_exploration_result(
     multiplayer_table_reason: str,
     multiplayer_table_decision: dict,
 ) -> None:
-    from schemas.ws_events import DMResponded, DMSpeakTurn
+    from schemas.ws_events import DMResponded, DMSpeakTurn, RoomStateUpdated
 
     try:
         await send_dm_responded_with_visibility(
@@ -210,5 +210,8 @@ async def _broadcast_exploration_result(
             next_user = await _advance_speaker(db, session.id, actor_user_id)
             if next_user:
                 await ws_manager.broadcast(session.id, DMSpeakTurn(user_id=next_user, auto=True))
+                from services import room_service
+                room_info = await room_service.get_room_info(db, session.id)
+                await ws_manager.broadcast(session.id, RoomStateUpdated(room=room_info))
         except Exception:
             pass

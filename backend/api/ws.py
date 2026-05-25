@@ -18,7 +18,7 @@ from models import SessionMember, Session
 from api.auth import decode_token
 from services.ws_manager import ws_manager
 from services import room_service
-from schemas.ws_events import MemberOnline, MemberOffline, Typing, DMSpeakTurn
+from schemas.ws_events import MemberOnline, MemberOffline, Typing, DMSpeakTurn, WSError, RoomStateUpdated
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +62,10 @@ async def ws_endpoint(
     await ws_manager.broadcast(
         session_id,
         MemberOnline(user_id=user_id, members=online_members),
-        exclude_user_id=user_id,
     )
+    async with AsyncSessionLocal() as db:
+        room_info = await room_service.get_room_info(db, session_id)
+    await websocket.send_json(RoomStateUpdated(room=room_info).model_dump(mode="json"))
 
     # 5. 主循环
     try:
@@ -83,10 +85,23 @@ async def ws_endpoint(
                 # 轮流发言：当前发言者按"我说完了"，推进到下一人（A7 阶段实现完整逻辑）
                 async with AsyncSessionLocal() as db:
                     next_user = await _advance_speaker(db, session_id, user_id)
+                    room_info = await room_service.get_room_info(db, session_id) if next_user else None
                 if next_user:
                     await ws_manager.broadcast(
                         session_id,
                         DMSpeakTurn(user_id=next_user, auto=False),
+                    )
+                    if room_info:
+                        await ws_manager.broadcast(
+                            session_id,
+                            RoomStateUpdated(room=room_info),
+                        )
+                else:
+                    await websocket.send_json(
+                        WSError(
+                            code="not_current_speaker",
+                            message="Only the current speaker can end the speak turn.",
+                        ).model_dump(mode="json")
                     )
 
             elif msg_type == "typing":
@@ -124,6 +139,9 @@ async def _advance_speaker(db: AsyncSession, session_id: str, current_user_id: s
         return None
     state = session.game_state or {}
     mp = state.setdefault("multiplayer", {})
+    current_speaker = mp.get("current_speaker_user_id")
+    if current_speaker != current_user_id:
+        return None
 
     members = await room_service.list_members(db, session_id)
     online_user_ids = [m["user_id"] for m in members if m["is_online"]]

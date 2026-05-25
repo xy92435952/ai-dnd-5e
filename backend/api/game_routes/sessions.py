@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import can_user_see_log, char_brief, get_session_or_404, get_user_id, serialize_log
+from api.deps import assert_character_access, assert_module_access, assert_session_access, can_user_see_log, char_brief, get_session_or_404, get_user_id, serialize_log
 from database import get_db
-from models import Character, CombatState, GameLog, Module, Session, SessionMember
+from models import Character, CombatState, GameLog, Module, Session
 from schemas.game_requests import CreateSessionRequest
 from schemas.game_responses import CreateSessionResponse, SessionDetail, SessionListItem
 from services.character_roster import CharacterRoster
@@ -25,6 +25,9 @@ async def create_session(
     module = mod_result.scalar_one_or_none()
     if not module:
         raise HTTPException(404, "模组不存在")
+
+    assert_module_access(module, user_id)
+    await _assert_session_roster_access(db, req, user_id)
 
     parsed = module.parsed_content or {}
     scenes = parsed.get("scenes", [])
@@ -83,6 +86,9 @@ async def list_sessions(
             "player_class": player.char_class if player else None,
             "player_level": player.level if player else None,
             "player_race": player.race if player else None,
+            "is_multiplayer": session.is_multiplayer,
+            "room_code": session.room_code,
+            "host_user_id": session.host_user_id,
         })
     return out
 
@@ -95,17 +101,11 @@ async def get_session(
 ):
     """获取会话完整状态（用于恢复游戏）"""
     session = await get_session_or_404(session_id, db)
+    member = await assert_session_access(session, user_id, db)
     roster = CharacterRoster(db, session)
     player = await roster.player()
     controlled_player = player
     if session.is_multiplayer:
-        member_result = await db.execute(
-            select(SessionMember).where(
-                SessionMember.session_id == session_id,
-                SessionMember.user_id == user_id,
-            )
-        )
-        member = member_result.scalar_one_or_none()
         if member and member.character_id:
             controlled_player = await db.get(Character, member.character_id) or player
     module = await db.get(Module, session.module_id) if session.module_id else None
@@ -144,6 +144,8 @@ async def delete_session(
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(404, "存档不存在")
+    if session.is_multiplayer:
+        raise HTTPException(400, "Use the room leave endpoint for multiplayer sessions")
     if session.user_id and session.user_id != user_id:
         raise HTTPException(403, "无权删除他人的存档")
 
@@ -174,3 +176,26 @@ async def _generate_opening_with_legacy_patch(parsed: dict, raw_scene: str, dm_s
     except Exception:
         pass
     return await generate_opening(parsed, raw_scene, dm_style)
+
+
+async def _assert_session_roster_access(
+    db: AsyncSession,
+    req: CreateSessionRequest,
+    user_id: str,
+) -> None:
+    player = await db.get(Character, req.player_character_id)
+    if not player:
+        raise HTTPException(404, "Player character not found")
+    await assert_character_access(player, user_id, db, allow_room_ai=False)
+
+    for companion_id in req.companion_ids or []:
+        companion = await db.get(Character, companion_id)
+        if not companion:
+            raise HTTPException(404, "Companion character not found")
+        if companion.user_id and companion.user_id != user_id:
+            raise HTTPException(403, "Cannot bind another user's character")
+        if companion.is_player and companion.user_id != user_id:
+            raise HTTPException(403, "Cannot bind player character as companion")
+        if companion.session_id:
+            owner_session = await get_session_or_404(companion.session_id, db)
+            await assert_session_access(owner_session, user_id, db)

@@ -6,11 +6,13 @@ import { useCombatFlowHandlers } from './useCombatFlowHandlers'
 import { useCombatPrediction } from './useCombatPrediction'
 import { useCombatPageActions } from './useCombatPageActions'
 import { COMBAT_GRID } from '../utils/combatPage'
+import { canDriveAiCombatTurns } from '../utils/combat'
 
 export function useCombatRuntime({
   sessionId,
   room,
   setRoom,
+  myUserId,
   myCharacterId,
   showDice,
   page,
@@ -61,6 +63,7 @@ export function useCombatRuntime({
   } = targeting
   const { logs, logsEndRef } = log
   const controlledPlayerId = room && myCharacterId ? myCharacterId : playerId
+  const canDriveAiTurns = canDriveAiCombatTurns({ room, myUserId })
 
   const spells = useCombatSpells(sessionId)
   const skillBarV10 = useCombatSkillBar({
@@ -104,6 +107,7 @@ export function useCombatRuntime({
     log,
     controlledPlayerId,
     canActThisTurn: derived.canActThisTurn,
+    canDriveAiTurns,
   })
 
   const { onWsEvent, onSkillClick, handleMoveTo, handleSpellHover } = useCombatPageActions({

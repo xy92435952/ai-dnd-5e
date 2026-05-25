@@ -12,6 +12,7 @@ from database import get_db
 from models import Character, GameLog, CombatState
 from api.deps import (
     assert_can_act,
+    assert_optional_session_access,
     get_session_or_404,
     get_optional_user_id,
 )
@@ -55,6 +56,7 @@ async def combat_action(
     action_text = req.action_text
     target_id   = req.target_id
     session = await get_session_or_404(session_id, db)
+    await assert_optional_session_access(session, user_id, db)
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
@@ -166,6 +168,7 @@ async def combat_action(
             target_id=prepared.target_id,
             target_is_enemy=prepared.target_is_enemy,
             damage=damage,
+            session=session,
         )
         if prepared.target_is_enemy:
             state["enemies"]   = enemies

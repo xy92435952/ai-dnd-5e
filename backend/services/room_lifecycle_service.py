@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps import assert_module_access
 from models import Character, Module, Session, SessionMember
 from services import room_group_service
 from services.dm_styles import normalize_dm_style
@@ -43,6 +44,8 @@ async def create_room(
     module = await db.get(Module, module_id)
     if not module:
         raise HTTPException(404, "模组不存在")
+
+    assert_module_access(module, user_id)
 
     code = await generate_unique_room_code(db)
     style_key = normalize_dm_style(dm_style)

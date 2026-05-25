@@ -19,6 +19,7 @@ export function useCombatTurnControls({
   setCombatOver,
   addLog,
   triggerAiTurn,
+  canDriveAiTurns = true,
 }) {
   const handleEndTurn = useCallback(async () => {
     if (!canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
@@ -56,7 +57,7 @@ export function useCombatTurnControls({
         if (fresh) {
           setCombat(fresh)
           const nextEntry = fresh.turn_order?.[fresh.current_turn_index]
-          if (nextEntry && !nextEntry.is_player) {
+          if (canDriveAiTurns && nextEntry && !nextEntry.is_player) {
             aiTimer.current = setTimeout(() => triggerAiTurn(), 600)
           } else if (nextEntry?.is_player) {
             setTurnState(getPlayerTurnState(fresh, nextEntry.character_id))
@@ -73,6 +74,7 @@ export function useCombatTurnControls({
   }, [
     addLog,
     aiTimer,
+    canDriveAiTurns,
     combat,
     canActThisTurn,
     isPlayerTurn,

@@ -28,7 +28,7 @@ export function useRoomRealtime(sessionId, myUserId = null) {
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
 
-  const refreshRoom = useCallback(async () => {
+  const refreshRoom = useCallback(async ({ preserveOnError = false } = {}) => {
     if (!sessionId) return null
     try {
       const data = await roomsApi.get(sessionId)
@@ -37,7 +37,9 @@ export function useRoomRealtime(sessionId, myUserId = null) {
       setError('')
       return normalized
     } catch (e) {
-      setRoom(null)
+      if (!preserveOnError) {
+        setRoom(null)
+      }
       setError(e.message || '')
       return null
     }

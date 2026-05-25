@@ -111,4 +111,28 @@ describe('useCombatTurnControls', () => {
     expect(endTurnMock).not.toHaveBeenCalled()
     expect(deps.setIsProcessing).not.toHaveBeenCalled()
   })
+
+  it('does not auto-drive ai after ending turn on non-driver clients', async () => {
+    endTurnMock.mockResolvedValue({ next_turn_index: 1, round_number: 2 })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'char-1', is_player: true },
+        { character_id: 'enemy-1', is_player: false },
+      ],
+    })
+
+    const { result, deps, aiTimer } = renderControls({ canDriveAiTurns: false })
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(endTurnMock).toHaveBeenCalledWith('sess-1')
+    expect(aiTimer.current).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600)
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
 })

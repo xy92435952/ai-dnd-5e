@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
-import { applyHpUpdate, getPlayerTurnState } from '../utils/combat'
+import { applyHpUpdate, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
 
 const AI_TURN_LIMIT = 20
 
@@ -53,8 +53,12 @@ export function useCombatAiTurns({
 
         let result
         try {
-          result = await gameApi.aiTurn(sessionId)
+          const turnToken = getCombatTurnToken(fresh)
+          result = await gameApi.aiTurn(sessionId, turnToken)
         } catch (e) {
+          if ((e.message || '').includes('AI turn token is stale')) {
+            break
+          }
           addLog({ role: 'system', content: `AI行动错误: ${e.message}`, log_type: 'system' })
           break
         }
