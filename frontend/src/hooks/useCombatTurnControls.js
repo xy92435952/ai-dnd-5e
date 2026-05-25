@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
-import { getPlayerTurnState } from '../utils/combat'
+import { getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
 
 export function useCombatTurnControls({
   sessionId,
@@ -29,7 +29,8 @@ export function useCombatTurnControls({
     setHelpMode(false)
     setError('')
     try {
-      const result = await gameApi.endTurn(sessionId)
+      const turnToken = getCombatTurnToken(combat)
+      const result = await gameApi.endTurn(sessionId, turnToken)
 
       if (result.expired_conditions?.length) {
         result.expired_conditions.forEach(msg => addLog({ role: 'system', content: msg, log_type: 'system' }))
@@ -67,6 +68,17 @@ export function useCombatTurnControls({
         // Keep the locally advanced state when the refresh fails.
       }
     } catch (e) {
+      if ((e.message || '').includes('End turn token is stale')) {
+        try {
+          const fresh = await gameApi.getCombat(sessionId)
+          if (fresh) setCombat(fresh)
+        } catch {
+          // Leave the current view in place when refresh also fails.
+        }
+        processingRef.current = false
+        setIsProcessing(false)
+        return
+      }
       setError(e.message)
       processingRef.current = false
       setIsProcessing(false)

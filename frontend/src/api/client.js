@@ -192,8 +192,11 @@ export const gameApi = {
       character_id: characterId,
       ...(d20Value != null ? { d20_value: d20Value } : {}),
     }),
-  endTurn: (sessionId) =>
-    api.post(`/game/combat/${sessionId}/end-turn`),
+  endTurn: (sessionId, expectedTurnToken = null) =>
+    api.post(
+      `/game/combat/${sessionId}/end-turn`,
+      expectedTurnToken ? { expected_turn_token: expectedTurnToken } : undefined,
+    ),
 
   // 神圣斩击 (Paladin Divine Smite)
   smite: (sessionId, slotLevel, targetIsUndead = false, damageValues = null, targetId = null) =>

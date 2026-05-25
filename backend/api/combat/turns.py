@@ -6,7 +6,7 @@ api.combat.turns — 明确结束回合
 import uuid
 import random
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Body, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -29,6 +29,7 @@ from api.combat._shared import (
     _DEFAULT_TS, svc,
     _get_ts, _save_ts, _reset_ts,
     _broadcast_combat, _calc_entity_turn_limits,
+    _combat_turn_token, _get_turn_advance_lock,
     _chebyshev_dist, _check_attack_range, _ai_move_toward,
     _has_adjacent_enemy, _has_ally_adjacent_to,
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
@@ -45,9 +46,14 @@ from schemas.combat_responses import EndTurnResult
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
+class EndTurnRequest(BaseModel):
+    expected_turn_token: str | None = None
+
+
 @router.post("/combat/{session_id}/end-turn", response_model=EndTurnResult)
 async def end_player_turn(
     session_id: str,
+    req: EndTurnRequest = Body(default_factory=EndTurnRequest),
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
@@ -58,16 +64,41 @@ async def end_player_turn(
     - 重置下一实体的回合状态
     """
     session = await get_session_or_404(session_id, db)
+    async with _get_turn_advance_lock(session_id):
+        return await _end_player_turn_locked(session_id, req, db, user_id, session)
+
+
+async def _end_player_turn_locked(
+    session_id: str,
+    req: EndTurnRequest,
+    db: AsyncSession,
+    user_id: str,
+    session,
+):
+    await db.refresh(session)
     if not session.combat_active:
         raise HTTPException(400, "当前不在战斗中")
 
-    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat_result = await db.execute(
+        select(CombatState)
+        .where(CombatState.session_id == session_id)
+        .order_by(CombatState.created_at.desc())
+    )
     combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
 
     turn_order = combat.turn_order or []
-    current    = turn_order[combat.current_turn_index] if turn_order else {}
+    if not turn_order:
+        raise HTTPException(400, "先攻顺序为空")
+
+    turn_index = combat.current_turn_index or 0
+    current    = turn_order[turn_index]
+    expected_token = req.expected_turn_token
+    current_token = _combat_turn_token(combat, current)
+    if expected_token and expected_token != current_token:
+        raise HTTPException(409, "End turn token is stale; refresh combat state")
+
     # 多人联机：必须由当前回合归属玩家本人结束（AI 托管角色由 ai-turn 推进）
     current_cid = current.get("character_id") if isinstance(current, dict) else None
     if current_cid:

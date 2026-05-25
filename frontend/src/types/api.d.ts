@@ -3877,7 +3877,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["AITurnRequest"] | null;
+                "application/json": components["schemas"]["AITurnRequest"];
             };
         };
         responses: {

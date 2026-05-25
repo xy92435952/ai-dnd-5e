@@ -3,6 +3,8 @@ api.combat._shared — 战斗模块的共享常量 / 单例 / 辅助函数。
 
 这里定义的每样东西被多个端点模块调用。改动前请用 grep 确认影响范围。
 """
+import asyncio
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Character, Session, CombatState
@@ -36,6 +38,24 @@ from services.combat_turn_limits_service import (
 from services.character_roster import CharacterRoster
 
 svc = CombatService()
+_TURN_ADVANCE_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def _combat_turn_token(combat: CombatState, current: dict | None = None) -> str:
+    turn_index = combat.current_turn_index or 0
+    if current is None:
+        turn_order = combat.turn_order or []
+        current = turn_order[turn_index] if 0 <= turn_index < len(turn_order) else {}
+    actor_id = current.get("character_id") or current.get("id") or ""
+    return f"{combat.round_number or 1}:{turn_index}:{actor_id}"
+
+
+def _get_turn_advance_lock(session_id: str) -> asyncio.Lock:
+    lock = _TURN_ADVANCE_LOCKS.get(session_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _TURN_ADVANCE_LOCKS[session_id] = lock
+    return lock
 
 
 async def _build_combat_snapshot(

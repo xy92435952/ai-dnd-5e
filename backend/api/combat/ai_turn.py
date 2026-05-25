@@ -3,8 +3,6 @@ api.combat.ai_turn — NPC 自动回合 + 结束战斗
 
 从原 combat.py (单体 5368 行) 按功能域拆出，逻辑未改动。
 """
-import asyncio
-
 from fastapi import APIRouter, Body, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +15,8 @@ from api.deps import assert_session_access, get_session_or_404, get_user_id
 from api.combat._shared import (
     _broadcast_combat,
     _calc_entity_turn_limits,
+    _combat_turn_token,
+    _get_turn_advance_lock,
     _reset_ts,
 )
 from api.combat.ai_turn_utils import advance_ai_turn
@@ -28,27 +28,10 @@ from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
 
 router = APIRouter(prefix="/game", tags=["combat"])
-_AI_TURN_LOCKS: dict[str, asyncio.Lock] = {}
 
 
 class AITurnRequest(BaseModel):
     expected_turn_token: str | None = None
-
-
-def _ai_turn_token(combat: CombatState, current: dict | None = None) -> str:
-    turn_index = combat.current_turn_index or 0
-    if current is None:
-        current = (combat.turn_order or [])[turn_index]
-    actor_id = current.get("character_id") or current.get("id") or ""
-    return f"{combat.round_number or 1}:{turn_index}:{actor_id}"
-
-
-def _get_ai_turn_lock(session_id: str) -> asyncio.Lock:
-    lock = _AI_TURN_LOCKS.get(session_id)
-    if lock is None:
-        lock = asyncio.Lock()
-        _AI_TURN_LOCKS[session_id] = lock
-    return lock
 
 
 async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) -> dict | None:
@@ -87,7 +70,7 @@ async def ai_combat_turn(
     session = await get_session_or_404(session_id, db)
     await assert_session_access(session, user_id, db)
 
-    async with _get_ai_turn_lock(session_id):
+    async with _get_turn_advance_lock(session_id):
         return await _ai_combat_turn_locked(session_id, req, db, session)
 
 
@@ -117,7 +100,7 @@ async def _ai_combat_turn_locked(
     turn_index = combat.current_turn_index or 0
     current    = turn_order[turn_index]
     expected_token = req.expected_turn_token
-    current_token = _ai_turn_token(combat, current)
+    current_token = _combat_turn_token(combat, current)
     if expected_token and expected_token != current_token:
         raise HTTPException(409, "AI turn token is stale; refresh combat state")
     if current.get("is_player"):

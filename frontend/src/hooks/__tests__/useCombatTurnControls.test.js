@@ -65,7 +65,7 @@ describe('useCombatTurnControls', () => {
       await result.current.handleEndTurn()
     })
 
-    expect(endTurnMock).toHaveBeenCalledWith('sess-1')
+    expect(endTurnMock).toHaveBeenCalledWith('sess-1', '1:0:char-1')
     expect(deps.addLog).toHaveBeenCalledWith({
       role: 'system',
       content: '迟缓结束',
@@ -128,11 +128,37 @@ describe('useCombatTurnControls', () => {
       await result.current.handleEndTurn()
     })
 
-    expect(endTurnMock).toHaveBeenCalledWith('sess-1')
+    expect(endTurnMock).toHaveBeenCalledWith('sess-1', '1:0:char-1')
     expect(aiTimer.current).toBeNull()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600)
     })
     expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
+  it('refreshes combat and stops quietly when ending turn with a stale token', async () => {
+    const freshCombat = {
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'char-1', is_player: true },
+        { character_id: 'enemy-1', is_player: false },
+      ],
+    }
+    endTurnMock.mockRejectedValue(new Error('End turn token is stale; refresh combat state'))
+    getCombatMock.mockResolvedValue(freshCombat)
+
+    const { result, deps, processingRef } = renderControls()
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(endTurnMock).toHaveBeenCalledWith('sess-1', '1:0:char-1')
+    expect(getCombatMock).toHaveBeenCalledWith('sess-1')
+    expect(deps.setCombat).toHaveBeenCalledWith(freshCombat)
+    expect(deps.setError).toHaveBeenCalledWith('')
+    expect(deps.setError).not.toHaveBeenCalledWith(expect.stringContaining('stale'))
+    expect(processingRef.current).toBe(false)
+    expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 })

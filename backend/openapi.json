@@ -1659,6 +1659,23 @@
         "title": "DeathSaveResult",
         "type": "object"
       },
+      "EndTurnRequest": {
+        "properties": {
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          }
+        },
+        "title": "EndTurnRequest",
+        "type": "object"
+      },
       "EndTurnResult": {
         "additionalProperties": true,
         "description": "/end-turn / /ai-turn / /end 等回合推进类端点。",
@@ -5258,6 +5275,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndTurnRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

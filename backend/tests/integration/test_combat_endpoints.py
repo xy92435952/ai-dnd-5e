@@ -108,6 +108,22 @@ async def test_end_turn_advances_round(client, sample_session, combat_state, sam
     assert r.status_code != 500, r.text
 
 
+async def test_end_turn_rejects_stale_expected_turn_token(
+    client, db_session, sample_session, combat_state, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(
+        f"/game/combat/{sample_session.id}/end-turn",
+        headers=headers,
+        json={"expected_turn_token": "1:0:not-the-current-actor"},
+    )
+
+    assert r.status_code == 409, r.text
+    assert "stale" in r.text
+    await db_session.refresh(combat_state)
+    assert combat_state.current_turn_index == 0
+
+
 async def test_natural_language_unreachable_melee_moves_without_fake_attack(
     client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
 ):

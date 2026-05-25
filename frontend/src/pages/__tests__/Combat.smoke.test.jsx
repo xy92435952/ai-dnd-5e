@@ -330,7 +330,7 @@ describe('Combat render smoke', () => {
     fireEvent.click(endTurnButton)
 
     await waitFor(() => {
-      expect(endTurnMock).toHaveBeenCalledWith('sess-1')
+      expect(endTurnMock).toHaveBeenCalledWith('sess-1', '2:0:guest-char')
     })
   })
 
