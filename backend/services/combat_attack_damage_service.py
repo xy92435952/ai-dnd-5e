@@ -18,8 +18,14 @@ from services.combat_damage_bonus_service import (
     roll_pending_damage,
 )
 from services.combat_service import CombatService
+from services.combat_temporary_hp_service import (
+    apply_armor_of_agathys_retaliation_to_character,
+    apply_armor_of_agathys_retaliation_to_enemy,
+    build_character_target_state,
+    get_armor_of_agathys_retaliation_damage,
+)
 from services.combat_turn_state_service import get_turn_state
-from services.dnd_rules import _normalize_class, apply_character_damage, get_life_state
+from services.dnd_rules import _normalize_class, apply_character_damage
 from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
@@ -173,6 +179,9 @@ async def apply_attack_damage_to_target(
     damage: int,
     session=None,
     is_critical: bool = False,
+    attacker_id: str | None = None,
+    attacker_is_enemy: bool = False,
+    is_melee: bool = True,
 ):
     """Apply final weapon damage to an enemy dict or Character."""
     if target_is_enemy:
@@ -201,14 +210,46 @@ async def apply_attack_damage_to_target(
     if session is not None:
         await assert_character_in_session(target_character, session, db)
 
+    armor_retaliation_damage = (
+        get_armor_of_agathys_retaliation_damage(target_character)
+        if is_melee
+        else 0
+    )
     damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
-    return damage_result["hp_after"], concentration_log, {
-        "target_id": target_id,
-        "hp_current": damage_result["hp_after"],
-        "new_hp": damage_result["hp_after"],
-        "death_saves": damage_result["death_saves"],
-        "conditions": damage_result["conditions"],
-        "life_state": get_life_state(target_character),
-        "concentration": target_character.concentration,
-    }
+    target_state = build_character_target_state(target_character)
+    if damage_result["temporary_hp_before"] or damage_result["temporary_hp_after"]:
+        target_state["temporary_hp"] = damage_result["temporary_hp_after"]
+        target_state["class_resources"] = target_character.class_resources or {}
+        target_state["condition_durations"] = target_character.condition_durations or {}
+        target_state["damage_result"] = {
+            "damage": damage_result["damage"],
+            "damage_to_temporary_hp": damage_result["damage_to_temporary_hp"],
+            "damage_to_hp": damage_result["damage_to_hp"],
+            "temporary_hp_before": damage_result["temporary_hp_before"],
+            "temporary_hp_after": damage_result["temporary_hp_after"],
+        }
+
+    retaliation = None
+    if is_melee:
+        if attacker_is_enemy:
+            attacker_enemy = next((enemy for enemy in enemies if enemy.get("id") == attacker_id), None)
+            retaliation = apply_armor_of_agathys_retaliation_to_enemy(
+                defender=target_character,
+                attacker_enemy=attacker_enemy,
+                enemies=enemies,
+                melee_hit=True,
+                retaliation_damage=armor_retaliation_damage,
+            )
+        else:
+            retaliation = await apply_armor_of_agathys_retaliation_to_character(
+                db,
+                defender=target_character,
+                attacker_character_id=attacker_id,
+                melee_hit=True,
+                retaliation_damage=armor_retaliation_damage,
+            )
+    if retaliation:
+        target_state["retaliation"] = retaliation
+
+    return damage_result["hp_after"], concentration_log, target_state

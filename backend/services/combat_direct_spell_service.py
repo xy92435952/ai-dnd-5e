@@ -15,6 +15,7 @@ from services.combat_spell_resolution_service import (
     consume_spell_slot_for_confirmation,
 )
 from services.combat_spell_target_service import collect_spell_target_names, validate_ordinary_healing_targets
+from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.combat_turn_state_service import DEFAULT_TURN_STATE, get_turn_state, save_turn_state
 from services.spell_service import spell_service
 
@@ -118,6 +119,8 @@ async def cast_direct_spell(
     enemies = list(state.get("enemies", []))
     is_aoe = spell.get("aoe", False)
     spell_type = spell.get("type")
+    if is_armor_of_agathys(spell_name, spell) and not target_id and not target_ids:
+        target_id = caster_id
     resolved_target_ids = _resolve_direct_spell_targets(
         db=db,
         session=session,
@@ -154,6 +157,7 @@ async def cast_direct_spell(
     should_apply_spell = (
         spell_type in ("damage", "heal")
         or (spell_type == "utility" and get_resurrection_spell_config(spell_name, spell))
+        or (spell_type == "utility" and is_armor_of_agathys(spell_name, spell))
         or spell_applies_condition(spell_type, spell_name, spell)
     )
     if should_apply_spell and (resolved_target_ids or is_aoe):

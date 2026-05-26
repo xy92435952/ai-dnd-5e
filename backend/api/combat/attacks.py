@@ -172,6 +172,9 @@ async def combat_action(
             damage=damage,
             session=session,
             is_critical=attack_result_dict.get("is_crit", False),
+            attacker_id=str(player_id),
+            attacker_is_enemy=False,
+            is_melee=not req.is_ranged,
         )
         if prepared.target_is_enemy:
             state["enemies"]   = enemies

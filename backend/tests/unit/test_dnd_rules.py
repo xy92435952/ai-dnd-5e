@@ -532,6 +532,51 @@ class TestCharacterLifeState:
         assert char.conditions == ["unconscious"]
         assert is_dying(char) is True
 
+    def test_damage_consumes_temporary_hp_before_real_hp(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=10,
+            death_saves=None,
+            conditions=[],
+            condition_durations={},
+            class_resources={"temporary_hp": 6, "temporary_hp_source": "generic"},
+        )
+
+        result = apply_character_damage(char, 4)
+
+        assert result["hp_after"] == 10
+        assert result["damage_to_temporary_hp"] == 4
+        assert result["damage_to_hp"] == 0
+        assert char.class_resources["temporary_hp"] == 2
+        assert char.death_saves is None
+
+    def test_losing_armor_of_agathys_temp_hp_clears_effect_state(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=10,
+            death_saves=None,
+            conditions=["armor_of_agathys"],
+            condition_durations={"armor_of_agathys": 600},
+            class_resources={
+                "temporary_hp": 5,
+                "temporary_hp_source": "armor_of_agathys",
+                "armor_of_agathys_active": True,
+                "armor_of_agathys_damage": 5,
+                "armor_of_agathys_spell_level": 1,
+            },
+        )
+
+        result = apply_character_damage(char, 7)
+
+        assert result["hp_after"] == 8
+        assert result["temporary_hp_after"] == 0
+        assert "armor_of_agathys" not in char.conditions
+        assert "armor_of_agathys" not in char.condition_durations
+        assert "temporary_hp" not in char.class_resources
+        assert "armor_of_agathys_damage" not in char.class_resources
+
     def test_massive_damage_at_drop_to_zero_kills_immediately(self):
         from types import SimpleNamespace
 

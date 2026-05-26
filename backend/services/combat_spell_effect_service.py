@@ -9,6 +9,10 @@ from services.combat_concentration_service import do_concentration_check
 from services.combat_concentration_service import break_concentration_if_incapacitated
 from services.combat_service import CombatService
 from services.combat_spell_resolution_service import apply_frontend_dice_override
+from services.combat_temporary_hp_service import (
+    apply_armor_of_agathys_to_character,
+    is_armor_of_agathys,
+)
 from services.dnd_rules import (
     apply_character_damage,
     apply_character_healing,
@@ -359,6 +363,33 @@ async def apply_resurrection_spell_to_target(db, target_id: str, spell_name: str
         "conditions": result["conditions"],
         "life_state": get_life_state(target_character),
     }
+
+
+async def apply_armor_of_agathys_to_target(
+    db,
+    target_id: str,
+    *,
+    spell_name: str,
+    spell: dict[str, Any],
+    spell_level: int,
+):
+    """Apply Armor of Agathys to a Character target."""
+    if not is_armor_of_agathys(spell_name, spell):
+        return None
+
+    target_character = await db.get(Character, target_id)
+    if not target_character:
+        return None
+
+    return apply_armor_of_agathys_to_character(
+        target_character,
+        spell_level=spell_level,
+        duration_rounds=resolve_spell_condition_duration(
+            spell_name,
+            spell,
+            default_rounds=600,
+        ) or 600,
+    )
 
 
 async def apply_control_spell_to_target(

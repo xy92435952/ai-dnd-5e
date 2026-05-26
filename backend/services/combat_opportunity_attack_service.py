@@ -9,6 +9,10 @@ from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_grid_service import chebyshev_distance
 from services.combat_service import CombatService
+from services.combat_temporary_hp_service import (
+    apply_armor_of_agathys_retaliation_to_enemy,
+    get_armor_of_agathys_retaliation_damage,
+)
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import apply_character_damage
 
@@ -93,6 +97,7 @@ async def resolve_opportunity_attacks(
                 save_turn_state(combat, enemy["id"], enemy_turn_state)
 
                 if result.attack_roll["hit"]:
+                    armor_retaliation_damage = get_armor_of_agathys_retaliation_damage(moving_char)
                     apply_character_damage(
                         moving_char,
                         result.damage,
@@ -105,6 +110,17 @@ async def resolve_opportunity_attacks(
                     )
                     if concentration_log:
                         db.add(concentration_log)
+                    retaliation = apply_armor_of_agathys_retaliation_to_enemy(
+                        defender=moving_char,
+                        attacker_enemy=enemy,
+                        enemies=enemies,
+                        melee_hit=True,
+                        retaliation_damage=armor_retaliation_damage,
+                    )
+                    if retaliation:
+                        state["enemies"] = enemies
+                        session.game_state = dict(state)
+                        flag_modified(session, "game_state")
 
                 narration = svc._build_narration(
                     enemy["name"],
@@ -124,6 +140,7 @@ async def resolve_opportunity_attacks(
                             "attack": result.attack_roll,
                             "damage": result.damage,
                             "opportunity": True,
+                            "retaliation": retaliation if result.attack_roll["hit"] else None,
                         },
                     ),
                     "result": result.to_dict(),

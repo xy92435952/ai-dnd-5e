@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from services.combat_spell_effect_service import (
+    apply_armor_of_agathys_to_target,
     apply_control_spell_to_target,
     apply_resurrection_spell_to_target,
     apply_spell_damage_to_target,
@@ -12,6 +13,7 @@ from services.combat_spell_effect_service import (
     roll_spell_save,
     spell_applies_condition,
 )
+from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.combat_spell_resolution_service import resolve_spell_roll_amount
 
 
@@ -174,6 +176,18 @@ async def apply_confirmed_spell_effects(
             resolve_heal=resolve_heal,
         )
         applied = await apply_spell_heal_to_target(db, target_id, result.result_heal)
+        if applied:
+            result.target_new_hp = applied["new_hp"]
+            result.target_state = applied
+
+    elif spell_type == "utility" and target_id and is_armor_of_agathys(spell_name, spell):
+        applied = await apply_armor_of_agathys_to_target(
+            db,
+            target_id,
+            spell_name=spell_name,
+            spell=spell,
+            spell_level=spell_level,
+        )
         if applied:
             result.target_new_hp = applied["new_hp"]
             result.target_state = applied

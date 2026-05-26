@@ -229,6 +229,9 @@ async def damage_roll(
         damage=damage_resolution.total_damage,
         session=session,
         is_critical=damage_resolution.is_crit,
+        attacker_id=str(attacker_entity_id),
+        attacker_is_enemy=False,
+        is_melee=not bool(pending.get("is_ranged")),
     )
     if damage_resolution.target_is_enemy:
         state["enemies"]   = enemies

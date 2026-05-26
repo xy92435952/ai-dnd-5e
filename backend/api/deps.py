@@ -13,6 +13,7 @@ from services.dnd_rules import (
     get_effective_hp_base,
     get_incapacitating_reasons,
     get_life_state,
+    get_temporary_hp,
 )
 from services.session_access_service import assert_character_in_session
 
@@ -135,6 +136,7 @@ def char_brief(char: Character) -> dict:
         "char_class":       char.char_class,
         "level":            char.level,
         "hp_current":       char.hp_current,
+        "temporary_hp":      get_temporary_hp(char),
         "hp_max":           derived.get("hp_max", char.hp_current),
         "base_hp_max":      base_hp_max,
         "ac":               derived.get("ac", 10),
@@ -148,6 +150,7 @@ def char_brief(char: Character) -> dict:
         "life_state":       get_life_state(char),
         "derived":          derived,
         "concentration":    char.concentration,
+        "class_resources":  char.class_resources or {},
         "known_spells":     char.known_spells or [],
         "cantrips":         char.cantrips or [],
         "equipment":        char.equipment or {},
@@ -172,6 +175,7 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "is_player":  char.is_player and not is_enemy,
         "is_enemy":   is_enemy,
         "hp_current": char.hp_current,
+        "temporary_hp": get_temporary_hp(char),
         "hp_max":     derived.get("hp_max", char.hp_current),
         "base_hp_max": base_hp_max,
         "ac":         derived.get("ac", 10),
@@ -180,6 +184,7 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "death_saves": char.death_saves,
         "life_state": get_life_state(char),
         "derived":    derived,
+        "class_resources": char.class_resources or {},
     }
 
 

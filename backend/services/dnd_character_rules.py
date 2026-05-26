@@ -207,7 +207,10 @@ def _condition_list(character: dict | object | None) -> list[str]:
 
 
 def _set_conditions(character: object, conditions: list[str]) -> None:
-    character.conditions = conditions
+    if isinstance(character, dict):
+        character["conditions"] = conditions
+    else:
+        character.conditions = conditions
 
 
 def _add_condition(character: object, condition: str) -> bool:
@@ -226,6 +229,110 @@ def _remove_condition(character: object, condition: str) -> bool:
         return False
     _set_conditions(character, updated)
     return True
+
+
+def _class_resources(character: dict | object | None) -> dict:
+    if not character:
+        return {}
+    if isinstance(character, dict):
+        return dict(character.get("class_resources") or {})
+    return dict(getattr(character, "class_resources", None) or {})
+
+
+def _set_class_resources(character: dict | object, resources: dict) -> None:
+    if isinstance(character, dict):
+        character["class_resources"] = resources
+    else:
+        character.class_resources = resources
+
+
+def get_temporary_hp(character: dict | object | None) -> int:
+    """Read current temporary HP from class_resources without needing a schema migration."""
+    resources = _class_resources(character)
+    raw_value = resources.get("temporary_hp", resources.get("temp_hp", 0))
+    try:
+        return max(0, int(raw_value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _clear_armor_of_agathys_state(character: dict | object, resources: dict) -> None:
+    for key in (
+        "armor_of_agathys_active",
+        "armor_of_agathys_damage",
+        "armor_of_agathys_spell_level",
+    ):
+        resources.pop(key, None)
+
+    _remove_condition(character, "armor_of_agathys")
+    if isinstance(character, dict):
+        durations = dict(character.get("condition_durations") or {})
+        durations.pop("armor_of_agathys", None)
+        character["condition_durations"] = durations
+    else:
+        durations = dict(getattr(character, "condition_durations", None) or {})
+        durations.pop("armor_of_agathys", None)
+        character.condition_durations = durations
+
+
+def set_temporary_hp(character: dict | object, amount: int, *, source: str | None = None) -> int:
+    """Set temporary HP and clear source-tied effects when that HP pool disappears."""
+    resources = _class_resources(character)
+    try:
+        next_amount = max(0, int(amount or 0))
+    except (TypeError, ValueError):
+        next_amount = 0
+
+    if next_amount > 0:
+        resources["temporary_hp"] = next_amount
+        resources.pop("temp_hp", None)
+        if source:
+            resources["temporary_hp_source"] = source
+        elif "temporary_hp_source" not in resources:
+            resources["temporary_hp_source"] = "generic"
+        if resources.get("temporary_hp_source") != "armor_of_agathys":
+            _clear_armor_of_agathys_state(character, resources)
+    else:
+        resources.pop("temporary_hp", None)
+        resources.pop("temp_hp", None)
+        resources.pop("temporary_hp_source", None)
+        _clear_armor_of_agathys_state(character, resources)
+
+    _set_class_resources(character, resources)
+    return next_amount
+
+
+def grant_temporary_hp(
+    character: dict | object,
+    amount: int,
+    *,
+    source: str | None = None,
+    replace_if_higher: bool = True,
+) -> dict:
+    """Grant non-stacking 5e temporary HP and return an application summary."""
+    before = get_temporary_hp(character)
+    try:
+        requested = max(0, int(amount or 0))
+    except (TypeError, ValueError):
+        requested = 0
+
+    if replace_if_higher and before > requested:
+        return {
+            "applied": False,
+            "temporary_hp_before": before,
+            "temporary_hp_after": before,
+            "temporary_hp_granted": 0,
+            "reason": "existing_temporary_hp_higher",
+        }
+
+    after = set_temporary_hp(character, requested, source=source)
+    return {
+        "applied": after > 0,
+        "temporary_hp_before": before,
+        "temporary_hp_after": after,
+        "temporary_hp_granted": after if after > 0 else 0,
+        "reason": None,
+    }
 
 
 def get_incapacitating_reasons(character: dict | object | None) -> list[str]:
@@ -304,23 +411,48 @@ def apply_character_damage(character: object, damage: int, *, is_critical: bool 
     """Apply damage, including 5e death-save failures for damage at 0 HP."""
     before_hp = int(getattr(character, "hp_current", 0) or 0)
     dealt = max(0, int(damage or 0))
-    after_hp = max(0, before_hp - dealt)
+    temporary_hp_before = get_temporary_hp(character)
+    damage_to_temporary_hp = min(temporary_hp_before, dealt)
+    damage_to_hp = max(0, dealt - damage_to_temporary_hp)
+    temporary_hp_after = temporary_hp_before - damage_to_temporary_hp
+    if damage_to_temporary_hp:
+        source = _class_resources(character).get("temporary_hp_source")
+        set_temporary_hp(character, temporary_hp_after, source=source)
+
+    after_hp = max(0, before_hp - damage_to_hp)
     character.hp_current = after_hp
-    dropped_to_zero = before_hp > 0 and after_hp == 0
+    dropped_to_zero = before_hp > 0 and after_hp == 0 and damage_to_hp > 0
     death_save_failures_added = 0
     instant_death = False
 
+    if damage_to_hp <= 0:
+        return {
+            "hp_before": before_hp,
+            "hp_after": after_hp,
+            "damage": dealt,
+            "damage_to_temporary_hp": damage_to_temporary_hp,
+            "damage_to_hp": damage_to_hp,
+            "temporary_hp_before": temporary_hp_before,
+            "temporary_hp_after": temporary_hp_after,
+            "dropped_to_zero": False,
+            "death_save_failures_added": 0,
+            "instant_death": False,
+            "dead": is_dead(character),
+            "death_saves": getattr(character, "death_saves", None),
+            "conditions": _condition_list(character),
+        }
+
     if dropped_to_zero:
-        remaining_damage = dealt - before_hp
+        remaining_damage = damage_to_hp - before_hp
         if remaining_damage >= get_effective_hp_max(character):
             instant_death = True
             character.death_saves = default_death_saves(failures=3)
         elif getattr(character, "death_saves", None) is None:
             character.death_saves = default_death_saves()
-    elif before_hp <= 0 and dealt > 0:
+    elif before_hp <= 0 and damage_to_hp > 0:
         hp_max = get_effective_hp_max(character)
         saves = dict(getattr(character, "death_saves", None) or default_death_saves())
-        if dealt >= hp_max:
+        if damage_to_hp >= hp_max:
             instant_death = True
             saves = default_death_saves(failures=3)
         else:
@@ -334,6 +466,10 @@ def apply_character_damage(character: object, damage: int, *, is_critical: bool 
         "hp_before": before_hp,
         "hp_after": after_hp,
         "damage": dealt,
+        "damage_to_temporary_hp": damage_to_temporary_hp,
+        "damage_to_hp": damage_to_hp,
+        "temporary_hp_before": temporary_hp_before,
+        "temporary_hp_after": temporary_hp_after,
         "dropped_to_zero": dropped_to_zero,
         "death_save_failures_added": death_save_failures_added,
         "instant_death": instant_death,

@@ -23,7 +23,12 @@ from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
-from services.dnd_rules import roll_dice, _normalize_class, apply_character_damage, get_life_state
+from services.combat_temporary_hp_service import (
+    apply_armor_of_agathys_retaliation_to_enemy,
+    build_character_target_state,
+    get_armor_of_agathys_retaliation_damage,
+)
+from services.dnd_rules import roll_dice, _normalize_class, apply_character_damage
 
 
 async def handle_ai_attack_action(
@@ -297,22 +302,34 @@ async def handle_ai_attack_action(
                     tchar = await db.get(Character, target_id)
                     if tchar:
                         hp_before_damage = tchar.hp_current
+                        armor_retaliation_damage = (
+                            get_armor_of_agathys_retaliation_damage(tchar)
+                            if is_enemy and not ai_is_ranged
+                            else 0
+                        )
                         apply_character_damage(
                             tchar,
                             atk_damage,
                             is_critical=result_obj.attack_roll.get("is_crit", False),
                         )
+                        retaliation = None
+                        if is_enemy and not ai_is_ranged:
+                            retaliation = apply_armor_of_agathys_retaliation_to_enemy(
+                                defender=tchar,
+                                attacker_enemy=e,
+                                enemies=enemies,
+                                melee_hit=True,
+                                retaliation_damage=armor_retaliation_damage,
+                            )
+                            if retaliation:
+                                state["enemies"] = enemies
+                                session.game_state = dict(state)
+                                flag_modified(session, "game_state")
                         applied_damage = atk_damage
                         target_new_hp = tchar.hp_current
-                        target_state = {
-                            "target_id": target_id,
-                            "hp_current": target_new_hp,
-                            "new_hp": target_new_hp,
-                            "death_saves": tchar.death_saves,
-                            "conditions": tchar.conditions or [],
-                            "life_state": get_life_state(tchar),
-                            "concentration": tchar.concentration,
-                        }
+                        target_state = build_character_target_state(tchar)
+                        if retaliation:
+                            target_state["retaliation"] = retaliation
                         target_name = tchar.name
                         if tchar.is_player and applied_damage > 0:
                             target_attack_events.append({

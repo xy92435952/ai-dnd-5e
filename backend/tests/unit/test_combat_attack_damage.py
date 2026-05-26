@@ -318,3 +318,105 @@ async def test_apply_attack_damage_to_concentrating_character_at_zero_hp_breaks_
     assert conc_log.dice_result["reason"] == "incapacitated"
     assert target_state["life_state"] == "dying"
     assert target_state["concentration"] is None
+
+
+async def test_melee_hit_against_armor_of_agathys_character_retaliates_to_enemy(
+    db_session,
+    sample_character,
+):
+    from api.combat.attack_damage import apply_attack_damage_to_target
+
+    enemies = [{
+        "id": "wolf-1",
+        "name": "Wolf",
+        "hp_current": 12,
+        "derived": {"hp_max": 12},
+    }]
+    sample_character.hp_current = 10
+    sample_character.class_resources = {
+        "temporary_hp": 5,
+        "temporary_hp_source": "armor_of_agathys",
+        "armor_of_agathys_active": True,
+        "armor_of_agathys_damage": 5,
+        "armor_of_agathys_spell_level": 1,
+    }
+    sample_character.conditions = ["armor_of_agathys"]
+    sample_character.condition_durations = {"armor_of_agathys": 600}
+    await db_session.commit()
+
+    new_hp, conc_log, target_state = await apply_attack_damage_to_target(
+        db_session,
+        session_id="sess-1",
+        enemies=enemies,
+        target_id=sample_character.id,
+        target_is_enemy=False,
+        damage=7,
+        attacker_id="wolf-1",
+        attacker_is_enemy=True,
+        is_melee=True,
+    )
+
+    assert new_hp == 8
+    assert conc_log is None
+    assert enemies[0]["hp_current"] == 7
+    assert target_state["damage_result"] == {
+        "damage": 7,
+        "damage_to_temporary_hp": 5,
+        "damage_to_hp": 2,
+        "temporary_hp_before": 5,
+        "temporary_hp_after": 0,
+    }
+    assert target_state["retaliation"] == {
+        "source": "armor_of_agathys",
+        "defender_id": sample_character.id,
+        "defender_name": sample_character.name,
+        "target_id": "wolf-1",
+        "target_name": "Wolf",
+        "damage_type": "cold",
+        "damage": 5,
+        "base_damage": 5,
+        "target_new_hp": 7,
+    }
+    assert "armor_of_agathys" not in sample_character.conditions
+    assert "temporary_hp" not in sample_character.class_resources
+
+
+async def test_ranged_hit_against_armor_of_agathys_character_does_not_retaliate(
+    db_session,
+    sample_character,
+):
+    from api.combat.attack_damage import apply_attack_damage_to_target
+
+    enemies = [{
+        "id": "archer-1",
+        "name": "Archer",
+        "hp_current": 12,
+        "derived": {"hp_max": 12},
+    }]
+    sample_character.hp_current = 10
+    sample_character.class_resources = {
+        "temporary_hp": 5,
+        "temporary_hp_source": "armor_of_agathys",
+        "armor_of_agathys_active": True,
+        "armor_of_agathys_damage": 5,
+    }
+    sample_character.conditions = ["armor_of_agathys"]
+    sample_character.condition_durations = {"armor_of_agathys": 600}
+    await db_session.commit()
+
+    _new_hp, _conc_log, target_state = await apply_attack_damage_to_target(
+        db_session,
+        session_id="sess-1",
+        enemies=enemies,
+        target_id=sample_character.id,
+        target_is_enemy=False,
+        damage=3,
+        attacker_id="archer-1",
+        attacker_is_enemy=True,
+        is_melee=False,
+    )
+
+    assert enemies[0]["hp_current"] == 12
+    assert "retaliation" not in target_state
+    assert target_state["temporary_hp"] == 2
+    assert sample_character.hp_current == 10

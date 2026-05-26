@@ -6,8 +6,11 @@ from services.combat_turn_state_service import DEFAULT_TURN_STATE
 
 
 class FakeDb:
-    async def get(self, *_args):
-        return None
+    def __init__(self, characters=None):
+        self.characters = characters or {}
+
+    async def get(self, _model, entity_id):
+        return self.characters.get(entity_id)
 
 
 class FakeCaster:
@@ -70,3 +73,42 @@ async def test_prepare_spell_roll_raises_slot_error():
 
     assert exc.value.status_code == 400
     assert "没有可用" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_prepare_armor_of_agathys_defaults_to_self_target():
+    from types import SimpleNamespace
+
+    caster = SimpleNamespace(
+        id="caster-1",
+        name="术士",
+        spell_slots={"1st": 1},
+        derived={"spell_save_dc": 14},
+    )
+
+    prepared = await prepare_spell_roll(
+        FakeDb({"caster-1": caster}),
+        combat_obj=None,
+        session=None,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="寒甲",
+        spell_level=1,
+        spell={
+            "name_en": "Armor of Agathys",
+            "level": 1,
+            "type": "utility",
+            "aoe": False,
+            "range": 0,
+        },
+        target_id=None,
+        target_ids=None,
+        enemies=[],
+        default_turn_state=DEFAULT_TURN_STATE,
+        get_turn_state=lambda *_args: DEFAULT_TURN_STATE,
+        consume_slot=lambda slots, level: (slots, None),
+        calc_upcast_dice=lambda *_args: None,
+    )
+
+    assert prepared.pending_spell["target_ids"] == ["caster-1"]
+    assert prepared.targets == [{"id": "caster-1", "name": "术士"}]

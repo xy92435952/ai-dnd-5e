@@ -13,6 +13,7 @@ from services.combat_spell_target_service import (
     collect_spell_target_names,
     validate_spell_range,
 )
+from services.combat_temporary_hp_service import is_armor_of_agathys
 
 
 @dataclass
@@ -58,7 +59,12 @@ async def prepare_spell_roll(
             raise CombatSpellRollError(400, slot_error)
 
     is_aoe = spell.get("aoe", False)
-    raw_ids = collect_spell_target_ids(target_id, target_ids, enemies, is_aoe=is_aoe)
+    effective_target_id = target_id
+    effective_target_ids = target_ids
+    if is_armor_of_agathys(spell_name, spell) and not target_id and not target_ids:
+        effective_target_id = caster_id
+
+    raw_ids = collect_spell_target_ids(effective_target_id, effective_target_ids, enemies, is_aoe=is_aoe)
     target_names = await collect_spell_target_names(db, raw_ids, enemies, session=session)
 
     positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}

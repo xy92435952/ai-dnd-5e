@@ -230,8 +230,10 @@ describe('combat grid helpers', () => {
           death_saves: null,
           conditions: [],
           life_state: 'alive',
-          concentration: 'Bless',
-        },
+        concentration: 'Bless',
+        temporary_hp: 0,
+        class_resources: {},
+      },
         ally: { id: 'ally', hp_current: 5 },
       },
     }
@@ -243,6 +245,8 @@ describe('combat grid helpers', () => {
       conditions: ['unconscious'],
       life_state: 'dying',
       concentration: null,
+      temporary_hp: 4,
+      class_resources: { temporary_hp: 4, temporary_hp_source: 'armor_of_agathys' },
     })
 
     expect(updated).not.toBe(combat)
@@ -252,6 +256,8 @@ describe('combat grid helpers', () => {
       conditions: ['unconscious'],
       life_state: 'dying',
       concentration: null,
+      temporary_hp: 4,
+      class_resources: { temporary_hp: 4, temporary_hp_source: 'armor_of_agathys' },
     })
     expect(updated.entities.ally).toBe(combat.entities.ally)
   })

@@ -204,6 +204,31 @@ async def test_apply_resurrection_spell_to_living_character_is_noop(db_session, 
     assert sample_character.hp_current == 8
 
 
+async def test_apply_armor_of_agathys_grants_upcast_temporary_hp(db_session, sample_character):
+    from services import combat_spell_effect_service as spell_effects
+
+    sample_character.hp_current = 8
+    sample_character.class_resources = {}
+    sample_character.conditions = []
+    sample_character.condition_durations = {}
+    await db_session.commit()
+
+    result = await spell_effects.apply_armor_of_agathys_to_target(
+        db_session,
+        sample_character.id,
+        spell_name="寒甲",
+        spell={"name_en": "Armor of Agathys", "desc": "持续1小时。"},
+        spell_level=2,
+    )
+
+    assert result["temporary_hp_after"] == 10
+    assert result["armor_of_agathys_damage"] == 10
+    assert sample_character.class_resources["temporary_hp"] == 10
+    assert sample_character.class_resources["armor_of_agathys_damage"] == 10
+    assert "armor_of_agathys" in sample_character.conditions
+    assert sample_character.condition_durations["armor_of_agathys"] == 600
+
+
 def test_resolve_spell_condition_uses_known_mapping_and_fallback():
     from api.combat.spell_effects import resolve_spell_condition
     from services.combat_spell_effect_service import resolve_spell_condition_duration, spell_applies_condition

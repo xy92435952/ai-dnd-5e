@@ -276,6 +276,59 @@ async def test_cast_direct_aoe_control_defaults_to_alive_enemies():
 
 
 @pytest.mark.asyncio
+async def test_cast_direct_armor_of_agathys_defaults_to_self_target():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class ArmorSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "name_en": "Armor of Agathys",
+                "level": 1,
+                "type": "utility",
+                "aoe": False,
+                "concentration": False,
+                "desc": "持续1小时。",
+            }
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.name = "术士"
+    caster.session_id = "sess-1"
+    caster.hp_current = 8
+    caster.death_saves = None
+    caster.conditions = []
+    caster.condition_durations = {}
+    caster.class_resources = {}
+
+    result = await cast_direct_spell(
+        FakeDb({"caster-1": caster}),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="寒甲",
+        spell_level=2,
+        target_id=None,
+        target_ids=None,
+        spell_service_obj=ArmorSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert result.target_id == "caster-1"
+    assert result.target_state["temporary_hp_after"] == 10
+    assert caster.class_resources["temporary_hp"] == 10
+    assert caster.class_resources["armor_of_agathys_damage"] == 10
+    assert "armor_of_agathys" in caster.conditions
+    assert result.remaining_slots == {"1st": 0}
+    assert result.turn_state["action_used"] is True
+
+
+@pytest.mark.asyncio
 async def test_cast_direct_heal_rejects_dead_target_before_consuming_slot():
     from types import SimpleNamespace
 
