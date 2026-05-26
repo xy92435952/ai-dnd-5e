@@ -33,6 +33,12 @@ RESURRECTION_SPELLS: dict[str, dict[str, int | None]] = {
 
 
 SPELL_CONDITIONS: dict[str, tuple[str, str | None]] = {
+    "Guidance": ("guided", None),
+    "引导": ("guided", None),
+    "Resistance": ("resistance", None),
+    "抵抗": ("resistance", None),
+    "Bless": ("blessed", None),
+    "祝福": ("blessed", None),
     "Hold Person": ("paralyzed", "wis"),
     "定身术": ("paralyzed", "wis"),
     "Entangle": ("restrained", "str"),
@@ -59,6 +65,12 @@ SPELL_CONDITIONS: dict[str, tuple[str, str | None]] = {
 
 
 SPELL_CONDITION_DURATION_OVERRIDES: dict[str, int | None] = {
+    "Guidance": 10,
+    "引导": 10,
+    "Resistance": 10,
+    "抵抗": 10,
+    "Bless": 10,
+    "祝福": 10,
     "Command": 1,
     "命令术": 1,
     "Sleep": 10,

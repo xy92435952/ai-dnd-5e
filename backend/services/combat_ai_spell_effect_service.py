@@ -53,7 +53,7 @@ async def apply_ai_control_spell(
         condition = CONTROL_CONDITION_MAP.get(resolution.spell_name, "hexed")
     duration_rounds = resolve_spell_condition_duration(resolution.spell_name, resolution.spell_data)
     save_ability = resolved_save or resolution.spell_data.get("save")
-    if not resolution.spell_target or not save_ability:
+    if not resolution.spell_target:
         return
 
     target_enemy = next(
@@ -61,13 +61,17 @@ async def apply_ai_control_spell(
         None,
     )
     if target_enemy:
-        save_detail = roll_saving_throw(
-            target_enemy,
-            save_ability,
-            spell_save_dc,
-            d20_roller=roll_dice_func,
+        save_detail = (
+            roll_saving_throw(
+                target_enemy,
+                save_ability,
+                spell_save_dc,
+                d20_roller=roll_dice_func,
+            )
+            if save_ability else None
         )
-        if not save_detail["success"]:
+        saved = bool(save_detail and save_detail["success"])
+        if not saved:
             conditions = target_enemy.get("conditions", [])
             if condition not in conditions:
                 conditions.append(condition)
@@ -97,17 +101,21 @@ async def apply_ai_control_spell(
 
     target_character = await db.get(Character, resolution.spell_target)
     if target_character:
-        save_detail = roll_saving_throw(
-            {
-                "derived": target_character.derived or {},
-                "conditions": target_character.conditions or [],
-                "condition_durations": target_character.condition_durations or {},
-            },
-            save_ability,
-            spell_save_dc,
-            d20_roller=roll_dice_func,
+        save_detail = (
+            roll_saving_throw(
+                {
+                    "derived": target_character.derived or {},
+                    "conditions": target_character.conditions or [],
+                    "condition_durations": target_character.condition_durations or {},
+                },
+                save_ability,
+                spell_save_dc,
+                d20_roller=roll_dice_func,
+            )
+            if save_ability else None
         )
-        if not save_detail["success"]:
+        saved = bool(save_detail and save_detail["success"])
+        if not saved:
             conditions = list(target_character.conditions or [])
             if condition not in conditions:
                 conditions.append(condition)

@@ -51,6 +51,7 @@ def execute_attack_action(
     enemies: list[dict[str, Any]],
     player_id: str,
     player_derived: dict[str, Any],
+    player_conditions: list[str] | None,
     action: dict[str, Any],
     action_results: list[str],
     dice_display: list[dict[str, Any]],
@@ -91,6 +92,7 @@ def execute_attack_action(
         attacker_derived=player_derived,
         target_derived=target_derived,
         is_ranged=is_ranged,
+        attacker_conditions=player_conditions or [],
         target_conditions=target_enemy.get("conditions", []),
         distance=dist,
     )

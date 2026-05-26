@@ -15,7 +15,16 @@ def get_attack_modifiers(conditions: list[str], character: dict | object | None 
 
 
 def get_defense_modifiers(conditions: list[str]) -> tuple[bool, bool]:
-    adv_to_attacker = {"paralyzed", "petrified", "stunned", "unconscious", "prone", "blinded", "restrained"}
+    adv_to_attacker = {
+        "paralyzed",
+        "petrified",
+        "stunned",
+        "unconscious",
+        "prone",
+        "blinded",
+        "restrained",
+        "faerie_fire",
+    }
     dis_to_attacker = {"invisible", "dodging"}
     adv = any(c in adv_to_attacker for c in conditions)
     dis = any(c in dis_to_attacker for c in conditions)

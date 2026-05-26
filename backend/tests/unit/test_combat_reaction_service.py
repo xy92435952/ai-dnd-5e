@@ -81,6 +81,8 @@ def test_reaction_save_uses_saving_throw_before_ability_modifier():
         "d20": 8,
         "other_roll": None,
         "modifier": 5,
+        "condition_modifier": 0,
+        "roll_modifiers": [],
         "total": 13,
         "success": True,
         "advantage": False,

@@ -149,7 +149,7 @@ async def prepare_attack_roll(
     final_advantage = attacker_advantage or defense_advantage
     final_disadvantage = attacker_disadvantage or defense_disadvantage
     attack_roll_result = roll_attack_func(
-        attacker={"derived": attack_attacker_derived},
+        attacker={"derived": attack_attacker_derived, "conditions": player_conditions},
         target={"derived": attack_target_derived},
         is_ranged=is_ranged,
         advantage=final_advantage,

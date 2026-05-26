@@ -73,6 +73,7 @@ def execute_parsed_combat_actions(
                 enemies=enemies,
                 player_id=player_id,
                 player_derived=player_derived,
+                player_conditions=list(getattr(player, "conditions", None) or []),
                 action=action,
                 action_results=action_results,
                 dice_display=dice_display,

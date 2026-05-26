@@ -53,6 +53,7 @@ async def resolve_opportunity_attacks(
                 result = svc.resolve_melee_attack(
                     attacker_derived=enemy.get("derived", {}),
                     target_derived=moving_char.derived or {},
+                    attacker_conditions=list(enemy.get("conditions", [])),
                     target_conditions=list(moving_char.conditions or []),
                     distance=chebyshev_distance(enemy_position, old_pos),
                 )
@@ -114,6 +115,7 @@ async def resolve_opportunity_attacks(
                     result = svc.resolve_melee_attack(
                         attacker_derived=player.derived or {},
                         target_derived=moving_enemy.get("derived", {}),
+                        attacker_conditions=list(player.conditions or []),
                         target_conditions=list(moving_enemy.get("conditions", [])),
                         distance=chebyshev_distance(player_position, old_pos),
                     )
@@ -169,6 +171,7 @@ async def resolve_opportunity_attacks(
                 result = svc.resolve_melee_attack(
                     attacker_derived=companion.derived or {},
                     target_derived=moving_enemy.get("derived", {}),
+                    attacker_conditions=list(companion.conditions or []),
                     target_conditions=list(moving_enemy.get("conditions", [])),
                     distance=chebyshev_distance(companion_position, old_pos),
                 )

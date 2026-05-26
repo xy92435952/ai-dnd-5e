@@ -177,3 +177,39 @@ async def test_ai_control_spell_auto_fails_unconscious_enemy_dex_save():
     assert enemies[0]["condition_durations"] == {"faerie_fire": 10}
     assert resolution.target_state["condition_durations"] == {"faerie_fire": 10}
     assert resolution.target_name == "Goblin"
+
+
+@pytest.mark.asyncio
+async def test_ai_control_spell_applies_no_save_bless_condition():
+    from services.combat_ai_spell_effect_service import apply_ai_control_spell
+    from services.combat_ai_spell_models import AiSpellResolution
+
+    enemies = [{
+        "id": "ally-1",
+        "name": "Ally",
+        "conditions": [],
+    }]
+    state = {"enemies": enemies}
+    session = FakeSession()
+    resolution = AiSpellResolution(
+        spell_name="Bless",
+        spell_level=1,
+        spell_target="ally-1",
+        spell_data={"name_en": "Bless", "save": None},
+        is_cantrip=False,
+    )
+
+    await apply_ai_control_spell(
+        FakeDb(),
+        resolution=resolution,
+        session=session,
+        enemies=enemies,
+        spell_save_dc=13,
+        state=state,
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert enemies[0]["conditions"] == ["blessed"]
+    assert enemies[0]["condition_durations"] == {"blessed": 10}
+    assert resolution.target_state["conditions"] == ["blessed"]
+    assert session.game_state["enemies"][0]["conditions"] == ["blessed"]

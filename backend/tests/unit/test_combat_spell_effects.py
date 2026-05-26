@@ -181,11 +181,17 @@ def test_resolve_spell_condition_uses_known_mapping_and_fallback():
 
     assert resolve_spell_condition("Hold Person", {"save": "wis"}) == ("paralyzed", "wis")
     assert resolve_spell_condition("网", {"name_en": "Web", "save": "dex"}) == ("restrained", "dex")
+    assert resolve_spell_condition("Bless", {"name_en": "Bless"}) == ("blessed", None)
+    assert resolve_spell_condition("Guidance", {"name_en": "Guidance"}) == ("guided", None)
+    assert resolve_spell_condition("Resistance", {"name_en": "Resistance"}) == ("resistance", None)
     assert resolve_spell_condition("Unknown Control", {"save": "cha"}) == ("affected", "cha")
+    assert resolve_spell_condition_duration("Bless", {"name_en": "Bless", "concentration": True}) == 10
+    assert resolve_spell_condition_duration("Guidance", {"name_en": "Guidance", "concentration": True}) == 10
     assert resolve_spell_condition_duration("Command", {"desc": "one round"}) == 1
     assert resolve_spell_condition_duration("Faerie Fire", {"desc": "专注1分钟。", "concentration": True}) == 10
     assert resolve_spell_condition_duration("Web", {"desc": "专注1小时。", "concentration": True}) == 600
     assert spell_applies_condition("utility", "Mage Armor", {"name_en": "Mage Armor"}) is False
+    assert spell_applies_condition("utility", "Bless", {"name_en": "Bless"}) is True
     assert spell_applies_condition("utility", "网", {"name_en": "Web"}) is True
 
 
@@ -212,6 +218,33 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
     assert result["save_detail"]["success"] is False
     assert enemies[0]["conditions"] == ["paralyzed"]
     assert "condition_durations" in result["target_state"]
+
+
+async def test_apply_bless_to_enemy_adds_condition_without_save(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "ally-1",
+        "name": "Ally",
+        "conditions": [],
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "ally-1",
+        session_id="sess-1",
+        condition_name="blessed",
+        save_ability=None,
+        spell_save_dc=13,
+        duration_rounds=10,
+    )
+
+    assert result["save_detail"] is None
+    assert result["applied"] is True
+    assert enemies[0]["conditions"] == ["blessed"]
+    assert enemies[0]["condition_durations"] == {"blessed": 10}
+    assert result["target_state"]["conditions"] == ["blessed"]
 
 
 async def test_apply_control_spell_to_enemy_falls_back_to_ability_scores(db_session):

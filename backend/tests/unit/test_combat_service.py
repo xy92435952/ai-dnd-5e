@@ -49,6 +49,11 @@ class TestConditionModifiers:
         adv, dis = svc.get_defense_modifiers(["prone"])
         assert adv is True  # 攻击这个倒地目标有优势
 
+    def test_faerie_fire_target_grants_attacker_advantage(self):
+        adv, dis = svc.get_defense_modifiers(["faerie_fire"])
+        assert adv is True
+        assert dis is False
+
     def test_no_conditions_neutral(self):
         adv, dis = svc.get_attack_modifiers([])
         assert (adv, dis) == (False, False)
@@ -255,3 +260,34 @@ class TestResolveMeleeAttack:
 
         assert result.attack_roll["is_crit"] is False
         assert result.damage == 7
+
+    def test_attacker_conditions_are_passed_to_attack_roll(self, monkeypatch):
+        import services.combat_attack_service as attack_service
+
+        captured = {}
+
+        def fake_roll_attack(attacker, target, **kwargs):
+            captured["attacker"] = attacker
+            return {
+                "d20": 12,
+                "attack_bonus": 5,
+                "condition_modifier": 3,
+                "roll_modifiers": [{"source": "Bless", "value": 3}],
+                "attack_total": 20,
+                "target_ac": 12,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            }
+
+        monkeypatch.setattr(attack_service, "roll_attack", fake_roll_attack)
+        monkeypatch.setattr(attack_service, "roll_dice", lambda expr: {"total": 7, "rolls": [4], "bonus": 3})
+
+        result = svc.resolve_melee_attack(
+            {"ability_modifiers": {"str": 3}, "hit_die": 8},
+            {"ac": 12},
+            attacker_conditions=["blessed"],
+        )
+
+        assert captured["attacker"]["conditions"] == ["blessed"]
+        assert result.attack_roll["condition_modifier"] == 3

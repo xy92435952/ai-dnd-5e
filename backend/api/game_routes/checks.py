@@ -46,6 +46,7 @@ async def skill_check(
     )
     if req.d20_value is not None:
         modifier = result["modifier"]
+        condition_modifier = result.get("condition_modifier", 0) or 0
         d20 = req.d20_value
         other_roll = None
         if req.second_d20_value is not None and result.get("advantage") != result.get("disadvantage"):
@@ -54,7 +55,7 @@ async def skill_check(
             elif result.get("disadvantage"):
                 d20 = min(req.d20_value, req.second_d20_value)
             other_roll = req.second_d20_value if d20 == req.d20_value else req.d20_value
-        total = d20 + modifier
+        total = d20 + modifier + condition_modifier
         result = {
             **result,
             "d20": d20,

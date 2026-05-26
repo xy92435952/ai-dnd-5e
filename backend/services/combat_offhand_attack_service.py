@@ -59,6 +59,7 @@ async def resolve_offhand_attack(
         attacker_derived=player.derived or {} if player else {},
         target_derived=target["derived"],
         is_offhand=True,
+        attacker_conditions=list(getattr(player, "conditions", None) or []) if player else [],
         target_conditions=target["conditions"],
         distance=chebyshev_distance(
             (getattr(combat, "entity_positions", None) or {}).get(str(player_id), {}),

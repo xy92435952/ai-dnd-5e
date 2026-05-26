@@ -5,6 +5,12 @@ from typing import Any
 SLOT_KEYS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"]
 
 CONTROL_CONDITION_MAP = {
+    "Guidance": "guided",
+    "引导": "guided",
+    "Resistance": "resistance",
+    "抵抗": "resistance",
+    "Bless": "blessed",
+    "祝福": "blessed",
     "Hold Person": "paralyzed",
     "定身术": "paralyzed",
     "Entangle": "restrained",

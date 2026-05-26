@@ -36,12 +36,13 @@ def resolve_melee_attack(
     disadvantage: bool = False,
     is_ranged: bool = False,
     is_offhand: bool = False,
+    attacker_conditions: list[str] | None = None,
     target_conditions: list[str] | None = None,
     distance: int = 1,
 ) -> AttackResult:
     crit_threshold = attacker_derived.get("crit_threshold", 20)
     attack_roll = roll_attack(
-        {"derived": attacker_derived},
+        {"derived": attacker_derived, "conditions": attacker_conditions or []},
         {"derived": target_derived},
         is_ranged=is_ranged,
         advantage=advantage,

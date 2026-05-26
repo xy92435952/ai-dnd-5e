@@ -212,6 +212,45 @@ async def test_prepare_attack_roll_applies_disadvantage_against_dodging_target()
 
 
 @pytest.mark.asyncio
+async def test_prepare_attack_roll_passes_attacker_conditions_to_roll_attack():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    class BlessedPlayer(FakePlayer):
+        conditions = ["blessed"]
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    captured = {}
+
+    def capture_roll_attack(**kwargs):
+        captured.update(kwargs)
+        return fixed_roll_attack(**kwargs)
+
+    await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=BlessedPlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": [],
+        }],
+        roll_attack_func=capture_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert captured["attacker"]["conditions"] == ["blessed"]
+
+
+@pytest.mark.asyncio
 async def test_prepare_attack_roll_forces_close_unconscious_target_crit():
     from services.combat_attack_prepare_service import prepare_attack_roll
 

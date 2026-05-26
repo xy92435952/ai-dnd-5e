@@ -148,6 +148,7 @@ async def prepare_direct_attack(
         advantage=attack_advantage or defense_advantage,
         disadvantage=attack_disadvantage or defense_disadvantage,
         is_ranged=is_ranged,
+        attacker_conditions=player_conditions,
         target_conditions=target_conditions,
         distance=target_distance,
     )

@@ -33,7 +33,8 @@ def apply_d20_override(attack_roll: dict, *, d20_value: int | None, crit_thresho
         return attack_roll
 
     attack_bonus = attack_roll["attack_bonus"]
-    attack_total = d20_value + attack_bonus
+    condition_modifier = attack_roll.get("condition_modifier", 0) or 0
+    attack_total = d20_value + attack_bonus + condition_modifier
     target_ac = attack_roll["target_ac"]
     is_crit = d20_value >= crit_threshold
     is_fumble = d20_value == 1

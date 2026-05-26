@@ -110,6 +110,8 @@ async def attack_roll(
     return {
         "d20":              attack_roll_result["d20"],
         "attack_bonus":     attack_roll_result["attack_bonus"],
+        "condition_modifier": attack_roll_result.get("condition_modifier", 0),
+        "roll_modifiers":    attack_roll_result.get("roll_modifiers", []),
         "attack_total":     attack_roll_result["attack_total"],
         "target_ac":        attack_roll_result["target_ac"],
         "hit":              attack_roll_result["hit"],

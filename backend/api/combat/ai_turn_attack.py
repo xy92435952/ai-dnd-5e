@@ -179,6 +179,11 @@ async def handle_ai_attack_action(
                 advantage=extra_adv if atk_idx == 0 else False,
                 disadvantage=target_dodging,
                 is_ranged=ai_is_ranged,
+                attacker_conditions=(
+                    list(e.get("conditions", []))
+                    if is_enemy and e
+                    else list(getattr(achar, "conditions", None) or [])
+                ),
                 target_conditions=target_conditions(
                     target_data=target_data,
                     target_character=target_char_for_shield,

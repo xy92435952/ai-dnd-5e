@@ -10,6 +10,11 @@ from services.dnd_character_rules import (
     get_saving_throw_disadvantage_reasons,
 )
 
+ATTACK_SAVE_BONUS_CONDITIONS = frozenset({"bless", "blessed"})
+ATTACK_SAVE_PENALTY_CONDITIONS = frozenset({"bane", "baned"})
+SAVE_BONUS_CONDITIONS = frozenset({"resistance", "resistant"})
+ABILITY_CHECK_BONUS_CONDITIONS = frozenset({"guidance", "guided"})
+
 
 def _ability_score_modifier(character: dict, ability: str) -> int:
     scores = character.get("ability_scores") or {}
@@ -17,6 +22,60 @@ def _ability_score_modifier(character: dict, ability: str) -> int:
         return (int(scores.get(ability, 10) or 10) - 10) // 2
     except (TypeError, ValueError):
         return 0
+
+
+def _condition_tokens(character: dict | object | None) -> set[str]:
+    if not character:
+        return set()
+    if isinstance(character, dict):
+        conditions = character.get("conditions") or []
+    else:
+        conditions = getattr(character, "conditions", None) or []
+    return {
+        str(condition).strip().lower().replace(" ", "_").replace("-", "_")
+        for condition in conditions
+        if condition
+    }
+
+
+def _roll_condition_modifier(
+    character: dict | object | None,
+    *,
+    include_attack_save: bool = False,
+    include_save: bool = False,
+    include_ability_check: bool = False,
+    modifier_roller: Callable[[str], dict] | None = None,
+) -> tuple[int, list[dict]]:
+    conditions = _condition_tokens(character)
+    roller = modifier_roller or roll_dice
+    total = 0
+    modifiers: list[dict] = []
+
+    def add_modifier(source: str, sign: int) -> None:
+        nonlocal total
+        roll = roller("1d4")
+        value = int(roll.get("total", 0) or 0) * sign
+        total += value
+        modifiers.append({
+            "source": source,
+            "notation": "1d4",
+            "roll": roll,
+            "value": value,
+        })
+
+    if include_attack_save:
+        if conditions & ATTACK_SAVE_BONUS_CONDITIONS:
+            add_modifier("Bless", 1)
+        if conditions & ATTACK_SAVE_PENALTY_CONDITIONS:
+            add_modifier("Bane", -1)
+
+    if include_save and conditions & SAVE_BONUS_CONDITIONS:
+        add_modifier("Resistance", 1)
+
+    if include_ability_check and conditions & ABILITY_CHECK_BONUS_CONDITIONS:
+        add_modifier("Guidance", 1)
+
+    return total, modifiers
 
 
 def roll_dice(notation: str) -> dict:
@@ -100,6 +159,8 @@ def roll_attack(
     advantage: bool = False,
     disadvantage: bool = False,
     crit_threshold: int = 20,
+    d20_roller: Callable[[str], dict] | None = None,
+    modifier_roller: Callable[[str], dict] | None = None,
 ) -> dict:
     """
     标准攻击流程（支持优势/劣势）
@@ -114,10 +175,16 @@ def roll_attack(
     elif disadvantage and not advantage:
         d20_result = roll_disadvantage("1d20")
     else:
-        d20_result = roll_dice("1d20")
+        roller = d20_roller or roll_dice
+        d20_result = roller("1d20")
 
     d20          = d20_result["rolls"][0]
-    attack_total = d20 + atk_bonus
+    condition_modifier, roll_modifiers = _roll_condition_modifier(
+        attacker,
+        include_attack_save=True,
+        modifier_roller=modifier_roller,
+    )
+    attack_total = d20 + atk_bonus + condition_modifier
     is_crit      = d20 >= crit_threshold
     is_fumble    = d20 == 1
     hit          = (not is_fumble) and (is_crit or attack_total >= target_ac)
@@ -125,6 +192,8 @@ def roll_attack(
     return {
         "d20":          d20,
         "attack_bonus": atk_bonus,
+        "condition_modifier": condition_modifier,
+        "roll_modifiers": roll_modifiers,
         "attack_total": attack_total,
         "target_ac":    target_ac,
         "hit":          hit,
@@ -140,6 +209,7 @@ def roll_saving_throw(
     advantage: bool = False,
     disadvantage: bool = False,
     d20_roller: Callable[[str], dict] | None = None,
+    modifier_roller: Callable[[str], dict] | None = None,
 ) -> dict:
     """
     豁免检定
@@ -168,7 +238,13 @@ def roll_saving_throw(
         d20_result = roller("1d20")
 
     d20   = d20_result["rolls"][0]
-    total = d20 + total_mod
+    condition_modifier, roll_modifiers = _roll_condition_modifier(
+        character,
+        include_attack_save=True,
+        include_save=True,
+        modifier_roller=modifier_roller,
+    )
+    total = d20 + total_mod + condition_modifier
     auto_failed = bool(auto_fail_reasons)
 
     return {
@@ -176,6 +252,8 @@ def roll_saving_throw(
         "d20":      d20,
         "other_roll": d20_result.get("other_roll"),
         "modifier": total_mod,
+        "condition_modifier": condition_modifier,
+        "roll_modifiers": roll_modifiers,
         "total":    total,
         "dc":       dc,
         "success":  False if auto_failed else total >= dc,
@@ -196,6 +274,8 @@ def roll_skill_check(
     dc: int,
     advantage: bool = False,
     disadvantage: bool = False,
+    d20_roller: Callable[[str], dict] | None = None,
+    modifier_roller: Callable[[str], dict] | None = None,
 ) -> dict:
     """
     技能检定（正确检查角色是否熟练该技能）
@@ -219,10 +299,16 @@ def roll_skill_check(
     elif disadvantage and not advantage:
         d20_result = roll_disadvantage("1d20")
     else:
-        d20_result = roll_dice("1d20")
+        roller = d20_roller or roll_dice
+        d20_result = roller("1d20")
 
     d20   = d20_result["rolls"][0]
-    total = d20 + total_mod
+    condition_modifier, roll_modifiers = _roll_condition_modifier(
+        character,
+        include_ability_check=True,
+        modifier_roller=modifier_roller,
+    )
+    total = d20 + total_mod + condition_modifier
 
     return {
         "skill":      skill,
@@ -230,6 +316,8 @@ def roll_skill_check(
         "d20":        d20,
         "other_roll": d20_result.get("other_roll"),
         "modifier":   total_mod,
+        "condition_modifier": condition_modifier,
+        "roll_modifiers": roll_modifiers,
         "total":      total,
         "dc":         dc,
         "success":    total >= dc,

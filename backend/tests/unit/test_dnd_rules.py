@@ -104,6 +104,64 @@ class TestRollDice:
         assert adv_total > dis_total
 
 
+class TestAttackRollConditionModifiers:
+    def test_blessed_attacker_adds_d4_to_attack_total(self):
+        attacker = {
+            "conditions": ["blessed"],
+            "derived": {"attack_bonus": 5},
+        }
+        target = {"derived": {"ac": 18}}
+
+        result = roll_attack(
+            attacker,
+            target,
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [3], "total": 3, "notation": "1d4"},
+        )
+
+        assert result["condition_modifier"] == 3
+        assert result["attack_total"] == 20
+        assert result["hit"] is True
+        assert result["roll_modifiers"][0]["source"] == "Bless"
+
+    def test_baned_attacker_subtracts_d4_from_attack_total(self):
+        result = roll_attack(
+            {"conditions": ["baned"], "derived": {"attack_bonus": 5}},
+            {"derived": {"ac": 16}},
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [2], "total": 2, "notation": "1d4"},
+        )
+
+        assert result["condition_modifier"] == -2
+        assert result["attack_total"] == 15
+        assert result["hit"] is False
+        assert result["roll_modifiers"][0]["source"] == "Bane"
+
+    def test_natural_one_still_misses_with_bless(self):
+        result = roll_attack(
+            {"conditions": ["blessed"], "derived": {"attack_bonus": 20}},
+            {"derived": {"ac": 5}},
+            d20_roller=lambda _expr: {"rolls": [1], "total": 1},
+            modifier_roller=lambda _expr: {"rolls": [4], "total": 4, "notation": "1d4"},
+        )
+
+        assert result["attack_total"] == 25
+        assert result["is_fumble"] is True
+        assert result["hit"] is False
+
+    def test_natural_twenty_still_hits_with_bane(self):
+        result = roll_attack(
+            {"conditions": ["baned"], "derived": {"attack_bonus": 0}},
+            {"derived": {"ac": 30}},
+            d20_roller=lambda _expr: {"rolls": [20], "total": 20},
+            modifier_roller=lambda _expr: {"rolls": [4], "total": 4, "notation": "1d4"},
+        )
+
+        assert result["attack_total"] == 16
+        assert result["is_crit"] is True
+        assert result["hit"] is True
+
+
 class TestSkillCheck:
     def test_proficient_adds_prof_bonus(self):
         """熟练技能应加上熟练加值。"""
@@ -198,6 +256,52 @@ class TestSkillCheck:
         assert result["ability"] == "dex"
         assert result["modifier"] == 3
 
+    def test_guidance_adds_d4_to_skill_check(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"wis": 1},
+                "proficiency_bonus": 2,
+            },
+            "conditions": ["guided"],
+            "proficient_skills": [],
+        }
+
+        result = roll_skill_check(
+            char,
+            "wis",
+            dc=15,
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [2], "total": 2, "notation": "1d4"},
+        )
+
+        assert result["modifier"] == 1
+        assert result["condition_modifier"] == 2
+        assert result["total"] == 15
+        assert result["success"] is True
+        assert result["roll_modifiers"][0]["source"] == "Guidance"
+
+    def test_bless_does_not_affect_skill_checks(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"wis": 1},
+                "proficiency_bonus": 2,
+            },
+            "conditions": ["blessed"],
+            "proficient_skills": [],
+        }
+
+        result = roll_skill_check(
+            char,
+            "wis",
+            dc=15,
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [4], "total": 4, "notation": "1d4"},
+        )
+
+        assert result["condition_modifier"] == 0
+        assert result["roll_modifiers"] == []
+        assert result["total"] == 13
+
 
 class TestSavingThrow:
     def test_exhaustion_level_3_gives_saving_throw_disadvantage(self):
@@ -289,6 +393,94 @@ class TestSavingThrow:
 
         assert result["success"] is True
         assert result["auto_fail"] is False
+
+    def test_blessed_character_adds_d4_to_saving_throw(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"con": 1},
+                "saving_throws": {"con": 1},
+            },
+            "conditions": ["blessed"],
+        }
+
+        result = roll_saving_throw(
+            char,
+            "con",
+            dc=15,
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [2], "total": 2, "notation": "1d4"},
+        )
+
+        assert result["modifier"] == 1
+        assert result["condition_modifier"] == 2
+        assert result["total"] == 15
+        assert result["success"] is True
+        assert result["roll_modifiers"][0]["source"] == "Bless"
+
+    def test_baned_character_subtracts_d4_from_saving_throw(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"wis": 2},
+                "saving_throws": {"wis": 2},
+            },
+            "conditions": ["baned"],
+        }
+
+        result = roll_saving_throw(
+            char,
+            "wis",
+            dc=13,
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [2], "total": 2, "notation": "1d4"},
+        )
+
+        assert result["condition_modifier"] == -2
+        assert result["total"] == 12
+        assert result["success"] is False
+        assert result["roll_modifiers"][0]["source"] == "Bane"
+
+    def test_resistance_adds_d4_to_saving_throw(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"dex": 1},
+                "saving_throws": {"dex": 1},
+            },
+            "conditions": ["resistance"],
+        }
+
+        result = roll_saving_throw(
+            char,
+            "dex",
+            dc=15,
+            d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+            modifier_roller=lambda _expr: {"rolls": [2], "total": 2, "notation": "1d4"},
+        )
+
+        assert result["condition_modifier"] == 2
+        assert result["total"] == 15
+        assert result["success"] is True
+        assert result["roll_modifiers"][0]["source"] == "Resistance"
+
+    def test_auto_fail_str_dex_save_still_fails_with_bless(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"dex": 20},
+                "saving_throws": {"dex": 20},
+            },
+            "conditions": ["paralyzed", "blessed"],
+        }
+
+        result = roll_saving_throw(
+            char,
+            "dex",
+            dc=10,
+            d20_roller=lambda _expr: {"rolls": [20], "total": 20},
+            modifier_roller=lambda _expr: {"rolls": [4], "total": 4, "notation": "1d4"},
+        )
+
+        assert result["total"] == 44
+        assert result["success"] is False
+        assert result["auto_fail"] is True
 
 
 class TestExhaustionHpMax:
