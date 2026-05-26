@@ -36,6 +36,33 @@ class FakeDb:
         return None
 
 
+class CharacterDb:
+    def __init__(self, character):
+        self.character = character
+
+    async def get(self, *_args):
+        return self.character
+
+
+class FakeCharacter:
+    id = "rogue-1"
+    name = "Rogue"
+    char_class = "Rogue"
+    level = 7
+    derived = {
+        "hp_max": 20,
+        "ability_modifiers": {"dex": 5},
+        "saving_throws": {"dex": 8},
+    }
+    conditions = []
+    condition_durations = {}
+    class_resources = {}
+    death_saves = None
+
+    def __init__(self, hp_current=20):
+        self.hp_current = hp_current
+
+
 @pytest.mark.asyncio
 async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     from services.combat_ai_spell_service import resolve_ai_spell_action
@@ -137,6 +164,82 @@ def test_damage_after_ai_save_auto_fails_dex_save_when_stunned():
     )
 
     assert damage == 24
+
+
+def test_damage_after_ai_save_evasion_success_takes_no_damage():
+    from services.combat_ai_spell_damage_service import damage_after_ai_save
+
+    damage = damage_after_ai_save(
+        {
+            "id": "rogue-1",
+            "char_class": "Rogue",
+            "level": 7,
+            "derived": {
+                "ability_modifiers": {"dex": 5},
+                "saving_throws": {"dex": 8},
+            },
+        },
+        base_damage=24,
+        spell_data={"save": "dex", "half_on_save": True},
+        spell_save_dc=10,
+        roll_dice_func=lambda expr: {"rolls": [10], "total": 10},
+    )
+
+    assert damage == 0
+
+
+def test_damage_after_ai_enemy_save_infers_single_target_half_on_save_from_description():
+    from services.combat_ai_spell_damage_service import damage_after_ai_enemy_save
+
+    damage = damage_after_ai_enemy_save(
+        {
+            "id": "goblin-1",
+            "derived": {
+                "ability_modifiers": {"dex": 5},
+                "saving_throws": {"dex": 8},
+            },
+        },
+        base_damage=22,
+        spell_data={"save": "dex", "desc": "DEX豁免失败受伤，成功减半"},
+        spell_save_dc=10,
+        roll_dice_func=lambda expr: {"rolls": [10], "total": 10},
+    )
+
+    assert damage == 11
+
+
+def test_damage_after_ai_enemy_save_success_zeroes_cantrip_without_half_on_save():
+    from services.combat_ai_spell_damage_service import damage_after_ai_enemy_save
+
+    damage = damage_after_ai_enemy_save(
+        {
+            "id": "goblin-1",
+            "derived": {
+                "ability_modifiers": {"dex": 5},
+                "saving_throws": {"dex": 8},
+            },
+        },
+        base_damage=8,
+        spell_data={"save": "dex", "desc": "DEX豁免失败受伤，豁免无效"},
+        spell_save_dc=10,
+        roll_dice_func=lambda expr: {"rolls": [10], "total": 10},
+    )
+
+    assert damage == 0
+
+
+def test_damage_after_ai_character_save_applies_evasion_to_character_object():
+    from services.combat_ai_spell_damage_service import damage_after_ai_character_save
+
+    damage = damage_after_ai_character_save(
+        FakeCharacter(),
+        base_damage=24,
+        spell_data={"save": "dex", "half_on_save": True},
+        spell_save_dc=10,
+        roll_dice_func=lambda expr: {"rolls": [10], "total": 10},
+    )
+
+    assert damage == 0
 
 
 @pytest.mark.asyncio

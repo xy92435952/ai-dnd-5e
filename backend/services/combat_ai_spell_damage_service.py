@@ -4,6 +4,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution
+from services.combat_evasion_service import resolve_save_damage, spell_half_on_save
 from services.combat_service import CombatService
 from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
 
@@ -33,14 +34,20 @@ async def apply_ai_damage_spell(
     if resolution.spell_data.get("aoe", False):
         targets = all_characters if is_enemy else enemies_alive
         for target in [item for item in targets if item.get("hp_current", 0) > 0][:4]:
+            target_id = str(target.get("id", ""))
+            target_for_evasion = target
+            if is_enemy and target_id:
+                target_character = await db.get(Character, target_id)
+                if target_character:
+                    target_for_evasion = target_character
             damage_this = damage_after_ai_save(
                 target,
                 base_damage=total_damage,
                 spell_data=resolution.spell_data,
                 spell_save_dc=spell_save_dc,
                 roll_dice_func=roll_dice_func,
+                target_for_evasion=target_for_evasion,
             )
-            target_id = str(target.get("id", ""))
             if not is_enemy:
                 damage_enemy(enemies, target_id, damage_this, combat_service)
             else:
@@ -82,6 +89,13 @@ async def apply_ai_damage_spell(
     else:
         target_character = await db.get(Character, resolution.spell_target)
         if target_character:
+            total_damage = damage_after_ai_character_save(
+                target_character,
+                base_damage=total_damage,
+                spell_data=resolution.spell_data,
+                spell_save_dc=spell_save_dc,
+                roll_dice_func=roll_dice_func,
+            )
             apply_character_damage(target_character, total_damage)
             resolution.target_new_hp = target_character.hp_current
             resolution.target_name = target_character.name
@@ -96,6 +110,7 @@ def damage_after_ai_save(
     spell_data: dict[str, Any],
     spell_save_dc: int,
     roll_dice_func: Callable[[str], dict[str, Any]],
+    target_for_evasion: dict[str, Any] | object | None = None,
 ) -> int:
     save_ability = spell_data.get("save")
     if not save_ability:
@@ -107,9 +122,13 @@ def damage_after_ai_save(
         spell_save_dc,
         d20_roller=roll_dice_func,
     )
-    if save_detail["success"]:
-        return base_damage // 2 if spell_data.get("half_on_save", True) else 0
-    return base_damage
+    return resolve_save_damage(
+        base_damage,
+        save_result=save_detail,
+        save_ability=save_ability,
+        half_on_save=spell_half_on_save(spell_data, default=True),
+        target=target_for_evasion or target,
+    )["damage"]
 
 
 def damage_after_ai_enemy_save(
@@ -130,9 +149,44 @@ def damage_after_ai_enemy_save(
         spell_save_dc,
         d20_roller=roll_dice_func,
     )
-    if save_detail["success"]:
-        return base_damage // 2 if spell_data.get("half_on_save") else 0
-    return base_damage
+    return resolve_save_damage(
+        base_damage,
+        save_result=save_detail,
+        save_ability=save_ability,
+        half_on_save=spell_half_on_save(spell_data, default=False),
+        target=enemy,
+    )["damage"]
+
+
+def damage_after_ai_character_save(
+    character: Character,
+    *,
+    base_damage: int,
+    spell_data: dict[str, Any],
+    spell_save_dc: int,
+    roll_dice_func: Callable[[str], dict[str, Any]],
+) -> int:
+    save_ability = spell_data.get("save")
+    if not save_ability:
+        return base_damage
+
+    save_detail = roll_saving_throw(
+        {
+            "derived": character.derived or {},
+            "conditions": character.conditions or [],
+            "condition_durations": character.condition_durations or {},
+        },
+        save_ability,
+        spell_save_dc,
+        d20_roller=roll_dice_func,
+    )
+    return resolve_save_damage(
+        base_damage,
+        save_result=save_detail,
+        save_ability=save_ability,
+        half_on_save=spell_half_on_save(spell_data, default=False),
+        target=character,
+    )["damage"]
 
 
 def damage_enemy(

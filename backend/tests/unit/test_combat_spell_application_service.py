@@ -8,6 +8,35 @@ class FakeDb:
         return None
 
 
+class CharacterDb:
+    def __init__(self, character):
+        self.character = character
+
+    async def get(self, *_args):
+        return self.character
+
+
+class FakeCharacter:
+    id = "rogue-1"
+    name = "Rogue"
+    char_class = "Rogue"
+    level = 7
+    derived = {
+        "hp_max": 20,
+        "ability_modifiers": {"dex": 5},
+        "saving_throws": {"dex": 8},
+    }
+    conditions = []
+    condition_durations = {}
+    concentration = None
+    death_saves = None
+    class_resources = {}
+    proficient_saves = []
+
+    def __init__(self, hp_current=20):
+        self.hp_current = hp_current
+
+
 @pytest.mark.asyncio
 async def test_apply_confirmed_spell_effects_damages_enemy_target():
     enemies = [{
@@ -39,6 +68,99 @@ async def test_apply_confirmed_spell_effects_damages_enemy_target():
     assert result.target_new_hp == 3
     assert result.enemies_changed is True
     assert enemies[0]["hp_current"] == 3
+
+
+@pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_single_target_save_cantrip_deals_no_damage_on_success():
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "hp_current": 10,
+        "derived": {"hp_max": 10, "ability_modifiers": {"dex": 5}, "saving_throws": {"dex": 8}},
+    }]
+
+    result = await apply_confirmed_spell_effects(
+        FakeDb(),
+        session_id="sess",
+        enemies=enemies,
+        target_ids=["goblin-1"],
+        is_aoe=False,
+        spell_type="damage",
+        spell_name="Sacred Flame",
+        spell_level=0,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"save": "dex", "desc": "DEX豁免失败受伤，豁免无效"},
+        damage_values=None,
+        spell_save_dc=10,
+        resolve_damage=lambda *_args: (8, {"total": 8}),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert result.result_damage == 8
+    assert result.target_state["damage"] == 0
+    assert result.target_state["save"]["success"] is True
+    assert enemies[0]["hp_current"] == 10
+
+
+@pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_aoe_evasion_success_takes_no_damage():
+    rogue = FakeCharacter(hp_current=20)
+
+    result = await apply_confirmed_spell_effects(
+        CharacterDb(rogue),
+        session_id="sess",
+        enemies=[],
+        target_ids=[rogue.id],
+        is_aoe=True,
+        spell_type="damage",
+        spell_name="Fireball",
+        spell_level=3,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"save": "dex", "half_on_save": True},
+        damage_values=None,
+        spell_save_dc=10,
+        resolve_damage=lambda *_args: (28, {"total": 28}),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert rogue.hp_current == 20
+    assert result.aoe_results[0]["damage"] == 0
+    assert result.aoe_results[0]["base_damage"] == 28
+    assert result.aoe_results[0]["evasion_applied"] is True
+
+
+@pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_aoe_evasion_failure_takes_half_damage():
+    rogue = FakeCharacter(hp_current=20)
+    rogue.derived = {
+        "hp_max": 20,
+        "ability_modifiers": {"dex": -5},
+        "saving_throws": {"dex": -5},
+    }
+
+    result = await apply_confirmed_spell_effects(
+        CharacterDb(rogue),
+        session_id="sess",
+        enemies=[],
+        target_ids=[rogue.id],
+        is_aoe=True,
+        spell_type="damage",
+        spell_name="Fireball",
+        spell_level=3,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"save": "dex", "half_on_save": True},
+        damage_values=None,
+        spell_save_dc=30,
+        resolve_damage=lambda *_args: (28, {"total": 28}),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert rogue.hp_current == 6
+    assert result.aoe_results[0]["damage"] == 14
+    assert result.aoe_results[0]["evasion_failed_half"] is True
 
 
 @pytest.mark.asyncio

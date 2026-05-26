@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from models import Character
 from services.combat_spell_effect_service import (
     apply_armor_of_agathys_to_target,
     apply_control_spell_to_target,
@@ -14,6 +15,7 @@ from services.combat_spell_effect_service import (
     spell_applies_condition,
 )
 from services.combat_temporary_hp_service import is_armor_of_agathys
+from services.combat_evasion_service import resolve_save_damage, spell_half_on_save
 from services.combat_spell_resolution_service import resolve_spell_roll_amount
 
 
@@ -65,10 +67,9 @@ async def apply_confirmed_spell_effects(
                 resolve_heal=resolve_heal,
             )
             save_ability = spell.get("save")
-            half_on_save = spell.get("half_on_save", True)
+            half_on_save = spell_half_on_save(spell, default=True)
 
             for target_id in target_ids:
-                damage_this = result.result_damage
                 save_result = await roll_spell_save(
                     db,
                     enemies,
@@ -76,19 +77,32 @@ async def apply_confirmed_spell_effects(
                     save_ability=save_ability,
                     spell_save_dc=spell_save_dc,
                 )
-                if save_result and save_result["success"] and half_on_save:
-                    damage_this = damage_this // 2
+                target = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
+                if target is None:
+                    target = await db.get(Character, target_id)
+                save_damage = resolve_save_damage(
+                    result.result_damage,
+                    save_result=save_result,
+                    save_ability=save_ability,
+                    half_on_save=half_on_save,
+                    target=target,
+                )
 
                 applied, concentration_log = await apply_spell_damage_to_target(
                     db,
                     session_id,
                     enemies,
                     target_id,
-                    damage_this,
+                    save_damage["damage"],
                     save_result=save_result,
                     spell_name=spell_name,
                 )
                 if applied:
+                    applied.update({
+                        "base_damage": result.result_damage,
+                        "evasion_applied": save_damage["evasion_applied"],
+                        "evasion_failed_half": save_damage["evasion_failed_half"],
+                    })
                     result.aoe_results.append(applied)
                 if concentration_log:
                     result.concentration_logs.append(concentration_log)
@@ -149,15 +163,39 @@ async def apply_confirmed_spell_effects(
             resolve_damage=resolve_damage,
             resolve_heal=resolve_heal,
         )
+        save_ability = spell.get("save")
+        save_result = await roll_spell_save(
+            db,
+            enemies,
+            target_id,
+            save_ability=save_ability,
+            spell_save_dc=spell_save_dc,
+        )
+        target = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
+        if target is None:
+            target = await db.get(Character, target_id)
+        save_damage = resolve_save_damage(
+            result.result_damage,
+            save_result=save_result,
+            save_ability=save_ability,
+            half_on_save=spell_half_on_save(spell, default=False),
+            target=target,
+        )
         applied, concentration_log = await apply_spell_damage_to_target(
             db,
             session_id,
             enemies,
             target_id,
-            result.result_damage,
+            save_damage["damage"],
+            save_result=save_result,
             spell_name=spell_name,
         )
         if applied:
+            applied.update({
+                "base_damage": result.result_damage,
+                "evasion_applied": save_damage["evasion_applied"],
+                "evasion_failed_half": save_damage["evasion_failed_half"],
+            })
             result.target_new_hp = applied["new_hp"]
             result.target_state = applied
             result.enemies_changed = applied["target_id"] in {enemy.get("id") for enemy in enemies}
