@@ -478,6 +478,36 @@ async def test_get_session_returns_current_member_character_for_multiplayer(
     assert guest_snapshot["player"]["id"] == guest_char["id"]
 
 
+async def test_get_session_normalizes_multiplayer_group_state_after_join(
+    client, sample_module,
+):
+    host = await _register(client, "session_group_host")
+    guest = await _register(client, "session_group_guest")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    snapshot_resp = await client.get(
+        f"/game/sessions/{create['session_id']}",
+        headers=_h(guest["token"]),
+    )
+    assert snapshot_resp.status_code == 200, snapshot_resp.text
+    snapshot = snapshot_resp.json()
+
+    groups = {
+        group["id"]: group
+        for group in snapshot["game_state"]["multiplayer"]["party_groups"]
+    }
+    assert set(groups["main"]["member_user_ids"]) == {
+        host["user_id"],
+        guest["user_id"],
+    }
+
+
 async def test_start_game_after_claim_works(client, sample_module):
     """认领角色后开始游戏 → 200，game_state.multiplayer.game_started=True。"""
     host = await _register(client, "host_full")

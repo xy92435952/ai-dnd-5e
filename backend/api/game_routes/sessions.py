@@ -10,6 +10,7 @@ from schemas.game_responses import CreateSessionResponse, SessionDetail, Session
 from services.character_roster import CharacterRoster
 from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
+from services.room_group_service import ensure_multiplayer_state
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -102,6 +103,8 @@ async def get_session(
     """获取会话完整状态（用于恢复游戏）"""
     session = await get_session_or_404(session_id, db)
     member = await assert_session_access(session, user_id, db)
+    if session.is_multiplayer:
+        await ensure_multiplayer_state(db, session.id)
     roster = CharacterRoster(db, session)
     player = await roster.player()
     controlled_player = player

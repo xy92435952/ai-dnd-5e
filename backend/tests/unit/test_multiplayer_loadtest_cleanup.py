@@ -14,6 +14,7 @@ from scripts.multiplayer_ws_loadtest import (
     UserRecord,
     cleanup_rooms,
     verify_room_access_isolation,
+    verify_session_snapshots,
 )
 
 
@@ -40,7 +41,7 @@ class FakeClient:
 
 
 class FakeAccessClient:
-    def __init__(self, rooms, outsider, allow_outsider=False):
+    def __init__(self, rooms, outsider, allow_outsider=False, module_id="module-1"):
         self.rooms = {room.session_id: room for room in rooms}
         self.users_by_token = {
             user.token: user
@@ -49,6 +50,7 @@ class FakeAccessClient:
         }
         self.users_by_token[outsider.token] = outsider
         self.allow_outsider = allow_outsider
+        self.module_id = module_id
         self.requests = []
 
     async def request(self, method, url, **kwargs):
@@ -63,7 +65,7 @@ class FakeAccessClient:
             .removeprefix("Bearer ")
         )
         user = self.users_by_token.get(token)
-        session_id = url.split("/game/rooms/", 1)[1].split("/", 1)[0]
+        session_id = self._session_id_from_url(url)
         room = self.rooms[session_id]
         member_ids = {member.user_id for member in room.users}
         is_member = user is not None and user.user_id in member_ids
@@ -81,7 +83,26 @@ class FakeAccessClient:
         ]
         if url.endswith("/members"):
             return FakeResponse(200, members)
+        if "/game/sessions/" in url:
+            return FakeResponse(200, {
+                "session_id": room.session_id,
+                "module_id": self.module_id,
+                "game_state": {
+                    "dm_style": room.dm_style,
+                    "multiplayer": {
+                        "party_groups": [{
+                            "id": "main",
+                            "member_user_ids": [member.user_id for member in room.users],
+                        }],
+                    },
+                },
+            })
         return FakeResponse(200, {"session_id": room.session_id, "members": members})
+
+    def _session_id_from_url(self, url):
+        if "/game/rooms/" in url:
+            return url.split("/game/rooms/", 1)[1].split("/", 1)[0]
+        return url.split("/game/sessions/", 1)[1].split("/", 1)[0]
 
 
 def _user(name):
@@ -193,11 +214,21 @@ async def test_verify_room_access_isolation_checks_members_and_blocks_outsiders(
     timings = {}
 
     await verify_room_access_isolation(client, "http://testserver", rooms, outsider, timings)
+    await verify_session_snapshots(
+        client,
+        "http://testserver",
+        "module-1",
+        rooms,
+        outsider,
+        timings,
+    )
 
     assert len(timings["member_get_room_ms"]) == 3
     assert len(timings["member_list_members_ms"]) == 3
     assert len(timings["outsider_get_room_forbidden_ms"]) == 2
     assert len(timings["outsider_list_members_forbidden_ms"]) == 2
+    assert len(timings["member_get_session_ms"]) == 3
+    assert len(timings["outsider_get_session_forbidden_ms"]) == 2
     assert {request["headers"]["Authorization"] for request in client.requests} == {
         "Bearer host-token",
         "Bearer p2-token",
@@ -221,3 +252,27 @@ async def test_verify_room_access_isolation_fails_when_outsider_can_read_room():
 
     with pytest.raises(LoadTestError, match="returned 200"):
         await verify_room_access_isolation(client, "http://testserver", [room], outsider, {})
+
+
+@pytest.mark.asyncio
+async def test_verify_session_snapshots_fails_when_outsider_can_read_session():
+    host = _user("host")
+    outsider = _user("outsider")
+    room = RoomRecord(
+        session_id="session-1",
+        room_code="ABCD12",
+        host=host,
+        users=[host],
+        dm_style="classic",
+    )
+    client = FakeAccessClient([room], outsider, allow_outsider=True)
+
+    with pytest.raises(LoadTestError, match="returned 200"):
+        await verify_session_snapshots(
+            client,
+            "http://testserver",
+            "module-1",
+            [room],
+            outsider,
+            {},
+        )

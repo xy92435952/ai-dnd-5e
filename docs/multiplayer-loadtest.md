@@ -57,6 +57,8 @@ The script checks that:
 - party group membership matches room membership
 - every room member can read their own room snapshot and members list
 - non-members cannot read another room's snapshot or members list
+- every room member can restore their own game session snapshot
+- non-members cannot restore another room's game session snapshot
 - typing events broadcast only inside the sender's room
 - typing events do not echo back to the sender
 - created test room members leave, and the rooms are dissolved at the end
