@@ -60,9 +60,15 @@ describe('createCombatSkillClickHandler', () => {
 
     await handler({ k: 'second_wind', available: true })
     await handler({ k: 'rage', available: true })
+    await handler({ k: 'cunning_action_dash', available: true })
+    await handler({ k: 'cunning_action_disengage', available: true })
+    await handler({ k: 'cunning_action_hide', available: true })
 
     expect(fns.handleClassFeature).toHaveBeenNthCalledWith(1, 'second_wind')
     expect(fns.handleClassFeature).toHaveBeenNthCalledWith(2, 'rage')
+    expect(fns.handleClassFeature).toHaveBeenNthCalledWith(3, 'cunning_action_dash')
+    expect(fns.handleClassFeature).toHaveBeenNthCalledWith(4, 'cunning_action_disengage')
+    expect(fns.handleClassFeature).toHaveBeenNthCalledWith(5, 'cunning_action_hide')
   })
 
   it('keeps potion behavior on the legacy combat action endpoint', async () => {

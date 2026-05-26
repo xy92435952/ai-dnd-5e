@@ -145,9 +145,9 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "k": "divine_sense", "label": "神性感知", "glyph": "◉",
             "cost": "动作", "key": "6", "kind": "bonus", "available": True,
         })
-    elif cls == "Rogue":
+    elif cls == "Rogue" and level >= 2:
         bar.append({
-            "k": "cunning_action", "label": "狡诈行动", "glyph": "⊿",
+            "k": "cunning_action_hide", "label": "狡诈隐匿", "glyph": "⊿",
             "cost": "附赠", "key": "6", "kind": "bonus", "available": True,
         })
     elif cls == "Wizard" and level >= 2:
@@ -162,14 +162,24 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "cost": "动作", "key": "6", "kind": "bonus", "available": True,
         })
 
-    bar.append({
-        "k": "dash", "label": "冲刺", "glyph": "»",
-        "cost": "动作", "key": "7", "kind": "move", "available": True,
-    })
-    bar.append({
-        "k": "disg", "label": "脱离接战", "glyph": "↶",
-        "cost": "动作", "key": "8", "kind": "move", "available": True,
-    })
+    if cls == "Rogue" and level >= 2:
+        bar.append({
+            "k": "cunning_action_dash", "label": "狡诈冲刺", "glyph": "»",
+            "cost": "附赠", "key": "7", "kind": "move", "available": True,
+        })
+        bar.append({
+            "k": "cunning_action_disengage", "label": "狡诈脱离", "glyph": "↶",
+            "cost": "附赠", "key": "8", "kind": "move", "available": True,
+        })
+    else:
+        bar.append({
+            "k": "dash", "label": "冲刺", "glyph": "»",
+            "cost": "动作", "key": "7", "kind": "move", "available": True,
+        })
+        bar.append({
+            "k": "disg", "label": "脱离接战", "glyph": "↶",
+            "cost": "动作", "key": "8", "kind": "move", "available": True,
+        })
     bar.append({
         "k": "grapple", "label": "擒抱", "glyph": "⛓",
         "cost": "动作", "key": "9", "kind": "attack", "available": True,

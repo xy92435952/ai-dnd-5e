@@ -35,3 +35,29 @@ def test_rogue_skill_bar_keeps_sneak_attack_hint_scaling():
 
     assert bar[1]["k"] == "sneak"
     assert "+3d6" in bar[1]["dmg_hint"]
+
+
+def test_rogue_skill_bar_exposes_cunning_action_options_at_level_two():
+    bar = build_skill_bar(_character("Rogue", level=2))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["cunning_action_hide"]["key"] == "6"
+    assert slots["cunning_action_hide"]["cost"] == "附赠"
+    assert slots["cunning_action_dash"]["key"] == "7"
+    assert slots["cunning_action_dash"]["cost"] == "附赠"
+    assert slots["cunning_action_disengage"]["key"] == "8"
+    assert slots["cunning_action_disengage"]["cost"] == "附赠"
+    assert "dash" not in slots
+    assert "disg" not in slots
+
+
+def test_first_level_rogue_uses_normal_dash_and_disengage():
+    bar = build_skill_bar(_character("Rogue", level=1))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["dash"]["key"] == "7"
+    assert slots["dash"]["cost"] == "动作"
+    assert slots["disg"]["key"] == "8"
+    assert slots["disg"]["cost"] == "动作"
+    assert "cunning_action_dash" not in slots
+    assert "cunning_action_disengage" not in slots

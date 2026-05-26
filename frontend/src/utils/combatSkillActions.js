@@ -89,7 +89,14 @@ export function createCombatSkillClickHandler({
           await handleClassFeature?.('rage')
           break
         case 'cunning_action':
+        case 'cunning_action_dash':
           await handleClassFeature?.('cunning_action_dash')
+          break
+        case 'cunning_action_disengage':
+          await handleClassFeature?.('cunning_action_disengage')
+          break
+        case 'cunning_action_hide':
+          await handleClassFeature?.('cunning_action_hide')
           break
         case 'portent':
           await handleClassFeature?.('portent')
