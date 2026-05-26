@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, cleanup, act } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, cleanup, act, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const {
@@ -131,6 +131,84 @@ describe('Room multiplayer lobby', () => {
     })
 
     expect(await screen.findByRole('button', { name: /1\/2/ })).toBeDisabled()
+
+    cleanup()
+  })
+
+  it('applies member presence websocket snapshots without refetching the room', async () => {
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(wsHandlers.current).toBeTypeOf('function')
+    })
+    expect(roomsGetMock).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      wsHandlers.current({
+        type: 'member_offline',
+        user_id: 'u2',
+        members: [
+          {
+            user_id: 'me',
+            display_name: 'Me',
+            role: 'host',
+            character_id: 'c1',
+            character_name: 'Fighter',
+            is_online: true,
+          },
+          {
+            user_id: 'u2',
+            display_name: 'Ally',
+            role: 'player',
+            character_id: 'c2',
+            character_name: 'Wizard',
+            is_online: false,
+          },
+        ],
+      })
+    })
+
+    expect(roomsGetMock).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('Ally')).toBeInTheDocument()
+    expect(screen.getByText(/Wizard/)).toBeInTheDocument()
+
+    cleanup()
+  })
+
+  it('updates transferred host from websocket events without refetching the room', async () => {
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(wsHandlers.current).toBeTypeOf('function')
+    })
+    expect(await screen.findByRole('button', { name: /开启冒险/ })).toBeInTheDocument()
+    expect(screen.getByText(/★ 房主/)).toBeInTheDocument()
+    expect(roomsGetMock).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      wsHandlers.current({
+        type: 'host_transferred',
+        new_host_user_id: 'u2',
+      })
+    })
+
+    expect(roomsGetMock).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: /开启冒险/ })).not.toBeInTheDocument()
+    const newHostCard = screen.getAllByText('队友')[0].closest('.panel-ornate')
+    expect(within(newHostCard).getByText(/★ 房主/)).toBeInTheDocument()
+    expect(screen.getByText(/等待房主开启冒险/)).toBeInTheDocument()
 
     cleanup()
   })

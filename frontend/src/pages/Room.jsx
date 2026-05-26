@@ -7,7 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { roomsApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useUser } from '../hooks/useUser'
-import { normalizeRealtimeRoom } from '../hooks/useRoomRealtime'
+import { mergeRealtimeRoomEvent, normalizeRealtimeRoom } from '../hooks/useRoomRealtime'
 import { useRoomReconnectRefresh } from '../hooks/useRoomReconnectRefresh'
 import { Divider } from '../components/Ornaments'
 import RoomActionsPanel from '../components/room/RoomActionsPanel'
@@ -42,10 +42,30 @@ export default function Room() {
       case 'member_joined':
       case 'member_left':
       case 'character_claimed':
-      case 'host_transferred':
       case 'member_kicked':
       case 'member_online':
       case 'member_offline':
+        if (Array.isArray(event.members)) {
+          setRoom(prev => {
+            const merged = mergeRealtimeRoomEvent(prev, event)
+            if (!merged) return merged
+            return event.host_transferred_to
+              ? { ...merged, host_user_id: event.host_transferred_to }
+              : merged
+          })
+          break
+        }
+        refresh(); break
+      case 'host_transferred':
+        setRoom(prev => prev ? {
+          ...prev,
+          host_user_id: event.new_host_user_id,
+          members: (prev.members || []).map(member => ({
+            ...member,
+            role: member.user_id === event.new_host_user_id ? 'host' : 'player',
+          })),
+        } : prev)
+        break
       case 'ai_companions_filled':
         refresh(); break
       case 'game_started':
