@@ -142,6 +142,9 @@ export function useCombatRuntime({
   })
 
   const { connected: wsConnected } = useWebSocket(room ? sessionId : null, onWsEvent)
+  const combatSyncBlocked = !!room && !wsConnected
+  const combatSyncBlockedReason = combatSyncBlocked ? '战斗房间正在重新同步，请恢复连接后再行动。' : ''
+
   useCombatReconnectRefresh({
     room,
     combat,
@@ -149,6 +152,14 @@ export function useCombatRuntime({
     loadCombat: flow.loadCombat,
     refreshRoom,
   })
+
+  const guardCombatAction = (fn) => (...args) => {
+    if (combatSyncBlocked) {
+      setError(combatSyncBlockedReason)
+      return undefined
+    }
+    return fn?.(...args)
+  }
 
   return {
     session,
@@ -172,15 +183,18 @@ export function useCombatRuntime({
     logs,
     logsEndRef,
     derived,
+    wsConnected,
+    combatSyncBlocked,
+    combatSyncBlockedReason,
     actions: {
-      onSkillClick,
-      handleMoveTo,
+      onSkillClick: guardCombatAction(onSkillClick),
+      handleMoveTo: guardCombatAction(handleMoveTo),
       handleSpellHover,
-      handleEndTurn: flow.handleEndTurn,
-      handleCastSpell: flow.handleCastSpell,
-      handleSmite: flow.handleSmite,
-      handleReaction: flow.handleReaction,
-      handleManeuver: flow.handleManeuver,
+      handleEndTurn: guardCombatAction(flow.handleEndTurn),
+      handleCastSpell: guardCombatAction(flow.handleCastSpell),
+      handleSmite: guardCombatAction(flow.handleSmite),
+      handleReaction: guardCombatAction(flow.handleReaction),
+      handleManeuver: guardCombatAction(flow.handleManeuver),
       setSelectedTarget,
       setAoeHover,
       setSmitePrompt,

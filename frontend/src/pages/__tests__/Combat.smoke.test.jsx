@@ -21,6 +21,8 @@ const {
   moveMock,
   endTurnMock,
   useItemMock,
+  wsConnectedMock,
+  wsSendMock,
   wsEvents,
 } = vi.hoisted(() => ({
   combatFixture: {
@@ -100,6 +102,8 @@ const {
   moveMock: vi.fn(),
   endTurnMock: vi.fn(),
   useItemMock: vi.fn(),
+  wsConnectedMock: vi.fn(),
+  wsSendMock: vi.fn(),
   wsEvents: { current: null },
 }))
 
@@ -127,7 +131,7 @@ vi.mock('../../api/client', () => ({
 vi.mock('../../hooks/useWebSocket', () => ({
   useWebSocket: (_sessionId, onEvent) => {
     wsEvents.current = onEvent
-    return { connected: false, send: () => false }
+    return { connected: wsConnectedMock(), send: wsSendMock }
   },
 }))
 
@@ -154,6 +158,8 @@ describe('Combat render smoke', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     wsEvents.current = null
+    wsConnectedMock.mockReturnValue(false)
+    wsSendMock.mockReturnValue(false)
     getCombatMock.mockResolvedValue(combatFixture)
     getSessionMock.mockResolvedValue(sessionFixture)
     getSpellsMock.mockResolvedValue([])
@@ -270,6 +276,7 @@ describe('Combat render smoke', () => {
   })
 
   it('lets the active multiplayer owner end their combat turn', async () => {
+    wsConnectedMock.mockReturnValue(true)
     const ownerCombat = {
       ...combatFixture,
       current_turn_index: 0,
@@ -334,7 +341,89 @@ describe('Combat render smoke', () => {
     })
   })
 
+  it('pauses multiplayer combat controls while websocket sync is unavailable', async () => {
+    wsConnectedMock.mockReturnValue(false)
+    const ownerCombat = {
+      ...combatFixture,
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 16 },
+        { character_id: 'enemy-1', name: '训练假人', is_enemy: true, initiative: 8 },
+      ],
+      entities: {
+        ...combatFixture.entities,
+        'guest-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'guest-char',
+          name: 'Guest Hero',
+        },
+      },
+      entity_positions: {
+        ...combatFixture.entity_positions,
+        'guest-char': { x: 5, y: 5 },
+      },
+      turn_states: {
+        'guest-char': { action_used: false, movement_used: 0, movement_max: 6 },
+      },
+    }
+    const ownerSession = {
+      ...sessionFixture,
+      player: {
+        ...sessionFixture.player,
+        id: 'guest-char',
+        name: 'Guest Hero',
+      },
+    }
+    const room = {
+      is_multiplayer: true,
+      session_id: 'sess-1',
+      room_code: '234567',
+      members: [
+        { user_id: 'guest-user', display_name: 'Guest', character_id: 'guest-char', is_online: true },
+      ],
+    }
+
+    localStorage.setItem('user', JSON.stringify({ user_id: 'guest-user', display_name: 'Guest' }))
+    window.dispatchEvent(new Event('user-changed'))
+    roomsGetMock.mockResolvedValue(room)
+    getCombatMock.mockResolvedValue(ownerCombat)
+    getSessionMock.mockResolvedValue(ownerSession)
+    getSkillBarMock.mockResolvedValue({
+      bar: [
+        { k: 'atk', label: '攻击', glyph: 'A', cost: '动作', key: '1', kind: 'attack', available: true },
+      ],
+    })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/同步中 · 暂停战斗操作/)
+    const syncButton = screen.getByRole('button', { name: /同步中/ })
+    expect(syncButton).toBeDisabled()
+
+    const enemyChip = container.querySelector('.unit-chip.enemy')
+    expect(enemyChip).toBeTruthy()
+    fireEvent.click(enemyChip)
+    await waitFor(() => {
+      expect(container.querySelector('.target-card')).toHaveTextContent(ownerCombat.entities['enemy-1'].name)
+    })
+
+    const attackSlot = container.querySelector('.slot-key.attack')
+    expect(attackSlot).toBeTruthy()
+    fireEvent.click(attackSlot)
+    fireEvent.click(syncButton)
+
+    expect(attackRollMock).not.toHaveBeenCalled()
+    expect(endTurnMock).not.toHaveBeenCalled()
+  })
+
   it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {
+    wsConnectedMock.mockReturnValue(true)
     const hostTurnCombat = {
       ...combatFixture,
       current_turn_index: 0,

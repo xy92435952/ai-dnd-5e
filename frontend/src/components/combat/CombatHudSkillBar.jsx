@@ -3,7 +3,7 @@ import { JuiceAudio } from '../../juice'
 import { SKILL_INFO } from '../../data/combat'
 import { computeSkillStats } from '../../utils/combat'
 
-export default function CombatHudSkillBar({ skillBar, session, entities, selectedTarget, onSkillClick, isPlayerTurn }) {
+export default function CombatHudSkillBar({ skillBar, session, entities, selectedTarget, onSkillClick, isPlayerTurn, syncBlocked = false }) {
   return (
     <div>
       <div className="skill-bar">
@@ -14,9 +14,9 @@ export default function CombatHudSkillBar({ skillBar, session, entities, selecte
             <div
               key={s.k}
               className={`slot-key ${s.kind} ${!s.available ? 'used' : ''}`}
-              onClick={() => onSkillClick(s)}
+              onClick={() => !syncBlocked && onSkillClick(s)}
               onMouseEnter={() => { try { JuiceAudio.hover() } catch {} }}
-              style={{ cursor: s.available && isPlayerTurn ? 'pointer' : 'not-allowed' }}
+              style={{ cursor: s.available && isPlayerTurn && !syncBlocked ? 'pointer' : 'not-allowed' }}
             >
               <span className="hot">{s.key}</span>
               <span className="glyph">{s.glyph}</span>
@@ -28,6 +28,7 @@ export default function CombatHudSkillBar({ skillBar, session, entities, selecte
                   <div className="t-meta">
                     {s.kind === 'attack' ? '攻击' : s.kind === 'spell' ? '法术' : s.kind === 'bonus' ? '附赠' : s.kind === 'move' ? '移动' : '—'}
                     {' · '}{s.cost || '—'}
+                    {syncBlocked && <span style={{ color: 'var(--parchment-dark)', marginLeft: 6 }}>同步中</span>}
                     {!s.available && <span style={{ color: '#f47070', marginLeft: 6 }}>✕ 不可用</span>}
                   </div>
                   {stats && stats.length > 0 && stats.map((r, ri) => (

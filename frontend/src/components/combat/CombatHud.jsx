@@ -20,6 +20,7 @@ export default function CombatHud({
   playerSpellSlots,
   isProcessing,
   isPlayerTurn,
+  syncBlocked = false,
   moveMode,
   isRanged,
   onSessionChange,
@@ -54,6 +55,7 @@ export default function CombatHud({
           selectedTarget={selectedTarget}
           onSkillClick={onSkillClick}
           isPlayerTurn={isPlayerTurn}
+          syncBlocked={syncBlocked}
         />
 
         <CombatHudCombatLog logs={logs} logsEndRef={logsEndRef} />
@@ -65,7 +67,7 @@ export default function CombatHud({
           session={session}
           turnState={turnState}
           isPlayerTurn={isPlayerTurn}
-          disabled={isProcessing}
+          disabled={isProcessing || syncBlocked}
           onSessionChange={onSessionChange}
           onTurnStateChange={onTurnStateChange}
           onError={onError}
@@ -73,6 +75,7 @@ export default function CombatHud({
         <CombatHudControls
           isProcessing={isProcessing}
           isPlayerTurn={isPlayerTurn}
+          syncBlocked={syncBlocked}
           moveMode={moveMode}
           isRanged={isRanged}
           onEndTurn={onEndTurn}

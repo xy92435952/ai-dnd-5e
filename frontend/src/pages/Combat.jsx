@@ -76,6 +76,8 @@ export default function Combat() {
     reactionPrompt,
     prediction,
     derived,
+    wsConnected,
+    combatSyncBlocked,
     actions,
   } = runtime
   const {
@@ -144,6 +146,8 @@ export default function Combat() {
 
       <MultiplayerTurnBar
         room={room}
+        wsConnected={wsConnected}
+        syncBlocked={combatSyncBlocked}
         currentTurnLabel={currentTurnLabel}
         isMyTurnMP={isMyTurnMP}
         controllerName={currentTurnControllerName}
@@ -202,7 +206,8 @@ export default function Combat() {
         logsEndRef={logsEndRef}
         playerSpellSlots={playerSpellSlots}
         isProcessing={isProcessing}
-        isPlayerTurn={canActThisTurn}
+        isPlayerTurn={canActThisTurn && !combatSyncBlocked}
+        syncBlocked={combatSyncBlocked}
         moveMode={moveMode}
         isRanged={isRanged}
         onSessionChange={runtime.setSession}
