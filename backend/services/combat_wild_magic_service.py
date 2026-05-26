@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from services.dnd_rules import get_effective_hp_max
+from services.dnd_rules import apply_character_healing
 
 
 @dataclass
@@ -84,10 +84,7 @@ def apply_wild_magic_mechanical_effect(
     mechanical = surge.get("mechanical", {})
     if mechanical.get("type") == "heal":
         heal_roll = roll_dice(mechanical["dice"])
-        caster.hp_current = min(
-            get_effective_hp_max(caster),
-            caster.hp_current + heal_roll["total"],
-        )
+        apply_character_healing(caster, heal_roll["total"])
     elif mechanical.get("type") == "condition":
         conditions = list(caster.conditions or [])
         conditions.append(mechanical["condition"])

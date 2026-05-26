@@ -49,6 +49,26 @@ async def test_apply_spell_damage_to_enemy_updates_enemy_state(db_session):
     assert conc_log is None
 
 
+async def test_apply_spell_damage_to_character_initializes_death_saves(db_session, sample_character):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    sample_character.hp_current = 3
+    sample_character.death_saves = None
+    await db_session.commit()
+
+    result, _conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        [],
+        sample_character.id,
+        5,
+    )
+
+    assert result["new_hp"] == 0
+    assert result["death_saves"] == {"successes": 0, "failures": 0, "stable": False}
+    assert sample_character.death_saves == {"successes": 0, "failures": 0, "stable": False}
+
+
 async def test_apply_spell_heal_to_character_caps_at_max(db_session, sample_character):
     from api.combat.spell_effects import apply_spell_heal_to_target
 
@@ -74,6 +94,21 @@ async def test_apply_spell_heal_to_character_caps_at_exhaustion_max(db_session, 
 
     assert result["new_hp"] == 6
     assert sample_character.hp_current == 6
+
+
+async def test_apply_spell_heal_to_character_revives_and_clears_death_saves(db_session, sample_character):
+    from api.combat.spell_effects import apply_spell_heal_to_target
+
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 1, "failures": 2, "stable": False}
+    await db_session.commit()
+
+    result = await apply_spell_heal_to_target(db_session, sample_character.id, 7)
+
+    assert result["new_hp"] == 7
+    assert result["revived"] is True
+    assert result["death_saves"] is None
+    assert sample_character.death_saves is None
 
 
 def test_resolve_spell_condition_uses_known_mapping_and_fallback():

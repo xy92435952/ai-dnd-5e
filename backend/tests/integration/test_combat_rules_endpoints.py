@@ -76,9 +76,7 @@ async def test_death_save_natural_20_revives_with_1hp(
 
     await db_session.refresh(sample_character)
     assert sample_character.hp_current == 1
-    # death_saves 应该被重置（可清空或 stable）
-    ds = sample_character.death_saves or {}
-    assert ds.get("successes", 0) == 0 or ds.get("stable") is True
+    assert sample_character.death_saves is None
 
 
 async def test_death_save_three_successes_stabilize(
@@ -118,6 +116,23 @@ async def test_death_save_three_failures_kills(
     ds = sample_character.death_saves or {}
     assert ds.get("failures", 0) >= 3
     assert sample_character.hp_current == 0
+
+
+async def test_dead_character_cannot_keep_rolling_death_saves(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.death_saves = {"successes": 0, "failures": 3, "stable": False}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/death-save",
+        headers=headers,
+        json={"character_id": sample_character.id, "d20_value": 20},
+    )
+
+    assert response.status_code == 400
+    assert "resurrection" in response.text
 
 
 async def test_death_save_natural_1_counts_two_failures(

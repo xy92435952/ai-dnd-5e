@@ -93,6 +93,104 @@ def clamp_current_hp_to_effective_max(character: object) -> int:
     return hp_max
 
 
+def default_death_saves(*, stable: bool = False, failures: int = 0, successes: int = 0) -> dict:
+    """Return a normalized death-save state."""
+    return {
+        "successes": max(0, min(3, int(successes or 0))),
+        "failures": max(0, min(3, int(failures or 0))),
+        "stable": bool(stable),
+    }
+
+
+def is_dead(character: dict | object | None) -> bool:
+    """Return whether a character is mechanically dead."""
+    if not character:
+        return False
+    if isinstance(character, dict):
+        death_saves = character.get("death_saves") or {}
+        hp_current = character.get("hp_current", 0) or 0
+    else:
+        death_saves = getattr(character, "death_saves", None) or {}
+        hp_current = getattr(character, "hp_current", 0) or 0
+    return int(hp_current) <= 0 and int(death_saves.get("failures", 0) or 0) >= 3
+
+
+def is_dying(character: dict | object | None) -> bool:
+    """Return whether a character is at 0 HP and still making death saves."""
+    if not character:
+        return False
+    if isinstance(character, dict):
+        hp_current = character.get("hp_current", 0) or 0
+        death_saves = character.get("death_saves") or {}
+    else:
+        hp_current = getattr(character, "hp_current", 0) or 0
+        death_saves = getattr(character, "death_saves", None) or {}
+    return int(hp_current) <= 0 and not death_saves.get("stable") and not is_dead(character)
+
+
+def get_life_state(character: dict | object | None) -> str:
+    """Return alive, dying, stable, or dead for a character-like object."""
+    if not character:
+        return "alive"
+    if isinstance(character, dict):
+        hp_current = int(character.get("hp_current", 0) or 0)
+        death_saves = character.get("death_saves") or {}
+    else:
+        hp_current = int(getattr(character, "hp_current", 0) or 0)
+        death_saves = getattr(character, "death_saves", None) or {}
+    if hp_current > 0:
+        return "alive"
+    if int(death_saves.get("failures", 0) or 0) >= 3:
+        return "dead"
+    if death_saves.get("stable"):
+        return "stable"
+    return "dying"
+
+
+def apply_character_damage(character: object, damage: int) -> dict:
+    """Apply damage and initialize death saves when a character drops to 0 HP."""
+    before_hp = int(getattr(character, "hp_current", 0) or 0)
+    dealt = max(0, int(damage or 0))
+    after_hp = max(0, before_hp - dealt)
+    character.hp_current = after_hp
+    dropped_to_zero = before_hp > 0 and after_hp == 0
+    if dropped_to_zero and getattr(character, "death_saves", None) is None:
+        character.death_saves = default_death_saves()
+    return {
+        "hp_before": before_hp,
+        "hp_after": after_hp,
+        "damage": dealt,
+        "dropped_to_zero": dropped_to_zero,
+        "death_saves": getattr(character, "death_saves", None),
+    }
+
+
+def apply_character_healing(character: object, healing: int) -> dict:
+    """Apply healing and clear death saves when HP rises above 0."""
+    before_hp = int(getattr(character, "hp_current", 0) or 0)
+    amount = max(0, int(healing or 0))
+    hp_max = get_effective_hp_max(character)
+    after_hp = min(hp_max, before_hp + amount)
+    character.hp_current = after_hp
+    revived = before_hp <= 0 and after_hp > 0
+    if revived:
+        character.death_saves = None
+    return {
+        "hp_before": before_hp,
+        "hp_after": after_hp,
+        "healing": amount,
+        "revived": revived,
+        "death_saves": getattr(character, "death_saves", None),
+    }
+
+
+def stabilize_character(character: object) -> dict:
+    """Stabilize a 0-HP character without restoring HP."""
+    death_saves = default_death_saves(stable=True)
+    character.death_saves = death_saves
+    return death_saves
+
+
 def calc_passive_perception(derived: dict, proficient_skills: list, feats: list = None) -> int:
     """计算被动感知值 = 10 + WIS修正 + 熟练加值（如果熟练感知）+ 专长加值"""
     wis_mod = derived.get("ability_modifiers", {}).get("wis", 0)

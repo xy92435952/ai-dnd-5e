@@ -12,9 +12,15 @@ from services.dnd_rules import (
     roll_skill_check, roll_saving_throw, roll_attack,
     calc_derived, calc_hit_dice_pool,
     clamp_current_hp_to_effective_max,
+    apply_character_damage,
+    apply_character_healing,
+    default_death_saves,
     get_effective_derived,
     get_effective_hp_base,
     get_effective_hp_max,
+    is_dead,
+    is_dying,
+    stabilize_character,
     _normalize_class,
 )
 
@@ -192,6 +198,52 @@ class TestExhaustionHpMax:
 
         assert clamp_current_hp_to_effective_max(char) == 9
         assert char.hp_current == 9
+
+
+class TestCharacterLifeState:
+    def test_damage_to_zero_initializes_death_saves(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(hp_current=3, death_saves=None)
+
+        result = apply_character_damage(char, 5)
+
+        assert result["dropped_to_zero"] is True
+        assert char.hp_current == 0
+        assert char.death_saves == default_death_saves()
+        assert is_dying(char) is True
+
+    def test_healing_from_zero_clears_death_saves(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=0,
+            death_saves={"successes": 1, "failures": 2, "stable": False},
+            derived={"hp_max": 12},
+            condition_durations={},
+        )
+
+        result = apply_character_healing(char, 4)
+
+        assert result["revived"] is True
+        assert char.hp_current == 4
+        assert char.death_saves is None
+
+    def test_stabilized_character_is_not_dying(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(hp_current=0, death_saves=None)
+
+        stabilize_character(char)
+
+        assert char.death_saves == {"successes": 0, "failures": 0, "stable": True}
+        assert is_dying(char) is False
+        assert is_dead(char) is False
+
+    def test_three_failed_death_saves_is_dead(self):
+        char = {"hp_current": 0, "death_saves": {"successes": 0, "failures": 3, "stable": False}}
+
+        assert is_dead(char) is True
 
 
 class TestCalcDerived:

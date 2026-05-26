@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from models import Session, Character, GameLog, CombatState, Module, SessionMember
-from services.dnd_rules import get_effective_derived, get_effective_hp_base
+from services.dnd_rules import get_effective_derived, get_effective_hp_base, get_life_state
 from services.session_access_service import assert_character_in_session
 
 
@@ -139,6 +139,8 @@ def char_brief(char: Character) -> dict:
         "proficient_saves": char.proficient_saves or [],
         "conditions":       char.conditions or [],
         "condition_durations": char.condition_durations or {},
+        "death_saves":      char.death_saves,
+        "life_state":       get_life_state(char),
         "derived":          derived,
         "concentration":    char.concentration,
         "known_spells":     char.known_spells or [],
@@ -169,6 +171,9 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "base_hp_max": base_hp_max,
         "ac":         derived.get("ac", 10),
         "conditions": char.conditions or [],
+        "condition_durations": char.condition_durations or {},
+        "death_saves": char.death_saves,
+        "life_state": get_life_state(char),
         "derived":    derived,
     }
 

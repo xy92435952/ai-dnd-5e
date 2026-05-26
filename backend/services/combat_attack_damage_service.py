@@ -19,7 +19,7 @@ from services.combat_damage_bonus_service import (
 )
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state
-from services.dnd_rules import _normalize_class, get_effective_hp_max
+from services.dnd_rules import _normalize_class, apply_character_damage
 from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
@@ -189,10 +189,6 @@ async def apply_attack_damage_to_target(
     if session is not None:
         await assert_character_in_session(target_character, session, db)
 
-    target_character.hp_current = svc.apply_damage(
-        target_character.hp_current,
-        damage,
-        get_effective_hp_max(target_character),
-    )
+    damage_result = apply_character_damage(target_character, damage)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
-    return target_character.hp_current, concentration_log
+    return damage_result["hp_after"], concentration_log

@@ -316,6 +316,18 @@
             "title": "Conditions",
             "type": "array"
           },
+          "death_saves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Death Saves"
+          },
           "derived": {
             "additionalProperties": true,
             "default": {},
@@ -366,6 +378,17 @@
           "level": {
             "title": "Level",
             "type": "integer"
+          },
+          "life_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Life State"
           },
           "name": {
             "title": "Name",
@@ -1880,6 +1903,12 @@
             ],
             "title": "Base Hp Max"
           },
+          "condition_durations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Condition Durations",
+            "type": "object"
+          },
           "conditions": {
             "default": [],
             "items": {
@@ -1887,6 +1916,18 @@
             },
             "title": "Conditions",
             "type": "array"
+          },
+          "death_saves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Death Saves"
           },
           "derived": {
             "additionalProperties": true,
@@ -1915,6 +1956,17 @@
             "default": false,
             "title": "Is Player",
             "type": "boolean"
+          },
+          "life_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Life State"
           },
           "name": {
             "title": "Name",
@@ -5371,7 +5423,7 @@
     },
     "/game/combat/{session_id}/death-save": {
       "post": {
-        "description": "濒死豁免检定（5e PHB p.197）\n- HP = 0 的角色每回合投 d20\n- 20（自然）：立即稳定并恢复1HP\n- 1（自然）：记为2次失败\n- 10+：成功\n- <10：失败\n- 3成功 → 稳定（stable=True，停止豁免）\n- 3失败 → 死亡（角色被移除战斗）",
+        "description": "Resolve a DnD 5e death saving throw for a 0-HP character.",
         "operationId": "death_saving_throw_game_combat__session_id__death_save_post",
         "parameters": [
           {

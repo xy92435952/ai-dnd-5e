@@ -13,6 +13,7 @@ def make_character(**overrides):
         "hp_current": 4,
         "derived": {"hp_max": 12},
         "conditions": [],
+        "condition_durations": {},
         "death_saves": None,
     }
     data.update(overrides)
@@ -60,6 +61,29 @@ def test_apply_healing_effect_caps_at_exhaustion_hp_max(monkeypatch):
 
     assert actor.hp_current == 6
     assert result["hp_after"] == 6
+
+
+def test_apply_healing_effect_revives_and_clears_death_saves(monkeypatch):
+    monkeypatch.setattr(
+        item_effects,
+        "roll_dice",
+        lambda formula: {"formula": formula, "rolls": [3, 3], "bonus": 2, "total": 8},
+    )
+    actor = make_character(
+        hp_current=0,
+        death_saves={"successes": 1, "failures": 2, "stable": False},
+    )
+
+    result = item_effects.apply_item_effect(
+        actor=actor,
+        item_name="Healing Potion",
+        item_data={"consumable": True, "effect": "heal", "heal_dice": "2d4+2"},
+    )
+
+    assert actor.hp_current == 8
+    assert actor.death_saves is None
+    assert result["revived"] is True
+    assert result["death_saves"] is None
 
 
 def test_apply_fire_resistance_adds_condition_once():

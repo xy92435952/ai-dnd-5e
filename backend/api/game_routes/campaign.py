@@ -13,6 +13,7 @@ from services.dnd_rules import (
     _normalize_class,
     get_effective_hp_base,
     get_effective_hp_max,
+    apply_character_healing,
     get_class_resource_defaults,
     roll_dice,
 )
@@ -323,7 +324,7 @@ def _apply_short_rest_to_character(
     if hd_remaining > 0 and character.hp_current < hp_max:
         hit_roll = roll_dice(f"1d{hit_die}")
         heal_amt = max(1, hit_roll["total"] + con_mod)
-        character.hp_current = min(hp_max, character.hp_current + heal_amt)
+        apply_character_healing(character, heal_amt)
         character.hit_dice_remaining = hd_remaining - 1
         hit_roll_result = hit_roll["rolls"][0]
         hit_dice_spent = 1

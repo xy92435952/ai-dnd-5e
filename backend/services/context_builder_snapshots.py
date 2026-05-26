@@ -2,7 +2,7 @@ import json
 
 from schemas.game_schemas import GameState
 from services.context_builder_multiplayer import build_multiplayer_context
-from services.dnd_rules import get_effective_derived, get_effective_hp_base
+from services.dnd_rules import get_effective_derived, get_effective_hp_base, get_life_state
 from services.dm_styles import get_dm_style
 
 ENEMY_FIELDS = [
@@ -46,6 +46,7 @@ def build_character_snapshot(char) -> dict:
         "spell_slots": char.spell_slots or {},
         "conditions": char.conditions or [],
         "death_saves": char.death_saves or {"successes": 0, "failures": 0, "stable": False},
+        "life_state": get_life_state(char),
         "concentration": char.concentration,
         "known_spells": char.known_spells or [],
         "cantrips": char.cantrips or [],

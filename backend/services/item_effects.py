@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from services.dnd_rules import get_effective_hp_max, roll_dice
+from services.dnd_rules import (
+    apply_character_healing,
+    roll_dice,
+    stabilize_character,
+)
 
 
 DIRECT_USE_EFFECTS = {"heal", "antitoxin", "fire_resistance", "stabilize"}
@@ -50,14 +54,14 @@ def apply_item_effect(
         heal_dice = item_data.get("heal_dice", "2d4+2")
         roll = roll_dice(heal_dice)
         heal_amount = roll["total"]
-        derived = actor.derived or {}
-        hp_max = get_effective_hp_max(actor, derived.get("hp_max", actor.hp_current))
         old_hp = actor.hp_current
-        actor.hp_current = min(hp_max, actor.hp_current + heal_amount)
+        heal_result = apply_character_healing(actor, heal_amount)
         result["heal_roll"] = roll
         result["heal_amount"] = heal_amount
         result["hp_before"] = old_hp
         result["hp_after"] = actor.hp_current
+        result["revived"] = heal_result["revived"]
+        result["death_saves"] = heal_result["death_saves"]
 
     elif effect == "antitoxin":
         conditions = list(actor.conditions or [])
@@ -80,8 +84,7 @@ def apply_item_effect(
     elif effect == "stabilize":
         target = target or actor
         _validate_stabilize_target(actor, target)
-        death_saves = {"successes": 0, "failures": 0, "stable": True}
-        target.death_saves = death_saves
+        death_saves = stabilize_character(target)
         result["target_character_id"] = target.id
         result["target_name"] = target.name
         result["target_hp_current"] = target.hp_current

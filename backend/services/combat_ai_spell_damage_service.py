@@ -5,7 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution
 from services.combat_service import CombatService
-from services.dnd_rules import get_effective_hp_max, roll_dice
+from services.dnd_rules import apply_character_damage, roll_dice
 
 
 async def apply_ai_damage_spell(
@@ -46,11 +46,7 @@ async def apply_ai_damage_spell(
             else:
                 target_character = await db.get(Character, target_id)
                 if target_character:
-                    target_character.hp_current = combat_service.apply_damage(
-                        target_character.hp_current,
-                        damage_this,
-                        get_effective_hp_max(target_character),
-                    )
+                    apply_character_damage(target_character, damage_this)
             resolution.damage += damage_this
 
         state["enemies"] = enemies
@@ -86,11 +82,7 @@ async def apply_ai_damage_spell(
     else:
         target_character = await db.get(Character, resolution.spell_target)
         if target_character:
-            target_character.hp_current = combat_service.apply_damage(
-                target_character.hp_current,
-                total_damage,
-                get_effective_hp_max(target_character),
-            )
+            apply_character_damage(target_character, total_damage)
             resolution.target_new_hp = target_character.hp_current
             resolution.target_name = target_character.name
 

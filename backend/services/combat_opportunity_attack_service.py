@@ -8,7 +8,7 @@ from services.combat_concentration_service import do_concentration_check
 from services.combat_grid_service import chebyshev_distance
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
-from services.dnd_rules import get_effective_hp_max
+from services.dnd_rules import apply_character_damage
 
 svc = CombatService()
 
@@ -58,11 +58,7 @@ async def resolve_opportunity_attacks(
                 save_turn_state(combat, enemy["id"], enemy_turn_state)
 
                 if result.attack_roll["hit"]:
-                    moving_char.hp_current = svc.apply_damage(
-                        moving_char.hp_current,
-                        result.damage,
-                        get_effective_hp_max(moving_char),
-                    )
+                    apply_character_damage(moving_char, result.damage)
                     concentration_log = await do_concentration_check(
                         moving_char,
                         result.damage,

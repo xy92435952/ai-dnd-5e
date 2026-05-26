@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from services.combat_turn_state_service import save_turn_state
-from services.dnd_rules import WILD_SHAPE_FORMS, _normalize_class, get_effective_hp_max
+from services.dnd_rules import WILD_SHAPE_FORMS, _normalize_class, apply_character_healing, get_effective_hp_max
 
 
 @dataclass
@@ -57,7 +57,7 @@ def resolve_combat_class_feature(
         heal_amount = heal_roll["total"]
         hp_max = get_effective_hp_max(player, derived.get("hp_max", player.hp_current))
         old_hp = player.hp_current
-        player.hp_current = min(hp_max, player.hp_current + heal_amount)
+        apply_character_healing(player, heal_amount)
 
         class_resources["second_wind_used"] = True
         player.class_resources = class_resources
@@ -249,7 +249,7 @@ def resolve_combat_class_feature(
         heal_amount = min(5, pool)
         class_resources["lay_on_hands_remaining"] = pool - heal_amount
         hp_max = get_effective_hp_max(player, derived.get("hp_max", player.hp_current))
-        player.hp_current = min(hp_max, player.hp_current + heal_amount)
+        apply_character_healing(player, heal_amount)
         player.class_resources = class_resources
         narration = f"🤲 {player.name} 将圣光注入伤口，恢复了 {heal_amount} 点生命值！（剩余治疗池: {pool - heal_amount}）"
         dice_roll = {"faces": 20, "result": heal_amount, "label": f"圣手治疗 +{heal_amount}HP"}

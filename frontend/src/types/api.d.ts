@@ -581,14 +581,7 @@ export interface paths {
         put?: never;
         /**
          * Death Saving Throw
-         * @description 濒死豁免检定（5e PHB p.197）
-         *     - HP = 0 的角色每回合投 d20
-         *     - 20（自然）：立即稳定并恢复1HP
-         *     - 1（自然）：记为2次失败
-         *     - 10+：成功
-         *     - <10：失败
-         *     - 3成功 → 稳定（stable=True，停止豁免）
-         *     - 3失败 → 死亡（角色被移除战斗）
+         * @description Resolve a DnD 5e death saving throw for a 0-HP character.
          */
         post: operations["death_saving_throw_game_combat__session_id__death_save_post"];
         delete?: never;
@@ -1531,6 +1524,10 @@ export interface components {
              * @default []
              */
             conditions: string[];
+            /** Death Saves */
+            death_saves?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Derived
              * @default {}
@@ -1562,6 +1559,8 @@ export interface components {
             known_spells: string[];
             /** Level */
             level: number;
+            /** Life State */
+            life_state?: string | null;
             /** Name */
             name: string;
             /**
@@ -2208,10 +2207,21 @@ export interface components {
             /** Base Hp Max */
             base_hp_max?: number | null;
             /**
+             * Condition Durations
+             * @default {}
+             */
+            condition_durations: {
+                [key: string]: unknown;
+            };
+            /**
              * Conditions
              * @default []
              */
             conditions: string[];
+            /** Death Saves */
+            death_saves?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Derived
              * @default {}
@@ -2235,6 +2245,8 @@ export interface components {
              * @default false
              */
             is_player: boolean;
+            /** Life State */
+            life_state?: string | null;
             /** Name */
             name: string;
         } & {

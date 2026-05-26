@@ -24,7 +24,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models.character import Character
 from models.session import Session, CombatState
 from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
-from services.dnd_rules import get_effective_hp_max
+from services.dnd_rules import apply_character_damage, apply_character_healing, get_effective_hp_max, stabilize_character
 from services.state_apply_result import ApplyResult
 from services.state_log_service import append_session_history, write_game_logs
 
@@ -190,7 +190,10 @@ class StateApplicator:
         # HP 变化（边界保护）
         hp_change = int(delta.get("hp_change", 0))
         if hp_change != 0:
-            char.hp_current = max(0, min(hp_max, char.hp_current + hp_change))
+            if hp_change < 0:
+                apply_character_damage(char, abs(hp_change))
+            else:
+                apply_character_healing(char, hp_change)
 
         # 条件管理
         conditions = set(char.conditions or [])
@@ -222,11 +225,12 @@ class StateApplicator:
             ds["successes"] = min(3, ds.get("successes", 0) + int(ds_change.get("successes_add", 0)))
             ds["failures"]  = min(3, ds.get("failures", 0)  + int(ds_change.get("failures_add", 0)))
             if ds_change.get("stabilized"):
-                ds["stable"] = True
-            if ds_change.get("revived"):
-                ds["stable"] = True
-                char.hp_current = 1
-            char.death_saves = ds
+                ds = stabilize_character(char)
+            elif ds_change.get("revived"):
+                apply_character_healing(char, 1)
+                ds = char.death_saves
+            else:
+                char.death_saves = ds
 
         # 鼓舞（inspiration）
         if delta.get("inspiration_gained"):

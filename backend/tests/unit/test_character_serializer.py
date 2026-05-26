@@ -94,3 +94,45 @@ def test_serialize_character_uses_effective_hp_max_for_exhaustion():
     assert data["derived"]["hp_max"] == 6
     assert data["derived"]["base_hp_max"] == 12
     assert char.derived["hp_max"] == 12
+
+
+def test_serialize_character_includes_life_state():
+    char = SimpleNamespace(
+        id="char-3",
+        is_player=True,
+        name="Dying",
+        race="Human",
+        char_class="Fighter",
+        subclass=None,
+        level=1,
+        background=None,
+        alignment=None,
+        ability_scores={},
+        derived={"hp_max": 12, "ac": 16},
+        hp_current=0,
+        spell_slots=None,
+        known_spells=None,
+        prepared_spells=None,
+        cantrips=None,
+        concentration=None,
+        proficient_skills=None,
+        proficient_saves=None,
+        equipment=None,
+        fighting_style=None,
+        languages=None,
+        tool_proficiencies=None,
+        feats=None,
+        conditions=[],
+        death_saves={"successes": 0, "failures": 1, "stable": False},
+        personality=None,
+        speech_style=None,
+        combat_preference=None,
+        backstory=None,
+        catchphrase=None,
+        multiclass_info=None,
+        condition_durations={},
+    )
+
+    data = serialize_character(char)
+
+    assert data["life_state"] == "dying"

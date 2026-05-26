@@ -1,6 +1,6 @@
 from typing import Any
 
-from services.dnd_rules import get_effective_derived, get_effective_hp_base
+from services.dnd_rules import get_effective_derived, get_effective_hp_base, get_life_state
 
 
 def serialize_character(char: Any) -> dict:
@@ -39,6 +39,7 @@ def serialize_character(char: Any) -> dict:
         "feats": char.feats or [],
         "conditions": char.conditions or [],
         "death_saves": char.death_saves,
+        "life_state": get_life_state(char),
         "personality": char.personality,
         "speech_style": char.speech_style,
         "combat_preference": char.combat_preference,

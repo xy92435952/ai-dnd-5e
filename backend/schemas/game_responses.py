@@ -41,6 +41,8 @@ class CharacterBrief(BaseModel):
     proficient_saves:  list[str]     = []
     conditions:        list[str]     = []
     condition_durations: dict[str, Any] = {}
+    death_saves: Optional[dict[str, Any]] = None
+    life_state: Optional[str] = None
     derived:           dict[str, Any] = {}
     concentration:     Optional[str] = None
     known_spells:      list[str]     = []
@@ -197,6 +199,9 @@ class EntitySnapshot(BaseModel):
     base_hp_max: Optional[int] = None
     ac: int
     conditions: list[str] = []
+    condition_durations: dict[str, Any] = {}
+    death_saves: Optional[dict[str, Any]] = None
+    life_state: Optional[str] = None
     derived: dict[str, Any] = {}
 
 

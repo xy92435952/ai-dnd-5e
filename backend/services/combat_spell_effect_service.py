@@ -7,7 +7,7 @@ from models import Character
 from services.combat_concentration_service import do_concentration_check
 from services.combat_service import CombatService
 from services.combat_spell_resolution_service import apply_frontend_dice_override
-from services.dnd_rules import get_effective_hp_max, roll_dice
+from services.dnd_rules import apply_character_damage, apply_character_healing, roll_dice
 
 svc = CombatService()
 
@@ -109,17 +109,14 @@ async def apply_spell_damage_to_target(
     if not target_character:
         return None, None
 
-    target_character.hp_current = svc.apply_damage(
-        target_character.hp_current,
-        damage,
-        get_effective_hp_max(target_character),
-    )
+    damage_result = apply_character_damage(target_character, damage)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
     return {
         "target_id": target_id,
         "target_name": target_character.name,
         "damage": damage,
-        "new_hp": target_character.hp_current,
+        "new_hp": damage_result["hp_after"],
+        "death_saves": damage_result["death_saves"],
         "save": save_result,
     }, concentration_log
 
@@ -130,16 +127,14 @@ async def apply_spell_heal_to_target(db, target_id: str, heal: int):
     if not target_character:
         return None
 
-    target_character.hp_current = svc.apply_heal(
-        target_character.hp_current,
-        heal,
-        get_effective_hp_max(target_character),
-    )
+    heal_result = apply_character_healing(target_character, heal)
     return {
         "target_id": target_id,
         "target_name": target_character.name,
         "heal": heal,
-        "new_hp": target_character.hp_current,
+        "new_hp": heal_result["hp_after"],
+        "revived": heal_result["revived"],
+        "death_saves": heal_result["death_saves"],
     }
 
 
