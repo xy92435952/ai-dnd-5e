@@ -12,6 +12,9 @@ import {
 
 export default function MultiplayerSpeakBar({
   room,
+  wsConnected = false,
+  myUserId = null,
+  player = null,
   isMySpeakTurn,
   currentSpeakerUid,
   currentSpeakerName,
@@ -23,6 +26,9 @@ export default function MultiplayerSpeakBar({
   const speakerStatus = getSpeakerOnlineStatus(room, currentSpeakerUid)
   const takeoverStatus = getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn })
   const canTakeover = takeoverStatus.canTakeover
+  const myMember = (room.members || []).find(member => member.user_id === myUserId)
+  const myCharacterName = myMember?.character_name || player?.name || (myMember?.character_id ? '已绑定角色' : '未绑定角色')
+  const speakerLabel = currentSpeakerName || '等待同步'
 
   return (
     <div style={{
@@ -33,10 +39,48 @@ export default function MultiplayerSpeakBar({
       padding: '5px 16px', color: 'var(--amber)',
       fontSize: 12, fontWeight: 'bold',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      gap: 12,
       zIndex: 5,
     }}>
-      <span>{isMySpeakTurn ? `✦ ${statusText}` : statusText}</span>
-      <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {isMySpeakTurn ? `✦ ${statusText}` : statusText}
+      </span>
+      <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <span title={wsConnected ? 'WebSocket 已连接' : '正在等待 WebSocket 重连'} style={{
+          padding: '2px 7px',
+          border: `1px solid ${wsConnected ? 'var(--emerald-light)' : 'var(--wood-light)'}`,
+          color: wsConnected ? 'var(--emerald-light)' : 'var(--parchment-dark)',
+          borderRadius: 3,
+          fontSize: 10,
+          fontFamily: 'var(--font-mono)',
+          whiteSpace: 'nowrap',
+        }}>
+          {wsConnected ? '同步在线' : '同步中'}
+        </span>
+        <span title="你当前控制的角色" style={{
+          padding: '2px 7px',
+          border: '1px solid rgba(240,208,96,.45)',
+          color: 'var(--parchment)',
+          borderRadius: 3,
+          fontSize: 10,
+          fontFamily: 'var(--font-mono)',
+          whiteSpace: 'nowrap',
+        }}>
+          角色 {myCharacterName}
+        </span>
+        {currentSpeakerUid && (
+          <span title="当前发言者状态" style={{
+            padding: '2px 7px',
+            border: `1px solid ${speakerStatus.isOnline ? 'var(--emerald-light)' : 'var(--blood)'}`,
+            color: speakerStatus.isOnline ? 'var(--emerald-light)' : '#ffaaaa',
+            borderRadius: 3,
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            whiteSpace: 'nowrap',
+          }}>
+            发言 {speakerLabel} · {speakerStatus.label}
+          </span>
+        )}
         {isMySpeakTurn && currentSpeakerUid && (
           <button onClick={onSkipTurn}
             title="跳过本轮，不说话也不发起行动"

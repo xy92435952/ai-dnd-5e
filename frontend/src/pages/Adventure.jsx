@@ -249,6 +249,9 @@ export default function Adventure() {
 
       <MultiplayerSpeakBar
         room={room}
+        wsConnected={wsConnected}
+        myUserId={myUserId}
+        player={player}
         isMySpeakTurn={isMySpeakTurn}
         currentSpeakerUid={currentSpeakerUid}
         currentSpeakerName={currentSpeakerName}

@@ -9,11 +9,14 @@ function renderBar(overrides = {}) {
     room={{
       room_code: '234567',
       members: [
-        { user_id: 'me', display_name: '我', is_online: true, seconds_since_seen: 0 },
-        { user_id: 'u2', display_name: '队友', is_online: false, seconds_since_seen: 8 },
+        { user_id: 'me', display_name: '我', character_id: 'c1', character_name: '战士', is_online: true, seconds_since_seen: 0 },
+        { user_id: 'u2', display_name: '队友', character_id: 'c2', character_name: '法师', is_online: false, seconds_since_seen: 8 },
       ],
       ...overrides.room,
     }}
+    wsConnected
+    myUserId="me"
+    player={{ id: 'c1', name: '战士' }}
     isMySpeakTurn={false}
     currentSpeakerUid="u2"
     currentSpeakerName="队友"
@@ -25,6 +28,20 @@ function renderBar(overrides = {}) {
 }
 
 describe('MultiplayerSpeakBar', () => {
+  it('shows connection, controlled character, and current speaker status', () => {
+    renderBar()
+
+    expect(screen.getByText('同步在线')).toBeInTheDocument()
+    expect(screen.getByText('角色 战士')).toBeInTheDocument()
+    expect(screen.getByText('发言 队友 · 离线')).toBeInTheDocument()
+  })
+
+  it('shows reconnecting status while websocket is disconnected', () => {
+    renderBar({ wsConnected: false })
+
+    expect(screen.getByText('同步中')).toBeInTheDocument()
+  })
+
   it('keeps AI takeover disabled until the offline threshold is reached', () => {
     const { onAiTakeover } = renderBar()
 
@@ -38,8 +55,8 @@ describe('MultiplayerSpeakBar', () => {
     const { onAiTakeover } = renderBar({
       room: {
         members: [
-          { user_id: 'me', display_name: '我', is_online: true, seconds_since_seen: 0 },
-          { user_id: 'u2', display_name: '队友', is_online: false, seconds_since_seen: 42 },
+          { user_id: 'me', display_name: '我', character_id: 'c1', character_name: '战士', is_online: true, seconds_since_seen: 0 },
+          { user_id: 'u2', display_name: '队友', character_id: 'c2', character_name: '法师', is_online: false, seconds_since_seen: 42 },
         ],
       },
     })
