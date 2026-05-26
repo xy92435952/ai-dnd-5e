@@ -50,6 +50,67 @@ async def test_broadcast_isolated_to_target_room_and_can_exclude_sender():
 
 
 @pytest.mark.asyncio
+async def test_fifty_online_websockets_stay_partitioned_across_rooms():
+    manager = WSManager()
+    sockets = []
+    room_sizes = [4] * 12 + [2]
+
+    user_index = 0
+    for room_index, room_size in enumerate(room_sizes):
+        session_id = f"room-{room_index:02d}"
+        for seat_index in range(room_size):
+            user_id = f"user-{user_index:02d}"
+            ws = FakeWebSocket(f"{session_id}-{user_id}")
+            sockets.append({
+                "session_id": session_id,
+                "seat_index": seat_index,
+                "user_id": user_id,
+                "ws": ws,
+            })
+            await manager.connect(session_id, user_id, ws)
+            user_index += 1
+
+    assert user_index == 50
+    assert len(manager.rooms) == 13
+    assert sum(len(room) for room in manager.rooms.values()) == 50
+
+    for room_index, room_size in enumerate(room_sizes):
+        session_id = f"room-{room_index:02d}"
+        assert len(await manager.online_users(session_id)) == room_size
+        assert len(manager.rooms[session_id]) <= 4
+
+    sent = await manager.broadcast(
+        "room-03",
+        {"type": "combat_update", "session_id": "room-03"},
+        exclude_user_id="user-12",
+    )
+    assert sent == 3
+
+    for item in sockets:
+        should_receive = item["session_id"] == "room-03" and item["user_id"] != "user-12"
+        assert item["ws"].sent == (
+            [{"type": "combat_update", "session_id": "room-03"}]
+            if should_receive else []
+        )
+
+    whispered = await manager.send_to_user(
+        "room-07",
+        "user-29",
+        {"type": "private_notice", "session_id": "room-07"},
+    )
+    assert whispered is True
+    assert [
+        item["ws"].sent[-1]
+        for item in sockets
+        if item["user_id"] == "user-29"
+    ] == [{"type": "private_notice", "session_id": "room-07"}]
+    assert all(
+        all(event.get("session_id") == item["session_id"] for event in item["ws"].sent)
+        for item in sockets
+    )
+
+
+@pytest.mark.asyncio
 async def test_reconnect_replaces_only_the_same_user_in_the_same_room():
     manager = WSManager()
     old_ws = FakeWebSocket("old")
