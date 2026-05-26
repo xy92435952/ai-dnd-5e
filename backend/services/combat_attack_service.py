@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from services.dnd_rules import roll_attack, roll_dice
+from services.dnd_rules import roll_attack, roll_dice, should_auto_crit_melee_target
 
 
 class AttackResult:
@@ -36,6 +36,8 @@ def resolve_melee_attack(
     disadvantage: bool = False,
     is_ranged: bool = False,
     is_offhand: bool = False,
+    target_conditions: list[str] | None = None,
+    distance: int = 1,
 ) -> AttackResult:
     crit_threshold = attacker_derived.get("crit_threshold", 20)
     attack_roll = roll_attack(
@@ -46,6 +48,17 @@ def resolve_melee_attack(
         disadvantage=disadvantage,
         crit_threshold=crit_threshold,
     )
+    forced_crit = should_auto_crit_melee_target(
+        target_conditions or [],
+        distance=distance,
+        is_ranged=is_ranged,
+    )
+    if forced_crit and attack_roll["hit"] and not attack_roll["is_crit"]:
+        attack_roll = {
+            **attack_roll,
+            "is_crit": True,
+            "forced_crit": "incapacitated_target",
+        }
 
     damage = 0
     damage_roll = None

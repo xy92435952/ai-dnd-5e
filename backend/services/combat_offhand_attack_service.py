@@ -6,6 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_attack_damage_service import apply_attack_damage_to_target
 from services.combat_attack_roll_service import CombatAttackRollError
+from services.combat_grid_service import chebyshev_distance
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.session_access_service import assert_character_in_session
@@ -57,6 +58,11 @@ async def resolve_offhand_attack(
         attacker_derived=player.derived or {} if player else {},
         target_derived=target["derived"],
         is_offhand=True,
+        target_conditions=target["conditions"],
+        distance=chebyshev_distance(
+            (getattr(combat, "entity_positions", None) or {}).get(str(player_id), {}),
+            (getattr(combat, "entity_positions", None) or {}).get(str(target["id"]), {}),
+        ),
     )
 
     concentration_log = None
@@ -126,6 +132,7 @@ async def _resolve_offhand_target(
                 "id": target_character.id,
                 "name": target_character.name,
                 "derived": target_character.derived or {},
+                "conditions": list(target_character.conditions or []),
                 "is_enemy": False,
             }
 
@@ -135,6 +142,7 @@ async def _resolve_offhand_target(
                 "id": enemy["id"],
                 "name": enemy.get("name", "敌人"),
                 "derived": enemy.get("derived", {}),
+                "conditions": list(enemy.get("conditions", [])),
                 "is_enemy": True,
             }
 
@@ -146,6 +154,7 @@ async def _resolve_offhand_target(
     return {
         "id": enemy["id"],
         "name": enemy.get("name", "敌人"),
-        "derived": enemy.get("derived", {}),
-        "is_enemy": True,
-    }
+            "derived": enemy.get("derived", {}),
+            "conditions": list(enemy.get("conditions", [])),
+            "is_enemy": True,
+        }

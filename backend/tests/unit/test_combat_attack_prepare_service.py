@@ -209,3 +209,69 @@ async def test_prepare_attack_roll_applies_disadvantage_against_dodging_target()
     assert prepared.disadvantage is True
     assert prepared.pending_attack["disadvantage"] is True
     assert captured["disadvantage"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_attack_roll_forces_close_unconscious_target_crit():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=False,
+        d20_value=12,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": ["unconscious"],
+        }],
+        roll_attack_func=fixed_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.attack_roll_result["hit"] is True
+    assert prepared.attack_roll_result["is_crit"] is True
+    assert prepared.attack_roll_result["forced_crit"] == "incapacitated_target"
+    assert prepared.pending_attack["is_crit"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_attack_roll_does_not_force_ranged_unconscious_target_crit():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="ranged",
+        is_offhand=False,
+        d20_value=12,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": ["unconscious"],
+        }],
+        roll_attack_func=fixed_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.attack_roll_result["hit"] is True
+    assert prepared.attack_roll_result["is_crit"] is False

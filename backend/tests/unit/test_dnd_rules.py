@@ -22,6 +22,7 @@ from services.dnd_rules import (
     is_dead,
     is_dying,
     is_incapacitated,
+    should_auto_crit_melee_target,
     stabilize_character,
     _normalize_class,
 )
@@ -206,13 +207,14 @@ class TestCharacterLifeState:
     def test_damage_to_zero_initializes_death_saves(self):
         from types import SimpleNamespace
 
-        char = SimpleNamespace(hp_current=3, death_saves=None)
+        char = SimpleNamespace(hp_current=3, death_saves=None, conditions=[])
 
         result = apply_character_damage(char, 5)
 
         assert result["dropped_to_zero"] is True
         assert char.hp_current == 0
         assert char.death_saves == default_death_saves()
+        assert char.conditions == ["unconscious"]
         assert is_dying(char) is True
 
     def test_healing_from_zero_clears_death_saves(self):
@@ -223,6 +225,7 @@ class TestCharacterLifeState:
             death_saves={"successes": 1, "failures": 2, "stable": False},
             derived={"hp_max": 12},
             condition_durations={},
+            conditions=["unconscious", "poisoned"],
         )
 
         result = apply_character_healing(char, 4)
@@ -230,15 +233,17 @@ class TestCharacterLifeState:
         assert result["revived"] is True
         assert char.hp_current == 4
         assert char.death_saves is None
+        assert char.conditions == ["poisoned"]
 
     def test_stabilized_character_is_not_dying(self):
         from types import SimpleNamespace
 
-        char = SimpleNamespace(hp_current=0, death_saves=None)
+        char = SimpleNamespace(hp_current=0, death_saves=None, conditions=[])
 
         stabilize_character(char)
 
         assert char.death_saves == {"successes": 0, "failures": 0, "stable": True}
+        assert char.conditions == ["unconscious"]
         assert is_dying(char) is False
         assert is_dead(char) is False
 
@@ -265,6 +270,13 @@ class TestCharacterLifeState:
 
         assert is_incapacitated(char) is True
         assert condition in get_incapacitating_reasons(char)
+
+    def test_unconscious_target_auto_crits_only_close_melee_hits(self):
+        assert should_auto_crit_melee_target(["unconscious"], distance=1, is_ranged=False) is True
+        assert should_auto_crit_melee_target(["paralyzed"], distance=1, is_ranged=False) is True
+        assert should_auto_crit_melee_target(["stunned"], distance=1, is_ranged=False) is False
+        assert should_auto_crit_melee_target(["unconscious"], distance=2, is_ranged=False) is False
+        assert should_auto_crit_melee_target(["unconscious"], distance=1, is_ranged=True) is False
 
 
 class TestCalcDerived:

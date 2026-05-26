@@ -29,6 +29,7 @@ from services.dnd_character_rules import (  # noqa: F401
     is_dying,
     is_incapacitated,
     proficiency_bonus,
+    should_auto_crit_melee_target,
     stabilize_character,
 )
 from services.dnd_derived import calc_derived  # noqa: F401

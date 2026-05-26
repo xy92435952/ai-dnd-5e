@@ -53,6 +53,8 @@ async def resolve_opportunity_attacks(
                 result = svc.resolve_melee_attack(
                     attacker_derived=enemy.get("derived", {}),
                     target_derived=moving_char.derived or {},
+                    target_conditions=list(moving_char.conditions or []),
+                    distance=chebyshev_distance(enemy_position, old_pos),
                 )
                 enemy_turn_state["reaction_used"] = True
                 save_turn_state(combat, enemy["id"], enemy_turn_state)
@@ -108,6 +110,8 @@ async def resolve_opportunity_attacks(
                     result = svc.resolve_melee_attack(
                         attacker_derived=player.derived or {},
                         target_derived=moving_enemy.get("derived", {}),
+                        target_conditions=list(moving_enemy.get("conditions", [])),
+                        distance=chebyshev_distance(player_position, old_pos),
                     )
                     player_turn_state["reaction_used"] = True
                     save_turn_state(combat, session.player_character_id, player_turn_state)
@@ -161,6 +165,8 @@ async def resolve_opportunity_attacks(
                 result = svc.resolve_melee_attack(
                     attacker_derived=companion.derived or {},
                     target_derived=moving_enemy.get("derived", {}),
+                    target_conditions=list(moving_enemy.get("conditions", [])),
+                    distance=chebyshev_distance(companion_position, old_pos),
                 )
                 companion_turn_state["reaction_used"] = True
                 save_turn_state(combat, companion_id, companion_turn_state)

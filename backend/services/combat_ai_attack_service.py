@@ -113,6 +113,19 @@ def target_is_dodging(
     return "dodging" in conditions
 
 
+def target_conditions(
+    *,
+    target_data: dict[str, Any] | None = None,
+    target_character=None,
+) -> list[str]:
+    """Return active target conditions for generic AI attack rules."""
+    if target_character is not None:
+        return list(getattr(target_character, "conditions", None) or [])
+    if target_data:
+        return list(target_data.get("conditions", []) or [])
+    return []
+
+
 def apply_character_damage_resistance(
     target_character,
     damage: int,

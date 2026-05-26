@@ -155,15 +155,47 @@ INCAPACITATING_CONDITIONS = frozenset({
     "petrified",
 })
 
+AUTO_CRIT_MELEE_CONDITIONS = frozenset({
+    "paralyzed",
+    "unconscious",
+})
+
+
+def _condition_list(character: dict | object | None) -> list[str]:
+    if not character:
+        return []
+    if isinstance(character, dict):
+        return list(character.get("conditions") or [])
+    return list(getattr(character, "conditions", None) or [])
+
+
+def _set_conditions(character: object, conditions: list[str]) -> None:
+    character.conditions = conditions
+
+
+def _add_condition(character: object, condition: str) -> bool:
+    conditions = _condition_list(character)
+    if condition in conditions:
+        return False
+    conditions.append(condition)
+    _set_conditions(character, conditions)
+    return True
+
+
+def _remove_condition(character: object, condition: str) -> bool:
+    conditions = _condition_list(character)
+    updated = [item for item in conditions if item != condition]
+    if len(updated) == len(conditions):
+        return False
+    _set_conditions(character, updated)
+    return True
+
 
 def get_incapacitating_reasons(character: dict | object | None) -> list[str]:
     """Return mechanical reasons that prevent a character from taking actions."""
     if not character:
         return []
-    if isinstance(character, dict):
-        conditions = character.get("conditions") or []
-    else:
-        conditions = getattr(character, "conditions", None) or []
+    conditions = _condition_list(character)
 
     reasons: list[str] = []
     life_state = get_life_state(character)
@@ -180,6 +212,14 @@ def is_incapacitated(character: dict | object | None) -> bool:
     return bool(get_incapacitating_reasons(character))
 
 
+def should_auto_crit_melee_target(conditions: list[str], *, distance: int, is_ranged: bool = False) -> bool:
+    """Return whether a hit should become a crit under 5e close-range incapacitating rules."""
+    return (not is_ranged) and distance <= 1 and any(
+        condition in AUTO_CRIT_MELEE_CONDITIONS
+        for condition in conditions
+    )
+
+
 def apply_character_damage(character: object, damage: int) -> dict:
     """Apply damage and initialize death saves when a character drops to 0 HP."""
     before_hp = int(getattr(character, "hp_current", 0) or 0)
@@ -189,12 +229,15 @@ def apply_character_damage(character: object, damage: int) -> dict:
     dropped_to_zero = before_hp > 0 and after_hp == 0
     if dropped_to_zero and getattr(character, "death_saves", None) is None:
         character.death_saves = default_death_saves()
+    if after_hp == 0:
+        _add_condition(character, "unconscious")
     return {
         "hp_before": before_hp,
         "hp_after": after_hp,
         "damage": dealt,
         "dropped_to_zero": dropped_to_zero,
         "death_saves": getattr(character, "death_saves", None),
+        "conditions": _condition_list(character),
     }
 
 
@@ -208,12 +251,14 @@ def apply_character_healing(character: object, healing: int) -> dict:
     revived = before_hp <= 0 and after_hp > 0
     if revived:
         character.death_saves = None
+        _remove_condition(character, "unconscious")
     return {
         "hp_before": before_hp,
         "hp_after": after_hp,
         "healing": amount,
         "revived": revived,
         "death_saves": getattr(character, "death_saves", None),
+        "conditions": _condition_list(character),
     }
 
 
@@ -221,6 +266,8 @@ def stabilize_character(character: object) -> dict:
     """Stabilize a 0-HP character without restoring HP."""
     death_saves = default_death_saves(stable=True)
     character.death_saves = death_saves
+    if int(getattr(character, "hp_current", 0) or 0) <= 0:
+        _add_condition(character, "unconscious")
     return death_saves
 
 

@@ -201,3 +201,57 @@ class TestResolveMeleeAttack:
         for r in hits:
             if r.attack_roll["hit"]:
                 assert r.damage >= 1
+
+    def test_close_melee_hit_against_unconscious_target_auto_crits(self, monkeypatch):
+        import services.combat_attack_service as attack_service
+
+        rolls = iter([
+            {"total": 7, "rolls": [4], "bonus": 3},
+            {"total": 5, "rolls": [5], "bonus": 0},
+        ])
+        monkeypatch.setattr(attack_service, "roll_attack", lambda *args, **kwargs: {
+            "d20": 12,
+            "attack_bonus": 5,
+            "attack_total": 17,
+            "target_ac": 12,
+            "hit": True,
+            "is_crit": False,
+            "is_fumble": False,
+        })
+        monkeypatch.setattr(attack_service, "roll_dice", lambda expr: next(rolls))
+
+        result = svc.resolve_melee_attack(
+            {"ability_modifiers": {"str": 3}, "hit_die": 8},
+            {"ac": 12},
+            target_conditions=["unconscious"],
+            distance=1,
+        )
+
+        assert result.attack_roll["is_crit"] is True
+        assert result.attack_roll["forced_crit"] == "incapacitated_target"
+        assert result.damage == 12
+
+    def test_ranged_hit_against_unconscious_target_does_not_auto_crit(self, monkeypatch):
+        import services.combat_attack_service as attack_service
+
+        monkeypatch.setattr(attack_service, "roll_attack", lambda *args, **kwargs: {
+            "d20": 12,
+            "attack_bonus": 5,
+            "attack_total": 17,
+            "target_ac": 12,
+            "hit": True,
+            "is_crit": False,
+            "is_fumble": False,
+        })
+        monkeypatch.setattr(attack_service, "roll_dice", lambda expr: {"total": 7, "rolls": [4], "bonus": 3})
+
+        result = svc.resolve_melee_attack(
+            {"ability_modifiers": {"str": 3, "dex": 3}, "hit_die": 8},
+            {"ac": 12},
+            is_ranged=True,
+            target_conditions=["unconscious"],
+            distance=1,
+        )
+
+        assert result.attack_roll["is_crit"] is False
+        assert result.damage == 7

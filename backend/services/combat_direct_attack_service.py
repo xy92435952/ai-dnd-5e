@@ -92,6 +92,12 @@ async def prepare_direct_attack(
         turn_state["being_helped"] = False
 
     positions = dict(combat.entity_positions or {})
+    attacker_pos = positions.get(str(player_id), {})
+    target_pos = positions.get(str(resolved_target_id), {})
+    target_distance = max(
+        abs((attacker_pos.get("x", 0) or 0) - (target_pos.get("x", 0) or 0)),
+        abs((attacker_pos.get("y", 0) or 0) - (target_pos.get("y", 0) or 0)),
+    )
     attack_disadvantage, ranged_penalty = apply_ranged_close_penalty(
         atk_dis=attack_disadvantage,
         is_ranged=is_ranged,
@@ -142,6 +148,8 @@ async def prepare_direct_attack(
         advantage=attack_advantage or defense_advantage,
         disadvantage=attack_disadvantage or defense_disadvantage,
         is_ranged=is_ranged,
+        target_conditions=target_conditions,
+        distance=target_distance,
     )
     attack_result = attack_result_obj.attack_roll
     damage = attack_result_obj.damage

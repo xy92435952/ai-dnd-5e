@@ -17,6 +17,7 @@ from services.combat_ai_attack_service import (
     choose_ai_attack_target,
     infer_ai_is_ranged,
     target_is_dodging,
+    target_conditions,
 )
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
@@ -176,6 +177,12 @@ async def handle_ai_attack_action(
                 target_derived=ai_target_derived,
                 advantage=extra_adv if atk_idx == 0 else False,
                 disadvantage=target_dodging,
+                is_ranged=ai_is_ranged,
+                target_conditions=target_conditions(
+                    target_data=target_data,
+                    target_character=target_char_for_shield,
+                ),
+                distance=ai_dist,
             )
             if first_attack_roll is None:
                 first_attack_roll = result_obj

@@ -20,7 +20,7 @@ from services.combat_attack_targeting_service import get_target_conditions, reso
 from services.combat_grid_service import check_attack_range
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
-from services.dnd_rules import _normalize_class, roll_attack
+from services.dnd_rules import _normalize_class, roll_attack, should_auto_crit_melee_target
 
 svc = CombatService()
 
@@ -161,6 +161,12 @@ async def prepare_attack_roll(
         d20_value=d20_value,
         crit_threshold=crit_threshold,
     )
+    if (
+        should_auto_crit_melee_target(target_conditions, distance=distance, is_ranged=is_ranged)
+        and attack_roll_result.get("hit")
+        and not attack_roll_result.get("is_crit")
+    ):
+        attack_roll_result = {**attack_roll_result, "is_crit": True, "forced_crit": "incapacitated_target"}
 
     weapon_damage = build_weapon_damage_dice(
         player,

@@ -91,6 +91,8 @@ def execute_attack_action(
         attacker_derived=player_derived,
         target_derived=target_derived,
         is_ranged=is_ranged,
+        target_conditions=target_enemy.get("conditions", []),
+        distance=dist,
     )
     d20 = attack_result.attack_roll.get("d20", 0)
     hit = attack_result.attack_roll.get("hit", False)

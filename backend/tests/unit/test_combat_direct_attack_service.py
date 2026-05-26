@@ -75,6 +75,12 @@ class FakeCombatService:
 
     def resolve_melee_attack(self, **kwargs):
         self.last_attack_kwargs = kwargs
+        is_forced_crit = (
+            kwargs.get("target_conditions")
+            and "unconscious" in kwargs["target_conditions"]
+            and kwargs.get("distance", 999) <= 1
+            and not kwargs.get("is_ranged", False)
+        )
         return AttackResult(
             attack_roll={
                 "d20": 14,
@@ -82,10 +88,11 @@ class FakeCombatService:
                 "attack_total": 22,
                 "target_ac": 15,
                 "hit": True,
-                "is_crit": False,
+                "is_crit": bool(is_forced_crit),
+                **({"forced_crit": "incapacitated_target"} if is_forced_crit else {}),
                 "is_fumble": False,
             },
-            damage=5,
+            damage=9 if is_forced_crit else 5,
             damage_roll={"formula": "1d6+3", "rolls": [2], "total": 5},
             narration="命中",
         )
@@ -169,3 +176,69 @@ async def test_prepare_direct_attack_applies_disadvantage_against_dodging_target
     assert combat_service.last_attack_kwargs["advantage"] is False
     assert combat_service.last_attack_kwargs["disadvantage"] is True
     assert prepared.turn_state["being_helped"] is False
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_attack_forces_close_unconscious_target_crit(monkeypatch):
+    from services import combat_direct_attack_service as direct_attack
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=FakeFighter(),
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 8,
+            "derived": {"ac": 15},
+            "conditions": ["unconscious"],
+        }],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.attack_result["hit"] is True
+    assert prepared.attack_result["is_crit"] is True
+    assert prepared.attack_result["forced_crit"] == "incapacitated_target"
+    assert prepared.damage == 9
+    assert prepared.extra_damage_notes == []
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_attack_does_not_force_ranged_unconscious_target_crit(monkeypatch):
+    from services import combat_direct_attack_service as direct_attack
+
+    monkeypatch.setattr(direct_attack, "roll_dice", lambda expr: {"formula": expr, "rolls": [4], "total": 4})
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=FakeFighter(),
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 8,
+            "derived": {"ac": 15},
+            "conditions": ["unconscious"],
+        }],
+        is_ranged=True,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.attack_result["hit"] is True
+    assert prepared.attack_result["is_crit"] is False
+    assert prepared.damage == 5
+    assert prepared.extra_damage_notes == []

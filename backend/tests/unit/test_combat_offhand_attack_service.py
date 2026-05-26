@@ -22,6 +22,10 @@ class FakeCombat:
                 "bonus_action_used": False,
             }
         }
+        self.entity_positions = {
+            "char-1": {"x": 0, "y": 0},
+            "goblin-1": {"x": 1, "y": 0},
+        }
 
 
 class FakePlayer:
