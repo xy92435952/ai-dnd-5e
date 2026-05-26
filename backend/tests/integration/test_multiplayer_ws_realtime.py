@@ -1458,6 +1458,75 @@ async def test_multiplayer_death_save_broadcasts_character_state(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_end_turn_rejects_ai_controlled_current_turn(
+    client,
+    db_session,
+    sample_module,
+):
+    """Players must not skip an enemy or AI companion turn through /end-turn."""
+    import uuid as _uuid
+    from models import CombatState, Session
+    from sqlalchemy.orm.attributes import flag_modified
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="mp_end_turn_ai_guard",
+    )
+    host = room_data["host"]
+    sid = room_data["session_id"]
+    host_char = room_data["host_char"]
+    guest_char = room_data["guest_char"]
+    enemy_id = "ai-guard"
+
+    session = await db_session.get(Session, sid)
+    session.combat_active = True
+    state = dict(session.game_state or {})
+    state["enemies"] = [{
+        "id": enemy_id,
+        "name": "AI Guard",
+        "hp_current": 9,
+        "max_hp": 9,
+        "ac": 13,
+        "conditions": [],
+        "derived": {"hp_max": 9, "ac": 13, "ability_modifiers": {"dex": 1}},
+    }]
+    session.game_state = state
+    flag_modified(session, "game_state")
+
+    combat = CombatState(
+        id=str(_uuid.uuid4()),
+        session_id=sid,
+        grid_data={},
+        entity_positions={
+            enemy_id: {"x": 6, "y": 5},
+            host_char.id: {"x": 5, "y": 5},
+            guest_char.id: {"x": 4, "y": 5},
+        },
+        turn_order=[
+            {"character_id": enemy_id, "name": "AI Guard", "initiative": 18, "is_player": False, "is_enemy": True},
+            {"character_id": host_char.id, "name": host_char.name, "initiative": 14, "is_player": True, "is_enemy": False},
+            {"character_id": guest_char.id, "name": guest_char.name, "initiative": 12, "is_player": True, "is_enemy": False},
+        ],
+        current_turn_index=0,
+        round_number=1,
+        combat_log=[],
+        turn_states={},
+    )
+    db_session.add(combat)
+    await db_session.commit()
+    await db_session.refresh(combat)
+
+    response = await client.post(f"/game/combat/{sid}/end-turn", headers=_h(host["token"]))
+
+    assert response.status_code == 400, response.text
+    assert "AI-controlled" in response.text
+    await db_session.refresh(combat)
+    assert combat.current_turn_index == 0
+    assert combat.round_number == 1
+
+
 async def test_multiplayer_end_turn_ticks_current_player_conditions(
     client,
     db_session,

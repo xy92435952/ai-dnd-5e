@@ -112,6 +112,25 @@ describe('useCombatTurnControls', () => {
     expect(deps.setIsProcessing).not.toHaveBeenCalled()
   })
 
+  it('does not end turn when the current combat entry is AI-controlled', async () => {
+    const isPlayerTurn = vi.fn(() => false)
+    const { result, deps } = renderControls({
+      isPlayerTurn,
+      combat: {
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      },
+    })
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(isPlayerTurn).toHaveBeenCalled()
+    expect(endTurnMock).not.toHaveBeenCalled()
+    expect(deps.setIsProcessing).not.toHaveBeenCalled()
+  })
+
   it('does not auto-drive ai after ending turn on non-driver clients', async () => {
     endTurnMock.mockResolvedValue({ next_turn_index: 1, round_number: 2 })
     getCombatMock.mockResolvedValue({

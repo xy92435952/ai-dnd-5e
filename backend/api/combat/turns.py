@@ -102,6 +102,8 @@ async def _end_player_turn_locked(
     # 多人联机：必须由当前回合归属玩家本人结束（AI 托管角色由 ai-turn 推进）
     current_cid = current.get("character_id") if isinstance(current, dict) else None
     if current_cid:
+        if current.get("is_player") is not True:
+            raise HTTPException(400, "Current turn is AI-controlled; use /ai-turn")
         await assert_can_act(session, user_id, current_cid, db)
 
     # ── 当前实体条件倒计时 ────────────────────────────────
