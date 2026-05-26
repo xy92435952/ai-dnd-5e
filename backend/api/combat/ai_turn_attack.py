@@ -238,7 +238,11 @@ async def handle_ai_attack_action(
                             atk_damage,
                             dmg_type,
                         )
-                        apply_character_damage(tchar, final_dmg)
+                        apply_character_damage(
+                            tchar,
+                            final_dmg,
+                            is_critical=result_obj.attack_roll.get("is_crit", False),
+                        )
                         applied_damage = final_dmg
                         target_new_hp = tchar.hp_current
                         target_name = tchar.name

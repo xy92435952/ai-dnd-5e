@@ -470,6 +470,78 @@ async def test_attack_roll_then_damage_roll_applies_damage(
     assert "pending_attack" not in damage_data["turn_state"]
 
 
+async def test_damage_roll_critical_hit_on_zero_hp_character_adds_two_death_failures(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    from models import Character
+
+    headers = await _auth_headers(client, sample_user)
+    companion = Character(
+        id=str(_uuid.uuid4()),
+        user_id=None,
+        name="AI Striker",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        background="Soldier",
+        ability_scores={"str": 16, "dex": 10, "con": 12, "int": 10, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 10,
+            "ac": 14,
+            "proficiency_bonus": 2,
+            "attack_bonus": 5,
+            "ability_modifiers": {"str": 3, "dex": 0, "con": 1, "int": 0, "wis": 0, "cha": 0},
+        },
+        hp_current=10,
+        is_player=False,
+        session_id=sample_session.id,
+    )
+    db_session.add(companion)
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 1, "stable": False}
+    sample_character.conditions = ["unconscious"]
+    pending_attack_id = "crit-on-dying"
+    combat_state.turn_states = {
+        companion.id: {
+            "pending_attack": {
+                "pending_attack_id": pending_attack_id,
+                "target_id": sample_character.id,
+                "target_name": sample_character.name,
+                "target_is_enemy": False,
+                "hit": True,
+                "is_crit": True,
+                "is_ranged": False,
+                "hit_die": 6,
+                "dmg_mod": 0,
+                "attack_roll": {
+                    "d20": 20,
+                    "attack_bonus": 5,
+                    "attack_total": 25,
+                    "target_ac": 16,
+                    "hit": True,
+                    "is_crit": True,
+                    "is_fumble": False,
+                },
+            },
+        },
+    }
+    await db_session.commit()
+
+    damage = await client.post(
+        f"/game/combat/{sample_session.id}/damage-roll",
+        headers=headers,
+        json={
+            "pending_attack_id": pending_attack_id,
+            "damage_values": [3, 2],
+        },
+    )
+
+    assert damage.status_code == 200, damage.text
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 0
+    assert sample_character.death_saves == {"successes": 0, "failures": 3, "stable": False}
+
+
 async def test_spell_roll_then_confirm_applies_damage_and_consumes_slot(
     client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):

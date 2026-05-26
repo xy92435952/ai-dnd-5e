@@ -170,6 +170,7 @@ async def combat_action(
             target_is_enemy=prepared.target_is_enemy,
             damage=damage,
             session=session,
+            is_critical=attack_result_dict.get("is_crit", False),
         )
         if prepared.target_is_enemy:
             state["enemies"]   = enemies

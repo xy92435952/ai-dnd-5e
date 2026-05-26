@@ -67,6 +67,30 @@ async def test_apply_spell_damage_to_character_initializes_death_saves(db_sessio
     assert sample_character.death_saves == {"successes": 0, "failures": 0, "stable": False}
 
 
+async def test_apply_spell_damage_to_zero_hp_character_adds_one_death_save_failure(
+    db_session,
+    sample_character,
+):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 1, "failures": 0, "stable": True}
+    sample_character.conditions = ["unconscious"]
+    await db_session.commit()
+
+    result, _conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        [],
+        sample_character.id,
+        4,
+    )
+
+    assert result["new_hp"] == 0
+    assert result["death_saves"] == {"successes": 1, "failures": 1, "stable": False}
+    assert sample_character.death_saves == {"successes": 1, "failures": 1, "stable": False}
+
+
 async def test_apply_spell_heal_to_character_caps_at_max(db_session, sample_character):
     from api.combat.spell_effects import apply_spell_heal_to_target
 

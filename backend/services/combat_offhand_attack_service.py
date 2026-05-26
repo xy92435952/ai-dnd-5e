@@ -76,6 +76,7 @@ async def resolve_offhand_attack(
             target_is_enemy=target["is_enemy"],
             damage=attack.damage,
             session=session,
+            is_critical=attack.attack_roll.get("is_crit", False),
         )
         if target["is_enemy"]:
             state["enemies"] = enemies

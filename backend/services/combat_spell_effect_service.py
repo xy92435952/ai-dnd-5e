@@ -84,6 +84,7 @@ async def apply_spell_damage_to_target(
     damage: int,
     *,
     save_result=None,
+    is_critical: bool = False,
 ):
     """Apply spell damage to an enemy dict or Character and return response result plus conc log."""
     target_enemy = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
@@ -105,7 +106,7 @@ async def apply_spell_damage_to_target(
     if not target_character:
         return None, None
 
-    damage_result = apply_character_damage(target_character, damage)
+    damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
     return {
         "target_id": target_id,

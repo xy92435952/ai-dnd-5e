@@ -339,6 +339,76 @@ class TestCharacterLifeState:
         assert char.conditions == ["unconscious"]
         assert is_dying(char) is True
 
+    def test_massive_damage_at_drop_to_zero_kills_immediately(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=3,
+            death_saves=None,
+            derived={"hp_max": 12},
+            condition_durations={},
+            conditions=[],
+        )
+
+        result = apply_character_damage(char, 15)
+
+        assert result["instant_death"] is True
+        assert result["dead"] is True
+        assert char.hp_current == 0
+        assert char.death_saves == {"successes": 0, "failures": 3, "stable": False}
+        assert is_dead(char) is True
+
+    def test_damage_at_zero_adds_one_failed_death_save(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=0,
+            death_saves={"successes": 1, "failures": 0, "stable": False},
+            derived={"hp_max": 12},
+            condition_durations={},
+            conditions=["unconscious"],
+        )
+
+        result = apply_character_damage(char, 4)
+
+        assert result["death_save_failures_added"] == 1
+        assert result["instant_death"] is False
+        assert char.death_saves == {"successes": 1, "failures": 1, "stable": False}
+
+    def test_critical_damage_at_zero_adds_two_failed_death_saves(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=0,
+            death_saves={"successes": 0, "failures": 1, "stable": False},
+            derived={"hp_max": 12},
+            condition_durations={},
+            conditions=["unconscious"],
+        )
+
+        result = apply_character_damage(char, 4, is_critical=True)
+
+        assert result["death_save_failures_added"] == 2
+        assert result["dead"] is True
+        assert char.death_saves == {"successes": 0, "failures": 3, "stable": False}
+
+    def test_massive_damage_at_zero_kills_immediately(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=0,
+            death_saves={"successes": 2, "failures": 0, "stable": True},
+            derived={"hp_max": 12},
+            condition_durations={},
+            conditions=["unconscious"],
+        )
+
+        result = apply_character_damage(char, 12)
+
+        assert result["instant_death"] is True
+        assert result["death_save_failures_added"] == 0
+        assert char.death_saves == {"successes": 0, "failures": 3, "stable": False}
+
     def test_healing_from_zero_clears_death_saves(self):
         from types import SimpleNamespace
 

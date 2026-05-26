@@ -45,7 +45,7 @@ def get_effective_hp_max(character: dict | object | None, base_hp_max: int | Non
 
     raw_hp_max = base_hp_max
     if raw_hp_max is None:
-        raw_hp_max = derived.get("hp_max", current_hp)
+        raw_hp_max = get_effective_hp_base(character, derived)
     try:
         hp_max = max(1, int(raw_hp_max or 1))
     except (TypeError, ValueError):
@@ -77,10 +77,17 @@ def get_effective_hp_base(character: dict | object | None, derived: dict | None 
             data = getattr(character, "derived", None) or {}
     if isinstance(character, dict):
         current_hp = character.get("hp_current", 1)
+        ability_scores = character.get("ability_scores") or {}
     else:
         current_hp = getattr(character, "hp_current", 1)
+        ability_scores = getattr(character, "ability_scores", None) or {}
     try:
-        return max(1, int(data.get("hp_max", current_hp) or 1))
+        fallback = max(1, int(current_hp or 1))
+        if "hp_max" not in data and ability_scores:
+            fallback = max(fallback, int(ability_scores.get("con", 10) or 10))
+        if "hp_max" not in data:
+            fallback = max(fallback, 10)
+        return max(1, int(data.get("hp_max", fallback) or 1))
     except (TypeError, ValueError):
         return 1
 
@@ -284,15 +291,38 @@ def has_speed_zero_condition(character: dict | object | None) -> bool:
     return any(condition in SPEED_ZERO_CONDITIONS for condition in _condition_list(character))
 
 
-def apply_character_damage(character: object, damage: int) -> dict:
-    """Apply damage and initialize death saves when a character drops to 0 HP."""
+def _set_death_saves(character: object, death_saves: dict) -> None:
+    character.death_saves = death_saves
+
+
+def apply_character_damage(character: object, damage: int, *, is_critical: bool = False) -> dict:
+    """Apply damage, including 5e death-save failures for damage at 0 HP."""
     before_hp = int(getattr(character, "hp_current", 0) or 0)
     dealt = max(0, int(damage or 0))
     after_hp = max(0, before_hp - dealt)
     character.hp_current = after_hp
     dropped_to_zero = before_hp > 0 and after_hp == 0
-    if dropped_to_zero and getattr(character, "death_saves", None) is None:
-        character.death_saves = default_death_saves()
+    death_save_failures_added = 0
+    instant_death = False
+
+    if dropped_to_zero:
+        remaining_damage = dealt - before_hp
+        if remaining_damage >= get_effective_hp_max(character):
+            instant_death = True
+            character.death_saves = default_death_saves(failures=3)
+        elif getattr(character, "death_saves", None) is None:
+            character.death_saves = default_death_saves()
+    elif before_hp <= 0 and dealt > 0:
+        hp_max = get_effective_hp_max(character)
+        saves = dict(getattr(character, "death_saves", None) or default_death_saves())
+        if dealt >= hp_max:
+            instant_death = True
+            saves = default_death_saves(failures=3)
+        else:
+            death_save_failures_added = 2 if is_critical else 1
+            saves["stable"] = False
+            saves["failures"] = min(3, int(saves.get("failures", 0) or 0) + death_save_failures_added)
+        _set_death_saves(character, saves)
     if after_hp == 0:
         _add_condition(character, "unconscious")
     return {
@@ -300,6 +330,9 @@ def apply_character_damage(character: object, damage: int) -> dict:
         "hp_after": after_hp,
         "damage": dealt,
         "dropped_to_zero": dropped_to_zero,
+        "death_save_failures_added": death_save_failures_added,
+        "instant_death": instant_death,
+        "dead": is_dead(character),
         "death_saves": getattr(character, "death_saves", None),
         "conditions": _condition_list(character),
     }

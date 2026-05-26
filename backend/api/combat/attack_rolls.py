@@ -226,6 +226,7 @@ async def damage_roll(
         target_is_enemy=damage_resolution.target_is_enemy,
         damage=damage_resolution.total_damage,
         session=session,
+        is_critical=damage_resolution.is_crit,
     )
     if damage_resolution.target_is_enemy:
         state["enemies"]   = enemies

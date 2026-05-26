@@ -182,3 +182,29 @@ async def test_apply_attack_damage_to_enemy_updates_enemy_hp(db_session):
     assert new_hp == 3
     assert enemies[0]["hp_current"] == 3
     assert conc_log is None
+
+
+async def test_apply_attack_damage_to_zero_hp_character_adds_critical_death_save_failures(
+    db_session,
+    sample_character,
+):
+    from api.combat.attack_damage import apply_attack_damage_to_target
+
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 1, "stable": False}
+    sample_character.conditions = ["unconscious"]
+    await db_session.commit()
+
+    new_hp, conc_log = await apply_attack_damage_to_target(
+        db_session,
+        session_id="sess-1",
+        enemies=[],
+        target_id=sample_character.id,
+        target_is_enemy=False,
+        damage=4,
+        is_critical=True,
+    )
+
+    assert new_hp == 0
+    assert sample_character.death_saves == {"successes": 0, "failures": 3, "stable": False}
+    assert conc_log is None

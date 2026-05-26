@@ -60,7 +60,11 @@ async def resolve_opportunity_attacks(
                 save_turn_state(combat, enemy["id"], enemy_turn_state)
 
                 if result.attack_roll["hit"]:
-                    apply_character_damage(moving_char, result.damage)
+                    apply_character_damage(
+                        moving_char,
+                        result.damage,
+                        is_critical=result.attack_roll.get("is_crit", False),
+                    )
                     concentration_log = await do_concentration_check(
                         moving_char,
                         result.damage,

@@ -169,6 +169,7 @@ async def apply_attack_damage_to_target(
     target_is_enemy: bool,
     damage: int,
     session=None,
+    is_critical: bool = False,
 ):
     """Apply final weapon damage to an enemy dict or Character."""
     if target_is_enemy:
@@ -189,6 +190,6 @@ async def apply_attack_damage_to_target(
     if session is not None:
         await assert_character_in_session(target_character, session, db)
 
-    damage_result = apply_character_damage(target_character, damage)
+    damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
     return damage_result["hp_after"], concentration_log
