@@ -19,6 +19,8 @@ from services.combat_ai_attack_service import (
     target_is_dodging,
     target_conditions,
 )
+from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
 from services.dnd_rules import roll_dice, _normalize_class, apply_character_damage, get_life_state
@@ -93,6 +95,7 @@ async def handle_ai_attack_action(
     if target_data:
         target_id = target_data["id"]
         target_derived = target_data.get("derived", {})
+        target_is_enemy = not is_enemy
 
         ai_grid = dict(combat.grid_data or {})
         ai_atk_pos = positions.get(str(actor_id))
@@ -171,6 +174,12 @@ async def handle_ai_attack_action(
             target_data=target_data,
             target_character=target_char_for_shield,
         )
+        ai_target_conditions = target_conditions(
+            target_data=target_data,
+            target_character=target_char_for_shield,
+        )
+        if "guiding_bolt" in ai_target_conditions:
+            extra_adv = True
 
         for atk_idx in range(num_attacks):
             result_obj = svc.resolve_melee_attack(
@@ -184,17 +193,27 @@ async def handle_ai_attack_action(
                     if is_enemy and e
                     else list(getattr(achar, "conditions", None) or [])
                 ),
-                target_conditions=target_conditions(
-                    target_data=target_data,
-                    target_character=target_char_for_shield,
-                ),
+                target_conditions=ai_target_conditions,
                 distance=ai_dist,
             )
+            if atk_idx == 0 and "guiding_bolt" in ai_target_conditions:
+                await consume_guiding_bolt_condition(
+                    db,
+                    target_id=target_id,
+                    target_is_enemy=not bool(target_char_for_shield),
+                    enemies=enemies,
+                    session=session,
+                )
+                ai_target_conditions = [
+                    condition for condition in ai_target_conditions
+                    if condition != "guiding_bolt"
+                ]
             if first_attack_roll is None:
                 first_attack_roll = result_obj
 
             atk_damage = result_obj.damage
             applied_damage = atk_damage
+            extra_damage_notes: list[str] = []
 
             if result_obj.attack_roll["hit"] and achar and ai_class_res.get("raging", False):
                 rage_bonus = svc.get_rage_bonus(ai_level)
@@ -225,11 +244,51 @@ async def handle_ai_attack_action(
                         atk_damage += sa_roll["total"]
 
             if result_obj.attack_roll["hit"]:
-                if not is_enemy:
+                weapon_damage_type = actor_derived.get("damage_type", "piercing")
+                if target_is_enemy:
+                    target_enemy_data = next((enemy for enemy in enemies if enemy["id"] == target_id), None)
+                    if target_enemy_data:
+                        weapon_damage_type = (
+                            actor_derived.get("damage_type")
+                            or target_enemy_data.get("damage_type")
+                            or target_enemy_data.get("derived", {}).get("damage_type")
+                            or "piercing"
+                        )
+                        atk_damage = svc.apply_damage_with_resistance(
+                            atk_damage,
+                            weapon_damage_type,
+                            target_enemy_data.get("resistances", []),
+                            target_enemy_data.get("immunities", []),
+                            target_enemy_data.get("vulnerabilities", []),
+                        )
+                else:
+                    tchar_for_resistance = await db.get(Character, target_id)
+                    if tchar_for_resistance:
+                        atk_damage, _resistance_applied = apply_character_damage_resistance(
+                            tchar_for_resistance,
+                            atk_damage,
+                            actor_derived.get("damage_type", "bludgeoning"),
+                        )
+                sustained = apply_sustained_damage_effects(
+                    damage=atk_damage,
+                    extra_damage_notes=extra_damage_notes,
+                    attacker_concentration=(e.get("concentration") if is_enemy and e else getattr(achar, "concentration", None)),
+                    target_conditions=ai_target_conditions,
+                    target_id=target_id,
+                    target_is_enemy=target_is_enemy,
+                    enemies=enemies,
+                    weapon_damage_type=weapon_damage_type,
+                    apply_damage_with_resistance=svc.apply_damage_with_resistance,
+                )
+                atk_damage = sustained.damage
+                extra_damage_notes = sustained.extra_damage_notes
+
+                if target_is_enemy:
                     for enemy in enemies:
                         if enemy["id"] == target_id:
                             enemy["hp_current"] = svc.apply_damage(enemy.get("hp_current", 0), atk_damage, enemy.get("derived", {}).get("hp_max", 10))
                             target_new_hp = enemy["hp_current"]
+                    applied_damage = atk_damage
                     state["enemies"] = enemies
                     session.game_state = dict(state)
                     flag_modified(session, "game_state")
@@ -238,18 +297,12 @@ async def handle_ai_attack_action(
                     tchar = await db.get(Character, target_id)
                     if tchar:
                         hp_before_damage = tchar.hp_current
-                        dmg_type = actor_derived.get("damage_type", "钝击")
-                        final_dmg, _resistance_applied = apply_character_damage_resistance(
-                            tchar,
-                            atk_damage,
-                            dmg_type,
-                        )
                         apply_character_damage(
                             tchar,
-                            final_dmg,
+                            atk_damage,
                             is_critical=result_obj.attack_roll.get("is_crit", False),
                         )
-                        applied_damage = final_dmg
+                        applied_damage = atk_damage
                         target_new_hp = tchar.hp_current
                         target_state = {
                             "target_id": target_id,
@@ -272,7 +325,10 @@ async def handle_ai_attack_action(
                             })
 
             total_damage += applied_damage
-            all_narrations.append(svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, applied_damage))
+            attack_narration = svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, applied_damage)
+            if extra_damage_notes:
+                attack_narration += f" ({', '.join(extra_damage_notes)})"
+            all_narrations.append(attack_narration)
 
             if target_new_hp is not None and target_new_hp <= 0 and not is_enemy and achar:
                 ai_sub_eff = actor_derived.get("subclass_effects", {})

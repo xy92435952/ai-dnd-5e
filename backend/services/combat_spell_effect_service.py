@@ -59,6 +59,11 @@ SPELL_CONDITIONS: dict[str, tuple[str, str | None]] = {
     "沉默术": ("silenced", None),
     "Hex": ("hexed", None),
     "妖术": ("hexed", None),
+    "诡异诅咒": ("hexed", None),
+    "Hunter's Mark": ("hunters_marked", None),
+    "猎手印记": ("hunters_marked", None),
+    "Divine Favor": ("divine_favor", None),
+    "天界印记": ("divine_favor", None),
     "Bane": ("baned", "cha"),
     "灾祸术": ("baned", "cha"),
 }
@@ -93,6 +98,11 @@ SPELL_CONDITION_DURATION_OVERRIDES: dict[str, int | None] = {
     "沉默术": 100,
     "Hex": 600,
     "妖术": 600,
+    "诡异诅咒": 600,
+    "Hunter's Mark": 600,
+    "猎手印记": 600,
+    "Divine Favor": 10,
+    "天界印记": 10,
 }
 
 
@@ -185,13 +195,19 @@ def _apply_condition_to_character(
         character.condition_durations = durations
 
 
+def _is_guiding_bolt(spell_name: str | None) -> bool:
+    return str(spell_name or "").strip().lower() in {"guiding bolt", "神力打击"}
+
+
 def resolve_spell_condition(spell_name: str, spell: dict[str, Any]) -> tuple[str, str | None]:
     """Return the condition and saving throw ability for a control/utility spell."""
     if spell.get("condition"):
         return spell["condition"], spell.get("save")
+    explicit_save = spell.get("save") if "save" in spell else None
     for name in _spell_lookup_names(spell_name, spell):
         if name in SPELL_CONDITIONS:
-            return SPELL_CONDITIONS[name]
+            condition, mapped_save = SPELL_CONDITIONS[name]
+            return condition, explicit_save if "save" in spell else mapped_save
     return "affected", spell.get("save")
 
 
@@ -242,6 +258,7 @@ async def apply_spell_damage_to_target(
     *,
     save_result=None,
     is_critical: bool = False,
+    spell_name: str | None = None,
 ):
     """Apply spell damage to an enemy dict or Character and return response result plus conc log."""
     target_enemy = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
@@ -251,11 +268,15 @@ async def apply_spell_damage_to_target(
             damage,
             target_enemy.get("derived", {}).get("hp_max", 10),
         )
+        if _is_guiding_bolt(spell_name):
+            _apply_condition_to_enemy(target_enemy, "guiding_bolt", 1)
         return {
             "target_id": target_id,
             "target_name": target_enemy.get("name", "敌人"),
             "damage": damage,
             "new_hp": target_enemy["hp_current"],
+            "conditions": target_enemy.get("conditions", []),
+            "condition_durations": target_enemy.get("condition_durations", {}),
             "save": save_result,
         }, None
 
@@ -265,6 +286,8 @@ async def apply_spell_damage_to_target(
 
     damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
+    if _is_guiding_bolt(spell_name):
+        _apply_condition_to_character(target_character, "guiding_bolt", 1)
     return {
         "target_id": target_id,
         "target_name": target_character.name,
@@ -272,7 +295,8 @@ async def apply_spell_damage_to_target(
         "new_hp": damage_result["hp_after"],
         "hp_current": damage_result["hp_after"],
         "death_saves": damage_result["death_saves"],
-        "conditions": damage_result["conditions"],
+        "conditions": target_character.conditions or damage_result["conditions"],
+        "condition_durations": target_character.condition_durations or {},
         "life_state": get_life_state(target_character),
         "concentration": target_character.concentration,
         "save": save_result,

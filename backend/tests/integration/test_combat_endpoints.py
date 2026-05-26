@@ -377,6 +377,68 @@ async def test_ai_fire_attack_respects_player_fire_resistance(
     assert sample_character.hp_current == 7
 
 
+async def test_ai_hex_bonus_is_not_reduced_by_player_fire_resistance(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+    from services import combat_damage_bonus_service
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Hexed Fire Adept"
+    enemy["concentration"] = "Hex"
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "damage_type": "fire",
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    sample_character.hp_current = 20
+    sample_character.conditions = ["fire_resistance", "hexed"]
+    sample_character.condition_durations = {"hexed": 600}
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Hexed Fire Strike",
+            "reason": "test typed damage separation",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 20,
+                "target_ac": 10,
+            },
+            damage=10,
+            damage_roll={"formula": "2d6", "rolls": [5, 5], "total": 10},
+            narration="hit",
+        )
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(combat_damage_bonus_service, "roll_dice", lambda expr: {"formula": expr, "rolls": [4], "total": 4})
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["damage"] == 9
+    assert data["target_new_hp"] == 11
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 11
+
+
 async def test_assassinate_action_hit_does_not_500(
     client, db_session, sample_session, combat_state, sample_character, monkeypatch,
 ):

@@ -29,6 +29,13 @@ CONTROL_CONDITION_MAP = {
     "恐惧术": "frightened",
     "Silence": "silenced",
     "沉默术": "silenced",
+    "Hex": "hexed",
+    "妖术": "hexed",
+    "诡异诅咒": "hexed",
+    "Hunter's Mark": "hunters_marked",
+    "猎手印记": "hunters_marked",
+    "Divine Favor": "divine_favor",
+    "天界印记": "divine_favor",
 }
 
 

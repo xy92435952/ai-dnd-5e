@@ -42,9 +42,38 @@ async def test_apply_spell_damage_to_enemy_updates_enemy_state(db_session):
         "damage": 5,
         "new_hp": 2,
         "save": {"success": False},
+        "conditions": [],
+        "condition_durations": {},
     }
     assert enemies[0]["hp_current"] == 2
     assert conc_log is None
+
+
+async def test_guiding_bolt_damage_marks_enemy_for_next_attack(db_session):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "hp_current": 7,
+        "derived": {"hp_max": 7},
+        "conditions": [],
+    }]
+
+    result, conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        enemies,
+        "goblin-1",
+        5,
+        spell_name="Guiding Bolt",
+    )
+
+    assert conc_log is None
+    assert enemies[0]["conditions"] == ["guiding_bolt"]
+    assert enemies[0]["condition_durations"] == {"guiding_bolt": 1}
+    assert result["conditions"] == ["guiding_bolt"]
+    assert result["condition_durations"] == {"guiding_bolt": 1}
 
 
 async def test_apply_spell_damage_to_character_initializes_death_saves(db_session, sample_character):

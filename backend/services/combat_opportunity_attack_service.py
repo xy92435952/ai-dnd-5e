@@ -5,6 +5,8 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character, GameLog
 from services.character_roster import CharacterRoster
 from services.combat_concentration_service import do_concentration_check
+from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_grid_service import chebyshev_distance
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
@@ -50,13 +52,43 @@ async def resolve_opportunity_attacks(
                 enemy_turn_state = get_turn_state(combat, enemy["id"])
                 if enemy_turn_state.get("reaction_used"):
                     continue
+                moving_conditions = list(moving_char.conditions or [])
+                advantage = "guiding_bolt" in moving_conditions
+                if advantage:
+                    await consume_guiding_bolt_condition(
+                        db,
+                        target_id=moving_char.id,
+                        target_is_enemy=False,
+                        enemies=enemies,
+                        session=session,
+                    )
+                    moving_conditions = [
+                        condition for condition in moving_conditions
+                        if condition != "guiding_bolt"
+                    ]
                 result = svc.resolve_melee_attack(
                     attacker_derived=enemy.get("derived", {}),
                     target_derived=moving_char.derived or {},
+                    advantage=advantage,
                     attacker_conditions=list(enemy.get("conditions", [])),
-                    target_conditions=list(moving_char.conditions or []),
+                    target_conditions=moving_conditions,
                     distance=chebyshev_distance(enemy_position, old_pos),
                 )
+                extra_damage_notes: list[str] = []
+                if result.attack_roll["hit"]:
+                    sustained = apply_sustained_damage_effects(
+                        damage=result.damage,
+                        extra_damage_notes=extra_damage_notes,
+                        attacker_concentration=enemy.get("concentration"),
+                        target_conditions=moving_conditions,
+                        target_id=moving_char.id,
+                        target_is_enemy=False,
+                        enemies=enemies,
+                        weapon_damage_type=enemy.get("damage_type") or enemy.get("derived", {}).get("damage_type", "piercing"),
+                        apply_damage_with_resistance=svc.apply_damage_with_resistance,
+                    )
+                    result.damage = sustained.damage
+                    extra_damage_notes = sustained.extra_damage_notes
                 enemy_turn_state["reaction_used"] = True
                 save_turn_state(combat, enemy["id"], enemy_turn_state)
 
@@ -95,6 +127,7 @@ async def resolve_opportunity_attacks(
                         },
                     ),
                     "result": result.to_dict(),
+                    "extra_damage_notes": extra_damage_notes,
                 })
 
     else:
@@ -112,13 +145,43 @@ async def resolve_opportunity_attacks(
             ):
                 player_turn_state = get_turn_state(combat, session.player_character_id)
                 if not player_turn_state.get("reaction_used"):
+                    moving_conditions = list(moving_enemy.get("conditions", []))
+                    advantage = "guiding_bolt" in moving_conditions
+                    if advantage:
+                        await consume_guiding_bolt_condition(
+                            db,
+                            target_id=moving_enemy["id"],
+                            target_is_enemy=True,
+                            enemies=enemies,
+                            session=session,
+                        )
+                        moving_conditions = [
+                            condition for condition in moving_conditions
+                            if condition != "guiding_bolt"
+                        ]
                     result = svc.resolve_melee_attack(
                         attacker_derived=player.derived or {},
                         target_derived=moving_enemy.get("derived", {}),
+                        advantage=advantage,
                         attacker_conditions=list(player.conditions or []),
-                        target_conditions=list(moving_enemy.get("conditions", [])),
+                        target_conditions=moving_conditions,
                         distance=chebyshev_distance(player_position, old_pos),
                     )
+                    extra_damage_notes: list[str] = []
+                    if result.attack_roll["hit"]:
+                        sustained = apply_sustained_damage_effects(
+                            damage=result.damage,
+                            extra_damage_notes=extra_damage_notes,
+                            attacker_concentration=getattr(player, "concentration", None),
+                            target_conditions=moving_conditions,
+                            target_id=moving_enemy["id"],
+                            target_is_enemy=True,
+                            enemies=enemies,
+                            weapon_damage_type=(player.derived or {}).get("damage_type", "piercing"),
+                            apply_damage_with_resistance=svc.apply_damage_with_resistance,
+                        )
+                        result.damage = sustained.damage
+                        extra_damage_notes = sustained.extra_damage_notes
                     player_turn_state["reaction_used"] = True
                     save_turn_state(combat, session.player_character_id, player_turn_state)
 
@@ -153,6 +216,7 @@ async def resolve_opportunity_attacks(
                             },
                         ),
                         "result": result.to_dict(),
+                        "extra_damage_notes": extra_damage_notes,
                     })
 
         roster = CharacterRoster(db, session)
@@ -168,13 +232,43 @@ async def resolve_opportunity_attacks(
                 companion_turn_state = get_turn_state(combat, companion_id)
                 if companion_turn_state.get("reaction_used"):
                     continue
+                moving_conditions = list(moving_enemy.get("conditions", []))
+                advantage = "guiding_bolt" in moving_conditions
+                if advantage:
+                    await consume_guiding_bolt_condition(
+                        db,
+                        target_id=moving_enemy["id"],
+                        target_is_enemy=True,
+                        enemies=enemies,
+                        session=session,
+                    )
+                    moving_conditions = [
+                        condition for condition in moving_conditions
+                        if condition != "guiding_bolt"
+                    ]
                 result = svc.resolve_melee_attack(
                     attacker_derived=companion.derived or {},
                     target_derived=moving_enemy.get("derived", {}),
+                    advantage=advantage,
                     attacker_conditions=list(companion.conditions or []),
-                    target_conditions=list(moving_enemy.get("conditions", [])),
+                    target_conditions=moving_conditions,
                     distance=chebyshev_distance(companion_position, old_pos),
                 )
+                extra_damage_notes: list[str] = []
+                if result.attack_roll["hit"]:
+                    sustained = apply_sustained_damage_effects(
+                        damage=result.damage,
+                        extra_damage_notes=extra_damage_notes,
+                        attacker_concentration=getattr(companion, "concentration", None),
+                        target_conditions=moving_conditions,
+                        target_id=moving_enemy["id"],
+                        target_is_enemy=True,
+                        enemies=enemies,
+                        weapon_damage_type=(companion.derived or {}).get("damage_type", "piercing"),
+                        apply_damage_with_resistance=svc.apply_damage_with_resistance,
+                    )
+                    result.damage = sustained.damage
+                    extra_damage_notes = sustained.extra_damage_notes
                 companion_turn_state["reaction_used"] = True
                 save_turn_state(combat, companion_id, companion_turn_state)
 
@@ -209,6 +303,7 @@ async def resolve_opportunity_attacks(
                         },
                     ),
                     "result": result.to_dict(),
+                    "extra_damage_notes": extra_damage_notes,
                 })
 
     return results

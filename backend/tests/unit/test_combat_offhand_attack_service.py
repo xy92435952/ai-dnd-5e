@@ -30,6 +30,7 @@ class FakeCombat:
 
 class FakePlayer:
     derived = {"attack_bonus": 5}
+    concentration = None
 
 
 class FakeCombatService:
@@ -54,6 +55,9 @@ class FakeCombatService:
 
     def apply_damage(self, current_hp, damage, _max_hp):
         return max(0, current_hp - damage)
+
+    def apply_damage_with_resistance(self, damage, *_args):
+        return damage
 
     def check_combat_over(self, enemies, _player_hp):
         return not any(enemy.get("hp_current", 0) > 0 for enemy in enemies), "victory"
@@ -97,6 +101,81 @@ async def test_resolve_offhand_attack_damages_enemy_and_spends_bonus_action():
     assert result.target_new_hp == 2
     assert result.turn_state["bonus_action_used"] is True
     assert enemies[0]["hp_current"] == 2
+
+
+@pytest.mark.asyncio
+async def test_resolve_offhand_attack_applies_hex_bonus_damage(monkeypatch):
+    from services import combat_damage_bonus_service
+    from services.combat_offhand_attack_service import resolve_offhand_attack
+
+    monkeypatch.setattr(combat_damage_bonus_service, "roll_dice", lambda expr: {"formula": expr, "rolls": [3], "total": 3})
+    enemies = [{
+        "id": "goblin-1",
+        "name": "哥布林",
+        "hp_current": 10,
+        "derived": {"hp_max": 10, "ac": 12},
+        "conditions": ["hexed"],
+    }]
+    player = FakePlayer()
+    player.concentration = "Hex"
+
+    result = await resolve_offhand_attack(
+        FakeDb(),
+        session_id="sess-1",
+        session=FakeSession(),
+        combat=FakeCombat(),
+        player=player,
+        player_id="char-1",
+        player_name="战士",
+        target_id="goblin-1",
+        state={"enemies": enemies},
+        enemies=enemies,
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert result.damage == 7
+    assert result.extra_damage_notes == ["Hex+3"]
+    assert result.target_new_hp == 3
+    assert enemies[0]["hp_current"] == 3
+
+
+@pytest.mark.asyncio
+async def test_resolve_offhand_attack_consumes_guiding_bolt_advantage():
+    from services.combat_offhand_attack_service import resolve_offhand_attack
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "哥布林",
+        "hp_current": 10,
+        "derived": {"hp_max": 10, "ac": 12},
+        "conditions": ["guiding_bolt"],
+        "condition_durations": {"guiding_bolt": 1},
+    }]
+    service = FakeCombatService()
+
+    result = await resolve_offhand_attack(
+        FakeDb(),
+        session_id="sess-1",
+        session=FakeSession(),
+        combat=FakeCombat(),
+        player=FakePlayer(),
+        player_id="char-1",
+        player_name="战士",
+        target_id="goblin-1",
+        state={"enemies": enemies},
+        enemies=enemies,
+        combat_service=service,
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert service.last_attack_kwargs["advantage"] is True
+    assert service.last_attack_kwargs["target_conditions"] == []
+    assert enemies[0]["conditions"] == []
+    assert enemies[0]["condition_durations"] == {}
+    assert result.target_new_hp == 6
 
 
 @pytest.mark.asyncio

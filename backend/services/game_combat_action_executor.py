@@ -74,6 +74,7 @@ def execute_parsed_combat_actions(
                 player_id=player_id,
                 player_derived=player_derived,
                 player_conditions=list(getattr(player, "conditions", None) or []),
+                player_concentration=getattr(player, "concentration", None),
                 action=action,
                 action_results=action_results,
                 dice_display=dice_display,

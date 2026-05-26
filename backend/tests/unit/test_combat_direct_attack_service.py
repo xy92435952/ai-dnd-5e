@@ -179,6 +179,40 @@ async def test_prepare_direct_attack_applies_disadvantage_against_dodging_target
 
 
 @pytest.mark.asyncio
+async def test_prepare_direct_attack_applies_hex_on_marked_target(monkeypatch):
+    from services import combat_damage_bonus_service
+    from services import combat_direct_attack_service as direct_attack
+
+    monkeypatch.setattr(combat_damage_bonus_service, "roll_dice", lambda expr: {"formula": expr, "rolls": [4], "total": 4})
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    player = FakeFighter()
+    player.concentration = "Hex"
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=player,
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 12,
+            "derived": {"ac": 15},
+            "conditions": ["hexed"],
+        }],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.damage == 9
+    assert prepared.extra_damage_notes == ["Hex+4"]
+
+
+@pytest.mark.asyncio
 async def test_prepare_direct_attack_forces_close_unconscious_target_crit(monkeypatch):
     from services import combat_direct_attack_service as direct_attack
 

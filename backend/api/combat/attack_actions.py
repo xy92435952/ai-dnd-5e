@@ -154,6 +154,7 @@ async def maybe_handle_pre_attack_action(
                     "attack": offhand.attack_result,
                     "damage": offhand.damage_roll,
                     "offhand": True,
+                    "extra_damage": offhand.extra_damage_notes if offhand.extra_damage_notes else None,
                 },
             )
         )
@@ -166,6 +167,7 @@ async def maybe_handle_pre_attack_action(
             "narration": offhand.narration,
             "attack_result": offhand.attack_result,
             "damage": offhand.damage,
+            "extra_damage_notes": offhand.extra_damage_notes,
             "target_id": offhand.target_id,
             "target_new_hp": offhand.target_new_hp,
             "target_state": offhand.target_state,

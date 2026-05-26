@@ -84,6 +84,7 @@ async def apply_confirmed_spell_effects(
                     target_id,
                     damage_this,
                     save_result=save_result,
+                    spell_name=spell_name,
                 )
                 if applied:
                     result.aoe_results.append(applied)
@@ -152,6 +153,7 @@ async def apply_confirmed_spell_effects(
             enemies,
             target_id,
             result.result_damage,
+            spell_name=spell_name,
         )
         if applied:
             result.target_new_hp = applied["new_hp"]

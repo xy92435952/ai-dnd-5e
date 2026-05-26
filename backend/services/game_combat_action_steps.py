@@ -3,6 +3,7 @@ from typing import Any
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Session
+from services.combat_damage_bonus_service import apply_sustained_damage_effects
 
 
 def execute_move_action(
@@ -52,6 +53,7 @@ def execute_attack_action(
     player_id: str,
     player_derived: dict[str, Any],
     player_conditions: list[str] | None,
+    player_concentration: str | None = None,
     action: dict[str, Any],
     action_results: list[str],
     dice_display: list[dict[str, Any]],
@@ -84,6 +86,18 @@ def execute_attack_action(
     if not target_enemy:
         return 0
 
+    target_conditions = list(target_enemy.get("conditions", []))
+    advantage = "guiding_bolt" in target_conditions
+    if advantage:
+        target_conditions = [
+            condition for condition in target_conditions
+            if condition != "guiding_bolt"
+        ]
+        target_enemy["conditions"] = target_conditions
+        durations = dict(target_enemy.get("condition_durations", {}))
+        durations.pop("guiding_bolt", None)
+        target_enemy["condition_durations"] = durations
+
     target_derived = target_enemy.get("derived", {})
     if not target_derived.get("ac"):
         target_derived["ac"] = target_enemy.get("ac", 13)
@@ -91,9 +105,10 @@ def execute_attack_action(
     attack_result = combat_service.resolve_melee_attack(
         attacker_derived=player_derived,
         target_derived=target_derived,
+        advantage=advantage,
         is_ranged=is_ranged,
         attacker_conditions=player_conditions or [],
-        target_conditions=target_enemy.get("conditions", []),
+        target_conditions=target_conditions,
         distance=dist,
     )
     d20 = attack_result.attack_roll.get("d20", 0)
@@ -111,6 +126,33 @@ def execute_attack_action(
 
     total_damage = 0
     if hit:
+        extra_damage_notes: list[str] = []
+        damage_type = player_derived.get("damage_type", "piercing")
+        resistance_func = getattr(
+            combat_service,
+            "apply_damage_with_resistance",
+            lambda value, *_args: value,
+        )
+        damage = resistance_func(
+            damage,
+            damage_type,
+            target_enemy.get("resistances", []),
+            target_enemy.get("immunities", []),
+            target_enemy.get("vulnerabilities", []),
+        )
+        sustained = apply_sustained_damage_effects(
+            damage=damage,
+            extra_damage_notes=extra_damage_notes,
+            attacker_concentration=player_concentration,
+            target_conditions=target_conditions,
+            target_id=target_enemy["id"],
+            target_is_enemy=True,
+            enemies=enemies,
+            weapon_damage_type=damage_type,
+            apply_damage_with_resistance=resistance_func,
+        )
+        damage = sustained.damage
+        extra_damage_notes = sustained.extra_damage_notes
         target_enemy["hp_current"] = combat_service.apply_damage(
             target_enemy.get("hp_current", 0),
             damage,
@@ -125,6 +167,8 @@ def execute_attack_action(
         })
         crit_str = "暴击！" if is_crit else ""
         action_results.append(f"{crit_str}攻击命中 {target_enemy.get('name', '敌人')}，造成 {damage} 点伤害")
+        if extra_damage_notes:
+            action_results.append(f"额外伤害：{', '.join(extra_damage_notes)}")
         if target_enemy["hp_current"] <= 0:
             target_enemy["dead"] = True
             action_results.append(f"{target_enemy.get('name', '敌人')} 被击倒！")
@@ -133,7 +177,10 @@ def execute_attack_action(
 
     state["enemies"] = enemies
     session.game_state = dict(state)
-    flag_modified(session, "game_state")
+    try:
+        flag_modified(session, "game_state")
+    except Exception:
+        pass
     executed_action_types.append("attack")
     return total_damage
 

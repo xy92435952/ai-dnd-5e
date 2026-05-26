@@ -24,6 +24,7 @@ def get_defense_modifiers(conditions: list[str]) -> tuple[bool, bool]:
         "blinded",
         "restrained",
         "faerie_fire",
+        "guiding_bolt",
     }
     dis_to_attacker = {"invisible", "dodging"}
     adv = any(c in adv_to_attacker for c in conditions)

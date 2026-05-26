@@ -1,0 +1,76 @@
+from types import SimpleNamespace
+
+from services.combat_service import AttackResult
+
+
+class FakeCombatService:
+    def resolve_melee_attack(self, **kwargs):
+        self.last_attack_kwargs = kwargs
+        return AttackResult(
+            attack_roll={
+                "d20": 15,
+                "attack_total": 20,
+                "target_ac": 12,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            },
+            damage=4,
+            damage_roll={"formula": "1d6", "rolls": [4], "total": 4},
+            narration="hit",
+        )
+
+    def apply_damage(self, current_hp, damage, _max_hp):
+        return max(0, current_hp - damage)
+
+    def apply_damage_with_resistance(self, damage, *_args):
+        return damage
+
+
+def test_execute_attack_action_consumes_guiding_bolt_and_applies_hex(monkeypatch):
+    from services import combat_damage_bonus_service
+    from services.game_combat_action_steps import execute_attack_action
+
+    monkeypatch.setattr(combat_damage_bonus_service, "roll_dice", lambda expr: {"formula": expr, "rolls": [3], "total": 3})
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "hp_current": 12,
+        "derived": {"hp_max": 12, "ac": 12},
+        "conditions": ["guiding_bolt", "hexed"],
+        "condition_durations": {"guiding_bolt": 1, "hexed": 600},
+    }]
+    state = {"enemies": enemies}
+    service = FakeCombatService()
+    action_results = []
+    dice_display = []
+    executed_action_types = []
+
+    total_damage = execute_attack_action(
+        session=SimpleNamespace(game_state=state),
+        combat_state=SimpleNamespace(),
+        positions={"hero-1": {"x": 0, "y": 0}, "goblin-1": {"x": 1, "y": 0}},
+        state=state,
+        enemies=enemies,
+        player_id="hero-1",
+        player_derived={"attack_bonus": 5, "hit_die": 6},
+        player_conditions=[],
+        player_concentration="Hex",
+        action={"type": "attack", "target_id": "goblin-1"},
+        action_results=action_results,
+        dice_display=dice_display,
+        executed_action_types=executed_action_types,
+        combat_service=service,
+        check_attack_range=lambda *_args: (True, 1, None),
+        distance=lambda *_args: 1,
+    )
+
+    assert total_damage == 7
+    assert enemies[0]["hp_current"] == 5
+    assert enemies[0]["conditions"] == ["hexed"]
+    assert enemies[0]["condition_durations"] == {"hexed": 600}
+    assert service.last_attack_kwargs["advantage"] is True
+    assert service.last_attack_kwargs["target_conditions"] == ["hexed"]
+    assert dice_display[-1]["total"] == 7
+    assert any("Hex+3" in item for item in action_results)
+    assert executed_action_types == ["attack"]

@@ -89,6 +89,7 @@ def test_build_pending_attack_preserves_attack_contract_fields():
         advantage=True,
         disadvantage=False,
         is_raging=True,
+        target_conditions=["hexed"],
         damage_dice="1d8+3",
         hit_die=8,
         dmg_mod=3,
@@ -99,3 +100,4 @@ def test_build_pending_attack_preserves_attack_contract_fields():
     assert pending["is_crit"] is False
     assert pending["feat_power_attack"] is True
     assert pending["feat_power_bonus_dmg"] == 10
+    assert pending["target_conditions"] == ["hexed"]

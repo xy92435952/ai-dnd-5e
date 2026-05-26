@@ -128,6 +128,69 @@ def test_apply_target_resistance_uses_enemy_resistance_lists():
     assert result == 6
 
 
+def test_apply_sustained_damage_effects_adds_hex_only_to_hexed_target(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 4, "rolls": [4]})
+
+    result = attack_damage.apply_sustained_damage_effects(
+        damage=10,
+        extra_damage_notes=[],
+        attacker_concentration="Hex",
+        target_conditions=["hexed"],
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1", "resistances": [], "immunities": [], "vulnerabilities": []}],
+        weapon_damage_type="piercing",
+        apply_damage_with_resistance=lambda damage, *_args: damage,
+    )
+
+    assert result.damage == 14
+    assert result.extra_damage_notes == ["Hex+4"]
+
+
+def test_apply_sustained_damage_effects_skips_hex_without_marked_target(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 4, "rolls": [4]})
+
+    result = attack_damage.apply_sustained_damage_effects(
+        damage=10,
+        extra_damage_notes=[],
+        attacker_concentration="Hex",
+        target_conditions=[],
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1"}],
+        weapon_damage_type="piercing",
+        apply_damage_with_resistance=lambda damage, *_args: damage,
+    )
+
+    assert result.damage == 10
+    assert result.extra_damage_notes == []
+
+
+def test_apply_sustained_damage_effects_applies_divine_favor_to_any_weapon_hit(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 3, "rolls": [3]})
+
+    result = attack_damage.apply_sustained_damage_effects(
+        damage=10,
+        extra_damage_notes=[],
+        attacker_concentration="Divine Favor",
+        target_conditions=[],
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1", "resistances": [], "immunities": [], "vulnerabilities": []}],
+        weapon_damage_type="piercing",
+        apply_damage_with_resistance=lambda damage, damage_type, *_args: damage if damage_type == "radiant" else 0,
+    )
+
+    assert result.damage == 13
+    assert result.extra_damage_notes == ["Divine Favor+3"]
+
+
 def test_resolve_damage_extras_combines_sneak_attack_and_resistance(monkeypatch):
     from services import combat_damage_bonus_service as attack_damage
 
@@ -148,6 +211,8 @@ def test_resolve_damage_extras_combines_sneak_attack_and_resistance(monkeypatch)
         enemies=[{"id": "enemy-1", "resistances": ["piercing"], "immunities": [], "vulnerabilities": []}],
         positions={},
         damage_type="piercing",
+        attacker_concentration=None,
+        target_conditions=[],
         has_ally_adjacent_to=lambda *args: False,
         check_sneak_attack=lambda *args, **kwargs: True,
         calc_sneak_attack_dice=lambda level: 3,

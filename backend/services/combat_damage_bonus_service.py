@@ -22,6 +22,113 @@ class DamageExtraResult:
     sneak_attack_dice: str = ""
 
 
+SUSTAINED_DAMAGE_EFFECTS = (
+    {
+        "note": "Hex",
+        "concentration_names": {"Hex", "诡异诅咒", "妖术"},
+        "target_conditions": {"hexed"},
+        "dice": "1d6",
+        "damage_type": "necrotic",
+    },
+    {
+        "note": "Hunter's Mark",
+        "concentration_names": {"Hunter's Mark", "猎手印记"},
+        "target_conditions": {"hunters_marked"},
+        "dice": "1d6",
+        "damage_type": None,
+    },
+    {
+        "note": "Divine Favor",
+        "concentration_names": {"Divine Favor", "天界印记"},
+        "target_conditions": set(),
+        "dice": "1d4",
+        "damage_type": "radiant",
+    },
+)
+
+
+def _normalize_effect_token(value: str | None) -> str:
+    return str(value or "").strip().lower().replace(" ", "_").replace("-", "_").replace("'", "")
+
+
+def _concentration_matches(active: str | None, names: set[str]) -> bool:
+    active_key = _normalize_effect_token(active)
+    return bool(active_key) and active_key in {_normalize_effect_token(name) for name in names}
+
+
+def _apply_extra_damage_resistance(
+    *,
+    raw_damage: int,
+    damage_type: str | None,
+    target_id: str,
+    target_is_enemy: bool,
+    enemies: list[dict[str, Any]],
+    apply_damage_with_resistance: Callable[[int, str, list, list, list], int],
+) -> int:
+    if not target_is_enemy or not damage_type:
+        return raw_damage
+
+    enemy_data = next((enemy for enemy in enemies if enemy["id"] == target_id), {})
+    return apply_damage_with_resistance(
+        raw_damage,
+        damage_type,
+        enemy_data.get("resistances", []),
+        enemy_data.get("immunities", []),
+        enemy_data.get("vulnerabilities", []),
+    )
+
+
+def apply_sustained_damage_effects(
+    *,
+    damage: int,
+    extra_damage_notes: list[str],
+    attacker_concentration: str | None,
+    target_conditions: list[str] | None,
+    target_id: str,
+    target_is_enemy: bool,
+    enemies: list[dict[str, Any]],
+    weapon_damage_type: str,
+    apply_damage_with_resistance: Callable[[int, str, list, list, list], int],
+    roll_dice_func: Callable[[str], dict[str, Any]] | None = None,
+) -> DamageExtraResult:
+    """Apply concentration-based on-hit damage such as Hex and Divine Favor."""
+    notes = list(extra_damage_notes)
+    dice = roll_dice_func or roll_dice
+    target_condition_keys = {
+        _normalize_effect_token(condition)
+        for condition in (target_conditions or [])
+    }
+
+    for effect in SUSTAINED_DAMAGE_EFFECTS:
+        if not _concentration_matches(attacker_concentration, effect["concentration_names"]):
+            continue
+        required_conditions = {
+            _normalize_effect_token(condition)
+            for condition in effect["target_conditions"]
+        }
+        if required_conditions and not (required_conditions & target_condition_keys):
+            continue
+
+        roll = dice(effect["dice"])
+        raw_extra = int(roll.get("total", 0) or 0)
+        damage_type = effect["damage_type"] or weapon_damage_type
+        applied_extra = _apply_extra_damage_resistance(
+            raw_damage=raw_extra,
+            damage_type=damage_type,
+            target_id=target_id,
+            target_is_enemy=target_is_enemy,
+            enemies=enemies,
+            apply_damage_with_resistance=apply_damage_with_resistance,
+        )
+        damage += applied_extra
+        if applied_extra == raw_extra:
+            notes.append(f"{effect['note']}+{applied_extra}")
+        else:
+            notes.append(f"{effect['note']}+{applied_extra}({raw_extra})")
+
+    return DamageExtraResult(damage=damage, extra_damage_notes=notes)
+
+
 def roll_pending_damage(
     *,
     hit_die: int,
@@ -214,6 +321,8 @@ def resolve_damage_extras(
     enemies: list[dict[str, Any]],
     positions: dict[str, Any],
     damage_type: str,
+    attacker_concentration: str | None = None,
+    target_conditions: list[str] | None = None,
     has_ally_adjacent_to: Callable[[str, str, list[dict[str, Any]], dict[str, Any]], bool],
     check_sneak_attack: Callable[..., bool],
     calc_sneak_attack_dice: Callable[[int], int],
@@ -254,10 +363,21 @@ def resolve_damage_extras(
         enemies=enemies,
         apply_damage_with_resistance=apply_damage_with_resistance,
     )
-
-    return DamageExtraResult(
+    sustained = apply_sustained_damage_effects(
         damage=final_damage,
         extra_damage_notes=sneak.extra_damage_notes,
+        attacker_concentration=attacker_concentration,
+        target_conditions=target_conditions,
+        target_id=target_id,
+        target_is_enemy=target_is_enemy,
+        enemies=enemies,
+        weapon_damage_type=damage_type,
+        apply_damage_with_resistance=apply_damage_with_resistance,
+    )
+
+    return DamageExtraResult(
+        damage=sustained.damage,
+        extra_damage_notes=sustained.extra_damage_notes,
         sneak_attack_applied=sneak.sneak_attack_applied,
         sneak_attack_damage=sneak.sneak_attack_damage,
         sneak_attack_dice=sneak.sneak_attack_dice,

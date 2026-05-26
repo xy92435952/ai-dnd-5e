@@ -10,6 +10,8 @@ from services.combat_attack_modifier_service import (
 )
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
+from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import _normalize_class, roll_dice
@@ -152,6 +154,14 @@ async def prepare_direct_attack(
         target_conditions=target_conditions,
         distance=target_distance,
     )
+    if "guiding_bolt" in target_conditions:
+        await consume_guiding_bolt_condition(
+            db,
+            target_id=resolved_target_id,
+            target_is_enemy=target.is_enemy,
+            enemies=enemies,
+            session=session,
+        )
     attack_result = attack_result_obj.attack_roll
     damage = attack_result_obj.damage
     damage_roll = attack_result_obj.damage_roll
@@ -224,6 +234,21 @@ async def prepare_direct_attack(
             enemy_data.get("immunities", []),
             enemy_data.get("vulnerabilities", []),
         )
+
+    if attack_result["hit"]:
+        sustained = apply_sustained_damage_effects(
+            damage=damage,
+            extra_damage_notes=extra_damage_notes,
+            attacker_concentration=getattr(player, "concentration", None) if player else None,
+            target_conditions=target_conditions,
+            target_id=resolved_target_id,
+            target_is_enemy=target.is_enemy,
+            enemies=enemies,
+            weapon_damage_type=damage_type,
+            apply_damage_with_resistance=combat_service.apply_damage_with_resistance,
+        )
+        damage = sustained.damage
+        extra_damage_notes = sustained.extra_damage_notes
 
     save_turn_state_func(combat, player_id, turn_state)
 

@@ -6,7 +6,9 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_attack_damage_service import apply_attack_damage_to_target
 from services.combat_attack_roll_service import CombatAttackRollError
+from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_grid_service import chebyshev_distance
+from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.session_access_service import assert_character_in_session
@@ -25,6 +27,7 @@ class OffhandAttackResult:
     target_state: dict[str, Any] | None
     concentration_log: Any | None
     turn_state: dict[str, Any]
+    extra_damage_notes: list[str]
     combat_over: bool
     outcome: str | None
 
@@ -55,9 +58,25 @@ async def resolve_offhand_attack(
     if not target:
         raise CombatAttackRollError(400, "没有可攻击的目标")
 
+    advantage = False
+    if "guiding_bolt" in target["conditions"]:
+        advantage = True
+        await consume_guiding_bolt_condition(
+            db,
+            target_id=target["id"],
+            target_is_enemy=target["is_enemy"],
+            enemies=enemies,
+            session=session,
+        )
+        target["conditions"] = [
+            condition for condition in target["conditions"]
+            if condition != "guiding_bolt"
+        ]
+
     attack = combat_service.resolve_melee_attack(
         attacker_derived=player.derived or {} if player else {},
         target_derived=target["derived"],
+        advantage=advantage,
         is_offhand=True,
         attacker_conditions=list(getattr(player, "conditions", None) or []) if player else [],
         target_conditions=target["conditions"],
@@ -70,14 +89,45 @@ async def resolve_offhand_attack(
     concentration_log = None
     target_new_hp = None
     target_state = None
+    extra_damage_notes: list[str] = []
+    damage = attack.damage
     if attack.attack_roll["hit"]:
+        player_derived = player.derived or {} if player else {}
+        damage_type = player_derived.get("damage_type", "piercing")
+        resistance_func = getattr(
+            combat_service,
+            "apply_damage_with_resistance",
+            svc.apply_damage_with_resistance,
+        )
+        if target["is_enemy"]:
+            enemy_data = next((enemy for enemy in enemies if enemy["id"] == target["id"]), {})
+            damage = resistance_func(
+                damage,
+                damage_type,
+                enemy_data.get("resistances", []),
+                enemy_data.get("immunities", []),
+                enemy_data.get("vulnerabilities", []),
+            )
+        sustained = apply_sustained_damage_effects(
+            damage=damage,
+            extra_damage_notes=extra_damage_notes,
+            attacker_concentration=getattr(player, "concentration", None) if player else None,
+            target_conditions=target["conditions"],
+            target_id=target["id"],
+            target_is_enemy=target["is_enemy"],
+            enemies=enemies,
+            weapon_damage_type=damage_type,
+            apply_damage_with_resistance=resistance_func,
+        )
+        damage = sustained.damage
+        extra_damage_notes = sustained.extra_damage_notes
         target_new_hp, concentration_log, target_state = await apply_attack_damage_to_target(
             db,
             session_id=session_id,
             enemies=enemies,
             target_id=target["id"],
             target_is_enemy=target["is_enemy"],
-            damage=attack.damage,
+            damage=damage,
             session=session,
             is_critical=attack.attack_roll.get("is_crit", False),
         )
@@ -95,7 +145,7 @@ async def resolve_offhand_attack(
             player_name,
             target["name"],
             attack.attack_roll,
-            attack.damage,
+            damage,
         )
     )
 
@@ -110,13 +160,14 @@ async def resolve_offhand_attack(
     return OffhandAttackResult(
         narration=narration,
         attack_result=attack.attack_roll,
-        damage=attack.damage,
+        damage=damage,
         damage_roll=attack.damage_roll,
         target_id=target["id"],
         target_new_hp=target_new_hp,
         target_state=target_state,
         concentration_log=concentration_log,
         turn_state=turn_state,
+        extra_damage_notes=extra_damage_notes,
         combat_over=combat_over,
         outcome=outcome,
     )

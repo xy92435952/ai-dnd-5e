@@ -79,6 +79,7 @@ async def resolve_pending_attack_damage(
     target_id = pending["target_id"]
     target_name = pending["target_name"]
     target_is_enemy = pending["target_is_enemy"]
+    target_conditions = list(pending.get("target_conditions", []))
     is_crit = pending["is_crit"]
     is_ranged = pending["is_ranged"]
     hit_die = pending["hit_die"]
@@ -129,6 +130,8 @@ async def resolve_pending_attack_damage(
         enemies=enemies,
         positions=positions,
         damage_type=damage_type,
+        attacker_concentration=getattr(player, "concentration", None),
+        target_conditions=target_conditions,
         has_ally_adjacent_to=has_ally_adjacent_to,
         check_sneak_attack=svc.check_sneak_attack,
         calc_sneak_attack_dice=svc.calc_sneak_attack_dice,

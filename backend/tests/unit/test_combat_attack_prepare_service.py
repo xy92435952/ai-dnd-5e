@@ -251,6 +251,53 @@ async def test_prepare_attack_roll_passes_attacker_conditions_to_roll_attack():
 
 
 @pytest.mark.asyncio
+async def test_prepare_attack_roll_consumes_guiding_bolt_advantage():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    captured = {}
+    state = {
+        "enemies": [{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": ["guiding_bolt"],
+            "condition_durations": {"guiding_bolt": 1},
+        }]
+    }
+
+    class FakeSession:
+        game_state = state
+
+    def capture_roll_attack(**kwargs):
+        captured.update(kwargs)
+        return fixed_roll_attack(**kwargs)
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=FakeSession(),
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=False,
+        d20_value=None,
+        enemies=state["enemies"],
+        roll_attack_func=capture_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.advantage is True
+    assert captured["advantage"] is True
+    assert state["enemies"][0]["conditions"] == []
+    assert state["enemies"][0]["condition_durations"] == {}
+    assert prepared.pending_attack["target_conditions"] == ["guiding_bolt"]
+
+
+@pytest.mark.asyncio
 async def test_prepare_attack_roll_forces_close_unconscious_target_crit():
     from services.combat_attack_prepare_service import prepare_attack_roll
 

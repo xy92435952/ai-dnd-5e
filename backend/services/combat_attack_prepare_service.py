@@ -18,6 +18,7 @@ from services.combat_attack_roll_service import (
 )
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
 from services.combat_grid_service import check_attack_range
+from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import _normalize_class, roll_attack, should_auto_crit_melee_target
@@ -167,6 +168,14 @@ async def prepare_attack_roll(
         and not attack_roll_result.get("is_crit")
     ):
         attack_roll_result = {**attack_roll_result, "is_crit": True, "forced_crit": "incapacitated_target"}
+    if "guiding_bolt" in target_conditions:
+        await consume_guiding_bolt_condition(
+            db,
+            target_id=resolved_target_id,
+            target_is_enemy=target.is_enemy,
+            enemies=enemies,
+            session=session,
+        )
 
     weapon_damage = build_weapon_damage_dice(
         player,
@@ -192,6 +201,7 @@ async def prepare_attack_roll(
         advantage=final_advantage,
         disadvantage=final_disadvantage,
         is_raging=is_raging,
+        target_conditions=target_conditions,
         damage_dice=weapon_damage.damage_dice,
         hit_die=weapon_damage.hit_die,
         dmg_mod=weapon_damage.dmg_mod,
