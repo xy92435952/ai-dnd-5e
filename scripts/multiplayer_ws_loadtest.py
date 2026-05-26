@@ -619,6 +619,82 @@ async def verify_room_info(
     await asyncio.gather(*(one(room) for room in rooms))
 
 
+async def verify_room_access_isolation(
+    client: httpx.AsyncClient,
+    base_url: str,
+    rooms: list[RoomRecord],
+    outsider: UserRecord,
+    timings: dict[str, list[float]],
+) -> None:
+    async def assert_room_snapshot(room: RoomRecord, user: UserRecord) -> None:
+        _, info = await timed(
+            "member_get_room_ms",
+            timings,
+            request_json(
+                client,
+                "GET",
+                api_url(base_url, f"/game/rooms/{room.session_id}"),
+                headers={"Authorization": f"Bearer {user.token}"},
+            ),
+        )
+        member_ids = {member["user_id"] for member in info["members"]}
+        expected_ids = {member.user_id for member in room.users}
+        if info.get("session_id") != room.session_id:
+            raise LoadTestError(
+                f"User {user.username} read the wrong room snapshot: {info.get('session_id')}"
+            )
+        if member_ids != expected_ids:
+            raise LoadTestError(
+                f"User {user.username} saw cross-room members in {room.room_code}"
+            )
+
+        _, members = await timed(
+            "member_list_members_ms",
+            timings,
+            request_json(
+                client,
+                "GET",
+                api_url(base_url, f"/game/rooms/{room.session_id}/members"),
+                headers={"Authorization": f"Bearer {user.token}"},
+            ),
+        )
+        listed_ids = {member["user_id"] for member in members}
+        if listed_ids != expected_ids:
+            raise LoadTestError(
+                f"User {user.username} saw cross-room member list data in {room.room_code}"
+            )
+
+    async def assert_outsider_forbidden(room: RoomRecord) -> None:
+        forbidden_reads = [
+            ("", "outsider_get_room_forbidden_ms"),
+            ("/members", "outsider_list_members_forbidden_ms"),
+        ]
+        for suffix, label in forbidden_reads:
+            status, _ = await timed(
+                label,
+                timings,
+                request_json(
+                    client,
+                    "GET",
+                    api_url(base_url, f"/game/rooms/{room.session_id}{suffix}"),
+                    headers={"Authorization": f"Bearer {outsider.token}"},
+                    expected={403},
+                ),
+            )
+            if status != 403:
+                raise LoadTestError(
+                    f"Expected non-member {outsider.username} to be forbidden "
+                    f"from room {room.room_code}"
+                )
+
+    await asyncio.gather(*(
+        assert_room_snapshot(room, user)
+        for room in rooms
+        for user in room.users
+    ))
+    await asyncio.gather(*(assert_outsider_forbidden(room) for room in rooms))
+
+
 async def verify_typing_isolation(records: list[WSRecord], timings: dict[str, list[float]]) -> None:
     first_room = records[0].room
     room_records = [record for record in records if record.room.session_id == first_room.session_id]
@@ -831,6 +907,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
             ws_records = await connect_websockets(args.base_url, rooms, timings, args.ws_concurrency)
             await verify_ping_pong(ws_records, timings)
             await verify_room_info(client, args.base_url, rooms, timings)
+            await verify_room_access_isolation(client, args.base_url, rooms, overflow[0], timings)
             await verify_typing_isolation(ws_records, timings)
             ok = True
             error = None

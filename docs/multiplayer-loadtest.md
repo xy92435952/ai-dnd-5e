@@ -55,6 +55,8 @@ The script checks that:
 - room state keeps `max_players=4`
 - DM style survives room creation
 - party group membership matches room membership
+- every room member can read their own room snapshot and members list
+- non-members cannot read another room's snapshot or members list
 - typing events broadcast only inside the sender's room
 - typing events do not echo back to the sender
 - created test room members leave, and the rooms are dissolved at the end
