@@ -170,7 +170,7 @@ async def test_apply_attack_damage_to_enemy_updates_enemy_hp(db_session):
         "derived": {"hp_max": 9},
     }]
 
-    new_hp, conc_log = await apply_attack_damage_to_target(
+    new_hp, conc_log, target_state = await apply_attack_damage_to_target(
         db_session,
         session_id="sess-1",
         enemies=enemies,
@@ -182,6 +182,13 @@ async def test_apply_attack_damage_to_enemy_updates_enemy_hp(db_session):
     assert new_hp == 3
     assert enemies[0]["hp_current"] == 3
     assert conc_log is None
+    assert target_state == {
+        "target_id": "goblin-1",
+        "hp_current": 3,
+        "new_hp": 3,
+        "conditions": [],
+        "life_state": "alive",
+    }
 
 
 async def test_apply_attack_damage_to_zero_hp_character_adds_critical_death_save_failures(
@@ -195,7 +202,7 @@ async def test_apply_attack_damage_to_zero_hp_character_adds_critical_death_save
     sample_character.conditions = ["unconscious"]
     await db_session.commit()
 
-    new_hp, conc_log = await apply_attack_damage_to_target(
+    new_hp, conc_log, target_state = await apply_attack_damage_to_target(
         db_session,
         session_id="sess-1",
         enemies=[],
@@ -208,3 +215,11 @@ async def test_apply_attack_damage_to_zero_hp_character_adds_critical_death_save
     assert new_hp == 0
     assert sample_character.death_saves == {"successes": 0, "failures": 3, "stable": False}
     assert conc_log is None
+    assert target_state == {
+        "target_id": sample_character.id,
+        "hp_current": 0,
+        "new_hp": 0,
+        "death_saves": {"successes": 0, "failures": 3, "stable": False},
+        "conditions": ["unconscious"],
+        "life_state": "dead",
+    }

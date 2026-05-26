@@ -22,6 +22,7 @@ class OffhandAttackResult:
     damage_roll: dict[str, Any] | None
     target_id: str
     target_new_hp: int | None
+    target_state: dict[str, Any] | None
     concentration_log: Any | None
     turn_state: dict[str, Any]
     combat_over: bool
@@ -67,8 +68,9 @@ async def resolve_offhand_attack(
 
     concentration_log = None
     target_new_hp = None
+    target_state = None
     if attack.attack_roll["hit"]:
-        target_new_hp, concentration_log = await apply_attack_damage_to_target(
+        target_new_hp, concentration_log, target_state = await apply_attack_damage_to_target(
             db,
             session_id=session_id,
             enemies=enemies,
@@ -111,6 +113,7 @@ async def resolve_offhand_attack(
         damage_roll=attack.damage_roll,
         target_id=target["id"],
         target_new_hp=target_new_hp,
+        target_state=target_state,
         concentration_log=concentration_log,
         turn_state=turn_state,
         combat_over=combat_over,

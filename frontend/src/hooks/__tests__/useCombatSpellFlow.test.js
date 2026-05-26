@@ -118,6 +118,87 @@ describe('useCombatSpellFlow', () => {
     expect(setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
+  it('merges resurrection result state from spell confirmation', async () => {
+    spellRollMock.mockResolvedValueOnce({
+      pending_spell_id: 'pending-raise-dead',
+      targets: [{ id: 'ally-1', name: '倒下的队友' }],
+      turn_state: { action_used: false },
+    })
+    spellConfirmMock.mockResolvedValueOnce({
+      target_id: 'ally-1',
+      target_new_hp: 1,
+      target_state: {
+        target_id: 'ally-1',
+        new_hp: 1,
+        death_saves: null,
+        conditions: [],
+        life_state: 'alive',
+      },
+      resurrection_results: [
+        {
+          target_id: 'ally-1',
+          resurrected: true,
+          new_hp: 1,
+          death_saves: null,
+          conditions: [],
+          life_state: 'alive',
+        },
+      ],
+      remaining_slots: { '5th': 0 },
+      narration: '死者重新睁开双眼。',
+      turn_state: { action_used: true },
+      combat_over: false,
+    })
+
+    const processingRef = { current: false }
+    const setCombat = vi.fn()
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'cleric-1',
+      selectedTarget: 'ally-1',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat,
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice: vi.fn(),
+    }))
+
+    await act(async () => {
+      await result.current({ name: '复活死者', type: 'utility' }, 5)
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200)
+    })
+
+    const stateUpdater = setCombat.mock.calls[0][0]
+    const updated = stateUpdater({
+      entities: {
+        'ally-1': {
+          id: 'ally-1',
+          hp_current: 0,
+          death_saves: { successes: 0, failures: 3, stable: false },
+          conditions: ['unconscious'],
+          life_state: 'dead',
+        },
+      },
+    })
+
+    expect(updated.entities['ally-1']).toMatchObject({
+      hp_current: 1,
+      death_saves: null,
+      conditions: [],
+      life_state: 'alive',
+    })
+  })
+
   it('does not cast when the current user does not control this turn', async () => {
     const setIsProcessing = vi.fn()
     const setSpellModalOpen = vi.fn()

@@ -1,10 +1,10 @@
 export default function InitiativeRibbon({ initiativeChips, onSelectTarget }) {
   return (
     <div className="init-ribbon">
-      {initiativeChips.map(({ ent, t, pct, isCur, dead, low }) => (
+      {initiativeChips.map(({ ent, t, pct, isCur, dead, low, lifeState }) => (
         <div
           key={t.character_id}
-          className={`unit-chip ${t.is_enemy ? 'enemy' : ''} ${isCur ? 'active' : ''} ${dead ? 'dead' : ''} ${low ? 'low' : ''}`}
+          className={`unit-chip ${t.is_enemy ? 'enemy' : ''} ${isCur ? 'active' : ''} ${dead ? 'dead' : ''} ${low ? 'low' : ''} life-${lifeState || 'alive'}`}
           onClick={() => !dead && onSelectTarget(t.character_id)}
           style={{ cursor: dead ? 'default' : 'pointer' }}
         >

@@ -63,6 +63,13 @@ describe('useCombatAiTurns', () => {
       damage: 3,
       target_id: 'char-1',
       target_new_hp: 9,
+      target_state: {
+        target_id: 'char-1',
+        new_hp: 0,
+        death_saves: { successes: 0, failures: 1, stable: false },
+        conditions: ['unconscious'],
+        life_state: 'dying',
+      },
       next_turn_index: 1,
       round_number: 1,
       entity_positions: { 'char-1': { x: 5, y: 5 } },
@@ -98,7 +105,12 @@ describe('useCombatAiTurns', () => {
       round_number: 1,
       entity_positions: { 'char-1': { x: 5, y: 5 } },
       entities: {
-        'char-1': { hp_current: 9 },
+        'char-1': {
+          hp_current: 0,
+          death_saves: { successes: 0, failures: 1, stable: false },
+          conditions: ['unconscious'],
+          life_state: 'dying',
+        },
       },
     })
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false, movement_used: 0 })

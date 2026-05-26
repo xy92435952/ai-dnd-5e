@@ -37,6 +37,7 @@ class DirectSpellResult:
     heal: int
     target_id: str | None
     target_new_hp: int | None
+    target_state: dict[str, Any] | None
     aoe_results: list[dict[str, Any]]
     resurrection_results: list[dict[str, Any]]
     remaining_slots: dict[str, Any]
@@ -66,6 +67,7 @@ class DirectSpellResult:
             "heal": self.heal,
             "target_id": self.target_id,
             "target_new_hp": self.target_new_hp,
+            "target_state": self.target_state,
             "aoe_results": self.aoe_results,
             "resurrection_results": self.resurrection_results,
             "remaining_slots": self.remaining_slots,
@@ -144,6 +146,7 @@ async def cast_direct_spell(
     result_heal = 0
     dice_detail: dict[str, Any] = {}
     target_new_hp = None
+    target_state = None
     aoe_results: list[dict[str, Any]] = []
     resurrection_results: list[dict[str, Any]] = []
     concentration_logs: list[Any] = []
@@ -174,6 +177,7 @@ async def cast_direct_spell(
         result_heal = spell_application.result_heal
         dice_detail = spell_application.dice_detail
         target_new_hp = spell_application.target_new_hp
+        target_state = spell_application.target_state
         aoe_results = spell_application.aoe_results
         resurrection_results = spell_application.resurrection_results
         concentration_logs = spell_application.concentration_logs
@@ -219,6 +223,7 @@ async def cast_direct_spell(
         heal=result_heal,
         target_id=target_id,
         target_new_hp=target_new_hp,
+        target_state=target_state,
         aoe_results=aoe_results,
         resurrection_results=resurrection_results,
         remaining_slots=new_slots,

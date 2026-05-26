@@ -168,6 +168,7 @@ async def maybe_handle_pre_attack_action(
             "damage": offhand.damage,
             "target_id": offhand.target_id,
             "target_new_hp": offhand.target_new_hp,
+            "target_state": offhand.target_state,
             "concentration_check": (
                 offhand.concentration_log.dice_result
                 if offhand.concentration_log

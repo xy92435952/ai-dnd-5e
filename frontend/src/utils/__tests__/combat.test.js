@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  applyActionResultEntityStates,
   applyAoeHpUpdates,
+  applyEntityStateUpdate,
   applyPlayerHpUpdate,
   buildAoeCells,
   buildCombatGrid,
@@ -16,10 +18,12 @@ import {
   getCombatTurnToken,
   getCameraWindow,
   getCombatSkillBar,
+  getCombatLifeState,
   getCurrentTurnLabel,
   getPlayerAvailableSpells,
   getPlayerTurnState,
   isMyCombatTurn,
+  isCombatEntityDead,
   isPlayerCombatTurn,
   getSpriteKind,
   parseDiceNotation,
@@ -121,18 +125,21 @@ describe('combat grid helpers', () => {
         { character_id: 'player', name: 'Hero', initiative: 18 },
         { character_id: 'enemy1', name: 'Goblin', initiative: 7, is_enemy: true },
         { character_id: 'enemy2', name: 'Skeleton', initiative: 3, is_enemy: true },
+        { character_id: 'ally', name: 'Downed Ally', initiative: 2 },
       ],
       currentTurnIndex: 1,
       entities: {
         player: { hp_current: 10, hp_max: 20 },
         enemy1: { hp_current: 2, hp_max: 10 },
-        enemy2: { hp_current: 0, hp_max: 8 },
+        enemy2: { hp_current: 0, hp_max: 8, life_state: 'dead' },
+        ally: { hp_current: 0, hp_max: 12, life_state: 'dying' },
       },
     })
 
     expect(chips[0]).toMatchObject({ pct: 50, isCur: false, dead: false, low: false })
     expect(chips[1]).toMatchObject({ pct: 20, isCur: true, dead: false, low: true })
-    expect(chips[2]).toMatchObject({ pct: 0, isCur: false, dead: true, low: true })
+    expect(chips[2]).toMatchObject({ pct: 0, isCur: false, dead: true, lifeState: 'dead', low: true })
+    expect(chips[3]).toMatchObject({ pct: 0, isCur: false, dead: false, lifeState: 'dying', low: true })
   })
 
   it('getPlayerAvailableSpells 优先使用已知法术/戏法列表', () => {
@@ -212,6 +219,87 @@ describe('combat grid helpers', () => {
     expect(updated.entities.a.hp_current).toBe(5)
     expect(updated.entities.b.hp_current).toBe(0)
     expect(updated.entities.c).toBe(combat.entities.c)
+  })
+
+  it('applyEntityStateUpdate 合并死亡豁免、条件和生命状态', () => {
+    const combat = {
+      entities: {
+        hero: {
+          id: 'hero',
+          hp_current: 7,
+          death_saves: null,
+          conditions: [],
+          life_state: 'alive',
+        },
+        ally: { id: 'ally', hp_current: 5 },
+      },
+    }
+
+    const updated = applyEntityStateUpdate(combat, {
+      target_id: 'hero',
+      new_hp: 0,
+      death_saves: { successes: 0, failures: 1, stable: false },
+      conditions: ['unconscious'],
+      life_state: 'dying',
+    })
+
+    expect(updated).not.toBe(combat)
+    expect(updated.entities.hero).toMatchObject({
+      hp_current: 0,
+      death_saves: { successes: 0, failures: 1, stable: false },
+      conditions: ['unconscious'],
+      life_state: 'dying',
+    })
+    expect(updated.entities.ally).toBe(combat.entities.ally)
+  })
+
+  it('applyActionResultEntityStates applies target, aoe and resurrection state results', () => {
+    const combat = {
+      entities: {
+        enemy: { id: 'enemy', hp_current: 8 },
+        bystander: { id: 'bystander', hp_current: 6 },
+        cleric: {
+          id: 'cleric',
+          hp_current: 0,
+          death_saves: { successes: 0, failures: 3, stable: false },
+          conditions: ['unconscious'],
+          life_state: 'dead',
+        },
+      },
+    }
+
+    const updated = applyActionResultEntityStates(combat, {
+      target_state: {
+        target_id: 'enemy',
+        new_hp: 0,
+        death_saves: { successes: 0, failures: 0, stable: false },
+        conditions: ['unconscious'],
+        life_state: 'dying',
+      },
+      aoe_results: [
+        { target_id: 'bystander', new_hp: 2, conditions: ['burning'] },
+      ],
+      resurrection_results: [
+        { target_id: 'cleric', resurrected: true, new_hp: 1, death_saves: null, conditions: [], life_state: 'alive' },
+      ],
+    })
+
+    expect(updated.entities.enemy.life_state).toBe('dying')
+    expect(updated.entities.bystander).toMatchObject({ hp_current: 2, conditions: ['burning'] })
+    expect(updated.entities.cleric).toMatchObject({
+      hp_current: 1,
+      death_saves: null,
+      conditions: [],
+      life_state: 'alive',
+    })
+  })
+
+  it('getCombatLifeState separates dying, stable and dead zero-hp entities', () => {
+    expect(getCombatLifeState({ hp_current: 0, death_saves: { failures: 0, stable: false } })).toBe('dying')
+    expect(getCombatLifeState({ hp_current: 0, death_saves: { failures: 1, stable: true } })).toBe('stable')
+    expect(getCombatLifeState({ hp_current: 0, death_saves: { failures: 3, stable: false } })).toBe('dead')
+    expect(isCombatEntityDead({ hp_current: 0, death_saves: { failures: 1, stable: false } })).toBe(false)
+    expect(isCombatEntityDead({ hp_current: 0, death_saves: { failures: 3, stable: false } })).toBe(true)
   })
 
   it('isPlayerCombatTurn 识别当前回合是否为玩家', () => {

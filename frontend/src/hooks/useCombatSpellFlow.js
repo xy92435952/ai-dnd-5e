@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyAoeHpUpdates, applyHpUpdate, parseDiceNotation } from '../utils/combat'
+import { applyActionResultEntityStates, parseDiceNotation } from '../utils/combat'
 
 export function useCombatSpellFlow({
   sessionId,
@@ -68,16 +68,7 @@ export function useCombatSpellFlow({
 
           const confirmResult = await gameApi.spellConfirm(sessionId, rollResult.pending_spell_id, spellRolls)
 
-          if (confirmResult.target_new_hp != null) {
-            setCombat(prev => {
-              if (!prev) return prev
-              return applyHpUpdate(prev, confirmResult.target_id, confirmResult.target_new_hp)
-            })
-          }
-
-          if (confirmResult.aoe_results?.length) {
-            setCombat(prev => applyAoeHpUpdates(prev, confirmResult.aoe_results))
-          }
+          setCombat(prev => applyActionResultEntityStates(prev, confirmResult))
 
           if (confirmResult.turn_state) setTurnState(confirmResult.turn_state)
           setPlayerSpellSlots(confirmResult.remaining_slots || {})

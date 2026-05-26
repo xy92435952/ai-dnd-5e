@@ -85,6 +85,8 @@ async def cast_spell(
             action="spell",
             target_id=response.get("target_id"),
             target_new_hp=response.get("target_new_hp"),
+            target_state=response.get("target_state"),
+            resurrection_results=response.get("resurrection_results"),
             combat_over=response.get("combat_over", False),
             outcome=response.get("outcome"),
         ),

@@ -218,7 +218,7 @@ async def damage_roll(
     narration = vivid if vivid else mechanical_narration
 
     # ── Apply HP ──
-    target_new_hp, conc_log = await apply_attack_damage_to_target(
+    target_new_hp, conc_log, target_state = await apply_attack_damage_to_target(
         db,
         session_id=session_id,
         enemies=enemies,
@@ -309,6 +309,7 @@ async def damage_roll(
         "extra_damage_notes":   damage_resolution.extra_damage_notes,
         "total_damage":         damage_resolution.total_damage,
         "target_new_hp":        target_new_hp,
+        "target_state":         target_state,
         "target_id":            damage_resolution.target_id,
         "target_name":          damage_resolution.target_name,
         "narration":            narration,

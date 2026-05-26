@@ -161,8 +161,9 @@ async def combat_action(
     # 更新 HP
     conc_log      = None
     target_new_hp = None
+    target_state  = None
     if attack_result_dict["hit"]:
-        target_new_hp, conc_log = await apply_attack_damage_to_target(
+        target_new_hp, conc_log, target_state = await apply_attack_damage_to_target(
             db,
             session_id=session_id,
             enemies=enemies,
@@ -239,6 +240,7 @@ async def combat_action(
         "damage":               damage,
         "target_id":            prepared.target_id,
         "target_new_hp":        target_new_hp,
+        "target_state":         target_state,
         "ranged_penalty":       prepared.ranged_penalty,
         "cover_bonus":          prepared.cover_bonus,
         "feat_power_attack":    prepared.feat_power_attack,

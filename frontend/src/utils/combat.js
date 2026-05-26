@@ -60,22 +60,51 @@ export function aoeRadiusCells(spell) {
   return 3
 }
 
-/**
- * 不可变地更新 combat.entities[targetId].hp_current。
- * HP 下限 0。调用方无需 structuredClone。
- *
- * @param {object} combat
- * @param {string|null} targetId
- * @param {number|null|undefined} newHp
- * @returns {object} 新的 combat 对象（未命中时返回原对象）
- */
-export function applyHpUpdate(combat, targetId, newHp) {
-  if (!targetId || newHp === null || newHp === undefined) return combat
-  const entities = { ...combat.entities }
-  if (entities[targetId]) {
-    entities[targetId] = { ...entities[targetId], hp_current: Math.max(0, newHp) }
+function normalizeEntityStateUpdate(targetId, update = {}) {
+  if (!targetId && !update?.target_id && !update?.entity_id) return null
+  const resolvedTargetId = targetId || update.target_id || update.entity_id
+  const rawHp = update.hp_current ?? update.new_hp ?? update.hp
+  const normalized = { target_id: resolvedTargetId }
+
+  if (rawHp !== null && rawHp !== undefined) {
+    normalized.hp_current = Math.max(0, rawHp)
   }
+  if ('death_saves' in update) normalized.death_saves = update.death_saves
+  if ('conditions' in update) normalized.conditions = update.conditions || []
+  if ('condition_durations' in update) normalized.condition_durations = update.condition_durations || {}
+  if ('life_state' in update) normalized.life_state = update.life_state
+  return normalized
+}
+
+/**
+ * 不可变地更新 combat.entities[targetId] 的 HP / death_saves / conditions / life_state。
+ * 兼容旧调用 applyHpUpdate(combat, targetId, newHp) 和新调用 applyEntityStateUpdate(combat, update)。
+ */
+export function applyEntityStateUpdate(combat, targetIdOrUpdate, maybeUpdate) {
+  if (!combat) return combat
+  const update = typeof targetIdOrUpdate === 'object'
+    ? normalizeEntityStateUpdate(null, targetIdOrUpdate)
+    : normalizeEntityStateUpdate(targetIdOrUpdate, typeof maybeUpdate === 'object'
+      ? maybeUpdate
+      : { hp_current: maybeUpdate })
+  if (!update?.target_id) return combat
+
+  const current = combat.entities?.[update.target_id]
+  if (!current) return combat
+
+  const entities = { ...(combat.entities || {}) }
+  const nextEntity = { ...current }
+  if ('hp_current' in update) nextEntity.hp_current = update.hp_current
+  if ('death_saves' in update) nextEntity.death_saves = update.death_saves
+  if ('conditions' in update) nextEntity.conditions = update.conditions
+  if ('condition_durations' in update) nextEntity.condition_durations = update.condition_durations
+  if ('life_state' in update) nextEntity.life_state = update.life_state
+  entities[update.target_id] = nextEntity
   return { ...combat, entities }
+}
+
+export function applyHpUpdate(combat, targetId, newHp) {
+  return applyEntityStateUpdate(combat, targetId, newHp)
 }
 
 /**
@@ -101,12 +130,44 @@ export function applyAoeHpUpdates(combat, aoeResults = []) {
 
   let updated = combat
   for (const aoe of aoeResults) {
-    const hp = aoe.new_hp != null ? aoe.new_hp : aoe.hp
-    if (hp != null) {
-      updated = applyHpUpdate(updated, aoe.target_id, hp)
-    }
+    updated = applyEntityStateUpdate(updated, aoe)
   }
   return updated
+}
+
+export function applyEntityStateUpdates(combat, updates = []) {
+  if (!combat || !updates?.length) return combat
+  return updates.reduce((updated, update) => applyEntityStateUpdate(updated, update), combat)
+}
+
+export function applyActionResultEntityStates(combat, result = {}) {
+  if (!combat || !result) return combat
+
+  let updated = combat
+  if (result.target_state) {
+    updated = applyEntityStateUpdate(updated, result.target_state)
+  } else if (result.target_id && result.target_new_hp !== null && result.target_new_hp !== undefined) {
+    updated = applyEntityStateUpdate(updated, result.target_id, result.target_new_hp)
+  }
+  updated = applyEntityStateUpdates(updated, result.aoe_results || [])
+  updated = applyEntityStateUpdates(updated, result.resurrection_results || [])
+  return updated
+}
+
+export function getCombatLifeState(ent) {
+  if (!ent) return 'alive'
+  if (ent.life_state) return ent.life_state
+  const hp = ent.hp_current ?? 0
+  const saves = ent.death_saves || {}
+  if (hp > 0) return 'alive'
+  if ((saves.failures || 0) >= 3) return 'dead'
+  if (saves.stable) return 'stable'
+  if ('death_saves' in ent || ent.is_enemy === false || ent.is_player) return 'dying'
+  return hp <= 0 ? 'dead' : 'alive'
+}
+
+export function isCombatEntityDead(ent) {
+  return getCombatLifeState(ent) === 'dead'
 }
 
 /**
@@ -219,8 +280,9 @@ export function buildInitiativeChips({ turnOrder = [], currentTurnIndex = 0, ent
     const hpMax = ent?.hp_max ?? 1
     const pct = Math.max(0, Math.min(100, (hp / hpMax) * 100))
     const isCur = i === (currentTurnIndex ?? 0)
-    const dead = hp <= 0
-    return { ent, t, i, pct, isCur, dead, low: pct < 34 }
+    const lifeState = getCombatLifeState(ent)
+    const dead = lifeState === 'dead'
+    return { ent, t, i, pct, isCur, dead, lifeState, low: pct < 34 }
   })
 }
 

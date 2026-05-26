@@ -34,6 +34,7 @@ class ConfirmedSpellResult:
     heal: int
     target_id: str | None
     target_new_hp: int | None
+    target_state: dict[str, Any] | None
     aoe_results: list[dict[str, Any]]
     resurrection_results: list[dict[str, Any]]
     remaining_slots: dict[str, Any]
@@ -189,6 +190,7 @@ async def confirm_pending_spell(
         heal=spell_application.result_heal,
         target_id=target_ids[0] if target_ids else None,
         target_new_hp=spell_application.target_new_hp,
+        target_state=spell_application.target_state,
         aoe_results=spell_application.aoe_results,
         resurrection_results=spell_application.resurrection_results,
         remaining_slots=new_slots,

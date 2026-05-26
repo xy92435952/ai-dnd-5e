@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
-import { applyHpUpdate, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
+import { applyActionResultEntityStates, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
 
 const AI_TURN_LIMIT = 20
 
@@ -73,7 +73,7 @@ export function useCombatAiTurns({
 
         setCombat(prev => {
           if (!prev) return prev
-          const updated = applyHpUpdate(prev, result.target_id, result.target_new_hp)
+          const updated = applyActionResultEntityStates(prev, result)
           return {
             ...updated,
             current_turn_index: result.next_turn_index,

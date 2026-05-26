@@ -115,4 +115,47 @@ describe('IsoBattlefield', () => {
     expect(onSelectTarget).toHaveBeenCalledWith('enemy')
     expect(onHelpTarget).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps dying allies selectable for rescue spells instead of treating them as dead', () => {
+    const onSelectTarget = vi.fn()
+
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{ ally: { x: 0, y: 0 } }}
+        entities={{
+          ally: {
+            id: 'ally',
+            name: 'Downed Ally',
+            is_enemy: false,
+            hp_current: 0,
+            hp_max: 10,
+            life_state: 'dying',
+            death_saves: { successes: 0, failures: 1, stable: false },
+          },
+        }}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set() }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={null}
+        aoeHover={null}
+        playerId="player"
+        onSelectTarget={onSelectTarget}
+        onMoveTo={vi.fn()}
+        onAoeHover={vi.fn()}
+      />
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(container.querySelector('.iso-unit.life-dying')).toBeTruthy()
+    fireEvent.click(cell)
+    expect(onSelectTarget).toHaveBeenCalledWith('ally')
+  })
 })

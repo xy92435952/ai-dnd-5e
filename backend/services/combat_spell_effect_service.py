@@ -12,6 +12,7 @@ from services.dnd_rules import (
     apply_character_healing,
     apply_character_resurrection,
     get_effective_hp_max,
+    get_life_state,
     is_dead,
     roll_saving_throw,
 )
@@ -135,7 +136,10 @@ async def apply_spell_damage_to_target(
         "target_name": target_character.name,
         "damage": damage,
         "new_hp": damage_result["hp_after"],
+        "hp_current": damage_result["hp_after"],
         "death_saves": damage_result["death_saves"],
+        "conditions": damage_result["conditions"],
+        "life_state": get_life_state(target_character),
         "save": save_result,
     }, concentration_log
 
@@ -152,8 +156,11 @@ async def apply_spell_heal_to_target(db, target_id: str, heal: int):
         "target_name": target_character.name,
         "heal": heal,
         "new_hp": heal_result["hp_after"],
+        "hp_current": heal_result["hp_after"],
         "revived": heal_result["revived"],
         "death_saves": heal_result["death_saves"],
+        "conditions": heal_result["conditions"],
+        "life_state": get_life_state(target_character),
     }
 
 
@@ -173,8 +180,11 @@ async def apply_resurrection_spell_to_target(db, target_id: str, spell_name: str
             "target_name": target_character.name,
             "resurrected": False,
             "new_hp": target_character.hp_current,
+            "hp_current": target_character.hp_current,
             "hp_max": hp_max,
             "death_saves": target_character.death_saves,
+            "conditions": target_character.conditions or [],
+            "life_state": get_life_state(target_character),
             "reason": "target_not_dead",
         }
 
@@ -184,9 +194,11 @@ async def apply_resurrection_spell_to_target(db, target_id: str, spell_name: str
         "target_name": target_character.name,
         "resurrected": True,
         "new_hp": result["hp_after"],
+        "hp_current": result["hp_after"],
         "hp_max": hp_max,
         "death_saves": result["death_saves"],
         "conditions": result["conditions"],
+        "life_state": get_life_state(target_character),
     }
 
 

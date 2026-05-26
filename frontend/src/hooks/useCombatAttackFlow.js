@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
-import { applyHpUpdate, parseDiceNotation } from '../utils/combat'
+import { applyActionResultEntityStates, parseDiceNotation } from '../utils/combat'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 
 function ignoreOptionalEffect(fn) {
@@ -95,7 +95,7 @@ export function useCombatAttackFlow({
 
           setCombat(prev => {
             if (!prev) return prev
-            return applyHpUpdate(prev, dmgResult.target_id, dmgResult.target_new_hp)
+            return applyActionResultEntityStates(prev, dmgResult)
           })
 
           if (dmgResult.turn_state) setTurnState(dmgResult.turn_state)

@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyHpUpdate } from '../utils/combat'
+import { applyActionResultEntityStates } from '../utils/combat'
 
 export function useCombatSpecialActions({
   sessionId,
@@ -41,7 +41,10 @@ export function useCombatSpecialActions({
       if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)
       setCombat(prev => {
         if (!prev) return prev
-        return applyHpUpdate(prev, currentSmiteTarget, result.target_new_hp)
+        return applyActionResultEntityStates(prev, {
+          ...result,
+          target_id: result.target_id || currentSmiteTarget,
+        })
       })
       if (result.combat_over) setCombatOver(result.outcome)
     } catch (e) {
@@ -124,10 +127,10 @@ export function useCombatSpecialActions({
       if (result.class_resources) setClassResources(result.class_resources)
       setCombat(prev => {
         if (!prev) return prev
-        if (result.target_new_hp !== undefined && result.target_new_hp !== null) {
-          return applyHpUpdate(prev, selectedTarget, result.target_new_hp)
-        }
-        return prev
+        return applyActionResultEntityStates(prev, {
+          ...result,
+          target_id: result.target_id || selectedTarget,
+        })
       })
     } catch (e) {
       setError(e.message)

@@ -159,3 +159,68 @@ async def test_confirm_pending_heal_rejects_dead_target_before_consuming_slot():
     assert caster.spell_slots == {"1st": 1}
     assert "pending_spell" in combat.turn_states["caster-1"]
     assert dead_target.hp_current == 0
+
+
+@pytest.mark.asyncio
+async def test_confirm_pending_resurrection_returns_target_state():
+    from types import SimpleNamespace
+
+    from services import combat_spell_confirm_service as confirm_service
+
+    class ResurrectionSpellService(FakeSpellService):
+        def consume_slot(self, slots, spell_level):
+            slots = dict(slots)
+            slots["5th"] = slots.get("5th", 0) - 1
+            return slots, None
+
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.spell_slots = {"5th": 1}
+    dead_target = SimpleNamespace(
+        id="ally-1",
+        name="Ally",
+        hp_current=0,
+        derived={"hp_max": 12},
+        condition_durations={},
+        death_saves={"successes": 0, "failures": 3, "stable": False},
+        conditions=["unconscious"],
+    )
+
+    result = await confirm_service.confirm_pending_spell(
+        FakeDb({"ally-1": dead_target}),
+        session_id="sess-1",
+        combat_obj=combat,
+        caster=caster,
+        caster_entity_id="caster-1",
+        pending={
+            "spell_name": "复活死者",
+            "spell_level": 5,
+            "target_ids": ["ally-1"],
+            "is_cantrip": False,
+            "is_aoe": False,
+            "spell_type": "utility",
+        },
+        spell={"name_en": "Raise Dead", "type": "utility"},
+        state={"enemies": []},
+        enemies=[],
+        damage_values=None,
+        spell_service_obj=ResurrectionSpellService(),
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        complete_pending_spell_func=complete_pending_spell,
+    )
+
+    assert result.target_new_hp == 1
+    assert result.target_state == {
+        "target_id": "ally-1",
+        "target_name": "Ally",
+        "resurrected": True,
+        "new_hp": 1,
+        "hp_current": 1,
+        "hp_max": 12,
+        "death_saves": None,
+        "conditions": [],
+        "life_state": "alive",
+    }
+    assert result.resurrection_results == [result.target_state]
+    assert result.remaining_slots == {"5th": 0}
+    assert dead_target.hp_current == 1

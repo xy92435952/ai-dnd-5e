@@ -19,7 +19,7 @@ from services.combat_damage_bonus_service import (
 )
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state
-from services.dnd_rules import _normalize_class, apply_character_damage
+from services.dnd_rules import _normalize_class, apply_character_damage, get_life_state
 from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
@@ -174,6 +174,7 @@ async def apply_attack_damage_to_target(
     """Apply final weapon damage to an enemy dict or Character."""
     if target_is_enemy:
         target_new_hp = None
+        target_state = None
         for enemy in enemies:
             if enemy.get("id") == target_id:
                 enemy["hp_current"] = svc.apply_damage(
@@ -182,14 +183,28 @@ async def apply_attack_damage_to_target(
                     enemy.get("derived", {}).get("hp_max", 10),
                 )
                 target_new_hp = enemy["hp_current"]
-        return target_new_hp, None
+                target_state = {
+                    "target_id": target_id,
+                    "hp_current": target_new_hp,
+                    "new_hp": target_new_hp,
+                    "conditions": enemy.get("conditions", []),
+                    "life_state": "dead" if target_new_hp <= 0 else "alive",
+                }
+        return target_new_hp, None, target_state
 
     target_character = await db.get(Character, target_id)
     if not target_character:
-        return None, None
+        return None, None, None
     if session is not None:
         await assert_character_in_session(target_character, session, db)
 
     damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
-    return damage_result["hp_after"], concentration_log
+    return damage_result["hp_after"], concentration_log, {
+        "target_id": target_id,
+        "hp_current": damage_result["hp_after"],
+        "new_hp": damage_result["hp_after"],
+        "death_saves": damage_result["death_saves"],
+        "conditions": damage_result["conditions"],
+        "life_state": get_life_state(target_character),
+    }

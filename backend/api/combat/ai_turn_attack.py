@@ -21,7 +21,7 @@ from services.combat_ai_attack_service import (
 )
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
-from services.dnd_rules import roll_dice, _normalize_class, apply_character_damage
+from services.dnd_rules import roll_dice, _normalize_class, apply_character_damage, get_life_state
 
 
 async def handle_ai_attack_action(
@@ -61,6 +61,7 @@ async def handle_ai_attack_action(
     target_id = None
     target_name = ""
     target_new_hp = None
+    target_state = None
     total_damage = 0
     all_narrations = []
     target_attack_events = []
@@ -245,6 +246,14 @@ async def handle_ai_attack_action(
                         )
                         applied_damage = final_dmg
                         target_new_hp = tchar.hp_current
+                        target_state = {
+                            "target_id": target_id,
+                            "hp_current": target_new_hp,
+                            "new_hp": target_new_hp,
+                            "death_saves": tchar.death_saves,
+                            "conditions": tchar.conditions or [],
+                            "life_state": get_life_state(tchar),
+                        }
                         target_name = tchar.name
                         if tchar.is_player and applied_damage > 0:
                             target_attack_events.append({
@@ -388,6 +397,7 @@ async def handle_ai_attack_action(
         "damage": total_damage,
         "target_id": target_id,
         "target_new_hp": target_new_hp,
+        "target_state": target_state,
         "concentration_check": conc_log.dice_result if conc_log else None,
         "player_targeted": player_targeted,
         "player_can_react": player_can_react,

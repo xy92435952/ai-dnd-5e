@@ -19,6 +19,7 @@ class SpellApplicationResult:
     result_heal: int = 0
     dice_detail: dict[str, Any] = field(default_factory=dict)
     target_new_hp: int | None = None
+    target_state: dict[str, Any] | None = None
     aoe_results: list[dict[str, Any]] = field(default_factory=list)
     resurrection_results: list[dict[str, Any]] = field(default_factory=list)
     concentration_logs: list[Any] = field(default_factory=list)
@@ -128,6 +129,7 @@ async def apply_confirmed_spell_effects(
         )
         if applied:
             result.target_new_hp = applied["new_hp"]
+            result.target_state = applied
             result.enemies_changed = applied["target_id"] in {enemy.get("id") for enemy in enemies}
         if concentration_log:
             result.concentration_logs.append(concentration_log)
@@ -146,12 +148,14 @@ async def apply_confirmed_spell_effects(
         applied = await apply_spell_heal_to_target(db, target_id, result.result_heal)
         if applied:
             result.target_new_hp = applied["new_hp"]
+            result.target_state = applied
 
     elif spell_type == "utility" and target_id and get_resurrection_spell_config(spell_name, spell):
         applied = await apply_resurrection_spell_to_target(db, target_id, spell_name, spell)
         if applied:
             result.resurrection_results.append(applied)
             result.target_new_hp = applied["new_hp"]
+            result.target_state = applied
 
     elif spell_type in ("control", "utility") and target_id:
         result.condition_name, save_ability = resolve_spell_condition(spell_name, spell)
