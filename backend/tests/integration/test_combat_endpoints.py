@@ -8,6 +8,7 @@
 
 战斗初始化我们直接手动插入 CombatState（不跑 AI，避开 /action 触发的复杂链路）。
 """
+import asyncio
 import uuid as _uuid
 import pytest
 import pytest_asyncio
@@ -248,6 +249,43 @@ async def test_ai_turn_dash_decision_does_not_500(
     data = r.json()
     assert data["actor_name"] == "兽人"
     assert data["next_turn_index"] == 1
+
+
+async def test_concurrent_ai_turn_with_same_token_only_advances_once(
+    client, db_session, sample_session, ai_turn_combat, sample_user, monkeypatch,
+):
+    import services.ai_combat_agent as ai_agent
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "dash",
+            "target_id": sample_session.player_character_id,
+            "action_name": None,
+            "reason": "concurrent guard",
+        }
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+
+    headers = await _auth_headers(client, sample_user)
+    response_one, response_two = await asyncio.gather(
+        client.post(
+            f"/game/combat/{sample_session.id}/ai-turn",
+            headers=headers,
+            json={"expected_turn_token": "1:0:orc-1"},
+        ),
+        client.post(
+            f"/game/combat/{sample_session.id}/ai-turn",
+            headers=headers,
+            json={"expected_turn_token": "1:0:orc-1"},
+        ),
+    )
+
+    status_codes = sorted([response_one.status_code, response_two.status_code])
+    assert status_codes == [200, 409]
+    await db_session.refresh(ai_turn_combat)
+    assert ai_turn_combat.current_turn_index == 1
+    assert ai_turn_combat.round_number == 1
 
 
 async def test_ai_fire_attack_respects_player_fire_resistance(
