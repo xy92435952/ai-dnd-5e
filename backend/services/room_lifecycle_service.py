@@ -100,15 +100,15 @@ async def join_room(
         raise HTTPException(404, "房间码无效")
     if not session.is_multiplayer:
         raise HTTPException(400, "该房间不是多人房间")
-    if is_game_started(session):
-        raise HTTPException(409, "游戏已经开始，无法加入")
-
     member = await get_member(db, session.id, user_id)
     if member:
         member.last_seen_at = datetime.utcnow()
         await db.commit()
         await db.refresh(member)
         return session, member
+
+    if is_game_started(session):
+        raise HTTPException(409, "游戏已经开始，无法加入")
 
     members_count = await count_members(db, session.id)
     if members_count >= session.max_players:

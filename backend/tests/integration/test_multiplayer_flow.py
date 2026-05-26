@@ -478,6 +478,119 @@ async def test_get_session_returns_current_member_character_for_multiplayer(
     assert guest_snapshot["player"]["id"] == guest_char["id"]
 
 
+async def test_temporary_disconnect_keeps_character_reserved_for_member(
+    client, db_session, sample_module,
+):
+    from models import Character
+    from services import room_service
+
+    host = await _register(client, "disconnect_owner_host")
+    owner = await _register(client, "disconnect_owner")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(owner["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    owner_char = await _create_character(
+        client,
+        owner["token"],
+        sample_module.id,
+        "Reserved Disconnect Character",
+    )
+    claimed = await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(owner["token"]),
+        json={"character_id": owner_char["id"]},
+    )
+    assert claimed.status_code == 200, claimed.text
+
+    await room_service.mark_offline(db_session, sid, owner["user_id"])
+
+    stolen = await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": owner_char["id"]},
+    )
+    assert stolen.status_code == 409, stolen.text
+
+    char = await db_session.get(Character, owner_char["id"])
+    assert char.user_id == owner["user_id"]
+    assert char.is_player is True
+
+    room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
+    owner_member = next(member for member in room["members"] if member["user_id"] == owner["user_id"])
+    assert owner_member["character_id"] == owner_char["id"]
+    assert owner_member["is_online"] is False
+
+
+async def test_started_room_member_can_rejoin_without_reclaiming_character(
+    client, db_session, sample_module,
+):
+    from models import SessionMember
+    from services import room_service
+    from sqlalchemy import select
+
+    host = await _register(client, "started_reconnect_host")
+    guest = await _register(client, "started_reconnect_guest")
+    late_user = await _register(client, "started_reconnect_late")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    host_char = await _create_character(client, host["token"], sample_module.id, "Reconnect Host")
+    guest_char = await _create_character(client, guest["token"], sample_module.id, "Reconnect Guest")
+    for user, char in ((host, host_char), (guest, guest_char)):
+        claimed = await client.post(
+            f"/game/rooms/{sid}/claim-character",
+            headers=_h(user["token"]),
+            json={"character_id": char["id"]},
+        )
+        assert claimed.status_code == 200, claimed.text
+
+    await _ready_for_start(client, sid, host, guest)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+    await room_service.mark_offline(db_session, sid, guest["user_id"])
+
+    rejoined = await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+    assert rejoined.status_code == 200, rejoined.text
+
+    blocked_late_join = await client.post("/game/rooms/join", headers=_h(late_user["token"]), json={
+        "room_code": create["room_code"],
+    })
+    assert blocked_late_join.status_code == 409
+
+    rows = await db_session.execute(
+        select(SessionMember).where(
+            SessionMember.session_id == sid,
+            SessionMember.user_id == guest["user_id"],
+        )
+    )
+    guest_memberships = rows.scalars().all()
+    assert len(guest_memberships) == 1
+    assert guest_memberships[0].character_id == guest_char["id"]
+
+    room = (await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))).json()
+    guest_member = next(member for member in room["members"] if member["user_id"] == guest["user_id"])
+    assert guest_member["is_online"] is True
+    assert guest_member["character_id"] == guest_char["id"]
+
+    snapshot = (await client.get(f"/game/sessions/{sid}", headers=_h(guest["token"]))).json()
+    assert snapshot["player"]["id"] == guest_char["id"]
+
+
 async def test_get_session_normalizes_multiplayer_group_state_after_join(
     client, sample_module,
 ):
@@ -1823,6 +1936,16 @@ async def test_ai_takeover_speaker_offline_succeeds(
     assert lt.get("ai_takeover") is True
     assert lt.get("takeover_by") == host["user_id"]
     assert sess.game_state["multiplayer"]["current_speaker_user_id"] == host["user_id"]
+    await db_session.refresh(char)
+    assert char.is_player is True
+    assert char.user_id == offline["user_id"]
+    sm_after_takeover = (await db_session.execute(
+        _select(SessionMember).where(
+            SessionMember.session_id == sid,
+            SessionMember.user_id == offline["user_id"],
+        )
+    )).scalar_one()
+    assert sm_after_takeover.character_id == char.id
     assert any(
         event["type"] == "dm_speak_turn" and event["user_id"] == host["user_id"]
         for event in broadcasts
