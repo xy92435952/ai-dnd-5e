@@ -63,6 +63,7 @@ nul
 uvicorn.log
 
 # 测试产物
+.codex-test-artifacts/
 .pytest_cache/
 backend/tests/_tmp_*
 backend/tests/**/.pytest_cache/

@@ -12,7 +12,7 @@ vi.mock('../../api/client', () => ({
 }))
 
 import { gameApi } from '../../api/client'
-import { useAdventureActions } from '../useAdventureActions'
+import { formatRestSummary, useAdventureActions } from '../useAdventureActions'
 
 
 function makeDeps(overrides = {}) {
@@ -141,5 +141,60 @@ describe('useAdventureActions', () => {
     expect(deps.setInput).not.toHaveBeenCalled()
     expect(deps.addLog).not.toHaveBeenCalled()
     expect(deps.inputRef.current.focus).toHaveBeenCalledTimes(1)
+  })
+
+  it('formats detailed long rest rule results for the adventure log', () => {
+    const summary = formatRestSummary({
+      characters: [{
+        name: 'Aria',
+        hp_recovered: 7,
+        hp_current: 12,
+        hp_max: 12,
+        hit_dice_restored: 1,
+        hit_dice_remaining: 1,
+        hit_dice_total: 3,
+        slots_restored: { '1st': 2 },
+        exhaustion_level_before: 2,
+        exhaustion_level_after: 1,
+        conditions_removed: ['poisoned'],
+        death_saves_reset: true,
+      }],
+    }, 'long')
+
+    expect(summary).toContain('Aria HP+7 → 12/12')
+    expect(summary).toContain('生命骰+1')
+    expect(summary).toContain('剩余 1/3')
+    expect(summary).toContain('法术位 1st+2')
+    expect(summary).toContain('力竭 2→1')
+    expect(summary).toContain('移除 poisoned')
+    expect(summary).toContain('重置濒死豁免')
+  })
+
+  it('formats short rest hit dice details without hiding no-op cases', () => {
+    expect(formatRestSummary({
+      characters: [{
+        name: 'Borin',
+        hp_recovered: 5,
+        hp_current: 9,
+        hp_max: 12,
+        hit_dice_spent: 1,
+        hit_die_roll: 3,
+        con_mod: 2,
+        hit_dice_remaining: 0,
+        hit_dice_total: 1,
+      }],
+    }, 'short')).toContain('生命骰 3+2')
+
+    expect(formatRestSummary({
+      characters: [{
+        name: 'Celia',
+        hp_recovered: 0,
+        hp_current: 10,
+        hp_max: 10,
+        no_healing_needed: true,
+        hit_dice_remaining: 1,
+        hit_dice_total: 1,
+      }],
+    }, 'short')).toContain('满血未消耗生命骰')
   })
 })

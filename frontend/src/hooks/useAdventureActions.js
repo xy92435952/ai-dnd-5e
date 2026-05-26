@@ -15,6 +15,52 @@
 import { useCallback } from 'react'
 import { gameApi, charactersApi } from '../api/client'
 
+function formatSlotSummary(slots) {
+  if (!slots || Object.keys(slots).length === 0) return ''
+  return `法术位 ${Object.entries(slots).map(([level, count]) => `${level}+${count}`).join('/')}`
+}
+
+function formatRestCharacterSummary(character, restType) {
+  const parts = [
+    `${character.name} HP+${character.hp_recovered} → ${character.hp_current}${character.hp_max ? `/${character.hp_max}` : ''}`,
+  ]
+  if (restType === 'short') {
+    if (character.hit_dice_spent) {
+      const con = character.con_mod || 0
+      const conText = con >= 0 ? `+${con}` : `${con}`
+      parts.push(`生命骰 ${character.hit_die_roll}${conText}`)
+    } else if (character.no_healing_needed) {
+      parts.push('满血未消耗生命骰')
+    } else if (character.no_hit_dice) {
+      parts.push('无可用生命骰')
+    }
+  }
+  if (restType === 'long' && character.hit_dice_restored) {
+    parts.push(`生命骰+${character.hit_dice_restored}`)
+  }
+  if (character.hit_dice_remaining != null && character.hit_dice_total != null) {
+    parts.push(`剩余 ${character.hit_dice_remaining}/${character.hit_dice_total}`)
+  }
+  const slotSummary = formatSlotSummary(character.slots_restored)
+  if (slotSummary) parts.push(slotSummary)
+  if (character.exhaustion_level_before != null && character.exhaustion_level_after != null
+    && character.exhaustion_level_before !== character.exhaustion_level_after) {
+    parts.push(`力竭 ${character.exhaustion_level_before}→${character.exhaustion_level_after}`)
+  }
+  if (character.conditions_removed?.length) {
+    parts.push(`移除 ${character.conditions_removed.join('/')}`)
+  }
+  if (character.death_saves_reset) {
+    parts.push('重置濒死豁免')
+  }
+  return parts.join('，')
+}
+
+export function formatRestSummary(result, restType) {
+  const summaries = result.characters?.map(c => formatRestCharacterSummary(c, restType)).filter(Boolean) || []
+  return summaries.length ? summaries.join(' | ') : '没有角色状态变化'
+}
+
 export function useAdventureActions({
   sessionId,
   playerId,
@@ -162,7 +208,7 @@ export function useAdventureActions({
     setIsLoading(true)
     try {
       const result = await gameApi.rest(sessionId, restType)
-      const summary = result.characters?.map(c => `${c.name} HP+${c.hp_recovered} → ${c.hp_current}`).join(' | ')
+      const summary = formatRestSummary(result, restType)
       addLog('system', `🌙 完成${restType === 'long' ? '长休' : '短休'}。${summary}`, 'system')
       await refreshCharacters()
     } catch (e) {

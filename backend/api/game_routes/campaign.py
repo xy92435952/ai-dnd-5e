@@ -18,6 +18,33 @@ from services.langgraph_client import langgraph_client
 
 router = APIRouter(prefix="/game", tags=["game"])
 
+LONG_REST_REDUCED_CONDITIONS = {
+    "exhaustion",
+    "poisoned",
+    "frightened",
+    "charmed",
+    "unconscious",
+    "stunned",
+    "restrained",
+    "grappled",
+    "prone",
+    "incapacitated",
+    "paralyzed",
+}
+LONG_REST_PERSISTENT_CONDITIONS = {
+    "blinded",
+    "deafened",
+    "petrified",
+    "invisible",
+}
+LONG_REST_TRANSIENT_RESOURCE_FLAGS = {
+    "raging",
+    "wild_shape_active",
+    "wild_shape_hp",
+    "symbiotic_entity_active",
+    "portent_value",
+}
+
 
 @router.post("/sessions/{session_id}/journal")
 async def generate_journal(
@@ -168,21 +195,12 @@ def _apply_rest_to_character(character, rest_type: str) -> dict:
         character.hit_dice_remaining = character.level
 
     if rest_type == "long":
-        cls_key = _normalize_class(character.char_class)
-        restored_dice = max(1, character.level // 2)
-        character.hp_current = hp_max
-        character.spell_slots = slots_max
-        character.conditions = []
-        character.concentration = None
-        character.hit_dice_remaining = min(character.level, (character.hit_dice_remaining or 0) + restored_dice)
-        character.class_resources = get_class_resource_defaults(cls_key, character.level, subclass=character.subclass)
-        return {
-            "name": character.name,
-            "hp_recovered": hp_max - old_hp,
-            "hp_current": hp_max,
-            "slots_restored": slots_max,
-            "hit_dice_remaining": character.hit_dice_remaining,
-        }
+        return _apply_long_rest_to_character(
+            character=character,
+            old_hp=old_hp,
+            hp_max=hp_max,
+            slots_max=slots_max,
+        )
 
     return _apply_short_rest_to_character(
         character=character,
@@ -193,6 +211,85 @@ def _apply_rest_to_character(character, rest_type: str) -> dict:
         caster_type=caster_type,
         slots_max=slots_max,
     )
+
+
+def _apply_long_rest_to_character(*, character, old_hp: int, hp_max: int, slots_max: dict) -> dict:
+    cls_key = _normalize_class(character.char_class)
+    hit_dice_before = character.hit_dice_remaining or 0
+    restored_dice_budget = max(1, character.level // 2)
+    hit_dice_after = min(character.level, hit_dice_before + restored_dice_budget)
+    conditions_before = list(character.conditions or [])
+    durations_before = dict(character.condition_durations or {})
+    exhaustion_before = int(durations_before.get("exhaustion_level", 0) or 0)
+    death_saves_before = dict(character.death_saves or {})
+
+    exhaustion_after = max(0, exhaustion_before - 1)
+    durations_after = dict(durations_before)
+    if exhaustion_before:
+        durations_after["exhaustion_level"] = exhaustion_after
+    if exhaustion_after == 0:
+        durations_after.pop("exhaustion_level", None)
+
+    conditions_after = _long_rest_conditions_after(
+        conditions_before=conditions_before,
+        exhaustion_after=exhaustion_after,
+    )
+    conditions_removed = [cond for cond in conditions_before if cond not in conditions_after]
+    for condition in conditions_removed:
+        if condition != "exhaustion":
+            durations_after.pop(condition, None)
+
+    character.hp_current = hp_max
+    character.spell_slots = slots_max
+    character.conditions = conditions_after
+    character.condition_durations = durations_after
+    character.concentration = None
+    character.death_saves = None
+    character.hit_dice_remaining = hit_dice_after
+    character.class_resources = _long_rest_class_resources(character, cls_key)
+    _flag_character_json_fields(character)
+
+    return {
+        "name": character.name,
+        "hp_recovered": hp_max - old_hp,
+        "hp_current": hp_max,
+        "hp_max": hp_max,
+        "slots_restored": slots_max,
+        "hit_dice_remaining": character.hit_dice_remaining,
+        "hit_dice_total": character.level,
+        "hit_dice_restored": hit_dice_after - hit_dice_before,
+        "conditions_removed": conditions_removed,
+        "exhaustion_level_before": exhaustion_before,
+        "exhaustion_level_after": exhaustion_after,
+        "death_saves_reset": bool(death_saves_before),
+        "class_resources": character.class_resources,
+    }
+
+
+def _long_rest_conditions_after(*, conditions_before: list[str], exhaustion_after: int) -> list[str]:
+    result = []
+    for condition in conditions_before:
+        if condition == "exhaustion":
+            if exhaustion_after > 0:
+                result.append(condition)
+            continue
+        if condition in LONG_REST_REDUCED_CONDITIONS:
+            continue
+        if condition in LONG_REST_PERSISTENT_CONDITIONS:
+            result.append(condition)
+            continue
+        # Unknown conditions are usually exploration/encounter effects; keep them
+        # until a rule, item, or scene explicitly removes them.
+        result.append(condition)
+    return result
+
+
+def _long_rest_class_resources(character, cls_key: str) -> dict:
+    resources = get_class_resource_defaults(cls_key, character.level, subclass=character.subclass)
+    resources.update(_rest_calculated_resource_values(character, cls_key))
+    for key in LONG_REST_TRANSIENT_RESOURCE_FLAGS:
+        resources.pop(key, None)
+    return resources
 
 
 def _apply_short_rest_to_character(
@@ -207,12 +304,14 @@ def _apply_short_rest_to_character(
 ) -> dict:
     hd_remaining = character.hit_dice_remaining or 0
     hit_roll_result = None
-    if hd_remaining > 0:
+    hit_dice_spent = 0
+    if hd_remaining > 0 and character.hp_current < hp_max:
         hit_roll = roll_dice(f"1d{hit_die}")
         heal_amt = max(1, hit_roll["total"] + con_mod)
         character.hp_current = min(hp_max, character.hp_current + heal_amt)
         character.hit_dice_remaining = hd_remaining - 1
         hit_roll_result = hit_roll["rolls"][0]
+        hit_dice_spent = 1
 
     if caster_type == "pact":
         character.spell_slots = slots_max
@@ -221,6 +320,7 @@ def _apply_short_rest_to_character(
     changed = _restore_short_rest_class_resources(character, class_resources)
     if changed:
         character.class_resources = class_resources
+    _flag_character_json_fields(character)
 
     return {
         "name": character.name,
@@ -228,9 +328,13 @@ def _apply_short_rest_to_character(
         "con_mod": con_mod,
         "hp_recovered": character.hp_current - old_hp,
         "hp_current": character.hp_current,
+        "hp_max": hp_max,
         "slots_restored": slots_max if caster_type == "pact" else {},
         "hit_dice_remaining": character.hit_dice_remaining,
-        "no_hit_dice": hd_remaining <= 0,
+        "hit_dice_total": character.level,
+        "hit_dice_spent": hit_dice_spent,
+        "no_hit_dice": hd_remaining <= 0 and character.hp_current < hp_max,
+        "no_healing_needed": old_hp >= hp_max,
         "class_resources": class_resources if changed else None,
     }
 
@@ -244,6 +348,8 @@ def _restore_short_rest_class_resources(character, class_resources: dict) -> boo
         sub_effects = (character.derived or {}).get("subclass_effects", {})
         if sub_effects.get("battle_master"):
             class_resources["superiority_dice_remaining"] = sub_effects.get("superiority_dice_max", 4)
+        if sub_effects.get("samurai"):
+            class_resources["fighting_spirit_remaining"] = sub_effects.get("fighting_spirit_uses", 1)
         return True
 
     if cls_key == "Monk" and character.level >= 2:
@@ -260,8 +366,15 @@ def _restore_short_rest_class_resources(character, class_resources: dict) -> boo
         return True
 
     if cls_key == "Druid":
+        class_resources["wild_shape_remaining"] = 2
+        class_resources.pop("wild_shape_active", None)
+        class_resources.pop("wild_shape_hp", None)
+        class_resources.pop("symbiotic_entity_active", None)
         _restore_druid_natural_recovery(character)
         return True
+
+    if cls_key == "Warlock":
+        return False
 
     return False
 
@@ -283,3 +396,32 @@ def _restore_druid_natural_recovery(character) -> None:
             current_slots[slot_key] = current + 1
             recovery_budget -= level
     character.spell_slots = current_slots
+
+
+def _rest_calculated_resource_values(character, cls_key: str) -> dict:
+    sub_effects = (character.derived or {}).get("subclass_effects", {})
+    ability_mods = (character.derived or {}).get("ability_modifiers", {})
+    values = {}
+    if cls_key == "Fighter" and sub_effects.get("samurai"):
+        values["fighting_spirit_remaining"] = sub_effects.get(
+            "fighting_spirit_uses",
+            max(1, ability_mods.get("wis", 1)),
+        )
+    if cls_key == "Bard":
+        values["bardic_inspiration_remaining"] = max(1, ability_mods.get("cha", 3))
+    if cls_key == "Cleric" and sub_effects.get("war_domain"):
+        values["war_priest_remaining"] = max(1, ability_mods.get("wis", 1))
+    if cls_key == "Wizard" and sub_effects.get("divination"):
+        values["portent_remaining"] = sub_effects.get("portent_count", 3 if character.level >= 14 else 2)
+    return values
+
+
+def _flag_character_json_fields(character) -> None:
+    for field in (
+        "spell_slots",
+        "conditions",
+        "condition_durations",
+        "death_saves",
+        "class_resources",
+    ):
+        flag_modified(character, field)

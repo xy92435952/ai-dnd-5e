@@ -153,12 +153,21 @@ class CharacterRestResult(BaseModel):
     name: str
     hp_recovered: int
     hp_current: int
+    hp_max: Optional[int] = None
     slots_restored: dict[str, Any] = {}
     hit_dice_remaining: Optional[int] = None
+    hit_dice_total: Optional[int] = None
+    hit_dice_spent: int = 0
+    hit_dice_restored: int = 0
+    conditions_removed: list[str] = []
+    exhaustion_level_before: Optional[int] = None
+    exhaustion_level_after: Optional[int] = None
+    death_saves_reset: bool = False
     # 短休专属（长休不带）
     hit_die_roll:    Optional[int] = None
     con_mod:         Optional[int] = None
     no_hit_dice:     Optional[bool] = None
+    no_healing_needed: Optional[bool] = None
     class_resources: Optional[dict[str, Any]] = None
 
 

@@ -772,6 +772,41 @@
             ],
             "title": "Con Mod"
           },
+          "conditions_removed": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Conditions Removed",
+            "type": "array"
+          },
+          "death_saves_reset": {
+            "default": false,
+            "title": "Death Saves Reset",
+            "type": "boolean"
+          },
+          "exhaustion_level_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exhaustion Level After"
+          },
+          "exhaustion_level_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exhaustion Level Before"
+          },
           "hit_dice_remaining": {
             "anyOf": [
               {
@@ -782,6 +817,27 @@
               }
             ],
             "title": "Hit Dice Remaining"
+          },
+          "hit_dice_restored": {
+            "default": 0,
+            "title": "Hit Dice Restored",
+            "type": "integer"
+          },
+          "hit_dice_spent": {
+            "default": 0,
+            "title": "Hit Dice Spent",
+            "type": "integer"
+          },
+          "hit_dice_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Dice Total"
           },
           "hit_die_roll": {
             "anyOf": [
@@ -798,6 +854,17 @@
             "title": "Hp Current",
             "type": "integer"
           },
+          "hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hp Max"
+          },
           "hp_recovered": {
             "title": "Hp Recovered",
             "type": "integer"
@@ -805,6 +872,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "no_healing_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Healing Needed"
           },
           "no_hit_dice": {
             "anyOf": [

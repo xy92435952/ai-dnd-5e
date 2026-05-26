@@ -1782,16 +1782,46 @@ export interface components {
             } | null;
             /** Con Mod */
             con_mod?: number | null;
+            /**
+             * Conditions Removed
+             * @default []
+             */
+            conditions_removed: string[];
+            /**
+             * Death Saves Reset
+             * @default false
+             */
+            death_saves_reset: boolean;
+            /** Exhaustion Level After */
+            exhaustion_level_after?: number | null;
+            /** Exhaustion Level Before */
+            exhaustion_level_before?: number | null;
             /** Hit Dice Remaining */
             hit_dice_remaining?: number | null;
+            /**
+             * Hit Dice Restored
+             * @default 0
+             */
+            hit_dice_restored: number;
+            /**
+             * Hit Dice Spent
+             * @default 0
+             */
+            hit_dice_spent: number;
+            /** Hit Dice Total */
+            hit_dice_total?: number | null;
             /** Hit Die Roll */
             hit_die_roll?: number | null;
             /** Hp Current */
             hp_current: number;
+            /** Hp Max */
+            hp_max?: number | null;
             /** Hp Recovered */
             hp_recovered: number;
             /** Name */
             name: string;
+            /** No Healing Needed */
+            no_healing_needed?: boolean | null;
             /** No Hit Dice */
             no_hit_dice?: boolean | null;
             /**

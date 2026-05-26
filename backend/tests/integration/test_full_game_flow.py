@@ -287,13 +287,21 @@ async def test_skill_check_non_proficient_no_bonus(
 async def test_long_rest_restores_hp_and_spells(
     client, db_session, sample_session, sample_character, sample_user,
 ):
-    """长休：HP 回满、法术位重置、conditions 清空、concentration 清掉。"""
+    """长休：HP 回满、资源恢复，临时条件清掉，力竭按 5e 规则降低 1 级。"""
     headers = await _auth_headers(client, sample_user)
 
     # 把角色弄受伤 + 加条件
     sample_character.hp_current = 3
-    sample_character.conditions = ["poisoned"]
+    sample_character.hit_dice_remaining = 0
+    sample_character.conditions = ["poisoned", "prone", "petrified", "exhaustion"]
+    sample_character.condition_durations = {
+        "poisoned": 3,
+        "prone": 1,
+        "petrified": 99,
+        "exhaustion_level": 2,
+    }
     sample_character.concentration = "Bless"
+    sample_character.death_saves = {"successes": 1, "failures": 2, "stable": False}
     await db_session.commit()
 
     r = await client.post(
@@ -307,12 +315,25 @@ async def test_long_rest_restores_hp_and_spells(
     assert len(data["characters"]) >= 1
     char_result = next(c for c in data["characters"] if c["name"] == sample_character.name)
     assert char_result["hp_current"] == sample_character.derived["hp_max"]
+    assert char_result["hp_max"] == sample_character.derived["hp_max"]
+    assert char_result["hit_dice_restored"] == 1
+    assert char_result["hit_dice_remaining"] == 1
+    assert char_result["exhaustion_level_before"] == 2
+    assert char_result["exhaustion_level_after"] == 1
+    assert char_result["death_saves_reset"] is True
+    assert "poisoned" in char_result["conditions_removed"]
+    assert "prone" in char_result["conditions_removed"]
+    assert "petrified" not in char_result["conditions_removed"]
+    assert "exhaustion" not in char_result["conditions_removed"]
 
     # DB 状态
     await db_session.refresh(sample_character)
     assert sample_character.hp_current == sample_character.derived["hp_max"]
-    assert sample_character.conditions == []
+    assert sample_character.conditions == ["petrified", "exhaustion"]
+    assert sample_character.condition_durations == {"petrified": 99, "exhaustion_level": 1}
     assert sample_character.concentration is None
+    assert sample_character.death_saves is None
+    assert sample_character.hit_dice_remaining == 1
 
 
 async def test_short_rest_consumes_hit_die(
@@ -337,6 +358,32 @@ async def test_short_rest_consumes_hit_die(
     assert sample_character.hp_current > 3
     # 生命骰被消耗
     assert sample_character.hit_dice_remaining == 0
+
+
+async def test_short_rest_does_not_spend_hit_die_at_full_hp(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    """满血短休只恢复短休资源，不浪费生命骰。"""
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = sample_character.derived["hp_max"]
+    sample_character.hit_dice_remaining = 1
+    await db_session.commit()
+
+    r = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "short"},
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    char_result = next(c for c in data["characters"] if c["name"] == sample_character.name)
+    assert char_result["hit_dice_spent"] == 0
+    assert char_result["no_healing_needed"] is True
+    assert char_result["hit_dice_remaining"] == 1
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hit_dice_remaining == 1
 
 
 # ─── 删除 session 的级联 ────────────────────────────────
