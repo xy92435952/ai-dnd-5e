@@ -8,6 +8,7 @@ import { roomsApi } from '../api/client'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useUser } from '../hooks/useUser'
 import { normalizeRealtimeRoom } from '../hooks/useRoomRealtime'
+import { useRoomReconnectRefresh } from '../hooks/useRoomReconnectRefresh'
 import { Divider } from '../components/Ornaments'
 import RoomActionsPanel from '../components/room/RoomActionsPanel'
 import RoomAiCompanionsSection from '../components/room/RoomAiCompanionsSection'
@@ -55,7 +56,12 @@ export default function Room() {
     }
   }, [refresh, nav, sessionId])
 
-  useWebSocket(sessionId, onEvent)
+  const { connected: wsConnected } = useWebSocket(sessionId, onEvent)
+  useRoomReconnectRefresh({
+    room,
+    wsConnected,
+    refresh,
+  })
 
   const isHost = room?.host_user_id === myUserId
   const myMember = (room?.members || []).find(m => m.user_id === myUserId)
