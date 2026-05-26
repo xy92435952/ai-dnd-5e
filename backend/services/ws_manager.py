@@ -30,20 +30,21 @@ class WSManager:
 
     async def connect(self, session_id: str, user_id: str, ws: WebSocket) -> None:
         """注册一个新连接。如果同一 user 在同一房间已有旧连接，旧连接会被踢掉。"""
+        old = None
         async with self._lock:
             old = self.user_ws.get((session_id, user_id))
             if old is not None and old is not ws:
-                # 主动关闭旧连接（同一用户多端登录时只保留最新）
                 self.rooms.get(session_id, set()).discard(old)
                 self.ws_meta.pop(old, None)
-                try:
-                    await old.close(code=4000, reason="Replaced by new connection")
-                except Exception:
-                    pass
 
             self.rooms.setdefault(session_id, set()).add(ws)
             self.user_ws[(session_id, user_id)] = ws
             self.ws_meta[ws] = (session_id, user_id)
+        if old is not None and old is not ws:
+            try:
+                await old.close(code=4000, reason="Replaced by new connection")
+            except Exception:
+                pass
         logger.info(f"WS connected: session={session_id} user={user_id}")
 
     async def disconnect(self, ws: WebSocket) -> Optional[tuple[str, str]]:
