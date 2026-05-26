@@ -58,17 +58,16 @@ async def ws_endpoint(
     await websocket.accept()
     await ws_manager.connect(session_id, user_id, websocket)
 
-    # 4. 广播在线
-    await ws_manager.broadcast(
-        session_id,
-        MemberOnline(user_id=user_id, members=online_members),
-    )
-    async with AsyncSessionLocal() as db:
-        room_info = await room_service.get_room_info(db, session_id)
-    await websocket.send_json(RoomStateUpdated(room=room_info).model_dump(mode="json"))
-
-    # 5. 主循环
+    # 4. 广播在线 + 主循环
     try:
+        await ws_manager.broadcast(
+            session_id,
+            MemberOnline(user_id=user_id, members=online_members),
+        )
+        async with AsyncSessionLocal() as db:
+            room_info = await room_service.get_room_info(db, session_id)
+        await websocket.send_json(RoomStateUpdated(room=room_info).model_dump(mode="json"))
+
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type")

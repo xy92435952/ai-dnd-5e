@@ -141,6 +141,13 @@ class QueueWebSocket:
         await self.incoming.put(WebSocketDisconnect())
 
 
+class DisconnectOnInitialSnapshotWebSocket(QueueWebSocket):
+    async def send_json(self, payload):
+        if payload.get("type") == "room_state_updated":
+            raise WebSocketDisconnect(code=1006)
+        await super().send_json(payload)
+
+
 async def _wait_for_event(
     ws: QueueWebSocket,
     event_type: str,
@@ -209,6 +216,43 @@ async def test_ws_connect_sends_online_snapshot_to_connecting_member(
         ws_manager.rooms.clear()
         ws_manager.user_ws.clear()
         ws_manager.ws_meta.clear()
+
+
+async def test_ws_disconnect_during_initial_snapshot_cleans_manager(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """A browser refresh can close the socket while the initial room snapshot is being sent."""
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    host = await _register(client, "ws_initial_drop_host", display_name="Host Player")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS initial drop room",
+        "max_players": 4,
+    })).json()
+
+    ws = DisconnectOnInitialSnapshotWebSocket()
+
+    await ws_api.ws_endpoint(ws, created["session_id"], token=host["token"])
+
+    assert ws.accepted.is_set()
+    assert [event["type"] for event in ws.sent] == ["member_online"]
+    assert ws_manager.rooms == {}
+    assert ws_manager.user_ws == {}
+    assert ws_manager.ws_meta == {}
 
 
 async def test_kick_vote_reaches_room_websocket_clients(
