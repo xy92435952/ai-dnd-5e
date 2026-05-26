@@ -39,7 +39,11 @@ class FakeSpellService:
 
 
 class FakeDb:
-    pass
+    def __init__(self, characters=None):
+        self.characters = characters or {}
+
+    async def get(self, _model, entity_id):
+        return self.characters.get(entity_id)
 
 
 def complete_pending_spell(combat, caster_entity_id, *, is_cantrip):
@@ -109,3 +113,49 @@ async def test_confirm_pending_spell_consumes_slot_applies_damage_and_completes_
     assert result.turn_state["action_used"] is True
     assert "pending_spell" not in result.turn_state
     assert result.is_concentration is True
+
+
+@pytest.mark.asyncio
+async def test_confirm_pending_heal_rejects_dead_target_before_consuming_slot():
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+
+    from services import combat_spell_confirm_service as confirm_service
+
+    combat = FakeCombat()
+    caster = FakeCaster()
+    dead_target = SimpleNamespace(
+        id="ally-1",
+        name="Ally",
+        hp_current=0,
+        death_saves={"successes": 0, "failures": 3, "stable": False},
+        conditions=["unconscious"],
+    )
+
+    with pytest.raises(HTTPException, match="Ordinary healing cannot revive"):
+        await confirm_service.confirm_pending_spell(
+            FakeDb({"ally-1": dead_target}),
+            session_id="sess-1",
+            combat_obj=combat,
+            caster=caster,
+            caster_entity_id="caster-1",
+            pending={
+                "spell_name": "Cure Wounds",
+                "spell_level": 1,
+                "target_ids": ["ally-1"],
+                "is_cantrip": False,
+                "is_aoe": False,
+                "spell_type": "heal",
+            },
+            spell={"type": "heal"},
+            state={"enemies": []},
+            enemies=[],
+            damage_values=None,
+            spell_service_obj=FakeSpellService(),
+            complete_pending_spell_func=complete_pending_spell,
+        )
+
+    assert caster.spell_slots == {"1st": 1}
+    assert "pending_spell" in combat.turn_states["caster-1"]
+    assert dead_target.hp_current == 0

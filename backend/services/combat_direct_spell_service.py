@@ -13,7 +13,7 @@ from services.combat_spell_resolution_service import (
     build_spell_resolution_context,
     consume_spell_slot_for_confirmation,
 )
-from services.combat_spell_target_service import collect_spell_target_names
+from services.combat_spell_target_service import collect_spell_target_names, validate_ordinary_healing_targets
 from services.combat_turn_state_service import DEFAULT_TURN_STATE, get_turn_state, save_turn_state
 from services.spell_service import spell_service
 
@@ -123,6 +123,8 @@ async def cast_direct_spell(
         target_ids=target_ids,
     )
     await collect_spell_target_names(db, resolved_target_ids, enemies, session=session)
+    if spell_type == "heal":
+        await validate_ordinary_healing_targets(db, resolved_target_ids, enemies, session=session)
 
     try:
         new_slots = consume_spell_slot_for_confirmation(

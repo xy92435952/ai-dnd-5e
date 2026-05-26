@@ -122,6 +122,11 @@ def is_dead(character: dict | object | None) -> bool:
     return int(hp_current) <= 0 and int(death_saves.get("failures", 0) or 0) >= 3
 
 
+def can_receive_ordinary_healing(character: dict | object | None) -> bool:
+    """Return whether normal healing can restore HP to this character."""
+    return not is_dead(character)
+
+
 def is_dying(character: dict | object | None) -> bool:
     """Return whether a character is at 0 HP and still making death saves."""
     if not character:
@@ -342,6 +347,16 @@ def apply_character_healing(character: object, healing: int) -> dict:
     """Apply healing and clear death saves when HP rises above 0."""
     before_hp = int(getattr(character, "hp_current", 0) or 0)
     amount = max(0, int(healing or 0))
+    if is_dead(character):
+        return {
+            "hp_before": before_hp,
+            "hp_after": before_hp,
+            "healing": amount,
+            "revived": False,
+            "revival_blocked": True,
+            "death_saves": getattr(character, "death_saves", None),
+            "conditions": _condition_list(character),
+        }
     hp_max = get_effective_hp_max(character)
     after_hp = min(hp_max, before_hp + amount)
     character.hp_current = after_hp
@@ -354,6 +369,7 @@ def apply_character_healing(character: object, healing: int) -> dict:
         "hp_after": after_hp,
         "healing": amount,
         "revived": revived,
+        "revival_blocked": False,
         "death_saves": getattr(character, "death_saves", None),
         "conditions": _condition_list(character),
     }

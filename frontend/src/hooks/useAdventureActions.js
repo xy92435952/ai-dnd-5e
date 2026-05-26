@@ -25,7 +25,9 @@ function formatRestCharacterSummary(character, restType) {
     `${character.name} HP+${character.hp_recovered} → ${character.hp_current}${character.hp_max ? `/${character.hp_max}` : ''}`,
   ]
   if (restType === 'short') {
-    if (character.hit_dice_spent) {
+    if (character.ordinary_healing_blocked) {
+      parts.push('普通治疗无法复活')
+    } else if (character.hit_dice_spent) {
       const con = character.con_mod || 0
       const conText = con >= 0 ? `+${con}` : `${con}`
       parts.push(`生命骰 ${character.hit_die_roll}${conText}`)
@@ -37,6 +39,9 @@ function formatRestCharacterSummary(character, restType) {
   }
   if (restType === 'long' && character.hit_dice_restored) {
     parts.push(`生命骰+${character.hit_dice_restored}`)
+  }
+  if (restType === 'long' && character.ordinary_healing_blocked) {
+    parts.push('普通休息无法复活')
   }
   if (character.hit_dice_remaining != null && character.hit_dice_total != null) {
     parts.push(`剩余 ${character.hit_dice_remaining}/${character.hit_dice_total}`)

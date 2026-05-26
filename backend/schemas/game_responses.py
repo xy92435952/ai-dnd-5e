@@ -169,6 +169,7 @@ class CharacterRestResult(BaseModel):
     exhaustion_level_before: Optional[int] = None
     exhaustion_level_after: Optional[int] = None
     death_saves_reset: bool = False
+    ordinary_healing_blocked: bool = False
     # 短休专属（长休不带）
     hit_die_roll:    Optional[int] = None
     con_mod:         Optional[int] = None

@@ -3,6 +3,7 @@ from typing import Optional
 
 from services.dnd_rules import (
     apply_character_healing,
+    is_dead,
     roll_dice,
     stabilize_character,
 )
@@ -39,6 +40,9 @@ def _validate_stabilize_target(actor, target) -> None:
     if getattr(target, "hp_current", 0) > 0:
         raise ItemEffectError(400, "目标并未濒死，无法使用医疗包稳定")
 
+    if is_dead(target):
+        raise ItemEffectError(400, "Target is dead and needs a resurrection effect")
+
 
 def apply_item_effect(
     *,
@@ -51,6 +55,8 @@ def apply_item_effect(
     result = {"item": item_name, "effect": effect}
 
     if effect == "heal":
+        if is_dead(actor):
+            raise ItemEffectError(400, "Ordinary healing cannot revive a dead character")
         heal_dice = item_data.get("heal_dice", "2d4+2")
         roll = roll_dice(heal_dice)
         heal_amount = roll["total"]

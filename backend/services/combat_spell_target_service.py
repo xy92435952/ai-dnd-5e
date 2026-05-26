@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from models import Character
 from services.combat_grid_service import chebyshev_distance
+from services.dnd_rules import can_receive_ordinary_healing
 from services.session_access_service import assert_character_in_session
 
 
@@ -40,6 +41,29 @@ async def collect_spell_target_names(
                 await assert_character_in_session(target_character, session, db)
             target_names.append(target_character.name)
     return target_names
+
+
+async def validate_ordinary_healing_targets(
+    db,
+    target_ids: list[str],
+    enemies: list[dict[str, Any]],
+    session=None,
+) -> None:
+    """Reject ordinary healing when a target is already dead."""
+    for target_id in target_ids:
+        enemy = next((item for item in enemies if item["id"] == target_id), None)
+        if enemy:
+            if not can_receive_ordinary_healing(enemy):
+                raise HTTPException(400, "Ordinary healing cannot revive a dead target")
+            continue
+
+        target_character = await db.get(Character, target_id)
+        if not target_character:
+            continue
+        if session is not None:
+            await assert_character_in_session(target_character, session, db)
+        if not can_receive_ordinary_healing(target_character):
+            raise HTTPException(400, "Ordinary healing cannot revive a dead target")
 
 
 def parse_spell_range_ft(spell_range: int | str | None) -> int:

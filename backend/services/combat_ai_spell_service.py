@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from models import Character
 from services.combat_ai_spell_damage_service import (
     apply_ai_damage_spell as _apply_ai_damage_spell,
     damage_after_ai_enemy_save as _damage_after_ai_enemy_save,
@@ -21,7 +22,7 @@ from services.combat_ai_spell_models import (
     spell_modifier as _spell_modifier,
 )
 from services.combat_service import CombatService
-from services.dnd_rules import roll_dice
+from services.dnd_rules import can_receive_ordinary_healing, roll_dice
 from services.spell_service import spell_service
 
 svc = CombatService()
@@ -63,6 +64,11 @@ async def resolve_ai_spell_action(
     bonus_healing = actor_derived.get("bonus_healing", False)
     is_cantrip = spell_data.get("level", 0) == 0
     spell_type = spell_data.get("type", "damage")
+
+    if spell_type == "heal" and spell_target:
+        target_character = await db.get(Character, spell_target)
+        if target_character and not can_receive_ordinary_healing(target_character):
+            return None
 
     if not is_cantrip and caster:
         if not consume_ai_spell_slot(caster, spell_level):

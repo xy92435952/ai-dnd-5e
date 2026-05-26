@@ -14,6 +14,7 @@ from services.dnd_rules import (
     get_effective_hp_base,
     get_effective_hp_max,
     apply_character_healing,
+    can_receive_ordinary_healing,
     get_class_resource_defaults,
     roll_dice,
 )
@@ -235,6 +236,7 @@ def _apply_long_rest_to_character(
     durations_before = dict(character.condition_durations or {})
     exhaustion_before = int(durations_before.get("exhaustion_level", 0) or 0)
     death_saves_before = dict(character.death_saves or {})
+    healing_blocked = not can_receive_ordinary_healing(character)
 
     exhaustion_after = max(0, exhaustion_before - 1)
     durations_after = dict(durations_before)
@@ -247,6 +249,10 @@ def _apply_long_rest_to_character(
         conditions_before=conditions_before,
         exhaustion_after=exhaustion_after,
     )
+
+    if healing_blocked and "unconscious" in conditions_before and "unconscious" not in conditions_after:
+        conditions_after.append("unconscious")
+
     conditions_removed = [cond for cond in conditions_before if cond not in conditions_after]
     for condition in conditions_removed:
         if condition != "exhaustion":
@@ -255,18 +261,22 @@ def _apply_long_rest_to_character(
     character.conditions = conditions_after
     character.condition_durations = durations_after
     effective_hp_max = get_effective_hp_max(character, base_hp_max)
-    character.hp_current = effective_hp_max
+    if healing_blocked:
+        character.hp_current = old_hp
+    else:
+        character.hp_current = effective_hp_max
     character.spell_slots = slots_max
     character.concentration = None
-    character.death_saves = None
+    if not healing_blocked:
+        character.death_saves = None
     character.hit_dice_remaining = hit_dice_after
     character.class_resources = _long_rest_class_resources(character, cls_key)
     _flag_character_json_fields(character)
 
     return {
         "name": character.name,
-        "hp_recovered": effective_hp_max - old_hp,
-        "hp_current": effective_hp_max,
+        "hp_recovered": character.hp_current - old_hp,
+        "hp_current": character.hp_current,
         "hp_max": effective_hp_max,
         "base_hp_max": base_hp_max,
         "slots_restored": slots_max,
@@ -276,7 +286,8 @@ def _apply_long_rest_to_character(
         "conditions_removed": conditions_removed,
         "exhaustion_level_before": exhaustion_before,
         "exhaustion_level_after": exhaustion_after,
-        "death_saves_reset": bool(death_saves_before),
+        "death_saves_reset": bool(death_saves_before) and not healing_blocked,
+        "ordinary_healing_blocked": healing_blocked,
         "class_resources": character.class_resources,
     }
 
@@ -321,7 +332,8 @@ def _apply_short_rest_to_character(
     hd_remaining = character.hit_dice_remaining or 0
     hit_roll_result = None
     hit_dice_spent = 0
-    if hd_remaining > 0 and character.hp_current < hp_max:
+    healing_blocked = not can_receive_ordinary_healing(character)
+    if not healing_blocked and hd_remaining > 0 and character.hp_current < hp_max:
         hit_roll = roll_dice(f"1d{hit_die}")
         heal_amt = max(1, hit_roll["total"] + con_mod)
         apply_character_healing(character, heal_amt)
@@ -350,8 +362,9 @@ def _apply_short_rest_to_character(
         "hit_dice_remaining": character.hit_dice_remaining,
         "hit_dice_total": character.level,
         "hit_dice_spent": hit_dice_spent,
-        "no_hit_dice": hd_remaining <= 0 and character.hp_current < hp_max,
+        "no_hit_dice": not healing_blocked and hd_remaining <= 0 and character.hp_current < hp_max,
         "no_healing_needed": old_hp >= hp_max,
+        "ordinary_healing_blocked": healing_blocked,
         "class_resources": class_resources if changed else None,
     }
 

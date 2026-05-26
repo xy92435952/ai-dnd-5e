@@ -427,6 +427,25 @@ class TestCharacterLifeState:
         assert char.death_saves is None
         assert char.conditions == ["poisoned"]
 
+    def test_ordinary_healing_does_not_revive_dead_character(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=0,
+            death_saves={"successes": 0, "failures": 3, "stable": False},
+            derived={"hp_max": 12},
+            condition_durations={},
+            conditions=["unconscious"],
+        )
+
+        result = apply_character_healing(char, 8)
+
+        assert result["revival_blocked"] is True
+        assert result["revived"] is False
+        assert char.hp_current == 0
+        assert char.death_saves == {"successes": 0, "failures": 3, "stable": False}
+        assert char.conditions == ["unconscious"]
+
     def test_stabilized_character_is_not_dying(self):
         from types import SimpleNamespace
 

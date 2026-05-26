@@ -2,7 +2,13 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from services.combat_turn_state_service import save_turn_state
-from services.dnd_rules import WILD_SHAPE_FORMS, _normalize_class, apply_character_healing, get_effective_hp_max
+from services.dnd_rules import (
+    WILD_SHAPE_FORMS,
+    _normalize_class,
+    apply_character_healing,
+    can_receive_ordinary_healing,
+    get_effective_hp_max,
+)
 
 
 @dataclass
@@ -52,6 +58,9 @@ def resolve_combat_class_feature(
             _fail("本次休息后已使用过活力恢复")
         if turn_state["bonus_action_used"]:
             _fail("本回合附赠行动已用尽")
+
+        if not can_receive_ordinary_healing(player):
+            _fail("Ordinary healing cannot revive a dead character")
 
         heal_roll = roll_dice_fn(f"1d10+{player_level}")
         heal_amount = heal_roll["total"]
@@ -246,6 +255,8 @@ def resolve_combat_class_feature(
         pool = class_resources.get("lay_on_hands_remaining", 0)
         if pool <= 0:
             _fail("圣手治疗池已耗尽")
+        if not can_receive_ordinary_healing(player):
+            _fail("Ordinary healing cannot revive a dead character")
         heal_amount = min(5, pool)
         class_resources["lay_on_hands_remaining"] = pool - heal_amount
         hp_max = get_effective_hp_max(player, derived.get("hp_max", player.hp_current))

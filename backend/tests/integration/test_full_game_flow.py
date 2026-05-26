@@ -394,6 +394,36 @@ async def test_long_rest_after_exhaustion_5_heals_only_to_halved_max(
     assert sample_character.condition_durations == {"exhaustion_level": 4}
 
 
+async def test_long_rest_does_not_revive_dead_character(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 3, "stable": False}
+    sample_character.conditions = ["unconscious"]
+    sample_character.hit_dice_remaining = 0
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "long"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert char_result["ordinary_healing_blocked"] is True
+    assert char_result["hp_current"] == 0
+    assert char_result["hp_recovered"] == 0
+    assert char_result["death_saves_reset"] is False
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 0
+    assert sample_character.death_saves == {"successes": 0, "failures": 3, "stable": False}
+    assert "unconscious" in sample_character.conditions
+
+
 async def test_short_rest_consumes_hit_die(
     client, db_session, sample_session, sample_character, sample_user,
 ):
@@ -443,6 +473,36 @@ async def test_short_rest_healing_caps_at_exhaustion_hp_max(
 
     await db_session.refresh(sample_character)
     assert sample_character.hp_current == 6
+
+
+async def test_short_rest_does_not_spend_hit_die_for_dead_character(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 3, "stable": False}
+    sample_character.conditions = ["unconscious"]
+    sample_character.hit_dice_remaining = 1
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "short"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert char_result["ordinary_healing_blocked"] is True
+    assert char_result["hit_dice_spent"] == 0
+    assert char_result["hit_dice_remaining"] == 1
+    assert char_result["hp_current"] == 0
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 0
+    assert sample_character.hit_dice_remaining == 1
+    assert sample_character.death_saves == {"successes": 0, "failures": 3, "stable": False}
 
 
 async def test_short_rest_does_not_spend_hit_die_at_full_hp(

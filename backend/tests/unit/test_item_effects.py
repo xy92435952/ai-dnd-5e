@@ -86,6 +86,29 @@ def test_apply_healing_effect_revives_and_clears_death_saves(monkeypatch):
     assert result["death_saves"] is None
 
 
+def test_apply_healing_effect_rejects_dead_character(monkeypatch):
+    monkeypatch.setattr(
+        item_effects,
+        "roll_dice",
+        lambda formula: {"formula": formula, "rolls": [3, 3], "bonus": 2, "total": 8},
+    )
+    actor = make_character(
+        hp_current=0,
+        death_saves={"successes": 0, "failures": 3, "stable": False},
+        conditions=["unconscious"],
+    )
+
+    with pytest.raises(item_effects.ItemEffectError, match="Ordinary healing cannot revive"):
+        item_effects.apply_item_effect(
+            actor=actor,
+            item_name="Healing Potion",
+            item_data={"consumable": True, "effect": "heal", "heal_dice": "2d4+2"},
+        )
+
+    assert actor.hp_current == 0
+    assert actor.death_saves == {"successes": 0, "failures": 3, "stable": False}
+
+
 def test_apply_fire_resistance_adds_condition_once():
     actor = make_character(conditions=["fire_resistance"])
 
@@ -129,6 +152,24 @@ def test_apply_stabilize_rejects_target_with_positive_hp():
     target = make_character(id="ally-1", session_id="sess-1", hp_current=3)
 
     with pytest.raises(item_effects.ItemEffectError, match="目标并未濒死"):
+        item_effects.apply_item_effect(
+            actor=actor,
+            item_name="Healer's Kit",
+            item_data={"consumable": True, "effect": "stabilize"},
+            target=target,
+        )
+
+
+def test_apply_stabilize_rejects_dead_target():
+    actor = make_character(id="char-1", session_id="sess-1", hp_current=8)
+    target = make_character(
+        id="ally-1",
+        session_id="sess-1",
+        hp_current=0,
+        death_saves={"successes": 0, "failures": 3, "stable": False},
+    )
+
+    with pytest.raises(item_effects.ItemEffectError, match="resurrection"):
         item_effects.apply_item_effect(
             actor=actor,
             item_name="Healer's Kit",

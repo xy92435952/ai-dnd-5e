@@ -12,6 +12,7 @@ from services.dnd_character_rules import (  # noqa: F401
     calc_passive_perception,
     apply_character_damage,
     apply_character_healing,
+    can_receive_ordinary_healing,
     clamp_current_hp_to_effective_max,
     default_death_saves,
     get_effective_derived,
