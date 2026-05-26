@@ -6,6 +6,7 @@ export function useCombatPageState() {
   const [combatOver, setCombatOver] = useState(null)
   const [error, setError] = useState('')
   const [spellModalOpen, setSpellModalOpen] = useState(false)
+  const [spellQuickPick, setSpellQuickPick] = useState(null)
   const [playerSpellSlots, setPlayerSpellSlots] = useState({})
   const [playerKnownSpells, setPlayerKnownSpells] = useState([])
   const [playerCantrips, setPlayerCantrips] = useState([])
@@ -31,6 +32,7 @@ export function useCombatPageState() {
     combatOver, setCombatOver,
     error, setError,
     spellModalOpen, setSpellModalOpen,
+    spellQuickPick, setSpellQuickPick,
     playerSpellSlots, setPlayerSpellSlots,
     playerKnownSpells, setPlayerKnownSpells,
     playerCantrips, setPlayerCantrips,

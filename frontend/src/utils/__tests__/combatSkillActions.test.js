@@ -23,6 +23,7 @@ function makeHandler(overrides = {}) {
     setTurnState: vi.fn(),
     addLog: vi.fn(),
     setHelpMode: vi.fn(),
+    setSpellQuickPick: vi.fn(),
     handleDash: vi.fn(),
     handleDisengage: vi.fn(),
     handleDodge: vi.fn(),
@@ -53,6 +54,18 @@ describe('createCombatSkillClickHandler', () => {
 
     expect(fns.handleAttack).toHaveBeenCalledTimes(1)
     expect(fns.setSpellModalOpen).not.toHaveBeenCalled()
+  })
+
+  it('opens spell shortcuts with a matching quick pick', async () => {
+    const { handler, fns } = makeHandler()
+
+    await handler({ k: 'firebolt', available: true })
+    await handler({ k: 'spell', available: true })
+
+    expect(fns.setSpellQuickPick).toHaveBeenNthCalledWith(1, '火焰射线')
+    expect(fns.setSpellQuickPick).toHaveBeenNthCalledWith(2, null)
+    expect(fns.setSpellModalOpen).toHaveBeenCalledTimes(2)
+    expect(fns.setSpellModalOpen).toHaveBeenCalledWith(true)
   })
 
   it('routes class skill keys to existing class feature names', async () => {

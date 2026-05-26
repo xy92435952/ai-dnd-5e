@@ -9,6 +9,7 @@ export default function CombatOverlays({
   onSmite,
   onCancelSmite,
   spellModalOpen,
+  spellQuickPick,
   playerAvailableSpells,
   playerCantrips,
   onCastSpell,
@@ -38,6 +39,7 @@ export default function CombatOverlays({
           spells={playerAvailableSpells}
           cantrips={playerCantrips}
           slots={playerSpellSlots}
+          quickPick={spellQuickPick}
           onCast={onCastSpell}
           onClose={onCloseSpell}
           onSpellHover={onSpellHover}

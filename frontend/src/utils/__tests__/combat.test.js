@@ -22,6 +22,7 @@ import {
   isPlayerCombatTurn,
   getSpriteKind,
   parseDiceNotation,
+  spellNameMatches,
 } from '../combat'
 import { DEFAULT_SKILL_BAR } from '../../data/combat'
 
@@ -146,6 +147,22 @@ describe('combat grid helpers', () => {
       cantrips: ['Fire Bolt'],
       playerClass: 'Cleric',
     }).map(s => s.name)).toEqual(['Magic Missile', 'Fire Bolt'])
+  })
+
+  it('getPlayerAvailableSpells matches English known spell names to localized spell data', () => {
+    const spells = [
+      { name: '火焰射线', name_en: 'Fire Bolt', classes: ['Wizard'] },
+      { name: '治愈创伤', name_en: 'Cure Wounds', classes: ['Cleric'] },
+      { name: '祝福', name_en: 'Bless', classes: ['Cleric'] },
+    ]
+
+    expect(getPlayerAvailableSpells({
+      spells,
+      knownSpells: ['cure-wounds'],
+      cantrips: ['Fire Bolt'],
+      playerClass: 'Wizard',
+    }).map(s => s.name)).toEqual(['火焰射线', '治愈创伤'])
+    expect(spellNameMatches(spells[0], 'fire_bolt')).toBe(true)
   })
 
   it('getPlayerAvailableSpells 没有已知列表时按中英文职业过滤', () => {

@@ -337,15 +337,27 @@ export function getPlayerAvailableSpells({
   cantrips = [],
   playerClass = '',
 }) {
-  const known = new Set([...(knownSpells || []), ...(cantrips || [])])
+  const known = new Set([...(knownSpells || []), ...(cantrips || [])].map(normalizeSpellKey))
   if (known.size > 0) {
-    return spells.filter(s => known.has(s.name))
+    return spells.filter(s => known.has(normalizeSpellKey(s.name)) || known.has(normalizeSpellKey(s.name_en)))
   }
   if (playerClass) {
     const mappedClass = CLASS_SPELL_MAP[playerClass] || playerClass.replace(/[\u4e00-\u9fff]/g, '') || playerClass
     return spells.filter(s => s.classes?.includes(mappedClass))
   }
   return spells
+}
+
+export function normalizeSpellKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '')
+}
+
+export function spellNameMatches(spell, targetName) {
+  const target = normalizeSpellKey(targetName)
+  return !!target && [spell?.name, spell?.name_en].some(name => normalizeSpellKey(name) === target)
 }
 
 /**

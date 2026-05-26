@@ -1,3 +1,11 @@
+const SPELL_SHORTCUT_NAMES = {
+  bless: '祝福',
+  heal: '治愈创伤',
+  shield: '护盾',
+  firebolt: '火焰射线',
+  sacred_flame: '神圣烈焰',
+}
+
 export function createCombatSkillClickHandler({
   getIsProcessing,
   getIsPlayerTurn,
@@ -5,6 +13,7 @@ export function createCombatSkillClickHandler({
   setError,
   handleAttack,
   setSpellModalOpen,
+  setSpellQuickPick,
   gameApi,
   sessionId,
   setCombat,
@@ -30,11 +39,15 @@ export function createCombatSkillClickHandler({
           setError('神圣斩击将在命中后自动提示')
           break
         case 'spell':
+          setSpellQuickPick?.(null)
+          setSpellModalOpen(true)
+          break
         case 'bless':
         case 'heal':
         case 'shield':
         case 'firebolt':
         case 'sacred_flame':
+          setSpellQuickPick?.(SPELL_SHORTCUT_NAMES[skill.k] || null)
           setSpellModalOpen(true)
           break
         case 'shove':

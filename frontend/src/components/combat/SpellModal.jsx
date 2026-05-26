@@ -12,25 +12,39 @@
  *   onClose      - () => void
  *   onSpellHover - (spell|null) => void  可选，用于地图上预览 AoE 半径
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SpellIcon } from '../Icons'
 import SpellModalTabs from './SpellModalTabs'
 import SpellModalList from './SpellModalList'
 import SpellModalActions from './SpellModalActions'
+import { spellNameMatches } from '../../utils/combat'
 
-export default function SpellModal({ spells, cantrips, slots, onCast, onClose, onSpellHover }) {
+function isCantripSpell(spell, cantripNames) {
+  return spell.level === 0 || (cantripNames || []).some(name => spellNameMatches(spell, name))
+}
+
+export default function SpellModal({ spells = [], cantrips = [], slots = {}, quickPick, onCast, onClose, onSpellHover }) {
   const [selectedSpell, setSelectedSpell] = useState(null)
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
 
   const slotLabel = (lvl) => ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'][lvl-1] || `${lvl}th`
   const available = (lvl) => slots?.[slotLabel(lvl)] || 0
 
-  const cantripList = spells.filter(s => s.level === 0 || cantrips?.includes(s.name))
-  const spellList   = spells.filter(s => s.level > 0 && !cantrips?.includes(s.name))
+  const cantripList = spells.filter(spell => isCantripSpell(spell, cantrips))
+  const spellList   = spells.filter(s => s.level > 0 && !isCantripSpell(s, cantrips))
   const shownSpells = level === 0 ? cantripList : spellList.filter(s => s.level <= level)
 
+  useEffect(() => {
+    if (!quickPick) return
+    const picked = spells.find(spell => spellNameMatches(spell, quickPick))
+    if (!picked) return
+    setSelectedSpell(picked)
+    setLevel(isCantripSpell(picked, cantrips) ? 0 : picked.level)
+    onSpellHover?.(picked)
+  }, [cantrips, onSpellHover, quickPick, spells])
+
   const canCast = selectedSpell
-    ? (selectedSpell.level === 0 || cantrips?.includes(selectedSpell.name))
+    ? isCantripSpell(selectedSpell, cantrips)
       ? true
       : available(level) > 0
     : false

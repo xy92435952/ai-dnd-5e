@@ -68,6 +68,7 @@ export default function Combat() {
     combatOver,
     isProcessing,
     spellModalOpen,
+    spellQuickPick,
     playerSpellSlots,
     playerCantrips,
     smitePrompt,
@@ -115,6 +116,7 @@ export default function Combat() {
     setAoeHover,
     setSmitePrompt,
     setSpellModalOpen,
+    setSpellQuickPick,
     setManeuverModalOpen,
     setReactionPrompt,
     clearAoePreview,
@@ -232,10 +234,11 @@ export default function Combat() {
         onSmite={handleSmite}
         onCancelSmite={() => setSmitePrompt(null)}
         spellModalOpen={spellModalOpen}
+        spellQuickPick={spellQuickPick}
         playerAvailableSpells={playerAvailableSpells}
         playerCantrips={playerCantrips}
         onCastSpell={handleCastSpell}
-        onCloseSpell={() => { setSpellModalOpen(false); clearAoePreview() }}
+        onCloseSpell={() => { setSpellModalOpen(false); setSpellQuickPick(null); clearAoePreview() }}
         onSpellHover={handleSpellHover}
         maneuverModalOpen={maneuverModalOpen}
         playerSubclassEffects={playerSubclassEffects}
