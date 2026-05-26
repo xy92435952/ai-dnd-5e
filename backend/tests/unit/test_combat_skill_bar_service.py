@@ -18,6 +18,9 @@ def test_build_skill_bar_returns_ten_slots_with_attack_first():
     assert len(bar) == 10
     assert bar[0]["k"] == "atk"
     assert bar[-1]["key"] == "0"
+    assert bar[-1]["k"] == "pot_heal"
+    assert bar[-1]["kind"] == "item"
+    assert bar[-1]["cost"] == "动作"
     assert any(slot["k"] == "grapple" and slot["available"] is True for slot in bar)
 
 
@@ -61,3 +64,14 @@ def test_first_level_rogue_uses_normal_dash_and_disengage():
     assert slots["disg"]["cost"] == "动作"
     assert "cunning_action_dash" not in slots
     assert "cunning_action_disengage" not in slots
+
+
+def test_action_cost_skills_are_not_labeled_as_bonus_actions():
+    bar = build_skill_bar(_character("Paladin", level=3))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["lay"]["cost"] == "动作"
+    assert slots["lay"]["kind"] == "action"
+    assert slots["divine_sense"]["cost"] == "动作"
+    assert slots["divine_sense"]["kind"] == "action"
+    assert slots["pot_heal"]["kind"] == "item"

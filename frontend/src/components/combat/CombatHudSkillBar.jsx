@@ -3,6 +3,15 @@ import { JuiceAudio } from '../../juice'
 import { SKILL_INFO } from '../../data/combat'
 import { computeSkillStats } from '../../utils/combat'
 
+const SKILL_KIND_LABELS = {
+  attack: '攻击',
+  spell: '法术',
+  action: '动作',
+  bonus: '附赠',
+  move: '移动',
+  item: '物品',
+}
+
 export default function CombatHudSkillBar({ skillBar, session, entities, selectedTarget, onSkillClick, isPlayerTurn, syncBlocked = false }) {
   return (
     <div>
@@ -26,7 +35,7 @@ export default function CombatHudSkillBar({ skillBar, session, entities, selecte
                 <div className="skill-tooltip">
                   <div className="t-name">{s.label}</div>
                   <div className="t-meta">
-                    {s.kind === 'attack' ? '攻击' : s.kind === 'spell' ? '法术' : s.kind === 'bonus' ? '附赠' : s.kind === 'move' ? '移动' : '—'}
+                    {SKILL_KIND_LABELS[s.kind] || '—'}
                     {' · '}{s.cost || '—'}
                     {syncBlocked && <span style={{ color: 'var(--parchment-dark)', marginLeft: 6 }}>同步中</span>}
                     {!s.available && <span style={{ color: '#f47070', marginLeft: 6 }}>✕ 不可用</span>}

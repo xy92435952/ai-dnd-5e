@@ -12,7 +12,7 @@ import { DEFAULT_SKILL_BAR } from '../data/combat'
  * 根据玩家角色 + 目标估算某技能的命中率 / 伤害。
  * 用于技能栏 hover tooltip。
  *
- * @param {object} skill        - skillBar entry，含 kind ('attack' | 'spell' | 'move' | 'bonus') 和 k ('atk' | 'spell' | ...)
+ * @param {object} skill        - skillBar entry，含 kind ('attack' | 'spell' | 'move' | 'action' | 'bonus' | 'item')
  * @param {object} player       - 当前玩家 Character（derived 字段会被读）
  * @param {object|null} target  - 锁定目标实体（有 ac 字段）
  * @param {object|null} hover   - 鼠标悬停的临时目标
@@ -41,7 +41,7 @@ export function computeSkillStats(skill, player, target, hoverTarget) {
     stats.push({ label: '施法加值', value: `+${(d.proficiency_bonus || 2) + (d.ability_modifiers?.cha || 0)}` })
   } else if (skill.kind === 'move') {
     stats.push({ label: '移动力', value: `${d.speed ?? 30} 尺` })
-  } else if (skill.kind === 'bonus' && skill.k === 'pot') {
+  } else if (skill.k === 'pot' || skill.k === 'pot_heal') {
     stats.push({ label: '恢复', value: '2d4+2' })
   }
   return stats

@@ -14,7 +14,8 @@ export const SKILL_INFO = {
   dash:  { desc: '冲刺——本回合移动力翻倍，但消耗你的动作。' },
   disg:  { desc: '脱离接战——移动时不触发敌方的借机攻击。' },
   dodge: { desc: '闪避——对你的攻击骰劣势；敏捷豁免优势。' },
-  pot:   { desc: '服用治疗药剂（2d4+2 HP）。消耗一次附赠行动。' },
+  pot:   { desc: '服用治疗药剂（2d4+2 HP）。消耗一次动作。' },
+  pot_heal: { desc: '服用治疗药剂（2d4+2 HP）。消耗一次动作。' },
   death: { desc: '濒死——每回合自动进行死亡豁免。无需手动触发。' },
 }
 
@@ -23,13 +24,13 @@ export const DEFAULT_SKILL_BAR = [
   { k: 'atk',   label: '攻击', glyph: '⚔', cost: '动作', key: '1', kind: 'attack', available: true },
   { k: 'spell', label: '法术', glyph: '✧', cost: '动作', key: '2', kind: 'spell', available: true },
   { k: 'shove', label: '推撞', glyph: '↦', cost: '动作', key: '3', kind: 'attack', available: true },
-  { k: 'help',  label: '协助', glyph: '☉', cost: '动作', key: '4', kind: 'bonus', available: true },
+  { k: 'help',  label: '协助', glyph: '☉', cost: '动作', key: '4', kind: 'action', available: true },
   { k: 'dash',  label: '冲刺', glyph: '»', cost: '动作', key: '5', kind: 'move', available: true },
   { k: 'disg',  label: '脱离', glyph: '↶', cost: '动作', key: '6', kind: 'move', available: true },
-  { k: 'dodge', label: '闪避', glyph: '⊙', cost: '动作', key: '7', kind: 'bonus', available: true },
+  { k: 'dodge', label: '闪避', glyph: '⊙', cost: '动作', key: '7', kind: 'action', available: true },
   { k: 'death', label: '濒死', glyph: '☠', cost: '—', key: '8', kind: 'empty', available: false },
   { k: 'grapple', label: '擒抱', glyph: '⛓', cost: '动作', key: '9', kind: 'attack', available: true },
-  { k: 'pot',   label: '药剂', glyph: '⚱', cost: '动作', key: '0', kind: 'bonus', available: true },
+  { k: 'pot',   label: '药剂', glyph: '⚱', cost: '动作', key: '0', kind: 'item', available: true },
 ]
 
 // 战斗宗师战技列表（Battle Master Maneuvers）

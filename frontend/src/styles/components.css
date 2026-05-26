@@ -354,8 +354,10 @@
 .action-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
 .action-btn.attack  { border-left-color: var(--blood-light); }
 .action-btn.spell   { border-left-color: var(--amethyst-light); }
+.action-btn.action  { border-left-color: var(--amber); }
 .action-btn.move    { border-left-color: var(--sapphire-light); }
 .action-btn.bonus   { border-left-color: var(--emerald-light); }
+.action-btn.item    { border-left-color: var(--parchment-dark); }
 .action-btn.reaction{ border-left-color: var(--flame); }
 .action-btn.end     {
   border-color: var(--amber);

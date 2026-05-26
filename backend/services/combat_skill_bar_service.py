@@ -104,14 +104,14 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     else:
         bar.append({
             "k": "dodge", "label": "闪避", "glyph": "⊙",
-            "cost": "动作", "key": "4", "kind": "bonus", "available": True,
+            "cost": "动作", "key": "4", "kind": "action", "available": True,
         })
 
     if cls == "Paladin":
         lay_left = resources.get("lay_on_hands_pool", level * 5)
         bar.append({
             "k": "lay", "label": "治疗魔掌", "glyph": "☩",
-            "cost": "动作", "key": "5", "kind": "bonus",
+            "cost": "动作", "key": "5", "kind": "action",
             "available": lay_left > 0,
             "reason": None if lay_left > 0 else "已用完本日",
             "dmg_hint": f"剩余 {lay_left} HP",
@@ -136,14 +136,14 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     else:
         bar.append({
             "k": "pot", "label": "治疗药剂", "glyph": "⚱",
-            "cost": "动作", "key": "5", "kind": "bonus", "available": True,
+            "cost": "动作", "key": "5", "kind": "item", "available": True,
             "dmg_hint": "2d4 + 2",
         })
 
     if cls == "Paladin" and level >= 3:
         bar.append({
             "k": "divine_sense", "label": "神性感知", "glyph": "◉",
-            "cost": "动作", "key": "6", "kind": "bonus", "available": True,
+            "cost": "动作", "key": "6", "kind": "action", "available": True,
         })
     elif cls == "Rogue" and level >= 2:
         bar.append({
@@ -159,7 +159,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     else:
         bar.append({
             "k": "help", "label": "协助", "glyph": "☉",
-            "cost": "动作", "key": "6", "kind": "bonus", "available": True,
+            "cost": "动作", "key": "6", "kind": "action", "available": True,
         })
 
     if cls == "Rogue" and level >= 2:
@@ -186,7 +186,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     })
     bar.append({
         "k": "pot_heal", "label": "治疗药剂", "glyph": "⚱",
-        "cost": "动作", "key": "0", "kind": "bonus", "available": True,
+        "cost": "动作", "key": "0", "kind": "item", "available": True,
     })
 
     return bar[:10]

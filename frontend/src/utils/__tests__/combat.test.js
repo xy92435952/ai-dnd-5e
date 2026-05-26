@@ -8,6 +8,7 @@ import {
   buildInitiativeChips,
   buildThreatCells,
   canActInCombatTurn,
+  computeSkillStats,
   canDriveAiCombatTurns,
   getAoePreviewCenterKey,
   getAiCombatTurnDriverUserId,
@@ -225,6 +226,14 @@ describe('combat grid helpers', () => {
     const state = { action_used: false }
     expect(getPlayerTurnState({ turn_states: { p1: state } }, 'p1')).toBe(state)
     expect(getPlayerTurnState({ turn_states: {} }, 'p1')).toBeNull()
+  })
+
+  it('computeSkillStats keeps item healing hints independent from bonus action kind', () => {
+    expect(computeSkillStats(
+      { k: 'pot_heal', kind: 'item' },
+      { derived: {} },
+      null,
+    )).toEqual([{ label: '恢复', value: '2d4+2' }])
   })
 
   it('getCombatPredictionActionKey 按职业推导预测动作', () => {

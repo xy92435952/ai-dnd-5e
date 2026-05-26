@@ -1276,8 +1276,10 @@
 .slot-key.attack:hover { border-color: #f04040; box-shadow: inset 0 1px 0 rgba(240,64,64,.3), 0 0 0 1px #f04040, 0 0 22px -4px #f04040, 0 6px 12px -4px rgba(0,0,0,.8); color: #ffd0d0; }
 .slot-key.spell   { color: #d4c4ff; }
 .slot-key.spell:hover { border-color: #a890e8; box-shadow: inset 0 1px 0 rgba(122,79,196,.3), 0 0 0 1px #a890e8, 0 0 22px -4px #a890e8, 0 6px 12px -4px rgba(0,0,0,.8); }
+.slot-key.action  { color: #ffd08a; }
 .slot-key.bonus   { color: #a0e0b0; }
 .slot-key.move    { color: #a0d8f0; }
+.slot-key.item    { color: #e5d28f; }
 .slot-key.empty   { opacity: .35; cursor: not-allowed; background: repeating-linear-gradient(45deg, #0a0604, #0a0604 4px, #1a1208 4px, #1a1208 8px); }
 .slot-key .hot {
   position: absolute;
