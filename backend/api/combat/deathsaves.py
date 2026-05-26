@@ -16,6 +16,7 @@ from schemas.ws_events import CombatUpdate
 from services.dnd_rules import (
     apply_character_healing,
     default_death_saves,
+    get_life_state,
     is_dead,
 )
 
@@ -131,10 +132,22 @@ async def death_saving_throw(
             db=db,
         )
 
+    target_state = {
+        "target_id": req.character_id,
+        "character_id": req.character_id,
+        "hp_current": char.hp_current,
+        "new_hp": char.hp_current,
+        "death_saves": char.death_saves,
+        "conditions": char.conditions or [],
+        "life_state": get_life_state(char),
+    }
+
     return {
         "character_id": req.character_id,
         "character_name": char.name,
-        "death_saves": saves,
+        "death_saves": char.death_saves,
         "hp_current": char.hp_current,
+        "life_state": get_life_state(char),
+        "target_state": target_state,
         **result,
     }

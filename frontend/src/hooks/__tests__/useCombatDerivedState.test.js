@@ -52,6 +52,7 @@ describe('useCombatDerivedState', () => {
 
     expect(result.current.entities.enemy.name).toBe('Goblin')
     expect(result.current.playerPos).toEqual({ x: 5, y: 5 })
+    expect(result.current.controlledCharacter).toBe(combat.entities.player)
     expect(result.current.cam).toEqual({ x0: 0, y0: 1 })
     expect(result.current.walls.has('1_1')).toBe(true)
     expect(result.current.hazards.has('2_2')).toBe(true)
@@ -91,6 +92,7 @@ describe('useCombatDerivedState', () => {
     expect(result.current.entities).toEqual({})
     expect(result.current.entityPositions).toEqual({})
     expect(result.current.currentTurnEntry).toBeUndefined()
+    expect(result.current.controlledCharacter).toBeNull()
     expect(result.current.isPlayerTurn).toBe(false)
     expect(result.current.canActThisTurn).toBe(false)
     expect(result.current.isMyTurnMP).toBe(true)

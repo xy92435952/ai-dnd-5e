@@ -77,6 +77,17 @@ async def test_death_save_natural_20_revives_with_1hp(
     await db_session.refresh(sample_character)
     assert sample_character.hp_current == 1
     assert sample_character.death_saves is None
+    data = r.json()
+    assert data["life_state"] == "alive"
+    assert data["target_state"] == {
+        "target_id": sample_character.id,
+        "character_id": sample_character.id,
+        "hp_current": 1,
+        "new_hp": 1,
+        "death_saves": None,
+        "conditions": [],
+        "life_state": "alive",
+    }
 
 
 async def test_death_save_three_successes_stabilize(
@@ -96,6 +107,10 @@ async def test_death_save_three_successes_stabilize(
     await db_session.refresh(sample_character)
     ds = sample_character.death_saves or {}
     assert ds.get("stable") is True or sample_character.hp_current > 0
+    data = r.json()
+    assert data["life_state"] == "stable"
+    assert data["target_state"]["life_state"] == "stable"
+    assert data["target_state"]["death_saves"]["stable"] is True
 
 
 async def test_death_save_three_failures_kills(

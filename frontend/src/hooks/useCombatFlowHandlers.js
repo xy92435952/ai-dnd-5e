@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useCombatAiTurns } from './useCombatAiTurns'
 import { useCombatAttackFlow } from './useCombatAttackFlow'
 import { useCombatLoader } from './useCombatLoader'
+import { useCombatDeathSave } from './useCombatDeathSave'
 import { useCombatPlayerActions } from './useCombatPlayerActions'
 import { useCombatSpecialActions } from './useCombatSpecialActions'
 import { useCombatSpellFlow } from './useCombatSpellFlow'
@@ -157,6 +158,20 @@ export function useCombatFlowHandlers({
     showDice,
   })
 
+  const handleDeathSave = useCombatDeathSave({
+    sessionId,
+    playerId: actorId,
+    isProcessing,
+    canActThisTurn,
+    processingRef,
+    setIsProcessing,
+    setError,
+    setCombat,
+    setSession,
+    showDice,
+    addLog,
+  })
+
   const {
     handleClassFeature,
     handleHealingPotion,
@@ -214,6 +229,7 @@ export function useCombatFlowHandlers({
     handleEndTurn,
     handleAttack,
     handleCastSpell,
+    handleDeathSave,
     handleClassFeature,
     handleHealingPotion,
     handleDodge,

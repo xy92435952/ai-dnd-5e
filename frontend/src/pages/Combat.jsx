@@ -94,6 +94,7 @@ export default function Combat() {
     walls,
     hazards,
     selectedTargetEntity,
+    controlledCharacter,
     initiativeChips,
     skillBar,
     playerAvailableSpells,
@@ -110,6 +111,7 @@ export default function Combat() {
     handleSpellHover,
     handleEndTurn,
     handleCastSpell,
+    handleDeathSave,
     handleSmite,
     handleReaction,
     handleManeuver,
@@ -211,6 +213,7 @@ export default function Combat() {
         logs={logs}
         logsEndRef={logsEndRef}
         playerSpellSlots={playerSpellSlots}
+        controlledCharacter={controlledCharacter}
         isProcessing={isProcessing}
         isPlayerTurn={canActThisTurn && !combatSyncBlocked}
         syncBlocked={combatSyncBlocked}
@@ -220,6 +223,7 @@ export default function Combat() {
         onTurnStateChange={page.setTurnState}
         onError={page.setError}
         onSkillClick={onSkillClick}
+        onDeathSave={handleDeathSave}
         onEndTurn={handleEndTurn}
         onToggleMove={() => setMoveMode(m => !m)}
         onToggleRanged={() => setIsRanged(r => !r)}

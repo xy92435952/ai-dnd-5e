@@ -24,4 +24,36 @@ describe('CombatHudPortrait', () => {
     expect(screen.getByText('6')).toBeTruthy()
     expect(screen.getByText('/ 6', { exact: false })).toBeTruthy()
   })
+
+  it('uses the controlled character over the session player for multiplayer HUD', () => {
+    render(
+      <CombatHudPortrait
+        session={{
+          player: {
+            name: 'Host Hero',
+            hp_current: 12,
+            hp_max: 12,
+            derived: { ac: 14, initiative: 1 },
+            conditions: [],
+          },
+        }}
+        character={{
+          name: 'Guest Hero',
+          hp_current: 3,
+          hp_max: 10,
+          derived: { ac: 17, initiative: 4 },
+          conditions: ['unconscious'],
+        }}
+        playerClass="Cleric"
+        playerLevel={2}
+        turnState={{ movement_max: 6, movement_used: 0 }}
+      />,
+    )
+
+    expect(screen.getByText('Guest Hero')).toBeTruthy()
+    expect(screen.queryByText('Host Hero')).toBeNull()
+    expect(screen.getByText('3')).toBeTruthy()
+    expect(screen.getByText('/ 10', { exact: false })).toBeTruthy()
+    expect(screen.getByText('17')).toBeTruthy()
+  })
 })

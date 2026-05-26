@@ -5,6 +5,7 @@ import CombatHudCombatLog from './CombatHudCombatLog'
 import CombatHudSlots from './CombatHudSlots'
 import CombatHudControls from './CombatHudControls'
 import CombatQuickInventory from './CombatQuickInventory'
+import CombatDeathSavePanel from './CombatDeathSavePanel'
 
 export default function CombatHud({
   session,
@@ -18,6 +19,7 @@ export default function CombatHud({
   logs,
   logsEndRef,
   playerSpellSlots,
+  controlledCharacter,
   isProcessing,
   isPlayerTurn,
   syncBlocked = false,
@@ -27,6 +29,7 @@ export default function CombatHud({
   onTurnStateChange,
   onError,
   onSkillClick,
+  onDeathSave,
   onEndTurn,
   onToggleMove,
   onToggleRanged,
@@ -40,6 +43,7 @@ export default function CombatHud({
         <CombatHudPips turnState={turnState} />
         <CombatHudPortrait
           session={session}
+          character={controlledCharacter}
           playerClass={playerClass}
           playerSubclass={playerSubclass}
           playerLevel={playerLevel}
@@ -63,6 +67,13 @@ export default function CombatHud({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <CombatHudSlots session={session} playerSpellSlots={playerSpellSlots} />
+        <CombatDeathSavePanel
+          character={controlledCharacter || session?.player}
+          isPlayerTurn={isPlayerTurn}
+          isProcessing={isProcessing}
+          syncBlocked={syncBlocked}
+          onDeathSave={onDeathSave}
+        />
         <CombatQuickInventory
           session={session}
           turnState={turnState}
