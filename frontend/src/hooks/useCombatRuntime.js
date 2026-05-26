@@ -64,7 +64,7 @@ export function useCombatRuntime({
     setHelpMode,
     clearAoePreview,
   } = targeting
-  const { logs, logsEndRef } = log
+  const { logs, logsEndRef, addLog } = log
   const controlledPlayerId = room && myCharacterId ? myCharacterId : playerId
   const canDriveAiTurns = canDriveAiCombatTurns({ room, myUserId })
 
@@ -129,6 +129,7 @@ export function useCombatRuntime({
     setError,
     setCombat,
     setTurnState,
+    addLog,
     setSpellModalOpen,
     setHelpMode,
     handleAttack: flow.handleAttack,

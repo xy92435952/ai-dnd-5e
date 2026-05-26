@@ -171,8 +171,8 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
         "cost": "动作", "key": "8", "kind": "move", "available": True,
     })
     bar.append({
-        "k": "empty", "label": "", "glyph": "", "cost": "",
-        "key": "9", "kind": "empty", "available": False,
+        "k": "grapple", "label": "擒抱", "glyph": "⛓",
+        "cost": "动作", "key": "9", "kind": "attack", "available": True,
     })
     bar.append({
         "k": "pot_heal", "label": "治疗药剂", "glyph": "⚱",

@@ -4,6 +4,10 @@ import { createCombatSkillClickHandler } from '../combatSkillActions'
 function makeHandler(overrides = {}) {
   const api = {
     combatAction: vi.fn().mockResolvedValue({}),
+    grappleShove: vi.fn().mockResolvedValue({
+      narration: 'Tester 推倒训练假人',
+      turn_state: { action_used: true },
+    }),
     getCombat: vi.fn().mockResolvedValue({ current_turn_index: 0 }),
   }
   const fns = {
@@ -16,6 +20,8 @@ function makeHandler(overrides = {}) {
     gameApi: api,
     sessionId: 'sess-1',
     setCombat: vi.fn(),
+    setTurnState: vi.fn(),
+    addLog: vi.fn(),
     setHelpMode: vi.fn(),
     handleDash: vi.fn(),
     handleDisengage: vi.fn(),
@@ -58,5 +64,35 @@ describe('createCombatSkillClickHandler', () => {
     expect(api.combatAction).toHaveBeenCalledWith('sess-1', '饮用治疗药剂', null, false)
     expect(api.getCombat).toHaveBeenCalledWith('sess-1')
     expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
+  })
+
+  it('routes shove and grapple through the dedicated contested-check endpoint', async () => {
+    const { handler, fns, api } = makeHandler()
+
+    await handler({ k: 'shove', available: true })
+    await handler({ k: 'grapple', available: true })
+
+    expect(api.grappleShove).toHaveBeenNthCalledWith(1, 'sess-1', 'shove', 'enemy-1', 'prone')
+    expect(api.grappleShove).toHaveBeenNthCalledWith(2, 'sess-1', 'grapple', 'enemy-1', 'prone')
+    expect(api.combatAction).not.toHaveBeenCalled()
+    expect(api.getCombat).toHaveBeenCalledTimes(2)
+    expect(fns.setTurnState).toHaveBeenCalledWith({ action_used: true })
+    expect(fns.addLog).toHaveBeenCalledWith({
+      role: 'player',
+      content: 'Tester 推倒训练假人',
+      log_type: 'combat',
+    })
+    expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
+  })
+
+  it('requires a selected target before shove or grapple', async () => {
+    const { handler, fns, api } = makeHandler({ getSelectedTarget: vi.fn(() => null) })
+
+    await handler({ k: 'shove', available: true })
+    await handler({ k: 'grapple', available: true })
+
+    expect(fns.setError).toHaveBeenCalledTimes(2)
+    expect(fns.setError).toHaveBeenCalledWith('请先选择目标')
+    expect(api.grappleShove).not.toHaveBeenCalled()
   })
 })

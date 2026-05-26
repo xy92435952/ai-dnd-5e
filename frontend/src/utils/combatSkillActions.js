@@ -8,6 +8,8 @@ export function createCombatSkillClickHandler({
   gameApi,
   sessionId,
   setCombat,
+  setTurnState,
+  addLog,
   setHelpMode,
   handleDash,
   handleDisengage,
@@ -36,7 +38,20 @@ export function createCombatSkillClickHandler({
           break
         case 'shove':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }
-          await gameApi.combatAction(sessionId, '推撞', getSelectedTarget(), false)
+          {
+            const result = await gameApi.grappleShove(sessionId, 'shove', getSelectedTarget(), 'prone')
+            if (result?.turn_state) setTurnState?.(result.turn_state)
+            if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
+          }
+          setCombat(await gameApi.getCombat(sessionId))
+          break
+        case 'grapple':
+          if (!getSelectedTarget()) { setError('请先选择目标'); return }
+          {
+            const result = await gameApi.grappleShove(sessionId, 'grapple', getSelectedTarget(), 'prone')
+            if (result?.turn_state) setTurnState?.(result.turn_state)
+            if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
+          }
           setCombat(await gameApi.getCombat(sessionId))
           break
         case 'help':

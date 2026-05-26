@@ -18,6 +18,7 @@ def test_build_skill_bar_returns_ten_slots_with_attack_first():
     assert len(bar) == 10
     assert bar[0]["k"] == "atk"
     assert bar[-1]["key"] == "0"
+    assert any(slot["k"] == "grapple" and slot["available"] is True for slot in bar)
 
 
 def test_paladin_smite_reflects_first_level_slot_availability():

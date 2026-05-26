@@ -9,6 +9,7 @@ export const SKILL_INFO = {
   atk:   { desc: '用主手武器发起一次近战或远程攻击。命中后掷伤害骰。' },
   spell: { desc: '打开法术列表选择法术；施法消耗对应环级法术位。' },
   shove: { desc: '推倒或推开对手。对方进行力量(运动) vs 力量/敏捷(特技)对抗。' },
+  grapple: { desc: '尝试擒抱目标。双方进行力量(运动)对抗，成功后目标速度降为0。' },
   help:  { desc: '辅助相邻盟友。其下一次攻击或检定获得优势。' },
   dash:  { desc: '冲刺——本回合移动力翻倍，但消耗你的动作。' },
   disg:  { desc: '脱离接战——移动时不触发敌方的借机攻击。' },
@@ -27,7 +28,7 @@ export const DEFAULT_SKILL_BAR = [
   { k: 'disg',  label: '脱离', glyph: '↶', cost: '动作', key: '6', kind: 'move', available: true },
   { k: 'dodge', label: '闪避', glyph: '⊙', cost: '动作', key: '7', kind: 'bonus', available: true },
   { k: 'death', label: '濒死', glyph: '☠', cost: '—', key: '8', kind: 'empty', available: false },
-  { k: 'empty', label: '', glyph: '', cost: '', key: '9', kind: 'empty', available: false },
+  { k: 'grapple', label: '擒抱', glyph: '⛓', cost: '动作', key: '9', kind: 'attack', available: true },
   { k: 'pot',   label: '药剂', glyph: '⚱', cost: '动作', key: '0', kind: 'bonus', available: true },
 ]
 
