@@ -90,6 +90,29 @@ def infer_ai_is_ranged(
     return False
 
 
+def target_is_dodging(
+    *,
+    combat,
+    target_id: str | None,
+    target_data: dict[str, Any] | None = None,
+    target_character=None,
+) -> bool:
+    """Return whether the target is under the Dodge action's defensive state."""
+    if not target_id:
+        return False
+
+    turn_state = (combat.turn_states or {}).get(str(target_id), {})
+    if turn_state.get("dodging"):
+        return True
+
+    conditions = []
+    if target_character is not None:
+        conditions = list(getattr(target_character, "conditions", None) or [])
+    elif target_data:
+        conditions = list(target_data.get("conditions", []) or [])
+    return "dodging" in conditions
+
+
 def apply_character_damage_resistance(
     target_character,
     damage: int,

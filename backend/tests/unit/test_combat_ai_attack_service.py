@@ -2,6 +2,7 @@ from services.combat_ai_attack_service import (
     apply_character_damage_resistance,
     choose_ai_attack_target,
     infer_ai_is_ranged,
+    target_is_dodging,
 )
 
 
@@ -100,3 +101,21 @@ def test_apply_character_damage_resistance_preserves_existing_barbarian_and_fire
         derived={"subclass_effects": {"bear_totem": True}},
     )
     assert apply_character_damage_resistance(bear_totem, 9, "psychic") == (9, False)
+
+
+def test_target_is_dodging_reads_turn_state_and_conditions():
+    combat = type("Combat", (), {"turn_states": {"hero-1": {"dodging": True}}})()
+    assert target_is_dodging(combat=combat, target_id="hero-1") is True
+
+    condition_target = FakeCharacter(conditions=["dodging"])
+    assert target_is_dodging(
+        combat=type("Combat", (), {"turn_states": {}})(),
+        target_id="hero-2",
+        target_character=condition_target,
+    ) is True
+
+    assert target_is_dodging(
+        combat=type("Combat", (), {"turn_states": {}})(),
+        target_id="enemy-1",
+        target_data={"conditions": ["poisoned"]},
+    ) is False

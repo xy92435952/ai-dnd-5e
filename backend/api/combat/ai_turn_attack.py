@@ -16,6 +16,7 @@ from services.combat_ai_attack_service import (
     apply_character_damage_resistance,
     choose_ai_attack_target,
     infer_ai_is_ranged,
+    target_is_dodging,
 )
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
@@ -162,12 +163,19 @@ async def handle_ai_attack_action(
         if extra_adv:
             actor_ts["being_helped"] = False
             _save_ts(combat, actor_id, actor_ts)
+        target_dodging = target_is_dodging(
+            combat=combat,
+            target_id=target_id,
+            target_data=target_data,
+            target_character=target_char_for_shield,
+        )
 
         for atk_idx in range(num_attacks):
             result_obj = svc.resolve_melee_attack(
                 attacker_derived=actor_derived,
                 target_derived=ai_target_derived,
                 advantage=extra_adv if atk_idx == 0 else False,
+                disadvantage=target_dodging,
             )
             if first_attack_roll is None:
                 first_attack_roll = result_obj

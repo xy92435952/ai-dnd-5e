@@ -114,6 +114,7 @@ async def maybe_handle_pre_attack_action(
         if ts["action_used"]:
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
+        ts["dodging"] = True
         _save_ts(combat, player_id, ts)
         narration = f"{player_name} 采取了闪避姿态，专注于躲避攻击。"
         db.add(GameLog(session_id=session_id, role="player", content=narration, log_type="combat"))

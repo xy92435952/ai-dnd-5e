@@ -47,6 +47,21 @@ class FakePlayer:
     }
 
 
+class FakeFighter:
+    id = "char-1"
+    name = "战士"
+    char_class = "Fighter"
+    level = 3
+    hp_current = 18
+    conditions = []
+    class_resources = {}
+    derived = {
+        "attack_bonus": 8,
+        "hit_die": 8,
+        "ability_modifiers": {"str": 3, "dex": 1},
+    }
+
+
 class FakeCombatService:
     def get_attack_count(self, *_args):
         return 1
@@ -55,7 +70,8 @@ class FakeCombatService:
         return False, False
 
     def get_defense_modifiers(self, *_args):
-        return False, False
+        conditions = _args[0] if _args else []
+        return False, "dodging" in conditions
 
     def resolve_melee_attack(self, **kwargs):
         self.last_attack_kwargs = kwargs
@@ -121,3 +137,35 @@ async def test_prepare_direct_attack_consumes_help_and_forces_assassinate_crit(m
     assert prepared.turn_state["being_helped"] is False
     assert prepared.ranged_penalty is False
     assert prepared.feat_power_attack is False
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_attack_applies_disadvantage_against_dodging_target():
+    from services import combat_direct_attack_service as direct_attack
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.turn_states["goblin-1"] = {"dodging": True}
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=FakeFighter(),
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 8,
+            "derived": {"ac": 15},
+            "conditions": [],
+        }],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert combat_service.last_attack_kwargs["advantage"] is False
+    assert combat_service.last_attack_kwargs["disadvantage"] is True
+    assert prepared.turn_state["being_helped"] is False

@@ -25,7 +25,7 @@ describe('useCombatPlayerActions', () => {
     vi.clearAllMocks()
     combatActionMock.mockResolvedValue({
       narration: '你采取了闪避姿态',
-      turn_state: { action_used: true },
+      turn_state: { action_used: true, dodging: true },
     })
     classFeatureMock.mockResolvedValue({
       narration: '你恢复了体力',
@@ -65,7 +65,7 @@ describe('useCombatPlayerActions', () => {
     })
 
     expect(combatActionMock).toHaveBeenCalledWith('sess-1', '闪避', null, false)
-    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true })
+    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true, dodging: true })
     expect(deps.addLog).toHaveBeenCalledWith({
       role: 'player',
       content: '你采取了闪避姿态',

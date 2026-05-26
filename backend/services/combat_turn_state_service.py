@@ -11,6 +11,7 @@ DEFAULT_TURN_STATE: dict[str, Any] = {
     "movement_max": 6,
     "disengaged": False,
     "being_helped": False,
+    "dodging": False,
     "attacks_made": 0,
     "attacks_max": 1,
 }

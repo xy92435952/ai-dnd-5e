@@ -169,3 +169,43 @@ async def test_prepare_ranged_attack_against_distant_prone_target_has_disadvanta
     assert prepared.pending_attack["disadvantage"] is True
     assert captured["advantage"] is False
     assert captured["disadvantage"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_attack_roll_applies_disadvantage_against_dodging_target():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.turn_states["goblin-1"] = {"dodging": True}
+    captured = {}
+
+    def capture_roll_attack(**kwargs):
+        captured.update(kwargs)
+        return fixed_roll_attack(**kwargs)
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": [],
+        }],
+        roll_attack_func=capture_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.advantage is False
+    assert prepared.disadvantage is True
+    assert prepared.pending_attack["disadvantage"] is True
+    assert captured["disadvantage"] is True
