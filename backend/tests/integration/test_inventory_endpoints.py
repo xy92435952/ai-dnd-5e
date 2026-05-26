@@ -433,6 +433,68 @@ async def test_use_item_in_combat_rejects_when_action_already_used(
 
 
 @pytest.mark.asyncio
+async def test_use_item_in_combat_rejects_when_actor_incapacitated(
+    client, db_session, sample_user, sample_character, sample_session,
+):
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 0, "stable": False}
+    sample_character.equipment = {
+        "gold": 10,
+        "gear": [
+            {
+                "name": "Healing Potion",
+                "zh": "治疗药水",
+                "consumable": True,
+                "effect": "heal",
+                "heal_dice": "2d4+2",
+            }
+        ],
+    }
+    sample_session.combat_active = True
+    combat = CombatState(
+        session_id=sample_session.id,
+        turn_order=[
+            {
+                "character_id": sample_character.id,
+                "name": sample_character.name,
+                "initiative": 15,
+                "is_player": True,
+                "is_enemy": False,
+            },
+        ],
+        current_turn_index=0,
+        turn_states={
+            sample_character.id: {
+                "action_used": False,
+                "bonus_action_used": False,
+                "reaction_used": False,
+                "movement_used": 0,
+                "movement_max": 6,
+            },
+        },
+    )
+    db_session.add(combat)
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post(
+        f"/characters/{sample_character.id}/use-item",
+        headers=headers,
+        json={
+            "item_name": "Healing Potion",
+            "session_id": sample_session.id,
+            "use_in_combat": True,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    await db_session.refresh(sample_character)
+    assert len(sample_character.equipment["gear"]) == 1
+    assert sample_character.hp_current == 0
+
+
+@pytest.mark.asyncio
 async def test_use_item_in_combat_rejects_out_of_turn_without_consuming(
     client, db_session, sample_user, sample_character, sample_session,
 ):

@@ -147,6 +147,39 @@ def get_life_state(character: dict | object | None) -> str:
     return "dying"
 
 
+INCAPACITATING_CONDITIONS = frozenset({
+    "incapacitated",
+    "unconscious",
+    "stunned",
+    "paralyzed",
+    "petrified",
+})
+
+
+def get_incapacitating_reasons(character: dict | object | None) -> list[str]:
+    """Return mechanical reasons that prevent a character from taking actions."""
+    if not character:
+        return []
+    if isinstance(character, dict):
+        conditions = character.get("conditions") or []
+    else:
+        conditions = getattr(character, "conditions", None) or []
+
+    reasons: list[str] = []
+    life_state = get_life_state(character)
+    if life_state != "alive":
+        reasons.append(life_state)
+    for condition in conditions:
+        if condition in INCAPACITATING_CONDITIONS and condition not in reasons:
+            reasons.append(condition)
+    return reasons
+
+
+def is_incapacitated(character: dict | object | None) -> bool:
+    """Return whether a character cannot take actions or reactions."""
+    return bool(get_incapacitating_reasons(character))
+
+
 def apply_character_damage(character: object, damage: int) -> dict:
     """Apply damage and initialize death saves when a character drops to 0 HP."""
     before_hp = int(getattr(character, "hp_current", 0) or 0)

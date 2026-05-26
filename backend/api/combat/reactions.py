@@ -16,7 +16,8 @@ from database import get_db
 from models import Character, Session, GameLog, CombatState, Module
 from api.deps import (
     get_session_or_404, entity_snapshot, serialize_combat,
-    get_optional_user_id, assert_can_act, assert_character_in_session, assert_optional_session_access,
+    get_optional_user_id, assert_can_act, assert_character_can_act,
+    assert_character_in_session, assert_optional_session_access,
     broadcast_to_session, current_turn_user_id,
 )
 from services.combat_service import CombatService
@@ -90,10 +91,10 @@ async def use_reaction(
         if member and member.character_id:
             player_id = member.character_id
 
-    if session.is_multiplayer:
-        if not user_id:
-            raise HTTPException(401, "Login required for multiplayer combat")
+    if user_id:
         await assert_can_act(session, user_id, player_id, db, require_current_turn=False)
+    else:
+        await assert_character_can_act(player_id, db)
 
     player = await db.get(Character, player_id)
     if not player:

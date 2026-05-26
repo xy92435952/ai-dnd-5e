@@ -12,6 +12,7 @@ from database import get_db
 from models import Character, GameLog, CombatState
 from api.deps import (
     assert_can_act,
+    assert_character_can_act,
     assert_optional_session_access,
     get_session_or_404,
     get_optional_user_id,
@@ -75,10 +76,10 @@ async def combat_action(
                 player_id = current_id
         except (IndexError, AttributeError):
             pass
-    if session.is_multiplayer:
-        if not user_id:
-            raise HTTPException(401, "Login required for multiplayer combat")
+    if user_id:
         await assert_can_act(session, user_id, player_id, db)
+    else:
+        await assert_character_can_act(player_id, db)
     player      = await db.get(Character, player_id)
     player_name = player.name if player else "你"
     state       = session.game_state or {}

@@ -104,7 +104,13 @@ async def _end_player_turn_locked(
     if current_cid:
         if current.get("is_player") is not True:
             raise HTTPException(400, "Current turn is AI-controlled; use /ai-turn")
-        await assert_can_act(session, user_id, current_cid, db)
+        await assert_can_act(
+            session,
+            user_id,
+            current_cid,
+            db,
+            allow_incapacitated=True,
+        )
 
     # ── 当前实体条件倒计时 ────────────────────────────────
     tick_logs = []

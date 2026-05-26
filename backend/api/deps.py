@@ -8,7 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from models import Session, Character, GameLog, CombatState, Module, SessionMember
-from services.dnd_rules import get_effective_derived, get_effective_hp_base, get_life_state
+from services.dnd_rules import (
+    get_effective_derived,
+    get_effective_hp_base,
+    get_incapacitating_reasons,
+    get_life_state,
+)
 from services.session_access_service import assert_character_in_session
 
 
@@ -221,10 +226,11 @@ async def assert_can_act(
     db: AsyncSession,
     *,
     require_current_turn: bool = True,
+    allow_incapacitated: bool = False,
 ) -> None:
     """多人联机：校验当前 user 是否有权操作 entity_id 这个角色。
 
-    单人模式（is_multiplayer=False）：跳过所有校验，保持向后兼容。
+    单人模式（is_multiplayer=False）：只执行通用生命状态/失能校验，跳过房间归属校验。
     多人模式：
       - AI 队友（is_player=False）：任何房间成员都可触发（通过 ai-turn）
       - 真人玩家角色：必须是 character.user_id == user_id
@@ -232,12 +238,17 @@ async def assert_can_act(
     """
     await assert_session_access(session, user_id, db)
 
-    if not session.is_multiplayer:
-        return
-
     char = await db.get(Character, entity_id)
     if char is None:
         return  # 让上层端点自己处理 404
+
+    if not allow_incapacitated:
+        reasons = get_incapacitating_reasons(char)
+        if reasons:
+            raise HTTPException(400, f"Character cannot act while {', '.join(reasons)}")
+
+    if not session.is_multiplayer:
+        return
 
     if require_current_turn and session.combat_active:
         result = await db.execute(
@@ -261,6 +272,23 @@ async def assert_can_act(
 
     if char.user_id != user_id:
         raise HTTPException(403, "这不是你的角色")
+
+
+async def assert_character_can_act(
+    entity_id: str,
+    db: AsyncSession,
+    *,
+    allow_incapacitated: bool = False,
+) -> None:
+    """Apply non-auth mechanical action gates for legacy single-player paths."""
+    char = await db.get(Character, entity_id)
+    if char is None:
+        return
+    if allow_incapacitated:
+        return
+    reasons = get_incapacitating_reasons(char)
+    if reasons:
+        raise HTTPException(400, f"Character cannot act while {', '.join(reasons)}")
 
 
 async def broadcast_to_session(session: Session, event) -> None:

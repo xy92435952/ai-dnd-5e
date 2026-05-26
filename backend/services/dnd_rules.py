@@ -21,11 +21,13 @@ from services.dnd_character_rules import (  # noqa: F401
     get_class_resource_defaults,
     get_exhaustion_effects,
     get_exhaustion_level,
+    get_incapacitating_reasons,
     get_life_state,
     get_spell_slots,
     has_exhaustion_effect,
     is_dead,
     is_dying,
+    is_incapacitated,
     proficiency_bonus,
     stabilize_character,
 )

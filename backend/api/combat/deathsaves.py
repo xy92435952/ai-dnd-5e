@@ -31,7 +31,14 @@ async def death_saving_throw(
 ):
     """Resolve a DnD 5e death saving throw for a 0-HP character."""
     session = await get_session_or_404(session_id, db)
-    await assert_can_act(session, user_id, req.character_id, db, require_current_turn=False)
+    await assert_can_act(
+        session,
+        user_id,
+        req.character_id,
+        db,
+        require_current_turn=False,
+        allow_incapacitated=True,
+    )
     char = await db.get(Character, req.character_id)
     if not char:
         raise HTTPException(404, "Character not found")

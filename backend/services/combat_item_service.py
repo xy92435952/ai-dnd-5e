@@ -4,7 +4,8 @@ from typing import Any, Callable
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import CombatState, Session
+from models import Character, CombatState, Session
+from services.dnd_rules import get_incapacitating_reasons
 
 
 @dataclass
@@ -35,6 +36,12 @@ async def prepare_combat_item_action(
     session = await db.get(Session, session_id)
     if not session:
         raise CombatItemActionError(404, "会话不存在")
+
+    character = await db.get(Character, character_id)
+    if character:
+        reasons = get_incapacitating_reasons(character)
+        if reasons:
+            raise CombatItemActionError(400, f"Character cannot act while {', '.join(reasons)}")
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()

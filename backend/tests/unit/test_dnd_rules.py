@@ -18,8 +18,10 @@ from services.dnd_rules import (
     get_effective_derived,
     get_effective_hp_base,
     get_effective_hp_max,
+    get_incapacitating_reasons,
     is_dead,
     is_dying,
+    is_incapacitated,
     stabilize_character,
     _normalize_class,
 )
@@ -244,6 +246,25 @@ class TestCharacterLifeState:
         char = {"hp_current": 0, "death_saves": {"successes": 0, "failures": 3, "stable": False}}
 
         assert is_dead(char) is True
+
+    @pytest.mark.parametrize("life_state", ["dying", "stable", "dead"])
+    def test_zero_hp_life_states_are_incapacitated(self, life_state):
+        death_saves = {
+            "dying": {"successes": 0, "failures": 0, "stable": False},
+            "stable": {"successes": 0, "failures": 0, "stable": True},
+            "dead": {"successes": 0, "failures": 3, "stable": False},
+        }[life_state]
+        char = {"hp_current": 0, "death_saves": death_saves, "conditions": []}
+
+        assert is_incapacitated(char) is True
+        assert life_state in get_incapacitating_reasons(char)
+
+    @pytest.mark.parametrize("condition", ["unconscious", "incapacitated", "stunned", "paralyzed", "petrified"])
+    def test_incapacitating_conditions_prevent_actions(self, condition):
+        char = {"hp_current": 5, "death_saves": None, "conditions": [condition]}
+
+        assert is_incapacitated(char) is True
+        assert condition in get_incapacitating_reasons(char)
 
 
 class TestCalcDerived:

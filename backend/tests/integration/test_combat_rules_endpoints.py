@@ -153,6 +153,196 @@ async def test_death_save_natural_1_counts_two_failures(
     assert ds.get("failures", 0) == 2
 
 
+@pytest.mark.parametrize("life_state", ["dying", "stable", "dead"])
+async def test_zero_hp_character_cannot_take_combat_actions(
+    life_state, client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 0
+    sample_character.char_class = "Fighter"
+    sample_character.class_resources = {"second_wind_used": False}
+    sample_character.death_saves = {
+        "dying": {"successes": 0, "failures": 0, "stable": False},
+        "stable": {"successes": 0, "failures": 0, "stable": True},
+        "dead": {"successes": 0, "failures": 3, "stable": False},
+    }[life_state]
+    await db_session.commit()
+
+    requests = [
+        (
+            "move",
+            client.post(
+                f"/game/combat/{sample_session.id}/move",
+                headers=headers,
+                json={"entity_id": sample_character.id, "to_x": 1, "to_y": 0},
+            ),
+        ),
+        (
+            "attack-roll",
+            client.post(
+                f"/game/combat/{sample_session.id}/attack-roll",
+                headers=headers,
+                json={"entity_id": sample_character.id, "target_id": "goblin-1", "d20_value": 12},
+            ),
+        ),
+        (
+            "direct-action",
+            client.post(
+                f"/game/combat/{sample_session.id}/action",
+                headers=headers,
+                json={"action_text": "attack", "target_id": "goblin-1"},
+            ),
+        ),
+        (
+            "spell",
+            client.post(
+                f"/game/combat/{sample_session.id}/spell",
+                headers=headers,
+                json={
+                    "caster_id": sample_character.id,
+                    "spell_name": "cure-wounds",
+                    "spell_level": 1,
+                    "target_id": sample_character.id,
+                },
+            ),
+        ),
+        (
+            "spell-roll",
+            client.post(
+                f"/game/combat/{sample_session.id}/spell-roll",
+                headers=headers,
+                json={
+                    "caster_id": sample_character.id,
+                    "spell_name": "cure-wounds",
+                    "spell_level": 1,
+                    "target_id": sample_character.id,
+                },
+            ),
+        ),
+        (
+            "reaction",
+            client.post(
+                f"/game/combat/{sample_session.id}/reaction",
+                headers=headers,
+                json={"reaction_type": "shield", "character_id": sample_character.id},
+            ),
+        ),
+        (
+            "smite",
+            client.post(
+                f"/game/combat/{sample_session.id}/smite",
+                headers=headers,
+                json={"slot_level": 1, "target_id": "goblin-1"},
+            ),
+        ),
+        (
+            "grapple",
+            client.post(
+                f"/game/combat/{sample_session.id}/grapple-shove",
+                headers=headers,
+                json={"action_type": "grapple", "target_id": "goblin-1"},
+            ),
+        ),
+        (
+            "maneuver",
+            client.post(
+                f"/game/combat/{sample_session.id}/maneuver",
+                headers=headers,
+                json={"maneuver_name": "trip", "target_id": "goblin-1"},
+            ),
+        ),
+        (
+            "class-feature",
+            client.post(
+                f"/game/combat/{sample_session.id}/class-feature",
+                headers=headers,
+                json={"feature_name": "second_wind"},
+            ),
+        ),
+    ]
+
+    for label, request in requests:
+        response = await request
+        assert response.status_code == 400, f"{label}: {response.status_code} {response.text}"
+        assert "cannot act" in response.text
+
+
+async def test_zero_hp_character_can_end_turn_to_avoid_stalling_combat(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 0, "stable": False}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/end-turn",
+        headers=headers,
+    )
+
+    assert response.status_code == 200, response.text
+    await db_session.refresh(dying_combat)
+    assert dying_combat.current_turn_index == 1
+
+
+async def test_dying_character_can_still_roll_death_save_after_action_gate(
+    client, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/death-save",
+        headers=headers,
+        json={"character_id": sample_character.id, "d20_value": 15},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["outcome"] == "success"
+
+
+async def test_incapacitating_condition_blocks_combat_action(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["unconscious"]
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/attack-roll",
+        headers=headers,
+        json={"entity_id": sample_character.id, "target_id": "goblin-1", "d20_value": 12},
+    )
+
+    assert response.status_code == 400
+    assert "unconscious" in response.text
+
+
+async def test_zero_hp_character_cannot_make_exploration_skill_check(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 0, "stable": False}
+    await db_session.commit()
+
+    response = await client.post(
+        "/game/skill-check",
+        headers=headers,
+        json={
+            "session_id": sample_session.id,
+            "character_id": sample_character.id,
+            "skill": "运动",
+            "dc": 10,
+            "d20_value": 12,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+
+
 # ─── AoE 群体伤害 / 治疗 ──────────────────────────────────
 
 @pytest_asyncio.fixture
