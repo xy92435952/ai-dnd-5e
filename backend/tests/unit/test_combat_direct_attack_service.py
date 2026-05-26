@@ -276,3 +276,24 @@ async def test_prepare_direct_attack_does_not_force_ranged_unconscious_target_cr
     assert prepared.attack_result["is_crit"] is False
     assert prepared.damage == 5
     assert prepared.extra_damage_notes == []
+
+
+def test_dark_ones_blessing_note_grants_real_temporary_hp():
+    from services.combat_direct_attack_service import apply_dark_ones_blessing_note
+
+    player = FakeFighter()
+    player.class_resources = {}
+    player.condition_durations = {}
+    notes = apply_dark_ones_blessing_note(
+        player=player,
+        target_new_hp=0,
+        target_is_enemy=True,
+        subclass_effects={"dark_ones_blessing": True},
+        player_derived={"ability_modifiers": {"cha": 3}},
+        player_level=4,
+        extra_damage_notes=[],
+    )
+
+    assert notes == ["黑暗祝福+7临时HP"]
+    assert player.class_resources["temporary_hp"] == 7
+    assert player.class_resources["temporary_hp_source"] == "dark_ones_blessing"

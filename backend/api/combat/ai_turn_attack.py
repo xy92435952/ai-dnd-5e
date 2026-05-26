@@ -24,6 +24,7 @@ from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
 from services.combat_temporary_hp_service import (
+    apply_generic_temporary_hp_to_character,
     apply_armor_of_agathys_retaliation_to_enemy,
     build_character_target_state,
     get_armor_of_agathys_retaliation_damage,
@@ -351,7 +352,12 @@ async def handle_ai_attack_action(
                 ai_sub_eff = actor_derived.get("subclass_effects", {})
                 if ai_sub_eff.get("dark_ones_blessing"):
                     cha_val = actor_derived.get("ability_modifiers", {}).get("cha", 0)
-                    _temp_hp = cha_val + ai_level
+                    _temp_hp = max(1, cha_val + ai_level)
+                    apply_generic_temporary_hp_to_character(
+                        achar,
+                        amount=_temp_hp,
+                        source="dark_ones_blessing",
+                    )
                     all_narrations.append(f"{actor_name} 获得 {_temp_hp} 临时HP（黑暗祝福）")
 
             if target_new_hp is not None and target_new_hp <= 0:

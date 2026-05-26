@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { charactersApi, gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyPlayerHpUpdate } from '../utils/combat'
+import { applyActionResultEntityStates, applyPlayerHpUpdate } from '../utils/combat'
 import {
   getInventoryUseSuccessText,
   mergeConsumableUseResult,
@@ -77,7 +77,21 @@ export function useCombatPlayerActions({
       addLog({ role: 'player', content: result.narration, log_type: 'combat' })
       if (result.turn_state) setTurnState(result.turn_state)
       if (result.class_resources) setClassResources(result.class_resources)
-      setCombat(prev => applyPlayerHpUpdate(prev, playerId, result.hp_current))
+      setCombat(prev => {
+        let updated = applyPlayerHpUpdate(prev, playerId, result.hp_current)
+        const temporaryHp = result.temporary_hp ?? result.class_resources?.temporary_hp
+        if (temporaryHp !== undefined) {
+          updated = applyActionResultEntityStates(updated, {
+            target_state: {
+              target_id: playerId,
+              hp_current: result.hp_current,
+              temporary_hp: temporaryHp,
+              class_resources: result.class_resources,
+            },
+          })
+        }
+        return updated
+      })
     } catch (e) {
       setError(e.message)
     } finally {

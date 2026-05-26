@@ -8,6 +8,8 @@ from services.dnd_rules import (
     apply_character_healing,
     can_receive_ordinary_healing,
     get_effective_hp_max,
+    get_temporary_hp,
+    grant_temporary_hp,
 )
 
 
@@ -28,6 +30,7 @@ class CombatClassFeatureResult:
     class_resources: dict[str, Any]
     character_class: str
     hp_max: int
+    temporary_hp: int = 0
 
 
 def _fail(detail: str, status_code: int = 400) -> None:
@@ -168,8 +171,15 @@ def resolve_combat_class_feature(
             _fail("战意次数已用完")
         class_resources["fighting_spirit_remaining"] = remaining - 1
         turn_state["fighting_spirit_active"] = True
-        save_turn_state(combat, player_id, turn_state)
         player.class_resources = class_resources
+        grant_temporary_hp(
+            player,
+            player.level,
+            source="fighting_spirit",
+            replace_if_higher=True,
+        )
+        class_resources = dict(player.class_resources or {})
+        save_turn_state(combat, player_id, turn_state)
         narration = f"⚔️ {player.name} 集中精神，燃起不屈的战意！本回合所有攻击获得优势，获得 {player.level} 点临时生命值。"
 
     elif feature == "bardic_inspiration":
@@ -314,6 +324,13 @@ def resolve_combat_class_feature(
         temp_hp = derived.get("subclass_effects", {}).get("symbiotic_temp_hp", 4 * player.level)
         class_resources["symbiotic_entity_active"] = True
         player.class_resources = class_resources
+        grant_temporary_hp(
+            player,
+            temp_hp,
+            source="symbiotic_entity",
+            replace_if_higher=True,
+        )
+        class_resources = dict(player.class_resources or {})
         narration = f"🍄 {player.name} 激活共生实体！孢子覆盖全身，获得 {temp_hp} 点临时生命值，近战附加毒素伤害。"
         dice_roll = {"faces": 20, "result": temp_hp, "label": f"共生实体 +{temp_hp}临时HP"}
 
@@ -351,4 +368,5 @@ def resolve_combat_class_feature(
         class_resources=class_resources,
         character_class=player_class,
         hp_max=get_effective_hp_max(player, derived.get("hp_max", player.hp_current)),
+        temporary_hp=get_temporary_hp(player),
     )

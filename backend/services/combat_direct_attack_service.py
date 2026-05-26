@@ -13,6 +13,7 @@ from services.combat_attack_targeting_service import get_target_conditions, reso
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
+from services.combat_temporary_hp_service import apply_generic_temporary_hp_to_character
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import _normalize_class, roll_dice
 
@@ -289,6 +290,7 @@ def consume_direct_attack_turn(
 
 def apply_dark_ones_blessing_note(
     *,
+    player=None,
     target_new_hp: int | None,
     target_is_enemy: bool,
     subclass_effects: dict[str, Any],
@@ -299,7 +301,13 @@ def apply_dark_ones_blessing_note(
     if target_new_hp is not None and target_new_hp <= 0 and target_is_enemy:
         if subclass_effects.get("dark_ones_blessing"):
             charisma_mod = player_derived.get("ability_modifiers", {}).get("cha", 0)
-            temp_hp = charisma_mod + player_level
+            temp_hp = max(1, charisma_mod + player_level)
+            if player is not None:
+                apply_generic_temporary_hp_to_character(
+                    player,
+                    amount=temp_hp,
+                    source="dark_ones_blessing",
+                )
             extra_damage_notes.append(f"黑暗祝福+{temp_hp}临时HP")
     return extra_damage_notes
 

@@ -22,6 +22,30 @@ def is_armor_of_agathys(spell_name: str | None, spell: dict[str, Any] | None = N
     return any(str(name or "").strip().lower() in ARMOR_OF_AGATHYS_NAMES for name in names)
 
 
+def apply_generic_temporary_hp_to_character(
+    character: Character,
+    *,
+    amount: int,
+    source: str,
+) -> dict[str, Any]:
+    """Grant generic non-stacking temporary HP and return a compact target state."""
+    summary = grant_temporary_hp(
+        character,
+        amount,
+        source=source,
+        replace_if_higher=True,
+    )
+    state = build_character_target_state(character)
+    state.update({
+        "temporary_hp_before": summary["temporary_hp_before"],
+        "temporary_hp_after": summary["temporary_hp_after"],
+        "temporary_hp_granted": summary["temporary_hp_granted"],
+        "temporary_hp_source": source,
+        "reason": summary.get("reason"),
+    })
+    return state
+
+
 def apply_armor_of_agathys_to_character(
     character: Character,
     *,
@@ -102,18 +126,18 @@ def build_character_target_state(character: Character) -> dict[str, Any]:
         "target_id": character.id,
         "hp_current": character.hp_current,
         "new_hp": character.hp_current,
-        "death_saves": character.death_saves,
-        "conditions": character.conditions or [],
+        "death_saves": getattr(character, "death_saves", None),
+        "conditions": getattr(character, "conditions", None) or [],
         "life_state": get_life_state(character),
-        "concentration": character.concentration,
+        "concentration": getattr(character, "concentration", None),
     }
     temporary_hp = get_temporary_hp(character)
     if temporary_hp:
         state["temporary_hp"] = temporary_hp
-    condition_durations = character.condition_durations or {}
+    condition_durations = getattr(character, "condition_durations", None) or {}
     if condition_durations:
         state["condition_durations"] = condition_durations
-    class_resources = character.class_resources or {}
+    class_resources = getattr(character, "class_resources", None) or {}
     if class_resources:
         state["class_resources"] = class_resources
     return state

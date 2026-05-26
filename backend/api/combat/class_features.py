@@ -128,6 +128,7 @@ async def use_class_feature(
         "turn_state": result.turn_state,
         "class_resources": result.class_resources,
         "hp_current": player.hp_current,
+        "temporary_hp": result.temporary_hp,
         "hp_max": result.hp_max,
         "dice_roll": result.dice_roll,
     }

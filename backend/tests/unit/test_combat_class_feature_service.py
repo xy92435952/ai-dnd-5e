@@ -18,6 +18,7 @@ def _character(**overrides):
         "derived": {"hp_max": 20, "ability_modifiers": {"wis": 2}},
         "class_resources": {},
         "conditions": [],
+        "condition_durations": {},
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -122,6 +123,66 @@ def test_tides_of_chaos_marks_next_d20_advantage():
     assert result.class_resources["tides_of_chaos_used"] is True
     assert result.turn_state["tides_of_chaos_active"] is True
     assert "获得优势" in result.narration
+
+
+def test_fighting_spirit_grants_real_temporary_hp():
+    player = _character(
+        char_class="Fighter",
+        level=5,
+        derived={"hp_max": 20, "ability_modifiers": {"wis": 2}, "subclass_effects": {"fighting_spirit": True}},
+        class_resources={"fighting_spirit_remaining": 1},
+    )
+
+    result = resolve_combat_class_feature(
+        feature="fighting_spirit",
+        player=player,
+        player_id="hero",
+        combat=_combat(),
+        turn_state=_turn_state(),
+        combat_service=CombatService(),
+        roll_dice_fn=lambda *_args: (_ for _ in ()).throw(AssertionError("should not roll")),
+    )
+
+    assert result.class_resources["fighting_spirit_remaining"] == 0
+    assert result.class_resources["temporary_hp"] == 5
+    assert result.class_resources["temporary_hp_source"] == "fighting_spirit"
+    assert result.temporary_hp == 5
+
+
+def test_symbiotic_entity_grants_real_temporary_hp_and_preserves_higher_existing_pool():
+    player = _character(
+        char_class="Druid",
+        level=3,
+        derived={
+            "hp_max": 20,
+            "ability_modifiers": {"wis": 2},
+            "subclass_effects": {"symbiotic_entity": True, "symbiotic_temp_hp": 12},
+        },
+        class_resources={
+            "wild_shape_remaining": 1,
+            "temporary_hp": 15,
+            "temporary_hp_source": "armor_of_agathys",
+            "armor_of_agathys_damage": 15,
+        },
+        conditions=["armor_of_agathys"],
+        condition_durations={"armor_of_agathys": 600},
+    )
+
+    result = resolve_combat_class_feature(
+        feature="symbiotic_entity",
+        player=player,
+        player_id="hero",
+        combat=_combat(),
+        turn_state=_turn_state(),
+        combat_service=CombatService(),
+        roll_dice_fn=lambda *_args: (_ for _ in ()).throw(AssertionError("should not roll")),
+    )
+
+    assert result.class_resources["wild_shape_remaining"] == 0
+    assert result.class_resources["symbiotic_entity_active"] is True
+    assert result.class_resources["temporary_hp"] == 15
+    assert result.class_resources["temporary_hp_source"] == "armor_of_agathys"
+    assert result.temporary_hp == 15
 
 
 def test_rejects_wrong_class_feature():

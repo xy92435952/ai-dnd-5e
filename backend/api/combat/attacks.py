@@ -182,6 +182,7 @@ async def combat_action(
 
     # ── Dark One's Blessing: Warlock gains temp HP on kill ──
     extra_damage_notes = apply_dark_ones_blessing_note(
+        player=player,
         target_new_hp=target_new_hp,
         target_is_enemy=prepared.target_is_enemy,
         subclass_effects=prepared.subclass_effects,

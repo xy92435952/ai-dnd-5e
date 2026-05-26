@@ -21,6 +21,7 @@ from services.combat_attack_damage_service import (
     find_pending_attack,
     resolve_pending_attack_damage,
 )
+from services.combat_temporary_hp_service import apply_generic_temporary_hp_to_character
 from api.combat.schemas import AttackRollRequest, DamageRollRequest
 from services.combat_attack_prepare_service import prepare_attack_roll
 from services.combat_attack_roll_service import CombatAttackRollError
@@ -242,7 +243,12 @@ async def damage_roll(
     if target_new_hp is not None and target_new_hp <= 0 and damage_resolution.target_is_enemy:
         if damage_resolution.player_derived.get("subclass_effects", {}).get("dark_ones_blessing"):
             cha_mod_val = damage_resolution.player_derived.get("ability_modifiers", {}).get("cha", 0)
-            temp_hp = cha_mod_val + damage_resolution.player_level
+            temp_hp = max(1, cha_mod_val + damage_resolution.player_level)
+            apply_generic_temporary_hp_to_character(
+                player,
+                amount=temp_hp,
+                source="dark_ones_blessing",
+            )
             damage_resolution.extra_damage_notes.append(f"黑暗祝福+{temp_hp}临时HP")
 
     # ── Clear pending_attack ──
