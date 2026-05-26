@@ -46,6 +46,15 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.handleAttack).not.toHaveBeenCalled()
   })
 
+  it('routes sneak attack through the normal attack flow', async () => {
+    const { handler, fns } = makeHandler()
+
+    await handler({ k: 'sneak', available: true })
+
+    expect(fns.handleAttack).toHaveBeenCalledTimes(1)
+    expect(fns.setSpellModalOpen).not.toHaveBeenCalled()
+  })
+
   it('routes class skill keys to existing class feature names', async () => {
     const { handler, fns } = makeHandler()
 

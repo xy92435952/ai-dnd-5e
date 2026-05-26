@@ -22,6 +22,7 @@ export function createCombatSkillClickHandler({
     try {
       switch (skill.k) {
         case 'atk':
+        case 'sneak':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }
           await handleAttack()
           break
