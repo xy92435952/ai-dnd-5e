@@ -22,6 +22,19 @@ def test_build_pending_attack_reaction_captures_attack_events():
                 "damage": 6,
                 "hp_before": 10,
                 "hp_after": 4,
+                "temporary_hp_before": 5,
+                "temporary_hp_after": 0,
+                "wild_shape_hp_before": 7,
+                "wild_shape_hp_after": 6,
+                "class_resources_before": {
+                    "temporary_hp": 5,
+                    "temporary_hp_source": "armor_of_agathys",
+                    "armor_of_agathys_active": True,
+                    "wild_shape_active": "Wolf",
+                    "wild_shape_hp": 7,
+                },
+                "conditions_before": ["armor_of_agathys"],
+                "condition_durations_before": {"armor_of_agathys": 600},
                 "hit": True,
             },
         ],
@@ -31,6 +44,11 @@ def test_build_pending_attack_reaction_captures_attack_events():
     assert pending["target_id"] == "hero-1"
     assert pending["incoming_damage"] == 6
     assert pending["target_hp_before_damage"] == 10
+    assert pending["target_temporary_hp_before_damage"] == 5
+    assert pending["target_wild_shape_hp_before_damage"] == 7
+    assert pending["target_class_resources_before_damage"]["armor_of_agathys_active"] is True
+    assert pending["target_conditions_before_damage"] == ["armor_of_agathys"]
+    assert pending["target_condition_durations_before_damage"] == {"armor_of_agathys": 600}
     assert pending["events"][0]["attack_total"] == 17
 
 
@@ -140,6 +158,9 @@ def test_restore_prevented_damage_caps_at_pre_attack_hp():
     character = SimpleNamespace(
         hp_current=3,
         derived={"hp_max": 12},
+        class_resources={},
+        conditions=[],
+        death_saves=None,
     )
 
     result = restore_prevented_damage(
@@ -154,3 +175,78 @@ def test_restore_prevented_damage_caps_at_pre_attack_hp():
         "hp_after_reaction": 8,
         "hp_restored": 5,
     }
+
+
+def test_restore_prevented_damage_restores_temporary_hp_and_armor_state_after_hp():
+    character = SimpleNamespace(
+        hp_current=8,
+        derived={"hp_max": 12},
+        class_resources={},
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+    )
+
+    result = restore_prevented_damage(
+        character,
+        {
+            "target_hp_before_damage": 10,
+            "target_temporary_hp_before_damage": 5,
+            "target_class_resources_before_damage": {
+                "temporary_hp": 5,
+                "temporary_hp_source": "armor_of_agathys",
+                "armor_of_agathys_active": True,
+                "armor_of_agathys_damage": 5,
+                "armor_of_agathys_spell_level": 1,
+            },
+            "target_conditions_before_damage": ["armor_of_agathys"],
+            "target_condition_durations_before_damage": {"armor_of_agathys": 600},
+        },
+        damage_prevented=6,
+    )
+
+    assert character.hp_current == 10
+    assert character.class_resources["temporary_hp"] == 4
+    assert character.class_resources["temporary_hp_source"] == "armor_of_agathys"
+    assert character.class_resources["armor_of_agathys_active"] is True
+    assert "armor_of_agathys" in character.conditions
+    assert character.condition_durations["armor_of_agathys"] == 600
+    assert result["hp_restored"] == 2
+    assert result["temporary_hp_restored"] == 4
+    assert result["temporary_hp_after_reaction"] == 4
+
+
+def test_restore_prevented_damage_restores_wild_shape_after_hp_and_temp_hp():
+    character = SimpleNamespace(
+        hp_current=8,
+        derived={"hp_max": 12},
+        class_resources={"temporary_hp": 1, "temporary_hp_source": "generic"},
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+    )
+
+    result = restore_prevented_damage(
+        character,
+        {
+            "target_hp_before_damage": 10,
+            "target_temporary_hp_before_damage": 3,
+            "target_wild_shape_hp_before_damage": 7,
+            "target_class_resources_before_damage": {
+                "temporary_hp": 3,
+                "temporary_hp_source": "generic",
+                "wild_shape_active": "Wolf",
+                "wild_shape_hp": 7,
+            },
+        },
+        damage_prevented=8,
+    )
+
+    assert character.hp_current == 10
+    assert character.class_resources["temporary_hp"] == 3
+    assert character.class_resources["wild_shape_active"] == "Wolf"
+    assert character.class_resources["wild_shape_hp"] == 4
+    assert result["hp_restored"] == 2
+    assert result["temporary_hp_restored"] == 2
+    assert result["wild_shape_hp_restored"] == 4
+    assert result["wild_shape_hp_after_reaction"] == 4

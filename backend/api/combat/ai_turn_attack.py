@@ -29,7 +29,13 @@ from services.combat_temporary_hp_service import (
     build_character_target_state,
     get_armor_of_agathys_retaliation_damage,
 )
-from services.dnd_rules import roll_dice, _normalize_class, apply_character_damage
+from services.dnd_rules import (
+    roll_dice,
+    _normalize_class,
+    apply_character_damage,
+    get_temporary_hp,
+    get_wild_shape_hp,
+)
 
 
 async def handle_ai_attack_action(
@@ -303,12 +309,17 @@ async def handle_ai_attack_action(
                     tchar = await db.get(Character, target_id)
                     if tchar:
                         hp_before_damage = tchar.hp_current
+                        temporary_hp_before_damage = get_temporary_hp(tchar)
+                        wild_shape_hp_before_damage = get_wild_shape_hp(tchar)
+                        class_resources_before_damage = dict(tchar.class_resources or {})
+                        conditions_before_damage = list(tchar.conditions or [])
+                        condition_durations_before_damage = dict(tchar.condition_durations or {})
                         armor_retaliation_damage = (
                             get_armor_of_agathys_retaliation_damage(tchar)
                             if is_enemy and not ai_is_ranged
                             else 0
                         )
-                        apply_character_damage(
+                        damage_result = apply_character_damage(
                             tchar,
                             atk_damage,
                             is_critical=result_obj.attack_roll.get("is_crit", False),
@@ -339,6 +350,13 @@ async def handle_ai_attack_action(
                                 "damage": applied_damage,
                                 "hp_before": hp_before_damage,
                                 "hp_after": target_new_hp,
+                                "temporary_hp_before": temporary_hp_before_damage,
+                                "temporary_hp_after": damage_result["temporary_hp_after"],
+                                "wild_shape_hp_before": wild_shape_hp_before_damage,
+                                "wild_shape_hp_after": damage_result["wild_shape_hp_after"],
+                                "class_resources_before": class_resources_before_damage,
+                                "conditions_before": conditions_before_damage,
+                                "condition_durations_before": condition_durations_before_damage,
                                 "hit": True,
                             })
 
