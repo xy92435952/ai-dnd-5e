@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, cleanup, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const {
   roomFixture,
   roomsGetMock,
   focusGroupMock,
+  wsHandlers,
 } = vi.hoisted(() => ({
   roomFixture: {
     session_id: 'sess-1',
@@ -34,10 +35,12 @@ const {
       main: { me: 'drafting' },
       alley: { u2: 'ready' },
     },
+    room_votes: [],
     start_ready_user_ids: [],
   },
   roomsGetMock: vi.fn(),
   focusGroupMock: vi.fn(),
+  wsHandlers: { current: null },
 }))
 
 vi.mock('../../api/client', () => ({
@@ -54,7 +57,10 @@ vi.mock('../../api/client', () => ({
 }))
 
 vi.mock('../../hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: true, send: () => true }),
+  useWebSocket: (_sessionId, onEvent) => {
+    wsHandlers.current = onEvent
+    return { connected: true, send: () => true }
+  },
 }))
 
 import Room from '../Room'
@@ -62,6 +68,7 @@ import Room from '../Room'
 describe('Room multiplayer lobby', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    wsHandlers.current = null
     localStorage.setItem('user', JSON.stringify({ user_id: 'me', username: 'me', display_name: '我' }))
     roomsGetMock.mockResolvedValue(roomFixture)
     focusGroupMock.mockResolvedValue({ ...roomFixture, active_group_id: 'alley' })
@@ -87,6 +94,43 @@ describe('Room multiplayer lobby', () => {
     await waitFor(() => {
       expect(focusGroupMock).toHaveBeenCalledWith('sess-1', 'alley')
     })
+
+    cleanup()
+  })
+
+  it('updates kick vote progress from room_state_updated websocket events', async () => {
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(wsHandlers.current).toBeTypeOf('function')
+    })
+
+    act(() => {
+      wsHandlers.current({
+        type: 'room_state_updated',
+        room: {
+          ...roomFixture,
+          room_votes: [{
+            id: 'kick:u2',
+            type: 'kick',
+            target_user_id: 'u2',
+            created_by_user_id: 'me',
+            eligible_voter_user_ids: ['me', 'u3'],
+            yes_user_ids: ['me'],
+            threshold: 2,
+            status: 'open',
+          }],
+        },
+      })
+    })
+
+    expect(await screen.findByRole('button', { name: /1\/2/ })).toBeDisabled()
 
     cleanup()
   })

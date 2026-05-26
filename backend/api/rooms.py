@@ -165,6 +165,10 @@ async def kick_member(
             by_user_id=user_id,
             members=room["members"],
         ))
+        if result.get("host_transferred_to"):
+            await ws_manager.broadcast(session_id, HostTransferred(
+                new_host_user_id=result["host_transferred_to"],
+            ))
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
     return result
 

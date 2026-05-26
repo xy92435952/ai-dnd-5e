@@ -211,6 +211,93 @@ async def test_ws_connect_sends_online_snapshot_to_connecting_member(
         ws_manager.ws_meta.clear()
 
 
+async def test_kick_vote_reaches_room_websocket_clients(
+    client,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """HTTP kick votes should update connected room clients in realtime."""
+    import api.ws as ws_api
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    host = await _register(client, "ws_vote_host", display_name="Vote Host")
+    voter = await _register(client, "ws_vote_voter", display_name="Vote Voter")
+    target = await _register(client, "ws_vote_target", display_name="Vote Target")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS vote room",
+        "max_players": 4,
+    })).json()
+    for user in (voter, target):
+        joined = await client.post("/game/rooms/join", headers=_h(user["token"]), json={
+            "room_code": created["room_code"],
+        })
+        assert joined.status_code == 200, joined.text
+
+    host_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, created["session_id"], token=host["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+        await _wait_for_event(host_ws, "room_state_updated")
+
+        before_pending = len(host_ws.sent)
+        first_vote = await client.post(
+            f"/game/rooms/{created['session_id']}/kick",
+            headers=_h(voter["token"]),
+            json={"user_id": target["user_id"]},
+        )
+        assert first_vote.status_code == 200, first_vote.text
+        pending = await _wait_for_event(
+            host_ws,
+            "room_state_updated",
+            start_index=before_pending,
+        )
+        assert pending["room"]["room_votes"][0]["target_user_id"] == target["user_id"]
+        assert pending["room"]["room_votes"][0]["yes_user_ids"] == [voter["user_id"]]
+        assert not any(
+            event.get("type") == "member_kicked"
+            for event in host_ws.sent[before_pending:]
+        )
+
+        before_pass = len(host_ws.sent)
+        second_vote = await client.post(
+            f"/game/rooms/{created['session_id']}/kick",
+            headers=_h(host["token"]),
+            json={"user_id": target["user_id"]},
+        )
+        assert second_vote.status_code == 200, second_vote.text
+        kicked = await _wait_for_event(host_ws, "member_kicked", start_index=before_pass)
+        assert kicked["user_id"] == target["user_id"]
+        update = await _wait_for_event(
+            host_ws,
+            "room_state_updated",
+            start_index=before_pass,
+        )
+        assert update["room"]["room_votes"] == []
+        assert {member["user_id"] for member in update["room"]["members"]} == {
+            host["user_id"],
+            voter["user_id"],
+        }
+    finally:
+        await host_ws.disconnect()
+        await asyncio.gather(host_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_ws_speak_done_rejected_without_initialized_speaker(
     client,
     engine,

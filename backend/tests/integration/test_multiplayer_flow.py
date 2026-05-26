@@ -306,6 +306,76 @@ async def test_kick_member_requires_room_vote_majority(client, sample_module):
     assert room_after_pass["room_votes"] == []
 
 
+async def test_kick_vote_transfers_host_when_host_is_removed(client, sample_module, monkeypatch):
+    import services.ws_manager as ws_module
+
+    broadcasts = []
+
+    async def fake_broadcast(session_id, event, exclude_user_id=None):
+        payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else event
+        broadcasts.append(payload)
+        return 1
+
+    monkeypatch.setattr(ws_module.ws_manager, "broadcast", fake_broadcast)
+
+    host = await _register(client, "vote_host_target")
+    p2 = await _register(client, "vote_host_p2")
+    p3 = await _register(client, "vote_host_p3")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    for user in (p2, p3):
+        joined = await client.post("/game/rooms/join", headers=_h(user["token"]), json={
+            "room_code": create["room_code"],
+        })
+        assert joined.status_code == 200, joined.text
+
+    broadcasts.clear()
+    first_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(p2["token"]),
+        json={"user_id": host["user_id"]},
+    )
+    assert first_vote.status_code == 200, first_vote.text
+    assert first_vote.json()["vote_pending"] is True
+    assert [event["type"] for event in broadcasts] == ["room_state_updated"]
+
+    broadcasts.clear()
+    second_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(p3["token"]),
+        json={"user_id": host["user_id"]},
+    )
+    assert second_vote.status_code == 200, second_vote.text
+    second_body = second_vote.json()
+    assert second_body["kicked"] == host["user_id"]
+    assert second_body["host_transferred_to"] == p2["user_id"]
+    assert [event["type"] for event in broadcasts] == [
+        "member_kicked",
+        "host_transferred",
+        "room_state_updated",
+    ]
+    assert broadcasts[1]["new_host_user_id"] == p2["user_id"]
+
+    room_after_pass = (await client.get(
+        f"/game/rooms/{create['session_id']}",
+        headers=_h(p2["token"]),
+    )).json()
+    assert room_after_pass["host_user_id"] == p2["user_id"]
+    assert {member["user_id"] for member in room_after_pass["members"]} == {
+        p2["user_id"],
+        p3["user_id"],
+    }
+    roles = {
+        member["user_id"]: member["role"]
+        for member in room_after_pass["members"]
+    }
+    assert roles[p2["user_id"]] == "host"
+    assert roles[p3["user_id"]] == "player"
+    assert room_after_pass["room_votes"] == []
+
+
 # ─── 开始游戏 ───────────────────────────────────────────
 
 async def test_start_game_requires_at_least_one_claimed_character(
