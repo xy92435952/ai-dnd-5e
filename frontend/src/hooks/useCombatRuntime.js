@@ -5,6 +5,7 @@ import { useCombatDerivedState } from './useCombatDerivedState'
 import { useCombatFlowHandlers } from './useCombatFlowHandlers'
 import { useCombatPrediction } from './useCombatPrediction'
 import { useCombatPageActions } from './useCombatPageActions'
+import { useCombatReconnectRefresh } from './useCombatReconnectRefresh'
 import { COMBAT_GRID } from '../utils/combatPage'
 import { canDriveAiCombatTurns } from '../utils/combat'
 
@@ -12,6 +13,7 @@ export function useCombatRuntime({
   sessionId,
   room,
   setRoom,
+  refreshRoom,
   myUserId,
   myCharacterId,
   showDice,
@@ -139,7 +141,14 @@ export function useCombatRuntime({
     setCombatOver: page.setCombatOver,
   })
 
-  useWebSocket(room ? sessionId : null, onWsEvent)
+  const { connected: wsConnected } = useWebSocket(room ? sessionId : null, onWsEvent)
+  useCombatReconnectRefresh({
+    room,
+    combat,
+    wsConnected,
+    loadCombat: flow.loadCombat,
+    refreshRoom,
+  })
 
   return {
     session,

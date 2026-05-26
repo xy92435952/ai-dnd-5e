@@ -31,6 +31,7 @@ describe('useCombatRoom', () => {
 
     await waitFor(() => expect(result.current.room?.is_multiplayer).toBe(true))
     expect(result.current.myCharacterId).toBe('char-1')
+    expect(result.current.refreshRoom).toEqual(expect.any(Function))
     expect(roomsGetMock).toHaveBeenCalledWith('sess-1')
   })
 

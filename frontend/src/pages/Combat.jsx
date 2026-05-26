@@ -24,7 +24,7 @@ export default function Combat() {
 
   // ── 多人联机相关 ──
   const { userId: myUserId } = useUser()
-  const { room, setRoom, myCharacterId } = useCombatRoom(sessionId, myUserId)
+  const { room, setRoom, refreshRoom, myCharacterId } = useCombatRoom(sessionId, myUserId)
 
   const page = useCombatPageState()
   const {
@@ -49,6 +49,7 @@ export default function Combat() {
     sessionId,
     room,
     setRoom,
+    refreshRoom,
     myUserId,
     myCharacterId,
     showDice,
