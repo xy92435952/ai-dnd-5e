@@ -30,6 +30,7 @@ export function useWebSocket(sessionId, onEvent) {
   const wsRef = useRef(null)
   const heartbeatRef = useRef(null)
   const reconnectRef = useRef(null)
+  const connectRef = useRef(null)
   const retryCountRef = useRef(0)
   const closedByUserRef = useRef(false)
   const onEventRef = useRef(onEvent)
@@ -55,6 +56,17 @@ export function useWebSocket(sessionId, onEvent) {
       clearTimeout(reconnectRef.current)
       reconnectRef.current = null
     }
+  }, [])
+
+  const scheduleReconnect = useCallback(() => {
+    const delay = Math.min(
+      RECONNECT_BASE_MS * Math.pow(2, retryCountRef.current),
+      RECONNECT_MAX_MS,
+    )
+    retryCountRef.current += 1
+    reconnectRef.current = setTimeout(() => {
+      connectRef.current?.()
+    }, delay)
   }, [])
 
   const connect = useCallback(() => {
@@ -107,15 +119,10 @@ export function useWebSocket(sessionId, onEvent) {
     ws.onerror = (err) => {
       console.warn('[WS] error:', err)
     }
-  }, [buildUrl, cleanup])
+  }, [buildUrl, cleanup, scheduleReconnect])
 
-  const scheduleReconnect = useCallback(() => {
-    const delay = Math.min(
-      RECONNECT_BASE_MS * Math.pow(2, retryCountRef.current),
-      RECONNECT_MAX_MS,
-    )
-    retryCountRef.current += 1
-    reconnectRef.current = setTimeout(connect, delay)
+  useEffect(() => {
+    connectRef.current = connect
   }, [connect])
 
   // 主连接生命周期
@@ -131,9 +138,7 @@ export function useWebSocket(sessionId, onEvent) {
       }
       setConnected(false)
     }
-    // 不监听 connect/cleanup（它们是 useCallback，仅 sessionId 变化时重连）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [sessionId, connect, cleanup])
 
   const send = useCallback((event) => {
     const ws = wsRef.current
