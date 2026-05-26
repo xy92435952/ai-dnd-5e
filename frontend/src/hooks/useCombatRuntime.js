@@ -139,6 +139,7 @@ export function useCombatRuntime({
     handleDash: flow.handleDash,
     handleDisengage: flow.handleDisengage,
     handleDodge: flow.handleDodge,
+    handleHealingPotion: flow.handleHealingPotion,
     handleClassFeature: flow.handleClassFeature,
     setMoveMode,
     setAoePreview,

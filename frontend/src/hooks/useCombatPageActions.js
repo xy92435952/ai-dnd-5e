@@ -34,6 +34,7 @@ export function useCombatPageActions({
   handleDash,
   handleDisengage,
   handleDodge,
+  handleHealingPotion,
   handleClassFeature,
   setMoveMode,
   setAoePreview,
@@ -95,6 +96,7 @@ export function useCombatPageActions({
     handleDash,
     handleDisengage,
     handleDodge,
+    handleHealingPotion,
     handleClassFeature,
   })
 

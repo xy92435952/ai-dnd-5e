@@ -27,6 +27,7 @@ function makeHandler(overrides = {}) {
     handleDash: vi.fn(),
     handleDisengage: vi.fn(),
     handleDodge: vi.fn(),
+    handleHealingPotion: vi.fn(),
     handleClassFeature: vi.fn(),
     ...overrides,
   }
@@ -84,14 +85,14 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.handleClassFeature).toHaveBeenNthCalledWith(5, 'cunning_action_hide')
   })
 
-  it('keeps potion behavior on the legacy combat action endpoint', async () => {
+  it('routes potion skills through the inventory use handler', async () => {
     const { handler, fns, api } = makeHandler()
 
     await handler({ k: 'pot_heal', available: true })
 
-    expect(api.combatAction).toHaveBeenCalledWith('sess-1', '饮用治疗药剂', null, false)
-    expect(api.getCombat).toHaveBeenCalledWith('sess-1')
-    expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
+    expect(fns.handleHealingPotion).toHaveBeenCalledTimes(1)
+    expect(api.combatAction).not.toHaveBeenCalled()
+    expect(api.getCombat).not.toHaveBeenCalled()
   })
 
   it('routes shove and grapple through the dedicated contested-check endpoint', async () => {

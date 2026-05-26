@@ -23,6 +23,7 @@ export function createCombatSkillClickHandler({
   handleDash,
   handleDisengage,
   handleDodge,
+  handleHealingPotion,
   handleClassFeature,
 }) {
   return async function onSkillClick(skill) {
@@ -122,8 +123,7 @@ export function createCombatSkillClickHandler({
           break
         case 'pot':
         case 'pot_heal':
-          await gameApi.combatAction(sessionId, '饮用治疗药剂', null, false)
-          setCombat(await gameApi.getCombat(sessionId))
+          await handleHealingPotion?.()
           break
         default:
           break

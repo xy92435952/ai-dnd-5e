@@ -64,6 +64,44 @@ export function isUsableInventoryItem(item) {
   return getInventoryUseProfile(item).usable
 }
 
+function mergeConditions(current = [], payload = {}) {
+  if (Array.isArray(payload.conditions)) return payload.conditions
+  if (payload.removed_condition) return current.filter(c => c !== payload.removed_condition)
+  if (payload.added_condition && !current.includes(payload.added_condition)) {
+    return [...current, payload.added_condition]
+  }
+  return current
+}
+
+export function mergeConsumableUseResult(session, payload) {
+  if (!session?.player || !payload) return session
+  const player = session.player
+  const mergeTargetState = entity => (
+    payload.target_character_id === entity?.id && payload.death_saves
+      ? {
+          ...entity,
+          death_saves: payload.death_saves,
+          hp_current: payload.target_hp_current ?? entity.hp_current,
+        }
+      : entity
+  )
+  return {
+    ...session,
+    player: mergeTargetState({
+      ...player,
+      hp_current: payload.hp_after ?? payload.hp_current ?? player.hp_current,
+      equipment: payload.equipment || player.equipment,
+      conditions: mergeConditions(player.conditions || [], payload),
+      death_saves: payload.target_character_id === player.id && payload.death_saves
+        ? payload.death_saves
+        : player.death_saves,
+    }),
+    ...(Array.isArray(session.companions)
+      ? { companions: session.companions.map(mergeTargetState) }
+      : {}),
+  }
+}
+
 export function requiresUseTarget(item) {
   return getInventoryUseProfile(item).requiresTarget
 }

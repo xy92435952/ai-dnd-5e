@@ -9,6 +9,7 @@ import {
   isConsumableInventoryItem,
   isUsableInventoryItem,
   mergeAmmoUpdate,
+  mergeConsumableUseResult,
   normalizeInventoryItem,
   requiresUseTarget,
   stackInventoryItems,
@@ -173,5 +174,48 @@ describe('inventory utils', () => {
         indexes: [1],
       }),
     ])
+  })
+
+  it('merges combat consumable use payloads into player and companion state', () => {
+    const session = {
+      session_id: 'sess-1',
+      player: {
+        id: 'char-1',
+        hp_current: 4,
+        conditions: ['poisoned'],
+        equipment: {
+          gear: [{ name: 'Healing Potion', consumable: true }],
+        },
+      },
+      companions: [
+        { id: 'ally-1', hp_current: 0, death_saves: { failures: 2 } },
+      ],
+    }
+
+    expect(mergeConsumableUseResult(session, {
+      hp_after: 10,
+      removed_condition: 'poisoned',
+      equipment: { gear: [] },
+    })).toEqual(expect.objectContaining({
+      player: expect.objectContaining({
+        hp_current: 10,
+        conditions: [],
+        equipment: { gear: [] },
+      }),
+    }))
+
+    expect(mergeConsumableUseResult(session, {
+      target_character_id: 'ally-1',
+      target_hp_current: 1,
+      death_saves: { successes: 0, failures: 0, stable: true },
+    })).toEqual(expect.objectContaining({
+      companions: [
+        expect.objectContaining({
+          id: 'ally-1',
+          hp_current: 1,
+          death_saves: { successes: 0, failures: 0, stable: true },
+        }),
+      ],
+    }))
   })
 })

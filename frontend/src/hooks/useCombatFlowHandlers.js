@@ -42,6 +42,7 @@ export function useCombatFlowHandlers({
     setReactionPrompt,
     initiativeShown,
     setInitiativeShown,
+    session,
     setSession,
     aiTimer,
     processingRef,
@@ -158,6 +159,7 @@ export function useCombatFlowHandlers({
 
   const {
     handleClassFeature,
+    handleHealingPotion,
     handleDodge,
     handleDash,
     handleDisengage,
@@ -174,6 +176,8 @@ export function useCombatFlowHandlers({
     setTurnState,
     setClassResources,
     setCombat,
+    session,
+    setSession,
     showDice,
     addLog,
   })
@@ -211,6 +215,7 @@ export function useCombatFlowHandlers({
     handleAttack,
     handleCastSpell,
     handleClassFeature,
+    handleHealingPotion,
     handleDodge,
     handleDash,
     handleDisengage,
