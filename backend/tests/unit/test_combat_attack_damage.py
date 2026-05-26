@@ -420,3 +420,92 @@ async def test_ranged_hit_against_armor_of_agathys_character_does_not_retaliate(
     assert "retaliation" not in target_state
     assert target_state["temporary_hp"] == 2
     assert sample_character.hp_current == 10
+
+
+async def test_armor_of_agathys_retaliation_to_wild_shape_character_updates_shape_pool(
+    db_session,
+    sample_character,
+):
+    from api.combat.attack_damage import apply_attack_damage_to_target
+    from models import Character
+
+    attacker = Character(
+        name="Wild Shape Attacker",
+        race="Elf",
+        char_class="Druid",
+        level=2,
+        background="Hermit",
+        ability_scores={"str": 10, "dex": 14, "con": 12, "int": 10, "wis": 16, "cha": 8},
+        derived={"hp_max": 10, "ac": 13},
+        hp_current=10,
+        is_player=True,
+        class_resources={"wild_shape_active": "Wolf", "wild_shape_hp": 7},
+    )
+    db_session.add(attacker)
+
+    sample_character.hp_current = 10
+    sample_character.class_resources = {
+        "temporary_hp": 5,
+        "temporary_hp_source": "armor_of_agathys",
+        "armor_of_agathys_active": True,
+        "armor_of_agathys_damage": 5,
+    }
+    sample_character.conditions = ["armor_of_agathys"]
+    sample_character.condition_durations = {"armor_of_agathys": 600}
+    await db_session.commit()
+    await db_session.refresh(attacker)
+
+    _new_hp, _conc_log, target_state = await apply_attack_damage_to_target(
+        db_session,
+        session_id="sess-1",
+        enemies=[],
+        target_id=sample_character.id,
+        target_is_enemy=False,
+        damage=3,
+        attacker_id=attacker.id,
+        attacker_is_enemy=False,
+        is_melee=True,
+    )
+
+    retaliation = target_state["retaliation"]
+    assert retaliation["damage"] == 5
+    assert retaliation["target_new_hp"] == 10
+    assert retaliation["target_state"]["wild_shape_hp"] == 2
+    assert attacker.hp_current == 10
+    assert attacker.class_resources["wild_shape_hp"] == 2
+
+
+async def test_attack_damage_to_wild_shape_character_updates_shape_pool(
+    db_session,
+    sample_character,
+):
+    from api.combat.attack_damage import apply_attack_damage_to_target
+
+    sample_character.hp_current = 10
+    sample_character.class_resources = {"wild_shape_active": "Wolf", "wild_shape_hp": 7}
+    await db_session.commit()
+
+    new_hp, conc_log, target_state = await apply_attack_damage_to_target(
+        db_session,
+        session_id="sess-1",
+        enemies=[],
+        target_id=sample_character.id,
+        target_is_enemy=False,
+        damage=12,
+        is_melee=False,
+    )
+
+    assert new_hp == 5
+    assert conc_log is None
+    assert target_state["wild_shape_hp"] == 0
+    assert target_state["class_resources"] == {}
+    assert target_state["damage_result"] == {
+        "damage": 12,
+        "damage_to_wild_shape_hp": 7,
+        "wild_shape_hp_before": 7,
+        "wild_shape_hp_after": 0,
+        "damage_to_temporary_hp": 0,
+        "damage_to_hp": 5,
+        "temporary_hp_before": 0,
+        "temporary_hp_after": 0,
+    }

@@ -218,17 +218,37 @@ async def apply_attack_damage_to_target(
     damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
     target_state = build_character_target_state(target_character)
-    if damage_result["temporary_hp_before"] or damage_result["temporary_hp_after"]:
-        target_state["temporary_hp"] = damage_result["temporary_hp_after"]
+    temporary_hp_involved = (
+        damage_result["temporary_hp_before"]
+        or damage_result["temporary_hp_after"]
+        or damage_result["damage_to_temporary_hp"]
+    )
+    wild_shape_hp_involved = (
+        damage_result["wild_shape_hp_before"]
+        or damage_result["wild_shape_hp_after"]
+        or damage_result["damage_to_wild_shape_hp"]
+    )
+    if temporary_hp_involved or wild_shape_hp_involved:
+        if temporary_hp_involved:
+            target_state["temporary_hp"] = damage_result["temporary_hp_after"]
+        if wild_shape_hp_involved:
+            target_state["wild_shape_hp"] = damage_result["wild_shape_hp_after"]
         target_state["class_resources"] = target_character.class_resources or {}
         target_state["condition_durations"] = target_character.condition_durations or {}
-        target_state["damage_result"] = {
+        damage_summary = {
             "damage": damage_result["damage"],
             "damage_to_temporary_hp": damage_result["damage_to_temporary_hp"],
             "damage_to_hp": damage_result["damage_to_hp"],
             "temporary_hp_before": damage_result["temporary_hp_before"],
             "temporary_hp_after": damage_result["temporary_hp_after"],
         }
+        if wild_shape_hp_involved:
+            damage_summary.update({
+                "damage_to_wild_shape_hp": damage_result["damage_to_wild_shape_hp"],
+                "wild_shape_hp_before": damage_result["wild_shape_hp_before"],
+                "wild_shape_hp_after": damage_result["wild_shape_hp_after"],
+            })
+        target_state["damage_result"] = damage_summary
 
     retaliation = None
     if is_melee:

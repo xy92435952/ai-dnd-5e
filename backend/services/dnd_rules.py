@@ -20,6 +20,7 @@ from services.dnd_character_rules import (  # noqa: F401
     get_effective_hp_base,
     get_effective_hp_max,
     get_temporary_hp,
+    get_wild_shape_hp,
     get_cantrips_count,
     get_class_resource_defaults,
     get_exhaustion_effects,
@@ -37,6 +38,7 @@ from services.dnd_character_rules import (  # noqa: F401
     is_incapacitated,
     proficiency_bonus,
     grant_temporary_hp,
+    set_wild_shape_hp,
     should_auto_crit_melee_target,
     stabilize_character,
 )

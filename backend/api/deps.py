@@ -14,6 +14,7 @@ from services.dnd_rules import (
     get_incapacitating_reasons,
     get_life_state,
     get_temporary_hp,
+    get_wild_shape_hp,
 )
 from services.session_access_service import assert_character_in_session
 
@@ -137,6 +138,7 @@ def char_brief(char: Character) -> dict:
         "level":            char.level,
         "hp_current":       char.hp_current,
         "temporary_hp":      get_temporary_hp(char),
+        "wild_shape_hp":     get_wild_shape_hp(char),
         "hp_max":           derived.get("hp_max", char.hp_current),
         "base_hp_max":      base_hp_max,
         "ac":               derived.get("ac", 10),
@@ -176,6 +178,7 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "is_enemy":   is_enemy,
         "hp_current": char.hp_current,
         "temporary_hp": get_temporary_hp(char),
+        "wild_shape_hp": get_wild_shape_hp(char),
         "hp_max":     derived.get("hp_max", char.hp_current),
         "base_hp_max": base_hp_max,
         "ac":         derived.get("ac", 10),

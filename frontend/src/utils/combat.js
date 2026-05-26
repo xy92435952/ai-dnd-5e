@@ -75,6 +75,7 @@ function normalizeEntityStateUpdate(targetId, update = {}) {
   if ('life_state' in update) normalized.life_state = update.life_state
   if ('concentration' in update) normalized.concentration = update.concentration
   if ('temporary_hp' in update) normalized.temporary_hp = update.temporary_hp || 0
+  if ('wild_shape_hp' in update) normalized.wild_shape_hp = update.wild_shape_hp || 0
   if ('class_resources' in update) normalized.class_resources = update.class_resources || {}
   return normalized
 }
@@ -104,6 +105,7 @@ export function applyEntityStateUpdate(combat, targetIdOrUpdate, maybeUpdate) {
   if ('life_state' in update) nextEntity.life_state = update.life_state
   if ('concentration' in update) nextEntity.concentration = update.concentration
   if ('temporary_hp' in update) nextEntity.temporary_hp = update.temporary_hp
+  if ('wild_shape_hp' in update) nextEntity.wild_shape_hp = update.wild_shape_hp
   if ('class_resources' in update) nextEntity.class_resources = update.class_resources
   entities[update.target_id] = nextEntity
   return { ...combat, entities }

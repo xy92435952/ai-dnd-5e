@@ -275,6 +275,34 @@ def _clear_armor_of_agathys_state(character: dict | object, resources: dict) -> 
         character.condition_durations = durations
 
 
+def get_wild_shape_hp(character: dict | object | None) -> int:
+    """Read active Wild Shape HP tracked in class_resources."""
+    resources = _class_resources(character)
+    if not resources.get("wild_shape_active"):
+        return 0
+    try:
+        return max(0, int(resources.get("wild_shape_hp", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def set_wild_shape_hp(character: dict | object, amount: int) -> int:
+    """Set or clear Wild Shape HP without touching the druid's real HP."""
+    resources = _class_resources(character)
+    try:
+        next_amount = max(0, int(amount or 0))
+    except (TypeError, ValueError):
+        next_amount = 0
+
+    if next_amount > 0 and resources.get("wild_shape_active"):
+        resources["wild_shape_hp"] = next_amount
+    else:
+        resources.pop("wild_shape_active", None)
+        resources.pop("wild_shape_hp", None)
+    _set_class_resources(character, resources)
+    return next_amount
+
+
 def set_temporary_hp(character: dict | object, amount: int, *, source: str | None = None) -> int:
     """Set temporary HP and clear source-tied effects when that HP pool disappears."""
     resources = _class_resources(character)
@@ -411,9 +439,16 @@ def apply_character_damage(character: object, damage: int, *, is_critical: bool 
     """Apply damage, including 5e death-save failures for damage at 0 HP."""
     before_hp = int(getattr(character, "hp_current", 0) or 0)
     dealt = max(0, int(damage or 0))
+    wild_shape_hp_before = get_wild_shape_hp(character)
+    damage_to_wild_shape_hp = min(wild_shape_hp_before, dealt)
+    remaining_after_wild_shape = max(0, dealt - damage_to_wild_shape_hp)
+    wild_shape_hp_after = wild_shape_hp_before - damage_to_wild_shape_hp
+    if damage_to_wild_shape_hp:
+        set_wild_shape_hp(character, wild_shape_hp_after)
+
     temporary_hp_before = get_temporary_hp(character)
-    damage_to_temporary_hp = min(temporary_hp_before, dealt)
-    damage_to_hp = max(0, dealt - damage_to_temporary_hp)
+    damage_to_temporary_hp = min(temporary_hp_before, remaining_after_wild_shape)
+    damage_to_hp = max(0, remaining_after_wild_shape - damage_to_temporary_hp)
     temporary_hp_after = temporary_hp_before - damage_to_temporary_hp
     if damage_to_temporary_hp:
         source = _class_resources(character).get("temporary_hp_source")
@@ -430,6 +465,9 @@ def apply_character_damage(character: object, damage: int, *, is_critical: bool 
             "hp_before": before_hp,
             "hp_after": after_hp,
             "damage": dealt,
+            "damage_to_wild_shape_hp": damage_to_wild_shape_hp,
+            "wild_shape_hp_before": wild_shape_hp_before,
+            "wild_shape_hp_after": wild_shape_hp_after,
             "damage_to_temporary_hp": damage_to_temporary_hp,
             "damage_to_hp": damage_to_hp,
             "temporary_hp_before": temporary_hp_before,
@@ -466,6 +504,9 @@ def apply_character_damage(character: object, damage: int, *, is_critical: bool 
         "hp_before": before_hp,
         "hp_after": after_hp,
         "damage": dealt,
+        "damage_to_wild_shape_hp": damage_to_wild_shape_hp,
+        "wild_shape_hp_before": wild_shape_hp_before,
+        "wild_shape_hp_after": wild_shape_hp_after,
         "damage_to_temporary_hp": damage_to_temporary_hp,
         "damage_to_hp": damage_to_hp,
         "temporary_hp_before": temporary_hp_before,

@@ -29,7 +29,11 @@ export default function CombatHudPortrait({ session, character = null, playerCla
           })()}
         </div>
         <div className="hp-text">
-          <span><span className="cur">{player?.hp_current ?? 0}</span> / {hpMax}{player?.temporary_hp > 0 ? ` +${player.temporary_hp}` : ''}</span>
+          <span>
+            <span className="cur">{player?.hp_current ?? 0}</span> / {hpMax}
+            {player?.wild_shape_hp > 0 ? ` WS ${player.wild_shape_hp}` : ''}
+            {player?.temporary_hp > 0 ? ` +${player.temporary_hp}` : ''}
+          </span>
           <span>移动 <b style={{ color: 'var(--arcane-light)' }}>{(turnState?.movement_max ?? 6) - (turnState?.movement_used ?? 0)}/{turnState?.movement_max ?? 6}</b></span>
         </div>
         <div className="stat-line">

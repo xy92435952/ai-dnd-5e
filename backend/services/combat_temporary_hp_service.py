@@ -7,7 +7,13 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.combat_service import CombatService
-from services.dnd_rules import apply_character_damage, get_life_state, get_temporary_hp, grant_temporary_hp
+from services.dnd_rules import (
+    apply_character_damage,
+    get_life_state,
+    get_temporary_hp,
+    get_wild_shape_hp,
+    grant_temporary_hp,
+)
 
 svc = CombatService()
 
@@ -134,6 +140,9 @@ def build_character_target_state(character: Character) -> dict[str, Any]:
     temporary_hp = get_temporary_hp(character)
     if temporary_hp:
         state["temporary_hp"] = temporary_hp
+    wild_shape_hp = get_wild_shape_hp(character)
+    if wild_shape_hp:
+        state["wild_shape_hp"] = wild_shape_hp
     condition_durations = getattr(character, "condition_durations", None) or {}
     if condition_durations:
         state["condition_durations"] = condition_durations
@@ -219,7 +228,11 @@ async def apply_armor_of_agathys_retaliation_to_character(
         "target_id": attacker.id,
         "target_name": attacker.name,
         "damage_type": "cold",
-        "damage": damage_result["damage_to_hp"] + damage_result["damage_to_temporary_hp"],
+        "damage": (
+            damage_result["damage_to_hp"]
+            + damage_result["damage_to_temporary_hp"]
+            + damage_result["damage_to_wild_shape_hp"]
+        ),
         "base_damage": locked_damage,
         "target_new_hp": attacker.hp_current,
         "target_state": build_character_target_state(attacker),

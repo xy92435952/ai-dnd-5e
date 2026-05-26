@@ -577,6 +577,45 @@ class TestCharacterLifeState:
         assert "temporary_hp" not in char.class_resources
         assert "armor_of_agathys_damage" not in char.class_resources
 
+    def test_wild_shape_hp_absorbs_damage_before_druid_body(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=10,
+            death_saves=None,
+            conditions=[],
+            condition_durations={},
+            class_resources={"wild_shape_active": "Wolf", "wild_shape_hp": 7},
+        )
+
+        result = apply_character_damage(char, 5)
+
+        assert result["hp_after"] == 10
+        assert result["damage_to_wild_shape_hp"] == 5
+        assert result["wild_shape_hp_after"] == 2
+        assert result["damage_to_hp"] == 0
+        assert char.class_resources["wild_shape_active"] == "Wolf"
+        assert char.class_resources["wild_shape_hp"] == 2
+
+    def test_wild_shape_overflow_hits_body_and_clears_shape(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=10,
+            death_saves=None,
+            conditions=[],
+            condition_durations={},
+            class_resources={"wild_shape_active": "Wolf", "wild_shape_hp": 7},
+        )
+
+        result = apply_character_damage(char, 12)
+
+        assert result["hp_after"] == 5
+        assert result["damage_to_wild_shape_hp"] == 7
+        assert result["damage_to_hp"] == 5
+        assert "wild_shape_active" not in char.class_resources
+        assert "wild_shape_hp" not in char.class_resources
+
     def test_massive_damage_at_drop_to_zero_kills_immediately(self):
         from types import SimpleNamespace
 
