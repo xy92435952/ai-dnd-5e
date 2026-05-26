@@ -100,3 +100,7 @@ The multiplayer `Session` rows may remain as dissolved room records because the
 backend intentionally blocks direct session deletion for multiplayer rooms.
 SQLite-seeded modules are cleaned up by default unless `--keep-seeded-module`
 is provided.
+
+HTTP calls ignore local proxy environment variables by default so `127.0.0.1`
+load runs do not get routed through a system proxy. Pass `--trust-env` only when
+you intentionally want the script to honor `HTTP_PROXY` / `HTTPS_PROXY`.

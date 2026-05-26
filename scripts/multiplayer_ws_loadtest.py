@@ -924,7 +924,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     seed_module_cleanup: dict[str, Any] | None = None
     started = time.perf_counter()
 
-    async with httpx.AsyncClient(timeout=args.http_timeout) as client:
+    async with httpx.AsyncClient(timeout=args.http_timeout, trust_env=args.trust_env) as client:
         try:
             await request_json(client, "GET", api_url(args.base_url, "/health"))
             module_arg = args.module_id
@@ -1064,6 +1064,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--module-poll-interval", type=float, default=1.0)
     parser.add_argument("--ws-concurrency", type=int, default=25)
     parser.add_argument("--http-timeout", type=float, default=30)
+    parser.add_argument(
+        "--trust-env",
+        action="store_true",
+        help="Honor HTTP(S)_PROXY and related environment variables for HTTP calls.",
+    )
     return parser.parse_args()
 
 
