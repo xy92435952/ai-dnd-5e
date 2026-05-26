@@ -169,7 +169,7 @@ async def predict_action_endpoint(
         },
         action_key=req.action_key,
         is_ranged=req.is_ranged,
-        attack_modifiers=svc.get_attack_modifiers(attacker.conditions or []),
+        attack_modifiers=svc.get_attack_modifiers(attacker.conditions or [], attacker),
         defense_modifiers=svc.get_defense_modifiers(target_conditions),
     )
 

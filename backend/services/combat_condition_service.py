@@ -1,11 +1,16 @@
 from typing import Optional
 
+from services.dnd_rules import has_exhaustion_effect
 
-def get_attack_modifiers(conditions: list[str]) -> tuple[bool, bool]:
+
+def get_attack_modifiers(conditions: list[str], character: dict | object | None = None) -> tuple[bool, bool]:
     adv_conditions = {"invisible", "hidden"}
-    dis_conditions = {"poisoned", "frightened", "prone", "blinded", "restrained", "exhaustion"}
+    dis_conditions = {"poisoned", "frightened", "prone", "blinded", "restrained"}
     adv = any(c in adv_conditions for c in conditions)
-    dis = any(c in dis_conditions for c in conditions)
+    dis = any(c in dis_conditions for c in conditions) or has_exhaustion_effect(
+        character,
+        "attack_save_disadvantage",
+    )
     return adv, dis
 
 

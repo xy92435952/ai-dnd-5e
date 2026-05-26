@@ -78,6 +78,7 @@ describe('useSkillCheck', () => {
       skill:        '运动',
       dc:           15,
       d20_value:    17,
+      second_d20_value: null,
     })
     // 写了一条 dice log
     expect(addLog).toHaveBeenCalledWith(
@@ -103,6 +104,66 @@ describe('useSkillCheck', () => {
     act(() => { result.current.setPendingCheck({ check_type: '感知', dc: 12 }) })
     await act(async () => { await result.current.rollPending() })
     expect(JuiceAudio.crit).toHaveBeenCalled()
+  })
+
+  it('rollPending 在日志里显示服务端判定的优势/劣势', async () => {
+    rollDice3D.mockResolvedValue({ total: 9 })
+    gameApi.skillCheck.mockResolvedValue({
+      d20: 9,
+      modifier: 4,
+      total: 13,
+      success: false,
+      proficient: true,
+      disadvantage: true,
+      advantage: false,
+    })
+
+    const { result, addLog } = createHook()
+    act(() => { result.current.setPendingCheck({ check_type: '运动', dc: 15 }) })
+    await act(async () => { await result.current.rollPending() })
+
+    expect(addLog).toHaveBeenCalledWith(
+      'dice',
+      expect.stringContaining('[劣势]'),
+      'dice',
+      expect.objectContaining({ dice_result: expect.any(Object) }),
+    )
+  })
+
+  it('rollPending 因玩家力竭投 2d20 并把两颗骰子交给后端取低', async () => {
+    rollDice3D.mockResolvedValue({ total: 19, rolls: [15, 4] })
+    gameApi.skillCheck.mockResolvedValue({
+      d20: 4,
+      other_roll: 15,
+      modifier: 4,
+      total: 8,
+      success: false,
+      proficient: true,
+      disadvantage: true,
+      advantage: false,
+    })
+
+    const { result, addLog } = createHook({
+      player: { condition_durations: { exhaustion_level: 1 } },
+    })
+    act(() => { result.current.setPendingCheck({ check_type: '运动', dc: 15 }) })
+    await act(async () => { await result.current.rollPending() })
+
+    expect(rollDice3D).toHaveBeenCalledWith(20, 2)
+    expect(gameApi.skillCheck).toHaveBeenCalledWith({
+      session_id:   'sess-1',
+      character_id: 'char-1',
+      skill:        '运动',
+      dc:           15,
+      d20_value:    15,
+      second_d20_value: 4,
+    })
+    expect(addLog).toHaveBeenCalledWith(
+      'dice',
+      expect.stringContaining('d20=4/15'),
+      'dice',
+      expect.objectContaining({ dice_result: expect.any(Object) }),
+    )
   })
 
   it('API 抛异常：autoMsg 返回 null，写 system log，pending 也被清', async () => {

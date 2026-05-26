@@ -23,7 +23,33 @@ import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 
-export function useSkillCheck({ sessionId, playerId, addLog }) {
+function needsSecondD20(check) {
+  return Boolean(check?.advantage || check?.disadvantage)
+}
+
+function getExhaustionLevel(character) {
+  const level = Number(character?.condition_durations?.exhaustion_level || 0)
+  return Number.isFinite(level) ? Math.max(0, Math.min(6, level)) : 0
+}
+
+function buildCheckRollState(check, player) {
+  const exhaustionLevel = getExhaustionLevel(player)
+  const exhaustionDisadvantage = exhaustionLevel >= 1
+  const advantage = Boolean(check?.advantage)
+  const disadvantage = Boolean(check?.disadvantage || exhaustionDisadvantage)
+  return {
+    advantage: advantage && !disadvantage,
+    disadvantage: disadvantage && !advantage,
+  }
+}
+
+function formatD20Roll(result) {
+  const d20 = `d20=${result.d20}`
+  if (result.other_roll == null) return d20
+  return `${d20}/${result.other_roll}`
+}
+
+export function useSkillCheck({ sessionId, playerId, player = null, addLog }) {
   const showDice = useGameStore(s => s.showDice)
 
   const [pendingCheck, setPendingCheck] = useState(null)
@@ -40,8 +66,17 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
     setCheckRolling(true)
     try {
       // 3D 骰子动画 → 服务端计算
-      const { total: d20 } = await rollDice3D(20)
-      showDice({ faces: 20, result: d20, label: `${pendingCheck.check_type}检定` })
+      const rollState = buildCheckRollState(pendingCheck, player)
+      const hasAdvantageState = needsSecondD20(rollState)
+      const { rolls = [], total } = await rollDice3D(20, hasAdvantageState ? 2 : 1)
+      const d20 = rolls[0] ?? total
+      const secondD20 = hasAdvantageState ? rolls[1] : null
+      showDice({
+        faces: 20,
+        result: hasAdvantageState ? (rollState.advantage ? Math.max(d20, secondD20) : Math.min(d20, secondD20)) : d20,
+        label: `${pendingCheck.check_type}检定`,
+        count: hasAdvantageState ? 2 : 1,
+      })
 
       const result = await gameApi.skillCheck({
         session_id:   sessionId,
@@ -49,12 +84,16 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
         skill:        pendingCheck.check_type,
         dc:           pendingCheck.dc,
         d20_value:    d20,
+        second_d20_value: secondD20,
       })
 
       const summary =
         `${pendingCheck.check_type}检定 (DC ${pendingCheck.dc})：` +
-        `d20=${result.d20} ${result.modifier >= 0 ? '+' : ''}${result.modifier}` +
-        `${result.proficient ? ' [熟练]' : ''} = ${result.total} → ` +
+        `${formatD20Roll(result)} ${result.modifier >= 0 ? '+' : ''}${result.modifier}` +
+        `${result.proficient ? ' [熟练]' : ''}` +
+        `${result.disadvantage ? ' [劣势]' : ''}` +
+        `${result.advantage ? ' [优势]' : ''}` +
+        ` = ${result.total} → ` +
         `${result.success ? '✅ 成功' : '❌ 失败'}`
       addLog('dice', summary, 'dice', { dice_result: result })
 
@@ -81,7 +120,7 @@ export function useSkillCheck({ sessionId, playerId, addLog }) {
     } finally {
       setCheckRolling(false)
     }
-  }, [pendingCheck, checkRolling, sessionId, playerId, addLog, showDice])
+  }, [pendingCheck, checkRolling, sessionId, playerId, player, addLog, showDice])
 
   return {
     pendingCheck,

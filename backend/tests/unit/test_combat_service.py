@@ -53,6 +53,21 @@ class TestConditionModifiers:
         adv, dis = svc.get_attack_modifiers([])
         assert (adv, dis) == (False, False)
 
+    def test_exhaustion_condition_alone_does_not_penalize_attacks_before_level_3(self):
+        adv, dis = svc.get_attack_modifiers(
+            ["exhaustion"],
+            {"condition_durations": {"exhaustion_level": 1}},
+        )
+        assert (adv, dis) == (False, False)
+
+    def test_exhaustion_level_3_gives_attack_disadvantage(self):
+        adv, dis = svc.get_attack_modifiers(
+            ["exhaustion"],
+            {"condition_durations": {"exhaustion_level": 3}},
+        )
+        assert adv is False
+        assert dis is True
+
 
 class TestConcentration:
     def test_no_concentration_returns_none(self):
@@ -85,6 +100,20 @@ class TestConcentration:
         }
         r = svc.check_concentration(char, damage=40)
         assert r["dc"] == 20
+
+    def test_exhaustion_level_3_gives_concentration_save_disadvantage(self):
+        char = {
+            "concentration": "Bless",
+            "derived": {
+                "ability_modifiers": {"con": 2},
+                "saving_throws": {"con": 4},
+                "proficiency_bonus": 2,
+            },
+            "condition_durations": {"exhaustion_level": 3},
+        }
+        r = svc.check_concentration(char, damage=12)
+        assert r["roll_result"]["disadvantage"] is True
+        assert r["roll_result"]["exhaustion_disadvantage"] is True
 
 
 class TestSneakAttack:

@@ -14,6 +14,25 @@ def get_exhaustion_effects(exhaustion_level: int) -> list[str]:
         effects.append(EXHAUSTION_EFFECTS[lvl])
     return effects
 
+
+def get_exhaustion_level(character: dict | object | None) -> int:
+    """Read a character's current 5e exhaustion level from condition_durations."""
+    if not character:
+        return 0
+    if isinstance(character, dict):
+        durations = character.get("condition_durations") or {}
+    else:
+        durations = getattr(character, "condition_durations", None) or {}
+    try:
+        return max(0, min(6, int(durations.get("exhaustion_level", 0) or 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def has_exhaustion_effect(character: dict | object | None, effect: str) -> bool:
+    """Return whether a character's exhaustion level includes a named 5e effect."""
+    return effect in get_exhaustion_effects(get_exhaustion_level(character))
+
 def calc_passive_perception(derived: dict, proficient_skills: list, feats: list = None) -> int:
     """计算被动感知值 = 10 + WIS修正 + 熟练加值（如果熟练感知）+ 专长加值"""
     wis_mod = derived.get("ability_modifiers", {}).get("wis", 0)

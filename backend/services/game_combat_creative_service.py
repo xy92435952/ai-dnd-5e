@@ -23,7 +23,11 @@ def execute_creative_action(
     dc = action.get("dc", 15)
     description = action.get("description", "创意行动")
     check_result = roll_skill_check(
-        character={"derived": player_derived, "proficient_skills": player.proficient_skills or []},
+        character={
+            "derived": player_derived,
+            "proficient_skills": player.proficient_skills or [],
+            "condition_durations": player.condition_durations or {},
+        },
         skill=check_type,
         dc=dc,
     )

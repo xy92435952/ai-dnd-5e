@@ -39,6 +39,7 @@ class CharacterBrief(BaseModel):
     proficient_skills: list[str]     = []
     proficient_saves:  list[str]     = []
     conditions:        list[str]     = []
+    condition_durations: dict[str, Any] = {}
     derived:           dict[str, Any] = {}
     concentration:     Optional[str] = None
     known_spells:      list[str]     = []
@@ -136,6 +137,7 @@ class SkillCheckResult(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     d20: int
+    other_roll: Optional[int] = None
     modifier: int
     total: int
     success: bool

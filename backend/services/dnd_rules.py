@@ -13,7 +13,9 @@ from services.dnd_character_rules import (  # noqa: F401
     get_cantrips_count,
     get_class_resource_defaults,
     get_exhaustion_effects,
+    get_exhaustion_level,
     get_spell_slots,
+    has_exhaustion_effect,
     proficiency_bonus,
 )
 from services.dnd_derived import calc_derived  # noqa: F401

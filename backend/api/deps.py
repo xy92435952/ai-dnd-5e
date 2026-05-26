@@ -134,6 +134,7 @@ def char_brief(char: Character) -> dict:
         "proficient_skills":char.proficient_skills or [],
         "proficient_saves": char.proficient_saves or [],
         "conditions":       char.conditions or [],
+        "condition_durations": char.condition_durations or {},
         "derived":          derived,
         "concentration":    char.concentration,
         "known_spells":     char.known_spells or [],

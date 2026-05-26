@@ -120,6 +120,40 @@ class TestSkillCheck:
         assert result["modifier"] == 2  # 只有 str_mod
         assert result["proficient"] is False
 
+    def test_exhaustion_level_1_gives_skill_check_disadvantage(self):
+        char = {
+            "name": "Tired Tester",
+            "derived": {
+                "ability_modifiers": {"str": 2},
+                "proficiency_bonus": 2,
+            },
+            "proficient_skills": ["运动"],
+            "condition_durations": {"exhaustion_level": 1},
+        }
+
+        result = roll_skill_check(char, "运动", dc=10)
+
+        assert result["modifier"] == 4
+        assert result["disadvantage"] is True
+        assert result["exhaustion_disadvantage"] is True
+
+
+class TestSavingThrow:
+    def test_exhaustion_level_3_gives_saving_throw_disadvantage(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"con": 2},
+                "saving_throws": {"con": 4},
+            },
+            "condition_durations": {"exhaustion_level": 3},
+        }
+
+        result = roll_saving_throw(char, "con", dc=10)
+
+        assert result["modifier"] == 4
+        assert result["disadvantage"] is True
+        assert result["exhaustion_disadvantage"] is True
+
 
 class TestCalcDerived:
     def test_fighter_lv1(self):

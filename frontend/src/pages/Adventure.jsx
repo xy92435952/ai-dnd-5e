@@ -141,6 +141,7 @@ export default function Adventure() {
   const { pendingCheck, setPendingCheck, checkRolling, rollPending } = useSkillCheck({
     sessionId,
     playerId: player?.id,
+    player,
     addLog,
   })
 

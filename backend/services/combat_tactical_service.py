@@ -36,10 +36,16 @@ def resolve_grapple(
     target_derived: dict,
     attacker_proficient_skills: list = None,
     target_proficient_skills: list = None,
+    attacker_condition_durations: dict | None = None,
+    target_condition_durations: dict | None = None,
 ) -> dict:
     from services.dnd_rules import roll_skill_check
     atk_check = roll_skill_check(
-        {"derived": attacker_derived, "proficient_skills": attacker_proficient_skills or []},
+        {
+            "derived": attacker_derived,
+            "proficient_skills": attacker_proficient_skills or [],
+            "condition_durations": attacker_condition_durations or {},
+        },
         "运动", dc=0,
     )
     t_skills = target_proficient_skills or []
@@ -49,12 +55,20 @@ def resolve_grapple(
     acrob_mod = t_mods.get("dex", 0) + (t_prof if "杂技" in t_skills or "Acrobatics" in t_skills else 0)
     if acrob_mod > athl_mod:
         def_check = roll_skill_check(
-            {"derived": target_derived, "proficient_skills": t_skills},
+            {
+                "derived": target_derived,
+                "proficient_skills": t_skills,
+                "condition_durations": target_condition_durations or {},
+            },
             "杂技", dc=0,
         )
     else:
         def_check = roll_skill_check(
-            {"derived": target_derived, "proficient_skills": t_skills},
+            {
+                "derived": target_derived,
+                "proficient_skills": t_skills,
+                "condition_durations": target_condition_durations or {},
+            },
             "运动", dc=0,
         )
     return {
@@ -70,12 +84,16 @@ def resolve_shove(
     attacker_proficient_skills: list = None,
     target_proficient_skills: list = None,
     shove_type: str = "prone",
+    attacker_condition_durations: dict | None = None,
+    target_condition_durations: dict | None = None,
 ) -> dict:
     result = resolve_grapple(
         attacker_derived,
         target_derived,
         attacker_proficient_skills,
         target_proficient_skills,
+        attacker_condition_durations,
+        target_condition_durations,
     )
     result["shove_type"] = shove_type
     return result

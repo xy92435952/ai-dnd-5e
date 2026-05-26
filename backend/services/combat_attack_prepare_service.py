@@ -99,7 +99,7 @@ async def prepare_attack_roll(
     if target_turn_state.get("dodging") and "dodging" not in target_conditions:
         target_conditions.append("dodging")
 
-    attacker_advantage, attacker_disadvantage = combat_service.get_attack_modifiers(player_conditions)
+    attacker_advantage, attacker_disadvantage = combat_service.get_attack_modifiers(player_conditions, player)
     defense_advantage, defense_disadvantage = combat_service.get_defense_modifiers(target_conditions)
     if "prone" in target_conditions and distance > 1:
         non_prone_conditions = [condition for condition in target_conditions if condition != "prone"]

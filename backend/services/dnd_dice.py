@@ -3,6 +3,7 @@
 import random
 
 from services.dnd_data import SKILL_ABILITY_MAP
+from services.dnd_character_rules import has_exhaustion_effect
 
 
 def roll_dice(notation: str) -> dict:
@@ -130,6 +131,8 @@ def roll_saving_throw(
     豁免检定
     ability: "str"/"dex"/"con"/"int"/"wis"/"cha"
     """
+    exhaustion_disadvantage = has_exhaustion_effect(character, "attack_save_disadvantage")
+    disadvantage = disadvantage or exhaustion_disadvantage
     derived    = character.get("derived", {})
     saves      = derived.get("saving_throws", {})
     total_mod  = saves.get(ability, derived.get("ability_modifiers", {}).get(ability, 0))
@@ -147,10 +150,14 @@ def roll_saving_throw(
     return {
         "ability":  ability,
         "d20":      d20,
+        "other_roll": d20_result.get("other_roll"),
         "modifier": total_mod,
         "total":    total,
         "dc":       dc,
         "success":  total >= dc,
+        "advantage": bool(advantage and not disadvantage),
+        "disadvantage": bool(disadvantage and not advantage),
+        "exhaustion_disadvantage": exhaustion_disadvantage,
     }
 
 
@@ -164,6 +171,8 @@ def roll_skill_check(
     """
     技能检定（正确检查角色是否熟练该技能）
     """
+    exhaustion_disadvantage = has_exhaustion_effect(character, "ability_check_disadvantage")
+    disadvantage = disadvantage or exhaustion_disadvantage
     derived  = character.get("derived", {})
     prof     = derived.get("proficiency_bonus", 2)
     mods     = derived.get("ability_modifiers", {})
@@ -189,11 +198,15 @@ def roll_skill_check(
         "skill":      skill,
         "ability":    ability,
         "d20":        d20,
+        "other_roll": d20_result.get("other_roll"),
         "modifier":   total_mod,
         "total":      total,
         "dc":         dc,
         "success":    total >= dc,
         "proficient": is_proficient,
+        "advantage": bool(advantage and not disadvantage),
+        "disadvantage": bool(disadvantage and not advantage),
+        "exhaustion_disadvantage": exhaustion_disadvantage,
     }
 
 

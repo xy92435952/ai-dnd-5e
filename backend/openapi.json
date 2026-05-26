@@ -280,6 +280,12 @@
             ],
             "title": "Concentration"
           },
+          "condition_durations": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Condition Durations",
+            "type": "object"
+          },
           "conditions": {
             "default": [],
             "items": {
@@ -3545,6 +3551,17 @@
             "title": "Dc",
             "type": "integer"
           },
+          "second_d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Second D20 Value"
+          },
           "session_id": {
             "title": "Session Id",
             "type": "string"
@@ -3584,6 +3601,17 @@
           "modifier": {
             "title": "Modifier",
             "type": "integer"
+          },
+          "other_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Roll"
           },
           "proficient": {
             "default": false,

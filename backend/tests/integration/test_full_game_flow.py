@@ -282,6 +282,34 @@ async def test_skill_check_non_proficient_no_bonus(
     assert result["total"] == 12
 
 
+async def test_skill_check_exhaustion_level_1_marks_disadvantage(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    """1 级力竭会让能力/技能检定处于劣势，即使用固定 d20 也应回传规则标记。"""
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.conditions = ["exhaustion"]
+    sample_character.condition_durations = {"exhaustion_level": 1}
+    await db_session.commit()
+
+    r = await client.post("/game/skill-check", headers=headers, json={
+        "session_id":   sample_session.id,
+        "character_id": sample_character.id,
+        "skill":        "运动",
+        "dc":           10,
+        "d20_value":    18,
+        "second_d20_value": 10,
+    })
+    assert r.status_code == 200, r.text
+    result = r.json()
+    assert result["modifier"] == 5
+    assert result["total"] == 15
+    assert result["d20"] == 10
+    assert result["other_roll"] == 18
+    assert result["disadvantage"] is True
+    assert result["exhaustion_disadvantage"] is True
+
+
 # ─── 休息 ───────────────────────────────────────────────
 
 async def test_long_rest_restores_hp_and_spells(

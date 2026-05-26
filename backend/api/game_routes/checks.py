@@ -38,16 +38,26 @@ async def skill_check(
         character={
             "derived": character.derived or {},
             "proficient_skills": character.proficient_skills or [],
+            "condition_durations": character.condition_durations or {},
         },
         skill=req.skill,
         dc=req.dc,
     )
     if req.d20_value is not None:
         modifier = result["modifier"]
-        total = req.d20_value + modifier
+        d20 = req.d20_value
+        other_roll = None
+        if req.second_d20_value is not None and result.get("advantage") != result.get("disadvantage"):
+            if result.get("advantage"):
+                d20 = max(req.d20_value, req.second_d20_value)
+            elif result.get("disadvantage"):
+                d20 = min(req.d20_value, req.second_d20_value)
+            other_roll = req.second_d20_value if d20 == req.d20_value else req.d20_value
+        total = d20 + modifier
         result = {
             **result,
-            "d20": req.d20_value,
+            "d20": d20,
+            "other_roll": other_roll,
             "total": total,
             "success": total >= req.dc,
         }

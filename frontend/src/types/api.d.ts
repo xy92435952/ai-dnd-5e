@@ -1516,6 +1516,13 @@ export interface components {
             /** Concentration */
             concentration?: string | null;
             /**
+             * Condition Durations
+             * @default {}
+             */
+            condition_durations: {
+                [key: string]: unknown;
+            };
+            /**
              * Conditions
              * @default []
              */
@@ -3033,6 +3040,8 @@ export interface components {
             d20_value?: number | null;
             /** Dc */
             dc: number;
+            /** Second D20 Value */
+            second_d20_value?: number | null;
             /** Session Id */
             session_id: string;
             /** Skill */
@@ -3057,6 +3066,8 @@ export interface components {
             disadvantage: boolean;
             /** Modifier */
             modifier: number;
+            /** Other Roll */
+            other_roll?: number | null;
             /**
              * Proficient
              * @default false

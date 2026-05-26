@@ -84,7 +84,7 @@ async def prepare_direct_attack(
     target_turn_state = get_turn_state_func(combat, resolved_target_id)
     if target_turn_state.get("dodging") and "dodging" not in target_conditions:
         target_conditions.append("dodging")
-    attack_advantage, attack_disadvantage = combat_service.get_attack_modifiers(player_conditions)
+    attack_advantage, attack_disadvantage = combat_service.get_attack_modifiers(player_conditions, player)
     defense_advantage, defense_disadvantage = combat_service.get_defense_modifiers(target_conditions)
 
     if turn_state.get("being_helped"):
