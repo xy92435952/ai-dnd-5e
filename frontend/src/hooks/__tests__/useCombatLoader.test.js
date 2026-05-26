@@ -79,6 +79,40 @@ describe('useCombatLoader', () => {
     expect(deps.showDice).toHaveBeenCalledWith({ faces: 20, result: 12, label: '先攻检定' })
   })
 
+  it('shows the controlled player initiative when reloading a multiplayer combat', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'host-char', is_player: true, initiative: 18, d20: 17 },
+        { character_id: 'guest-char', is_player: true, initiative: 12, d20: 11 },
+      ],
+      turn_states: {
+        'guest-char': { action_used: false },
+      },
+    })
+    getSessionMock.mockResolvedValue({
+      player: {
+        id: 'guest-char',
+        char_class: 'Wizard',
+        level: 3,
+      },
+      logs: [],
+    })
+
+    const { result, deps } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(deps.setPlayerId).toHaveBeenCalledWith('guest-char')
+    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false })
+    expect(deps.setInitiativeShown).toHaveBeenCalledWith(true)
+    expect(deps.showDice).toHaveBeenCalledWith({ faces: 20, result: 11, label: '先攻检定' })
+    expect(deps.showDice).not.toHaveBeenCalledWith({ faces: 20, result: 17, label: '先攻检定' })
+  })
+
   it('schedules ai turns when fresh combat is not on a player turn', async () => {
     getCombatMock.mockResolvedValue({
       round_number: 2,
