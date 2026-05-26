@@ -15,7 +15,7 @@
  *   - pendingCheck 检定流
  *   - PrepareSpellsModal / JournalModal / RestModal（保留定义）
  */
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { gameApi, roomsApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
@@ -70,6 +70,8 @@ export default function Adventure() {
 
   const logsEndRef = useRef(null)
   const inputRef = useRef(null)
+  const syncNoticeTimerRef = useRef(null)
+  const [syncNotice, setSyncNotice] = useState('')
 
   const { userId: myUserId } = useUser()
   const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId)
@@ -155,6 +157,18 @@ export default function Adventure() {
   })
 
   const { connected: wsConnected, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
+  const multiplayerSyncBlocked = !!room && !wsConnected
+  const actionBlockedReason = multiplayerSyncBlocked ? '房间正在重新同步，请恢复连接后再发言。' : ''
+  const showReconnectSynced = useCallback(() => {
+    setSyncNotice('房间状态已重新同步')
+    if (syncNoticeTimerRef.current) clearTimeout(syncNoticeTimerRef.current)
+    syncNoticeTimerRef.current = setTimeout(() => setSyncNotice(''), 2400)
+  }, [])
+
+  useEffect(() => {
+    if (multiplayerSyncBlocked) setSyncNotice('')
+  }, [multiplayerSyncBlocked])
+
   const {
     currentSpeakerUid,
     isMySpeakTurn,
@@ -167,7 +181,12 @@ export default function Adventure() {
     session,
     loadSession,
     refreshRoom,
+    onReconnectSynced: showReconnectSynced,
   })
+
+  useEffect(() => () => {
+    if (syncNoticeTimerRef.current) clearTimeout(syncNoticeTimerRef.current)
+  }, [])
 
   // 8. UI 副作用 effect
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [logs, pendingCheck])
@@ -203,6 +222,7 @@ export default function Adventure() {
     buildDialogueQueue,
     enterDialogueStage,
     rollPending,
+    actionBlockedReason,
   })
 
   // 打字机效果 + 空格推进 + advanceDialogue 全部抽到 useDialogueFlow
@@ -250,12 +270,19 @@ export default function Adventure() {
       <MultiplayerSpeakBar
         room={room}
         wsConnected={wsConnected}
+        syncNotice={syncNotice}
         myUserId={myUserId}
         player={player}
         isMySpeakTurn={isMySpeakTurn}
         currentSpeakerUid={currentSpeakerUid}
         currentSpeakerName={currentSpeakerName}
-        onSkipTurn={() => wsSend({ type: 'speak_done' })}
+        onSkipTurn={() => {
+          if (multiplayerSyncBlocked) {
+            setError(actionBlockedReason)
+            return
+          }
+          wsSend({ type: 'speak_done' })
+        }}
         onAiTakeover={async () => {
           setError('')
           setIsLoading(true)
@@ -329,6 +356,7 @@ export default function Adventure() {
           isLoading={isLoading}
           room={room}
           isMySpeakTurn={isMySpeakTurn}
+          multiplayerSyncBlocked={multiplayerSyncBlocked}
         />
 
         <MultiplayerTableNotice

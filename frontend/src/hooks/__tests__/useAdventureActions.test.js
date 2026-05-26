@@ -115,4 +115,31 @@ describe('useAdventureActions', () => {
       },
     ])
   })
+
+  it('blocks action submission when the caller reports multiplayer sync is unavailable', async () => {
+    gameApi.action.mockResolvedValue({
+      type: 'exploration',
+      narrative: '这段不应该出现。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    const deps = makeDeps({
+      actionBlockedReason: '房间正在重新同步，请恢复连接后再发言。',
+    })
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleAction()
+    })
+
+    expect(gameApi.action).not.toHaveBeenCalled()
+    expect(deps.setError).toHaveBeenCalledWith('房间正在重新同步，请恢复连接后再发言。')
+    expect(deps.setInput).not.toHaveBeenCalled()
+    expect(deps.addLog).not.toHaveBeenCalled()
+    expect(deps.inputRef.current.focus).toHaveBeenCalledTimes(1)
+  })
 })

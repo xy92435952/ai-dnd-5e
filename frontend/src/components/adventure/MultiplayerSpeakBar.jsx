@@ -13,6 +13,7 @@ import {
 export default function MultiplayerSpeakBar({
   room,
   wsConnected = false,
+  syncNotice = '',
   myUserId = null,
   player = null,
   isMySpeakTurn,
@@ -57,6 +58,19 @@ export default function MultiplayerSpeakBar({
         }}>
           {wsConnected ? '同步在线' : '同步中'}
         </span>
+        {syncNotice && (
+          <span title="最近一次重连后的补漏刷新已完成" style={{
+            padding: '2px 7px',
+            border: '1px solid rgba(127,232,248,.5)',
+            color: 'var(--arcane-light)',
+            borderRadius: 3,
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            whiteSpace: 'nowrap',
+          }}>
+            {syncNotice}
+          </span>
+        )}
         <span title="你当前控制的角色" style={{
           padding: '2px 7px',
           border: '1px solid rgba(240,208,96,.45)',
@@ -84,7 +98,14 @@ export default function MultiplayerSpeakBar({
         {isMySpeakTurn && currentSpeakerUid && (
           <button onClick={onSkipTurn}
             title="跳过本轮，不说话也不发起行动"
-            style={{ padding: '3px 10px', fontSize: 11, background: 'transparent', color: 'var(--amber)', border: '1px solid var(--amber)', borderRadius: 3, cursor: 'pointer' }}>
+            disabled={!wsConnected}
+            style={{
+              padding: '3px 10px', fontSize: 11, background: 'transparent',
+              color: wsConnected ? 'var(--amber)' : 'var(--text-dim)',
+              border: `1px solid ${wsConnected ? 'var(--amber)' : 'var(--wood-light)'}`,
+              borderRadius: 3, cursor: wsConnected ? 'pointer' : 'not-allowed',
+              opacity: wsConnected ? 1 : 0.65,
+            }}>
             跳过本轮 ↷
           </button>
         )}

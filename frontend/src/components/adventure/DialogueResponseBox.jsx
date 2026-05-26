@@ -16,18 +16,20 @@ export default function DialogueResponseBox({
   isLoading,
   room,
   isMySpeakTurn,
+  multiplayerSyncBlocked = false,
 }) {
+  const disabled = isLoading || (room && (!isMySpeakTurn || multiplayerSyncBlocked))
+
   if (pendingCheck) {
     return (
       <DialoguePendingCheck
         pendingCheck={pendingCheck}
         checkRolling={checkRolling}
         onDiceRoll={onDiceRoll}
+        disabled={disabled}
       />
     )
   }
-
-  const disabled = isLoading || (room && !isMySpeakTurn)
 
   return (
     <div style={{ borderTop: '1px solid rgba(138,90,24,.35)', paddingTop: 12 }}>
@@ -61,6 +63,7 @@ export default function DialogueResponseBox({
         isLoading={isLoading}
         room={room}
         isMySpeakTurn={isMySpeakTurn}
+        multiplayerSyncBlocked={multiplayerSyncBlocked}
       />
     </div>
   )

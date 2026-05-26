@@ -22,6 +22,8 @@ const {
   aiTakeoverMock,
   getSessionMock,
   roomsGetMock,
+  wsConnectedMock,
+  wsSendMock,
   submitGroupActionMock,
   joinGroupMock,
   setGroupReadinessMock,
@@ -44,6 +46,8 @@ const {
   aiTakeoverMock: vi.fn(),
   getSessionMock: vi.fn(),
   roomsGetMock: vi.fn(),
+  wsConnectedMock: vi.fn(),
+  wsSendMock: vi.fn(),
   submitGroupActionMock: vi.fn(),
   joinGroupMock: vi.fn(),
   setGroupReadinessMock: vi.fn(),
@@ -70,7 +74,7 @@ vi.mock('../../api/client', () => ({
 }))
 
 vi.mock('../../hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: false, send: () => false }),
+  useWebSocket: () => ({ connected: wsConnectedMock(), send: wsSendMock }),
 }))
 
 vi.mock('../../components/DiceRollerOverlay', () => ({
@@ -91,6 +95,8 @@ describe('Adventure render smoke', () => {
     vi.clearAllMocks()
     localStorage.setItem('user', JSON.stringify({ user_id: 'me', username: 'me', display_name: '我' }))
     getSessionMock.mockResolvedValue(sessionFixture)
+    wsConnectedMock.mockReturnValue(false)
+    wsSendMock.mockReturnValue(false)
     roomsGetMock.mockRejectedValue(new Error('not multiplayer'))
     submitGroupActionMock.mockResolvedValue({})
     joinGroupMock.mockResolvedValue({})
@@ -228,6 +234,7 @@ describe('Adventure render smoke', () => {
   })
 
   it('多人当前发言者提交时只发送主行动，分队聚合交给后端', async () => {
+    wsConnectedMock.mockReturnValue(true)
     actionMock.mockResolvedValue({
       type: 'exploration',
       narrative: 'DM 汇总了分队行动。',
@@ -396,6 +403,72 @@ describe('Adventure render smoke', () => {
       expect(roomsGetMock).toHaveBeenCalledTimes(2)
     })
     expect(getSessionMock).toHaveBeenCalledTimes(2)
+
+    cleanup()
+  })
+
+  it('多人同步断开时禁用发言入口并阻止行动提交', async () => {
+    wsConnectedMock.mockReturnValue(false)
+    actionMock.mockResolvedValue({
+      type: 'exploration',
+      narrative: '这段不应该出现。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    roomsGetMock.mockResolvedValue({
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'me',
+      active_group_id: 'main',
+      members: [
+        { user_id: 'me', display_name: '我', character_id: 'char-1', is_online: true },
+      ],
+      party_groups: [{ id: 'main', name: '主队', location: '大厅', member_user_ids: ['me'] }],
+      pending_actions_by_group: { main: [] },
+      group_readiness: { main: {} },
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      is_multiplayer: true,
+      game_state: {
+        last_turn: {
+          last_actor_user_id: null,
+          player_choices: [{ text: '推开大厅门', tags: [] }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const input = await screen.findByPlaceholderText(/正在重新同步房间/)
+    expect(input).toBeDisabled()
+    const choice = screen.getByRole('button', { name: /推开大厅门/ })
+    expect(choice).toBeDisabled()
+    fireEvent.click(choice)
+
+    expect(screen.getByRole('button', { name: /发送/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /跳过本轮/ })).toBeDisabled()
+    expect(actionMock).not.toHaveBeenCalled()
+    expect(wsSendMock).not.toHaveBeenCalled()
 
     cleanup()
   })

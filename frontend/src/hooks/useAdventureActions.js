@@ -39,6 +39,7 @@ export function useAdventureActions({
   buildDialogueQueue,
   enterDialogueStage,
   rollPending,
+  actionBlockedReason = '',
 }) {
   const refreshCharacters = useCallback(async () => {
     try {
@@ -54,6 +55,11 @@ export function useAdventureActions({
   const handleAction = useCallback(async (overrideText, options = {}) => {
     const text = (overrideText ?? input).trim()
     if (!text || isLoading) return
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      inputRef.current?.focus()
+      return
+    }
     setInput('')
     setError('')
     setPendingCheck(null)
@@ -121,6 +127,7 @@ export function useAdventureActions({
     }
   }, [
     addLog,
+    actionBlockedReason,
     buildDialogueQueue,
     companions,
     enterDialogueStage,
@@ -138,12 +145,17 @@ export function useAdventureActions({
   ])
 
   const handleDiceRoll = useCallback(async () => {
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      inputRef.current?.focus()
+      return
+    }
     const autoMsg = await rollPending()
     if (autoMsg) {
       setTimeout(() => handleAction(autoMsg), 800)
     }
     inputRef.current?.focus()
-  }, [handleAction, inputRef, rollPending])
+  }, [actionBlockedReason, handleAction, inputRef, rollPending, setError])
 
   const handleRest = useCallback(async (restType) => {
     setRestOpen(false)

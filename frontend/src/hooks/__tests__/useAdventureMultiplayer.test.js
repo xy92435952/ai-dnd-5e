@@ -17,6 +17,7 @@ function renderMultiplayer(room, myUserId = 'me', overrides = {}) {
     session: props.session,
     loadSession: props.loadSession,
     refreshRoom: props.refreshRoom,
+    onReconnectSynced: props.onReconnectSynced,
   }), {
     initialProps: {
       room,
@@ -64,6 +65,7 @@ describe('useAdventureMultiplayer', () => {
   it('refreshes both session and room snapshot after reconnect', async () => {
     const loadSession = vi.fn().mockResolvedValue()
     const refreshRoom = vi.fn().mockResolvedValue()
+    const onReconnectSynced = vi.fn()
     const room = {
       is_multiplayer: true,
       _currentSpeaker: 'me',
@@ -73,6 +75,7 @@ describe('useAdventureMultiplayer', () => {
       session: { id: 'sess-1' },
       loadSession,
       refreshRoom,
+      onReconnectSynced,
     })
 
     rerender({
@@ -81,10 +84,50 @@ describe('useAdventureMultiplayer', () => {
       session: { id: 'sess-1' },
       loadSession,
       refreshRoom,
+      onReconnectSynced,
     })
 
     await waitFor(() => expect(loadSession).toHaveBeenCalledTimes(1))
     expect(refreshRoom).toHaveBeenCalledTimes(1)
     expect(refreshRoom).toHaveBeenCalledWith({ preserveOnError: true })
+    expect(onReconnectSynced).not.toHaveBeenCalled()
+  })
+
+  it('notifies after a real disconnect has been resynced', async () => {
+    const loadSession = vi.fn().mockResolvedValue()
+    const refreshRoom = vi.fn().mockResolvedValue()
+    const onReconnectSynced = vi.fn()
+    const room = {
+      is_multiplayer: true,
+      _currentSpeaker: 'me',
+      members: [{ user_id: 'me', display_name: 'Me' }],
+    }
+    const { rerender } = renderMultiplayer(room, 'me', {
+      wsConnected: true,
+      session: { id: 'sess-1' },
+      loadSession,
+      refreshRoom,
+      onReconnectSynced,
+    })
+
+    rerender({
+      room,
+      wsConnected: false,
+      session: { id: 'sess-1' },
+      loadSession,
+      refreshRoom,
+      onReconnectSynced,
+    })
+
+    rerender({
+      room,
+      wsConnected: true,
+      session: { id: 'sess-1' },
+      loadSession,
+      refreshRoom,
+      onReconnectSynced,
+    })
+
+    await waitFor(() => expect(onReconnectSynced).toHaveBeenCalledTimes(1))
   })
 })

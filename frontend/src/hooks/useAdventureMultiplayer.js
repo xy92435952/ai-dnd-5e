@@ -14,6 +14,7 @@ export function useAdventureMultiplayer({
   session,
   loadSession,
   refreshRoom,
+  onReconnectSynced,
 }) {
   const currentSpeakerUid = room?._currentSpeaker
   const isMySpeakTurn = !room || (!!currentSpeakerUid && currentSpeakerUid === myUserId)
@@ -21,18 +22,31 @@ export function useAdventureMultiplayer({
     (room?.members || []).find(m => m.user_id === currentSpeakerUid)?.display_name
   ), [room, currentSpeakerUid])
 
-  const prevWsConnectedRef = useRef(false)
+  const prevWsConnectedRef = useRef(null)
+  const hasConnectedOnceRef = useRef(false)
   useEffect(() => {
-    if (!room) return
-    const wasDisconnected = !prevWsConnectedRef.current
+    if (!room) {
+      prevWsConnectedRef.current = wsConnected
+      if (wsConnected) hasConnectedOnceRef.current = true
+      return
+    }
+    const wasDisconnected = prevWsConnectedRef.current === false
+    const shouldShowRecovery = wasDisconnected && hasConnectedOnceRef.current
     if (wsConnected && wasDisconnected && session) {
+      let cancelled = false
       void Promise.allSettled([
         loadSession?.(),
         refreshRoom?.({ preserveOnError: true }),
-      ])
+      ]).then(() => {
+        if (!cancelled && shouldShowRecovery) onReconnectSynced?.()
+      })
+      prevWsConnectedRef.current = wsConnected
+      hasConnectedOnceRef.current = true
+      return () => { cancelled = true }
     }
     prevWsConnectedRef.current = wsConnected
-  }, [wsConnected, room, session, loadSession, refreshRoom])
+    if (wsConnected) hasConnectedOnceRef.current = true
+  }, [wsConnected, room, session, loadSession, refreshRoom, onReconnectSynced])
 
   const prevSpeakerRef = useRef(null)
   useEffect(() => {

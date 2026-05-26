@@ -27,6 +27,7 @@ export default function DialoguePanel({
   isLoading,
   room,
   isMySpeakTurn,
+  multiplayerSyncBlocked = false,
 }) {
   return (
     <div style={{ overflow: 'auto', maxHeight: '40vh' }}>
@@ -59,6 +60,7 @@ export default function DialoguePanel({
           isLoading={isLoading}
           room={room}
           isMySpeakTurn={isMySpeakTurn}
+          multiplayerSyncBlocked={multiplayerSyncBlocked}
         />
       </div>
     </div>

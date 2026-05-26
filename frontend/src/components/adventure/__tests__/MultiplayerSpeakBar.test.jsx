@@ -42,6 +42,12 @@ describe('MultiplayerSpeakBar', () => {
     expect(screen.getByText('同步中')).toBeInTheDocument()
   })
 
+  it('shows a short resynced notice after reconnect refresh completes', () => {
+    renderBar({ syncNotice: '房间状态已重新同步' })
+
+    expect(screen.getByText('房间状态已重新同步')).toBeInTheDocument()
+  })
+
   it('keeps AI takeover disabled until the offline threshold is reached', () => {
     const { onAiTakeover } = renderBar()
 
