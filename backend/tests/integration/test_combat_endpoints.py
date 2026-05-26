@@ -594,20 +594,30 @@ async def test_spell_roll_then_confirm_applies_damage_and_consumes_slot(
     assert "pending_spell" not in confirm_data["turn_state"]
 
 
-async def test_condition_add_and_remove(client, sample_session, combat_state, sample_user, sample_character):
+async def test_condition_add_and_remove(client, db_session, sample_session, combat_state, sample_user, sample_character):
     """POST /game/combat/{id}/condition/add + remove — conditions.py 模块。"""
     headers = await _auth_headers(client, sample_user)
+    sample_character.concentration = "Bless"
+    await db_session.commit()
+
     r = await client.post(
         f"/game/combat/{sample_session.id}/condition/add",
         headers=headers,
-        json={"entity_id": sample_character.id, "condition": "poisoned", "is_enemy": False, "rounds": 3},
+        json={"entity_id": sample_character.id, "condition": "paralyzed", "is_enemy": False, "rounds": 3},
     )
     assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["concentration"] is None
+    assert data["target_state"]["concentration"] is None
+    assert data["target_state"]["conditions"] == ["paralyzed"]
+    assert data["target_state"]["life_state"] == "alive"
+    await db_session.refresh(sample_character)
+    assert sample_character.concentration is None
 
     r = await client.post(
         f"/game/combat/{sample_session.id}/condition/remove",
         headers=headers,
-        json={"entity_id": sample_character.id, "condition": "poisoned", "is_enemy": False},
+        json={"entity_id": sample_character.id, "condition": "paralyzed", "is_enemy": False},
     )
     assert r.status_code == 200, r.text
 

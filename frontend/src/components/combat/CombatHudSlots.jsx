@@ -1,6 +1,8 @@
 import React from 'react'
 
-export default function CombatHudSlots({ session, playerSpellSlots }) {
+export default function CombatHudSlots({ session, playerSpellSlots, character = null }) {
+  const caster = character || session?.player
+  const slotMax = caster?.derived?.spell_slots_max || session?.player?.derived?.spell_slots_max || {}
   return (
     <div style={{
       padding: '8px 10px',
@@ -13,7 +15,7 @@ export default function CombatHudSlots({ session, playerSpellSlots }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {Object.entries(playerSpellSlots || {}).filter(([lvl, cur]) => cur > 0 || /^(1st|2nd|3rd)$/.test(lvl)).slice(0, 4).map(([lvl, cur]) => {
-          const max = session?.player?.derived?.spell_slots_max?.[lvl] || cur
+          const max = slotMax[lvl] || cur
           return (
             <div key={lvl} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.08em', width: 24 }}>{lvl}</span>
@@ -26,9 +28,9 @@ export default function CombatHudSlots({ session, playerSpellSlots }) {
           )
         })}
       </div>
-      {session?.player?.concentration && (
+      {caster?.concentration && (
         <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(138,90,24,.3)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', letterSpacing: '.1em' }}>
-          专注 <span style={{ color: 'var(--flame)' }}>{session.player.concentration}</span>
+          专注 <span style={{ color: 'var(--flame)' }}>{caster.concentration}</span>
         </div>
       )}
     </div>

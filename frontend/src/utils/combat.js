@@ -73,6 +73,7 @@ function normalizeEntityStateUpdate(targetId, update = {}) {
   if ('conditions' in update) normalized.conditions = update.conditions || []
   if ('condition_durations' in update) normalized.condition_durations = update.condition_durations || {}
   if ('life_state' in update) normalized.life_state = update.life_state
+  if ('concentration' in update) normalized.concentration = update.concentration
   return normalized
 }
 
@@ -99,6 +100,7 @@ export function applyEntityStateUpdate(combat, targetIdOrUpdate, maybeUpdate) {
   if ('conditions' in update) nextEntity.conditions = update.conditions
   if ('condition_durations' in update) nextEntity.condition_durations = update.condition_durations
   if ('life_state' in update) nextEntity.life_state = update.life_state
+  if ('concentration' in update) nextEntity.concentration = update.concentration
   entities[update.target_id] = nextEntity
   return { ...combat, entities }
 }

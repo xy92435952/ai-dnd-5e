@@ -230,6 +230,7 @@ describe('combat grid helpers', () => {
           death_saves: null,
           conditions: [],
           life_state: 'alive',
+          concentration: 'Bless',
         },
         ally: { id: 'ally', hp_current: 5 },
       },
@@ -241,6 +242,7 @@ describe('combat grid helpers', () => {
       death_saves: { successes: 0, failures: 1, stable: false },
       conditions: ['unconscious'],
       life_state: 'dying',
+      concentration: null,
     })
 
     expect(updated).not.toBe(combat)
@@ -249,6 +251,7 @@ describe('combat grid helpers', () => {
       death_saves: { successes: 0, failures: 1, stable: false },
       conditions: ['unconscious'],
       life_state: 'dying',
+      concentration: null,
     })
     expect(updated.entities.ally).toBe(combat.entities.ally)
   })

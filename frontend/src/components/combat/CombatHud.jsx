@@ -66,7 +66,7 @@ export default function CombatHud({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <CombatHudSlots session={session} playerSpellSlots={playerSpellSlots} />
+        <CombatHudSlots session={session} playerSpellSlots={playerSpellSlots} character={controlledCharacter} />
         <CombatDeathSavePanel
           character={controlledCharacter || session?.player}
           isPlayerTurn={isPlayerTurn}

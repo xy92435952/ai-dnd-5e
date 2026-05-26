@@ -5,6 +5,7 @@ from typing import Any
 
 from models import Character
 from services.combat_concentration_service import do_concentration_check
+from services.combat_concentration_service import break_concentration_if_incapacitated
 from services.combat_service import CombatService
 from services.combat_spell_resolution_service import apply_frontend_dice_override
 from services.dnd_rules import (
@@ -140,6 +141,7 @@ async def apply_spell_damage_to_target(
         "death_saves": damage_result["death_saves"],
         "conditions": damage_result["conditions"],
         "life_state": get_life_state(target_character),
+        "concentration": target_character.concentration,
         "save": save_result,
     }, concentration_log
 
@@ -207,6 +209,7 @@ async def apply_control_spell_to_target(
     enemies: list[dict[str, Any]],
     target_id: str,
     *,
+    session_id: str,
     condition_name: str,
     save_ability: str | None,
     spell_save_dc: int,
@@ -214,6 +217,7 @@ async def apply_control_spell_to_target(
     """Resolve a control spell save and apply its condition if the target fails."""
     saved = False
     save_detail = None
+    concentration_log = None
 
     target_enemy = next((enemy for enemy in enemies if enemy["id"] == target_id), None)
     target_character = None if target_enemy else await db.get(Character, target_id)
@@ -246,10 +250,31 @@ async def apply_control_spell_to_target(
             if condition_name not in conditions:
                 conditions.append(condition_name)
                 target_character.conditions = conditions
+            concentration_log = break_concentration_if_incapacitated(target_character, session_id)
+
+    target_enemy_hp = target_enemy.get("hp_current") if target_enemy else None
 
     return {
         "condition_name": condition_name,
         "save_detail": save_detail,
         "saved": saved,
         "applied": not saved,
+        "target_state": (
+            {
+                "target_id": target_id,
+                "conditions": target_enemy.get("conditions", []),
+                "life_state": "dead" if target_enemy_hp is not None and target_enemy_hp <= 0 else "alive",
+            }
+            if target_enemy else (
+                {
+                    "target_id": target_id,
+                    "conditions": target_character.conditions or [],
+                    "condition_durations": target_character.condition_durations or {},
+                    "life_state": get_life_state(target_character),
+                    "concentration": target_character.concentration,
+                }
+                if target_character else None
+            )
+        ),
+        "concentration_log": concentration_log,
     }

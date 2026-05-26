@@ -222,4 +222,34 @@ async def test_apply_attack_damage_to_zero_hp_character_adds_critical_death_save
         "death_saves": {"successes": 0, "failures": 3, "stable": False},
         "conditions": ["unconscious"],
         "life_state": "dead",
+        "concentration": None,
     }
+
+
+async def test_apply_attack_damage_to_concentrating_character_at_zero_hp_breaks_concentration(
+    db_session,
+    sample_character,
+):
+    from api.combat.attack_damage import apply_attack_damage_to_target
+
+    sample_character.hp_current = 3
+    sample_character.death_saves = None
+    sample_character.conditions = []
+    sample_character.concentration = "Bless"
+    await db_session.commit()
+
+    new_hp, conc_log, target_state = await apply_attack_damage_to_target(
+        db_session,
+        session_id="sess-1",
+        enemies=[],
+        target_id=sample_character.id,
+        target_is_enemy=False,
+        damage=5,
+    )
+
+    assert new_hp == 0
+    assert sample_character.concentration is None
+    assert conc_log.dice_result["automatic"] is True
+    assert conc_log.dice_result["reason"] == "incapacitated"
+    assert target_state["life_state"] == "dying"
+    assert target_state["concentration"] is None

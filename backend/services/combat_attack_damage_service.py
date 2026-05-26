@@ -207,4 +207,5 @@ async def apply_attack_damage_to_target(
         "death_saves": damage_result["death_saves"],
         "conditions": damage_result["conditions"],
         "life_state": get_life_state(target_character),
+        "concentration": target_character.concentration,
     }

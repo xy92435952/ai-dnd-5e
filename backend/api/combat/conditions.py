@@ -20,7 +20,7 @@ from api.deps import (
 )
 from services.combat_service import CombatService
 from services.spell_service import spell_service
-from services.dnd_rules import roll_dice, _normalize_class
+from services.dnd_rules import roll_dice, _normalize_class, get_life_state
 from services.combat_narrator import narrate_action, narrate_batch
 from services.character_roster import CharacterRoster
 
@@ -41,6 +41,7 @@ from api.combat.schemas import (
 )
 from schemas.combat_responses import ConditionUpdateResult
 from schemas.ws_events import CombatUpdate
+from services.combat_concentration_service import break_concentration_if_incapacitated
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -86,6 +87,9 @@ async def add_condition(
             durations = dict(char.condition_durations or {})
             durations[req.condition] = req.rounds
             char.condition_durations = durations
+        concentration_log = break_concentration_if_incapacitated(char, session_id)
+        if concentration_log:
+            db.add(concentration_log)
 
     db.add(GameLog(
         session_id = session_id,
@@ -103,7 +107,17 @@ async def add_condition(
             CombatUpdate(actor_id=req.entity_id, condition=req.condition, condition_action="add"),
             db=db,
         )
-    return {"entity_id": req.entity_id, "conditions": conditions}
+    response = {"entity_id": req.entity_id, "conditions": conditions}
+    if not req.is_enemy:
+        response["concentration"] = char.concentration
+        response["target_state"] = {
+            "target_id": req.entity_id,
+            "conditions": conditions,
+            "condition_durations": char.condition_durations or {},
+            "life_state": get_life_state(char),
+            "concentration": char.concentration,
+        }
+    return response
 
 
 @router.post("/combat/{session_id}/condition/remove", response_model=ConditionUpdateResult)

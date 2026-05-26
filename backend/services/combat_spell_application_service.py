@@ -163,11 +163,15 @@ async def apply_confirmed_spell_effects(
             db,
             enemies,
             target_id,
+            session_id=session_id,
             condition_name=result.condition_name,
             save_ability=save_ability,
             spell_save_dc=spell_save_dc,
         )
         result.save_detail = control_result["save_detail"]
+        result.target_state = control_result.get("target_state")
+        if control_result.get("concentration_log"):
+            result.concentration_logs.append(control_result["concentration_log"])
         result.enemies_changed = control_result["applied"] and any(
             enemy["id"] == target_id for enemy in enemies
         )

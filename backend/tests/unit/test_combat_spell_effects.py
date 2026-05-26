@@ -195,6 +195,7 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
         db_session,
         enemies,
         "goblin-1",
+        session_id="sess-1",
         condition_name="paralyzed",
         save_ability="wis",
         spell_save_dc=30,
@@ -219,6 +220,7 @@ async def test_apply_control_spell_to_enemy_falls_back_to_ability_scores(db_sess
         db_session,
         enemies,
         "goblin-1",
+        session_id="sess-1",
         condition_name="paralyzed",
         save_ability="wis",
         spell_save_dc=6,
@@ -241,6 +243,7 @@ async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sa
         db_session,
         [],
         sample_character.id,
+        session_id="sess-1",
         condition_name="commanded",
         save_ability="wis",
         spell_save_dc=30,
@@ -265,6 +268,7 @@ async def test_apply_control_spell_to_restrained_enemy_rolls_dex_save_with_disad
         db_session,
         enemies,
         "goblin-1",
+        session_id="sess-1",
         condition_name="faerie_fire",
         save_ability="dex",
         spell_save_dc=13,
@@ -288,6 +292,7 @@ async def test_apply_control_spell_to_unconscious_enemy_auto_fails_dex_save(db_s
         db_session,
         enemies,
         "goblin-1",
+        session_id="sess-1",
         condition_name="faerie_fire",
         save_ability="dex",
         spell_save_dc=10,
@@ -298,3 +303,37 @@ async def test_apply_control_spell_to_unconscious_enemy_auto_fails_dex_save(db_s
     assert result["save_detail"]["auto_fail"] is True
     assert result["save_detail"]["auto_fail_reasons"] == ["unconscious"]
     assert "faerie_fire" in enemies[0]["conditions"]
+
+
+async def test_apply_control_spell_to_character_breaks_concentration_when_incapacitating(
+    db_session,
+    sample_character,
+):
+    from services import combat_spell_effect_service as spell_effects
+
+    sample_character.conditions = []
+    sample_character.concentration = "Bless"
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "saving_throws": {"wis": -5},
+    }
+    await db_session.commit()
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        [],
+        sample_character.id,
+        session_id="sess-1",
+        condition_name="paralyzed",
+        save_ability=None,
+        spell_save_dc=30,
+    )
+
+    assert result["applied"] is True
+    assert sample_character.conditions == ["paralyzed"]
+    assert sample_character.concentration is None
+    assert result["target_state"]["concentration"] is None
+    assert result["target_state"]["conditions"] == ["paralyzed"]
+    assert result["target_state"]["life_state"] == "alive"
+    assert result["concentration_log"].dice_result["automatic"] is True
+    assert result["concentration_log"].dice_result["reasons"] == ["paralyzed"]

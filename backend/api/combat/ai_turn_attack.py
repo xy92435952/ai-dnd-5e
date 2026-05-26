@@ -253,6 +253,7 @@ async def handle_ai_attack_action(
                             "death_saves": tchar.death_saves,
                             "conditions": tchar.conditions or [],
                             "life_state": get_life_state(tchar),
+                            "concentration": tchar.concentration,
                         }
                         target_name = tchar.name
                         if tchar.is_player and applied_damage > 0:
