@@ -6,7 +6,7 @@ export default function AdventurePartyHud({ allMembers, onOpenCharacter }) {
     <div className="party-hud">
       {allMembers.map((p, idx) => {
         const derived = p.derived || {}
-        const hpMax = derived.hp_max || p.hp_current || 1
+        const hpMax = p.hp_max || derived.hp_max || p.hp_current || 1
         const pct = Math.max(0, Math.min(100, (p.hp_current / hpMax) * 100))
         const tone = pct < 34 ? 'low' : pct < 67 ? 'mid' : ''
         const active = p.isPlayer

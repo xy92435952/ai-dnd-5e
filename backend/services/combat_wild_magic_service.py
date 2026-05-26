@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from services.dnd_rules import get_effective_hp_max
+
 
 @dataclass
 class WildMagicResolution:
@@ -83,7 +85,7 @@ def apply_wild_magic_mechanical_effect(
     if mechanical.get("type") == "heal":
         heal_roll = roll_dice(mechanical["dice"])
         caster.hp_current = min(
-            (caster.derived or {}).get("hp_max", caster.hp_current),
+            get_effective_hp_max(caster),
             caster.hp_current + heal_roll["total"],
         )
     elif mechanical.get("type") == "condition":

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from models import Character, GameLog, Session, CombatState
 from api.combat._shared import _get_ts, _save_ts
 from services.character_roster import CharacterRoster
+from services.dnd_rules import get_effective_hp_max
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_offhand_attack_service import resolve_offhand_attack
 from services.session_access_service import assert_character_in_session
@@ -87,7 +88,7 @@ async def maybe_handle_pre_attack_action(
             _roster = CharacterRoster(db, session)
             best_cid, best_hp_pct = None, 1.1
             for c in await _roster.companions_alive():
-                pct = c.hp_current / max(1, (c.derived or {}).get("hp_max", 1))
+                pct = c.hp_current / max(1, get_effective_hp_max(c))
                 if pct < best_hp_pct:
                     best_hp_pct = pct
                     best_cid = c.id

@@ -10,6 +10,7 @@ from services.dnd_rules import (
     _normalize_class,
     ability_modifier,
     calc_derived,
+    get_effective_hp_max,
     roll_dice,
 )
 
@@ -49,6 +50,7 @@ def build_level_up_update(
     ability_score_increases: dict | None = None,
     feat_choice: dict | None = None,
     dice_roller: Callable[[str], dict] = roll_dice,
+    condition_durations: dict | None = None,
 ) -> dict:
     old_level = level
     new_level = old_level + 1
@@ -96,7 +98,17 @@ def build_level_up_update(
         proficient_skills=proficient_skills or [],
     )
 
-    new_hp_current = min(hp_current + hp_gain, next_derived["hp_max"])
+    new_hp_current = min(
+        hp_current + hp_gain,
+        get_effective_hp_max(
+            {
+                "derived": next_derived,
+                "condition_durations": condition_durations or {},
+                "hp_current": hp_current,
+            },
+            next_derived["hp_max"],
+        ),
+    )
     next_spell_slots = _advance_spell_slots(
         current_slots=spell_slots,
         old_slots_max=old_derived.get("spell_slots_max", {}),

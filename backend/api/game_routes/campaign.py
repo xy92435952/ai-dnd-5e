@@ -11,6 +11,8 @@ from services.character_roster import CharacterRoster
 from services.dnd_rules import (
     HIT_DICE,
     _normalize_class,
+    get_effective_hp_base,
+    get_effective_hp_max,
     get_class_resource_defaults,
     roll_dice,
 )
@@ -185,7 +187,8 @@ async def take_rest(
 
 def _apply_rest_to_character(character, rest_type: str) -> dict:
     derived = character.derived or {}
-    hp_max = derived.get("hp_max", character.hp_current)
+    base_hp_max = get_effective_hp_base(character, derived)
+    hp_max = get_effective_hp_max(character, base_hp_max)
     hit_die = derived.get("hit_die", HIT_DICE.get(_normalize_class(character.char_class), 8))
     con_mod = derived.get("ability_modifiers", {}).get("con", 0)
     caster_type = derived.get("caster_type")
@@ -199,6 +202,7 @@ def _apply_rest_to_character(character, rest_type: str) -> dict:
             character=character,
             old_hp=old_hp,
             hp_max=hp_max,
+            base_hp_max=base_hp_max,
             slots_max=slots_max,
         )
 
@@ -206,6 +210,7 @@ def _apply_rest_to_character(character, rest_type: str) -> dict:
         character=character,
         old_hp=old_hp,
         hp_max=hp_max,
+        base_hp_max=base_hp_max,
         hit_die=hit_die,
         con_mod=con_mod,
         caster_type=caster_type,
@@ -213,7 +218,14 @@ def _apply_rest_to_character(character, rest_type: str) -> dict:
     )
 
 
-def _apply_long_rest_to_character(*, character, old_hp: int, hp_max: int, slots_max: dict) -> dict:
+def _apply_long_rest_to_character(
+    *,
+    character,
+    old_hp: int,
+    hp_max: int,
+    base_hp_max: int,
+    slots_max: dict,
+) -> dict:
     cls_key = _normalize_class(character.char_class)
     hit_dice_before = character.hit_dice_remaining or 0
     restored_dice_budget = max(1, character.level // 2)
@@ -239,10 +251,11 @@ def _apply_long_rest_to_character(*, character, old_hp: int, hp_max: int, slots_
         if condition != "exhaustion":
             durations_after.pop(condition, None)
 
-    character.hp_current = hp_max
-    character.spell_slots = slots_max
     character.conditions = conditions_after
     character.condition_durations = durations_after
+    effective_hp_max = get_effective_hp_max(character, base_hp_max)
+    character.hp_current = effective_hp_max
+    character.spell_slots = slots_max
     character.concentration = None
     character.death_saves = None
     character.hit_dice_remaining = hit_dice_after
@@ -251,9 +264,10 @@ def _apply_long_rest_to_character(*, character, old_hp: int, hp_max: int, slots_
 
     return {
         "name": character.name,
-        "hp_recovered": hp_max - old_hp,
-        "hp_current": hp_max,
-        "hp_max": hp_max,
+        "hp_recovered": effective_hp_max - old_hp,
+        "hp_current": effective_hp_max,
+        "hp_max": effective_hp_max,
+        "base_hp_max": base_hp_max,
         "slots_restored": slots_max,
         "hit_dice_remaining": character.hit_dice_remaining,
         "hit_dice_total": character.level,
@@ -297,6 +311,7 @@ def _apply_short_rest_to_character(
     character,
     old_hp: int,
     hp_max: int,
+    base_hp_max: int,
     hit_die: int,
     con_mod: int,
     caster_type: str | None,
@@ -329,6 +344,7 @@ def _apply_short_rest_to_character(
         "hp_recovered": character.hp_current - old_hp,
         "hp_current": character.hp_current,
         "hp_max": hp_max,
+        "base_hp_max": base_hp_max,
         "slots_restored": slots_max if caster_type == "pact" else {},
         "hit_dice_remaining": character.hit_dice_remaining,
         "hit_dice_total": character.level,

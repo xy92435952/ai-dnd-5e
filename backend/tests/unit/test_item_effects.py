@@ -39,6 +39,29 @@ def test_apply_healing_effect_caps_at_hp_max(monkeypatch):
     assert result["hp_after"] == 12
 
 
+def test_apply_healing_effect_caps_at_exhaustion_hp_max(monkeypatch):
+    monkeypatch.setattr(
+        item_effects,
+        "roll_dice",
+        lambda formula: {"formula": formula, "rolls": [4, 4], "bonus": 2, "total": 10},
+    )
+    actor = make_character(
+        hp_current=4,
+        derived={"hp_max": 12},
+        conditions=["exhaustion"],
+        condition_durations={"exhaustion_level": 4},
+    )
+
+    result = item_effects.apply_item_effect(
+        actor=actor,
+        item_name="Healing Potion",
+        item_data={"consumable": True, "effect": "heal", "heal_dice": "2d4+2"},
+    )
+
+    assert actor.hp_current == 6
+    assert result["hp_after"] == 6
+
+
 def test_apply_fire_resistance_adds_condition_once():
     actor = make_character(conditions=["fire_resistance"])
 

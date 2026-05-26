@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from services.dnd_rules import roll_dice
+from services.dnd_rules import get_effective_hp_max, roll_dice
 
 
 DIRECT_USE_EFFECTS = {"heal", "antitoxin", "fire_resistance", "stabilize"}
@@ -51,7 +51,7 @@ def apply_item_effect(
         roll = roll_dice(heal_dice)
         heal_amount = roll["total"]
         derived = actor.derived or {}
-        hp_max = derived.get("hp_max", actor.hp_current)
+        hp_max = get_effective_hp_max(actor, derived.get("hp_max", actor.hp_current))
         old_hp = actor.hp_current
         actor.hp_current = min(hp_max, actor.hp_current + heal_amount)
         result["heal_roll"] = roll

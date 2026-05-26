@@ -364,6 +364,36 @@ async def test_long_rest_restores_hp_and_spells(
     assert sample_character.hit_dice_remaining == 1
 
 
+async def test_long_rest_after_exhaustion_5_heals_only_to_halved_max(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = 2
+    sample_character.hit_dice_remaining = 0
+    sample_character.conditions = ["exhaustion"]
+    sample_character.condition_durations = {"exhaustion_level": 5}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "long"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert char_result["exhaustion_level_before"] == 5
+    assert char_result["exhaustion_level_after"] == 4
+    assert char_result["hp_current"] == 6
+    assert char_result["hp_max"] == 6
+    assert char_result["base_hp_max"] == 12
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 6
+    assert sample_character.condition_durations == {"exhaustion_level": 4}
+
+
 async def test_short_rest_consumes_hit_die(
     client, db_session, sample_session, sample_character, sample_user,
 ):
@@ -386,6 +416,33 @@ async def test_short_rest_consumes_hit_die(
     assert sample_character.hp_current > 3
     # 生命骰被消耗
     assert sample_character.hit_dice_remaining == 0
+
+
+async def test_short_rest_healing_caps_at_exhaustion_hp_max(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = 5
+    sample_character.hit_dice_remaining = 1
+    sample_character.conditions = ["exhaustion"]
+    sample_character.condition_durations = {"exhaustion_level": 4}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "short"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert char_result["hp_current"] == 6
+    assert char_result["hp_max"] == 6
+    assert char_result["base_hp_max"] == 12
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 6
 
 
 async def test_short_rest_does_not_spend_hit_die_at_full_hp(

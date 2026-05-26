@@ -62,6 +62,20 @@ async def test_apply_spell_heal_to_character_caps_at_max(db_session, sample_char
     assert sample_character.hp_current == 12
 
 
+async def test_apply_spell_heal_to_character_caps_at_exhaustion_max(db_session, sample_character):
+    from api.combat.spell_effects import apply_spell_heal_to_target
+
+    sample_character.hp_current = 4
+    sample_character.conditions = ["exhaustion"]
+    sample_character.condition_durations = {"exhaustion_level": 4}
+    await db_session.commit()
+
+    result = await apply_spell_heal_to_target(db_session, sample_character.id, 20)
+
+    assert result["new_hp"] == 6
+    assert sample_character.hp_current == 6
+
+
 def test_resolve_spell_condition_uses_known_mapping_and_fallback():
     from api.combat.spell_effects import resolve_spell_condition
 

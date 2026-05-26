@@ -7,7 +7,7 @@ from models import Character
 from services.combat_concentration_service import do_concentration_check
 from services.combat_service import CombatService
 from services.combat_spell_resolution_service import apply_frontend_dice_override
-from services.dnd_rules import roll_dice
+from services.dnd_rules import get_effective_hp_max, roll_dice
 
 svc = CombatService()
 
@@ -112,7 +112,7 @@ async def apply_spell_damage_to_target(
     target_character.hp_current = svc.apply_damage(
         target_character.hp_current,
         damage,
-        (target_character.derived or {}).get("hp_max", target_character.hp_current),
+        get_effective_hp_max(target_character),
     )
     concentration_log = await do_concentration_check(target_character, damage, session_id)
     return {
@@ -133,7 +133,7 @@ async def apply_spell_heal_to_target(db, target_id: str, heal: int):
     target_character.hp_current = svc.apply_heal(
         target_character.hp_current,
         heal,
-        (target_character.derived or {}).get("hp_max", target_character.hp_current),
+        get_effective_hp_max(target_character),
     )
     return {
         "target_id": target_id,

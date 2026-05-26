@@ -24,6 +24,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models.character import Character
 from models.session import Session, CombatState
 from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
+from services.dnd_rules import get_effective_hp_max
 from services.state_apply_result import ApplyResult
 from services.state_log_service import append_session_history, write_game_logs
 
@@ -184,7 +185,7 @@ class StateApplicator:
             return
 
         derived = char.derived or {}
-        hp_max  = derived.get("hp_max", char.hp_current)
+        hp_max  = get_effective_hp_max(char, derived.get("hp_max", char.hp_current))
 
         # HP 变化（边界保护）
         hp_change = int(delta.get("hp_change", 0))

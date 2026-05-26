@@ -1,13 +1,14 @@
 import React from 'react'
 
 export default function CombatHudPortrait({ session, playerClass, playerSubclass, playerLevel, turnState }) {
+  const player = session?.player
+  const hpMax = player?.hp_max ?? player?.derived?.hp_max ?? 1
   return (
     <div className="hud-portrait">
       <div className="big" style={{ position: 'relative' }}>
         {(session?.player?.name || 'P').slice(0, 1)}
         {(() => {
-          const hp = session?.player?.hp_current ?? 0
-          const hpMax = session?.player?.derived?.hp_max ?? 1
+          const hp = player?.hp_current ?? 0
           return hp > 0 && hp / hpMax <= 0.25 ? <span className="avatar-crack" /> : null
         })()}
       </div>
@@ -15,12 +16,11 @@ export default function CombatHudPortrait({ session, playerClass, playerSubclass
         <div className="name">{session?.player?.name || '玩家'}</div>
         <div className="sub">{playerClass || '?'} {playerSubclass ? `· ${playerSubclass} ` : ''}· Lv {playerLevel}</div>
         <div className={`hp-segmented ${(() => {
-          const hp = session?.player?.hp_current ?? 0, hpMax = session?.player?.derived?.hp_max ?? 1
+          const hp = player?.hp_current ?? 0
           return hp / hpMax < .34 ? 'low' : hp / hpMax < .67 ? 'mid' : ''
         })()}`}>
           {(() => {
-            const hp = session?.player?.hp_current ?? 0
-            const hpMax = session?.player?.derived?.hp_max ?? 1
+            const hp = player?.hp_current ?? 0
             const segs = 12
             const filled = Math.round((hp / hpMax) * segs)
             return Array.from({ length: segs }).map((_, i) => (
@@ -29,7 +29,7 @@ export default function CombatHudPortrait({ session, playerClass, playerSubclass
           })()}
         </div>
         <div className="hp-text">
-          <span><span className="cur">{session?.player?.hp_current ?? 0}</span> / {session?.player?.derived?.hp_max ?? 0}</span>
+          <span><span className="cur">{player?.hp_current ?? 0}</span> / {hpMax}</span>
           <span>移动 <b style={{ color: 'var(--arcane-light)' }}>{(turnState?.movement_max ?? 6) - (turnState?.movement_used ?? 0)}/{turnState?.movement_max ?? 6}</b></span>
         </div>
         <div className="stat-line">

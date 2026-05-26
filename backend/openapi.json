@@ -70,6 +70,17 @@
       },
       "AiCompanionInfo": {
         "properties": {
+          "base_hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hp Max"
+          },
           "char_class": {
             "anyOf": [
               {
@@ -256,6 +267,17 @@
           "ac": {
             "title": "Ac",
             "type": "integer"
+          },
+          "base_hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hp Max"
           },
           "cantrips": {
             "default": [],
@@ -755,6 +777,17 @@
         "additionalProperties": true,
         "description": "单个角色的休息结果。长休 / 短休字段是并集。",
         "properties": {
+          "base_hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hp Max"
+          },
           "class_resources": {
             "anyOf": [
               {
@@ -1836,6 +1869,17 @@
             "title": "Ac",
             "type": "integer"
           },
+          "base_hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hp Max"
+          },
           "conditions": {
             "default": [],
             "items": {
@@ -1939,6 +1983,29 @@
         "additionalProperties": true,
         "description": "PATCH /characters/{id}/exhaustion",
         "properties": {
+          "base_hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Hp Max"
+          },
+          "death_saves": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Death Saves"
+          },
           "effects": {
             "default": [],
             "items": {
@@ -1950,6 +2017,28 @@
           "exhaustion_level": {
             "title": "Exhaustion Level",
             "type": "integer"
+          },
+          "hp_current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hp Current"
+          },
+          "hp_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hp Max"
           },
           "is_dead": {
             "default": false,

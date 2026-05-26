@@ -33,6 +33,7 @@ class CharacterBrief(BaseModel):
     level: int
     hp_current: int
     hp_max: int
+    base_hp_max: Optional[int] = None
     ac: int
     is_player: bool
     spell_slots:      dict[str, Any] = {}
@@ -156,6 +157,7 @@ class CharacterRestResult(BaseModel):
     hp_recovered: int
     hp_current: int
     hp_max: Optional[int] = None
+    base_hp_max: Optional[int] = None
     slots_restored: dict[str, Any] = {}
     hit_dice_remaining: Optional[int] = None
     hit_dice_total: Optional[int] = None
@@ -192,6 +194,7 @@ class EntitySnapshot(BaseModel):
     is_enemy:  bool = False
     hp_current: int
     hp_max: int
+    base_hp_max: Optional[int] = None
     ac: int
     conditions: list[str] = []
     derived: dict[str, Any] = {}
@@ -341,6 +344,10 @@ class ExhaustionUpdateResult(BaseModel):
     exhaustion_level: int
     effects: list[str] = []
     is_dead: bool = False
+    hp_current: Optional[int] = None
+    hp_max: Optional[int] = None
+    base_hp_max: Optional[int] = None
+    death_saves: Optional[dict[str, Any]] = None
 
 
 class AmmoUpdateResult(BaseModel):

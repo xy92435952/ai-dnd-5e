@@ -4,7 +4,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution, CONTROL_CONDITION_MAP
-from services.dnd_rules import roll_dice
+from services.dnd_rules import get_effective_hp_max, roll_dice
 
 
 async def apply_ai_heal_spell(
@@ -24,7 +24,7 @@ async def apply_ai_heal_spell(
     if resolution.spell_target:
         target_character = await db.get(Character, resolution.spell_target)
         if target_character:
-            hp_max = (target_character.derived or {}).get("hp_max", target_character.hp_current)
+            hp_max = get_effective_hp_max(target_character)
             target_character.hp_current = min(hp_max, target_character.hp_current + total_heal)
             resolution.target_new_hp = target_character.hp_current
             resolution.target_name = target_character.name

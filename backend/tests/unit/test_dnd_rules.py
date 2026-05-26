@@ -11,6 +11,10 @@ from services.dnd_rules import (
     roll_dice, roll_advantage, roll_disadvantage,
     roll_skill_check, roll_saving_throw, roll_attack,
     calc_derived, calc_hit_dice_pool,
+    clamp_current_hp_to_effective_max,
+    get_effective_derived,
+    get_effective_hp_base,
+    get_effective_hp_max,
     _normalize_class,
 )
 
@@ -153,6 +157,41 @@ class TestSavingThrow:
         assert result["modifier"] == 4
         assert result["disadvantage"] is True
         assert result["exhaustion_disadvantage"] is True
+
+
+class TestExhaustionHpMax:
+    def test_level_4_halves_effective_hp_max_without_mutating_base(self):
+        char = {
+            "hp_current": 20,
+            "derived": {"hp_max": 21, "ac": 15},
+            "condition_durations": {"exhaustion_level": 4},
+        }
+
+        assert get_effective_hp_base(char) == 21
+        assert get_effective_hp_max(char) == 10
+        effective = get_effective_derived(char)
+        assert effective["hp_max"] == 10
+        assert effective["base_hp_max"] == 21
+        assert char["derived"]["hp_max"] == 21
+
+    def test_missing_or_invalid_exhaustion_uses_base_hp_max(self):
+        assert get_effective_hp_max({"derived": {"hp_max": 13}}) == 13
+        assert get_effective_hp_max({
+            "derived": {"hp_max": 13},
+            "condition_durations": {"exhaustion_level": "bad"},
+        }) == 13
+
+    def test_clamp_current_hp_to_effective_max(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=18,
+            derived={"hp_max": 18},
+            condition_durations={"exhaustion_level": 4},
+        )
+
+        assert clamp_current_hp_to_effective_max(char) == 9
+        assert char.hp_current == 9
 
 
 class TestCalcDerived:

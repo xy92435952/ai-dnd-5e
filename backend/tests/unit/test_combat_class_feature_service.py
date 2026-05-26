@@ -67,6 +67,27 @@ def test_second_wind_heals_and_spends_bonus_action():
     assert result.dice_roll["faces"] == 10
 
 
+def test_second_wind_caps_at_exhaustion_hp_max():
+    player = _character(
+        hp_current=4,
+        conditions=["exhaustion"],
+        condition_durations={"exhaustion_level": 4},
+    )
+
+    result = resolve_combat_class_feature(
+        feature="second_wind",
+        player=player,
+        player_id="hero",
+        combat=_combat(),
+        turn_state=_turn_state(),
+        combat_service=CombatService(),
+        roll_dice_fn=lambda notation: {"rolls": [10], "total": 12},
+    )
+
+    assert player.hp_current == 10
+    assert result.hp_max == 10
+
+
 def test_action_surge_resets_action_and_attack_count():
     player = _character(class_resources={})
 

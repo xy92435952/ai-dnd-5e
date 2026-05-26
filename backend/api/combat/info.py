@@ -20,6 +20,7 @@ from api.deps import (
 )
 from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
+from services.dnd_rules import get_effective_hp_max
 
 from api.combat._shared import _build_combat_snapshot, svc
 
@@ -147,7 +148,7 @@ async def predict_action_endpoint(
         target_ac = (tgt_char.derived or {}).get("ac", 10)
         target_name = tgt_char.name
         target_hp = tgt_char.hp_current
-        target_hp_max = (tgt_char.derived or {}).get("hp_max", tgt_char.hp_current)
+        target_hp_max = get_effective_hp_max(tgt_char)
         target_conditions = tgt_char.conditions or []
     else:
         enemy = next((e for e in enemies if e.get("id") == req.target_id), None)

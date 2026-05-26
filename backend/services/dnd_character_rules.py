@@ -33,6 +33,66 @@ def has_exhaustion_effect(character: dict | object | None, effect: str) -> bool:
     """Return whether a character's exhaustion level includes a named 5e effect."""
     return effect in get_exhaustion_effects(get_exhaustion_level(character))
 
+
+def get_effective_hp_max(character: dict | object | None, base_hp_max: int | None = None) -> int:
+    """Return the character's current HP maximum after exhaustion effects."""
+    if isinstance(character, dict):
+        derived = character.get("derived") or {}
+        current_hp = character.get("hp_current", 1)
+    else:
+        derived = getattr(character, "derived", None) or {}
+        current_hp = getattr(character, "hp_current", 1)
+
+    raw_hp_max = base_hp_max
+    if raw_hp_max is None:
+        raw_hp_max = derived.get("hp_max", current_hp)
+    try:
+        hp_max = max(1, int(raw_hp_max or 1))
+    except (TypeError, ValueError):
+        hp_max = 1
+
+    if has_exhaustion_effect(character, "hp_max_halved"):
+        return max(1, hp_max // 2)
+    return hp_max
+
+
+def get_effective_derived(character: dict | object | None) -> dict:
+    """Return derived stats with HP max adjusted for current exhaustion effects."""
+    if isinstance(character, dict):
+        derived = dict(character.get("derived") or {})
+    else:
+        derived = dict(getattr(character, "derived", None) or {})
+    derived["base_hp_max"] = get_effective_hp_base(character, derived)
+    derived["hp_max"] = get_effective_hp_max(character, derived["base_hp_max"])
+    return derived
+
+
+def get_effective_hp_base(character: dict | object | None, derived: dict | None = None) -> int:
+    """Read the unmodified HP maximum used before exhaustion reductions."""
+    data = derived or {}
+    if not data:
+        if isinstance(character, dict):
+            data = character.get("derived") or {}
+        else:
+            data = getattr(character, "derived", None) or {}
+    if isinstance(character, dict):
+        current_hp = character.get("hp_current", 1)
+    else:
+        current_hp = getattr(character, "hp_current", 1)
+    try:
+        return max(1, int(data.get("hp_max", current_hp) or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def clamp_current_hp_to_effective_max(character: object) -> int:
+    """Clamp a mutable character object's current HP to its effective maximum."""
+    hp_max = get_effective_hp_max(character)
+    current_hp = getattr(character, "hp_current", 0) or 0
+    character.hp_current = max(0, min(int(current_hp), hp_max))
+    return hp_max
+
+
 def calc_passive_perception(derived: dict, proficient_skills: list, feats: list = None) -> int:
     """计算被动感知值 = 10 + WIS修正 + 熟练加值（如果熟练感知）+ 专长加值"""
     wis_mod = derived.get("ability_modifiers", {}).get("wis", 0)

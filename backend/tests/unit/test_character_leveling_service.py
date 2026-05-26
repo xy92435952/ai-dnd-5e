@@ -41,6 +41,22 @@ def test_build_level_up_update_rejects_levels_above_twenty():
     assert "最高等级20" in exc.value.detail
 
 
+def test_build_level_up_update_caps_current_hp_at_exhaustion_max():
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=1,
+        ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8},
+        derived={"hp_max": 12, "spell_slots_max": {}},
+        hp_current=12,
+        spell_slots={},
+        use_average_hp=True,
+        condition_durations={"exhaustion_level": 4},
+    )
+
+    assert update["derived"]["hp_max"] > update["hp_current"]
+    assert update["hp_current"] == update["derived"]["hp_max"] // 2
+
+
 def test_build_level_up_update_validates_asi_total_increase():
     with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
         character_leveling_service.build_level_up_update(

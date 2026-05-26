@@ -1,8 +1,11 @@
 from typing import Any
 
+from services.dnd_rules import get_effective_derived, get_effective_hp_base
+
 
 def serialize_character(char: Any) -> dict:
-    derived = char.derived or {}
+    derived = get_effective_derived(char)
+    base_hp_max = get_effective_hp_base(char, char.derived or {})
     return {
         "id": char.id,
         "is_player": char.is_player,
@@ -17,6 +20,7 @@ def serialize_character(char: Any) -> dict:
         "derived": derived,
         "hp_current": char.hp_current,
         "hp_max": derived.get("hp_max", char.hp_current),
+        "base_hp_max": base_hp_max,
         "ac": derived.get("ac", 10),
         "spell_slots": char.spell_slots or {},
         "spell_slots_max": derived.get("spell_slots_max", {}),

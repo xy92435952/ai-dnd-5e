@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.dnd_rules import get_effective_hp_max
+
 
 def build_pending_attack_reaction(
     *,
@@ -116,7 +118,7 @@ def calculate_hellish_rebuke_damage(base_damage: int, save_detail: dict[str, Any
 def restore_prevented_damage(character, pending_reaction: dict[str, Any] | None, damage_prevented: int) -> dict[str, int]:
     """Retroactively restore HP without exceeding the pre-attack HP snapshot."""
     before_hp = int(character.hp_current or 0)
-    hp_max = int((character.derived or {}).get("hp_max", before_hp))
+    hp_max = get_effective_hp_max(character, (character.derived or {}).get("hp_max", before_hp))
     pre_attack_cap = (pending_reaction or {}).get("target_hp_before_damage")
     if not isinstance(pre_attack_cap, int):
         pre_attack_cap = hp_max

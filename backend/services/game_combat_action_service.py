@@ -47,7 +47,7 @@ async def execute_natural_language_combat_action(
         player_input=action_text,
         game_state=build_combat_parser_state(characters=characters, enemies=enemies),
         player_id=player_id,
-        player_data=build_player_parser_data(player=player, player_derived=player_derived),
+        player_data=build_player_parser_data(player=player),
         positions=positions,
         move_remaining=move_remaining,
     )

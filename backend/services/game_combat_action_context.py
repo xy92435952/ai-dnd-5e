@@ -1,6 +1,7 @@
 from typing import Any
 
 from models import CombatState, Session
+from services.dnd_rules import get_effective_derived, get_effective_hp_max
 
 
 def build_combat_parser_state(
@@ -15,7 +16,7 @@ def build_combat_parser_state(
                 "id": character.id,
                 "name": character.name,
                 "hp_current": character.hp_current,
-                "hp_max": (character.derived or {}).get("hp_max", character.hp_current),
+                "hp_max": get_effective_hp_max(character),
                 "is_player": character.is_player,
             }
             for character in characters
@@ -34,12 +35,13 @@ def build_combat_parser_state(
     }
 
 
-def build_player_parser_data(*, player, player_derived: dict[str, Any]) -> dict[str, Any]:
+def build_player_parser_data(*, player) -> dict[str, Any]:
+    derived = get_effective_derived(player)
     return {
         "name": player.name,
         "hp_current": player.hp_current,
-        "hp_max": player_derived.get("hp_max", player.hp_current),
-        "ac": player_derived.get("ac", 10),
+        "hp_max": derived.get("hp_max", player.hp_current),
+        "ac": derived.get("ac", 10),
     }
 
 

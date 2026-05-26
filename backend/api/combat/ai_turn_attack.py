@@ -20,7 +20,7 @@ from services.combat_ai_attack_service import (
 )
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
-from services.dnd_rules import roll_dice, _normalize_class
+from services.dnd_rules import roll_dice, _normalize_class, get_effective_hp_max
 
 
 async def handle_ai_attack_action(
@@ -231,7 +231,7 @@ async def handle_ai_attack_action(
                             atk_damage,
                             dmg_type,
                         )
-                        tchar.hp_current = svc.apply_damage(tchar.hp_current, final_dmg, (tchar.derived or {}).get("hp_max", tchar.hp_current))
+                        tchar.hp_current = svc.apply_damage(tchar.hp_current, final_dmg, get_effective_hp_max(tchar))
                         applied_damage = final_dmg
                         target_new_hp = tchar.hp_current
                         target_name = tchar.name

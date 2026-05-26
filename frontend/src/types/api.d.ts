@@ -1426,6 +1426,8 @@ export interface components {
         };
         /** AiCompanionInfo */
         AiCompanionInfo: {
+            /** Base Hp Max */
+            base_hp_max?: number | null;
             /** Char Class */
             char_class?: string | null;
             /** Hp Max */
@@ -1506,6 +1508,8 @@ export interface components {
         CharacterBrief: {
             /** Ac */
             ac: number;
+            /** Base Hp Max */
+            base_hp_max?: number | null;
             /**
              * Cantrips
              * @default []
@@ -1783,6 +1787,8 @@ export interface components {
          * @description 单个角色的休息结果。长休 / 短休字段是并集。
          */
         CharacterRestResult: {
+            /** Base Hp Max */
+            base_hp_max?: number | null;
             /** Class Resources */
             class_resources?: {
                 [key: string]: unknown;
@@ -2199,6 +2205,8 @@ export interface components {
         EntitySnapshot: {
             /** Ac */
             ac: number;
+            /** Base Hp Max */
+            base_hp_max?: number | null;
             /**
              * Conditions
              * @default []
@@ -2264,6 +2272,12 @@ export interface components {
          * @description PATCH /characters/{id}/exhaustion
          */
         ExhaustionUpdateResult: {
+            /** Base Hp Max */
+            base_hp_max?: number | null;
+            /** Death Saves */
+            death_saves?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Effects
              * @default []
@@ -2271,6 +2285,10 @@ export interface components {
             effects: string[];
             /** Exhaustion Level */
             exhaustion_level: number;
+            /** Hp Current */
+            hp_current?: number | null;
+            /** Hp Max */
+            hp_max?: number | null;
             /**
              * Is Dead
              * @default false

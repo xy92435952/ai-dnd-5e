@@ -2,6 +2,7 @@ import json
 
 from schemas.game_schemas import GameState
 from services.context_builder_multiplayer import build_multiplayer_context
+from services.dnd_rules import get_effective_derived, get_effective_hp_base
 from services.dm_styles import get_dm_style
 
 ENEMY_FIELDS = [
@@ -24,7 +25,9 @@ CHAR_FIELDS = [
 
 
 def build_character_snapshot(char) -> dict:
-    derived = char.derived or {}
+    base_derived = char.derived or {}
+    derived = get_effective_derived(char)
+    base_hp_max = get_effective_hp_base(char, base_derived)
     return {
         "id": char.id,
         "name": char.name,
@@ -33,6 +36,7 @@ def build_character_snapshot(char) -> dict:
         "level": char.level,
         "hp_current": char.hp_current,
         "hp_max": derived.get("hp_max", char.hp_current),
+        "base_hp_max": base_hp_max,
         "ac": derived.get("ac", 10),
         "initiative": derived.get("initiative", 0),
         "proficiency_bonus": derived.get("proficiency_bonus", 2),

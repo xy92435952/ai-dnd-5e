@@ -97,7 +97,7 @@ export default function CharacterSheet() {
   const mods = derived.ability_modifiers || {}
   const saves = derived.saving_throws || {}
   const scores = char.ability_scores || {}
-  const hpMax = derived.hp_max || char.hp_current || 1
+  const hpMax = char.hp_max || derived.hp_max || char.hp_current || 1
   const hpCur = char.hp_current || 0
   const hpPct = Math.max(0, Math.min(100, Math.round((hpCur / hpMax) * 100)))
   const hpColor = hpPct > 60 ? 'var(--green-light)' : hpPct > 30 ? '#f59e0b' : 'var(--red-light)'

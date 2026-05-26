@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from services.combat_turn_state_service import save_turn_state
-from services.dnd_rules import WILD_SHAPE_FORMS, _normalize_class
+from services.dnd_rules import WILD_SHAPE_FORMS, _normalize_class, get_effective_hp_max
 
 
 @dataclass
@@ -55,7 +55,7 @@ def resolve_combat_class_feature(
 
         heal_roll = roll_dice_fn(f"1d10+{player_level}")
         heal_amount = heal_roll["total"]
-        hp_max = derived.get("hp_max", player.hp_current)
+        hp_max = get_effective_hp_max(player, derived.get("hp_max", player.hp_current))
         old_hp = player.hp_current
         player.hp_current = min(hp_max, player.hp_current + heal_amount)
 
@@ -248,7 +248,7 @@ def resolve_combat_class_feature(
             _fail("圣手治疗池已耗尽")
         heal_amount = min(5, pool)
         class_resources["lay_on_hands_remaining"] = pool - heal_amount
-        hp_max = derived.get("hp_max", player.hp_current)
+        hp_max = get_effective_hp_max(player, derived.get("hp_max", player.hp_current))
         player.hp_current = min(hp_max, player.hp_current + heal_amount)
         player.class_resources = class_resources
         narration = f"🤲 {player.name} 将圣光注入伤口，恢复了 {heal_amount} 点生命值！（剩余治疗池: {pool - heal_amount}）"
@@ -339,5 +339,5 @@ def resolve_combat_class_feature(
         turn_state=turn_state,
         class_resources=class_resources,
         character_class=player_class,
-        hp_max=derived.get("hp_max", player.hp_current),
+        hp_max=get_effective_hp_max(player, derived.get("hp_max", player.hp_current)),
     )

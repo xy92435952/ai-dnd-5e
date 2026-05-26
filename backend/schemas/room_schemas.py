@@ -81,6 +81,7 @@ class AiCompanionInfo(BaseModel):
     char_class: Optional[str] = None
     level: Optional[int] = None
     hp_max: Optional[int] = None
+    base_hp_max: Optional[int] = None
 
     class Config:
         from_attributes = True

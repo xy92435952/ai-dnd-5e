@@ -5,7 +5,7 @@ api.combat.ai_turn_context — AI 回合决策所需上下文的准备器。
 """
 from models import Character, Session, CombatState
 from services.character_roster import CharacterRoster
-from services.dnd_rules import _normalize_class
+from services.dnd_rules import _normalize_class, get_effective_derived, get_effective_hp_max
 
 
 async def build_ai_turn_context(db, session: Session, combat: CombatState, actor_id: str, actor_name: str, enemies: list):
@@ -31,10 +31,11 @@ async def build_ai_turn_context(db, session: Session, combat: CombatState, actor
     player = await _roster.player()
     party_alive = []
     for c in await _roster.allies_alive():
+        derived = get_effective_derived(c)
         party_alive.append({
             "id": c.id, "name": c.name, "char_class": c.char_class, "level": c.level,
-            "hp_current": c.hp_current, "hp_max": (c.derived or {}).get("hp_max", c.hp_current),
-            "ac": (c.derived or {}).get("ac", 10), "derived": c.derived or {},
+            "hp_current": c.hp_current, "hp_max": derived.get("hp_max", c.hp_current),
+            "ac": derived.get("ac", 10), "derived": derived,
             "conditions": c.conditions or [], "concentration": c.concentration,
             "known_spells": c.known_spells or [], "cantrips": c.cantrips or [],
             "spell_slots": c.spell_slots or {}, "is_player": c.is_player,
@@ -58,9 +59,10 @@ async def build_ai_turn_context(db, session: Session, combat: CombatState, actor
             "tactics": e.get("tactics", ""), "type": e.get("type", ""),
         })
     elif achar:
+        effective_actor_derived = get_effective_derived(achar)
         actor_full.update({
-            "hp_current": achar.hp_current, "hp_max": (achar.derived or {}).get("hp_max", achar.hp_current),
-            "ac": (achar.derived or {}).get("ac", 10), "char_class": achar.char_class, "level": achar.level,
+            "hp_current": achar.hp_current, "hp_max": get_effective_hp_max(achar),
+            "ac": effective_actor_derived.get("ac", 10), "char_class": achar.char_class, "level": achar.level,
             "known_spells": achar.known_spells or [], "cantrips": achar.cantrips or [],
             "spell_slots": achar.spell_slots or [], "speed": 30,
             "equipment": achar.equipment or {}, "personality": achar.personality or "",

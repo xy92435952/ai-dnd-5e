@@ -7,6 +7,12 @@ from schemas.character_requests import ExhaustionRequest, LevelUpRequest, Prepar
 from services.character_leveling_service import CharacterLevelingError, build_level_up_update
 from services.character_serializer import serialize_character
 from services.character_spell_service import CharacterSpellError, build_prepared_spells_update
+from services.dnd_rules import (
+    clamp_current_hp_to_effective_max,
+    get_effective_hp_base,
+    get_effective_hp_max,
+    get_exhaustion_effects,
+)
 
 
 async def update_character_prepared_spells(
@@ -69,6 +75,7 @@ async def level_up_character(
             proficient_skills=char.proficient_skills,
             ability_score_increases=req.ability_score_increases,
             feat_choice=req.feat_choice,
+            condition_durations=char.condition_durations,
         )
     except CharacterLevelingError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
@@ -79,6 +86,7 @@ async def level_up_character(
     char.derived = update["derived"]
     char.hp_current = update["hp_current"]
     char.spell_slots = update["spell_slots"]
+    clamp_current_hp_to_effective_max(char)
 
     await db.commit()
     await db.refresh(char)
@@ -121,12 +129,23 @@ async def update_character_exhaustion(
 
     char.conditions = conditions
     char.condition_durations = durations
+    base_hp_max = get_effective_hp_base(char)
+    effective_hp_max = get_effective_hp_max(char, base_hp_max)
+    if new_level >= 6:
+        char.hp_current = 0
+        char.death_saves = {"successes": 0, "failures": 3, "stable": False}
+    else:
+        effective_hp_max = clamp_current_hp_to_effective_max(char)
+
     await db.commit()
 
-    from services.dnd_rules import get_exhaustion_effects
     effects = get_exhaustion_effects(new_level)
     return {
         "exhaustion_level": new_level,
         "effects": effects,
         "is_dead": new_level >= 6,
+        "hp_current": char.hp_current,
+        "hp_max": effective_hp_max,
+        "base_hp_max": base_hp_max,
+        "death_saves": char.death_saves,
     }

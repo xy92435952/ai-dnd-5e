@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from models import Session, Character, GameLog, CombatState, Module, SessionMember
+from services.dnd_rules import get_effective_derived, get_effective_hp_base
 from services.session_access_service import assert_character_in_session
 
 
@@ -119,7 +120,9 @@ def assert_module_access(module: Module, user_id: str) -> None:
 
 def char_brief(char: Character) -> dict:
     """返回角色的简要信息（用于 DM 上下文构建 + 前端面板渲染）"""
-    derived = char.derived or {}
+    base_derived = char.derived or {}
+    derived = get_effective_derived(char)
+    base_hp_max = get_effective_hp_base(char, base_derived)
     return {
         "id":               char.id,
         "name":             char.name,
@@ -128,6 +131,7 @@ def char_brief(char: Character) -> dict:
         "level":            char.level,
         "hp_current":       char.hp_current,
         "hp_max":           derived.get("hp_max", char.hp_current),
+        "base_hp_max":      base_hp_max,
         "ac":               derived.get("ac", 10),
         "is_player":        char.is_player,
         "spell_slots":      char.spell_slots or {},
@@ -152,7 +156,9 @@ def char_brief(char: Character) -> dict:
 
 def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
     """战斗地图上的实体快照"""
-    derived = char.derived or {}
+    base_derived = char.derived or {}
+    derived = get_effective_derived(char)
+    base_hp_max = get_effective_hp_base(char, base_derived)
     return {
         "id":         char.id,
         "name":       char.name,
@@ -160,6 +166,7 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "is_enemy":   is_enemy,
         "hp_current": char.hp_current,
         "hp_max":     derived.get("hp_max", char.hp_current),
+        "base_hp_max": base_hp_max,
         "ac":         derived.get("ac", 10),
         "conditions": char.conditions or [],
         "derived":    derived,
