@@ -261,6 +261,7 @@ describe('combat grid helpers', () => {
       entities: {
         enemy: { id: 'enemy', hp_current: 8 },
         bystander: { id: 'bystander', hp_current: 6 },
+        webbed: { id: 'webbed', hp_current: 9, conditions: [] },
         cleric: {
           id: 'cleric',
           hp_current: 0,
@@ -281,6 +282,7 @@ describe('combat grid helpers', () => {
       },
       aoe_results: [
         { target_id: 'bystander', new_hp: 2, conditions: ['burning'] },
+        { target_id: 'webbed', conditions: ['restrained'], condition_durations: { restrained: 600 } },
       ],
       resurrection_results: [
         { target_id: 'cleric', resurrected: true, new_hp: 1, death_saves: null, conditions: [], life_state: 'alive' },
@@ -289,6 +291,10 @@ describe('combat grid helpers', () => {
 
     expect(updated.entities.enemy.life_state).toBe('dying')
     expect(updated.entities.bystander).toMatchObject({ hp_current: 2, conditions: ['burning'] })
+    expect(updated.entities.webbed).toMatchObject({
+      conditions: ['restrained'],
+      condition_durations: { restrained: 600 },
+    })
     expect(updated.entities.cleric).toMatchObject({
       hp_current: 1,
       death_saves: null,

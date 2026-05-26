@@ -174,4 +174,6 @@ async def test_ai_control_spell_auto_fails_unconscious_enemy_dex_save():
     )
 
     assert "faerie_fire" in enemies[0]["conditions"]
+    assert enemies[0]["condition_durations"] == {"faerie_fire": 10}
+    assert resolution.target_state["condition_durations"] == {"faerie_fire": 10}
     assert resolution.target_name == "Goblin"

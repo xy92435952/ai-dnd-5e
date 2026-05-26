@@ -594,6 +594,86 @@ async def test_spell_roll_then_confirm_applies_damage_and_consumes_slot(
     assert "pending_spell" not in confirm_data["turn_state"]
 
 
+async def test_spell_roll_then_confirm_aoe_control_applies_condition_durations(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    """AoE control spells should apply per-target conditions and durations through the API."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    sample_character.char_class = "Wizard"
+    sample_character.spell_slots = {"2nd": 1}
+    sample_character.known_spells = ["网"]
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "int",
+        "spell_save_dc": 30,
+        "ability_modifiers": {
+            **(sample_character.derived or {}).get("ability_modifiers", {}),
+            "int": 3,
+        },
+    }
+    state = dict(sample_session.game_state or {})
+    state["enemies"] = [
+        {
+            "id": "goblin-1",
+            "name": "哥布林",
+            "hp_current": 7,
+            "max_hp": 7,
+            "conditions": [],
+            "derived": {"hp_max": 7, "ac": 15, "ability_modifiers": {"dex": -5}, "saving_throws": {"dex": -5}},
+        },
+        {
+            "id": "goblin-2",
+            "name": "哥布林弓手",
+            "hp_current": 7,
+            "max_hp": 7,
+            "conditions": [],
+            "derived": {"hp_max": 7, "ac": 13, "ability_modifiers": {"dex": -5}, "saving_throws": {"dex": -5}},
+        },
+    ]
+    sample_session.game_state = state
+    combat_state.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 6, "y": 5},
+        "goblin-2": {"x": 7, "y": 5},
+    }
+    flag_modified(sample_session, "game_state")
+    flag_modified(combat_state, "entity_positions")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    spell_roll = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "网",
+            "spell_level": 2,
+            "target_ids": ["goblin-1", "goblin-2"],
+        },
+    )
+    assert spell_roll.status_code == 200, spell_roll.text
+
+    confirm = await client.post(
+        f"/game/combat/{sample_session.id}/spell-confirm",
+        headers=headers,
+        json={"pending_spell_id": spell_roll.json()["pending_spell_id"]},
+    )
+    assert confirm.status_code == 200, confirm.text
+    data = confirm.json()
+    assert data["is_concentration"] is True
+    assert [item["target_id"] for item in data["aoe_results"]] == ["goblin-1", "goblin-2"]
+    assert data["aoe_results"][0]["condition_durations"] == {"restrained": 600}
+    await db_session.refresh(sample_session)
+    enemies = sample_session.game_state["enemies"]
+    assert enemies[0]["conditions"] == ["restrained"]
+    assert enemies[1]["conditions"] == ["restrained"]
+    assert enemies[0]["condition_durations"] == {"restrained": 600}
+    assert enemies[1]["condition_durations"] == {"restrained": 600}
+    await db_session.refresh(sample_character)
+    assert sample_character.concentration == "网"
+
+
 async def test_condition_add_and_remove(client, db_session, sample_session, combat_state, sample_user, sample_character):
     """POST /game/combat/{id}/condition/add + remove — conditions.py 模块。"""
     headers = await _auth_headers(client, sample_user)

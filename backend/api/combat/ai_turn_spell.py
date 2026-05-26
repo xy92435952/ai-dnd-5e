@@ -3,7 +3,7 @@ api.combat.ai_turn_spell — AI spell-casting branch for combat turns.
 """
 from sqlalchemy.orm.attributes import flag_modified
 
-from api.combat.ai_turn_utils import advance_ai_turn
+from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
 from models import GameLog
 from services.combat_ai_spell_service import resolve_ai_spell_action
 from services.combat_narrator import narrate_action
@@ -29,6 +29,7 @@ async def handle_ai_spell_action(
     enemies: list,
     enemies_alive: list,
     all_characters: list,
+    enemy=None,
 ):
     """Handle AI spell casting and return a response dict when resolved."""
     spell_resolution = await resolve_ai_spell_action(
@@ -67,6 +68,17 @@ async def handle_ai_spell_action(
         content=narration,
         log_type="combat",
     ))
+    tick_logs = tick_ai_actor_conditions(
+        session_id=session_id,
+        session=session,
+        actor_name=actor_name,
+        is_enemy=is_enemy,
+        enemy=enemy,
+        character=achar,
+        enemies=enemies,
+    )
+    for log in tick_logs:
+        db.add(log)
 
     await advance_ai_turn(combat, session, db, turn_order, next_index)
     flag_modified(session, "game_state")
@@ -79,6 +91,7 @@ async def handle_ai_spell_action(
         "damage": spell_resolution.damage,
         "target_id": str(spell_resolution.spell_target) if spell_resolution.spell_target else None,
         "target_new_hp": spell_resolution.target_new_hp,
+        "target_state": spell_resolution.target_state,
         "next_turn_index": next_index,
         "round_number": combat.round_number,
         "combat_over": False,

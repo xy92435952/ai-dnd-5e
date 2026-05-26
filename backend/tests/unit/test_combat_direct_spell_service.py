@@ -178,6 +178,104 @@ async def test_cast_direct_spell_keeps_cantrip_action_available():
 
 
 @pytest.mark.asyncio
+async def test_cast_direct_control_spell_applies_condition_and_duration():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class ControlSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "name_en": "Command",
+                "level": 1,
+                "type": "utility",
+                "aoe": False,
+                "save": None,
+                "concentration": False,
+                "desc": "下回合执行命令。",
+            }
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    result = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="命令术",
+        spell_level=1,
+        target_id="goblin-1",
+        target_ids=None,
+        spell_service_obj=ControlSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    enemy = session.game_state["enemies"][0]
+    assert enemy["conditions"] == ["commanded"]
+    assert enemy["condition_durations"] == {"commanded": 1}
+    assert result.target_state["condition_durations"] == {"commanded": 1}
+    assert result.remaining_slots == {"1st": 0}
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_aoe_control_defaults_to_alive_enemies():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class AoeControlSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 2,
+                "type": "utility",
+                "aoe": True,
+                "condition": "restrained",
+                "save": None,
+                "concentration": True,
+                "duration_rounds": 600,
+                "desc": "专注1小时。",
+            }
+
+        def consume_slot(self, slots, _spell_level):
+            slots = dict(slots)
+            slots["2nd"] = slots.get("2nd", 0) - 1
+            return slots, None
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.spell_slots = {"2nd": 1}
+
+    result = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="网",
+        spell_level=2,
+        target_id=None,
+        target_ids=[],
+        spell_service_obj=AoeControlSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert [item["target_id"] for item in result.aoe_results] == ["goblin-1", "orc-1"]
+    assert session.game_state["enemies"][0]["condition_durations"] == {"restrained": 600}
+    assert session.game_state["enemies"][1].get("condition_durations") is None
+    assert session.game_state["enemies"][2]["condition_durations"] == {"restrained": 600}
+    assert result.remaining_slots == {"2nd": 0}
+    assert caster.concentration == "网"
+
+
+@pytest.mark.asyncio
 async def test_cast_direct_heal_rejects_dead_target_before_consuming_slot():
     from types import SimpleNamespace
 

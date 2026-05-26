@@ -1,6 +1,7 @@
 """
 services.combat_spell_effect_service — shared spell damage/healing effect helpers.
 """
+import re
 from typing import Any
 
 from models import Character
@@ -57,9 +58,129 @@ SPELL_CONDITIONS: dict[str, tuple[str, str | None]] = {
 }
 
 
+SPELL_CONDITION_DURATION_OVERRIDES: dict[str, int | None] = {
+    "Command": 1,
+    "命令术": 1,
+    "Sleep": 10,
+    "睡眠术": 10,
+    "Hold Person": 10,
+    "定身术": 10,
+    "Entangle": 10,
+    "纠缠术": 10,
+    "Faerie Fire": 10,
+    "妖火": 10,
+    "Bane": 10,
+    "灾祸术": 10,
+    "Blindness/Deafness": 10,
+    "目盲/耳聋": 10,
+    "Fear": 10,
+    "恐惧术": 10,
+    "Web": 600,
+    "蛛网": 600,
+    "Silence": 100,
+    "沉默术": 100,
+    "Hex": 600,
+    "妖术": 600,
+}
+
+
+def _spell_lookup_names(spell_name: str, spell: dict[str, Any] | None = None) -> list[str]:
+    names = [spell_name]
+    if spell:
+        for key in ("name", "name_en"):
+            value = spell.get(key)
+            if value and value not in names:
+                names.append(value)
+    return names
+
+
+def spell_applies_condition(spell_type: str | None, spell_name: str, spell: dict[str, Any] | None) -> bool:
+    """Return whether this spell should write a combat condition to targets."""
+    if spell_type == "control":
+        return True
+    if spell and spell.get("condition"):
+        return True
+    return any(name in SPELL_CONDITIONS for name in _spell_lookup_names(spell_name, spell))
+
+
+def resolve_spell_condition_duration(
+    spell_name: str,
+    spell: dict[str, Any] | None,
+    *,
+    default_rounds: int | None = None,
+) -> int | None:
+    """Return combat-round duration for a spell-applied condition."""
+    for name in _spell_lookup_names(spell_name, spell):
+        if name in SPELL_CONDITION_DURATION_OVERRIDES:
+            return SPELL_CONDITION_DURATION_OVERRIDES[name]
+
+    if not spell:
+        return default_rounds
+
+    explicit = spell.get("duration_rounds")
+    if explicit is not None:
+        try:
+            return max(1, int(explicit))
+        except (TypeError, ValueError):
+            return default_rounds
+
+    desc = str(spell.get("desc") or "")
+    if "1分钟" in desc or "1 分钟" in desc:
+        return 10
+    if "10分钟" in desc or "10 分钟" in desc:
+        return 100
+    if "1小时" in desc or "1 小时" in desc:
+        return 600
+    match = re.search(r"(\d+)\s*分钟", desc)
+    if match:
+        return max(1, int(match.group(1)) * 10)
+    match = re.search(r"(\d+)\s*小时", desc)
+    if match:
+        return max(1, int(match.group(1)) * 600)
+
+    if spell.get("concentration"):
+        return default_rounds if default_rounds is not None else 10
+    return default_rounds
+
+
+def _apply_condition_to_enemy(
+    enemy: dict[str, Any],
+    condition_name: str,
+    duration_rounds: int | None,
+) -> None:
+    conditions = list(enemy.get("conditions", []))
+    if condition_name not in conditions:
+        conditions.append(condition_name)
+    enemy["conditions"] = conditions
+    if duration_rounds is not None:
+        durations = dict(enemy.get("condition_durations", {}))
+        durations[condition_name] = duration_rounds
+        enemy["condition_durations"] = durations
+
+
+def _apply_condition_to_character(
+    character,
+    condition_name: str,
+    duration_rounds: int | None,
+) -> None:
+    conditions = list(character.conditions or [])
+    if condition_name not in conditions:
+        conditions.append(condition_name)
+    character.conditions = conditions
+    if duration_rounds is not None:
+        durations = dict(character.condition_durations or {})
+        durations[condition_name] = duration_rounds
+        character.condition_durations = durations
+
+
 def resolve_spell_condition(spell_name: str, spell: dict[str, Any]) -> tuple[str, str | None]:
     """Return the condition and saving throw ability for a control/utility spell."""
-    return SPELL_CONDITIONS.get(spell_name, ("affected", spell.get("save")))
+    if spell.get("condition"):
+        return spell["condition"], spell.get("save")
+    for name in _spell_lookup_names(spell_name, spell):
+        if name in SPELL_CONDITIONS:
+            return SPELL_CONDITIONS[name]
+    return "affected", spell.get("save")
 
 
 def get_resurrection_spell_config(spell_name: str, spell: dict[str, Any] | None = None) -> dict[str, int | None] | None:
@@ -213,6 +334,7 @@ async def apply_control_spell_to_target(
     condition_name: str,
     save_ability: str | None,
     spell_save_dc: int,
+    duration_rounds: int | None = None,
 ):
     """Resolve a control spell save and apply its condition if the target fails."""
     saved = False
@@ -241,15 +363,9 @@ async def apply_control_spell_to_target(
 
     if not saved:
         if target_enemy:
-            conditions = target_enemy.get("conditions", [])
-            if condition_name not in conditions:
-                conditions.append(condition_name)
-                target_enemy["conditions"] = conditions
+            _apply_condition_to_enemy(target_enemy, condition_name, duration_rounds)
         elif target_character:
-            conditions = list(target_character.conditions or [])
-            if condition_name not in conditions:
-                conditions.append(condition_name)
-                target_character.conditions = conditions
+            _apply_condition_to_character(target_character, condition_name, duration_rounds)
             concentration_log = break_concentration_if_incapacitated(target_character, session_id)
 
     target_enemy_hp = target_enemy.get("hp_current") if target_enemy else None
@@ -262,12 +378,15 @@ async def apply_control_spell_to_target(
         "target_state": (
             {
                 "target_id": target_id,
+                "target_name": target_enemy.get("name", "敌人"),
                 "conditions": target_enemy.get("conditions", []),
+                "condition_durations": target_enemy.get("condition_durations", {}),
                 "life_state": "dead" if target_enemy_hp is not None and target_enemy_hp <= 0 else "alive",
             }
             if target_enemy else (
                 {
                     "target_id": target_id,
+                    "target_name": target_character.name,
                     "conditions": target_character.conditions or [],
                     "condition_durations": target_character.condition_durations or {},
                     "life_state": get_life_state(target_character),

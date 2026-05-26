@@ -7,7 +7,7 @@ from services.character_roster import CharacterRoster
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.combat_service import CombatService
 from services.combat_spell_application_service import apply_confirmed_spell_effects
-from services.combat_spell_effect_service import get_resurrection_spell_config
+from services.combat_spell_effect_service import get_resurrection_spell_config, spell_applies_condition
 from services.combat_spell_resolution_service import (
     CombatSpellResolutionError,
     build_spell_mechanical_narration,
@@ -154,6 +154,7 @@ async def cast_direct_spell(
     should_apply_spell = (
         spell_type in ("damage", "heal")
         or (spell_type == "utility" and get_resurrection_spell_config(spell_name, spell))
+        or spell_applies_condition(spell_type, spell_name, spell)
     )
     if should_apply_spell and (resolved_target_ids or is_aoe):
         spell_application = await apply_confirmed_spell_effects(
@@ -250,6 +251,12 @@ def _resolve_direct_spell_targets(
     target_ids: list[str] | None,
 ) -> list[str]:
     if is_aoe and spell_type == "damage":
+        raw_ids = target_ids if target_ids is not None else ([target_id] if target_id else [])
+        return list(raw_ids) if raw_ids else [
+            enemy["id"] for enemy in enemies if enemy.get("hp_current", 0) > 0
+        ]
+
+    if is_aoe and spell_type in ("damage", "utility", "control"):
         raw_ids = target_ids if target_ids is not None else ([target_id] if target_id else [])
         return list(raw_ids) if raw_ids else [
             enemy["id"] for enemy in enemies if enemy.get("hp_current", 0) > 0

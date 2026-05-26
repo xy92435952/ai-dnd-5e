@@ -36,6 +36,7 @@ class AiSpellResolution:
     damage: int = 0
     heal: int = 0
     target_new_hp: int | None = None
+    target_state: dict[str, Any] | None = None
     target_name: str = ""
     narration_parts: list[str] = field(default_factory=list)
     mechanical_narration: str = ""

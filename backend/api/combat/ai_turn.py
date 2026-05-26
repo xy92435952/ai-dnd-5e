@@ -51,6 +51,7 @@ async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) ->
             round_number=result.get("round_number"),
             target_id=result.get("target_id"),
             target_new_hp=result.get("target_new_hp"),
+            target_state=result.get("target_state"),
             player_targeted=result.get("player_targeted", False),
             player_can_react=result.get("player_can_react", False),
             reaction_prompt=result.get("reaction_prompt"),
@@ -221,6 +222,11 @@ async def _ai_combat_turn_locked(
         decided_target_id,
         decided_reason,
         positions,
+        is_enemy,
+        enemy=e,
+        character=achar,
+        enemies=enemies,
+        session_id=session_id,
     )
     if simple_response is not None:
         return await _broadcast_ai_turn_result(session, combat, db, simple_response)
@@ -244,6 +250,7 @@ async def _ai_combat_turn_locked(
         enemies,
         enemies_alive,
         all_characters,
+        enemy=e,
     )
     if spell_response is not None:
         return await _broadcast_ai_turn_result(session, combat, db, spell_response)

@@ -8,7 +8,9 @@ from services.combat_spell_effect_service import (
     apply_spell_heal_to_target,
     get_resurrection_spell_config,
     resolve_spell_condition,
+    resolve_spell_condition_duration,
     roll_spell_save,
+    spell_applies_condition,
 )
 from services.combat_spell_resolution_service import resolve_spell_roll_amount
 
@@ -90,6 +92,30 @@ async def apply_confirmed_spell_effects(
 
             result.enemies_changed = True
 
+        elif spell_applies_condition(spell_type, spell_name, spell):
+            result.condition_name, save_ability = resolve_spell_condition(spell_name, spell)
+            duration_rounds = resolve_spell_condition_duration(spell_name, spell)
+
+            for target_id in target_ids:
+                control_result = await apply_control_spell_to_target(
+                    db,
+                    enemies,
+                    target_id,
+                    session_id=session_id,
+                    condition_name=result.condition_name,
+                    save_ability=save_ability,
+                    spell_save_dc=spell_save_dc,
+                    duration_rounds=duration_rounds,
+                )
+                if result.save_detail is None and control_result.get("save_detail"):
+                    result.save_detail = control_result["save_detail"]
+                if control_result.get("target_state"):
+                    result.aoe_results.append(control_result["target_state"])
+                if control_result.get("concentration_log"):
+                    result.concentration_logs.append(control_result["concentration_log"])
+
+            result.enemies_changed = any(enemy["id"] in set(target_ids) for enemy in enemies)
+
         elif spell_type == "heal":
             result.result_heal, result.dice_detail = resolve_spell_roll_amount(
                 spell_type=spell_type,
@@ -157,8 +183,9 @@ async def apply_confirmed_spell_effects(
             result.target_new_hp = applied["new_hp"]
             result.target_state = applied
 
-    elif spell_type in ("control", "utility") and target_id:
+    elif target_id and spell_applies_condition(spell_type, spell_name, spell):
         result.condition_name, save_ability = resolve_spell_condition(spell_name, spell)
+        duration_rounds = resolve_spell_condition_duration(spell_name, spell)
         control_result = await apply_control_spell_to_target(
             db,
             enemies,
@@ -167,6 +194,7 @@ async def apply_confirmed_spell_effects(
             condition_name=result.condition_name,
             save_ability=save_ability,
             spell_save_dc=spell_save_dc,
+            duration_rounds=duration_rounds,
         )
         result.save_detail = control_result["save_detail"]
         result.target_state = control_result.get("target_state")

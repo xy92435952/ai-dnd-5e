@@ -2,7 +2,7 @@
 api.combat.ai_turn_actions — AI simple action branch handlers.
 """
 from api.combat._shared import _get_ts, _save_ts, _ai_move_toward
-from api.combat.ai_turn_utils import advance_ai_turn
+from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
 
 
 async def handle_ai_simple_action(
@@ -17,12 +17,28 @@ async def handle_ai_simple_action(
     decided_target_id: str | None,
     decided_reason: str,
     positions: dict,
+    is_enemy: bool,
+    enemy=None,
+    character=None,
+    enemies: list | None = None,
+    session_id: str | None = None,
 ):
     """Handle dodge / dash / disengage actions and return a response dict when handled."""
     if decided_action == "dodge":
         ts_dodge = _get_ts(combat, actor_id)
         ts_dodge["dodging"] = True
         _save_ts(combat, actor_id, ts_dodge)
+        tick_logs = tick_ai_actor_conditions(
+            session_id=session_id,
+            session=session,
+            actor_name=actor_name,
+            is_enemy=is_enemy,
+            enemy=enemy,
+            character=character,
+            enemies=enemies,
+        )
+        for log in tick_logs:
+            db.add(log)
         await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return {
@@ -49,6 +65,17 @@ async def handle_ai_simple_action(
             if dash_result:
                 positions[str(actor_id)] = {"x": dash_result["x"], "y": dash_result["y"]}
                 combat.entity_positions = positions
+        tick_logs = tick_ai_actor_conditions(
+            session_id=session_id,
+            session=session,
+            actor_name=actor_name,
+            is_enemy=is_enemy,
+            enemy=enemy,
+            character=character,
+            enemies=enemies,
+        )
+        for log in tick_logs:
+            db.add(log)
         await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return {
@@ -70,6 +97,17 @@ async def handle_ai_simple_action(
         ts_dis = _get_ts(combat, actor_id)
         ts_dis["disengaged"] = True
         _save_ts(combat, actor_id, ts_dis)
+        tick_logs = tick_ai_actor_conditions(
+            session_id=session_id,
+            session=session,
+            actor_name=actor_name,
+            is_enemy=is_enemy,
+            enemy=enemy,
+            character=character,
+            enemies=enemies,
+        )
+        for log in tick_logs:
+            db.add(log)
         await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return {

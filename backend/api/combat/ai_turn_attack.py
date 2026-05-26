@@ -11,7 +11,7 @@ from api.combat._shared import (
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
     svc,
 )
-from api.combat.ai_turn_utils import advance_ai_turn, build_reaction_prompt
+from api.combat.ai_turn_utils import advance_ai_turn, build_reaction_prompt, tick_ai_actor_conditions
 from services.combat_ai_attack_service import (
     apply_character_damage_resistance,
     choose_ai_attack_target,
@@ -301,28 +301,15 @@ async def handle_ai_attack_action(
         if tchar_conc:
             conc_log = await _do_concentration_check(tchar_conc, total_damage, session_id)
 
-    ai_tick_logs = []
-    if is_enemy and e:
-        removed = _tick_conditions_enemy(e)
-        for c in removed:
-            ai_tick_logs.append(GameLog(
-                session_id=session_id,
-                role="system",
-                content=f"🟢 {actor_name} 的【{c}】状态到期解除",
-                log_type="system",
-            ))
-        state["enemies"] = enemies
-        session.game_state = dict(state)
-        flag_modified(session, "game_state")
-    elif not is_enemy and achar:
-        removed = _tick_conditions_char(achar)
-        for c in removed:
-            ai_tick_logs.append(GameLog(
-                session_id=session_id,
-                role="system",
-                content=f"🟢 {actor_name} 的【{c}】状态到期解除",
-                log_type="system",
-            ))
+    ai_tick_logs = tick_ai_actor_conditions(
+        session_id=session_id,
+        session=session,
+        actor_name=actor_name,
+        is_enemy=is_enemy,
+        enemy=e,
+        character=achar,
+        enemies=enemies,
+    )
 
     role_key = "enemy" if is_enemy else f"companion_{actor_name}"
     db.add(GameLog(

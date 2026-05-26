@@ -1,7 +1,15 @@
 """
 api.combat.ai_turn_utils — shared helpers for AI combat turns.
 """
-from api.combat._shared import _calc_entity_turn_limits, _reset_ts
+from sqlalchemy.orm.attributes import flag_modified
+
+from api.combat._shared import (
+    _calc_entity_turn_limits,
+    _reset_ts,
+    _tick_conditions_char,
+    _tick_conditions_enemy,
+)
+from models import GameLog
 from services.combat_reaction_service import (
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
@@ -18,6 +26,44 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int) -> N
         next_entity_id = turn_order[next_index]["character_id"]
         next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
+
+
+def tick_ai_actor_conditions(
+    *,
+    session_id: str,
+    session,
+    actor_name: str,
+    is_enemy: bool,
+    enemy,
+    character,
+    enemies: list[dict] | None = None,
+) -> list[GameLog]:
+    """Tick the AI actor's own conditions at the end of its turn."""
+    tick_logs: list[GameLog] = []
+    if is_enemy and enemy:
+        removed = _tick_conditions_enemy(enemy)
+        for condition in removed:
+            tick_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=f"🟢 {actor_name} 的【{condition}】状态到期解除",
+                log_type="system",
+            ))
+        if enemies is not None:
+            state = session.game_state or {}
+            state["enemies"] = enemies
+            session.game_state = dict(state)
+            flag_modified(session, "game_state")
+    elif not is_enemy and character:
+        removed = _tick_conditions_char(character)
+        for condition in removed:
+            tick_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=f"🟢 {actor_name} 的【{condition}】状态到期解除",
+                log_type="system",
+            ))
+    return tick_logs
 
 
 def build_reaction_prompt(

@@ -4,6 +4,11 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution, CONTROL_CONDITION_MAP
+from services.combat_spell_effect_service import (
+    resolve_spell_condition,
+    resolve_spell_condition_duration,
+)
+from services.dnd_rules import get_life_state
 from services.dnd_rules import apply_character_healing, can_receive_ordinary_healing, roll_dice, roll_saving_throw
 
 
@@ -43,8 +48,11 @@ async def apply_ai_control_spell(
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     roll_dice_func: Callable[[str], dict[str, Any]] = roll_dice,
 ) -> None:
-    condition = CONTROL_CONDITION_MAP.get(resolution.spell_name, "hexed")
-    save_ability = resolution.spell_data.get("save")
+    condition, resolved_save = resolve_spell_condition(resolution.spell_name, resolution.spell_data)
+    if condition == "affected":
+        condition = CONTROL_CONDITION_MAP.get(resolution.spell_name, "hexed")
+    duration_rounds = resolve_spell_condition_duration(resolution.spell_name, resolution.spell_data)
+    save_ability = resolved_save or resolution.spell_data.get("save")
     if not resolution.spell_target or not save_ability:
         return
 
@@ -64,6 +72,18 @@ async def apply_ai_control_spell(
             if condition not in conditions:
                 conditions.append(condition)
                 target_enemy["conditions"] = conditions
+            if duration_rounds is not None:
+                durations = dict(target_enemy.get("condition_durations", {}))
+                durations[condition] = duration_rounds
+                target_enemy["condition_durations"] = durations
+            enemy_hp = target_enemy.get("hp_current")
+            resolution.target_state = {
+                "target_id": resolution.spell_target,
+                "target_name": target_enemy.get("name", "敌人"),
+                "conditions": target_enemy.get("conditions", []),
+                "condition_durations": target_enemy.get("condition_durations", {}),
+                "life_state": "dead" if enemy_hp is not None and enemy_hp <= 0 else "alive",
+            }
             resolution.narration_parts.append(
                 f"{target_enemy.get('name')} 未通过豁免，陷入{condition}状态！"
             )
@@ -92,6 +112,18 @@ async def apply_ai_control_spell(
             if condition not in conditions:
                 conditions.append(condition)
                 target_character.conditions = conditions
+            if duration_rounds is not None:
+                durations = dict(target_character.condition_durations or {})
+                durations[condition] = duration_rounds
+                target_character.condition_durations = durations
+            resolution.target_state = {
+                "target_id": resolution.spell_target,
+                "target_name": target_character.name,
+                "conditions": target_character.conditions or [],
+                "condition_durations": target_character.condition_durations or {},
+                "life_state": get_life_state(target_character),
+                "concentration": target_character.concentration,
+            }
             resolution.narration_parts.append(
                 f"{target_character.name} 未通过豁免，陷入{condition}状态！"
             )

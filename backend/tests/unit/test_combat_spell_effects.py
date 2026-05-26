@@ -177,9 +177,16 @@ async def test_apply_resurrection_spell_to_living_character_is_noop(db_session, 
 
 def test_resolve_spell_condition_uses_known_mapping_and_fallback():
     from api.combat.spell_effects import resolve_spell_condition
+    from services.combat_spell_effect_service import resolve_spell_condition_duration, spell_applies_condition
 
     assert resolve_spell_condition("Hold Person", {"save": "wis"}) == ("paralyzed", "wis")
+    assert resolve_spell_condition("网", {"name_en": "Web", "save": "dex"}) == ("restrained", "dex")
     assert resolve_spell_condition("Unknown Control", {"save": "cha"}) == ("affected", "cha")
+    assert resolve_spell_condition_duration("Command", {"desc": "one round"}) == 1
+    assert resolve_spell_condition_duration("Faerie Fire", {"desc": "专注1分钟。", "concentration": True}) == 10
+    assert resolve_spell_condition_duration("Web", {"desc": "专注1小时。", "concentration": True}) == 600
+    assert spell_applies_condition("utility", "Mage Armor", {"name_en": "Mage Armor"}) is False
+    assert spell_applies_condition("utility", "网", {"name_en": "Web"}) is True
 
 
 async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_session):
@@ -204,6 +211,7 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
     assert result["condition_name"] == "paralyzed"
     assert result["save_detail"]["success"] is False
     assert enemies[0]["conditions"] == ["paralyzed"]
+    assert "condition_durations" in result["target_state"]
 
 
 async def test_apply_control_spell_to_enemy_falls_back_to_ability_scores(db_session):
@@ -252,6 +260,30 @@ async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sa
     assert result["save_detail"]["modifier"] == 2
     assert result["save_detail"]["success"] is False
     assert sample_character.conditions == ["commanded"]
+
+
+async def test_apply_control_spell_to_character_sets_duration(db_session, sample_character):
+    from services import combat_spell_effect_service as spell_effects
+
+    sample_character.conditions = []
+    sample_character.condition_durations = {}
+    await db_session.commit()
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        [],
+        sample_character.id,
+        session_id="sess-1",
+        condition_name="commanded",
+        save_ability=None,
+        spell_save_dc=30,
+        duration_rounds=1,
+    )
+
+    assert result["applied"] is True
+    assert sample_character.conditions == ["commanded"]
+    assert sample_character.condition_durations == {"commanded": 1}
+    assert result["target_state"]["condition_durations"] == {"commanded": 1}
 
 
 async def test_apply_control_spell_to_restrained_enemy_rolls_dex_save_with_disadvantage(db_session):
