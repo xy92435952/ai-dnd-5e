@@ -103,8 +103,25 @@ def build_spell_mechanical_narration(
     spell_type: str,
     save_detail: dict | None,
     condition_name: str | None,
+    resurrection_results: list[dict] | None = None,
 ) -> str:
     level_str = f"（{spell_level}环）" if not is_cantrip else "（戏法）"
+    resurrection_results = resurrection_results or []
+    if resurrection_results:
+        revived = [result for result in resurrection_results if result.get("resurrected")]
+        blocked = [result for result in resurrection_results if not result.get("resurrected")]
+        if revived:
+            targets_summary = "、".join(result.get("target_name", "?") for result in revived[:4])
+            return (
+                f"✨ {caster_name} 施放了「{spell_name}」{level_str}，"
+                f"{targets_summary}{'等' if len(revived) > 4 else ''}复活并恢复生命。"
+            )
+        targets_summary = "、".join(result.get("target_name", "?") for result in blocked[:4])
+        return (
+            f"✨ {caster_name} 施放了「{spell_name}」{level_str}，"
+            f"但 {targets_summary or '目标'} 不符合复活条件。"
+        )
+
     if is_aoe and aoe_results:
         targets_summary = "、".join(result.get("target_name", "?") for result in aoe_results[:4])
         narration = (

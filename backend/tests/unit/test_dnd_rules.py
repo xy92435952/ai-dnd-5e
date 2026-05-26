@@ -14,6 +14,7 @@ from services.dnd_rules import (
     clamp_current_hp_to_effective_max,
     apply_character_damage,
     apply_character_healing,
+    apply_character_resurrection,
     default_death_saves,
     get_effective_derived,
     get_effective_hp_base,
@@ -445,6 +446,24 @@ class TestCharacterLifeState:
         assert char.hp_current == 0
         assert char.death_saves == {"successes": 0, "failures": 3, "stable": False}
         assert char.conditions == ["unconscious"]
+
+    def test_resurrection_revives_dead_character_and_clears_death_saves(self):
+        from types import SimpleNamespace
+
+        char = SimpleNamespace(
+            hp_current=0,
+            death_saves={"successes": 0, "failures": 3, "stable": False},
+            derived={"hp_max": 12},
+            condition_durations={},
+            conditions=["unconscious", "poisoned"],
+        )
+
+        result = apply_character_resurrection(char, hp=1)
+
+        assert result["resurrected"] is True
+        assert char.hp_current == 1
+        assert char.death_saves is None
+        assert char.conditions == ["poisoned"]
 
     def test_stabilized_character_is_not_dying(self):
         from types import SimpleNamespace

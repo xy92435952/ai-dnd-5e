@@ -7,6 +7,7 @@ from services.character_roster import CharacterRoster
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.combat_service import CombatService
 from services.combat_spell_application_service import apply_confirmed_spell_effects
+from services.combat_spell_effect_service import get_resurrection_spell_config
 from services.combat_spell_resolution_service import (
     CombatSpellResolutionError,
     build_spell_mechanical_narration,
@@ -37,6 +38,7 @@ class DirectSpellResult:
     target_id: str | None
     target_new_hp: int | None
     aoe_results: list[dict[str, Any]]
+    resurrection_results: list[dict[str, Any]]
     remaining_slots: dict[str, Any]
     dice_detail: dict[str, Any]
     turn_state: dict[str, Any]
@@ -65,6 +67,7 @@ class DirectSpellResult:
             "target_id": self.target_id,
             "target_new_hp": self.target_new_hp,
             "aoe_results": self.aoe_results,
+            "resurrection_results": self.resurrection_results,
             "remaining_slots": self.remaining_slots,
             "dice_detail": self.dice_detail,
             "dice_result": {"total": self.damage or self.heal or 0},
@@ -142,9 +145,14 @@ async def cast_direct_spell(
     dice_detail: dict[str, Any] = {}
     target_new_hp = None
     aoe_results: list[dict[str, Any]] = []
+    resurrection_results: list[dict[str, Any]] = []
     concentration_logs: list[Any] = []
 
-    if spell_type in ("damage", "heal") and (resolved_target_ids or is_aoe):
+    should_apply_spell = (
+        spell_type in ("damage", "heal")
+        or (spell_type == "utility" and get_resurrection_spell_config(spell_name, spell))
+    )
+    if should_apply_spell and (resolved_target_ids or is_aoe):
         spell_application = await apply_confirmed_spell_effects(
             db,
             session_id=session_id,
@@ -167,6 +175,7 @@ async def cast_direct_spell(
         dice_detail = spell_application.dice_detail
         target_new_hp = spell_application.target_new_hp
         aoe_results = spell_application.aoe_results
+        resurrection_results = spell_application.resurrection_results
         concentration_logs = spell_application.concentration_logs
         if spell_application.enemies_changed:
             state["enemies"] = enemies
@@ -183,6 +192,7 @@ async def cast_direct_spell(
         is_cantrip=is_cantrip,
         is_aoe=is_aoe,
         aoe_results=aoe_results,
+        resurrection_results=resurrection_results,
         result_damage=result_damage,
         result_heal=result_heal,
         spell_type=spell_type,
@@ -210,6 +220,7 @@ async def cast_direct_spell(
         target_id=target_id,
         target_new_hp=target_new_hp,
         aoe_results=aoe_results,
+        resurrection_results=resurrection_results,
         remaining_slots=new_slots,
         dice_detail=dice_detail,
         turn_state=spell_turn_state,
@@ -245,7 +256,10 @@ def _resolve_direct_spell_targets(
         roster = CharacterRoster(db, session)
         return [session.player_character_id] + roster.companion_ids()
 
-    if spell_type in ("damage", "heal") and (target_id or target_ids):
+    if (
+        spell_type in ("damage", "heal")
+        or (spell_type == "utility" and target_id)
+    ) and (target_id or target_ids):
         resolved = target_id or (target_ids[0] if target_ids else None)
         return [resolved] if resolved else []
 

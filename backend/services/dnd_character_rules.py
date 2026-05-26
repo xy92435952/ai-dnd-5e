@@ -375,6 +375,26 @@ def apply_character_healing(character: object, healing: int) -> dict:
     }
 
 
+def apply_character_resurrection(character: object, *, hp: int | None = 1) -> dict:
+    """Revive a dead character with the requested HP amount."""
+    before_hp = int(getattr(character, "hp_current", 0) or 0)
+    hp_max = get_effective_hp_max(character)
+    if hp is None:
+        after_hp = hp_max
+    else:
+        after_hp = max(1, min(hp_max, int(hp or 1)))
+    character.hp_current = after_hp
+    character.death_saves = None
+    _remove_condition(character, "unconscious")
+    return {
+        "hp_before": before_hp,
+        "hp_after": after_hp,
+        "resurrected": True,
+        "death_saves": getattr(character, "death_saves", None),
+        "conditions": _condition_list(character),
+    }
+
+
 def stabilize_character(character: object) -> dict:
     """Stabilize a 0-HP character without restoring HP."""
     death_saves = default_death_saves(stable=True)

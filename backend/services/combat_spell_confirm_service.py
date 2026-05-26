@@ -35,6 +35,7 @@ class ConfirmedSpellResult:
     target_id: str | None
     target_new_hp: int | None
     aoe_results: list[dict[str, Any]]
+    resurrection_results: list[dict[str, Any]]
     remaining_slots: dict[str, Any]
     dice_detail: dict[str, Any]
     turn_state: dict[str, Any]
@@ -122,6 +123,7 @@ async def confirm_pending_spell(
         is_cantrip=is_cantrip,
         is_aoe=is_aoe,
         aoe_results=spell_application.aoe_results,
+        resurrection_results=spell_application.resurrection_results,
         result_damage=spell_application.result_damage,
         result_heal=spell_application.result_heal,
         spell_type=spell_type,
@@ -188,6 +190,7 @@ async def confirm_pending_spell(
         target_id=target_ids[0] if target_ids else None,
         target_new_hp=spell_application.target_new_hp,
         aoe_results=spell_application.aoe_results,
+        resurrection_results=spell_application.resurrection_results,
         remaining_slots=new_slots,
         dice_detail=spell_application.dice_detail,
         turn_state=turn_state,
@@ -202,6 +205,7 @@ async def confirm_pending_spell(
             "damage": spell_application.result_damage,
             "heal": spell_application.result_heal,
             "aoe": spell_application.aoe_results,
+            "resurrection": spell_application.resurrection_results,
         },
         concentration_logs=spell_application.concentration_logs,
         wild_magic_logs=wild_magic_logs,

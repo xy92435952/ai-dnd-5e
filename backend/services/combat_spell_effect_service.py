@@ -10,10 +10,23 @@ from services.combat_spell_resolution_service import apply_frontend_dice_overrid
 from services.dnd_rules import (
     apply_character_damage,
     apply_character_healing,
+    apply_character_resurrection,
+    get_effective_hp_max,
+    is_dead,
     roll_saving_throw,
 )
 
 svc = CombatService()
+
+
+RESURRECTION_SPELLS: dict[str, dict[str, int | None]] = {
+    "Raise Dead": {"hp": 1},
+    "复活死者": {"hp": 1},
+    "Revivify": {"hp": 1},
+    "回生术": {"hp": 1},
+    "Resurrection": {"hp": None},
+    "复生": {"hp": None},
+}
 
 
 SPELL_CONDITIONS: dict[str, tuple[str, str | None]] = {
@@ -45,6 +58,15 @@ SPELL_CONDITIONS: dict[str, tuple[str, str | None]] = {
 def resolve_spell_condition(spell_name: str, spell: dict[str, Any]) -> tuple[str, str | None]:
     """Return the condition and saving throw ability for a control/utility spell."""
     return SPELL_CONDITIONS.get(spell_name, ("affected", spell.get("save")))
+
+
+def get_resurrection_spell_config(spell_name: str, spell: dict[str, Any] | None = None) -> dict[str, int | None] | None:
+    """Return resurrection settings for utility spells that revive dead characters."""
+    config = RESURRECTION_SPELLS.get(spell_name)
+    if config:
+        return config
+    name_en = spell.get("name_en") if spell else None
+    return RESURRECTION_SPELLS.get(name_en)
 
 
 async def roll_spell_save(
@@ -132,6 +154,39 @@ async def apply_spell_heal_to_target(db, target_id: str, heal: int):
         "new_hp": heal_result["hp_after"],
         "revived": heal_result["revived"],
         "death_saves": heal_result["death_saves"],
+    }
+
+
+async def apply_resurrection_spell_to_target(db, target_id: str, spell_name: str, spell: dict[str, Any]):
+    """Apply a resurrection utility spell to a dead Character."""
+    target_character = await db.get(Character, target_id)
+    if not target_character:
+        return None
+
+    config = get_resurrection_spell_config(spell_name, spell)
+    if not config:
+        return None
+    hp_max = get_effective_hp_max(target_character)
+    if not is_dead(target_character):
+        return {
+            "target_id": target_id,
+            "target_name": target_character.name,
+            "resurrected": False,
+            "new_hp": target_character.hp_current,
+            "hp_max": hp_max,
+            "death_saves": target_character.death_saves,
+            "reason": "target_not_dead",
+        }
+
+    result = apply_character_resurrection(target_character, hp=config.get("hp"))
+    return {
+        "target_id": target_id,
+        "target_name": target_character.name,
+        "resurrected": True,
+        "new_hp": result["hp_after"],
+        "hp_max": hp_max,
+        "death_saves": result["death_saves"],
+        "conditions": result["conditions"],
     }
 
 

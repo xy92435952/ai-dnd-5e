@@ -232,3 +232,65 @@ async def test_cast_direct_heal_rejects_dead_target_before_consuming_slot():
     assert caster.spell_slots == {"1st": 1}
     assert combat.turn_states["caster-1"]["action_used"] is False
     assert dead_target.hp_current == 0
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_resurrection_spell_revives_dead_target():
+    from types import SimpleNamespace
+
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class ResurrectionSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "name_en": "Raise Dead",
+                "level": 5,
+                "type": "utility",
+                "aoe": False,
+            }
+
+        def consume_slot(self, slots, _spell_level):
+            slots = dict(slots)
+            slots["5th"] = slots.get("5th", 0) - 1
+            return slots, None
+
+    dead_target = SimpleNamespace(
+        id="ally-1",
+        name="Ally",
+        session_id="sess-1",
+        hp_current=0,
+        derived={"hp_max": 12},
+        condition_durations={},
+        death_saves={"successes": 0, "failures": 3, "stable": False},
+        conditions=["unconscious"],
+    )
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.spell_slots = {"5th": 1}
+
+    result = await cast_direct_spell(
+        FakeDb({"ally-1": dead_target}),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="复活死者",
+        spell_level=5,
+        target_id="ally-1",
+        target_ids=None,
+        spell_service_obj=ResurrectionSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert dead_target.hp_current == 1
+    assert dead_target.death_saves is None
+    assert dead_target.conditions == []
+    assert result.target_new_hp == 1
+    assert result.resurrection_results[0]["resurrected"] is True
+    assert result.remaining_slots == {"5th": 0}
+    assert result.turn_state["action_used"] is True

@@ -133,6 +133,48 @@ async def test_apply_spell_heal_to_character_revives_and_clears_death_saves(db_s
     assert sample_character.death_saves is None
 
 
+async def test_apply_resurrection_spell_to_dead_character(db_session, sample_character):
+    from services import combat_spell_effect_service as spell_effects
+
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 3, "stable": False}
+    sample_character.conditions = ["unconscious"]
+    await db_session.commit()
+
+    result = await spell_effects.apply_resurrection_spell_to_target(
+        db_session,
+        sample_character.id,
+        "Raise Dead",
+        {"name_en": "Raise Dead"},
+    )
+
+    assert result["resurrected"] is True
+    assert result["new_hp"] == 1
+    assert result["death_saves"] is None
+    assert sample_character.hp_current == 1
+    assert sample_character.death_saves is None
+    assert sample_character.conditions == []
+
+
+async def test_apply_resurrection_spell_to_living_character_is_noop(db_session, sample_character):
+    from services import combat_spell_effect_service as spell_effects
+
+    sample_character.hp_current = 8
+    sample_character.death_saves = None
+    await db_session.commit()
+
+    result = await spell_effects.apply_resurrection_spell_to_target(
+        db_session,
+        sample_character.id,
+        "Raise Dead",
+        {"name_en": "Raise Dead"},
+    )
+
+    assert result["resurrected"] is False
+    assert result["reason"] == "target_not_dead"
+    assert sample_character.hp_current == 8
+
+
 def test_resolve_spell_condition_uses_known_mapping_and_fallback():
     from api.combat.spell_effects import resolve_spell_condition
 
