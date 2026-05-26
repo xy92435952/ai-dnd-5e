@@ -5,7 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution
 from services.combat_service import CombatService
-from services.dnd_rules import apply_character_damage, roll_dice
+from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
 
 
 async def apply_ai_damage_spell(
@@ -101,13 +101,13 @@ def damage_after_ai_save(
     if not save_ability:
         return base_damage
 
-    target_derived = target.get("derived", {})
-    save_mod = target_derived.get("saving_throws", {}).get(
+    save_detail = roll_saving_throw(
+        target,
         save_ability,
-        target_derived.get("ability_modifiers", {}).get(save_ability, 0),
+        spell_save_dc,
+        d20_roller=roll_dice_func,
     )
-    save_roll = roll_dice_func("1d20")["rolls"][0]
-    if save_roll + save_mod >= spell_save_dc:
+    if save_detail["success"]:
         return base_damage // 2 if spell_data.get("half_on_save", True) else 0
     return base_damage
 
@@ -124,10 +124,13 @@ def damage_after_ai_enemy_save(
     if not save_ability:
         return base_damage
 
-    saves = enemy.get("derived", {}).get("saving_throws", {})
-    save_mod = saves.get(save_ability, 0)
-    save_roll = roll_dice_func("1d20")["rolls"][0]
-    if save_roll + save_mod >= spell_save_dc:
+    save_detail = roll_saving_throw(
+        enemy,
+        save_ability,
+        spell_save_dc,
+        d20_roller=roll_dice_func,
+    )
+    if save_detail["success"]:
         return base_damage // 2 if spell_data.get("half_on_save") else 0
     return base_damage
 

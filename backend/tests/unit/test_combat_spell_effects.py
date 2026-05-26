@@ -1,6 +1,4 @@
-"""
-Unit tests for spell effect helper modules.
-"""
+"""Unit tests for spell effect helper modules."""
 
 
 def test_apply_frontend_dice_override_updates_total_and_base_roll():
@@ -24,7 +22,7 @@ async def test_apply_spell_damage_to_enemy_updates_enemy_state(db_session):
 
     enemies = [{
         "id": "goblin-1",
-        "name": "哥布林",
+        "name": "Goblin",
         "hp_current": 7,
         "derived": {"hp_max": 7},
     }]
@@ -40,7 +38,7 @@ async def test_apply_spell_damage_to_enemy_updates_enemy_state(db_session):
 
     assert result == {
         "target_id": "goblin-1",
-        "target_name": "哥布林",
+        "target_name": "Goblin",
         "damage": 5,
         "new_hp": 2,
         "save": {"success": False},
@@ -114,20 +112,18 @@ async def test_apply_spell_heal_to_character_revives_and_clears_death_saves(db_s
 def test_resolve_spell_condition_uses_known_mapping_and_fallback():
     from api.combat.spell_effects import resolve_spell_condition
 
-    assert resolve_spell_condition("定身术", {"save": "wis"}) == ("paralyzed", "wis")
+    assert resolve_spell_condition("Hold Person", {"save": "wis"}) == ("paralyzed", "wis")
     assert resolve_spell_condition("Unknown Control", {"save": "cha"}) == ("affected", "cha")
 
 
-async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_session, monkeypatch):
+async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_session):
     from services import combat_spell_effect_service as spell_effects
 
     enemies = [{
         "id": "goblin-1",
-        "name": "哥布林",
-        "ability_scores": {"wis": 8},
+        "name": "Goblin",
         "conditions": ["paralyzed"],
     }]
-    monkeypatch.setattr(spell_effects, "roll_dice", lambda expr: {"rolls": [2], "total": 2})
 
     result = await spell_effects.apply_control_spell_to_target(
         db_session,
@@ -135,7 +131,7 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
         "goblin-1",
         condition_name="paralyzed",
         save_ability="wis",
-        spell_save_dc=13,
+        spell_save_dc=30,
     )
 
     assert result["condition_name"] == "paralyzed"
@@ -143,7 +139,29 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
     assert enemies[0]["conditions"] == ["paralyzed"]
 
 
-async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sample_character, monkeypatch):
+async def test_apply_control_spell_to_enemy_falls_back_to_ability_scores(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "ability_scores": {"wis": 20},
+        "conditions": [],
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "goblin-1",
+        condition_name="paralyzed",
+        save_ability="wis",
+        spell_save_dc=6,
+    )
+
+    assert result["save_detail"]["modifier"] == 5
+
+
+async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sample_character):
     from services import combat_spell_effect_service as spell_effects
 
     sample_character.conditions = []
@@ -152,7 +170,6 @@ async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sa
         "saving_throws": {"wis": 2},
     }
     await db_session.commit()
-    monkeypatch.setattr(spell_effects, "roll_dice", lambda expr: {"rolls": [3], "total": 3})
 
     result = await spell_effects.apply_control_spell_to_target(
         db_session,
@@ -160,9 +177,58 @@ async def test_apply_control_spell_to_character_uses_saving_throw(db_session, sa
         sample_character.id,
         condition_name="commanded",
         save_ability="wis",
+        spell_save_dc=30,
+    )
+
+    assert result["save_detail"]["modifier"] == 2
+    assert result["save_detail"]["success"] is False
+    assert sample_character.conditions == ["commanded"]
+
+
+async def test_apply_control_spell_to_restrained_enemy_rolls_dex_save_with_disadvantage(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "derived": {"ability_modifiers": {"dex": 2}, "saving_throws": {"dex": 2}},
+        "conditions": ["restrained"],
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "goblin-1",
+        condition_name="faerie_fire",
+        save_ability="dex",
         spell_save_dc=13,
     )
 
-    assert result["save_detail"]["total"] == 5
+    assert result["save_detail"]["disadvantage"] is True
+    assert result["save_detail"]["condition_disadvantage_reasons"] == ["restrained"]
+
+
+async def test_apply_control_spell_to_unconscious_enemy_auto_fails_dex_save(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "derived": {"ability_modifiers": {"dex": 20}, "saving_throws": {"dex": 20}},
+        "conditions": ["unconscious"],
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "goblin-1",
+        condition_name="faerie_fire",
+        save_ability="dex",
+        spell_save_dc=10,
+    )
+
+    assert result["save_detail"]["total"] >= 21
     assert result["save_detail"]["success"] is False
-    assert sample_character.conditions == ["commanded"]
+    assert result["save_detail"]["auto_fail"] is True
+    assert result["save_detail"]["auto_fail_reasons"] == ["unconscious"]
+    assert "faerie_fire" in enemies[0]["conditions"]

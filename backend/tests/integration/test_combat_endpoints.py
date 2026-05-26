@@ -226,6 +226,35 @@ async def test_ai_turn_rejects_stale_expected_turn_token(
     assert ai_turn_combat.current_turn_index == 0
 
 
+async def test_ai_turn_skips_incapacitated_enemy_without_calling_llm(
+    client, db_session, sample_session, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    import services.ai_combat_agent as ai_agent
+
+    state = sample_session.game_state or {}
+    state["enemies"][0]["conditions"] = ["stunned"]
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
+
+    async def fail_if_called(**_kwargs):
+        raise AssertionError("AI decision should not run for incapacitated actors")
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fail_if_called)
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["damage"] == 0
+    assert data["next_turn_index"] == 1
+    assert "stunned" in data["narration"]
+    await db_session.refresh(ai_turn_combat)
+    assert ai_turn_combat.current_turn_index == 1
+
+
 async def test_ai_turn_dash_decision_does_not_500(
     client, sample_session, ai_turn_combat, sample_user, monkeypatch,
 ):

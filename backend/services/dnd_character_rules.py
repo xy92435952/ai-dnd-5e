@@ -160,6 +160,31 @@ AUTO_CRIT_MELEE_CONDITIONS = frozenset({
     "unconscious",
 })
 
+ABILITY_CHECK_DISADVANTAGE_CONDITIONS = frozenset({
+    "poisoned",
+    "frightened",
+})
+
+SAVING_THROW_DISADVANTAGE_BY_ABILITY = {
+    "dex": frozenset({"restrained"}),
+}
+
+SAVING_THROW_AUTO_FAIL_BY_ABILITY = {
+    "str": frozenset({"paralyzed", "stunned", "unconscious", "petrified"}),
+    "dex": frozenset({"paralyzed", "stunned", "unconscious", "petrified"}),
+}
+
+SPEED_ZERO_CONDITIONS = frozenset({
+    "grappled",
+    "restrained",
+    "incapacitated",
+    "unconscious",
+    "stunned",
+    "paralyzed",
+    "petrified",
+    "失能",
+})
+
 
 def _condition_list(character: dict | object | None) -> list[str]:
     if not character:
@@ -218,6 +243,45 @@ def should_auto_crit_melee_target(conditions: list[str], *, distance: int, is_ra
         condition in AUTO_CRIT_MELEE_CONDITIONS
         for condition in conditions
     )
+
+
+def get_ability_check_disadvantage_reasons(character: dict | object | None) -> list[str]:
+    """Return active conditions that impose disadvantage on ability or skill checks."""
+    reasons = [
+        condition
+        for condition in _condition_list(character)
+        if condition in ABILITY_CHECK_DISADVANTAGE_CONDITIONS
+    ]
+    if has_exhaustion_effect(character, "ability_check_disadvantage"):
+        reasons.append("exhaustion")
+    return reasons
+
+
+def get_saving_throw_disadvantage_reasons(character: dict | object | None, ability: str) -> list[str]:
+    """Return active conditions that impose disadvantage on a saving throw."""
+    conditions = _condition_list(character)
+    reasons = [
+        condition
+        for condition in conditions
+        if condition in SAVING_THROW_DISADVANTAGE_BY_ABILITY.get(ability, frozenset())
+    ]
+    if has_exhaustion_effect(character, "attack_save_disadvantage"):
+        reasons.append("exhaustion")
+    return reasons
+
+
+def get_saving_throw_auto_fail_reasons(character: dict | object | None, ability: str) -> list[str]:
+    """Return active conditions that make a saving throw automatically fail."""
+    return [
+        condition
+        for condition in _condition_list(character)
+        if condition in SAVING_THROW_AUTO_FAIL_BY_ABILITY.get(ability, frozenset())
+    ]
+
+
+def has_speed_zero_condition(character: dict | object | None) -> bool:
+    """Return whether current conditions reduce a creature's speed to 0."""
+    return any(condition in SPEED_ZERO_CONDITIONS for condition in _condition_list(character))
 
 
 def apply_character_damage(character: object, damage: int) -> dict:

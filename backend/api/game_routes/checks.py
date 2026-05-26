@@ -38,6 +38,7 @@ async def skill_check(
         character={
             "derived": character.derived or {},
             "proficient_skills": character.proficient_skills or [],
+            "conditions": character.conditions or [],
             "condition_durations": character.condition_durations or {},
         },
         skill=req.skill,

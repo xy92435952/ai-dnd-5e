@@ -26,6 +26,7 @@ from api.combat.ai_turn_spell import handle_ai_spell_action
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
+from services.dnd_rules import get_incapacitating_reasons, is_incapacitated
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -147,6 +148,38 @@ async def _ai_combat_turn_locked(
     next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
 
     # ── AI 决策：选择目标和行动 ─────────────────────────────
+    actor_rule_state = (
+        {
+            "hp_current": e.get("hp_current", actor_hp),
+            "death_saves": e.get("death_saves"),
+            "conditions": e.get("conditions", []),
+        }
+        if is_enemy and e
+        else {
+            "hp_current": getattr(achar, "hp_current", actor_hp),
+            "death_saves": getattr(achar, "death_saves", None),
+            "conditions": getattr(achar, "conditions", None) or [],
+        }
+    )
+    if is_incapacitated(actor_rule_state):
+        skipped_reasons = get_incapacitating_reasons(actor_rule_state)
+        await advance_ai_turn(combat, session, db, turn_order, next_index)
+        await db.commit()
+        return await _broadcast_ai_turn_result(session, combat, db, {
+            "actor_name": actor_name,
+            "narration": f"{actor_name} cannot act ({', '.join(skipped_reasons)}), skipping turn.",
+            "actor_id": actor_id,
+            "attack_result": {},
+            "damage": 0,
+            "target_id": None,
+            "target_new_hp": None,
+            "next_turn_index": next_index,
+            "round_number": combat.round_number,
+            "combat_over": False,
+            "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
+        })
+
     from services.ai_combat_agent import get_ai_decision, calc_difficulty
 
     # 获取模组难度

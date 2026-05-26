@@ -4,7 +4,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution, CONTROL_CONDITION_MAP
-from services.dnd_rules import apply_character_healing, roll_dice
+from services.dnd_rules import apply_character_healing, roll_dice, roll_saving_throw
 
 
 async def apply_ai_heal_spell(
@@ -51,10 +51,13 @@ async def apply_ai_control_spell(
         None,
     )
     if target_enemy:
-        ability_scores = target_enemy.get("ability_scores", {})
-        save_mod = (ability_scores.get(save_ability, 10) - 10) // 2
-        save_roll = roll_dice_func("1d20")["rolls"][0]
-        if save_roll + save_mod < spell_save_dc:
+        save_detail = roll_saving_throw(
+            target_enemy,
+            save_ability,
+            spell_save_dc,
+            d20_roller=roll_dice_func,
+        )
+        if not save_detail["success"]:
             conditions = target_enemy.get("conditions", [])
             if condition not in conditions:
                 conditions.append(condition)
@@ -72,10 +75,17 @@ async def apply_ai_control_spell(
 
     target_character = await db.get(Character, resolution.spell_target)
     if target_character:
-        target_derived = target_character.derived or {}
-        save_mod = target_derived.get("saving_throws", {}).get(save_ability, 0)
-        save_roll = roll_dice_func("1d20")["rolls"][0]
-        if save_roll + save_mod < spell_save_dc:
+        save_detail = roll_saving_throw(
+            {
+                "derived": target_character.derived or {},
+                "conditions": target_character.conditions or [],
+                "condition_durations": target_character.condition_durations or {},
+            },
+            save_ability,
+            spell_save_dc,
+            d20_roller=roll_dice_func,
+        )
+        if not save_detail["success"]:
             conditions = list(target_character.conditions or [])
             if condition not in conditions:
                 conditions.append(condition)

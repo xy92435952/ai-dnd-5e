@@ -1,9 +1,22 @@
 """Dice rolling and DnD check/attack helpers."""
 
 import random
+from collections.abc import Callable
 
 from services.dnd_data import SKILL_ABILITY_MAP
-from services.dnd_character_rules import has_exhaustion_effect
+from services.dnd_character_rules import (
+    get_ability_check_disadvantage_reasons,
+    get_saving_throw_auto_fail_reasons,
+    get_saving_throw_disadvantage_reasons,
+)
+
+
+def _ability_score_modifier(character: dict, ability: str) -> int:
+    scores = character.get("ability_scores") or {}
+    try:
+        return (int(scores.get(ability, 10) or 10) - 10) // 2
+    except (TypeError, ValueError):
+        return 0
 
 
 def roll_dice(notation: str) -> dict:
@@ -126,26 +139,37 @@ def roll_saving_throw(
     dc: int,
     advantage: bool = False,
     disadvantage: bool = False,
+    d20_roller: Callable[[str], dict] | None = None,
 ) -> dict:
     """
     豁免检定
     ability: "str"/"dex"/"con"/"int"/"wis"/"cha"
     """
-    exhaustion_disadvantage = has_exhaustion_effect(character, "attack_save_disadvantage")
-    disadvantage = disadvantage or exhaustion_disadvantage
+    auto_fail_reasons = get_saving_throw_auto_fail_reasons(character, ability)
+    disadvantage_reasons = get_saving_throw_disadvantage_reasons(character, ability)
+    exhaustion_disadvantage = "exhaustion" in disadvantage_reasons
+    disadvantage = disadvantage or bool(disadvantage_reasons)
     derived    = character.get("derived", {})
     saves      = derived.get("saving_throws", {})
-    total_mod  = saves.get(ability, derived.get("ability_modifiers", {}).get(ability, 0))
+    total_mod  = saves.get(
+        ability,
+        derived.get("ability_modifiers", {}).get(
+            ability,
+            _ability_score_modifier(character, ability),
+        ),
+    )
 
     if advantage and not disadvantage:
         d20_result = roll_advantage("1d20")
     elif disadvantage and not advantage:
         d20_result = roll_disadvantage("1d20")
     else:
-        d20_result = roll_dice("1d20")
+        roller = d20_roller or roll_dice
+        d20_result = roller("1d20")
 
     d20   = d20_result["rolls"][0]
     total = d20 + total_mod
+    auto_failed = bool(auto_fail_reasons)
 
     return {
         "ability":  ability,
@@ -154,10 +178,15 @@ def roll_saving_throw(
         "modifier": total_mod,
         "total":    total,
         "dc":       dc,
-        "success":  total >= dc,
+        "success":  False if auto_failed else total >= dc,
         "advantage": bool(advantage and not disadvantage),
         "disadvantage": bool(disadvantage and not advantage),
         "exhaustion_disadvantage": exhaustion_disadvantage,
+        "condition_disadvantage_reasons": [
+            reason for reason in disadvantage_reasons if reason != "exhaustion"
+        ],
+        "auto_fail": auto_failed,
+        "auto_fail_reasons": auto_fail_reasons,
     }
 
 
@@ -171,13 +200,14 @@ def roll_skill_check(
     """
     技能检定（正确检查角色是否熟练该技能）
     """
-    exhaustion_disadvantage = has_exhaustion_effect(character, "ability_check_disadvantage")
-    disadvantage = disadvantage or exhaustion_disadvantage
+    disadvantage_reasons = get_ability_check_disadvantage_reasons(character)
+    exhaustion_disadvantage = "exhaustion" in disadvantage_reasons
+    disadvantage = disadvantage or bool(disadvantage_reasons)
     derived  = character.get("derived", {})
     prof     = derived.get("proficiency_bonus", 2)
     mods     = derived.get("ability_modifiers", {})
-    ability  = SKILL_ABILITY_MAP.get(skill, "wis")
-    mod      = mods.get(ability, 0)
+    ability  = SKILL_ABILITY_MAP.get(skill, skill if skill in {"str", "dex", "con", "int", "wis", "cha"} else "wis")
+    mod      = mods.get(ability, _ability_score_modifier(character, ability))
 
     # 检查实际熟练（必须在角色数据里有 proficient_skills）
     proficient_skills = character.get("proficient_skills", [])
@@ -207,6 +237,9 @@ def roll_skill_check(
         "advantage": bool(advantage and not disadvantage),
         "disadvantage": bool(disadvantage and not advantage),
         "exhaustion_disadvantage": exhaustion_disadvantage,
+        "condition_disadvantage_reasons": [
+            reason for reason in disadvantage_reasons if reason != "exhaustion"
+        ],
     }
 
 

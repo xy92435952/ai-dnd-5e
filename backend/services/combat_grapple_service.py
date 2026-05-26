@@ -88,6 +88,8 @@ async def resolve_grapple_shove(
             target["skills"],
             getattr(player, "condition_durations", None) or {},
             target.get("condition_durations", {}),
+            list(getattr(player, "conditions", None) or []),
+            target.get("conditions", []),
         )
         narration = _apply_grapple_result(
             session=session,
@@ -108,6 +110,8 @@ async def resolve_grapple_shove(
             shove_type,
             getattr(player, "condition_durations", None) or {},
             target.get("condition_durations", {}),
+            list(getattr(player, "conditions", None) or []),
+            target.get("conditions", []),
         )
         narration = _apply_shove_result(
             combat=combat,
@@ -173,6 +177,7 @@ async def _resolve_grapple_target(db, *, session, enemies: list[dict[str, Any]],
             "name": target_character.name,
             "derived": target_character.derived or {},
             "skills": target_character.proficient_skills or [],
+            "conditions": target_character.conditions or [],
             "condition_durations": target_character.condition_durations or {},
             "is_enemy": False,
             "enemy": None,
@@ -186,6 +191,7 @@ async def _resolve_grapple_target(db, *, session, enemies: list[dict[str, Any]],
         "name": target_enemy["name"],
         "derived": target_enemy.get("derived", {}),
         "skills": [],
+        "conditions": target_enemy.get("conditions", []),
         "condition_durations": target_enemy.get("condition_durations", {}),
         "is_enemy": True,
         "enemy": target_enemy,

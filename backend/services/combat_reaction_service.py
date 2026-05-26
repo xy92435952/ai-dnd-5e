@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.dnd_rules import get_effective_hp_max
+from services.dnd_rules import get_effective_hp_max, roll_saving_throw
 
 
 def build_pending_attack_reaction(
@@ -86,21 +86,20 @@ def calculate_reaction_save(
     ability: str,
     dc: int,
     d20: int,
+    conditions: list[str] | None = None,
+    condition_durations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve a saving throw detail for reaction spells such as Hellish Rebuke."""
-    derived = target_derived or {}
-    saves = derived.get("saving_throws", {}) or {}
-    modifiers = derived.get("ability_modifiers", {}) or {}
-    modifier = int(saves.get(ability, modifiers.get(ability, 0)) or 0)
-    total = int(d20) + modifier
-    return {
-        "ability": ability,
-        "dc": int(dc),
-        "d20": int(d20),
-        "modifier": modifier,
-        "total": total,
-        "success": total >= int(dc),
-    }
+    return roll_saving_throw(
+        {
+            "derived": target_derived or {},
+            "conditions": conditions or [],
+            "condition_durations": condition_durations or {},
+        },
+        ability,
+        int(dc),
+        d20_roller=lambda _expr: {"rolls": [int(d20)], "total": int(d20)},
+    )
 
 
 def calculate_hellish_rebuke_damage(base_damage: int, save_detail: dict[str, Any] | None) -> dict[str, int | bool]:

@@ -7,7 +7,11 @@ from models import Character
 from services.combat_concentration_service import do_concentration_check
 from services.combat_service import CombatService
 from services.combat_spell_resolution_service import apply_frontend_dice_override
-from services.dnd_rules import apply_character_damage, apply_character_healing, roll_dice
+from services.dnd_rules import (
+    apply_character_damage,
+    apply_character_healing,
+    roll_saving_throw,
+)
 
 svc = CombatService()
 
@@ -57,27 +61,19 @@ async def roll_spell_save(
 
     target_enemy = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
     target_character = None if target_enemy else await db.get(Character, target_id)
-    target_derived = (
-        target_enemy.get("derived", {}) if target_enemy
-        else (target_character.derived or {} if target_character else {})
-    )
-    target_saves = target_derived.get("saving_throws", {})
-    save_modifier = target_saves.get(
-        save_ability,
-        target_derived.get("ability_modifiers", {}).get(save_ability, 0),
-    )
-
-    d20 = roll_dice("1d20")["rolls"][0]
-    save_total = d20 + save_modifier
-    saved = save_total >= spell_save_dc
-    return {
-        "ability": save_ability,
-        "dc": spell_save_dc,
-        "d20": d20,
-        "modifier": save_modifier,
-        "total": save_total,
-        "success": saved,
-    }
+    if target_enemy:
+        return roll_saving_throw(target_enemy, save_ability, spell_save_dc)
+    if target_character:
+        return roll_saving_throw(
+            {
+                "derived": target_character.derived or {},
+                "conditions": target_character.conditions or [],
+                "condition_durations": target_character.condition_durations or {},
+            },
+            save_ability,
+            spell_save_dc,
+        )
+    return roll_saving_throw({}, save_ability, spell_save_dc)
 
 
 async def apply_spell_damage_to_target(
@@ -156,24 +152,20 @@ async def apply_control_spell_to_target(
 
     if save_ability:
         if target_enemy:
-            target_scores = target_enemy.get("ability_scores", {})
-            target_modifier = (target_scores.get(save_ability, 10) - 10) // 2
+            save_detail = roll_saving_throw(target_enemy, save_ability, spell_save_dc)
         elif target_character:
-            target_modifier = (target_character.derived or {}).get("saving_throws", {}).get(save_ability, 0)
+            save_detail = roll_saving_throw(
+                {
+                    "derived": target_character.derived or {},
+                    "conditions": target_character.conditions or [],
+                    "condition_durations": target_character.condition_durations or {},
+                },
+                save_ability,
+                spell_save_dc,
+            )
         else:
-            target_modifier = 0
-
-        save_roll = roll_dice("1d20")["rolls"][0]
-        save_total = save_roll + target_modifier
-        saved = save_total >= spell_save_dc
-        save_detail = {
-            "ability": save_ability,
-            "dc": spell_save_dc,
-            "d20": save_roll,
-            "modifier": target_modifier,
-            "total": save_total,
-            "success": saved,
-        }
+            save_detail = roll_saving_throw({}, save_ability, spell_save_dc)
+        saved = save_detail["success"]
 
     if not saved:
         if target_enemy:

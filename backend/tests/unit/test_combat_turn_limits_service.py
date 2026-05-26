@@ -30,6 +30,7 @@ def test_exhaustion_halves_or_removes_movement():
     assert _movement_squares_for_speed(30, exhaustion_level=0) == 6
     assert _movement_squares_for_speed(30, exhaustion_level=2) == 3
     assert _movement_squares_for_speed(30, exhaustion_level=5) == 0
+    assert _movement_squares_for_speed(30, speed_zero=True) == 0
 
 
 @pytest.mark.asyncio
@@ -73,6 +74,27 @@ async def test_calculate_entity_turn_limits_halves_character_speed_at_exhaustion
 
 
 @pytest.mark.asyncio
+async def test_calculate_entity_turn_limits_zeroes_restrained_character_speed():
+    character = SimpleNamespace(
+        derived={},
+        char_class="Fighter",
+        level=1,
+        equipment={},
+        conditions=["restrained"],
+        condition_durations={},
+    )
+
+    attacks, movement = await calculate_entity_turn_limits(
+        FakeDb(character),
+        SimpleNamespace(game_state={}),
+        "hero",
+    )
+
+    assert attacks == 1
+    assert movement == 0
+
+
+@pytest.mark.asyncio
 async def test_calculate_entity_turn_limits_for_enemy_speed_string():
     session = SimpleNamespace(game_state={"enemies": [{"id": "orc", "speed": "40ft"}]})
 
@@ -89,6 +111,22 @@ async def test_calculate_entity_turn_limits_zeroes_enemy_speed_at_exhaustion_5()
             "id": "orc",
             "speed": "40ft",
             "condition_durations": {"exhaustion_level": 5},
+        }],
+    })
+
+    attacks, movement = await calculate_entity_turn_limits(FakeDb(), session, "orc")
+
+    assert attacks == 1
+    assert movement == 0
+
+
+@pytest.mark.asyncio
+async def test_calculate_entity_turn_limits_zeroes_grappled_enemy_speed():
+    session = SimpleNamespace(game_state={
+        "enemies": [{
+            "id": "orc",
+            "speed": "40ft",
+            "conditions": ["grappled"],
         }],
     })
 

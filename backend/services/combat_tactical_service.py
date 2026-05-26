@@ -38,12 +38,15 @@ def resolve_grapple(
     target_proficient_skills: list = None,
     attacker_condition_durations: dict | None = None,
     target_condition_durations: dict | None = None,
+    attacker_conditions: list[str] | None = None,
+    target_conditions: list[str] | None = None,
 ) -> dict:
     from services.dnd_rules import roll_skill_check
     atk_check = roll_skill_check(
         {
             "derived": attacker_derived,
             "proficient_skills": attacker_proficient_skills or [],
+            "conditions": attacker_conditions or [],
             "condition_durations": attacker_condition_durations or {},
         },
         "运动", dc=0,
@@ -58,6 +61,7 @@ def resolve_grapple(
             {
                 "derived": target_derived,
                 "proficient_skills": t_skills,
+                "conditions": target_conditions or [],
                 "condition_durations": target_condition_durations or {},
             },
             "杂技", dc=0,
@@ -67,6 +71,7 @@ def resolve_grapple(
             {
                 "derived": target_derived,
                 "proficient_skills": t_skills,
+                "conditions": target_conditions or [],
                 "condition_durations": target_condition_durations or {},
             },
             "运动", dc=0,
@@ -86,6 +91,8 @@ def resolve_shove(
     shove_type: str = "prone",
     attacker_condition_durations: dict | None = None,
     target_condition_durations: dict | None = None,
+    attacker_conditions: list[str] | None = None,
+    target_conditions: list[str] | None = None,
 ) -> dict:
     result = resolve_grapple(
         attacker_derived,
@@ -94,6 +101,8 @@ def resolve_shove(
         target_proficient_skills,
         attacker_condition_durations,
         target_condition_durations,
+        attacker_conditions,
+        target_conditions,
     )
     result["shove_type"] = shove_type
     return result

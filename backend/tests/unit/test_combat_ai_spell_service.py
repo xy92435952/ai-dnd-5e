@@ -44,7 +44,7 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     state = {
         "enemies": [{
             "id": "goblin-1",
-            "name": "哥布林",
+            "name": "Goblin",
             "hp_current": 10,
             "derived": {"hp_max": 10},
         }]
@@ -55,7 +55,7 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     result = await resolve_ai_spell_action(
         FakeDb(),
         session=session,
-        actor_name="法师",
+        actor_name="Wizard",
         is_enemy=False,
         caster=caster,
         actor_derived={
@@ -64,7 +64,7 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
             "spell_save_dc": 13,
         },
         decided_target_id="goblin-1",
-        decided_reason="测试施法",
+        decided_reason="test cast",
         decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
         state=state,
         enemies=enemies,
@@ -84,9 +84,9 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     assert caster.spell_slots == {"1st": 0}
     assert result.damage == 9
     assert result.target_new_hp == 1
-    assert result.target_name == "哥布林"
+    assert result.target_name == "Goblin"
     assert "Magic Bolt" in result.mechanical_narration
-    assert "测试施法" in result.mechanical_narration
+    assert "test cast" in result.mechanical_narration
     assert enemies[0]["hp_current"] == 1
 
 
@@ -100,7 +100,7 @@ async def test_resolve_ai_spell_action_returns_none_without_slot():
     result = await resolve_ai_spell_action(
         FakeDb(),
         session=FakeSession(),
-        actor_name="法师",
+        actor_name="Wizard",
         is_enemy=False,
         caster=caster,
         actor_derived={},
@@ -117,3 +117,61 @@ async def test_resolve_ai_spell_action_returns_none_without_slot():
     )
 
     assert result is None
+
+
+def test_damage_after_ai_save_auto_fails_dex_save_when_stunned():
+    from services.combat_ai_spell_damage_service import damage_after_ai_save
+
+    damage = damage_after_ai_save(
+        {
+            "derived": {
+                "ability_modifiers": {"dex": 20},
+                "saving_throws": {"dex": 20},
+            },
+            "conditions": ["stunned"],
+        },
+        base_damage=24,
+        spell_data={"save": "dex", "half_on_save": True},
+        spell_save_dc=10,
+        roll_dice_func=lambda expr: {"rolls": [20], "total": 20},
+    )
+
+    assert damage == 24
+
+
+@pytest.mark.asyncio
+async def test_ai_control_spell_auto_fails_unconscious_enemy_dex_save():
+    from services.combat_ai_spell_effect_service import apply_ai_control_spell
+    from services.combat_ai_spell_models import AiSpellResolution
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "derived": {
+            "ability_modifiers": {"dex": 20},
+            "saving_throws": {"dex": 20},
+        },
+        "conditions": ["unconscious"],
+    }]
+    state = {"enemies": enemies}
+    resolution = AiSpellResolution(
+        spell_name="Faerie Fire",
+        spell_level=1,
+        spell_target="goblin-1",
+        spell_data={"save": "dex"},
+        is_cantrip=False,
+    )
+
+    await apply_ai_control_spell(
+        FakeDb(),
+        resolution=resolution,
+        session=FakeSession(),
+        enemies=enemies,
+        spell_save_dc=10,
+        state=state,
+        flag_modified_func=lambda *_args: None,
+        roll_dice_func=lambda expr: {"rolls": [20], "total": 20},
+    )
+
+    assert "faerie_fire" in enemies[0]["conditions"]
+    assert resolution.target_name == "Goblin"

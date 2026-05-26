@@ -26,6 +26,7 @@ def execute_creative_action(
         character={
             "derived": player_derived,
             "proficient_skills": player.proficient_skills or [],
+            "conditions": player.conditions or [],
             "condition_durations": player.condition_durations or {},
         },
         skill=check_type,

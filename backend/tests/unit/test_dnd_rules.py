@@ -18,7 +18,10 @@ from services.dnd_rules import (
     get_effective_derived,
     get_effective_hp_base,
     get_effective_hp_max,
+    get_ability_check_disadvantage_reasons,
     get_incapacitating_reasons,
+    get_saving_throw_auto_fail_reasons,
+    get_saving_throw_disadvantage_reasons,
     is_dead,
     is_dying,
     is_incapacitated,
@@ -150,6 +153,50 @@ class TestSkillCheck:
         assert result["disadvantage"] is True
         assert result["exhaustion_disadvantage"] is True
 
+    @pytest.mark.parametrize("condition", ["poisoned", "frightened"])
+    def test_conditions_give_skill_check_disadvantage(self, condition):
+        char = {
+            "derived": {
+                "ability_modifiers": {"str": 2},
+                "proficiency_bonus": 2,
+            },
+            "proficient_skills": ["杩愬姩"],
+            "conditions": [condition],
+        }
+
+        result = roll_skill_check(char, "杩愬姩", dc=10)
+
+        assert result["disadvantage"] is True
+        assert result["exhaustion_disadvantage"] is False
+        assert result["condition_disadvantage_reasons"] == [condition]
+        assert get_ability_check_disadvantage_reasons(char) == [condition]
+
+    def test_raw_ability_check_uses_matching_ability_modifier(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"str": 4, "wis": -1},
+                "proficiency_bonus": 2,
+            },
+            "proficient_skills": [],
+        }
+
+        result = roll_skill_check(char, "str", dc=10)
+
+        assert result["ability"] == "str"
+        assert result["modifier"] == 4
+
+    def test_skill_check_falls_back_to_ability_scores(self):
+        char = {
+            "ability_scores": {"dex": 16},
+            "derived": {"proficiency_bonus": 2},
+            "proficient_skills": [],
+        }
+
+        result = roll_skill_check(char, "dex", dc=10)
+
+        assert result["ability"] == "dex"
+        assert result["modifier"] == 3
+
 
 class TestSavingThrow:
     def test_exhaustion_level_3_gives_saving_throw_disadvantage(self):
@@ -166,6 +213,81 @@ class TestSavingThrow:
         assert result["modifier"] == 4
         assert result["disadvantage"] is True
         assert result["exhaustion_disadvantage"] is True
+
+    def test_restrained_gives_dex_save_disadvantage(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"dex": 2},
+                "saving_throws": {"dex": 2},
+            },
+            "conditions": ["restrained"],
+        }
+
+        result = roll_saving_throw(char, "dex", dc=10)
+
+        assert result["disadvantage"] is True
+        assert result["condition_disadvantage_reasons"] == ["restrained"]
+        assert get_saving_throw_disadvantage_reasons(char, "dex") == ["restrained"]
+
+    def test_saving_throw_falls_back_to_ability_scores(self):
+        char = {
+            "ability_scores": {"dex": 16},
+            "derived": {},
+        }
+
+        result = roll_saving_throw(
+            char,
+            "dex",
+            dc=10,
+            d20_roller=lambda _expr: {"rolls": [7], "total": 7},
+        )
+
+        assert result["modifier"] == 3
+        assert result["total"] == 10
+        assert result["success"] is True
+
+    @pytest.mark.parametrize("condition", ["paralyzed", "stunned", "unconscious", "petrified"])
+    @pytest.mark.parametrize("ability", ["str", "dex"])
+    def test_incapacitating_conditions_auto_fail_str_and_dex_saves(self, condition, ability):
+        char = {
+            "derived": {
+                "ability_modifiers": {ability: 20},
+                "saving_throws": {ability: 20},
+            },
+            "conditions": [condition],
+        }
+
+        result = roll_saving_throw(
+            char,
+            ability,
+            dc=10,
+            d20_roller=lambda _expr: {"rolls": [20], "total": 20},
+        )
+
+        assert result["total"] == 40
+        assert result["success"] is False
+        assert result["auto_fail"] is True
+        assert result["auto_fail_reasons"] == [condition]
+        assert get_saving_throw_auto_fail_reasons(char, ability) == [condition]
+
+    def test_paralyzed_does_not_auto_fail_con_save(self):
+        char = {
+            "derived": {
+                "ability_modifiers": {"con": 4},
+                "saving_throws": {"con": 4},
+            },
+            "conditions": ["paralyzed"],
+        }
+
+        result = roll_saving_throw(
+            char,
+            "con",
+            dc=10,
+            d20_roller=lambda _expr: {"rolls": [10], "total": 10},
+        )
+
+        assert result["success"] is True
+        assert result["auto_fail"] is False
 
 
 class TestExhaustionHpMax:

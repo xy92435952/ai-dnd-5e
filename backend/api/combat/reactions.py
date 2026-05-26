@@ -214,6 +214,8 @@ async def use_reaction(
                         ability="dex",
                         dc=spell_save_dc,
                         d20=save_roll,
+                        conditions=e.get("conditions", []),
+                        condition_durations=e.get("condition_durations", {}),
                     )
                     damage_result = calculate_hellish_rebuke_damage(rebuke_damage, save_detail)
                     e["hp_current"] = svc.apply_damage(

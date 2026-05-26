@@ -79,10 +79,35 @@ def test_reaction_save_uses_saving_throw_before_ability_modifier():
         "ability": "dex",
         "dc": 13,
         "d20": 8,
+        "other_roll": None,
         "modifier": 5,
         "total": 13,
         "success": True,
+        "advantage": False,
+        "disadvantage": False,
+        "exhaustion_disadvantage": False,
+        "condition_disadvantage_reasons": [],
+        "auto_fail": False,
+        "auto_fail_reasons": [],
     }
+
+
+def test_reaction_save_respects_auto_fail_conditions():
+    result = calculate_reaction_save(
+        {
+            "saving_throws": {"dex": 30},
+            "ability_modifiers": {"dex": 30},
+        },
+        ability="dex",
+        dc=13,
+        d20=20,
+        conditions=["stunned"],
+    )
+
+    assert result["total"] == 50
+    assert result["success"] is False
+    assert result["auto_fail"] is True
+    assert result["auto_fail_reasons"] == ["stunned"]
 
 
 def test_hellish_rebuke_halves_damage_on_successful_dex_save():

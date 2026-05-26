@@ -3,7 +3,7 @@ from typing import Any
 
 from models import Character
 from services.combat_service import CombatService
-from services.dnd_rules import _normalize_class, get_exhaustion_level
+from services.dnd_rules import _normalize_class, get_exhaustion_level, has_speed_zero_condition
 
 svc = CombatService()
 
@@ -22,6 +22,7 @@ async def calculate_entity_turn_limits(db, session, entity_id: str) -> tuple[int
         return attacks_max, _movement_squares_for_speed(
             speed,
             exhaustion_level=get_exhaustion_level(char),
+            speed_zero=has_speed_zero_condition(char),
         )
 
     state = session.game_state or {}
@@ -31,6 +32,7 @@ async def calculate_entity_turn_limits(db, session, entity_id: str) -> tuple[int
             return 1, _movement_squares_for_speed(
                 max(speed, 20),
                 exhaustion_level=get_exhaustion_level(enemy),
+                speed_zero=has_speed_zero_condition(enemy),
             )
 
     return 1, 6
@@ -43,7 +45,9 @@ def _parse_speed(raw_speed: Any) -> int:
     return int(raw_speed or 30)
 
 
-def _movement_squares_for_speed(speed: int, *, exhaustion_level: int = 0) -> int:
+def _movement_squares_for_speed(speed: int, *, exhaustion_level: int = 0, speed_zero: bool = False) -> int:
+    if speed_zero:
+        return 0
     if exhaustion_level >= 5:
         return 0
     if exhaustion_level >= 2:
