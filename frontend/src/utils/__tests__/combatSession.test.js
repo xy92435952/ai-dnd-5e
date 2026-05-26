@@ -60,4 +60,47 @@ describe('applyCombatSessionSnapshot', () => {
     expect(result.playerId).toBe('char-1')
     expect(result.playerEntry).toEqual({ character_id: 'char-1', name: 'Tester', is_player: true })
   })
+
+  it('returns the current controlled player entry instead of the first player in initiative', () => {
+    const setters = {
+      setCombat: vi.fn(),
+      setSession: vi.fn(),
+      setPlayerId: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      setPlayerKnownSpells: vi.fn(),
+      setPlayerCantrips: vi.fn(),
+      setPlayerClass: vi.fn(),
+      setPlayerLevel: vi.fn(),
+      setClassResources: vi.fn(),
+      setPlayerSubclass: vi.fn(),
+      setPlayerSubclassEffects: vi.fn(),
+      setTurnState: vi.fn(),
+      setLogs: vi.fn(),
+    }
+    const combatData = {
+      turn_order: [
+        { character_id: 'host-char', name: 'Host Hero', is_player: true, initiative: 18, d20: 17 },
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 12, d20: 11 },
+      ],
+      turn_states: {
+        'guest-char': { action_used: false },
+      },
+    }
+    const sessionData = {
+      player: { id: 'guest-char', char_class: 'Wizard', level: 1 },
+      logs: [],
+    }
+
+    const result = applyCombatSessionSnapshot({ combatData, sessionData, ...setters })
+
+    expect(setters.setTurnState).toHaveBeenCalledWith({ action_used: false })
+    expect(result.playerId).toBe('guest-char')
+    expect(result.playerEntry).toEqual({
+      character_id: 'guest-char',
+      name: 'Guest Hero',
+      is_player: true,
+      initiative: 12,
+      d20: 11,
+    })
+  })
 })

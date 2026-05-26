@@ -439,6 +439,45 @@ async def test_start_game_requires_every_room_member_to_claim_character(
     assert started.status_code == 200, started.text
 
 
+async def test_get_session_returns_current_member_character_for_multiplayer(
+    client, sample_module,
+):
+    host = await _register(client, "host_restore_player")
+    guest = await _register(client, "guest_restore_player")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    host_char = await _create_character(client, host["token"], sample_module.id, "Host Restore")
+    guest_char = await _create_character(client, guest["token"], sample_module.id, "Guest Restore")
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char["id"]},
+    )
+    await client.post(
+        f"/game/rooms/{create['session_id']}/claim-character",
+        headers=_h(guest["token"]),
+        json={"character_id": guest_char["id"]},
+    )
+
+    host_snapshot = (await client.get(
+        f"/game/sessions/{create['session_id']}",
+        headers=_h(host["token"]),
+    )).json()
+    guest_snapshot = (await client.get(
+        f"/game/sessions/{create['session_id']}",
+        headers=_h(guest["token"]),
+    )).json()
+
+    assert host_snapshot["player"]["id"] == host_char["id"]
+    assert guest_snapshot["player"]["id"] == guest_char["id"]
+
+
 async def test_start_game_after_claim_works(client, sample_module):
     """认领角色后开始游戏 → 200，game_state.multiplayer.game_started=True。"""
     host = await _register(client, "host_full")

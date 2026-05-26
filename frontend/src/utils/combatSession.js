@@ -42,6 +42,6 @@ export function applyCombatSessionSnapshot({
 
   return {
     playerId,
-    playerEntry: (combatData?.turn_order || []).find(t => t.is_player),
+    playerEntry: (combatData?.turn_order || []).find(t => t.character_id === playerId),
   }
 }
