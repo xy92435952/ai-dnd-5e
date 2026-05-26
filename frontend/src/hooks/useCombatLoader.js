@@ -57,8 +57,16 @@ export function useCombatLoader({
         }
       }
 
+      if (aiTimer.current) {
+        clearTimeout(aiTimer.current)
+        aiTimer.current = null
+      }
+
       if (canDriveAiTurns && !isPlayerTurn(data)) {
-        aiTimer.current = setTimeout(() => triggerAiTurn(), 1000)
+        aiTimer.current = setTimeout(() => {
+          aiTimer.current = null
+          triggerAiTurn()
+        }, 1000)
       }
     } catch (e) {
       setError(e.message)
@@ -90,7 +98,10 @@ export function useCombatLoader({
 
   useEffect(() => {
     loadCombat()
-    return () => clearTimeout(aiTimer.current)
+    return () => {
+      clearTimeout(aiTimer.current)
+      aiTimer.current = null
+    }
   }, [loadCombat, aiTimer])
 
   return { loadCombat }

@@ -100,6 +100,70 @@ describe('useCombatLoader', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('replaces a pending ai timer when combat reloads on the same ai turn', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'char-1' }, logs: [] })
+
+    const { result, deps, aiTimer } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+    const firstTimer = aiTimer.current
+    expect(firstTimer).not.toBeNull()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+    expect(aiTimer.current).not.toBeNull()
+    expect(aiTimer.current).not.toBe(firstTimer)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(deps.triggerAiTurn).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears a pending ai timer when reload restores a player turn', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'char-1' }, logs: [] })
+
+    const { result, deps, aiTimer } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+    expect(aiTimer.current).not.toBeNull()
+
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'char-1', is_player: true },
+      ],
+      turn_states: { 'char-1': { action_used: false } },
+    })
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+    expect(aiTimer.current).toBeNull()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
   it('does not schedule multiplayer ai turns on non-driver clients', async () => {
     getCombatMock.mockResolvedValue({
       round_number: 2,
