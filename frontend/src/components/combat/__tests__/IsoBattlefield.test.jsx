@@ -56,4 +56,63 @@ describe('IsoBattlefield', () => {
     expect(onAoeHover).toHaveBeenCalledWith('2_3')
 
   })
+
+  it('routes allied unit clicks to Help while help mode is active', () => {
+    const onSelectTarget = vi.fn()
+    const onHelpTarget = vi.fn()
+    const onMoveTo = vi.fn()
+
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={2}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{
+          ally: { x: 0, y: 0 },
+          enemy: { x: 1, y: 0 },
+        }}
+        entities={{
+          ally: {
+            id: 'ally',
+            name: 'Ally',
+            is_enemy: false,
+            hp_current: 8,
+            hp_max: 10,
+          },
+          enemy: {
+            id: 'enemy',
+            name: 'Enemy',
+            is_enemy: true,
+            hp_current: 8,
+            hp_max: 10,
+          },
+        }}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set() }}
+        moveMode={false}
+        helpMode
+        aoePreview={null}
+        aoeHover={null}
+        playerId="player"
+        onSelectTarget={onSelectTarget}
+        onHelpTarget={onHelpTarget}
+        onMoveTo={onMoveTo}
+        onAoeHover={vi.fn()}
+      />
+    )
+
+    const cells = container.querySelectorAll('.iso-cell')
+    fireEvent.click(cells[0])
+    expect(onHelpTarget).toHaveBeenCalledWith('ally', expect.objectContaining({ name: 'Ally' }))
+    expect(onSelectTarget).not.toHaveBeenCalled()
+    expect(container.querySelector('.help-ring')).toBeTruthy()
+
+    fireEvent.click(cells[1])
+    expect(onSelectTarget).toHaveBeenCalledWith('enemy')
+    expect(onHelpTarget).toHaveBeenCalledTimes(1)
+  })
 })

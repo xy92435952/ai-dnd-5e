@@ -1018,6 +1018,10 @@
   animation: ringSpin 2.5s linear infinite;
   z-index: 1;
 }
+.iso-unit .target-ring.help-ring {
+  border-color: #7fe8f8;
+  box-shadow: 0 0 14px rgba(127,232,248,.7), inset 0 0 10px rgba(127,232,248,.35);
+}
 @keyframes ringSpin {
   0%,100% { transform: translate(-50%, -50%) scale(1); opacity: .9; }
   50%     { transform: translate(-50%, -50%) scale(1.18); opacity: .5; }

@@ -7,6 +7,8 @@ const { roomsGetMock } = vi.hoisted(() => ({
 
 vi.mock('../../api/client', () => ({
   gameApi: {
+    combatAction: vi.fn(),
+    getCombat: vi.fn(),
     move: vi.fn(),
   },
   roomsApi: {
@@ -14,6 +16,7 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
+import { gameApi } from '../../api/client'
 import { useCombatPageActions } from '../useCombatPageActions'
 
 describe('useCombatPageActions websocket sync', () => {
@@ -31,6 +34,7 @@ describe('useCombatPageActions websocket sync', () => {
       isProcessing: false,
       canActThisTurn: true,
       selectedTarget: 'enemy-1',
+      entities: {},
       entityPositions: {},
       playerPos: null,
       setError: vi.fn(),
@@ -147,5 +151,57 @@ describe('useCombatPageActions websocket sync', () => {
         members: [{ user_id: 'guest', is_online: true }],
       })
     })
+  })
+
+  it('submits Help on an allied target, refreshes combat, and exits help mode', async () => {
+    gameApi.combatAction.mockResolvedValue({
+      action: 'help',
+      turn_state: { action_used: true },
+    })
+    gameApi.getCombat.mockResolvedValue({
+      turn_states: {
+        'ally-1': { being_helped: true },
+      },
+    })
+    const { result, deps } = renderActions({
+      helpMode: true,
+      entities: {
+        'ally-1': { id: 'ally-1', is_enemy: false, name: 'Ally' },
+      },
+    })
+
+    let ok
+    await act(async () => {
+      ok = await result.current.handleHelpTarget('ally-1')
+    })
+
+    expect(ok).toBe(true)
+    expect(gameApi.combatAction).toHaveBeenCalledWith('sess-1', '协助', 'ally-1', false)
+    expect(gameApi.getCombat).toHaveBeenCalledWith('sess-1')
+    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true })
+    expect(deps.setCombat).toHaveBeenCalledWith({
+      turn_states: {
+        'ally-1': { being_helped: true },
+      },
+    })
+    expect(deps.setHelpMode).toHaveBeenCalledWith(false)
+    expect(deps.setError).not.toHaveBeenCalled()
+  })
+
+  it('rejects enemy and self Help targets without sending an action', async () => {
+    const { result, deps } = renderActions({
+      helpMode: true,
+      entities: {
+        'enemy-1': { id: 'enemy-1', is_enemy: true, name: 'Enemy' },
+      },
+    })
+
+    await act(async () => {
+      expect(await result.current.handleHelpTarget('enemy-1')).toBe(false)
+      expect(await result.current.handleHelpTarget('guest-char')).toBe(false)
+    })
+
+    expect(gameApi.combatAction).not.toHaveBeenCalled()
+    expect(deps.setError).toHaveBeenCalledWith('请选择一名队友作为协助目标')
   })
 })

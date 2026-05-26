@@ -14,10 +14,12 @@ export default function IsoBattlefield({
   threatCells,
   aoeCells,
   moveMode,
+  helpMode,
   aoePreview,
   aoeHover,
   playerId,
   onSelectTarget,
+  onHelpTarget = () => {},
   onMoveTo,
   onAoeHover,
 }) {
@@ -47,7 +49,11 @@ export default function IsoBattlefield({
         className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ' aoe' : ''}${isAoeCenter ? ' aoe-center' : ''}`}
         onClick={() => {
           if (ent && !isWall) {
-            onSelectTarget(entId)
+            if (helpMode && !ent.is_enemy && entId !== playerId) {
+              onHelpTarget(entId, ent)
+            } else {
+              onSelectTarget(entId)
+            }
           } else if (moveMode && !isWall) {
             onMoveTo(x, y)
           }
@@ -62,6 +68,7 @@ export default function IsoBattlefield({
             playerId={playerId}
             isCurTurn={isCurTurn}
             isTarget={isTarget}
+            isHelpTarget={helpMode && !ent.is_enemy && entId !== playerId}
           />
         )}
       </IsoBattlefieldCell>

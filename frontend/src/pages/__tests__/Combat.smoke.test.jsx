@@ -19,6 +19,7 @@ const {
   attackRollMock,
   damageRollMock,
   moveMock,
+  combatActionMock,
   endTurnMock,
   useItemMock,
   wsConnectedMock,
@@ -100,6 +101,7 @@ const {
   attackRollMock: vi.fn(),
   damageRollMock: vi.fn(),
   moveMock: vi.fn(),
+  combatActionMock: vi.fn(),
   endTurnMock: vi.fn(),
   useItemMock: vi.fn(),
   wsConnectedMock: vi.fn(),
@@ -119,6 +121,7 @@ vi.mock('../../api/client', () => ({
     attackRoll: attackRollMock,
     damageRoll: damageRollMock,
     move: moveMock,
+    combatAction: combatActionMock,
   },
   charactersApi: {
     useItem: useItemMock,
@@ -194,6 +197,10 @@ describe('Combat render smoke', () => {
     moveMock.mockResolvedValue({
       entity_positions: combatFixture.entity_positions,
       turn_state: { movement_used: 1, movement_max: 6 },
+    })
+    combatActionMock.mockResolvedValue({
+      action: 'help',
+      turn_state: { action_used: true, movement_used: 0, movement_max: 6 },
     })
     useItemMock.mockResolvedValue({
       item: 'Healing Potion',
@@ -537,5 +544,107 @@ describe('Combat render smoke', () => {
     await waitFor(() => {
       expect(damageRollMock).toHaveBeenCalledWith('sess-1', 'pa-1', [10])
     }, { timeout: 3000 })
+  })
+
+  it('lets the active combat owner Help an ally from the battlefield', async () => {
+    wsConnectedMock.mockReturnValue(true)
+    const helpCombat = {
+      ...combatFixture,
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 16 },
+        { character_id: 'ally-char', name: 'Ally Hero', is_player: true, initiative: 12 },
+        { character_id: 'enemy-1', name: '训练假人', is_enemy: true, initiative: 8 },
+      ],
+      entities: {
+        ...combatFixture.entities,
+        'guest-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'guest-char',
+          name: 'Guest Hero',
+        },
+        'ally-char': {
+          id: 'ally-char',
+          name: 'Ally Hero',
+          is_enemy: false,
+          hp_current: 10,
+          hp_max: 10,
+          ac: 14,
+        },
+      },
+      entity_positions: {
+        'guest-char': { x: 4, y: 5 },
+        'ally-char': { x: 5, y: 5 },
+        'enemy-1': { x: 7, y: 5 },
+      },
+      turn_states: {
+        'guest-char': { action_used: false, movement_used: 0, movement_max: 6 },
+        'ally-char': { action_used: false, movement_used: 0, movement_max: 6 },
+      },
+    }
+    const helpedCombat = {
+      ...helpCombat,
+      turn_states: {
+        ...helpCombat.turn_states,
+        'guest-char': { action_used: true, movement_used: 0, movement_max: 6 },
+        'ally-char': { action_used: false, movement_used: 0, movement_max: 6, being_helped: true },
+      },
+    }
+    const guestSession = {
+      ...sessionFixture,
+      player: {
+        ...sessionFixture.player,
+        id: 'guest-char',
+        name: 'Guest Hero',
+      },
+    }
+    const room = {
+      is_multiplayer: true,
+      session_id: 'sess-1',
+      room_code: '234567',
+      members: [
+        { user_id: 'guest-user', display_name: 'Guest', character_id: 'guest-char', is_online: true },
+        { user_id: 'ally-user', display_name: 'Ally', character_id: 'ally-char', is_online: true },
+      ],
+    }
+
+    localStorage.setItem('user', JSON.stringify({ user_id: 'guest-user', display_name: 'Guest' }))
+    window.dispatchEvent(new Event('user-changed'))
+
+    roomsGetMock.mockResolvedValue(room)
+    getCombatMock.mockResolvedValueOnce(helpCombat).mockResolvedValue(helpedCombat)
+    getSessionMock.mockResolvedValue(guestSession)
+    getSkillBarMock.mockResolvedValue({
+      bar: [
+        { k: 'help', label: '协助', glyph: '☉', cost: '动作', key: '4', kind: 'bonus', available: true },
+      ],
+    })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const helpSlot = await waitFor(() => {
+      const slot = container.querySelector('.slot-key.bonus')
+      expect(slot).toBeTruthy()
+      return slot
+    })
+    fireEvent.click(helpSlot)
+
+    const allyToken = await waitFor(() => {
+      const token = container.querySelector('.iso-unit.ally.help-target')
+      expect(token).toBeTruthy()
+      return token
+    })
+    fireEvent.click(allyToken.closest('.iso-cell'))
+
+    await waitFor(() => {
+      expect(combatActionMock).toHaveBeenCalledWith('sess-1', '协助', 'ally-char', false)
+      expect(getCombatMock).toHaveBeenCalledTimes(2)
+    })
   })
 })

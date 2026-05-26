@@ -35,6 +35,7 @@ export default function Combat() {
   const {
     selectedTarget, setSelectedTarget,
     moveMode, setMoveMode,
+    helpMode,
     isRanged, setIsRanged,
     showThreat, setShowThreat,
     aoePreview,
@@ -104,6 +105,7 @@ export default function Combat() {
   const {
     onSkillClick,
     handleMoveTo,
+    handleHelpTarget,
     handleSpellHover,
     handleEndTurn,
     handleCastSpell,
@@ -181,6 +183,7 @@ export default function Combat() {
         threatCells={threatCells}
         aoeCells={aoeCells}
         moveMode={moveMode}
+        helpMode={helpMode}
         aoePreview={aoePreview}
         aoeHover={aoeHover}
         playerId={effectivePlayerId || playerId}
@@ -188,6 +191,7 @@ export default function Combat() {
         floats={floats}
         combatOver={combatOver}
         onSelectTarget={setSelectedTarget}
+        onHelpTarget={handleHelpTarget}
         onMoveTo={handleMoveTo}
         onAoeHover={setAoeHover}
         onReturn={endCombatAndReturn}

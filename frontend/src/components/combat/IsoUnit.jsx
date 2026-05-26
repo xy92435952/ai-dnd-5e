@@ -1,10 +1,10 @@
 import Sprite from '../Sprite'
 import { getSpriteKind } from '../../utils/combat'
 
-export default function IsoUnit({ ent, entId, playerId, isCurTurn, isTarget }) {
+export default function IsoUnit({ ent, entId, playerId, isCurTurn, isTarget, isHelpTarget = false }) {
   return (
     <div
-      className={`iso-unit ${ent.is_enemy ? 'enemy' : (entId === playerId ? 'player' : 'ally')} ${isCurTurn ? 'active' : ''} ${(ent.hp_current / (ent.hp_max || 1)) < .34 ? 'low' : ''}`}
+      className={`iso-unit ${ent.is_enemy ? 'enemy' : (entId === playerId ? 'player' : 'ally')} ${isCurTurn ? 'active' : ''} ${isHelpTarget ? 'help-target' : ''} ${(ent.hp_current / (ent.hp_max || 1)) < .34 ? 'low' : ''}`}
       style={{
         '--c-light': ent.is_enemy ? '#f04848' : (entId === playerId ? '#6ae884' : '#7fc8f8'),
         '--c-dark': ent.is_enemy ? '#3a0a0a' : (entId === playerId ? '#1a4a28' : '#143a5e'),
@@ -22,6 +22,7 @@ export default function IsoUnit({ ent, entId, playerId, isCurTurn, isTarget }) {
         />
       </div>
       {isTarget && <div className="target-ring" />}
+      {isHelpTarget && <div className="target-ring help-ring" />}
     </div>
   )
 }

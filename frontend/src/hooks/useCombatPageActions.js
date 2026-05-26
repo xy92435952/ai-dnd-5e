@@ -16,9 +16,11 @@ export function useCombatPageActions({
   myCharacterId,
   playerId,
   moveMode,
+  helpMode = false,
   isProcessing,
   canActThisTurn,
   selectedTarget,
+  entities = {},
   entityPositions,
   playerPos,
   setError,
@@ -107,6 +109,38 @@ export function useCombatPageActions({
     }
   }, [canActThisTurn, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
+  const handleHelpTarget = useCallback(async (entityId) => {
+    if (!helpMode || !canActThisTurn || isProcessing) return false
+    const target = entityId ? entities?.[entityId] : null
+    if (!entityId || entityId === playerId || entityId === myCharacterId || target?.is_enemy) {
+      setError('请选择一名队友作为协助目标')
+      return false
+    }
+    try {
+      const result = await gameApi.combatAction(sessionId, '协助', entityId, false)
+      if (result?.turn_state) setTurnState(result.turn_state)
+      const fresh = await gameApi.getCombat(sessionId)
+      if (fresh) setCombat(fresh)
+      setHelpMode(false)
+      return true
+    } catch (e) {
+      setError(e.message)
+      return false
+    }
+  }, [
+    canActThisTurn,
+    entities,
+    helpMode,
+    isProcessing,
+    myCharacterId,
+    playerId,
+    sessionId,
+    setCombat,
+    setError,
+    setHelpMode,
+    setTurnState,
+  ])
+
   const handleSpellHover = useCallback((spell) => {
     if (spell && spell.aoe) {
       const radius = aoeRadiusCells(spell)
@@ -126,6 +160,7 @@ export function useCombatPageActions({
     onWsEvent,
     onSkillClick,
     handleMoveTo,
+    handleHelpTarget,
     handleSpellHover,
   }
 }

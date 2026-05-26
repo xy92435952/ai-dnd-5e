@@ -16,6 +16,7 @@ export default function CombatStage({
   threatCells,
   aoeCells,
   moveMode,
+  helpMode,
   aoePreview,
   aoeHover,
   playerId,
@@ -23,6 +24,7 @@ export default function CombatStage({
   floats,
   combatOver,
   onSelectTarget,
+  onHelpTarget,
   onMoveTo,
   onAoeHover,
   onReturn,
@@ -45,10 +47,12 @@ export default function CombatStage({
         threatCells={threatCells}
         aoeCells={aoeCells}
         moveMode={moveMode}
+        helpMode={helpMode}
         aoePreview={aoePreview}
         aoeHover={aoeHover}
         playerId={playerId}
         onSelectTarget={onSelectTarget}
+        onHelpTarget={onHelpTarget}
         onMoveTo={onMoveTo}
         onAoeHover={onAoeHover}
       />

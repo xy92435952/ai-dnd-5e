@@ -54,6 +54,7 @@ export function useCombatRuntime({
     setSelectedTarget,
     moveMode,
     setMoveMode,
+    helpMode,
     isRanged,
     showThreat,
     aoePreview,
@@ -112,15 +113,17 @@ export function useCombatRuntime({
     canDriveAiTurns,
   })
 
-  const { onWsEvent, onSkillClick, handleMoveTo, handleSpellHover } = useCombatPageActions({
+  const { onWsEvent, onSkillClick, handleMoveTo, handleHelpTarget, handleSpellHover } = useCombatPageActions({
     sessionId,
     setRoom,
     myCharacterId,
     playerId: controlledPlayerId,
     moveMode,
+    helpMode,
     isProcessing,
     canActThisTurn: derived.canActThisTurn,
     selectedTarget,
+    entities: derived.entities,
     entityPositions: derived.entityPositions,
     playerPos: derived.playerPos,
     setError,
@@ -189,6 +192,7 @@ export function useCombatRuntime({
     actions: {
       onSkillClick: guardCombatAction(onSkillClick),
       handleMoveTo: guardCombatAction(handleMoveTo),
+      handleHelpTarget: guardCombatAction(handleHelpTarget),
       handleSpellHover,
       handleEndTurn: guardCombatAction(flow.handleEndTurn),
       handleCastSpell: guardCombatAction(flow.handleCastSpell),
