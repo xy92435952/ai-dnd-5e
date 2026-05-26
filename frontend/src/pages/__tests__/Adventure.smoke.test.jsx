@@ -19,6 +19,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 const {
   sessionFixture,
   actionMock,
+  aiTakeoverMock,
   getSessionMock,
   roomsGetMock,
   submitGroupActionMock,
@@ -40,6 +41,7 @@ const {
     is_multiplayer: false,
   },
   actionMock: vi.fn(),
+  aiTakeoverMock: vi.fn(),
   getSessionMock: vi.fn(),
   roomsGetMock: vi.fn(),
   submitGroupActionMock: vi.fn(),
@@ -51,6 +53,7 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     getSession: getSessionMock,
     action:     actionMock,
+    aiTakeover: aiTakeoverMock,
     skillCheck: vi.fn(),
     rest:       vi.fn(),
     saveCheckpoint:  vi.fn(),
@@ -317,6 +320,82 @@ describe('Adventure render smoke', () => {
     })
     const payload = actionMock.mock.calls[0][0]
     expect(payload.action_text).not.toContain('队友意图')
+
+    cleanup()
+  })
+
+  it('triggers AI takeover for an offline multiplayer speaker and refreshes room state', async () => {
+    aiTakeoverMock.mockResolvedValue({
+      narrative: 'The ally checks the locked door.',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      is_multiplayer: true,
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+      logs: [],
+    })
+    roomsGetMock
+      .mockResolvedValueOnce({
+        session_id: 'sess-1',
+        is_multiplayer: true,
+        room_code: '234567',
+        current_speaker_user_id: 'u2',
+        active_group_id: 'main',
+        members: [
+          { user_id: 'me', display_name: 'Me', character_id: 'char-1', is_online: true, seconds_since_seen: 0 },
+          { user_id: 'u2', display_name: 'Ally', character_id: 'char-2', is_online: false, seconds_since_seen: 42 },
+        ],
+        party_groups: [{ id: 'main', name: 'Main', location: 'Hall', member_user_ids: ['me', 'u2'] }],
+        pending_actions_by_group: { main: [] },
+        group_readiness: { main: {} },
+      })
+      .mockResolvedValueOnce({
+        session_id: 'sess-1',
+        is_multiplayer: true,
+        room_code: '234567',
+        current_speaker_user_id: 'me',
+        active_group_id: 'main',
+        members: [
+          { user_id: 'me', display_name: 'Me', character_id: 'char-1', is_online: true, seconds_since_seen: 0 },
+          { user_id: 'u2', display_name: 'Ally', character_id: 'char-2', is_online: false, seconds_since_seen: 43 },
+        ],
+        party_groups: [{ id: 'main', name: 'Main', location: 'Hall', member_user_ids: ['me', 'u2'] }],
+        pending_actions_by_group: { main: [] },
+        group_readiness: { main: {} },
+      })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const takeoverButton = await screen.findByRole('button', { name: /AI 代演/ })
+    expect(takeoverButton).toBeEnabled()
+    fireEvent.click(takeoverButton)
+
+    await waitFor(() => {
+      expect(aiTakeoverMock).toHaveBeenCalledWith('sess-1')
+    })
+    await waitFor(() => {
+      expect(roomsGetMock).toHaveBeenCalledTimes(2)
+    })
+    expect(getSessionMock).toHaveBeenCalledTimes(2)
 
     cleanup()
   })
