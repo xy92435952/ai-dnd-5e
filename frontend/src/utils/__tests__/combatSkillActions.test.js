@@ -85,6 +85,28 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
   })
 
+  it('routes offhand attacks through the combat action endpoint', async () => {
+    const offhandTurnState = { action_used: true, bonus_action_used: true }
+    const { handler, fns, api } = makeHandler()
+    api.combatAction.mockResolvedValueOnce({
+      narration: 'Tester 使用副手攻击命中训练假人',
+      turn_state: offhandTurnState,
+    })
+
+    await handler({ k: 'off_attack', available: true })
+
+    expect(api.combatAction).toHaveBeenCalledWith('sess-1', '副手攻击', 'enemy-1', false)
+    expect(api.grappleShove).not.toHaveBeenCalled()
+    expect(fns.setTurnState).toHaveBeenCalledWith(offhandTurnState)
+    expect(fns.addLog).toHaveBeenCalledWith({
+      role: 'player',
+      content: 'Tester 使用副手攻击命中训练假人',
+      log_type: 'combat',
+    })
+    expect(api.getCombat).toHaveBeenCalledWith('sess-1')
+    expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
+  })
+
   it('requires a selected target before shove or grapple', async () => {
     const { handler, fns, api } = makeHandler({ getSelectedTarget: vi.fn(() => null) })
 
@@ -94,5 +116,15 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.setError).toHaveBeenCalledTimes(2)
     expect(fns.setError).toHaveBeenCalledWith('请先选择目标')
     expect(api.grappleShove).not.toHaveBeenCalled()
+  })
+
+  it('requires a selected target before offhand attack', async () => {
+    const { handler, fns, api } = makeHandler({ getSelectedTarget: vi.fn(() => null) })
+
+    await handler({ k: 'off_attack', available: true })
+
+    expect(fns.setError).toHaveBeenCalledWith('请先选择目标')
+    expect(api.combatAction).not.toHaveBeenCalled()
+    expect(api.getCombat).not.toHaveBeenCalled()
   })
 })

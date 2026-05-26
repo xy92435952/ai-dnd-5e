@@ -54,6 +54,15 @@ export function createCombatSkillClickHandler({
           }
           setCombat(await gameApi.getCombat(sessionId))
           break
+        case 'off_attack':
+          if (!getSelectedTarget()) { setError('请先选择目标'); return }
+          {
+            const result = await gameApi.combatAction(sessionId, '副手攻击', getSelectedTarget(), false)
+            if (result?.turn_state) setTurnState?.(result.turn_state)
+            if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
+          }
+          setCombat(await gameApi.getCombat(sessionId))
+          break
         case 'help':
           setHelpMode(true)
           break
