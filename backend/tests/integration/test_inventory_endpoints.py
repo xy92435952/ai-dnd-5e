@@ -36,6 +36,43 @@ async def test_buy_item_deducts_gold_and_adds_gear(client, db_session, sample_us
 
 
 @pytest.mark.asyncio
+async def test_buy_ammo_bundle_updates_matching_weapon_ammo(client, db_session, sample_user, sample_character):
+    sample_character.equipment = {
+        "gold": 5,
+        "weapons": [
+            {"name": "Longbow", "ammo": 2, "equipped": True},
+        ],
+        "gear": [],
+    }
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post(
+        f"/characters/{sample_character.id}/shop/buy",
+        headers=headers,
+        json={
+            "item_name": "Arrows (20)",
+            "item_category": "gear",
+            "quantity": 1,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["gold_remaining"] == 4
+    assert data["ammo_added"] == {
+        "bundle": "Arrows (20)",
+        "weapon": "Longbow",
+        "amount": 20,
+        "ammo": 22,
+    }
+    assert data["equipment"]["weapons"][0]["ammo"] == 22
+    assert data["equipment"]["gear"] == []
+    await db_session.refresh(sample_character)
+    assert sample_character.equipment["weapons"][0]["ammo"] == 22
+
+
+@pytest.mark.asyncio
 async def test_buy_item_rejects_non_positive_quantity(client, db_session, sample_user, sample_character):
     sample_character.equipment = {"gold": 51, "gear": []}
     await db_session.commit()

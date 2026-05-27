@@ -4,6 +4,18 @@ from services.dnd_rules import ARMOR, SHOP_GEAR, WEAPONS
 from services.inventory_models import InventoryError, copy_equipment, find_named_item, shop_item_data
 
 
+AMMO_BUNDLES = {
+    "Arrows (20)": {
+        "amount": 20,
+        "compatible_weapons": {"Longbow", "Shortbow"},
+    },
+    "Bolts (20)": {
+        "amount": 20,
+        "compatible_weapons": {"Light Crossbow", "Hand Crossbow", "Heavy Crossbow"},
+    },
+}
+
+
 def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quantity: int = 1) -> dict:
     if quantity <= 0:
         raise InventoryError(400, "购买数量必须大于 0")
@@ -20,6 +32,7 @@ def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quan
 
     updated["gold"] = current_gold - cost
 
+    ammo_result = {}
     if item_category == "weapon":
         weapons = list(updated.get("weapons", []))
         for _ in range(quantity):
@@ -33,18 +46,27 @@ def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quan
             armor_list.append({**item_data, "name": item_name, "equipped": False})
             updated["armor"] = armor_list
     elif item_category == "gear":
-        gear = list(updated.get("gear", []))
-        for _ in range(quantity):
-            gear.append({"name": item_name, **item_data})
-        updated["gear"] = gear
+        ammo_result = _apply_ammo_bundle_purchase(
+            updated,
+            item_name=item_name,
+            quantity=quantity,
+        )
+        if not ammo_result:
+            gear = list(updated.get("gear", []))
+            for _ in range(quantity):
+                gear.append({"name": item_name, **item_data})
+            updated["gear"] = gear
 
-    return {
+    result = {
         "bought": item_name,
         "quantity": quantity,
         "cost": cost,
         "gold_remaining": updated["gold"],
         "equipment": updated,
     }
+    if ammo_result:
+        result["ammo_added"] = ammo_result
+    return result
 
 
 def sell_item(equipment: dict | None, *, item_name: str, item_category: str, item_index: int = 0) -> dict:
@@ -179,3 +201,40 @@ def transfer_item(
         "source_equipment": source,
         "target_equipment": target,
     }
+
+
+def _apply_ammo_bundle_purchase(equipment: dict, *, item_name: str, quantity: int) -> dict:
+    bundle = AMMO_BUNDLES.get(item_name)
+    if not bundle:
+        return {}
+
+    weapons = list(equipment.get("weapons", []))
+    compatible_names = bundle["compatible_weapons"]
+    candidates = [
+        (index, weapon)
+        for index, weapon in enumerate(weapons)
+        if isinstance(weapon, dict) and weapon.get("name") in compatible_names
+    ]
+    if not candidates:
+        return {}
+
+    equipped = [candidate for candidate in candidates if candidate[1].get("equipped")]
+    index, weapon = (equipped or candidates)[0]
+    amount = int(bundle["amount"]) * quantity
+    current_ammo = _as_int(weapon.get("ammo"), 0)
+    next_ammo = current_ammo + amount
+    weapons[index] = {**weapon, "ammo": next_ammo}
+    equipment["weapons"] = weapons
+    return {
+        "bundle": item_name,
+        "weapon": weapon.get("name"),
+        "amount": amount,
+        "ammo": next_ammo,
+    }
+
+
+def _as_int(value, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default

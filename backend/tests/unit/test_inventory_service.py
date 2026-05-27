@@ -20,6 +20,72 @@ def test_buy_gear_deducts_gold_and_does_not_mutate_input():
     assert [item["name"] for item in result["equipment"]["gear"]] == ["Healing Potion"]
 
 
+def test_buy_arrows_adds_ammo_to_equipped_bow_without_adding_gear():
+    original = {
+        "gold": 5,
+        "weapons": [
+            {"name": "Longbow", "ammo": 2, "equipped": True},
+            {"name": "Shortbow", "ammo": 8, "equipped": False},
+        ],
+        "gear": [],
+    }
+
+    result = inventory_service.buy_item(
+        original,
+        item_name="Arrows (20)",
+        item_category="gear",
+        quantity=1,
+    )
+
+    assert result["gold_remaining"] == 4
+    assert result["ammo_added"] == {
+        "bundle": "Arrows (20)",
+        "weapon": "Longbow",
+        "amount": 20,
+        "ammo": 22,
+    }
+    assert result["equipment"]["weapons"][0]["ammo"] == 22
+    assert result["equipment"]["weapons"][1]["ammo"] == 8
+    assert result["equipment"]["gear"] == []
+    assert original["weapons"][0]["ammo"] == 2
+
+
+def test_buy_bolts_initializes_crossbow_ammo_from_zero():
+    result = inventory_service.buy_item(
+        {
+            "gold": 5,
+            "weapons": [{"name": "Light Crossbow", "equipped": True}],
+            "gear": [],
+        },
+        item_name="Bolts (20)",
+        item_category="gear",
+        quantity=2,
+    )
+
+    assert result["gold_remaining"] == 3
+    assert result["ammo_added"]["weapon"] == "Light Crossbow"
+    assert result["ammo_added"]["amount"] == 40
+    assert result["ammo_added"]["ammo"] == 40
+    assert result["equipment"]["weapons"][0]["ammo"] == 40
+    assert result["equipment"]["gear"] == []
+
+
+def test_buy_ammo_bundle_without_matching_weapon_keeps_bundle_as_gear():
+    result = inventory_service.buy_item(
+        {
+            "gold": 5,
+            "weapons": [{"name": "Longsword", "equipped": True}],
+            "gear": [],
+        },
+        item_name="Arrows (20)",
+        item_category="gear",
+        quantity=1,
+    )
+
+    assert "ammo_added" not in result
+    assert [item["name"] for item in result["equipment"]["gear"]] == ["Arrows (20)"]
+
+
 def test_buy_rejects_non_positive_quantity():
     with pytest.raises(inventory_service.InventoryError, match="购买数量"):
         inventory_service.buy_item(
