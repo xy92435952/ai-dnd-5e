@@ -106,6 +106,11 @@ async def prepare_direct_attack(
         abs((attacker_pos.get("x", 0) or 0) - (target_pos.get("x", 0) or 0)),
         abs((attacker_pos.get("y", 0) or 0) - (target_pos.get("y", 0) or 0)),
     )
+    if "prone" in target_conditions and target_distance > 1:
+        non_prone_conditions = [condition for condition in target_conditions if condition != "prone"]
+        defense_advantage, defense_disadvantage = combat_service.get_defense_modifiers(non_prone_conditions)
+        defense_disadvantage = True
+
     attack_disadvantage, ranged_penalty = apply_ranged_close_penalty(
         atk_dis=attack_disadvantage,
         is_ranged=is_ranged,
