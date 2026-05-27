@@ -44,6 +44,8 @@ def _fill_monster_defaults(m: dict) -> dict:
         'ac_source': '天然护甲', 'speed': 30, 'skills': {},
         'resistances': [], 'immunities': [], 'senses': '普通视觉',
         'languages': [], 'special_abilities': [], 'legendary_actions': [],
+        'known_spells': [], 'prepared_spells': [], 'cantrips': [], 'spell_slots': {},
+        'spell_ability': None, 'spell_save_dc': None,
         'typical_count': 1, 'tactics': '直接攻击最近的目标'
     }
     for k, v in defaults.items():
