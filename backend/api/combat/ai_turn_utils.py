@@ -11,6 +11,9 @@ from api.combat._shared import (
 )
 from models import GameLog
 from services.combat_reaction_service import (
+    build_pending_spell_reaction,
+    character_knows_counterspell,
+    choose_counterspell_slot,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
 )
@@ -132,28 +135,6 @@ def build_reaction_prompt(
             "damage_dice": "2d10",
         })
 
-    if ("Absorb Elements" in known_spells or "absorb_elements" in known_spells) and p_slots.get("1st", 0) > 0:
-        available_reactions.append({
-            "id": "absorb_elements",
-            "name": "Absorb Elements",
-            "type": "spell",
-            "cost": "1st-level spell slot",
-            "slot_level": "1st",
-            "slots_remaining": p_slots.get("1st", 0),
-            "effect": "获得触发元素的伤害抗性（持续到下回合开始），下次近战+1d6该元素伤害",
-        })
-
-    if ("Counterspell" in known_spells or "counterspell" in known_spells) and p_slots.get("3rd", 0) > 0:
-        available_reactions.append({
-            "id": "counterspell",
-            "name": "Counterspell",
-            "type": "spell",
-            "cost": "3rd-level spell slot",
-            "slot_level": "3rd",
-            "slots_remaining": p_slots.get("3rd", 0),
-            "effect": "反制敌人施放的法术（3环或以下自动成功，更高需检定）",
-        })
-
     if not available_reactions:
         return True, False, None
 
@@ -178,4 +159,92 @@ def build_reaction_prompt(
             }
             for reaction in available_reactions
         ],
+    }
+
+
+def build_counterspell_prompt(
+    *,
+    player_check,
+    player_ts: dict,
+    actor_id: str,
+    actor_name: str,
+    spell_name: str,
+    spell_level: int,
+    spell_target_id: str | None,
+    decision: dict,
+    decided_reason: str,
+):
+    if not player_check:
+        return False, False, None
+    if player_ts.get("reaction_used"):
+        return True, False, None
+    if not character_knows_counterspell(player_check):
+        return True, False, None
+
+    slot_choice = choose_counterspell_slot(player_check.spell_slots or {}, spell_level)
+    if not slot_choice:
+        return True, False, None
+
+    slot_key, slot_level = slot_choice
+    declined = player_ts.get("resume_spell_reaction") or {}
+    spell_target_key = str(spell_target_id) if spell_target_id is not None else None
+    if (
+        declined.get("trigger") == "spell_cast"
+        and str(declined.get("caster_id")) == str(actor_id)
+        and declined.get("spell_name") == spell_name
+        and int(declined.get("spell_level") or 0) == int(spell_level or 0)
+        and declined.get("spell_target_id") == spell_target_key
+    ):
+        return True, False, None
+
+    pending_reaction = build_pending_spell_reaction(
+        caster_id=actor_id,
+        caster_name=actor_name,
+        reactor_id=str(player_check.id),
+        spell_name=spell_name,
+        spell_level=spell_level,
+        spell_target_id=spell_target_id,
+        decision=decision,
+        decided_reason=decided_reason,
+    )
+    player_ts["pending_spell_reaction"] = pending_reaction
+
+    reaction = {
+        "id": "counterspell",
+        "name": "Counterspell",
+        "type": "counterspell",
+        "cost": f"{slot_key} spell slot",
+        "slot_level": slot_key,
+        "slot_level_number": slot_level,
+        "slots_remaining": (player_check.spell_slots or {}).get(slot_key, 0),
+        "effect": (
+            f"Cancel {actor_name}'s {spell_name}"
+            if spell_level <= slot_level
+            else f"Attempt to cancel {actor_name}'s {spell_name} (DC {10 + int(spell_level or 0)})"
+        ),
+        "countered_spell": spell_name,
+        "countered_spell_level": int(spell_level or 0),
+    }
+    return True, True, {
+        "can_react": True,
+        "reaction_used": player_ts.get("reaction_used", False),
+        "trigger": "spell_cast",
+        "context": f"{actor_name} is casting {spell_name}.",
+        "attacker_name": actor_name,
+        "attacker_id": actor_id,
+        "caster_name": actor_name,
+        "caster_id": actor_id,
+        "spell_name": spell_name,
+        "spell_level": int(spell_level or 0),
+        "reactor_character_id": str(player_check.id),
+        "target_id": actor_id,
+        "spell_target_id": str(spell_target_id) if spell_target_id is not None else None,
+        "spell_slots": player_check.spell_slots or {},
+        "available_reactions": [reaction],
+        "options": [{
+            "type": "counterspell",
+            "target_id": actor_id,
+            "character_id": str(player_check.id),
+            "label": f"{reaction['name']} - {reaction.get('effect', '')}".strip(" -"),
+        }],
     }

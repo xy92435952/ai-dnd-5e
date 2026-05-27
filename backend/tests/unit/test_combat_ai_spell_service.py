@@ -636,6 +636,14 @@ def test_damage_after_ai_character_save_applies_evasion_to_character_object():
     assert damage == 0
 
 
+def test_resolve_ai_spell_level_defaults_to_spell_registry_level():
+    from services.combat_ai_spell_service import resolve_ai_spell_level
+
+    assert resolve_ai_spell_level({}, {"level": 3}) == 3
+    assert resolve_ai_spell_level({"spell_level": 1}, {"level": 3}) == 3
+    assert resolve_ai_spell_level({"spell_level": 5}, {"level": 3}) == 5
+
+
 @pytest.mark.asyncio
 async def test_ai_control_spell_auto_fails_unconscious_enemy_dex_save():
     from services.combat_ai_spell_effect_service import apply_ai_control_spell

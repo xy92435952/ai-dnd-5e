@@ -25,12 +25,16 @@ from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.combat_reaction_service import (
+    calculate_counterspell_result,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
+    character_knows_counterspell,
+    choose_counterspell_slot,
     restore_prevented_damage,
 )
+from services.combat_ai_spell_service import consume_ai_spell_slot, consume_named_spell_slot
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_reaction
 from services.character_roster import CharacterRoster
 
@@ -43,6 +47,7 @@ from api.combat._shared import (
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
     _chebyshev, _resolve_opportunity_attacks,
 )
+from api.combat.ai_turn_utils import advance_ai_turn
 from api.combat.schemas import (
     MoveRequest, ConditionRequest, CombatActionRequest, DeathSaveRequest,
     SmiteRequest, ClassFeatureRequest, ReactionRequest, GrappleShoveRequest,
@@ -122,11 +127,26 @@ async def use_reaction(
     p_level = player.level
     derived = player.derived or {}
     pending_reaction = ts.get("pending_attack_reaction") or {}
+    pending_spell_reaction = ts.get("pending_spell_reaction") or {}
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))
     narration = ""
     reaction_effect = {}
     reaction_target_name = ""
+
+    if req.reaction_type == "decline":
+        if pending_spell_reaction:
+            ts["resume_spell_reaction"] = pending_spell_reaction
+            ts.pop("pending_spell_reaction", None)
+        ts.pop("pending_attack_reaction", None)
+        _save_ts(combat, player_id, ts)
+        await db.commit()
+        return {
+            "action": "reaction_declined",
+            "reaction_type": req.reaction_type,
+            "narration": "",
+            "turn_state": ts,
+        }
 
     if req.reaction_type == "shield":
         # Shield spell: AC+5 until next turn, costs 1st level slot
@@ -253,6 +273,73 @@ async def use_reaction(
             "save_success": damage_result["save_success"],
             "save": save_detail,
             "target": target_name,
+        }
+
+    elif req.reaction_type == "counterspell":
+        if pending_spell_reaction.get("trigger") != "spell_cast":
+            raise HTTPException(400, "No spell is pending Counterspell")
+        if not character_knows_counterspell(player):
+            raise HTTPException(400, "You have not learned Counterspell")
+
+        spell_level = int(pending_spell_reaction.get("spell_level") or 0)
+        slot_choice = choose_counterspell_slot(player.spell_slots or {}, spell_level)
+        if not slot_choice:
+            raise HTTPException(400, "No available 3rd-level or higher spell slot")
+        slot_key, slot_level = slot_choice
+
+        counter_result = calculate_counterspell_result(
+            countered_spell_level=spell_level,
+            counterspell_slot_level=slot_level,
+            caster_derived=derived,
+            roll_dice_func=roll_dice,
+        )
+        consume_named_spell_slot(player, slot_key)
+
+        ts["reaction_used"] = True
+        ts.pop("pending_spell_reaction", None)
+        if not counter_result["success"]:
+            ts["resume_spell_reaction"] = pending_spell_reaction
+        else:
+            ts.pop("resume_spell_reaction", None)
+        _save_ts(combat, player_id, ts)
+        if counter_result["success"]:
+            caster_id = pending_spell_reaction.get("caster_id")
+            for enemy in enemies:
+                if str(enemy.get("id")) == str(caster_id):
+                    if spell_level > 0:
+                        consume_ai_spell_slot(enemy, spell_level)
+                    state["enemies"] = enemies
+                    session.game_state = dict(state)
+                    flag_modified(session, "game_state")
+                    break
+            turn_order = combat.turn_order or []
+            if turn_order:
+                next_index = ((combat.current_turn_index or 0) + 1) % max(len(turn_order), 1)
+                await advance_ai_turn(combat, session, db, turn_order, next_index)
+
+        caster_name = pending_spell_reaction.get("caster_name") or "caster"
+        spell_name = pending_spell_reaction.get("spell_name") or "spell"
+        caster_id = pending_spell_reaction.get("caster_id")
+        reaction_target_name = caster_name
+        if counter_result["success"]:
+            narration = (
+                f"{player.name} uses Counterspell and cancels "
+                f"{caster_name}'s {spell_name}."
+            )
+        else:
+            narration = (
+                f"{player.name} uses Counterspell against {caster_name}'s {spell_name}, "
+                f"but the check fails."
+            )
+        reaction_effect = {
+            "spell_cancelled": counter_result["success"],
+            "countered_spell": spell_name,
+            "countered_spell_level": spell_level,
+            "caster_id": caster_id,
+            "caster_name": caster_name,
+            "slot_used": slot_key,
+            "slot_level": slot_level,
+            "check": counter_result,
         }
 
     else:

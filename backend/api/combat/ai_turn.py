@@ -22,7 +22,7 @@ from api.combat._shared import (
 from api.combat.ai_turn_utils import advance_ai_turn
 from api.combat.ai_turn_context import build_ai_turn_context
 from api.combat.ai_turn_actions import handle_ai_simple_action
-from api.combat.ai_turn_spell import handle_ai_spell_action
+from api.combat.ai_turn_spell import find_resumable_spell_reaction, handle_ai_spell_action
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
@@ -181,7 +181,15 @@ async def _ai_combat_turn_locked(
             "entity_positions": dict(combat.entity_positions or {}),
         })
 
-    from services.ai_combat_agent import get_ai_decision, calc_difficulty
+    _resume_reactor_id, _resume_ts, resume_spell = find_resumable_spell_reaction(combat, actor_id)
+    if resume_spell:
+        def calc_difficulty(_parsed):
+            return "normal"
+
+        async def get_ai_decision(**_kwargs):
+            return resume_spell.get("decision") or {}
+    else:
+        from services.ai_combat_agent import get_ai_decision, calc_difficulty
 
     # 获取模组难度
     _module = await db.get(Module, session.module_id) if session.module_id else None

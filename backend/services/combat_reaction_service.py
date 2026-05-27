@@ -12,6 +12,29 @@ from services.dnd_rules import (
 )
 
 
+SLOT_LEVELS: dict[str, int] = {
+    "1st": 1,
+    "2nd": 2,
+    "3rd": 3,
+    "4th": 4,
+    "5th": 5,
+    "6th": 6,
+    "7th": 7,
+    "8th": 8,
+    "9th": 9,
+}
+
+COUNTERSPELL_NAMES = {
+    "counterspell",
+    "counter-spell",
+    "counter spell",
+    "Counterspell",
+    "Counter Spell",
+    "反制法术",
+    "反制法術",
+}
+
+
 def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
@@ -131,6 +154,100 @@ def build_pending_attack_reaction(
         "target_conditions_before_damage": first_conditions_snapshot,
         "target_condition_durations_before_damage": first_durations_snapshot,
         "events": normalized_events,
+    }
+
+
+def _normalized_spell_key(value: Any) -> str:
+    return str(value or "").strip().lower().replace("_", " ").replace("-", " ")
+
+
+def character_knows_counterspell(character: Any) -> bool:
+    known = set(getattr(character, "known_spells", None) or [])
+    known |= set(getattr(character, "prepared_spells", None) or [])
+    normalized_known = {_normalized_spell_key(spell) for spell in known}
+    return any(_normalized_spell_key(name) in normalized_known for name in COUNTERSPELL_NAMES)
+
+
+def choose_counterspell_slot(
+    spell_slots: dict[str, Any] | None,
+    countered_spell_level: int,
+) -> tuple[str, int] | None:
+    """Choose the lowest useful Counterspell slot, preferring automatic counters."""
+    slots = dict(spell_slots or {})
+    target_level = max(int(countered_spell_level or 0), 3)
+    available = [
+        (key, level)
+        for key, level in SLOT_LEVELS.items()
+        if level >= 3 and int(slots.get(key) or 0) > 0
+    ]
+    if not available:
+        return None
+
+    auto_slots = [(key, level) for key, level in available if level >= target_level]
+    if auto_slots:
+        return min(auto_slots, key=lambda item: item[1])
+    return min(available, key=lambda item: item[1])
+
+
+def build_pending_spell_reaction(
+    *,
+    caster_id: str,
+    caster_name: str,
+    reactor_id: str,
+    spell_name: str,
+    spell_level: int,
+    spell_target_id: str | None,
+    decision: dict[str, Any],
+    decided_reason: str,
+) -> dict[str, Any]:
+    return {
+        "trigger": "spell_cast",
+        "caster_id": str(caster_id),
+        "caster_name": caster_name,
+        "reactor_id": str(reactor_id),
+        "spell_name": spell_name,
+        "spell_level": int(spell_level or 0),
+        "spell_target_id": str(spell_target_id) if spell_target_id is not None else None,
+        "decision": dict(decision or {}),
+        "decided_reason": decided_reason or "",
+    }
+
+
+def calculate_counterspell_result(
+    *,
+    countered_spell_level: int,
+    counterspell_slot_level: int,
+    caster_derived: dict[str, Any] | None,
+    roll_dice_func,
+) -> dict[str, Any]:
+    """Resolve the DnD 5e Counterspell check for spells above the slot used."""
+    spell_level = int(countered_spell_level or 0)
+    slot_level = int(counterspell_slot_level or 3)
+    if spell_level <= slot_level:
+        return {
+            "success": True,
+            "automatic": True,
+            "dc": None,
+            "d20": None,
+            "modifier": 0,
+            "total": None,
+        }
+
+    derived = caster_derived or {}
+    spell_ability = derived.get("spell_ability")
+    modifier = 0
+    if spell_ability:
+        modifier = int((derived.get("ability_modifiers") or {}).get(spell_ability, 0) or 0)
+    d20 = int((roll_dice_func("1d20").get("rolls") or [0])[0])
+    dc = 10 + spell_level
+    total = d20 + modifier
+    return {
+        "success": total >= dc,
+        "automatic": False,
+        "dc": dc,
+        "d20": d20,
+        "modifier": modifier,
+        "total": total,
     }
 
 

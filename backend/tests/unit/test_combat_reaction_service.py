@@ -2,10 +2,13 @@ from types import SimpleNamespace
 
 from services.combat_reaction_service import (
     build_pending_attack_reaction,
+    calculate_counterspell_result,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
+    character_knows_counterspell,
+    choose_counterspell_slot,
     restore_prevented_damage,
 )
 
@@ -250,3 +253,52 @@ def test_restore_prevented_damage_restores_wild_shape_after_hp_and_temp_hp():
     assert result["temporary_hp_restored"] == 2
     assert result["wild_shape_hp_restored"] == 4
     assert result["wild_shape_hp_after_reaction"] == 4
+
+
+def test_character_knows_counterspell_matches_english_and_chinese_names():
+    assert character_knows_counterspell(SimpleNamespace(
+        known_spells=["反制法术"],
+        prepared_spells=[],
+    ))
+    assert character_knows_counterspell(SimpleNamespace(
+        known_spells=[],
+        prepared_spells=["counterspell"],
+    ))
+
+
+def test_choose_counterspell_slot_prefers_lowest_automatic_slot():
+    assert choose_counterspell_slot({"3rd": 1, "5th": 1}, 3) == ("3rd", 3)
+    assert choose_counterspell_slot({"3rd": 1, "5th": 1}, 5) == ("5th", 5)
+    assert choose_counterspell_slot({"3rd": 1}, 5) == ("3rd", 3)
+    assert choose_counterspell_slot({"2nd": 1}, 3) is None
+
+
+def test_counterspell_result_auto_succeeds_when_slot_covers_spell_level():
+    result = calculate_counterspell_result(
+        countered_spell_level=3,
+        counterspell_slot_level=3,
+        caster_derived={"spell_ability": "int", "ability_modifiers": {"int": -1}},
+        roll_dice_func=lambda _expr: {"rolls": [1], "total": 1},
+    )
+
+    assert result["success"] is True
+    assert result["automatic"] is True
+    assert result["d20"] is None
+
+
+def test_counterspell_result_rolls_for_higher_level_spells():
+    result = calculate_counterspell_result(
+        countered_spell_level=5,
+        counterspell_slot_level=3,
+        caster_derived={"spell_ability": "int", "ability_modifiers": {"int": 4}},
+        roll_dice_func=lambda _expr: {"rolls": [10], "total": 10},
+    )
+
+    assert result == {
+        "success": False,
+        "automatic": False,
+        "dc": 15,
+        "d20": 10,
+        "modifier": 4,
+        "total": 14,
+    }

@@ -37,6 +37,33 @@ def _caster_id(caster) -> str | None:
     return str(value) if value is not None else None
 
 
+def resolve_ai_spell_level(decision: dict[str, Any], spell_data: dict[str, Any]) -> int:
+    base_level = int(spell_data.get("level") or 0)
+    requested_level = decision.get("spell_level")
+    if requested_level is None:
+        return base_level
+    try:
+        requested_level = int(requested_level)
+    except (TypeError, ValueError):
+        requested_level = base_level
+    return max(base_level, requested_level)
+
+
+def consume_named_spell_slot(caster, slot_key: str) -> bool:
+    if isinstance(caster, dict):
+        slots = dict(caster.get("spell_slots") or {})
+    else:
+        slots = dict(getattr(caster, "spell_slots", None) or {})
+    if int(slots.get(slot_key) or 0) <= 0:
+        return False
+    slots[slot_key] -= 1
+    if isinstance(caster, dict):
+        caster["spell_slots"] = slots
+    else:
+        caster.spell_slots = slots
+    return True
+
+
 def _persist_enemy_caster_state(
     *,
     session,
@@ -77,11 +104,11 @@ async def resolve_ai_spell_action(
         return None
 
     spell_name = decision["action_name"]
-    spell_level = decision.get("spell_level") or 1
     spell_target = decided_target_id
     spell_data = spell_service_obj.get(spell_name)
     if not spell_data:
         return None
+    spell_level = resolve_ai_spell_level(decision, spell_data)
 
     spell_mod = _spell_modifier(actor_derived)
     spell_save_dc = actor_derived.get("spell_save_dc", 13)
@@ -194,5 +221,7 @@ __all__ = [
     "_spell_modifier",
     "build_ai_spell_narration",
     "consume_ai_spell_slot",
+    "consume_named_spell_slot",
     "resolve_ai_spell_action",
+    "resolve_ai_spell_level",
 ]

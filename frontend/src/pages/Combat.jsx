@@ -114,13 +114,13 @@ export default function Combat() {
     handleDeathSave,
     handleSmite,
     handleReaction,
+    handleCancelReaction,
     handleManeuver,
     setAoeHover,
     setSmitePrompt,
     setSpellModalOpen,
     setSpellQuickPick,
     setManeuverModalOpen,
-    setReactionPrompt,
     clearAoePreview,
   } = actions
 
@@ -251,7 +251,7 @@ export default function Combat() {
         onCloseManeuver={() => setManeuverModalOpen(false)}
         reactionPrompt={reactionPrompt}
         onReact={handleReaction}
-        onCancelReaction={() => setReactionPrompt(null)}
+        onCancelReaction={handleCancelReaction}
         error={error}
       />
     </div>

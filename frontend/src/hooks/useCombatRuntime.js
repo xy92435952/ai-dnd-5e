@@ -205,6 +205,7 @@ export function useCombatRuntime({
       handleDeathSave: guardCombatAction(flow.handleDeathSave),
       handleSmite: guardCombatAction(flow.handleSmite),
       handleReaction: guardCombatAction(flow.handleReaction),
+      handleCancelReaction: guardCombatAction(flow.handleCancelReaction),
       handleManeuver: guardCombatAction(flow.handleManeuver),
       setSelectedTarget,
       setAoeHover,

@@ -110,6 +110,34 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('declines spell reactions on the server before resuming ai turns', async () => {
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleCancelReaction({
+        trigger: 'spell_cast',
+        target_id: 'enemy-mage',
+        reactor_character_id: 'char-2',
+      })
+    })
+
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'enemy-mage', 'char-2')
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('local-cancels attack reactions and resumes ai turns without a server call', async () => {
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleCancelReaction({ trigger: 'incoming_attack' })
+    })
+
+    expect(useReactionMock).not.toHaveBeenCalled()
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
   it('runs maneuver against the selected target', async () => {
     const { result, deps } = renderActions()
 

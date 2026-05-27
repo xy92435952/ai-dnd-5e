@@ -1,7 +1,7 @@
 export default function ReactionPrompt({ prompt, onReact, onCancel }) {
   if (!prompt) return null
   const options = prompt.options || (prompt.available_reactions || []).map(reaction => ({
-    type: reaction.type || reaction.id,
+    type: reaction.id || reaction.type,
     target_id: prompt.target_id || prompt.attacker_id,
     character_id: prompt.reactor_character_id,
     label: `${reaction.name || reaction.id}${reaction.effect ? ` - ${reaction.effect}` : ''}`,
@@ -19,7 +19,7 @@ export default function ReactionPrompt({ prompt, onReact, onCancel }) {
               {opt.label}
             </button>
           ))}
-          <button className="btn-ghost" style={{ padding: 6, fontSize: 11 }} onClick={onCancel}>
+          <button className="btn-ghost" style={{ padding: 6, fontSize: 11 }} onClick={() => onCancel?.(prompt)}>
             放弃反应
           </button>
         </div>

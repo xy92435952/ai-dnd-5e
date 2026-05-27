@@ -200,6 +200,7 @@ export function useCombatFlowHandlers({
   const {
     handleSmite,
     handleReaction,
+    handleCancelReaction,
     handleManeuver,
   } = useCombatSpecialActions({
     sessionId,
@@ -237,6 +238,7 @@ export function useCombatFlowHandlers({
     handleDisengage,
     handleSmite,
     handleReaction,
+    handleCancelReaction,
     handleManeuver,
   }
 }

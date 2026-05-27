@@ -102,6 +102,37 @@ export function useCombatSpecialActions({
     triggerAiTurn,
   ])
 
+  const handleCancelReaction = useCallback(async (prompt = null) => {
+    setReactionPrompt(null)
+    if (prompt?.trigger !== 'spell_cast') {
+      triggerAiTurn()
+      return
+    }
+    processingRef.current = true
+    setIsProcessing(true)
+    try {
+      await gameApi.useReaction(
+        sessionId,
+        'decline',
+        prompt.target_id || prompt.attacker_id || null,
+        prompt.reactor_character_id || null,
+      )
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+      triggerAiTurn()
+    }
+  }, [
+    processingRef,
+    sessionId,
+    setError,
+    setIsProcessing,
+    setReactionPrompt,
+    triggerAiTurn,
+  ])
+
   const handleManeuver = useCallback(async (maneuverName) => {
     if (!canActThisTurn || isProcessing || !selectedTarget) return
     processingRef.current = true
@@ -157,6 +188,7 @@ export function useCombatSpecialActions({
   return {
     handleSmite,
     handleReaction,
+    handleCancelReaction,
     handleManeuver,
   }
 }
