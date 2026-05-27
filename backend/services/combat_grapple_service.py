@@ -4,6 +4,7 @@ from typing import Any, Callable
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_narrator import narrate_action
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
@@ -60,6 +61,10 @@ async def resolve_grapple_shove(
     player = await db.get(Character, player_id)
     if not player:
         raise CombatGrappleError(404, "玩家角色不存在")
+    try:
+        validate_can_take_action(player)
+    except CombatActionRuleError as exc:
+        raise CombatGrappleError(exc.status_code, exc.detail) from exc
 
     turn_state = get_turn_state(combat, player_id)
     max_attacks = combat_service.get_attack_count(

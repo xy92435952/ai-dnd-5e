@@ -4,6 +4,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, GameLog
 from services.character_roster import CharacterRoster
+from services.combat_action_rules_service import can_take_reaction
 from services.combat_concentration_service import do_concentration_check
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
@@ -48,6 +49,8 @@ async def resolve_opportunity_attacks(
 
         for enemy in enemies:
             if enemy.get("hp_current", 0) <= 0:
+                continue
+            if not can_take_reaction(enemy):
                 continue
             enemy_position = positions.get(str(enemy["id"]))
             if not enemy_position:
@@ -153,7 +156,7 @@ async def resolve_opportunity_attacks(
             return results
 
         player = await db.get(Character, session.player_character_id)
-        if player and player.hp_current > 0:
+        if player and player.hp_current > 0 and can_take_reaction(player):
             player_position = positions.get(str(session.player_character_id))
             if (
                 player_position
@@ -238,6 +241,8 @@ async def resolve_opportunity_attacks(
 
         roster = CharacterRoster(db, session)
         for companion in await roster.companions_alive():
+            if not can_take_reaction(companion):
+                continue
             companion_id = companion.id
             companion_position = positions.get(str(companion_id))
             if not companion_position:

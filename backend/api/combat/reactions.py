@@ -31,6 +31,7 @@ from services.combat_reaction_service import (
     calculate_uncanny_dodge_prevention,
     restore_prevented_damage,
 )
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_reaction
 from services.character_roster import CharacterRoster
 
 from api.combat._shared import (
@@ -92,15 +93,26 @@ async def use_reaction(
             player_id = member.character_id
 
     if user_id:
-        await assert_can_act(session, user_id, player_id, db, require_current_turn=False)
+        await assert_can_act(
+            session,
+            user_id,
+            player_id,
+            db,
+            require_current_turn=False,
+            allow_incapacitated=True,
+        )
     else:
-        await assert_character_can_act(player_id, db)
+        await assert_character_can_act(player_id, db, allow_incapacitated=True)
 
     player = await db.get(Character, player_id)
     if not player:
         raise HTTPException(404, "玩家角色不存在")
 
     await assert_character_in_session(player, session, db)
+    try:
+        validate_can_take_reaction(player)
+    except CombatActionRuleError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
 
     ts = _get_ts(combat, player_id)
     if ts.get("reaction_used"):

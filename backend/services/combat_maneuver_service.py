@@ -5,6 +5,7 @@ import random
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.dnd_rules import roll_dice
 from services.session_access_service import assert_character_in_session
 
@@ -46,6 +47,10 @@ async def resolve_maneuver(
     actor_char = await db.get(Character, actor_id)
     if not actor_char:
         raise CombatManeuverError(404, "当前行动角色不存在")
+    try:
+        validate_can_take_action(actor_char)
+    except CombatActionRuleError as exc:
+        raise CombatManeuverError(exc.status_code, exc.detail) from exc
 
     derived = actor_char.derived or {}
     sub_effects = derived.get("subclass_effects", {})

@@ -710,6 +710,94 @@ async def test_multiplayer_action_rejects_non_current_speaker(client, sample_mod
     assert "现在不是你的发言时机" in r.text
 
 
+async def test_multiplayer_combat_action_rejects_non_current_turn_player(
+    client, db_session, sample_module, monkeypatch,
+):
+    import uuid as _uuid
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from models import CombatState, Session
+    from services import action_parser, input_guard
+
+    async def fake_classify_player_input(*_args, **_kwargs):
+        return {"verdict": "in_game", "reason": "test", "refusal": ""}
+
+    async def fail_if_parsed(*_args, **_kwargs):
+        raise AssertionError("non-current combat player should be rejected before parsing")
+
+    monkeypatch.setattr(input_guard, "classify_player_input", fake_classify_player_input)
+    monkeypatch.setattr(action_parser, "parse_combat_action", fail_if_parsed)
+
+    host = await _register(client, "host_combat_turn_guard")
+    guest = await _register(client, "guest_combat_turn_guard")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": create["room_code"],
+    })
+
+    host_char = await _create_character(client, host["token"], sample_module.id, "Combat Host")
+    guest_char = await _create_character(client, guest["token"], sample_module.id, "Combat Guest")
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char["id"]},
+    )
+    await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(guest["token"]),
+        json={"character_id": guest_char["id"]},
+    )
+    await _ready_for_start(client, sid, host, guest)
+    started = await client.post(f"/game/rooms/{sid}/start", headers=_h(host["token"]))
+    assert started.status_code == 200, started.text
+
+    session = await db_session.get(Session, sid)
+    session.combat_active = True
+    state = dict(session.game_state or {})
+    state["enemies"] = [{
+        "id": "guard-1",
+        "name": "Guard",
+        "hp_current": 9,
+        "max_hp": 9,
+        "conditions": [],
+        "derived": {"hp_max": 9, "ac": 13, "ability_modifiers": {"dex": 1}},
+    }]
+    session.game_state = state
+    flag_modified(session, "game_state")
+    db_session.add(CombatState(
+        id=str(_uuid.uuid4()),
+        session_id=sid,
+        grid_data={},
+        entity_positions={
+            host_char["id"]: {"x": 5, "y": 5},
+            guest_char["id"]: {"x": 4, "y": 5},
+            "guard-1": {"x": 6, "y": 5},
+        },
+        turn_order=[
+            {"character_id": host_char["id"], "name": host_char["name"], "initiative": 16, "is_player": True},
+            {"character_id": guest_char["id"], "name": guest_char["name"], "initiative": 12, "is_player": True},
+            {"character_id": "guard-1", "name": "Guard", "initiative": 8, "is_enemy": True},
+        ],
+        current_turn_index=0,
+        round_number=1,
+        combat_log=[],
+        turn_states={},
+    ))
+    await db_session.commit()
+
+    response = await client.post("/game/action", headers=_h(guest["token"]), json={
+        "session_id": sid,
+        "action_text": "I attack the guard.",
+    })
+
+    assert response.status_code == 403, response.text
+
+
 async def test_start_game_requires_ready_votes_after_characters_are_claimed(client, sample_module):
     """所有人认领角色后，还需要每位真人玩家确认准备，房主才能开局。"""
     host = await _register(client, "host_ready_vote")

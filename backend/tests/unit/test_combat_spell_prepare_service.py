@@ -14,6 +14,9 @@ class FakeDb:
 
 
 class FakeCaster:
+    hp_current = 20
+    conditions = []
+    death_saves = {}
     spell_slots = {"1st": 1}
     derived = {"spell_save_dc": 14}
 
@@ -76,12 +79,43 @@ async def test_prepare_spell_roll_raises_slot_error():
 
 
 @pytest.mark.asyncio
+async def test_prepare_spell_roll_rejects_incapacitated_caster():
+    caster = FakeCaster()
+    caster.conditions = ["incapacitated"]
+
+    with pytest.raises(CombatSpellRollError) as exc:
+        await prepare_spell_roll(
+            FakeDb(),
+            combat_obj=None,
+            session=None,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="Fire Bolt",
+            spell_level=0,
+            spell={"level": 0, "type": "damage", "damage_dice": "1d10", "aoe": False, "range": 0},
+            target_id="goblin-1",
+            target_ids=None,
+            enemies=[{"id": "goblin-1", "name": "Goblin", "hp_current": 7}],
+            default_turn_state=DEFAULT_TURN_STATE,
+            get_turn_state=lambda *_args: DEFAULT_TURN_STATE,
+            consume_slot=lambda *_args: (_ for _ in ()).throw(AssertionError("cantrip should not consume")),
+            calc_upcast_dice=lambda *_args: None,
+        )
+
+    assert exc.value.status_code == 400
+    assert "incapacitated" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_prepare_armor_of_agathys_defaults_to_self_target():
     from types import SimpleNamespace
 
     caster = SimpleNamespace(
         id="caster-1",
         name="术士",
+        hp_current=20,
+        conditions=[],
+        death_saves={},
         spell_slots={"1st": 1},
         derived={"spell_save_dc": 14},
     )

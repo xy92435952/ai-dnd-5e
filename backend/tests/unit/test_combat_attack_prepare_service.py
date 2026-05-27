@@ -30,7 +30,9 @@ class FakePlayer:
     name = "战士"
     char_class = "Fighter"
     level = 1
+    hp_current = 20
     conditions = []
+    death_saves = {}
     class_resources = {}
     equipment = {}
     derived = {
@@ -94,6 +96,39 @@ async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_at
     assert prepared.turn_state["action_used"] is True
     assert prepared.pending_attack["pending_attack_id"] == prepared.pending_attack_id
     assert combat.turn_states["char-1"]["pending_attack"]["advantage"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_attack_roll_rejects_incapacitated_attacker():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    player = FakePlayer()
+    player.conditions = ["stunned"]
+
+    with pytest.raises(CombatAttackRollError) as exc:
+        await prepare_attack_roll(
+            FakeDb(),
+            combat=FakeCombat(),
+            session=None,
+            player=player,
+            player_id="char-1",
+            target_id="goblin-1",
+            action_type="melee",
+            is_offhand=False,
+            d20_value=None,
+            enemies=[{
+                "id": "goblin-1",
+                "name": "Goblin",
+                "hp_current": 7,
+                "derived": {"ac": 12},
+                "conditions": [],
+            }],
+            roll_attack_func=fixed_roll_attack,
+            save_turn_state_func=save_turn_state,
+        )
+
+    assert exc.value.status_code == 400
+    assert "stunned" in exc.value.detail
 
 
 @pytest.mark.asyncio

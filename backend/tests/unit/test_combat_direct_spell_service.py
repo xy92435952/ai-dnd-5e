@@ -13,6 +13,9 @@ class FakeCaster:
     id = "caster-1"
     name = "法师"
     is_player = True
+    hp_current = 20
+    conditions = []
+    death_saves = {}
     concentration = None
     spell_slots = {"1st": 1}
     derived = {
@@ -132,6 +135,37 @@ async def test_cast_direct_spell_defaults_empty_aoe_damage_to_alive_enemies():
     assert result.remaining_slots == {"1st": 0}
     assert result.is_aoe is True
     assert result.is_concentration is True
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_spell_rejects_incapacitated_caster():
+    from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.conditions = ["unconscious"]
+
+    with pytest.raises(CombatDirectSpellError) as exc:
+        await cast_direct_spell(
+            FakeDb(),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="burning-hands",
+            spell_level=1,
+            target_id=None,
+            target_ids=[],
+            spell_service_obj=FakeSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert exc.value.status_code == 400
+    assert "unconscious" in exc.value.detail
 
 
 @pytest.mark.asyncio

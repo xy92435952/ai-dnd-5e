@@ -11,6 +11,9 @@ class FakeDb:
 class FakeActor:
     id = "fighter-1"
     name = "战士"
+    hp_current = 44
+    conditions = []
+    death_saves = {}
     derived = {
         "proficiency_bonus": 3,
         "ability_modifiers": {"str": 4, "dex": 2},

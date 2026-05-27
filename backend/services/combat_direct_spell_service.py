@@ -4,6 +4,7 @@ from typing import Any, Callable
 from sqlalchemy.orm.attributes import flag_modified
 
 from services.character_roster import CharacterRoster
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.combat_service import CombatService
 from services.combat_spell_application_service import apply_confirmed_spell_effects
@@ -104,6 +105,11 @@ async def cast_direct_spell(
     spell = spell_service_obj.get(spell_name)
     if not spell:
         raise CombatDirectSpellError(400, f"未知法术：{spell_name}")
+
+    try:
+        validate_can_take_action(caster)
+    except CombatActionRuleError as exc:
+        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
 
     slot_error = spell_service_obj.validate_slot_level(spell_name, spell_level)
     if slot_error:

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import assert_session_access, char_brief, get_session_or_404, get_user_id
+from api.deps import assert_can_act, assert_session_access, char_brief, get_session_or_404, get_user_id
 from api.game_routes.action_multiplayer import (
     assert_current_speaker as _assert_current_speaker,
     handle_multiplayer_table_only_result as _handle_multiplayer_table_only_result,
@@ -92,6 +92,7 @@ async def player_action(
             return blocked
 
     if session.combat_active and combat_state and player:
+        await assert_can_act(session, user_id, player.id, db)
         return await execute_natural_language_combat_action(
             db=db,
             session=session,

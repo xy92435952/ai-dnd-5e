@@ -8,6 +8,7 @@ from services.combat_attack_modifier_service import (
     calculate_cover_bonus,
     choose_feat_power_attack,
 )
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
@@ -65,6 +66,10 @@ async def prepare_direct_attack(
     player_class = _normalize_class(player.char_class) if player else ""
     player_level = player.level if player else 1
     player_name = player.name if player else "你"
+    try:
+        validate_can_take_action(player)
+    except CombatActionRuleError as exc:
+        raise CombatAttackRollError(exc.status_code, exc.detail) from exc
 
     max_attacks = combat_service.get_attack_count(player_derived, player_level, player_class)
     turn_state.setdefault("attacks_made", 0)

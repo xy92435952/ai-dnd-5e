@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_turn_state_service import save_turn_state
 from services.dnd_rules import (
     WILD_SHAPE_FORMS,
@@ -53,6 +54,10 @@ def resolve_combat_class_feature(
     class_resources = dict(player.class_resources or {})
     narration = ""
     dice_roll = None
+    try:
+        validate_can_take_action(player)
+    except CombatActionRuleError as exc:
+        _fail(exc.detail, exc.status_code)
 
     if feature == "second_wind":
         if player_class != "Fighter":

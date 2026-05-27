@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_pending_spell_service import build_pending_spell, store_pending_spell
 from services.combat_spell_roll_service import (
     CombatSpellRollError,
@@ -48,6 +49,11 @@ async def prepare_spell_roll(
     consume_slot: Callable[[dict, int], tuple[dict, str | None]],
     calc_upcast_dice: Callable[[str, int], str | None],
 ) -> PreparedSpellRoll:
+    try:
+        validate_can_take_action(caster)
+    except CombatActionRuleError as exc:
+        raise CombatSpellRollError(exc.status_code, exc.detail) from exc
+
     is_cantrip = spell["level"] == 0
     spell_turn_state = get_turn_state(combat_obj, caster_id) if combat_obj else dict(default_turn_state)
     spell_turn_state = validate_spell_turn_state(spell_turn_state, is_cantrip=is_cantrip)

@@ -6,6 +6,9 @@ class FakePlayer:
     name = "战士"
     char_class = "Fighter"
     level = 5
+    hp_current = 42
+    conditions = []
+    death_saves = {}
     derived = {"ability_modifiers": {"str": 4}, "proficiency_bonus": 3}
     proficient_skills = ["运动"]
 

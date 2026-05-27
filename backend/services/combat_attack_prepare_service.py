@@ -9,6 +9,7 @@ from services.combat_attack_modifier_service import (
     calculate_cover_bonus,
     choose_feat_power_attack,
 )
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_attack_roll_service import (
     CombatAttackRollError,
     apply_d20_override,
@@ -66,6 +67,10 @@ async def prepare_attack_roll(
     player_derived = player.derived or {}
     player_class = _normalize_class(player.char_class)
     player_level = player.level
+    try:
+        validate_can_take_action(player)
+    except CombatActionRuleError as exc:
+        raise CombatAttackRollError(exc.status_code, exc.detail) from exc
 
     max_attacks = combat_service.get_attack_count(player_derived, player_level, player_class)
     turn_state = validate_attack_turn_state(

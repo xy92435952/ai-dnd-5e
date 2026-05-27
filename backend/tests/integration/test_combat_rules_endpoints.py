@@ -279,7 +279,8 @@ async def test_zero_hp_character_cannot_take_combat_actions(
     for label, request in requests:
         response = await request
         assert response.status_code == 400, f"{label}: {response.status_code} {response.text}"
-        assert "cannot act" in response.text
+        expected_text = "cannot react" if label == "reaction" else "cannot act"
+        assert expected_text in response.text
 
 
 async def test_zero_hp_character_can_end_turn_to_avoid_stalling_combat(
@@ -332,6 +333,26 @@ async def test_incapacitating_condition_blocks_combat_action(
 
     assert response.status_code == 400
     assert "unconscious" in response.text
+
+
+async def test_incapacitating_condition_blocks_reaction(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["stunned"]
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={"reaction_type": "shield", "character_id": sample_character.id},
+    )
+
+    assert response.status_code == 400
+    assert "cannot react" in response.text
+    assert "stunned" in response.text
 
 
 async def test_zero_hp_character_cannot_make_exploration_skill_check(

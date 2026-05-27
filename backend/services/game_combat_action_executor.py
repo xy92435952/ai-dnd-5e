@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from models import Session
+from services.combat_action_rules_service import validate_can_take_action
 from services.game_combat_action_steps import (
     execute_attack_action as _execute_attack_action,
     execute_move_action as _execute_move_action,
@@ -65,6 +66,7 @@ def execute_parsed_combat_actions(
             )
 
         elif action_type == "attack" and not action_used:
+            validate_can_take_action(player)
             action_used = True
             damage_done = _execute_attack_action(
                 session=session,
@@ -87,6 +89,7 @@ def execute_parsed_combat_actions(
             total_damage += damage_done
 
         elif action_type == "creative" and not action_used:
+            validate_can_take_action(player)
             action_used = True
             damage_done = _execute_creative_action(
                 session=session,
@@ -103,6 +106,7 @@ def execute_parsed_combat_actions(
             total_damage += damage_done
 
         elif action_type == "dodge" and not action_used:
+            validate_can_take_action(player)
             turn_state["dodging"] = True
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("采取闪避动作，攻击你的敌人获得劣势")
@@ -110,6 +114,7 @@ def execute_parsed_combat_actions(
             action_used = True
 
         elif action_type == "dash" and not action_used:
+            validate_can_take_action(player)
             turn_state["movement_max"] = (
                 turn_state["movement_max"]
                 + turn_state.get("base_movement_max", turn_state["movement_max"])
@@ -120,6 +125,7 @@ def execute_parsed_combat_actions(
             action_used = True
 
         elif action_type == "disengage" and not action_used:
+            validate_can_take_action(player)
             turn_state["disengaged"] = True
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("脱离接战，移动不触发借机攻击")

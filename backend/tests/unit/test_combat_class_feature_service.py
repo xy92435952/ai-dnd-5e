@@ -124,6 +124,24 @@ def test_cunning_action_dash_adds_base_movement_not_current_total_again():
     assert result.turn_state["movement_max"] == 18
 
 
+def test_class_feature_rejects_incapacitated_actor():
+    player = _character(conditions=["paralyzed"])
+
+    with pytest.raises(CombatClassFeatureError) as exc:
+        resolve_combat_class_feature(
+            feature="action_surge",
+            player=player,
+            player_id="hero",
+            combat=_combat(),
+            turn_state=_turn_state(),
+            combat_service=CombatService(),
+            roll_dice_fn=lambda *_args: (_ for _ in ()).throw(AssertionError("should not roll")),
+        )
+
+    assert exc.value.status_code == 400
+    assert "paralyzed" in exc.value.detail
+
+
 def test_tides_of_chaos_marks_next_d20_advantage():
     player = _character(char_class="Sorcerer", class_resources={})
 
