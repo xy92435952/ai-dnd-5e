@@ -81,7 +81,7 @@ Priority:
 | [~] | P1 | Cover | Cover bonus appears in AI attack path. | Half/three-quarters/full cover are calculated from grid and applied to all ranged attacks and relevant saves. |
 | [~] | P1 | Opportunity attacks | Service exists. | Moving out of reach triggers correct reactions from players, AI companions, and enemies without duplicate prompts. |
 | [~] | P1 | Two-weapon fighting | Offhand service exists. | Light weapon, bonus action, ability modifier, fighting style, and rider interactions are enforced. |
-| [~] | P2 | Ammunition and thrown weapons | First combat slice complete: tracked bow/crossbow ammo is consumed by two-step and direct ranged attacks, empty ammo is rejected, thrown weapon copies are consumed in both attack flows, starting thrown bundles are expanded into weapon copies, and new starting ammunition weapons get 20 ammo. Remaining work: weapon selection UI, recovery of thrown weapons, and AI/enemy ammo policy. | Ranged attacks consume ammo/thrown weapons and reject unavailable equipment. |
+| [~] | P2 | Ammunition and thrown weapons | First combat slice complete: tracked bow/crossbow ammo is consumed by two-step and direct ranged attacks, empty ammo is rejected, thrown weapon copies are consumed in both attack flows, starting thrown bundles are expanded into weapon copies, new starting ammunition weapons get 20 ammo, and Combat HUD/logs surface ammo/thrown resource changes. Remaining work: weapon selection UI, recovery of thrown weapons, and AI/enemy ammo policy. | Ranged attacks consume ammo/thrown weapons and reject unavailable equipment. |
 
 ### Conditions And Life State
 

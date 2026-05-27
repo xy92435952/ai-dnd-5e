@@ -1,7 +1,13 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
-import { applyActionResultEntityStates, getCombatTurnToken, parseDiceNotation } from '../utils/combat'
+import {
+  applyActionResultEntityStates,
+  applyWeaponResourceToCombat,
+  formatWeaponResourceLog,
+  getCombatTurnToken,
+  parseDiceNotation,
+} from '../utils/combat'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 
 function ignoreOptionalEffect(fn) {
@@ -47,6 +53,11 @@ export function useCombatAttackFlow({
       )
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
+      if (atkResult.weapon_resource) {
+        const resourceText = formatWeaponResourceLog(atkResult.weapon_resource)
+        if (resourceText) addLog({ role: 'system', content: resourceText, log_type: 'system' })
+        setCombat(prev => applyWeaponResourceToCombat(prev, playerId, atkResult.weapon_resource))
+      }
 
       const attacksRemaining = atkResult.attacks_max - atkResult.attacks_made
       if (attacksRemaining > 0) {

@@ -163,6 +163,101 @@ export function applyActionResultEntityStates(combat, result = {}) {
   return updated
 }
 
+export function formatWeaponResourceLog(resource = null) {
+  if (!resource?.consumed || !resource.weapon) return ''
+  if (resource.resource_type === 'ammunition') {
+    const remaining = resource.ammo_remaining ?? resource.ammo
+    return remaining !== null && remaining !== undefined
+      ? `${resource.weapon} 弹药 -1，剩余 ${remaining}`
+      : `${resource.weapon} 弹药 -1`
+  }
+  if (resource.resource_type === 'thrown_weapon') {
+    return resource.weapon_removed
+      ? `投出 ${resource.weapon}，背包中移除 1 件`
+      : `投出 ${resource.weapon}`
+  }
+  return ''
+}
+
+export function applyWeaponResourceToCombat(combat, entityId, resource = null) {
+  if (!combat || !entityId || !resource?.consumed || !resource.weapon) return combat
+  const entity = combat.entities?.[entityId]
+  const weapons = entity?.equipment?.weapons
+  if (!entity || !Array.isArray(weapons)) return combat
+
+  let nextWeapons = weapons
+  let changed = false
+
+  if (resource.resource_type === 'ammunition' && resource.ammo_remaining !== undefined) {
+    let updatedOne = false
+    nextWeapons = weapons.map(weapon => {
+      if (!updatedOne && weapon?.name === resource.weapon) {
+        updatedOne = true
+        changed = true
+        return { ...weapon, ammo: resource.ammo_remaining }
+      }
+      return weapon
+    })
+  } else if (resource.resource_type === 'thrown_weapon' && resource.weapon_removed) {
+    const equippedIndex = weapons.findIndex(weapon => weapon?.name === resource.weapon && weapon?.equipped)
+    const fallbackIndex = weapons.findIndex(weapon => weapon?.name === resource.weapon)
+    const removeIndex = equippedIndex >= 0 ? equippedIndex : fallbackIndex
+    if (removeIndex >= 0) {
+      const removedWasEquipped = !!weapons[removeIndex]?.equipped
+      nextWeapons = weapons.filter((_, index) => index !== removeIndex)
+      if (removedWasEquipped && !nextWeapons.some(weapon => weapon?.equipped)) {
+        const replacementIndex = nextWeapons.findIndex(weapon => weapon?.name === resource.weapon)
+        if (replacementIndex >= 0) {
+          nextWeapons = nextWeapons.map((weapon, index) => (
+            index === replacementIndex ? { ...weapon, equipped: true } : weapon
+          ))
+        }
+      }
+      changed = true
+    }
+  }
+
+  if (!changed) return combat
+
+  return {
+    ...combat,
+    entities: {
+      ...combat.entities,
+      [entityId]: {
+        ...entity,
+        equipment: {
+          ...(entity.equipment || {}),
+          weapons: nextWeapons,
+        },
+      },
+    },
+  }
+}
+
+export function getEquippedWeaponResourceSummary(character = null) {
+  const weapons = character?.equipment?.weapons || []
+  if (!Array.isArray(weapons) || weapons.length === 0) return null
+
+  const ammoWeapon = weapons.find(weapon => weapon?.equipped && weapon?.ammo !== undefined)
+    || weapons.find(weapon => weapon?.ammo !== undefined)
+  if (ammoWeapon) {
+    return { label: ammoWeapon.name, value: `弹药 ${ammoWeapon.ammo}` }
+  }
+
+  const thrownWeapon = weapons.find(weapon => weapon?.equipped && hasThrownProperty(weapon))
+    || weapons.find(hasThrownProperty)
+  if (!thrownWeapon?.name) return null
+
+  const remaining = weapons.filter(weapon => weapon?.name === thrownWeapon.name).length
+  return { label: thrownWeapon.name, value: `投掷 ${remaining}` }
+}
+
+function hasThrownProperty(weapon = {}) {
+  const properties = weapon.properties || []
+  if (typeof properties === 'string') return properties.toLowerCase().includes('thrown')
+  return properties.some(prop => String(prop || '').toLowerCase().includes('thrown'))
+}
+
 export function getCombatLifeState(ent) {
   if (!ent) return 'alive'
   if (ent.life_state) return ent.life_state

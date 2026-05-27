@@ -183,6 +183,12 @@ describe('Combat render smoke', () => {
       attacks_max: 1,
       damage_dice: '1d8',
       pending_attack_id: 'pa-1',
+      weapon_resource: {
+        weapon: 'Longbow',
+        resource_type: 'ammunition',
+        consumed: true,
+        ammo_remaining: 19,
+      },
       turn_state: { action_used: true, attacks_made: 1, attacks_max: 1 },
     })
     damageRollMock.mockResolvedValue({
@@ -544,6 +550,7 @@ describe('Combat render smoke', () => {
     await waitFor(() => {
       expect(damageRollMock).toHaveBeenCalledWith('sess-1', 'pa-1', [10])
     }, { timeout: 3000 })
+    expect(screen.getByText(/Longbow 弹药 -1，剩余 19/)).toBeInTheDocument()
   })
 
   it('lets the active combat owner Help an ally from the battlefield', async () => {

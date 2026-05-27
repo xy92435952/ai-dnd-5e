@@ -56,4 +56,31 @@ describe('CombatHudPortrait', () => {
     expect(screen.getByText('/ 10', { exact: false })).toBeTruthy()
     expect(screen.getByText('17')).toBeTruthy()
   })
+
+  it('shows equipped weapon resource summary', () => {
+    render(
+      <CombatHudPortrait
+        session={{
+          player: {
+            name: 'Archer',
+            hp_current: 10,
+            hp_max: 10,
+            derived: { ac: 14, initiative: 1 },
+            equipment: {
+              weapons: [
+                { name: 'Longbow', ammo: 19, equipped: true },
+              ],
+            },
+            conditions: [],
+          },
+        }}
+        playerClass="Fighter"
+        playerLevel={1}
+        turnState={{ movement_max: 6, movement_used: 0 }}
+      />,
+    )
+
+    expect(screen.getByText('Longbow', { exact: false })).toBeTruthy()
+    expect(screen.getByText('弹药 19', { exact: false })).toBeTruthy()
+  })
 })

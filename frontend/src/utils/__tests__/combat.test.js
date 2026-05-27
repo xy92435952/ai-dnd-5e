@@ -4,6 +4,7 @@ import {
   applyAoeHpUpdates,
   applyEntityStateUpdate,
   applyPlayerHpUpdate,
+  applyWeaponResourceToCombat,
   buildAoeCells,
   buildCombatGrid,
   buildGridTerrainSets,
@@ -12,6 +13,7 @@ import {
   canActInCombatTurn,
   computeSkillStats,
   canDriveAiCombatTurns,
+  formatWeaponResourceLog,
   getAoePreviewCenterKey,
   getAiCombatTurnDriverUserId,
   getCombatPredictionActionKey,
@@ -20,6 +22,7 @@ import {
   getCombatSkillBar,
   getCombatLifeState,
   getCurrentTurnLabel,
+  getEquippedWeaponResourceSummary,
   getPlayerAvailableSpells,
   getPlayerTurnState,
   isMyCombatTurn,
@@ -312,6 +315,92 @@ describe('combat grid helpers', () => {
       conditions: [],
       life_state: 'alive',
     })
+  })
+
+  it('formats and applies weapon resource updates from attack rolls', () => {
+    expect(formatWeaponResourceLog({
+      weapon: 'Longbow',
+      resource_type: 'ammunition',
+      consumed: true,
+      ammo_remaining: 19,
+    })).toBe('Longbow 弹药 -1，剩余 19')
+    expect(formatWeaponResourceLog({
+      weapon: 'Javelin',
+      resource_type: 'thrown_weapon',
+      consumed: true,
+      weapon_removed: true,
+    })).toBe('投出 Javelin，背包中移除 1 件')
+
+    const combat = {
+      entities: {
+        hero: {
+          id: 'hero',
+          equipment: {
+            weapons: [
+              { name: 'Longbow', ammo: 20, equipped: true },
+              { name: 'Javelin', equipped: false, properties: ['thrown(30/120)'] },
+            ],
+          },
+        },
+      },
+    }
+
+    const updatedAmmo = applyWeaponResourceToCombat(combat, 'hero', {
+      weapon: 'Longbow',
+      resource_type: 'ammunition',
+      consumed: true,
+      ammo_remaining: 19,
+    })
+
+    expect(updatedAmmo).not.toBe(combat)
+    expect(updatedAmmo.entities.hero.equipment.weapons[0].ammo).toBe(19)
+    expect(combat.entities.hero.equipment.weapons[0].ammo).toBe(20)
+  })
+
+  it('applies thrown weapon removal and keeps a replacement equipped', () => {
+    const combat = {
+      entities: {
+        hero: {
+          id: 'hero',
+          equipment: {
+            weapons: [
+              { name: 'Javelin', equipped: true, properties: ['thrown(30/120)'] },
+              { name: 'Javelin', equipped: false, properties: ['thrown(30/120)'] },
+            ],
+          },
+        },
+      },
+    }
+
+    const updated = applyWeaponResourceToCombat(combat, 'hero', {
+      weapon: 'Javelin',
+      resource_type: 'thrown_weapon',
+      consumed: true,
+      weapon_removed: true,
+    })
+
+    expect(updated.entities.hero.equipment.weapons).toEqual([
+      { name: 'Javelin', equipped: true, properties: ['thrown(30/120)'] },
+    ])
+  })
+
+  it('summarizes equipped ammo and thrown weapon resources for the HUD', () => {
+    expect(getEquippedWeaponResourceSummary({
+      equipment: {
+        weapons: [
+          { name: 'Longbow', ammo: 7, equipped: true },
+        ],
+      },
+    })).toEqual({ label: 'Longbow', value: '弹药 7' })
+
+    expect(getEquippedWeaponResourceSummary({
+      equipment: {
+        weapons: [
+          { name: 'Javelin', equipped: true, properties: ['thrown(30/120)'] },
+          { name: 'Javelin', equipped: false, properties: ['thrown(30/120)'] },
+        ],
+      },
+    })).toEqual({ label: 'Javelin', value: '投掷 2' })
   })
 
   it('getCombatLifeState separates dying, stable and dead zero-hp entities', () => {

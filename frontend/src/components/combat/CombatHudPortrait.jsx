@@ -1,8 +1,10 @@
 import React from 'react'
+import { getEquippedWeaponResourceSummary } from '../../utils/combat'
 
 export default function CombatHudPortrait({ session, character = null, playerClass, playerSubclass, playerLevel, turnState }) {
   const player = character || session?.player
   const hpMax = player?.hp_max ?? player?.derived?.hp_max ?? 1
+  const weaponResource = getEquippedWeaponResourceSummary(player)
   return (
     <div className="hud-portrait">
       <div className="big" style={{ position: 'relative' }}>
@@ -43,6 +45,16 @@ export default function CombatHudPortrait({ session, character = null, playerCla
             <span>DC <span className="v">{player.derived.spell_save_dc}</span></span>
           )}
         </div>
+        {weaponResource && (
+          <div className="stat-line" style={{ marginTop: 2, minWidth: 0 }}>
+            <span
+              title={weaponResource.label}
+              style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {weaponResource.label} <span className="v">{weaponResource.value}</span>
+            </span>
+          </div>
+        )}
         {player?.conditions?.length > 0 && (
           <div className="conditions">
             {player.conditions.slice(0, 6).map((c, i) => (
