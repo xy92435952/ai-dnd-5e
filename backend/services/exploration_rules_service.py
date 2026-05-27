@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
+
+from services.dnd_rules import roll_dice, roll_saving_throw
 
 
 SKILL_ALIASES = {
@@ -150,6 +153,72 @@ def resolve_passive_discoveries(
     }
 
 
+def resolve_trap_trigger(
+    trap: dict[str, Any],
+    target: dict[str, Any] | object,
+    *,
+    d20_roller: Callable[[str], dict[str, Any]] | None = None,
+    damage_roller: Callable[[str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Resolve a triggered trap's save and damage without mutating character HP."""
+    trap_data = trap if isinstance(trap, dict) else {}
+    save_ability = _normalize_ability(
+        trap_data.get("save_ability")
+        or trap_data.get("saving_throw")
+        or trap_data.get("ability")
+        or "dex"
+    )
+    save_dc = _as_int(
+        trap_data.get("save_dc", trap_data.get("dc", trap_data.get("trigger_dc", 10))),
+        10,
+    )
+    target_dict = _character_dict(target)
+    save_result = roll_saving_throw(
+        target_dict,
+        save_ability,
+        save_dc,
+        d20_roller=d20_roller,
+    )
+
+    damage_dice = str(trap_data.get("damage_dice") or trap_data.get("damage") or "0")
+    roller = damage_roller or roll_dice
+    damage_roll = roller(damage_dice)
+    rolled_damage = max(0, _as_int(damage_roll.get("total"), 0))
+    half_on_save = bool(trap_data.get("half_on_save", True))
+    saved = bool(save_result.get("success"))
+    final_damage = rolled_damage // 2 if saved and half_on_save else rolled_damage
+    conditions_on_fail = _read_inline_list(
+        trap_data.get("conditions_on_fail", trap_data.get("condition_on_fail", []))
+    )
+    applied_conditions = [] if saved else conditions_on_fail
+
+    trap_id = str(
+        trap_data.get("id")
+        or trap_data.get("trap_id")
+        or trap_data.get("feature_id")
+        or trap_data.get("name")
+        or "trap"
+    )
+    return {
+        "trap_id": trap_id,
+        "name": str(trap_data.get("name") or trap_id),
+        "target_id": str(_read_attr(target, "id", "")),
+        "target_name": _read_attr(target, "name", ""),
+        "save_ability": save_ability,
+        "save_dc": save_dc,
+        "save": save_result,
+        "saved": saved,
+        "damage_dice": damage_dice,
+        "damage_type": str(trap_data.get("damage_type") or ""),
+        "damage_roll": damage_roll,
+        "rolled_damage": rolled_damage,
+        "half_on_save": half_on_save,
+        "final_damage": final_damage,
+        "conditions_applied": applied_conditions,
+        "mutates_hp": False,
+    }
+
+
 def build_exploration_context(
     characters: list[dict[str, Any] | object],
     hidden_features: list[dict[str, Any]] | None = None,
@@ -168,6 +237,10 @@ def build_exploration_context(
             "success_rule": "at_least_half_members_meet_or_exceed_dc",
         },
         "passive_discovery": resolve_passive_discoveries(party, hidden_features or []),
+        "trap_trigger": {
+            "rule": "triggered_traps_roll_configured_save_then_apply_full_or_half_damage",
+            "mutates_hp": False,
+        },
     }
 
 
@@ -226,6 +299,41 @@ def _feature_dc(feature: dict[str, Any], skill: str) -> int:
         if value is not None:
             return _as_int(value, 10)
     return 10
+
+
+def _normalize_ability(ability: Any) -> str:
+    value = str(ability or "").strip().lower()
+    aliases = {
+        "strength": "str",
+        "dexterity": "dex",
+        "constitution": "con",
+        "intelligence": "int",
+        "wisdom": "wis",
+        "charisma": "cha",
+    }
+    normalized = aliases.get(value, value[:3])
+    return normalized if normalized in {"str", "dex", "con", "int", "wis", "cha"} else "dex"
+
+
+def _character_dict(character: dict[str, Any] | object) -> dict[str, Any]:
+    if isinstance(character, dict):
+        return character
+    return {
+        "id": _read_attr(character, "id", ""),
+        "name": _read_attr(character, "name", ""),
+        "ability_scores": _read_mapping(character, "ability_scores"),
+        "derived": _read_mapping(character, "derived"),
+        "conditions": _read_list(character, "conditions"),
+        "condition_durations": _read_mapping(character, "condition_durations"),
+    }
+
+
+def _read_inline_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return list(value)
+    return [value]
 
 
 def _read_mapping(source: dict[str, Any] | object, key: str) -> dict[str, Any]:

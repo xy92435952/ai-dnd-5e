@@ -9,6 +9,7 @@ from services.exploration_rules_service import (
     passive_investigation,
     passive_perception,
     resolve_passive_discoveries,
+    resolve_trap_trigger,
     passive_score,
 )
 
@@ -197,6 +198,95 @@ def test_resolve_passive_discoveries_uses_investigation_for_clues_and_mechanisms
     assert result["features"][0]["skill"] == "investigation"
     assert result["features"][0]["best_score"] == 16
     assert result["features"][1]["skill"] == "investigation"
+
+
+def test_resolve_trap_trigger_halves_damage_on_successful_save():
+    target = _character(
+        char_id="rogue",
+        name="Rogue",
+        mods={"dex": 3},
+    )
+    target["derived"]["saving_throws"] = {"dex": 5}
+
+    result = resolve_trap_trigger(
+        {
+            "id": "dart",
+            "name": "Poison Dart",
+            "save_ability": "dex",
+            "save_dc": 14,
+            "damage_dice": "2d10",
+            "damage_type": "poison",
+        },
+        target,
+        d20_roller=lambda _expr: {"rolls": [12], "total": 12},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [8, 6], "total": 14},
+    )
+
+    assert result["trap_id"] == "dart"
+    assert result["target_id"] == "rogue"
+    assert result["saved"] is True
+    assert result["save"]["total"] == 17
+    assert result["rolled_damage"] == 14
+    assert result["final_damage"] == 7
+    assert result["conditions_applied"] == []
+    assert result["mutates_hp"] is False
+
+
+def test_resolve_trap_trigger_applies_full_damage_and_failed_conditions():
+    target = _character(char_id="fighter", name="Fighter", mods={"dex": 0})
+    target["derived"]["saving_throws"] = {"dex": 0}
+
+    result = resolve_trap_trigger(
+        {
+            "name": "Net Snare",
+            "dc": 13,
+            "damage": "1d6",
+            "condition_on_fail": "restrained",
+            "half_on_save": False,
+        },
+        target,
+        d20_roller=lambda _expr: {"rolls": [7], "total": 7},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [5], "total": 5},
+    )
+
+    assert result["trap_id"] == "Net Snare"
+    assert result["save_ability"] == "dex"
+    assert result["save_dc"] == 13
+    assert result["saved"] is False
+    assert result["damage_dice"] == "1d6"
+    assert result["half_on_save"] is False
+    assert result["final_damage"] == 5
+    assert result["conditions_applied"] == ["restrained"]
+
+
+def test_resolve_trap_trigger_accepts_object_like_targets_and_ability_aliases():
+    target = SimpleNamespace(
+        id="wizard",
+        name="Wizard",
+        ability_scores={"wis": 14},
+        derived={"saving_throws": {"wis": 4}, "ability_modifiers": {"wis": 2}},
+        conditions=[],
+        condition_durations={},
+    )
+
+    result = resolve_trap_trigger(
+        {
+            "id": "glyph",
+            "saving_throw": "wisdom",
+            "save_dc": 15,
+            "damage_dice": "3d8",
+            "conditions_on_fail": ["frightened"],
+        },
+        target,
+        d20_roller=lambda _expr: {"rolls": [10], "total": 10},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [4, 4, 4], "total": 12},
+    )
+
+    assert result["target_id"] == "wizard"
+    assert result["save_ability"] == "wis"
+    assert result["saved"] is False
+    assert result["final_damage"] == 12
+    assert result["conditions_applied"] == ["frightened"]
 
 
 def test_group_stealth_succeeds_when_at_least_half_succeed():
