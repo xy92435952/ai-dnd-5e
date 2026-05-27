@@ -256,6 +256,79 @@ def apply_trap_trigger_to_target(
     }
 
 
+def resolve_trap_disarm(
+    trap: dict[str, Any],
+    actor: dict[str, Any] | object,
+    *,
+    d20_roller: Callable[[str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Resolve an attempt to disarm a trap without mutating persistent state."""
+    trap_data = trap if isinstance(trap, dict) else {}
+    ability = _normalize_ability(
+        trap_data.get("disarm_ability")
+        or trap_data.get("disable_ability")
+        or trap_data.get("ability")
+        or "dex"
+    )
+    dc = _as_int(
+        trap_data.get(
+            "disarm_dc",
+            trap_data.get("disable_dc", trap_data.get("dc", trap_data.get("detection_dc", 10))),
+        ),
+        10,
+    )
+    tool = str(
+        trap_data.get("disarm_tool")
+        or trap_data.get("tool")
+        or "thieves' tools"
+    )
+    actor_dict = _character_dict(actor)
+    derived = _read_mapping(actor, "derived")
+    mods = dict(derived.get("ability_modifiers") or _read_mapping(actor, "ability_modifiers"))
+    proficiency_bonus = _as_int(
+        derived.get("proficiency_bonus", _read_attr(actor, "proficiency_bonus", 2)),
+        2,
+    )
+    ability_modifier = _as_int(mods.get(ability), 0)
+    proficient = _has_tool_proficiency(actor, tool)
+    d20_result = (d20_roller or roll_dice)("1d20")
+    d20 = _as_int((d20_result.get("rolls") or [0])[0], 0)
+    total_modifier = ability_modifier + (proficiency_bonus if proficient else 0)
+    total = d20 + total_modifier
+    success = total >= dc
+    failure_triggers = bool(trap_data.get("trigger_on_failed_disarm", True))
+    triggered = (not success) and failure_triggers
+    trap_id = str(
+        trap_data.get("id")
+        or trap_data.get("trap_id")
+        or trap_data.get("feature_id")
+        or trap_data.get("name")
+        or "trap"
+    )
+
+    return {
+        "trap_id": trap_id,
+        "name": str(trap_data.get("name") or trap_id),
+        "actor_id": str(_read_attr(actor, "id", "")),
+        "actor_name": _read_attr(actor, "name", ""),
+        "ability": ability,
+        "tool": tool,
+        "dc": dc,
+        "d20": d20,
+        "roll": d20_result,
+        "ability_modifier": ability_modifier,
+        "proficiency_bonus": proficiency_bonus if proficient else 0,
+        "tool_proficient": proficient,
+        "modifier": total_modifier,
+        "total": total,
+        "success": success,
+        "triggered": triggered,
+        "trigger_on_failed_disarm": failure_triggers,
+        "mutates_state": False,
+        "actor_snapshot": actor_dict,
+    }
+
+
 def build_exploration_context(
     characters: list[dict[str, Any] | object],
     hidden_features: list[dict[str, Any]] | None = None,
@@ -278,6 +351,7 @@ def build_exploration_context(
             "rule": "triggered_traps_roll_configured_save_then_apply_full_or_half_damage",
             "mutates_hp": False,
             "apply_rule": "apply_trap_trigger_to_target_mutates_hp_and_conditions",
+            "disarm_rule": "resolve_trap_disarm_rolls_configured_ability_plus_tool_proficiency",
         },
     }
 
@@ -302,6 +376,31 @@ def _has_feat(feats: list[Any], feat_name: str) -> bool:
         if name.strip().lower() == target:
             return True
     return False
+
+
+def _has_tool_proficiency(character: dict[str, Any] | object, tool: str) -> bool:
+    target = _normalize_tool_name(tool)
+    proficiencies = (
+        _read_list(character, "tool_proficiencies")
+        + _read_list(character, "proficient_tools")
+        + _read_list(character, "proficiencies")
+    )
+    for item in proficiencies:
+        if _normalize_tool_name(item) == target:
+            return True
+    return False
+
+
+def _normalize_tool_name(tool: Any) -> str:
+    value = (
+        str(tool or "")
+        .strip()
+        .lower()
+        .replace("\u2019", "'")
+        .replace("'", "")
+        .replace("-", " ")
+    )
+    return " ".join(value.split())
 
 
 def _add_condition(character: dict[str, Any] | object, condition: str) -> bool:

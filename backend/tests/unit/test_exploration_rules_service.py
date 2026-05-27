@@ -10,6 +10,7 @@ from services.exploration_rules_service import (
     passive_investigation,
     passive_perception,
     resolve_passive_discoveries,
+    resolve_trap_disarm,
     resolve_trap_trigger,
     passive_score,
 )
@@ -381,6 +382,102 @@ def test_apply_trap_trigger_does_not_duplicate_failed_condition():
     assert target.conditions == ["frightened"]
     assert result["conditions_applied"] == ["frightened"]
     assert result["conditions_added"] == []
+
+
+def test_resolve_trap_disarm_uses_configured_ability_and_tool_proficiency():
+    actor = _character(
+        char_id="rogue",
+        name="Rogue",
+        mods={"dex": 4},
+        proficiency_bonus=3,
+    )
+    actor["tool_proficiencies"] = ["Thieves' Tools"]
+
+    result = resolve_trap_disarm(
+        {
+            "id": "needle",
+            "name": "Poison Needle",
+            "disarm_dc": 15,
+            "disarm_ability": "dexterity",
+            "disarm_tool": "thieves' tools",
+        },
+        actor,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [8], "total": 8},
+    )
+
+    assert result["trap_id"] == "needle"
+    assert result["actor_id"] == "rogue"
+    assert result["ability"] == "dex"
+    assert result["tool"] == "thieves' tools"
+    assert result["tool_proficient"] is True
+    assert result["ability_modifier"] == 4
+    assert result["proficiency_bonus"] == 3
+    assert result["modifier"] == 7
+    assert result["total"] == 15
+    assert result["success"] is True
+    assert result["triggered"] is False
+    assert result["mutates_state"] is False
+
+
+def test_resolve_trap_disarm_failed_attempt_triggers_by_default():
+    actor = _character(char_id="fighter", name="Fighter", mods={"dex": 1})
+
+    result = resolve_trap_disarm(
+        {"id": "wire", "dc": 13},
+        actor,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [7], "total": 7},
+    )
+
+    assert result["dc"] == 13
+    assert result["tool"] == "thieves' tools"
+    assert result["tool_proficient"] is False
+    assert result["proficiency_bonus"] == 0
+    assert result["total"] == 8
+    assert result["success"] is False
+    assert result["triggered"] is True
+
+
+def test_resolve_trap_disarm_can_fail_without_triggering():
+    actor = _character(char_id="wizard", name="Wizard", mods={"int": 4})
+
+    result = resolve_trap_disarm(
+        {
+            "id": "glyph",
+            "disable_dc": 18,
+            "disable_ability": "intelligence",
+            "tool": "arcana kit",
+            "trigger_on_failed_disarm": False,
+        },
+        actor,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [10], "total": 10},
+    )
+
+    assert result["ability"] == "int"
+    assert result["dc"] == 18
+    assert result["total"] == 14
+    assert result["success"] is False
+    assert result["triggered"] is False
+    assert result["trigger_on_failed_disarm"] is False
+
+
+def test_resolve_trap_disarm_accepts_object_like_actor_and_tool_alias():
+    actor = SimpleNamespace(
+        id="artificer",
+        name="Artificer",
+        derived={"ability_modifiers": {"dex": 2}, "proficiency_bonus": 2},
+        tool_proficiencies=["Thieves Tools"],
+    )
+
+    result = resolve_trap_disarm(
+        {"id": "lock", "disarm_dc": 14, "disarm_tool": "thieves' tools"},
+        actor,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [10], "total": 10},
+    )
+
+    assert result["actor_id"] == "artificer"
+    assert result["tool_proficient"] is True
+    assert result["total"] == 14
+    assert result["success"] is True
 
 
 def test_group_stealth_succeeds_when_at_least_half_succeed():
