@@ -91,6 +91,7 @@ def test_import_split_combat_service_modules():
         combat_condition_service,
         combat_damage_service,
         encounter_balance_service,
+        exploration_rules_service,
         combat_feature_rules,
         combat_legendary_action_service,
         combat_tactical_service,
@@ -101,6 +102,7 @@ def test_import_split_combat_service_modules():
     assert combat_attack_service.resolve_melee_attack is not None
     assert combat_damage_service.apply_damage is not None
     assert encounter_balance_service.estimate_encounter_difficulty is not None
+    assert exploration_rules_service.passive_perception is not None
     assert combat_condition_service.check_concentration is not None
     assert combat_feature_rules.calc_divine_smite_damage is not None
     assert combat_legendary_action_service.initialize_legendary_actions is not None
