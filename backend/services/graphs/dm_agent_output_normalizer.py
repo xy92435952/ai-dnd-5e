@@ -23,7 +23,7 @@ def strip_code_block(text: str) -> str:
 
 def _normalize_state_delta(delta: dict) -> dict:
     delta = delta if isinstance(delta, dict) else {}
-    for key in ("characters", "enemies", "gold_changes", "trap_triggers"):
+    for key in ("characters", "enemies", "gold_changes", "trap_triggers", "trap_disarms"):
         if not isinstance(delta.get(key, []), list):
             delta[key] = []
     delta.setdefault("characters", [])
@@ -33,6 +33,7 @@ def _normalize_state_delta(delta: dict) -> dict:
     delta.setdefault("combat_trigger", False)
     delta.setdefault("gold_changes", [])
     delta.setdefault("trap_triggers", [])
+    delta.setdefault("trap_disarms", [])
 
     for gc in delta.get("gold_changes", []):
         if "amount" in gc:

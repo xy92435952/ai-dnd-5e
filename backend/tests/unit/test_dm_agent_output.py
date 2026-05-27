@@ -14,6 +14,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
             "enemies": [{"id": "e1", "hp_change": "-7"}],
             "gold_changes": [{"character_id": "c1", "amount": "12"}],
             "trap_triggers": [{"target_character_id": "c1", "trap": {"name": "Dart"}}],
+            "trap_disarms": [{"actor_character_id": "c1", "trap": {"name": "Wire"}}],
         },
         "ai_turns": [
             {
@@ -33,6 +34,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
     assert data["state_delta"]["enemies"][0]["hp_change"] == -7
     assert data["state_delta"]["gold_changes"][0]["amount"] == 12
     assert data["state_delta"]["trap_triggers"][0]["trap"]["name"] == "Dart"
+    assert data["state_delta"]["trap_disarms"][0]["trap"]["name"] == "Wire"
     assert data["ai_turns"][0]["state_delta"]["characters"][0]["hp_change"] == 0
     assert data["needs_check"] == {
         "required": False,
@@ -113,6 +115,7 @@ def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types()
             "enemies": "bad",
             "gold_changes": {"id": "c1", "amount": "7"},
             "trap_triggers": {"target_character_id": "c1"},
+            "trap_disarms": {"actor_character_id": "c1"},
         },
         "ai_turns": {"actor_id": "e1"},
     }, ensure_ascii=False)
@@ -128,6 +131,7 @@ def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types()
     assert data["state_delta"]["enemies"] == []
     assert data["state_delta"]["gold_changes"] == []
     assert data["state_delta"]["trap_triggers"] == []
+    assert data["state_delta"]["trap_disarms"] == []
     assert data["ai_turns"] == []
 
 

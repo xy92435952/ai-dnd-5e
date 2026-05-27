@@ -47,6 +47,26 @@ EXPLORE_OUTPUT_SECTION = """
         }
       }
     ],
+    "trap_disarms": [
+      {
+        "actor_character_id": "character-id",
+        "target_character_id": "character-id",
+        "trap": {
+          "id": "trap-id",
+          "name": "trap name",
+          "disarm_dc": 15,
+          "disarm_ability": "dex",
+          "disarm_tool": "thieves' tools",
+          "trigger_on_failed_disarm": true,
+          "save_ability": "dex",
+          "save_dc": 15,
+          "damage_dice": "2d6",
+          "damage_type": "piercing",
+          "half_on_save": true,
+          "conditions_on_fail": []
+        }
+      }
+    ],
     "combat_trigger": false,
     "combat_trigger_reason": null,
     "initial_enemies": [],
