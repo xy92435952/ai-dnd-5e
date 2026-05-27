@@ -1,3 +1,4 @@
+from services.dnd_rules import WEAPONS
 from services.inventory_models import InventoryError, copy_equipment
 
 
@@ -57,6 +58,11 @@ def update_equipment(
             if weapon.get("name") == item_name:
                 weapon["equipped"] = equip
                 found = True
+                if equip and _is_two_handed_weapon(weapon):
+                    shield = updated.get("shield")
+                    if isinstance(shield, dict):
+                        shield["equipped"] = False
+                        updated["shield"] = shield
                 break
         if not found:
             raise InventoryError(404, f"背包中未找到武器：{item_name}")
@@ -83,8 +89,24 @@ def update_equipment(
             raise InventoryError(404, "背包中没有盾牌")
         shield["equipped"] = equip
         updated["shield"] = shield
+        if equip:
+            weapons = list(updated.get("weapons", []))
+            for weapon in weapons:
+                if isinstance(weapon, dict) and weapon.get("equipped") and _is_two_handed_weapon(weapon):
+                    weapon["equipped"] = False
+            updated["weapons"] = weapons
 
     else:
         raise InventoryError(400, f"无效的物品类别：{item_category}")
 
     return {"equipment": updated}
+
+
+def _is_two_handed_weapon(weapon: dict) -> bool:
+    properties = weapon.get("properties")
+    if properties is None:
+        properties = WEAPONS.get(weapon.get("name", ""), {}).get("properties", [])
+    if isinstance(properties, str):
+        lowered = properties.lower()
+        return "two-handed" in lowered or "two handed" in lowered
+    return any(str(prop).lower() in {"two-handed", "two handed"} for prop in properties or [])

@@ -144,6 +144,35 @@ async def test_equipping_shield_recalculates_ac(client, db_session, sample_user,
 
 
 @pytest.mark.asyncio
+async def test_equipping_two_handed_weapon_unequips_shield(client, db_session, sample_user, sample_character):
+    sample_character.equipment = {
+        "gold": 10,
+        "weapons": [{"name": "Longbow", "equipped": False}],
+        "armor": [],
+        "shield": {"name": "Shield", "zh": "鐩剧墝", "ac": 2, "equipped": True},
+    }
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.patch(
+        f"/characters/{sample_character.id}/equipment",
+        headers=headers,
+        json={
+            "item_name": "Longbow",
+            "item_category": "weapon",
+            "equip": True,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["equipment"]["weapons"][0]["equipped"] is True
+    assert data["equipment"]["shield"]["equipped"] is False
+    await db_session.refresh(sample_character)
+    assert sample_character.equipment["shield"]["equipped"] is False
+
+
+@pytest.mark.asyncio
 async def test_use_item_returns_updated_equipment(client, db_session, sample_user, sample_character):
     sample_character.hp_current = 4
     sample_character.equipment = {

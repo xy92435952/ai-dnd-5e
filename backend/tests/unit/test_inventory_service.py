@@ -218,6 +218,46 @@ def test_update_equipment_toggles_shield_slot():
     assert result["equipment"]["shield"]["equipped"] is True
 
 
+def test_update_equipment_two_handed_weapon_unequips_shield():
+    equipment = {
+        "weapons": [{"name": "Longbow", "equipped": False}],
+        "shield": {"name": "Shield", "equipped": True},
+    }
+
+    result = inventory_service.update_equipment(
+        equipment,
+        item_name="Longbow",
+        item_category="weapon",
+        equip=True,
+    )
+
+    assert result["equipment"]["weapons"][0]["equipped"] is True
+    assert result["equipment"]["shield"]["equipped"] is False
+
+
+def test_update_equipment_shield_unequips_two_handed_weapons():
+    equipment = {
+        "weapons": [
+            {"name": "Longbow", "equipped": True},
+            {"name": "Longsword", "equipped": True},
+        ],
+        "shield": {"name": "Shield", "equipped": False},
+    }
+
+    result = inventory_service.update_equipment(
+        equipment,
+        item_name="Shield",
+        item_category="shield",
+        equip=True,
+    )
+
+    assert result["equipment"]["shield"]["equipped"] is True
+    assert result["equipment"]["weapons"] == [
+        {"name": "Longbow", "equipped": False},
+        {"name": "Longsword", "equipped": True},
+    ]
+
+
 def test_prepare_gear_item_use_merges_shop_defaults_for_legacy_string_item():
     prepared = inventory_service.prepare_gear_item_use(
         {"gear": ["Healing Potion"]},
