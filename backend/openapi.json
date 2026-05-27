@@ -957,6 +957,11 @@
             ],
             "title": "No Hit Dice"
           },
+          "ordinary_healing_blocked": {
+            "default": false,
+            "title": "Ordinary Healing Blocked",
+            "type": "boolean"
+          },
           "slots_restored": {
             "additionalProperties": true,
             "default": {},
@@ -5780,7 +5785,7 @@
     },
     "/game/combat/{session_id}/reaction": {
       "post": {
-        "description": "Player uses reaction during enemy turn.\nreaction_type: \"shield\" | \"uncanny_dodge\" | \"hellish_rebuke\" | \"opportunity_attack\"\nCalled by frontend when enemy attacks player and player has reaction available.",
+        "description": "Player uses reaction during enemy turn.\nreaction_type: \"shield\" | \"counterspell\" | \"decline\" | \"uncanny_dodge\" | \"hellish_rebuke\"\nCalled by frontend when an enemy attack or spell cast offers a reaction prompt.",
         "operationId": "use_reaction_game_combat__session_id__reaction_post",
         "parameters": [
           {

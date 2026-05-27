@@ -69,8 +69,8 @@ async def use_reaction(
 ):
     """
     Player uses reaction during enemy turn.
-    reaction_type: "shield" | "uncanny_dodge" | "hellish_rebuke" | "opportunity_attack"
-    Called by frontend when enemy attacks player and player has reaction available.
+    reaction_type: "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke"
+    Called by frontend when an enemy attack or spell cast offers a reaction prompt.
     """
     session = await get_session_or_404(session_id, db)
     await assert_optional_session_access(session, user_id, db)

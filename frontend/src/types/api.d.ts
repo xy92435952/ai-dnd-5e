@@ -727,8 +727,8 @@ export interface paths {
         /**
          * Use Reaction
          * @description Player uses reaction during enemy turn.
-         *     reaction_type: "shield" | "uncanny_dodge" | "hellish_rebuke" | "opportunity_attack"
-         *     Called by frontend when enemy attacks player and player has reaction available.
+         *     reaction_type: "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke"
+         *     Called by frontend when an enemy attack or spell cast offers a reaction prompt.
          */
         post: operations["use_reaction_game_combat__session_id__reaction_post"];
         delete?: never;
@@ -1836,6 +1836,11 @@ export interface components {
             no_healing_needed?: boolean | null;
             /** No Hit Dice */
             no_hit_dice?: boolean | null;
+            /**
+             * Ordinary Healing Blocked
+             * @default false
+             */
+            ordinary_healing_blocked: boolean;
             /**
              * Slots Restored
              * @default {}

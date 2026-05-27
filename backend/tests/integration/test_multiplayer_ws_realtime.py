@@ -1393,6 +1393,223 @@ async def test_multiplayer_guest_shield_retroactively_blocks_ai_hit(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_cancels_spell(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Counterspell prompts should identify the reacting character, not just the spell target."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    import services.ai_combat_agent as ai_agent
+    import api.combat.reactions as reactions
+    from models import CombatState, Session
+    from services.ws_manager import ws_manager
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "combat_start",
+                "narrative": "A robed sentry begins the fight.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {
+                    "combat_trigger": True,
+                    "initial_enemies": [
+                        {
+                            "name": "Enemy Mage",
+                            "hp": 12,
+                            "ac": 13,
+                            "attack_bonus": 3,
+                            "damage_dice": "1d6+1",
+                        }
+                    ],
+                },
+                "needs_check": {"required": False},
+                "combat_triggered": True,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "spell",
+            "target_id": host_char.id,
+            "action_name": "魔法飞弹",
+            "reason": "test multiplayer counterspell",
+        }
+
+    async def fake_narrate_action(**kwargs):
+        return ""
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(reactions, "narrate_action", fake_narrate_action)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_counterspell",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    host_char = room_data["host_char"]
+    guest_char = room_data["guest_char"]
+
+    guest_char.char_class = "Wizard"
+    guest_char.level = 5
+    guest_char.known_spells = ["Counterspell"]
+    guest_char.spell_slots = {"3rd": 1}
+    guest_char.derived = {
+        **(guest_char.derived or {}),
+        "spell_ability": "int",
+        "ability_modifiers": {
+            **(guest_char.derived or {}).get("ability_modifiers", {}),
+            "int": 3,
+        },
+    }
+    await db_session.commit()
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        start_response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I start the fight.",
+        })
+        assert start_response.status_code == 200, start_response.text
+        await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+
+        combat_payload = (await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))).json()
+        enemy = next(entity for entity in combat_payload["entities"].values() if entity["is_enemy"])
+        enemy_turn_index = next(
+            index
+            for index, turn in enumerate(combat_payload["turn_order"])
+            if turn["character_id"] == enemy["id"]
+        )
+
+        session_row = await db_session.get(Session, sid)
+        state = dict(session_row.game_state or {})
+        enemy_state = state["enemies"][0]
+        enemy_state["known_spells"] = ["魔法飞弹"]
+        enemy_state["spell_slots"] = {"1st": 1}
+        enemy_state["derived"] = {
+            **(enemy_state.get("derived") or {}),
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3, "dex": 1},
+            "spell_save_dc": 13,
+        }
+        session_row.game_state = state
+        flag_modified(session_row, "game_state")
+
+        combat_row = (
+            await db_session.execute(select(CombatState).where(CombatState.session_id == sid))
+        ).scalars().first()
+        combat_row.current_turn_index = enemy_turn_index
+        positions = dict(combat_row.entity_positions or {})
+        positions[enemy["id"]] = {"x": 5, "y": 5}
+        positions[host_char.id] = {"x": 6, "y": 5}
+        positions[guest_char.id] = {"x": 4, "y": 5}
+        combat_row.entity_positions = positions
+        await db_session.commit()
+
+        before_guest_ai_count = len(guest_ws.sent)
+        before_host_ai_count = len(host_ws.sent)
+        ai_result = await client.post(f"/game/combat/{sid}/ai-turn", headers=_h(host["token"]))
+        assert ai_result.status_code == 200, ai_result.text
+        ai_body = ai_result.json()
+        assert ai_body["target_id"] == host_char.id
+        assert ai_body["player_can_react"] is True
+        assert ai_body["reaction_prompt"]["trigger"] == "spell_cast"
+        assert ai_body["reaction_prompt"]["reactor_character_id"] == guest_char.id
+        assert ai_body["reaction_prompt"]["spell_target_id"] == host_char.id
+        assert ai_body["reaction_prompt"]["options"][0]["type"] == "counterspell"
+
+        guest_ai_update = await _wait_for_event(
+            guest_ws,
+            "combat_update",
+            timeout=2,
+            start_index=before_guest_ai_count,
+        )
+        host_ai_update = await _wait_for_event(
+            host_ws,
+            "combat_update",
+            timeout=2,
+            start_index=before_host_ai_count,
+        )
+        for update in (guest_ai_update, host_ai_update):
+            assert update["player_can_react"] is True
+            assert update["reaction_prompt"]["reactor_character_id"] == guest_char.id
+            assert update["reaction_prompt"]["spell_target_id"] == host_char.id
+            assert update["current_entity_id"] == enemy["id"]
+
+        await db_session.refresh(combat_row)
+        assert combat_row.turn_states[guest_char.id]["pending_spell_reaction"]["spell_name"] == "魔法飞弹"
+
+        before_reaction_count = len(host_ws.sent)
+        reaction = await client.post(
+            f"/game/combat/{sid}/reaction",
+            headers=_h(guest["token"]),
+            json={
+                "reaction_type": "counterspell",
+                "target_id": enemy["id"],
+                "character_id": guest_char.id,
+            },
+        )
+        assert reaction.status_code == 200, reaction.text
+        reaction_body = reaction.json()
+        assert reaction_body["reaction_effect"]["spell_cancelled"] is True
+        assert reaction_body["reaction_effect"]["countered_spell"] == "魔法飞弹"
+        assert reaction_body["reaction_effect"]["slot_used"] == "3rd"
+        assert reaction_body["turn_state"]["reaction_used"] is True
+
+        await db_session.refresh(guest_char)
+        await db_session.refresh(session_row)
+        await db_session.refresh(combat_row)
+        assert guest_char.spell_slots["3rd"] == 0
+        assert session_row.game_state["enemies"][0]["spell_slots"]["1st"] == 0
+        assert combat_row.current_turn_index != enemy_turn_index
+        assert "pending_spell_reaction" not in combat_row.turn_states[guest_char.id]
+
+        reaction_update = await _wait_for_event(host_ws, "combat_update", timeout=2, start_index=before_reaction_count)
+        assert reaction_update["actor_id"] == guest_char.id
+        assert reaction_update["reaction_type"] == "counterspell"
+        assert "pending_spell_reaction" not in reaction_update["combat"]["turn_states"][guest_char.id]
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_death_save_broadcasts_character_state(
     client,
     db_session,
