@@ -56,3 +56,21 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["derived"]["spell_ability"] == "int"
     assert enemy["derived"]["spell_save_dc"] == 13
     assert enemy["derived"]["ability_modifiers"]["int"] == 3
+
+
+async def test_init_combat_stores_encounter_balance(db_session, sample_session, sample_module, sample_character):
+    from services.game_combat_setup_service import init_combat
+
+    await init_combat(
+        session=sample_session,
+        initial_enemies=[{"name": "Goblin", "cr": "1/4", "xp": 50, "hp": 7}],
+        characters=[sample_character],
+        module=sample_module,
+        db=db_session,
+    )
+
+    balance = sample_session.game_state["encounter_balance"]
+    assert balance["party_size"] == 1
+    assert balance["monster_count"] == 1
+    assert balance["base_xp"] == 50
+    assert balance["difficulty"] in {"easy", "medium", "hard", "deadly"}

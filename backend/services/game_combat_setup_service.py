@@ -9,6 +9,7 @@ from services.dnd_rules import roll_initiative
 from services.combat_legendary_action_service import initialize_legendary_actions
 from services.combat_legendary_resistance_service import initialize_legendary_resistances
 from services.combat_recharge_service import normalize_recharge_abilities
+from services.encounter_balance_service import estimate_encounter_difficulty
 
 
 def build_enemy_from_module(monster: dict) -> dict:
@@ -37,6 +38,8 @@ def build_enemy_from_module(monster: dict) -> dict:
         "name": monster.get("name", "未知怪物"),
         "hp_current": hp,
         "hp_max": hp,
+        "cr": monster.get("cr", monster.get("challenge_rating", monster.get("challenge"))),
+        "xp": monster.get("xp"),
         "ac": monster.get("ac", 13),
         "conditions": [],
         "dead": False,
@@ -139,6 +142,13 @@ async def init_combat(
     session.combat_active = True
     state = dict(session.game_state or {})
     state["enemies"] = enemies
+    state["encounter_balance"] = estimate_encounter_difficulty(
+        [
+            {"id": str(character.id), "level": character.level or 1}
+            for character in characters
+        ],
+        enemies,
+    )
     session.game_state = state
     flag_modified(session, "game_state")
     await db.flush()
@@ -183,6 +193,8 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
         "name": name,
         "hp_current": item.get("hp", 20),
         "hp_max": item.get("hp", 20),
+        "cr": item.get("cr", item.get("challenge_rating", item.get("challenge"))),
+        "xp": item.get("xp"),
         "ac": item.get("ac", 13),
         "conditions": [],
         "dead": False,
