@@ -144,7 +144,7 @@ Priority:
 | --- | --- | --- | --- | --- |
 | [~] | P0 | Parsed monster stat blocks | Module parser fills monster defaults including vulnerabilities, condition immunities, and multiattack. | Uploaded modules produce combat-ready enemies with HP, AC, attacks, saves, speed, and abilities. |
 | [~] | P0 | Enemy AI combat actions | AI turn service chooses attack/spell/actions and now uses enemy multiattack for attack count. | Enemies pick legal actions, respect resources, avoid impossible movement, and produce readable narration. |
-| [~] | P1 | Monster traits | First slice complete: damage resistance/immunity/vulnerability data is preserved, condition immunity blocks control conditions, and multiattack feeds AI turn limits. | Resistance, immunity, condition immunity, multiattack, recharge, pack tactics, legendary resistance are represented. |
+| [~] | P1 | Monster traits | First slices complete: damage resistance/immunity/vulnerability data is preserved, condition immunity blocks control conditions, multiattack feeds AI turn limits, and Pack Tactics grants attack advantage when an ally is adjacent to the target. | Resistance, immunity, condition immunity, multiattack, recharge, pack tactics, legendary resistance are represented. |
 | [ ] | P1 | Encounter balance | Not systematic. | Encounter builder estimates difficulty from party size/level, action economy, and terrain. |
 | [ ] | P2 | Legendary/lair actions | Not implemented. | Boss encounters can act outside normal turns and show clear UI prompts/logs. |
 | [ ] | P2 | Environmental hazards | Partial narrative. | Traps, surfaces, falling, fire, poison gas, difficult terrain, and cover are rule-backed. |
@@ -275,6 +275,7 @@ Priority:
 - [x] Run targeted spell action-economy tests. 2026-05-28: `python -m pytest backend/tests/unit/test_combat_spell_roll_service.py backend/tests/unit/test_combat_spell_prepare_service.py backend/tests/unit/test_combat_pending_spells.py backend/tests/unit/test_combat_direct_spell_service.py backend/tests/unit/test_combat_spell_confirm_service.py -q` passed, 34 tests.
 - [x] Run combat endpoint regression after spell action-economy changes. 2026-05-28: `python -m pytest backend/tests/integration/test_combat_endpoints.py -q` passed, 36 tests.
 - [x] Run targeted monster trait tests. 2026-05-28: `python -m pytest backend/tests/unit/test_module_parser_helpers.py backend/tests/unit/test_game_combat_setup_service.py backend/tests/unit/test_combat_turn_limits_service.py backend/tests/unit/test_combat_spell_effects.py backend/tests/integration/test_combat_endpoints.py -q` passed, 81 tests.
+- [x] Run targeted Pack Tactics tests. 2026-05-28: `python -m pytest backend/tests/unit/test_combat_ai_attack_service.py backend/tests/unit/test_module_parser_helpers.py backend/tests/unit/test_combat_turn_limits_service.py -q` passed, 22 tests; combat endpoint regression passed, 37 tests.
 - [ ] Run frontend tests: `cd frontend && npm test -- --run`.
 - [ ] Run frontend build: `cd frontend && npm run build`.
 - [ ] Run frontend lint when touching frontend code: `cd frontend && npm run lint`.
@@ -326,7 +327,7 @@ Priority:
 2. P0/P1 multiplayer pressure: repeat the 50-user load smoke and add missing assertions from real failures.
 3. P1 combat UX: action economy display, unavailable reasons, reaction before/after HP clarity.
 4. P1 spell system: unify spell target/area/slot/upcast/condition application before adding many more spells. First slice complete for action economy: action cantrips consume action, bonus-action spells consume bonus action, and reaction spells are rejected from ordinary cast flows.
-5. P1 monster traits: multiattack, resistances, immunities, condition immunity, recharge. First slice complete for condition immunity and multiattack turn limits; recharge, pack tactics, and legendary resistance remain.
+5. P1 monster traits: multiattack, resistances, immunities, condition immunity, recharge. First slices complete for condition immunity, multiattack turn limits, and Pack Tactics; recharge and legendary resistance remain.
 6. P1 exploration rules: stealth, perception, traps, rest consequences, travel/exhaustion.
 7. P2 CRPG depth: encounter templates, companion approval, branching quest state, loot economy.
 

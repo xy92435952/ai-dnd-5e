@@ -93,6 +93,7 @@ def test_fill_monster_defaults_adds_combat_ready_fields():
     assert monster["vulnerabilities"] == []
     assert monster["condition_immunities"] == []
     assert monster["multiattack"] == 1
+    assert monster["pack_tactics"] is False
     assert monster["hp_dice"]
     assert monster["tactics"]
     json.dumps(monster, ensure_ascii=False)

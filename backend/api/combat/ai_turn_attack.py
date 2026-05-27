@@ -18,6 +18,7 @@ from services.combat_ai_attack_service import (
     infer_ai_is_ranged,
     target_is_dodging,
     target_conditions,
+    pack_tactics_advantage,
 )
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
@@ -231,6 +232,14 @@ async def handle_ai_attack_action(
             target_character=target_char_for_shield,
         )
         if "guiding_bolt" in ai_target_conditions:
+            extra_adv = True
+        if is_enemy and e and pack_tactics_advantage(
+            attacker=e,
+            target_id=target_id,
+            allies=enemies,
+            positions=positions,
+            has_ally_adjacent_to=_has_ally_adjacent_to,
+        ):
             extra_adv = True
 
         for atk_idx in range(num_attacks):

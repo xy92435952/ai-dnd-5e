@@ -47,7 +47,8 @@ def _fill_monster_defaults(m: dict) -> dict:
         'languages': [], 'special_abilities': [], 'legendary_actions': [],
         'known_spells': [], 'prepared_spells': [], 'cantrips': [], 'spell_slots': {},
         'spell_ability': None, 'spell_save_dc': None,
-        'multiattack': 1, 'typical_count': 1, 'tactics': '直接攻击最近的目标'
+        'multiattack': 1, 'pack_tactics': False,
+        'typical_count': 1, 'tactics': '直接攻击最近的目标'
     }
     for k, v in defaults.items():
         if k not in m or m[k] is None:

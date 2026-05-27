@@ -118,3 +118,29 @@ def target_conditions(
     if target_data:
         return list(target_data.get("conditions", []) or [])
     return []
+
+
+def has_pack_tactics(enemy: dict[str, Any] | None) -> bool:
+    if not enemy:
+        return False
+    if enemy.get("pack_tactics") is True:
+        return True
+    for ability in enemy.get("special_abilities") or []:
+        name = str(ability.get("name") if isinstance(ability, dict) else ability).lower()
+        description = str(ability.get("description", "") if isinstance(ability, dict) else "").lower()
+        if "pack tactics" in name or "pack tactics" in description or "群体战术" in name or "群体战术" in description:
+            return True
+    return False
+
+
+def pack_tactics_advantage(
+    *,
+    attacker: dict[str, Any] | None,
+    target_id: str | None,
+    allies: list[dict[str, Any]],
+    positions: dict[str, Any],
+    has_ally_adjacent_to,
+) -> bool:
+    if not attacker or not target_id or not has_pack_tactics(attacker):
+        return False
+    return bool(has_ally_adjacent_to(target_id, str(attacker.get("id", "")), allies, positions))

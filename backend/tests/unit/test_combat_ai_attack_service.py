@@ -2,6 +2,8 @@ from services.combat_ai_attack_service import (
     apply_character_damage_resistance,
     choose_ai_attack_target,
     infer_ai_is_ranged,
+    has_pack_tactics,
+    pack_tactics_advantage,
     target_is_dodging,
 )
 
@@ -118,4 +120,43 @@ def test_target_is_dodging_reads_turn_state_and_conditions():
         combat=type("Combat", (), {"turn_states": {}})(),
         target_id="enemy-1",
         target_data={"conditions": ["poisoned"]},
+    ) is False
+
+
+def test_has_pack_tactics_reads_flag_or_special_ability():
+    assert has_pack_tactics({"pack_tactics": True}) is True
+    assert has_pack_tactics({"special_abilities": [{"name": "Pack Tactics"}]}) is True
+    assert has_pack_tactics({"special_abilities": [{"description": "群体战术：盟友接近时获得优势"}]}) is True
+    assert has_pack_tactics({"special_abilities": [{"name": "Keen Smell"}]}) is False
+
+
+def test_pack_tactics_advantage_requires_adjacent_ally():
+    attacker = {"id": "wolf-1", "pack_tactics": True}
+    allies = [{"id": "wolf-1", "hp_current": 11}, {"id": "wolf-2", "hp_current": 11}]
+    positions = {
+        "hero": {"x": 4, "y": 4},
+        "wolf-1": {"x": 3, "y": 4},
+        "wolf-2": {"x": 5, "y": 4},
+    }
+
+    assert pack_tactics_advantage(
+        attacker=attacker,
+        target_id="hero",
+        allies=allies,
+        positions=positions,
+        has_ally_adjacent_to=lambda target_id, attacker_id, allies, positions: True,
+    ) is True
+    assert pack_tactics_advantage(
+        attacker=attacker,
+        target_id="hero",
+        allies=allies,
+        positions=positions,
+        has_ally_adjacent_to=lambda target_id, attacker_id, allies, positions: False,
+    ) is False
+    assert pack_tactics_advantage(
+        attacker={"id": "wolf-1"},
+        target_id="hero",
+        allies=allies,
+        positions=positions,
+        has_ally_adjacent_to=lambda *_args: True,
     ) is False
