@@ -10,6 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from api.combat._shared import _get_ts, svc
 from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
 from models import Character, CombatState, GameLog
+from services.combat_grid_service import chebyshev_distance
 from services.combat_recharge_service import choose_recharge_ability, mark_recharge_ability_used
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_temporary_hp_service import build_character_target_state
@@ -29,6 +30,7 @@ async def handle_ai_special_action(
     enemy,
     enemies: list[dict[str, Any]],
     all_characters: list[dict[str, Any]],
+    positions: dict[str, Any] | None,
     decided_target_id: str | None,
     decided_reason: str,
     decision: dict[str, Any],
@@ -50,53 +52,43 @@ async def handle_ai_special_action(
     if not ability.get("damage_dice"):
         return None
 
-    target = _choose_special_target(decided_target_id, all_characters)
-    if not target:
+    targets = _choose_special_targets(
+        decided_target_id,
+        all_characters,
+        ability,
+        actor_id=actor_id,
+        positions=positions or {},
+    )
+    if not targets:
         return None
 
     damage_roll = roll_dice(str(ability.get("damage_dice") or "1d6"))
     base_damage = int(damage_roll.get("total") or 0)
-    save_detail = _roll_recharge_save(target, ability)
-    saved = bool(save_detail and save_detail.get("success"))
-    damage_after_save = base_damage // 2 if saved and _half_on_save(ability) else base_damage
     damage_type = ability.get("damage_type") or "bludgeoning"
+    target_results: list[dict[str, Any]] = []
 
-    target_character = await db.get(Character, str(target.get("id")))
-    target_state = None
-    target_new_hp = None
-    target_name = target.get("name", "target")
-    applied_damage = damage_after_save
-
-    if target_character:
-        target_name = target_character.name
-        applied_damage, _resisted = apply_character_damage_resistance(
-            target_character,
-            damage_after_save,
-            damage_type,
+    for target in targets:
+        applied = await _apply_recharge_damage_to_target(
+            db,
+            target=target,
+            enemies=enemies,
+            ability=ability,
+            base_damage=base_damage,
+            damage_type=damage_type,
         )
-        apply_character_damage(target_character, applied_damage)
-        target_new_hp = target_character.hp_current
-        target_state = build_character_target_state(target_character)
-    else:
-        target_enemy = next((item for item in enemies if str(item.get("id")) == str(target.get("id"))), None)
-        if target_enemy:
-            target_name = target_enemy.get("name", target_name)
-            applied_damage = svc.apply_damage_with_resistance(
-                damage_after_save,
-                damage_type,
-                target_enemy.get("resistances", []),
-                target_enemy.get("immunities", []),
-                target_enemy.get("vulnerabilities", []),
-            )
-            target_enemy["hp_current"] = svc.apply_damage(
-                target_enemy.get("hp_current", 0),
-                applied_damage,
-                target_enemy.get("derived", {}).get("hp_max", target_enemy.get("hp_max", 10)),
-            )
-            target_new_hp = target_enemy["hp_current"]
-            target_state = _enemy_target_state(target_enemy)
-        else:
-            return None
+        if not applied:
+            continue
+        target_results.append(applied)
+
+    if not target_results:
+        return None
+
+    primary_result = target_results[0]
+    target_state = primary_result.get("target_state")
+    target_new_hp = primary_result.get("target_new_hp")
+    applied_damage = sum(result.get("damage", 0) for result in target_results)
+    save_detail = primary_result.get("save")
+    target_summary = _target_summary(target_results)
 
     mark_recharge_ability_used(enemy, str(ability.get("id")))
     state = session.game_state or {}
@@ -111,10 +103,11 @@ async def handle_ai_special_action(
     narration = _special_narration(
         actor_name=actor_name,
         ability=ability,
-        target_name=target_name,
+        target_name=target_summary,
         damage=applied_damage,
         damage_type=damage_type,
         save_detail=save_detail,
+        target_results=target_results,
         reason=decided_reason,
     )
     db.add(GameLog(
@@ -127,6 +120,7 @@ async def handle_ai_special_action(
                 "ability": ability.get("name"),
                 "damage": damage_roll,
                 "save": save_detail,
+                "targets": target_results,
             },
         },
     ))
@@ -162,13 +156,15 @@ async def handle_ai_special_action(
         "damage_roll": damage_roll,
         "damage_type": damage_type,
         "save": save_detail,
+        "target_results": target_results,
+        "aoe_results": target_results,
         "special_action": {
             "ability_id": ability.get("id"),
             "name": ability.get("name"),
             "recharge": ability.get("recharge"),
             "available": False,
         },
-        "target_id": str(target.get("id")),
+        "target_id": primary_result.get("target_id"),
         "target_new_hp": target_new_hp,
         "target_state": target_state,
         "next_turn_index": next_index,
@@ -179,15 +175,185 @@ async def handle_ai_special_action(
     }
 
 
-def _choose_special_target(target_id: str | None, all_characters: list[dict[str, Any]]) -> dict[str, Any] | None:
+async def _apply_recharge_damage_to_target(
+    db,
+    *,
+    target: dict[str, Any],
+    enemies: list[dict[str, Any]],
+    ability: dict[str, Any],
+    base_damage: int,
+    damage_type: str,
+) -> dict[str, Any] | None:
+    save_detail = _roll_recharge_save(target, ability)
+    saved = bool(save_detail and save_detail.get("success"))
+    damage_after_save = base_damage // 2 if saved and _half_on_save(ability) else base_damage
+    target_character = await db.get(Character, str(target.get("id")))
+    target_name = target.get("name", "target")
+    applied_damage = damage_after_save
+
+    if target_character:
+        target_name = target_character.name
+        applied_damage, _resisted = apply_character_damage_resistance(
+            target_character,
+            damage_after_save,
+            damage_type,
+        )
+        apply_character_damage(target_character, applied_damage)
+        target_state = build_character_target_state(target_character)
+        target_state["target_name"] = target_name
+        return {
+            "target_id": str(target_character.id),
+            "target_name": target_name,
+            "damage": applied_damage,
+            "base_damage": base_damage,
+            "damage_after_save": damage_after_save,
+            "damage_type": damage_type,
+            "save": save_detail,
+            "target_new_hp": target_character.hp_current,
+            "target_state": target_state,
+            **target_state,
+        }
+
+    target_enemy = next((item for item in enemies if str(item.get("id")) == str(target.get("id"))), None)
+    if not target_enemy:
+        return None
+
+    target_name = target_enemy.get("name", target_name)
+    applied_damage = svc.apply_damage_with_resistance(
+        damage_after_save,
+        damage_type,
+        target_enemy.get("resistances", []),
+        target_enemy.get("immunities", []),
+        target_enemy.get("vulnerabilities", []),
+    )
+    target_enemy["hp_current"] = svc.apply_damage(
+        target_enemy.get("hp_current", 0),
+        applied_damage,
+        target_enemy.get("derived", {}).get("hp_max", target_enemy.get("hp_max", 10)),
+    )
+    target_state = _enemy_target_state(target_enemy)
+    return {
+        "target_id": str(target_enemy.get("id")),
+        "target_name": target_name,
+        "damage": applied_damage,
+        "base_damage": base_damage,
+        "damage_after_save": damage_after_save,
+        "damage_type": damage_type,
+        "save": save_detail,
+        "target_new_hp": target_enemy["hp_current"],
+        "target_state": target_state,
+        **target_state,
+    }
+
+
+def _choose_special_targets(
+    target_id: str | None,
+    all_characters: list[dict[str, Any]],
+    ability: dict[str, Any],
+    *,
+    actor_id: str,
+    positions: dict[str, Any],
+) -> list[dict[str, Any]]:
     alive = [item for item in all_characters if item.get("hp_current", 0) > 0]
+    if _is_area_recharge_ability(ability):
+        targets = _area_special_targets(
+            alive,
+            target_id=target_id,
+            ability=ability,
+            actor_id=actor_id,
+            positions=positions,
+        )
+        if targets:
+            return targets
+
     if target_id:
         for item in alive:
             if str(item.get("id")) == str(target_id):
-                return item
+                return [item]
     if alive:
-        return min(alive, key=lambda item: item.get("hp_current", 999))
-    return None
+        return [min(alive, key=lambda item: item.get("hp_current", 999))]
+    return []
+
+
+def _is_area_recharge_ability(ability: dict[str, Any]) -> bool:
+    if ability.get("targets") == "multiple":
+        return True
+    if ability.get("aoe") is True:
+        return True
+    text = " ".join(
+        str(ability.get(key, ""))
+        for key in ("area", "targeting", "description", "extra_effects", "reach_or_range")
+    ).lower()
+    return any(
+        marker in text
+        for marker in (
+            "cone",
+            "line",
+            "radius",
+            "sphere",
+            "cube",
+            "each creature",
+            "all creatures",
+            "area",
+        )
+    )
+
+
+def _area_special_targets(
+    alive: list[dict[str, Any]],
+    *,
+    target_id: str | None,
+    ability: dict[str, Any],
+    actor_id: str,
+    positions: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not alive:
+        return []
+
+    max_targets = _max_area_targets(ability, default=min(4, len(alive)))
+    if not positions:
+        return alive[:max_targets]
+
+    actor_position = positions.get(str(actor_id))
+    ranked = []
+    for target in alive:
+        target_position = positions.get(str(target.get("id")))
+        if not target_position:
+            continue
+        distance = chebyshev_distance(actor_position, target_position)
+        ranked.append((distance, 0 if str(target.get("id")) == str(target_id) else 1, target))
+
+    if not ranked:
+        return alive[:max_targets]
+
+    range_tiles = _area_range_tiles(ability)
+    in_range = [item for item in ranked if item[0] <= range_tiles]
+    candidates = in_range or ranked
+    candidates.sort(key=lambda item: (item[1], item[0], str(item[2].get("id"))))
+    return [item[2] for item in candidates[:max_targets]]
+
+
+def _area_range_tiles(ability: dict[str, Any]) -> int:
+    text = " ".join(
+        str(ability.get(key, ""))
+        for key in ("area", "targeting", "description", "extra_effects", "reach_or_range")
+    )
+    distances = [int(match) for match in __import__("re").findall(r"(\d+)\s*(?:ft|feet|foot|灏?)", text)]
+    if distances:
+        return max(1, max(distances) // 5)
+    return 6
+
+
+def _max_area_targets(ability: dict[str, Any], *, default: int) -> int:
+    for key in ("max_targets", "target_count"):
+        value = ability.get(key)
+        if value is None:
+            continue
+        try:
+            return max(1, int(value))
+        except (TypeError, ValueError):
+            continue
+    return max(1, default)
 
 
 def _roll_recharge_save(target: dict[str, Any], ability: dict[str, Any]) -> dict[str, Any] | None:
@@ -218,6 +384,13 @@ def _enemy_target_state(enemy: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _target_summary(target_results: list[dict[str, Any]]) -> str:
+    names = [str(result.get("target_name") or result.get("target_id")) for result in target_results]
+    if len(names) <= 3:
+        return ", ".join(names)
+    return f"{', '.join(names[:3])}, and {len(names) - 3} more"
+
+
 async def _check_party_combat_outcome(db, session, enemies: list[dict[str, Any]], all_characters: list[dict[str, Any]]):
     party_hps = []
     for character in all_characters:
@@ -237,10 +410,18 @@ def _special_narration(
     damage: int,
     damage_type: str,
     save_detail: dict[str, Any] | None,
-    reason: str,
+    target_results: list[dict[str, Any]] | None = None,
+    reason: str = "",
 ) -> str:
     save_text = ""
-    if save_detail:
+    if target_results and len(target_results) > 1:
+        failed = sum(1 for result in target_results if not (result.get("save") or {}).get("success"))
+        saved = len(target_results) - failed
+        save_text = f" {len(target_results)} targets affected"
+        if saved or failed:
+            save_text += f" ({failed} failed, {saved} succeeded saves)"
+        save_text += "."
+    elif save_detail:
         outcome = "succeeds" if save_detail.get("success") else "fails"
         save_text = f" {target_name} {outcome} a DC {save_detail.get('dc')} {save_detail.get('ability')} save."
     reason_text = f" ({reason})" if reason else ""

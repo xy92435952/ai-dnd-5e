@@ -89,6 +89,10 @@ def normalize_recharge_abilities(monster: dict[str, Any] | None) -> list[dict[st
             "saving_throw",
             "area",
             "targeting",
+            "targets",
+            "max_targets",
+            "target_count",
+            "aoe",
             "half_on_save",
         ):
             if field in candidate and candidate.get(field) is not None:

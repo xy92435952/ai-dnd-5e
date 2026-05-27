@@ -268,6 +268,7 @@ describe('combat grid helpers', () => {
         enemy: { id: 'enemy', hp_current: 8 },
         bystander: { id: 'bystander', hp_current: 6 },
         webbed: { id: 'webbed', hp_current: 9, conditions: [] },
+        'breath-hit': { id: 'breath-hit', hp_current: 10, conditions: [] },
         cleric: {
           id: 'cleric',
           hp_current: 0,
@@ -290,6 +291,9 @@ describe('combat grid helpers', () => {
         { target_id: 'bystander', new_hp: 2, conditions: ['burning'] },
         { target_id: 'webbed', conditions: ['restrained'], condition_durations: { restrained: 600 } },
       ],
+      target_results: [
+        { target_id: 'breath-hit', new_hp: 4, conditions: ['burning'] },
+      ],
       resurrection_results: [
         { target_id: 'cleric', resurrected: true, new_hp: 1, death_saves: null, conditions: [], life_state: 'alive' },
       ],
@@ -301,6 +305,7 @@ describe('combat grid helpers', () => {
       conditions: ['restrained'],
       condition_durations: { restrained: 600 },
     })
+    expect(updated.entities['breath-hit']).toMatchObject({ hp_current: 4, conditions: ['burning'] })
     expect(updated.entities.cleric).toMatchObject({
       hp_current: 1,
       death_saves: null,

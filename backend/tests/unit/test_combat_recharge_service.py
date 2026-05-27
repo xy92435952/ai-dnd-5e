@@ -29,6 +29,9 @@ def test_normalize_recharge_abilities_collects_explicit_and_action_data():
             "recharge": "Recharge 6",
             "damage_dice": "4d6",
             "damage_type": "fire",
+            "area": "15 ft cone",
+            "max_targets": 3,
+            "aoe": True,
         }],
         "special_abilities": [{
             "name": "Keen Smell",
@@ -44,6 +47,9 @@ def test_normalize_recharge_abilities_collects_explicit_and_action_data():
     assert abilities[1]["threshold"] == 6
     assert abilities[1]["damage_dice"] == "4d6"
     assert abilities[1]["source"] == "action"
+    assert abilities[1]["area"] == "15 ft cone"
+    assert abilities[1]["max_targets"] == 3
+    assert abilities[1]["aoe"] is True
 
 
 def test_refresh_recharge_abilities_rolls_only_unavailable_abilities():

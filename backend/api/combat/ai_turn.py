@@ -262,6 +262,7 @@ async def _ai_combat_turn_locked(
         e,
         enemies,
         all_characters,
+        positions,
         decided_target_id,
         decided_reason,
         decision,

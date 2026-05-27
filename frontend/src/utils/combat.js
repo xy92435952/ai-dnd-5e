@@ -158,6 +158,7 @@ export function applyActionResultEntityStates(combat, result = {}) {
     updated = applyEntityStateUpdate(updated, result.target_id, result.target_new_hp)
   }
   updated = applyEntityStateUpdates(updated, result.aoe_results || [])
+  updated = applyEntityStateUpdates(updated, result.target_results || [])
   updated = applyEntityStateUpdates(updated, result.resurrection_results || [])
   return updated
 }
