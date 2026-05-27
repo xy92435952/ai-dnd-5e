@@ -6,6 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import CombatState, Module, Session
 from services.dnd_rules import roll_initiative
+from services.combat_legendary_action_service import initialize_legendary_actions
 from services.combat_legendary_resistance_service import initialize_legendary_resistances
 from services.combat_recharge_service import normalize_recharge_abilities
 
@@ -50,6 +51,7 @@ def build_enemy_from_module(monster: dict) -> dict:
         "condition_immunities": monster.get("condition_immunities", []),
         "special_abilities": monster.get("special_abilities", []),
         "actions": monster.get("actions", []),
+        "legendary_actions": monster.get("legendary_actions", []),
         "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
@@ -86,6 +88,7 @@ def build_enemy_from_module(monster: dict) -> dict:
     )
     enemy["legendary_resistances_remaining"] = monster.get("legendary_resistances_remaining")
     initialize_legendary_resistances(enemy)
+    initialize_legendary_actions(enemy)
     return enemy
 
 
@@ -192,6 +195,7 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
         "condition_immunities": item.get("condition_immunities", []),
         "special_abilities": item.get("special_abilities", []),
         "actions": item.get("actions", []),
+        "legendary_actions": item.get("legendary_actions", []),
         "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
@@ -210,6 +214,7 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
     )
     enemy["legendary_resistances_remaining"] = item.get("legendary_resistances_remaining")
     initialize_legendary_resistances(enemy)
+    initialize_legendary_actions(enemy)
     return enemy
 
 
@@ -231,6 +236,7 @@ def _generic_fallback_enemy() -> dict:
         "condition_immunities": [],
         "special_abilities": [],
         "actions": [],
+        "legendary_actions": [],
         "recharge_abilities": [],
         "multiattack": 1,
         "attacks_max": 1,
@@ -252,4 +258,5 @@ def _generic_fallback_enemy() -> dict:
         },
     }
     initialize_legendary_resistances(enemy)
+    initialize_legendary_actions(enemy)
     return enemy

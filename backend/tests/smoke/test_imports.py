@@ -91,6 +91,7 @@ def test_import_split_combat_service_modules():
         combat_condition_service,
         combat_damage_service,
         combat_feature_rules,
+        combat_legendary_action_service,
         combat_tactical_service,
     )
     from services.combat_service import AttackResult, CombatService
@@ -100,6 +101,7 @@ def test_import_split_combat_service_modules():
     assert combat_damage_service.apply_damage is not None
     assert combat_condition_service.check_concentration is not None
     assert combat_feature_rules.calc_divine_smite_damage is not None
+    assert combat_legendary_action_service.initialize_legendary_actions is not None
     assert combat_tactical_service.choose_ai_target is not None
     assert CombatService.resolve_melee_attack is not None
 

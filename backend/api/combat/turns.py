@@ -42,6 +42,7 @@ from api.combat.schemas import (
     SpellConfirmRequest, ManeuverRequest,
 )
 from schemas.combat_responses import EndTurnResult
+from services.combat_legendary_action_service import refresh_legendary_actions_for_new_round
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -126,10 +127,18 @@ async def _end_player_turn_locked(
                 ))
 
     # ── 推进回合 ──────────────────────────────────────────
+    state = session.game_state or {}
+    enemies = list(state.get("enemies", []))
+
     next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
     combat.current_turn_index = next_index
     if next_index == 0:
         combat.round_number += 1
+        refresh_result = refresh_legendary_actions_for_new_round(enemies)
+        if refresh_result["changed"]:
+            state["enemies"] = enemies
+            session.game_state = dict(state)
+            flag_modified(session, "game_state")
 
     # ── 重置下一实体的回合状态（根据角色实际数据）────────
     if turn_order:
@@ -138,8 +147,6 @@ async def _end_player_turn_locked(
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
 
     # ── 检查战斗结束 ──────────────────────────────────────
-    state   = session.game_state or {}
-    enemies = list(state.get("enemies", []))
     combat_over, outcome = await check_and_cleanup_combat_outcome(
         db,
         session=session,
