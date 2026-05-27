@@ -159,6 +159,8 @@ async def get_checkpoint(
 async def take_rest(
     session_id: str,
     rest_type: str = "long",
+    interrupted: bool = False,
+    interruption_reason: str | None = None,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
@@ -170,7 +172,26 @@ async def take_rest(
     await assert_session_access(session, user_id, db)
     roster = CharacterRoster(db, session)
     results = []
-    for character in await roster.party():
+    party = await roster.party()
+    if interrupted:
+        for character in party:
+            results.append(_interrupted_rest_result(character, rest_type))
+        reason_text = f" ({interruption_reason})" if interruption_reason else ""
+        db.add(GameLog(
+            session_id=session_id,
+            role="system",
+            content=f"Party rest was interrupted{reason_text}; no rest benefits were gained.",
+            log_type="system",
+        ))
+        await db.commit()
+        return {
+            "rest_type": rest_type,
+            "interrupted": True,
+            "interruption_reason": interruption_reason,
+            "characters": results,
+        }
+
+    for character in party:
         results.append(_apply_rest_to_character(character, rest_type))
 
     rest_label = "长休" if rest_type == "long" else "短休"
@@ -184,7 +205,35 @@ async def take_rest(
         log_type="system",
     ))
     await db.commit()
-    return {"rest_type": rest_type, "characters": results}
+    return {"rest_type": rest_type, "interrupted": False, "characters": results}
+
+
+def _interrupted_rest_result(character, rest_type: str) -> dict:
+    derived = character.derived or {}
+    base_hp_max = get_effective_hp_base(character, derived)
+    hp_max = get_effective_hp_max(character, base_hp_max)
+    durations = dict(character.condition_durations or {})
+    exhaustion_level = int(durations.get("exhaustion_level", 0) or 0)
+    return {
+        "name": character.name,
+        "hp_recovered": 0,
+        "hp_current": character.hp_current,
+        "hp_max": hp_max,
+        "base_hp_max": base_hp_max,
+        "slots_restored": {},
+        "hit_dice_remaining": character.hit_dice_remaining,
+        "hit_dice_total": character.level,
+        "hit_dice_spent": 0,
+        "hit_dice_restored": 0,
+        "conditions_removed": [],
+        "exhaustion_level_before": exhaustion_level,
+        "exhaustion_level_after": exhaustion_level,
+        "death_saves_reset": False,
+        "ordinary_healing_blocked": False,
+        "class_resources": character.class_resources or {},
+        "rest_interrupted": True,
+        "rest_type": rest_type,
+    }
 
 
 def _apply_rest_to_character(character, rest_type: str) -> dict:

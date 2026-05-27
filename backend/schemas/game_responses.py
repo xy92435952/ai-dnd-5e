@@ -176,12 +176,16 @@ class CharacterRestResult(BaseModel):
     no_hit_dice:     Optional[bool] = None
     no_healing_needed: Optional[bool] = None
     class_resources: Optional[dict[str, Any]] = None
+    rest_interrupted: bool = False
+    rest_type: Optional[str] = None
 
 
 class RestResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     rest_type: str
+    interrupted: bool = False
+    interruption_reason: Optional[str] = None
     characters: list[CharacterRestResult] = []
 
 

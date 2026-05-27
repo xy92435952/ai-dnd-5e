@@ -364,6 +364,58 @@ async def test_long_rest_restores_hp_and_spells(
     assert sample_character.hit_dice_remaining == 1
 
 
+async def test_interrupted_long_rest_grants_no_recovery(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = 3
+    sample_character.hit_dice_remaining = 0
+    sample_character.spell_slots = {"1st": 0}
+    sample_character.derived = {**sample_character.derived, "spell_slots_max": {"1st": 1}}
+    sample_character.conditions = ["poisoned", "exhaustion"]
+    sample_character.condition_durations = {"poisoned": 3, "exhaustion_level": 2}
+    sample_character.death_saves = {"successes": 1, "failures": 1, "stable": False}
+    sample_character.class_resources = {"second_wind_used": True}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={
+            "rest_type": "long",
+            "interrupted": True,
+            "interruption_reason": "ambush",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["rest_type"] == "long"
+    assert data["interrupted"] is True
+    assert data["interruption_reason"] == "ambush"
+    char_result = next(c for c in data["characters"] if c["name"] == sample_character.name)
+    assert char_result["rest_interrupted"] is True
+    assert char_result["hp_current"] == 3
+    assert char_result["hp_recovered"] == 0
+    assert char_result["slots_restored"] == {}
+    assert char_result["hit_dice_remaining"] == 0
+    assert char_result["hit_dice_restored"] == 0
+    assert char_result["conditions_removed"] == []
+    assert char_result["exhaustion_level_before"] == 2
+    assert char_result["exhaustion_level_after"] == 2
+    assert char_result["death_saves_reset"] is False
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 3
+    assert sample_character.spell_slots == {"1st": 0}
+    assert sample_character.hit_dice_remaining == 0
+    assert sample_character.conditions == ["poisoned", "exhaustion"]
+    assert sample_character.condition_durations == {"poisoned": 3, "exhaustion_level": 2}
+    assert sample_character.death_saves == {"successes": 1, "failures": 1, "stable": False}
+    assert sample_character.class_resources == {"second_wind_used": True}
+
+
 async def test_long_rest_after_exhaustion_5_heals_only_to_halved_max(
     client, db_session, sample_session, sample_character, sample_user,
 ):
