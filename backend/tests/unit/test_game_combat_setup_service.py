@@ -22,6 +22,11 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
         "multiattack": 2,
         "condition_immunities": ["charmed"],
         "vulnerabilities": ["radiant"],
+        "recharge_abilities": [{
+            "name": "Fire Breath",
+            "recharge": "5-6",
+            "description": "A cone of flame.",
+        }],
     })
 
     assert enemy["known_spells"] == ["Web"]
@@ -36,6 +41,9 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["attacks_max"] == 2
     assert enemy["condition_immunities"] == ["charmed"]
     assert enemy["vulnerabilities"] == ["radiant"]
+    assert enemy["recharge_abilities"][0]["name"] == "Fire Breath"
+    assert enemy["recharge_abilities"][0]["threshold"] == 5
+    assert enemy["recharge_abilities"][0]["available"] is True
     assert enemy["derived"]["spell_ability"] == "int"
     assert enemy["derived"]["spell_save_dc"] == 13
     assert enemy["derived"]["ability_modifiers"]["int"] == 3

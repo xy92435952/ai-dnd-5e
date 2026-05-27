@@ -58,6 +58,7 @@ async def build_ai_turn_context(db, session: Session, combat: CombatState, actor
             "hp_current": e.get("hp_current", 0), "hp_max": e.get("hp_max", e.get("derived", {}).get("hp_max", 10)),
             "ac": e.get("ac", e.get("derived", {}).get("ac", 10)),
             "actions": e.get("actions", []), "speed": e.get("speed", 30),
+            "recharge_abilities": e.get("recharge_abilities", []),
             "tactics": e.get("tactics", ""), "type": e.get("type", ""),
             "known_spells": e.get("known_spells", []),
             "prepared_spells": e.get("prepared_spells", []),

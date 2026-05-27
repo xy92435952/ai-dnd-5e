@@ -425,6 +425,51 @@ async def test_ai_turn_skips_incapacitated_enemy_without_calling_llm(
     assert ai_turn_combat.current_turn_index == 1
 
 
+async def test_ai_turn_refreshes_enemy_recharge_abilities_at_turn_start(
+    client, db_session, sample_session, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    import api.combat.ai_turn as ai_turn_module
+    import services.ai_combat_agent as ai_agent
+
+    state = sample_session.game_state or {}
+    state["enemies"][0]["recharge_abilities"] = [{
+        "id": "breath",
+        "name": "Breath Weapon",
+        "threshold": 5,
+        "available": False,
+    }]
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "dash",
+            "target_id": sample_session.player_character_id,
+            "reason": "test recharge",
+        }
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+
+    def fake_refresh(enemy):
+        enemy["recharge_abilities"][0]["available"] = True
+        enemy["recharge_abilities"][0]["last_recharge_roll"] = 5
+        return {"changed": True, "events": [], "abilities": enemy["recharge_abilities"]}
+
+    monkeypatch.setattr(ai_turn_module, "refresh_recharge_abilities_at_turn_start", fake_refresh)
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    await db_session.refresh(sample_session)
+    ability = sample_session.game_state["enemies"][0]["recharge_abilities"][0]
+    assert ability["available"] is True
+    assert ability["last_recharge_roll"] == 5
+
+
 async def test_ai_turn_dash_decision_does_not_500(
     client, sample_session, ai_turn_combat, sample_user, monkeypatch,
 ):

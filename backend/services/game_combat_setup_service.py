@@ -6,6 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import CombatState, Module, Session
 from services.dnd_rules import roll_initiative
+from services.combat_recharge_service import normalize_recharge_abilities
 
 
 def build_enemy_from_module(monster: dict) -> dict:
@@ -27,6 +28,7 @@ def build_enemy_from_module(monster: dict) -> dict:
     damage_type = primary_action.get("damage_type", "钝击") if primary_action else "钝击"
     hp = monster.get("hp", 10)
     multiattack = max(1, int(monster.get("multiattack") or monster.get("attacks_max") or 1))
+    recharge_abilities = normalize_recharge_abilities(monster)
 
     return {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
@@ -47,6 +49,7 @@ def build_enemy_from_module(monster: dict) -> dict:
         "condition_immunities": monster.get("condition_immunities", []),
         "special_abilities": monster.get("special_abilities", []),
         "actions": monster.get("actions", []),
+        "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
         "known_spells": list(monster.get("known_spells") or []),
@@ -162,6 +165,8 @@ def _resolve_initial_enemies(*, initial_enemies: list, module: Module) -> list[d
 
 def _fallback_enemy_from_dm(item, name: str) -> dict:
     item = item if isinstance(item, dict) else {}
+    multiattack = max(1, int(item.get("multiattack") or item.get("attacks_max") or 1))
+    recharge_abilities = normalize_recharge_abilities(item)
     return {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": name,
@@ -179,8 +184,9 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
         "condition_immunities": item.get("condition_immunities", []),
         "special_abilities": item.get("special_abilities", []),
         "actions": item.get("actions", []),
-        "multiattack": max(1, int(item.get("multiattack") or item.get("attacks_max") or 1)),
-        "attacks_max": max(1, int(item.get("multiattack") or item.get("attacks_max") or 1)),
+        "recharge_abilities": recharge_abilities,
+        "multiattack": multiattack,
+        "attacks_max": multiattack,
         "tactics": "直接攻击最近的目标",
         "is_player": False,
         "initiative": 0,
@@ -210,6 +216,7 @@ def _generic_fallback_enemy() -> dict:
         "condition_immunities": [],
         "special_abilities": [],
         "actions": [],
+        "recharge_abilities": [],
         "multiattack": 1,
         "attacks_max": 1,
         "tactics": "直接攻击最近的目标",

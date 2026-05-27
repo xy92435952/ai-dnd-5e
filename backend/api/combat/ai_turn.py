@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
 from models import CombatState, Module
@@ -26,6 +27,7 @@ from api.combat.ai_turn_spell import find_resumable_spell_reaction, handle_ai_sp
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
+from services.combat_recharge_service import refresh_recharge_abilities_at_turn_start
 from services.dnd_rules import get_incapacitating_reasons, is_incapacitated
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -118,6 +120,13 @@ async def _ai_combat_turn_locked(
     # ── 回合开始：重置施动者回合状态 ────────────────────────
     ai_atk_max, ai_move_max = await _calc_entity_turn_limits(db, session, actor_id)
     _reset_ts(combat, actor_id, attacks_max=ai_atk_max, movement_max=ai_move_max)
+    if is_enemy:
+        enemy = next((x for x in enemies if str(x.get("id")) == str(actor_id)), None)
+        recharge_result = refresh_recharge_abilities_at_turn_start(enemy)
+        if recharge_result["changed"]:
+            state["enemies"] = enemies
+            session.game_state = dict(state)
+            flag_modified(session, "game_state")
 
     # ── 获取施动者数据 ─────────────────────────────────────
     ai_ctx = await build_ai_turn_context(db, session, combat, actor_id, actor_name, enemies)
