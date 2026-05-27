@@ -33,13 +33,29 @@ def test_build_starting_equipment_equips_fighter_heavy_armor_loadout():
     assert equipment["gear"] == [{"name": "Explorer's Pack", "zh": "探险者背包"}]
 
 
-def test_build_starting_equipment_keeps_unknown_weapon_choice_as_gear():
+def test_build_starting_equipment_expands_thrown_weapon_bundle():
     equipment = character_creation_service.build_starting_equipment("Fighter", 1)
 
-    assert [weapon["name"] for weapon in equipment["weapons"]] == ["Longbow"]
+    assert [weapon["name"] for weapon in equipment["weapons"]] == ["Longbow", "Handaxe", "Handaxe"]
+    assert [weapon["equipped"] for weapon in equipment["weapons"]] == [True, False, False]
     assert equipment["weapons"][0]["ammo"] == 20
     assert equipment["armor"][0]["name"] == "Leather"
-    assert {"name": "Two Handaxes", "zh": "两把手斧"} in equipment["gear"]
+    assert all(item["name"] != "Two Handaxes" for item in equipment["gear"])
+
+
+def test_build_starting_equipment_expands_javelin_bundle():
+    equipment = character_creation_service.build_starting_equipment("Paladin", 1)
+
+    assert [weapon["name"] for weapon in equipment["weapons"]] == [
+        "Greatsword",
+        "Javelin",
+        "Javelin",
+        "Javelin",
+        "Javelin",
+        "Javelin",
+    ]
+    assert equipment["weapons"][0]["equipped"] is True
+    assert all(weapon["equipped"] is False for weapon in equipment["weapons"][1:])
 
 
 def test_build_starting_equipment_returns_empty_for_invalid_choice():

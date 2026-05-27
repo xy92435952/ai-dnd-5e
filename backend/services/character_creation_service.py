@@ -13,6 +13,12 @@ from services.dnd_rules import (
 )
 
 
+STARTING_WEAPON_BUNDLES = {
+    "Two Handaxes": ("Handaxe", 2),
+    "Five Javelins": ("Javelin", 5),
+}
+
+
 @dataclass
 class CharacterCreationError(Exception):
     status_code: int
@@ -38,10 +44,19 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
         if slot == "weapon" or slot == "weapon2":
             weapon = WEAPONS.get(name)
             if weapon:
-                weapon_entry = {**weapon, "name": name, "equipped": slot == "weapon"}
-                if _has_ammunition_property(weapon_entry):
-                    weapon_entry["ammo"] = 20
-                weapons.append(weapon_entry)
+                weapons.append(_build_weapon_entry(name, weapon, equipped=slot == "weapon"))
+            elif name in STARTING_WEAPON_BUNDLES:
+                bundle_weapon_name, count = STARTING_WEAPON_BUNDLES[name]
+                bundle_weapon = WEAPONS.get(bundle_weapon_name)
+                if bundle_weapon:
+                    for index in range(count):
+                        weapons.append(
+                            _build_weapon_entry(
+                                bundle_weapon_name,
+                                bundle_weapon,
+                                equipped=slot == "weapon" and index == 0,
+                            )
+                        )
             else:
                 gear.append({"name": name, "zh": get_item_zh(name)})
         elif slot == "armor":
@@ -54,6 +69,13 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
             gear.append({"name": name, "zh": get_item_zh(name)})
 
     return {"weapons": weapons, "armor": armor_list, "shield": shield, "gear": gear, "gold": 10}
+
+
+def _build_weapon_entry(name: str, weapon: dict, *, equipped: bool) -> dict:
+    weapon_entry = {**weapon, "name": name, "equipped": equipped}
+    if _has_ammunition_property(weapon_entry):
+        weapon_entry["ammo"] = 20
+    return weapon_entry
 
 
 def _has_ammunition_property(weapon: dict) -> bool:

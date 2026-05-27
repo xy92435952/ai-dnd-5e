@@ -77,6 +77,29 @@ def ranged_player(*, ammo=5):
     return player
 
 
+def thrown_player():
+    player = FakePlayer()
+    player.equipment = {
+        "weapons": [
+            {
+                "name": "Javelin",
+                "damage": "1d6",
+                "type": "simple_melee",
+                "properties": ["thrown(30/120)"],
+                "equipped": True,
+            },
+            {
+                "name": "Javelin",
+                "damage": "1d6",
+                "type": "simple_melee",
+                "properties": ["thrown(30/120)"],
+                "equipped": False,
+            },
+        ]
+    }
+    return player
+
+
 @pytest.mark.asyncio
 async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_attack():
     from services.combat_attack_prepare_service import prepare_attack_roll
@@ -192,6 +215,48 @@ async def test_prepare_ranged_attack_roll_rejects_empty_ammunition():
     assert "No ammunition remaining for Longbow" in exc.value.detail
     assert player.equipment["weapons"][0]["ammo"] == 0
     assert combat.turn_states["char-1"]["attacks_made"] == 0
+
+
+@pytest.mark.asyncio
+async def test_prepare_ranged_attack_roll_consumes_thrown_weapon_copy():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["goblin-1"] = {"x": 4, "y": 0}
+    player = thrown_player()
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=player,
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="ranged",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": [],
+        }],
+        roll_attack_func=fixed_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert [weapon["name"] for weapon in player.equipment["weapons"]] == ["Javelin"]
+    assert player.equipment["weapons"][0]["equipped"] is True
+    assert prepared.damage_dice == "1d6+1"
+    assert prepared.weapon_resource == {
+        "weapon": "Javelin",
+        "resource_type": "thrown_weapon",
+        "consumed": True,
+        "weapon_removed": True,
+    }
+    assert prepared.pending_attack["weapon_resource"] == prepared.weapon_resource
 
 
 @pytest.mark.asyncio
