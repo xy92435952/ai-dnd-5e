@@ -56,12 +56,18 @@ class AiSpellResolution:
 
 
 def consume_ai_spell_slot(caster, spell_level: int) -> bool:
-    slots = dict(caster.spell_slots or {})
+    if isinstance(caster, dict):
+        slots = dict(caster.get("spell_slots") or {})
+    else:
+        slots = dict(caster.spell_slots or {})
     slot_key = SLOT_KEYS[min(spell_level - 1, 8)]
     if slots.get(slot_key, 0) <= 0:
         return False
     slots[slot_key] -= 1
-    caster.spell_slots = slots
+    if isinstance(caster, dict):
+        caster["spell_slots"] = slots
+    else:
+        caster.spell_slots = slots
     return True
 
 

@@ -2,11 +2,12 @@ import pytest
 
 
 class FakeSpellService:
-    def __init__(self, spell):
+    def __init__(self, spell, spell_name="Magic Bolt"):
         self.spell = spell
+        self.spell_name = spell_name
 
     def get(self, name):
-        return self.spell if name == "Magic Bolt" else None
+        return self.spell if name == self.spell_name else None
 
     def resolve_damage(self, spell_name, spell_level, spell_mod):
         return 6 + spell_mod, {"formula": "1d6+mod", "total": 6 + spell_mod}
@@ -45,8 +46,18 @@ class FakeCaster:
 
 
 class FakeSession:
-    def __init__(self):
-        self.game_state = {}
+    def __init__(
+        self,
+        *,
+        game_state=None,
+        player_character_id=None,
+        is_multiplayer=False,
+        session_id="session-1",
+    ):
+        self.id = session_id
+        self.game_state = game_state or {}
+        self.player_character_id = player_character_id
+        self.is_multiplayer = is_multiplayer
 
 
 class FakeDb:
@@ -79,6 +90,11 @@ class FakeCharacter:
 
     def __init__(self, hp_current=20):
         self.hp_current = hp_current
+        self.conditions = []
+        self.condition_durations = {}
+        self.class_resources = {}
+        self.concentration = None
+        self.death_saves = None
 
 
 @pytest.mark.asyncio
@@ -133,6 +149,161 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     assert "Magic Bolt" in result.mechanical_narration
     assert "test cast" in result.mechanical_narration
     assert enemies[0]["hp_current"] == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_enemy_ai_spell_action_consumes_dict_slot_and_sets_concentration():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    enemy_caster = {
+        "id": "enemy-mage",
+        "name": "Enemy Mage",
+        "spell_slots": {"1st": 1},
+        "concentration": None,
+    }
+    state = {"enemies": [enemy_caster]}
+    session = FakeSession()
+    flagged = []
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=session,
+        actor_name="Enemy Mage",
+        is_enemy=True,
+        caster=enemy_caster,
+        actor_derived={},
+        decided_target_id=None,
+        decided_reason="test concentration",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[],
+        spell_service_obj=FakeSpellService({
+            "level": 1,
+            "type": "utility",
+            "concentration": True,
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda _obj, attr: flagged.append(attr),
+    )
+
+    assert result is not None
+    assert enemy_caster["spell_slots"] == {"1st": 0}
+    assert enemy_caster["concentration"] == "Magic Bolt"
+    assert session.game_state["enemies"][0]["concentration"] == "Magic Bolt"
+    assert "game_state" in flagged
+
+
+@pytest.mark.asyncio
+async def test_resolve_enemy_ai_control_spell_tracks_character_condition_source():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    character = FakeCharacter(hp_current=20)
+    enemy_caster = {
+        "id": "enemy-mage",
+        "name": "Enemy Mage",
+        "spell_slots": {"1st": 1},
+        "concentration": None,
+    }
+    state = {"enemies": [enemy_caster]}
+
+    result = await resolve_ai_spell_action(
+        CharacterDb(character),
+        session=FakeSession(player_character_id=character.id),
+        actor_name="Enemy Mage",
+        is_enemy=True,
+        caster=enemy_caster,
+        actor_derived={"spell_save_dc": 13},
+        decided_target_id=character.id,
+        decided_reason="test hex",
+        decision={"action_type": "spell", "action_name": "Hex", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[{"id": character.id, "hp_current": 20}],
+        spell_service_obj=FakeSpellService(
+            {
+                "level": 1,
+                "type": "control",
+                "concentration": True,
+                "condition": "hexed",
+                "save": None,
+                "duration_rounds": 600,
+            },
+            spell_name="Hex",
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert result is not None
+    assert enemy_caster["spell_slots"] == {"1st": 0}
+    assert enemy_caster["concentration"] == "Hex"
+    assert character.conditions == ["hexed"]
+    assert character.condition_durations == {"hexed": 600}
+    sources = character.class_resources["condition_sources"]["hexed"]
+    assert sources[0]["caster_id"] == "enemy-mage"
+    assert sources[0]["spell_name"] == "Hex"
+    assert sources[0]["added_condition"] is True
+
+
+@pytest.mark.asyncio
+async def test_enemy_ai_concentration_replacement_clears_previous_character_condition():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    character = FakeCharacter(hp_current=20)
+    character.conditions = ["hexed"]
+    character.condition_durations = {"hexed": 600}
+    character.class_resources = {
+        "condition_sources": {
+            "hexed": [{
+                "source_type": "concentration",
+                "caster_id": "enemy-mage",
+                "spell_name": "Hex",
+                "target_id": character.id,
+                "added_condition": True,
+                "had_previous_duration": False,
+                "previous_duration": None,
+            }]
+        }
+    }
+    enemy_caster = {
+        "id": "enemy-mage",
+        "name": "Enemy Mage",
+        "spell_slots": {"1st": 1},
+        "concentration": "Hex",
+    }
+    state = {"enemies": [enemy_caster]}
+
+    result = await resolve_ai_spell_action(
+        CharacterDb(character),
+        session=FakeSession(player_character_id=character.id),
+        actor_name="Enemy Mage",
+        is_enemy=True,
+        caster=enemy_caster,
+        actor_derived={},
+        decided_target_id=None,
+        decided_reason="replace concentration",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[{"id": character.id, "hp_current": 20}],
+        spell_service_obj=FakeSpellService({
+            "level": 1,
+            "type": "utility",
+            "concentration": True,
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert result is not None
+    assert enemy_caster["concentration"] == "Magic Bolt"
+    assert character.conditions == []
+    assert character.condition_durations == {}
+    assert "condition_sources" not in character.class_resources
 
 
 @pytest.mark.asyncio

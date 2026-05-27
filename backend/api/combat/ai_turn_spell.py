@@ -37,7 +37,7 @@ async def handle_ai_spell_action(
         session=session,
         actor_name=actor_name,
         is_enemy=is_enemy,
-        caster=achar,
+        caster=enemy if is_enemy else achar,
         actor_derived=actor_derived,
         decided_target_id=decided_target_id,
         decided_reason=decided_reason,

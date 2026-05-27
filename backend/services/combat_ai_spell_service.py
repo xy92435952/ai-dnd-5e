@@ -29,6 +29,29 @@ from services.spell_service import spell_service
 svc = CombatService()
 
 
+def _caster_id(caster) -> str | None:
+    if isinstance(caster, dict):
+        value = caster.get("id")
+    else:
+        value = getattr(caster, "id", None)
+    return str(value) if value is not None else None
+
+
+def _persist_enemy_caster_state(
+    *,
+    session,
+    state: dict[str, Any],
+    enemies: list[dict[str, Any]],
+    caster,
+    flag_modified_func: Callable[[Any, str], None],
+) -> None:
+    if not isinstance(caster, dict):
+        return
+    state["enemies"] = enemies
+    session.game_state = dict(state)
+    flag_modified_func(session, "game_state")
+
+
 async def resolve_ai_spell_action(
     db,
     *,
@@ -74,14 +97,29 @@ async def resolve_ai_spell_action(
     if not is_cantrip and caster:
         if not consume_ai_spell_slot(caster, spell_level):
             return None
+        _persist_enemy_caster_state(
+            session=session,
+            state=state,
+            enemies=enemies,
+            caster=caster,
+            flag_modified_func=flag_modified_func,
+        )
 
+    caster_id = _caster_id(caster)
     if spell_data.get("concentration") and caster:
         await set_concentration_with_cleanup(
             db,
             session,
             caster,
             spell_name,
-            caster_id=getattr(caster, "id", None),
+            caster_id=caster_id,
+        )
+        _persist_enemy_caster_state(
+            session=session,
+            state=state,
+            enemies=enemies,
+            caster=caster,
+            flag_modified_func=flag_modified_func,
         )
 
     resolution = AiSpellResolution(
@@ -125,7 +163,7 @@ async def resolve_ai_spell_action(
             enemies=enemies,
             spell_save_dc=spell_save_dc,
             state=state,
-            caster_id=getattr(caster, "id", None) if caster else None,
+            caster_id=caster_id,
             flag_modified_func=flag_modified_func,
             roll_dice_func=roll_dice_func,
         )
