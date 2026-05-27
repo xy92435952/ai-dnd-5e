@@ -12,6 +12,7 @@ from services.combat_concentration_effect_service import (
     track_concentration_condition,
 )
 from services.combat_condition_immunity_service import is_condition_immune
+from services.combat_legendary_resistance_service import maybe_use_legendary_resistance
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
 from services.combat_spell_damage_component_service import (
@@ -336,7 +337,12 @@ async def roll_spell_save(
     target_enemy = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
     target_character = None if target_enemy else await db.get(Character, target_id)
     if target_enemy:
-        return roll_saving_throw(target_enemy, save_ability, spell_save_dc)
+        save_detail = roll_saving_throw(target_enemy, save_ability, spell_save_dc)
+        return maybe_use_legendary_resistance(
+            target_enemy,
+            save_detail,
+            reason="spell_save",
+        )
     if target_character:
         return roll_saving_throw(
             {
@@ -588,6 +594,11 @@ async def apply_control_spell_to_target(
     if save_ability:
         if target_enemy:
             save_detail = roll_saving_throw(target_enemy, save_ability, spell_save_dc)
+            save_detail = maybe_use_legendary_resistance(
+                target_enemy,
+                save_detail,
+                reason="control_spell",
+            )
         elif target_character:
             save_detail = roll_saving_throw(
                 {

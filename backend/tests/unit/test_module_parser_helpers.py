@@ -94,6 +94,7 @@ def test_fill_monster_defaults_adds_combat_ready_fields():
     assert monster["condition_immunities"] == []
     assert monster["multiattack"] == 1
     assert monster["pack_tactics"] is False
+    assert monster["legendary_resistances"] == 0
     assert monster["recharge_abilities"] == []
     assert monster["hp_dice"]
     assert monster["tactics"]

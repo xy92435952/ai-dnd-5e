@@ -5,6 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_concentration_effect_service import track_concentration_condition
 from services.combat_ai_spell_models import AiSpellResolution, CONTROL_CONDITION_MAP
+from services.combat_legendary_resistance_service import maybe_use_legendary_resistance
 from services.combat_spell_effect_service import (
     resolve_spell_condition,
     resolve_spell_condition_duration,
@@ -71,6 +72,11 @@ async def apply_ai_control_spell(
                 d20_roller=roll_dice_func,
             )
             if save_ability else None
+        )
+        save_detail = maybe_use_legendary_resistance(
+            target_enemy,
+            save_detail,
+            reason="ai_control_spell",
         )
         saved = bool(save_detail and save_detail["success"])
         if not saved:

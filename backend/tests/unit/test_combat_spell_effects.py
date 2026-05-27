@@ -391,6 +391,37 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
     assert "condition_durations" in result["target_state"]
 
 
+async def test_apply_control_spell_to_enemy_uses_legendary_resistance(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "dragon-1",
+        "name": "Dragon",
+        "conditions": [],
+        "derived": {"ability_modifiers": {"wis": -5}, "saving_throws": {"wis": -5}},
+        "legendary_resistances": 3,
+        "legendary_resistances_remaining": 1,
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "dragon-1",
+        session_id="sess-1",
+        condition_name="paralyzed",
+        save_ability="wis",
+        spell_save_dc=30,
+    )
+
+    assert result["save_detail"]["success"] is True
+    assert result["save_detail"]["legendary_resistance_used"] is True
+    assert result["save_detail"]["legendary_resistance_remaining"] == 0
+    assert result["saved"] is True
+    assert result["applied"] is False
+    assert enemies[0]["conditions"] == []
+    assert enemies[0]["legendary_resistances_remaining"] == 0
+
+
 async def test_apply_control_spell_to_condition_immune_enemy_is_noop(db_session):
     from services import combat_spell_effect_service as spell_effects
 

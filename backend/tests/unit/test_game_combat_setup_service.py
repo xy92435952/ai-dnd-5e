@@ -20,6 +20,7 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
         "spell_ability": "int",
         "spell_save_dc": 13,
         "multiattack": 2,
+        "legendary_resistances": 3,
         "condition_immunities": ["charmed"],
         "vulnerabilities": ["radiant"],
         "recharge_abilities": [{
@@ -39,6 +40,8 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["attack_bonus"] == 4
     assert enemy["multiattack"] == 2
     assert enemy["attacks_max"] == 2
+    assert enemy["legendary_resistances"] == 3
+    assert enemy["legendary_resistances_remaining"] == 3
     assert enemy["condition_immunities"] == ["charmed"]
     assert enemy["vulnerabilities"] == ["radiant"]
     assert enemy["recharge_abilities"][0]["name"] == "Fire Breath"

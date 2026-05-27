@@ -6,6 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import CombatState, Module, Session
 from services.dnd_rules import roll_initiative
+from services.combat_legendary_resistance_service import initialize_legendary_resistances
 from services.combat_recharge_service import normalize_recharge_abilities
 
 
@@ -30,7 +31,7 @@ def build_enemy_from_module(monster: dict) -> dict:
     multiattack = max(1, int(monster.get("multiattack") or monster.get("attacks_max") or 1))
     recharge_abilities = normalize_recharge_abilities(monster)
 
-    return {
+    enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": monster.get("name", "未知怪物"),
         "hp_current": hp,
@@ -79,6 +80,13 @@ def build_enemy_from_module(monster: dict) -> dict:
             },
         },
     }
+    enemy["legendary_resistances"] = monster.get(
+        "legendary_resistances",
+        monster.get("legendary_resistance_uses", monster.get("legendary_resistance", 0)),
+    )
+    enemy["legendary_resistances_remaining"] = monster.get("legendary_resistances_remaining")
+    initialize_legendary_resistances(enemy)
+    return enemy
 
 
 async def init_combat(
@@ -167,7 +175,7 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
     item = item if isinstance(item, dict) else {}
     multiattack = max(1, int(item.get("multiattack") or item.get("attacks_max") or 1))
     recharge_abilities = normalize_recharge_abilities(item)
-    return {
+    enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": name,
         "hp_current": item.get("hp", 20),
@@ -196,10 +204,17 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
             "attack_bonus": item.get("attack_bonus", 3),
         },
     }
+    enemy["legendary_resistances"] = item.get(
+        "legendary_resistances",
+        item.get("legendary_resistance_uses", item.get("legendary_resistance", 0)),
+    )
+    enemy["legendary_resistances_remaining"] = item.get("legendary_resistances_remaining")
+    initialize_legendary_resistances(enemy)
+    return enemy
 
 
 def _generic_fallback_enemy() -> dict:
-    return {
+    enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": "敌对生物",
         "hp_current": 30,
@@ -236,3 +251,5 @@ def _generic_fallback_enemy() -> dict:
             },
         },
     }
+    initialize_legendary_resistances(enemy)
+    return enemy

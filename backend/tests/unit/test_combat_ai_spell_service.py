@@ -622,6 +622,34 @@ def test_damage_after_ai_enemy_save_success_zeroes_cantrip_without_half_on_save(
     assert damage == 0
 
 
+def test_damage_after_ai_enemy_save_uses_legendary_resistance():
+    from services.combat_ai_spell_damage_service import resolve_ai_save_damage
+
+    enemy = {
+        "id": "dragon-1",
+        "derived": {
+            "ability_modifiers": {"dex": -5},
+            "saving_throws": {"dex": -5},
+        },
+        "legendary_resistances": 3,
+        "legendary_resistances_remaining": 1,
+    }
+
+    result = resolve_ai_save_damage(
+        enemy,
+        base_damage=22,
+        spell_data={"save": "dex", "half_on_save": False},
+        spell_save_dc=30,
+        roll_dice_func=lambda expr: {"rolls": [1], "total": 1},
+        half_on_save_default=False,
+    )
+
+    assert result["damage"] == 0
+    assert result["save_result"]["success"] is True
+    assert result["save_result"]["legendary_resistance_used"] is True
+    assert enemy["legendary_resistances_remaining"] == 0
+
+
 def test_damage_after_ai_character_save_applies_evasion_to_character_object():
     from services.combat_ai_spell_damage_service import damage_after_ai_character_save
 
@@ -642,6 +670,50 @@ def test_resolve_ai_spell_level_defaults_to_spell_registry_level():
     assert resolve_ai_spell_level({}, {"level": 3}) == 3
     assert resolve_ai_spell_level({"spell_level": 1}, {"level": 3}) == 3
     assert resolve_ai_spell_level({"spell_level": 5}, {"level": 3}) == 5
+
+
+@pytest.mark.asyncio
+async def test_ai_control_spell_uses_legendary_resistance():
+    from services.combat_ai_spell_effect_service import apply_ai_control_spell
+    from services.combat_ai_spell_models import AiSpellResolution
+
+    enemies = [{
+        "id": "dragon-1",
+        "name": "Dragon",
+        "derived": {
+            "ability_modifiers": {"wis": -5},
+            "saving_throws": {"wis": -5},
+        },
+        "conditions": [],
+        "legendary_resistances": 3,
+        "legendary_resistances_remaining": 1,
+    }]
+    state = {"enemies": enemies}
+    session = FakeSession()
+    resolution = AiSpellResolution(
+        spell_name="Hold Person",
+        spell_level=2,
+        spell_target="dragon-1",
+        spell_data={"save": "wis"},
+        is_cantrip=False,
+    )
+
+    await apply_ai_control_spell(
+        FakeDb(),
+        resolution=resolution,
+        session=session,
+        enemies=enemies,
+        spell_save_dc=30,
+        state=state,
+        flag_modified_func=lambda *_args: None,
+        roll_dice_func=lambda expr: {"rolls": [1], "total": 1},
+    )
+
+    assert enemies[0]["conditions"] == []
+    assert enemies[0]["legendary_resistances_remaining"] == 0
+    assert resolution.target_state is None
+    assert resolution.target_name == "Dragon"
+    assert len(resolution.narration_parts) == 1
 
 
 @pytest.mark.asyncio

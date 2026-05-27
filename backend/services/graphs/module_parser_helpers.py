@@ -45,6 +45,7 @@ def _fill_monster_defaults(m: dict) -> dict:
         'resistances': [], 'immunities': [], 'vulnerabilities': [],
         'condition_immunities': [], 'senses': '普通视觉',
         'languages': [], 'special_abilities': [], 'legendary_actions': [],
+        'legendary_resistances': 0,
         'recharge_abilities': [],
         'known_spells': [], 'prepared_spells': [], 'cantrips': [], 'spell_slots': {},
         'spell_ability': None, 'spell_save_dc': None,

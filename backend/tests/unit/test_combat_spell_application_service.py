@@ -104,6 +104,43 @@ async def test_apply_confirmed_spell_effects_single_target_save_cantrip_deals_no
 
 
 @pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_legendary_resistance_turns_failed_save_into_success():
+    enemies = [{
+        "id": "dragon-1",
+        "name": "Dragon",
+        "hp_current": 60,
+        "derived": {"hp_max": 60, "ability_modifiers": {"dex": -5}, "saving_throws": {"dex": -5}},
+        "legendary_resistances": 3,
+        "legendary_resistances_remaining": 1,
+    }]
+
+    result = await apply_confirmed_spell_effects(
+        FakeDb(),
+        session_id="sess",
+        enemies=enemies,
+        target_ids=["dragon-1"],
+        is_aoe=False,
+        spell_type="damage",
+        spell_name="Sacred Flame",
+        spell_level=0,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"save": "dex", "desc": "DEX save negates damage."},
+        damage_values=None,
+        spell_save_dc=30,
+        resolve_damage=lambda *_args: (8, {"total": 8}),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert result.target_state["damage"] == 0
+    assert result.target_state["save"]["success"] is True
+    assert result.target_state["save"]["legendary_resistance_used"] is True
+    assert result.target_state["save"]["legendary_resistance_remaining"] == 0
+    assert enemies[0]["legendary_resistances_remaining"] == 0
+    assert enemies[0]["hp_current"] == 60
+
+
+@pytest.mark.asyncio
 async def test_apply_confirmed_spell_effects_aoe_evasion_success_takes_no_damage():
     rogue = FakeCharacter(hp_current=20)
     rogue.derived = {
@@ -297,6 +334,44 @@ async def test_apply_confirmed_spell_effects_aoe_evasion_failure_takes_half_dama
     assert rogue.hp_current == 6
     assert result.aoe_results[0]["damage"] == 14
     assert result.aoe_results[0]["evasion_failed_half"] is True
+
+
+@pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_control_blocked_by_legendary_resistance():
+    enemies = [{
+        "id": "lich-1",
+        "name": "Lich",
+        "hp_current": 90,
+        "derived": {"ability_modifiers": {"wis": -5}, "saving_throws": {"wis": -5}},
+        "conditions": [],
+        "legendary_resistances": 3,
+        "legendary_resistances_remaining": 1,
+    }]
+
+    result = await apply_confirmed_spell_effects(
+        FakeDb(),
+        session_id="sess",
+        enemies=enemies,
+        target_ids=["lich-1"],
+        is_aoe=False,
+        spell_type="control",
+        spell_name="Hold Person",
+        spell_level=2,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"save": "wis"},
+        damage_values=None,
+        spell_save_dc=30,
+        resolve_damage=lambda *_args: (_ for _ in ()).throw(AssertionError("should not damage")),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert result.save_detail["success"] is True
+    assert result.save_detail["legendary_resistance_used"] is True
+    assert result.target_state["conditions"] == []
+    assert enemies[0]["conditions"] == []
+    assert enemies[0]["legendary_resistances_remaining"] == 0
+    assert result.enemies_changed is False
 
 
 @pytest.mark.asyncio

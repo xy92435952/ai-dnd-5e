@@ -22,6 +22,7 @@ from api.deps import (
 )
 from services.combat_service import CombatService
 from services.spell_service import spell_service
+from services.combat_legendary_resistance_service import maybe_use_legendary_resistance
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.combat_reaction_service import (
@@ -338,6 +339,11 @@ async def use_reaction(
                         d20=save_roll,
                         conditions=e.get("conditions", []),
                         condition_durations=e.get("condition_durations", {}),
+                    )
+                    save_detail = maybe_use_legendary_resistance(
+                        e,
+                        save_detail,
+                        reason="reaction_save",
                     )
                     damage_result = calculate_hellish_rebuke_damage(rebuke_damage, save_detail)
                     e["hp_current"] = svc.apply_damage(

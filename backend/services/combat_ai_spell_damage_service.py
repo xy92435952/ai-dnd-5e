@@ -5,6 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution
 from services.combat_evasion_service import resolve_save_damage, spell_half_on_save
+from services.combat_legendary_resistance_service import maybe_use_legendary_resistance
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
 from services.combat_spell_damage_component_service import (
@@ -250,6 +251,11 @@ def resolve_ai_save_damage(
         save_ability,
         spell_save_dc,
         d20_roller=roll_dice_func,
+    )
+    save_detail = maybe_use_legendary_resistance(
+        target,
+        save_detail,
+        reason="ai_spell_save",
     )
     half_on_save = spell_half_on_save(spell_data, default=half_on_save_default)
     resolved = resolve_save_damage(
