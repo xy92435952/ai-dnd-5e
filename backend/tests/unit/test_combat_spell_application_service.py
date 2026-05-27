@@ -106,6 +106,11 @@ async def test_apply_confirmed_spell_effects_single_target_save_cantrip_deals_no
 @pytest.mark.asyncio
 async def test_apply_confirmed_spell_effects_aoe_evasion_success_takes_no_damage():
     rogue = FakeCharacter(hp_current=20)
+    rogue.derived = {
+        "hp_max": 20,
+        "ability_modifiers": {"dex": 20},
+        "saving_throws": {"dex": 20},
+    }
 
     result = await apply_confirmed_spell_effects(
         CharacterDb(rogue),

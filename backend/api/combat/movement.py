@@ -23,6 +23,7 @@ from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.character_roster import CharacterRoster
+from services.combat_movement_rules_service import MovementRuleError, apply_stand_up_from_prone
 
 from api.combat._shared import (
     _DEFAULT_TS, svc,
@@ -71,7 +72,10 @@ async def combat_move(
 
     # ── 使用回合状态追踪移动力 ────────────────────────────
     ts  = _get_ts(combat, req.entity_id)
+    stand_result = await _apply_stand_up_for_moving_entity(db, session, req.entity_id, ts)
+    ts = stand_result.turn_state
     cur = positions.get(str(req.entity_id))
+    opp_results = []
     if cur:
         # Chebyshev 距离（对角移动和直线移动同等消耗，符合 5e 标准规则）
         dist      = max(abs(cur["x"] - req.to_x), abs(cur["y"] - req.to_y))
@@ -81,8 +85,7 @@ async def combat_move(
 
         # ── 借机攻击检查（移动前，使用旧位置计算相邻性）────
         # 脱离接战的实体不触发借机攻击
-        opp_results = []
-        if not ts.get("disengaged"):
+        if dist > 0 and not ts.get("disengaged"):
             opp_results = await _resolve_opportunity_attacks(
                 db       = db,
                 session  = session,
@@ -97,6 +100,8 @@ async def combat_move(
                 db.add(opp["log"])
 
         ts["movement_used"] += dist
+        _save_ts(combat, req.entity_id, ts)
+    elif stand_result.stood_up:
         _save_ts(combat, req.entity_id, ts)
 
     positions[str(req.entity_id)] = {"x": req.to_x, "y": req.to_y}
@@ -129,6 +134,9 @@ async def combat_move(
         "turn_state":              ts,
         "movement_used":           ts["movement_used"],
         "movement_max":            ts["movement_max"],
+        "stood_up":                stand_result.stood_up,
+        "stand_up_cost":           stand_result.movement_cost,
+        "conditions":              stand_result.conditions,
         "opportunity_attacks":     [
             {"attacker": o["attacker"], "target": o["target"], **o["result"]}
             for o in opp_results
@@ -136,6 +144,33 @@ async def combat_move(
         "combat_over":             opp_combat_over,
         "outcome":                 opp_outcome,
     }
+
+
+async def _apply_stand_up_for_moving_entity(db, session, entity_id: str, turn_state: dict):
+    state = session.game_state or {}
+    for enemy in state.get("enemies", []) or []:
+        if str(enemy.get("id")) != str(entity_id):
+            continue
+        try:
+            result = apply_stand_up_from_prone(turn_state, enemy.get("conditions", []))
+        except MovementRuleError as exc:
+            raise HTTPException(400, "移动力不足，无法从倒地状态起身") from exc
+        if result.stood_up:
+            enemy["conditions"] = result.conditions
+            session.game_state = dict(state)
+            flag_modified(session, "game_state")
+        return result
+
+    character = await db.get(Character, entity_id)
+    if not character:
+        return apply_stand_up_from_prone(turn_state, [])
+    try:
+        result = apply_stand_up_from_prone(turn_state, character.conditions or [])
+    except MovementRuleError as exc:
+        raise HTTPException(400, "移动力不足，无法从倒地状态起身") from exc
+    if result.stood_up:
+        character.conditions = result.conditions
+    return result
 
 
 # ── 法术 ─────────────────────────────────────────────────

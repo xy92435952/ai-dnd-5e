@@ -9,6 +9,7 @@ DEFAULT_TURN_STATE: dict[str, Any] = {
     "reaction_used": False,
     "movement_used": 0,
     "movement_max": 6,
+    "base_movement_max": 6,
     "disengaged": False,
     "being_helped": False,
     "dodging": False,
@@ -39,4 +40,5 @@ def reset_turn_state(
     turn_state = dict(DEFAULT_TURN_STATE)
     turn_state["attacks_max"] = attacks_max
     turn_state["movement_max"] = movement_max
+    turn_state["base_movement_max"] = movement_max
     save_turn_state(combat, entity_id, turn_state)

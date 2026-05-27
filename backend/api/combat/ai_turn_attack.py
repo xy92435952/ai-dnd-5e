@@ -21,6 +21,7 @@ from services.combat_ai_attack_service import (
 )
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
+from services.combat_movement_rules_service import MovementRuleError, apply_stand_up_from_prone
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
 from services.combat_temporary_hp_service import (
@@ -132,6 +133,27 @@ async def handle_ai_attack_action(
         in_range, ai_dist, _ = _check_attack_range(ai_atk_pos, ai_tgt_pos, ai_is_ranged)
         if not in_range and ai_atk_pos and ai_tgt_pos:
             actor_ts_pre = _get_ts(combat, actor_id)
+            actor_conditions = (
+                list(e.get("conditions", []))
+                if is_enemy and e
+                else list(getattr(achar, "conditions", None) or [])
+            )
+            try:
+                stand_result = apply_stand_up_from_prone(actor_ts_pre, actor_conditions)
+            except MovementRuleError:
+                stand_result = None
+                all_narrations.append(f"{actor_name} 倒地且移动力不足，无法起身接近目标")
+            if stand_result:
+                actor_ts_pre = stand_result.turn_state
+                if stand_result.stood_up:
+                    if is_enemy and e:
+                        e["conditions"] = stand_result.conditions
+                        state["enemies"] = enemies
+                        session.game_state = dict(state)
+                        flag_modified(session, "game_state")
+                    elif achar:
+                        achar.conditions = stand_result.conditions
+                    all_narrations.append(f"{actor_name} 起身，消耗 {stand_result.movement_cost * 5}ft 移动力")
             move_remaining = actor_ts_pre["movement_max"] - actor_ts_pre["movement_used"]
             move_result = _ai_move_toward(ai_atk_pos, ai_tgt_pos, move_remaining, positions, actor_id)
             if move_result:

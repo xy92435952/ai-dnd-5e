@@ -3,6 +3,7 @@ api.combat.ai_turn_actions — AI simple action branch handlers.
 """
 from api.combat._shared import _get_ts, _save_ts, _ai_move_toward
 from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
+from services.combat_movement_rules_service import MovementRuleError, apply_stand_up_from_prone
 
 
 async def handle_ai_simple_action(
@@ -60,11 +61,32 @@ async def handle_ai_simple_action(
         if decided_target_id:
             dash_tgt_pos = positions.get(str(decided_target_id))
             dash_ts = _get_ts(combat, actor_id)
-            dash_budget = (dash_ts["movement_max"] - dash_ts["movement_used"]) + dash_ts["movement_max"]
+            try:
+                stand_result = apply_stand_up_from_prone(
+                    dash_ts,
+                    enemy.get("conditions", []) if is_enemy and enemy else getattr(character, "conditions", None) or [],
+                )
+            except MovementRuleError:
+                stand_result = None
+            if stand_result:
+                dash_ts = stand_result.turn_state
+                if stand_result.stood_up:
+                    if is_enemy and enemy:
+                        enemy["conditions"] = stand_result.conditions
+                    elif character:
+                        character.conditions = stand_result.conditions
+            dash_budget = (
+                (dash_ts["movement_max"] - dash_ts["movement_used"]) + dash_ts["movement_max"]
+                if stand_result is not None
+                else 0
+            )
             dash_result = _ai_move_toward(positions.get(str(actor_id)), dash_tgt_pos, dash_budget, positions, actor_id)
             if dash_result:
                 positions[str(actor_id)] = {"x": dash_result["x"], "y": dash_result["y"]}
                 combat.entity_positions = positions
+                dash_ts["movement_used"] += dash_result["steps"]
+            if (stand_result and stand_result.stood_up) or dash_result:
+                _save_ts(combat, actor_id, dash_ts)
         tick_logs = tick_ai_actor_conditions(
             session_id=session_id,
             session=session,
