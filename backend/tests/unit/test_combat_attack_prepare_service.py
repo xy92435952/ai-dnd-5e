@@ -58,6 +58,25 @@ def fixed_roll_attack(**_kwargs):
     }
 
 
+def ranged_player(*, ammo=5):
+    player = FakePlayer()
+    player.derived = {
+        **FakePlayer.derived,
+        "ranged_attack_bonus": 5,
+    }
+    player.equipment = {
+        "weapons": [{
+            "name": "Longbow",
+            "damage": "1d8",
+            "type": "martial_ranged",
+            "properties": ["ammunition", "range(150/600)", "two-handed"],
+            "equipped": True,
+            "ammo": ammo,
+        }]
+    }
+    return player
+
+
 @pytest.mark.asyncio
 async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_attack():
     from services.combat_attack_prepare_service import prepare_attack_roll
@@ -96,6 +115,83 @@ async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_at
     assert prepared.turn_state["action_used"] is True
     assert prepared.pending_attack["pending_attack_id"] == prepared.pending_attack_id
     assert combat.turn_states["char-1"]["pending_attack"]["advantage"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_ranged_attack_roll_consumes_ammunition_and_stores_resource():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["goblin-1"] = {"x": 4, "y": 0}
+    player = ranged_player(ammo=2)
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=player,
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="ranged",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": [],
+        }],
+        roll_attack_func=fixed_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert player.equipment["weapons"][0]["ammo"] == 1
+    assert prepared.weapon_resource == {
+        "weapon": "Longbow",
+        "resource_type": "ammunition",
+        "consumed": True,
+        "ammo_remaining": 1,
+    }
+    assert prepared.pending_attack["weapon_resource"] == prepared.weapon_resource
+
+
+@pytest.mark.asyncio
+async def test_prepare_ranged_attack_roll_rejects_empty_ammunition():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["goblin-1"] = {"x": 4, "y": 0}
+    player = ranged_player(ammo=0)
+
+    with pytest.raises(CombatAttackRollError) as exc:
+        await prepare_attack_roll(
+            FakeDb(),
+            combat=combat,
+            session=None,
+            player=player,
+            player_id="char-1",
+            target_id="goblin-1",
+            action_type="ranged",
+            is_offhand=False,
+            d20_value=None,
+            enemies=[{
+                "id": "goblin-1",
+                "name": "Goblin",
+                "hp_current": 7,
+                "derived": {"ac": 12},
+                "conditions": [],
+            }],
+            roll_attack_func=fixed_roll_attack,
+            save_turn_state_func=save_turn_state,
+        )
+
+    assert exc.value.status_code == 400
+    assert "No ammunition remaining for Longbow" in exc.value.detail
+    assert player.equipment["weapons"][0]["ammo"] == 0
+    assert combat.turn_states["char-1"]["attacks_made"] == 0
 
 
 @pytest.mark.asyncio
@@ -181,7 +277,7 @@ async def test_prepare_ranged_attack_against_distant_prone_target_has_disadvanta
         FakeDb(),
         combat=combat,
         session=None,
-        player=FakePlayer(),
+        player=ranged_player(),
         player_id="char-1",
         target_id="goblin-1",
         action_type="ranged",
@@ -314,7 +410,7 @@ async def test_prepare_attack_roll_consumes_guiding_bolt_advantage():
         FakeDb(),
         combat=combat,
         session=FakeSession(),
-        player=FakePlayer(),
+        player=ranged_player(),
         player_id="char-1",
         target_id="goblin-1",
         action_type="melee",
@@ -377,7 +473,7 @@ async def test_prepare_attack_roll_does_not_force_ranged_unconscious_target_crit
         FakeDb(),
         combat=combat,
         session=None,
-        player=FakePlayer(),
+        player=ranged_player(),
         player_id="char-1",
         target_id="goblin-1",
         action_type="ranged",

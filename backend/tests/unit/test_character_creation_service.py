@@ -29,6 +29,7 @@ def test_build_starting_equipment_equips_fighter_heavy_armor_loadout():
     assert [weapon["name"] for weapon in equipment["weapons"]] == ["Longsword", "Light Crossbow"]
     assert equipment["weapons"][0]["equipped"] is True
     assert equipment["weapons"][1]["equipped"] is False
+    assert equipment["weapons"][1]["ammo"] == 20
     assert equipment["gear"] == [{"name": "Explorer's Pack", "zh": "探险者背包"}]
 
 
@@ -36,6 +37,7 @@ def test_build_starting_equipment_keeps_unknown_weapon_choice_as_gear():
     equipment = character_creation_service.build_starting_equipment("Fighter", 1)
 
     assert [weapon["name"] for weapon in equipment["weapons"]] == ["Longbow"]
+    assert equipment["weapons"][0]["ammo"] == 20
     assert equipment["armor"][0]["name"] == "Leather"
     assert {"name": "Two Handaxes", "zh": "两把手斧"} in equipment["gear"]
 

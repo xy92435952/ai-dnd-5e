@@ -251,6 +251,7 @@ async def combat_action(
         "ranged_penalty":       prepared.ranged_penalty,
         "cover_bonus":          prepared.cover_bonus,
         "feat_power_attack":    prepared.feat_power_attack,
+        "weapon_resource":      prepared.weapon_resource,
         "sneak_attack":         prepared.sneak_attack_applied,
         "sneak_attack_damage":  prepared.sneak_attack_damage,
         "extra_damage_notes":   extra_damage_notes,

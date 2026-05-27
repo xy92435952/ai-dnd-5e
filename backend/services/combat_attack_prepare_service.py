@@ -10,6 +10,7 @@ from services.combat_attack_modifier_service import (
     choose_feat_power_attack,
 )
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_ammunition_service import consume_attack_weapon_resource
 from services.combat_attack_roll_service import (
     CombatAttackRollError,
     apply_d20_override,
@@ -39,6 +40,7 @@ class PreparedAttackRoll:
     damage_dice: str
     pending_attack_id: str
     pending_attack: dict[str, Any]
+    weapon_resource: dict[str, Any] | None
     turn_state: dict[str, Any]
     attacks_max: int
 
@@ -98,6 +100,9 @@ async def prepare_attack_roll(
     )
     if not in_range:
         raise CombatAttackRollError(400, range_error or "目标不在攻击范围内")
+
+    weapon_resource_use = consume_attack_weapon_resource(player, is_ranged=is_ranged)
+    weapon_resource = weapon_resource_use.to_dict() or None
 
     player_conditions = list(player.conditions or [])
     target_conditions = await get_target_conditions(db, target, enemies)
@@ -186,6 +191,7 @@ async def prepare_attack_roll(
         player,
         is_ranged=is_ranged,
         is_offhand=is_offhand,
+        weapon=weapon_resource_use.weapon,
     )
 
     pending_attack_id = str(uuid4())
@@ -210,6 +216,7 @@ async def prepare_attack_roll(
         damage_dice=weapon_damage.damage_dice,
         hit_die=weapon_damage.hit_die,
         dmg_mod=weapon_damage.dmg_mod,
+        weapon_resource=weapon_resource,
     )
     turn_state = consume_attack_turn_state(
         turn_state,
@@ -230,6 +237,7 @@ async def prepare_attack_roll(
         damage_dice=weapon_damage.damage_dice,
         pending_attack_id=pending_attack_id,
         pending_attack=pending_attack,
+        weapon_resource=weapon_resource,
         turn_state=turn_state,
         attacks_max=max_attacks,
     )

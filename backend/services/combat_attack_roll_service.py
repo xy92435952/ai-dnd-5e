@@ -72,8 +72,9 @@ def build_pending_attack(
     damage_dice: str,
     hit_die: int,
     dmg_mod: int,
+    weapon_resource: dict | None = None,
 ) -> dict:
-    return {
+    pending = {
         "pending_attack_id": pending_attack_id,
         "attacker_id": attacker_id,
         "target_id": target_id,
@@ -97,6 +98,9 @@ def build_pending_attack(
         "hit_die": hit_die,
         "dmg_mod": dmg_mod,
     }
+    if weapon_resource:
+        pending["weapon_resource"] = weapon_resource
+    return pending
 
 
 def consume_attack_turn_state(

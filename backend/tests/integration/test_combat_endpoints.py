@@ -1688,6 +1688,58 @@ async def test_attack_roll_then_damage_roll_applies_damage(
     assert "pending_attack" not in damage_data["turn_state"]
 
 
+async def test_attack_roll_consumes_tracked_ammunition(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.equipment = {
+        "weapons": [{
+            "name": "Longbow",
+            "damage": "1d8",
+            "type": "martial_ranged",
+            "properties": ["ammunition", "range(150/600)", "two-handed"],
+            "equipped": True,
+            "ammo": 2,
+        }]
+    }
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "ranged_attack_bonus": 5,
+        "hit_die": 8,
+        "ability_modifiers": {
+            **(sample_character.derived or {}).get("ability_modifiers", {}),
+            "dex": 3,
+        },
+    }
+    combat_state.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 9, "y": 5},
+    }
+    await db_session.commit()
+
+    attack = await client.post(
+        f"/game/combat/{sample_session.id}/attack-roll",
+        headers=headers,
+        json={
+            "entity_id": sample_character.id,
+            "target_id": "goblin-1",
+            "action_type": "ranged",
+            "d20_value": 15,
+        },
+    )
+
+    assert attack.status_code == 200, attack.text
+    data = attack.json()
+    assert data["weapon_resource"] == {
+        "weapon": "Longbow",
+        "resource_type": "ammunition",
+        "consumed": True,
+        "ammo_remaining": 1,
+    }
+    await db_session.refresh(sample_character)
+    assert sample_character.equipment["weapons"][0]["ammo"] == 1
+
+
 async def test_damage_roll_critical_hit_on_zero_hp_character_adds_two_death_failures(
     client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):

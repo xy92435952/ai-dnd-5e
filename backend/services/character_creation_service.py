@@ -38,7 +38,10 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
         if slot == "weapon" or slot == "weapon2":
             weapon = WEAPONS.get(name)
             if weapon:
-                weapons.append({**weapon, "name": name, "equipped": slot == "weapon"})
+                weapon_entry = {**weapon, "name": name, "equipped": slot == "weapon"}
+                if _has_ammunition_property(weapon_entry):
+                    weapon_entry["ammo"] = 20
+                weapons.append(weapon_entry)
             else:
                 gear.append({"name": name, "zh": get_item_zh(name)})
         elif slot == "armor":
@@ -51,6 +54,13 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
             gear.append({"name": name, "zh": get_item_zh(name)})
 
     return {"weapons": weapons, "armor": armor_list, "shield": shield, "gear": gear, "gold": 10}
+
+
+def _has_ammunition_property(weapon: dict) -> bool:
+    properties = weapon.get("properties") or []
+    if isinstance(properties, str):
+        return properties.lower() == "ammunition"
+    return any(str(prop).lower() == "ammunition" for prop in properties)
 
 
 def build_character_languages(

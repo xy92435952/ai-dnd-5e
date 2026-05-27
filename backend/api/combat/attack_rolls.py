@@ -130,6 +130,7 @@ async def attack_roll(
         "attacks_max":      prepared.attacks_max,
         "damage_dice":      prepared.damage_dice,
         "pending_attack_id": prepared.pending_attack_id,
+        "weapon_resource":  prepared.weapon_resource,
         "turn_state":       prepared.turn_state,
         "narration":        miss_narration,
     }

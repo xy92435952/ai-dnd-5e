@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
+from services.combat_ammunition_service import choose_attack_weapon
 from services.combat_grid_service import has_adjacent_enemy
 from services.combat_service import CombatService
 
@@ -117,7 +118,13 @@ def build_attack_deriveds(
     return attack_attacker_derived, attack_target_derived
 
 
-def build_weapon_damage_dice(character, *, is_ranged: bool, is_offhand: bool) -> WeaponDamageDice:
+def build_weapon_damage_dice(
+    character,
+    *,
+    is_ranged: bool,
+    is_offhand: bool,
+    weapon: dict[str, Any] | None = None,
+) -> WeaponDamageDice:
     """Build the damage dice expression used by the two-step attack flow."""
     derived = character.derived or {}
     equipment = character.equipment or {}
@@ -125,7 +132,23 @@ def build_weapon_damage_dice(character, *, is_ranged: bool, is_offhand: bool) ->
     weapon_hit_die = derived.get("hit_die", 8)
     weapon_damage = None
 
-    if equipped_weapons:
+    if weapon:
+        weapon_damage = weapon.get("damage", f"1d{weapon_hit_die}")
+    elif equipped_weapons:
+        selected_weapon = choose_attack_weapon(equipment, is_ranged=is_ranged)
+        if selected_weapon:
+            weapon_damage = selected_weapon.get("damage", f"1d{weapon_hit_die}")
+        else:
+            equipped = None
+            if not is_ranged:
+                equipped = next(
+                    (weapon for weapon in equipped_weapons if weapon.get("equipped")),
+                    equipped_weapons[0] if equipped_weapons else None,
+                )
+            if equipped:
+                weapon_damage = equipped.get("damage", f"1d{weapon_hit_die}")
+
+    if not weapon_damage and equipped_weapons:
         equipped = next(
             (weapon for weapon in equipped_weapons if weapon.get("equipped")),
             equipped_weapons[0] if equipped_weapons else None,

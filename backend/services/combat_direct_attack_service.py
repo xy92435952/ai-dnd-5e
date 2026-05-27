@@ -9,6 +9,7 @@ from services.combat_attack_modifier_service import (
     choose_feat_power_attack,
 )
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_ammunition_service import consume_attack_weapon_resource
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
 from services.combat_damage_bonus_service import (
@@ -44,6 +45,7 @@ class PreparedDirectAttack:
     ranged_penalty: bool
     cover_bonus: int
     feat_power_attack: bool
+    weapon_resource: dict[str, Any] | None
     turn_state: dict[str, Any]
     attacks_max: int
 
@@ -101,6 +103,9 @@ async def prepare_direct_attack(
     if turn_state.get("being_helped"):
         attack_advantage = True
         turn_state["being_helped"] = False
+
+    weapon_resource_use = consume_attack_weapon_resource(player, is_ranged=is_ranged)
+    weapon_resource = weapon_resource_use.to_dict() or None
 
     positions = dict(combat.entity_positions or {})
     attacker_pos = positions.get(str(player_id), {})
@@ -297,6 +302,7 @@ async def prepare_direct_attack(
         ranged_penalty=ranged_penalty,
         cover_bonus=cover_bonus,
         feat_power_attack=feat_power.active,
+        weapon_resource=weapon_resource,
         turn_state=turn_state,
         attacks_max=max_attacks,
     )

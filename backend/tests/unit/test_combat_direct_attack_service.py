@@ -111,6 +111,48 @@ def save_turn_state(combat, entity_id, turn_state):
     combat.turn_states[str(entity_id)] = turn_state
 
 
+def ranged_fighter(*, ammo=5):
+    player = FakeFighter()
+    player.derived = {
+        **FakeFighter.derived,
+        "ranged_attack_bonus": 5,
+    }
+    player.equipment = {
+        "weapons": [{
+            "name": "Longbow",
+            "damage": "1d8",
+            "type": "martial_ranged",
+            "properties": ["ammunition", "range(150/600)", "two-handed"],
+            "equipped": True,
+            "ammo": ammo,
+        }]
+    }
+    return player
+
+
+def javelin_fighter():
+    player = FakeFighter()
+    player.equipment = {
+        "weapons": [
+            {
+                "name": "Javelin",
+                "damage": "1d6",
+                "type": "simple_melee",
+                "properties": ["thrown(30/120)"],
+                "equipped": True,
+            },
+            {
+                "name": "Javelin",
+                "damage": "1d6",
+                "type": "simple_melee",
+                "properties": ["thrown(30/120)"],
+                "equipped": False,
+            },
+        ]
+    }
+    return player
+
+
 @pytest.mark.asyncio
 async def test_prepare_direct_attack_consumes_help_and_forces_assassinate_crit(monkeypatch):
     from services import combat_direct_attack_service as direct_attack
@@ -257,7 +299,7 @@ async def test_prepare_direct_attack_does_not_force_ranged_unconscious_target_cr
     prepared = await direct_attack.prepare_direct_attack(
         FakeDb(),
         combat=combat,
-        player=FakeFighter(),
+        player=ranged_fighter(),
         player_id="char-1",
         target_id="goblin-1",
         enemies=[{
@@ -290,7 +332,7 @@ async def test_prepare_direct_ranged_attack_against_distant_prone_target_has_dis
     prepared = await direct_attack.prepare_direct_attack(
         FakeDb(),
         combat=combat,
-        player=FakeFighter(),
+        player=ranged_fighter(),
         player_id="char-1",
         target_id="goblin-1",
         enemies=[{
@@ -308,6 +350,111 @@ async def test_prepare_direct_ranged_attack_against_distant_prone_target_has_dis
     assert combat_service.last_attack_kwargs["advantage"] is False
     assert combat_service.last_attack_kwargs["disadvantage"] is True
     assert prepared.attack_result["hit"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_ranged_attack_consumes_ammunition():
+    from services import combat_direct_attack_service as direct_attack
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    player = ranged_fighter(ammo=2)
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=player,
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 8,
+            "derived": {"ac": 15},
+            "conditions": [],
+        }],
+        is_ranged=True,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert player.equipment["weapons"][0]["ammo"] == 1
+    assert prepared.weapon_resource == {
+        "weapon": "Longbow",
+        "resource_type": "ammunition",
+        "consumed": True,
+        "ammo_remaining": 1,
+    }
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_ranged_attack_consumes_thrown_weapon_copy():
+    from services import combat_direct_attack_service as direct_attack
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    player = javelin_fighter()
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=player,
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 8,
+            "derived": {"ac": 15},
+            "conditions": [],
+        }],
+        is_ranged=True,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert [weapon["name"] for weapon in player.equipment["weapons"]] == ["Javelin"]
+    assert player.equipment["weapons"][0]["equipped"] is True
+    assert prepared.weapon_resource == {
+        "weapon": "Javelin",
+        "resource_type": "thrown_weapon",
+        "consumed": True,
+        "weapon_removed": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_ranged_attack_rejects_missing_ranged_weapon():
+    from services import combat_direct_attack_service as direct_attack
+    from services.combat_attack_roll_service import CombatAttackRollError
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+
+    with pytest.raises(CombatAttackRollError) as exc:
+        await direct_attack.prepare_direct_attack(
+            FakeDb(),
+            combat=combat,
+            player=FakeFighter(),
+            player_id="char-1",
+            target_id="goblin-1",
+            enemies=[{
+                "id": "goblin-1",
+                "name": "Goblin",
+                "hp_current": 8,
+                "derived": {"ac": 15},
+                "conditions": [],
+            }],
+            is_ranged=True,
+            combat_service=combat_service,
+            save_turn_state_func=save_turn_state,
+        )
+
+    assert exc.value.status_code == 400
+    assert "No ranged or thrown weapon available" in exc.value.detail
 
 
 def test_dark_ones_blessing_note_grants_real_temporary_hp():

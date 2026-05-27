@@ -1,6 +1,8 @@
 """
 api.combat.ai_turn_utils — shared helpers for AI combat turns.
 """
+from sqlalchemy.orm.attributes import flag_modified
+
 from api.combat._shared import (
     _calc_entity_turn_limits,
     _reset_ts,
