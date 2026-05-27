@@ -74,6 +74,48 @@ async def test_concentration_check_keeps_spell_on_success(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_concentration_check_passes_exhaustion_state_to_rule_service(monkeypatch):
+    captured = {}
+    char = SimpleNamespace(
+        name="Hero",
+        concentration="Bless",
+        hp_current=8,
+        death_saves=None,
+        conditions=["exhaustion"],
+        condition_durations={"exhaustion_level": 3},
+        derived={"ability_modifiers": {"con": 2}},
+        proficient_saves=[],
+    )
+
+    def fake_check_concentration(**kwargs):
+        captured["character_dict"] = kwargs["character_dict"]
+        return {
+            "spell_name": "Bless",
+            "dc": 10,
+            "broke": False,
+            "roll_result": {
+                "d20": 12,
+                "modifier": 2,
+                "total": 14,
+                "disadvantage": True,
+                "exhaustion_disadvantage": True,
+            },
+        }
+
+    monkeypatch.setattr(
+        "services.combat_concentration_service.svc.check_concentration",
+        fake_check_concentration,
+    )
+
+    log = await do_concentration_check(char, damage=12, session_id="sess")
+
+    assert captured["character_dict"]["condition_durations"] == {"exhaustion_level": 3}
+    assert captured["character_dict"]["conditions"] == ["exhaustion"]
+    assert log.dice_result["disadvantage"] is True
+    assert log.dice_result["exhaustion_disadvantage"] is True
+
+
+@pytest.mark.asyncio
 async def test_concentration_breaks_automatically_at_zero_hp():
     char = SimpleNamespace(
         name="Hero",

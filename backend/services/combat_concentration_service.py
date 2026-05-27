@@ -63,6 +63,10 @@ async def do_concentration_check(
             "concentration": char.concentration,
             "derived": char.derived or {},
             "proficient_saves": char.proficient_saves or [],
+            "conditions": getattr(char, "conditions", None) or [],
+            "condition_durations": getattr(char, "condition_durations", None) or {},
+            "hp_current": getattr(char, "hp_current", None),
+            "death_saves": getattr(char, "death_saves", None),
         },
         damage=damage,
     )
