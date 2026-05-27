@@ -1,9 +1,10 @@
 from typing import Optional
 
-from services.dnd_rules import has_exhaustion_effect
+from services.dnd_rules import has_exhaustion_effect, normalize_conditions
 
 
 def get_attack_modifiers(conditions: list[str], character: dict | object | None = None) -> tuple[bool, bool]:
+    conditions = normalize_conditions(conditions)
     adv_conditions = {"invisible", "hidden"}
     dis_conditions = {"poisoned", "frightened", "prone", "blinded", "restrained"}
     adv = any(c in adv_conditions for c in conditions)
@@ -15,6 +16,7 @@ def get_attack_modifiers(conditions: list[str], character: dict | object | None 
 
 
 def get_defense_modifiers(conditions: list[str]) -> tuple[bool, bool]:
+    conditions = normalize_conditions(conditions)
     adv_to_attacker = {
         "paralyzed",
         "petrified",

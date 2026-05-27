@@ -36,6 +36,8 @@ from services.dnd_character_rules import (  # noqa: F401
     is_dead,
     is_dying,
     is_incapacitated,
+    normalize_condition,
+    normalize_conditions,
     proficiency_bonus,
     grant_temporary_hp,
     set_wild_shape_hp,

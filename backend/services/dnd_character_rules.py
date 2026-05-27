@@ -159,6 +159,88 @@ def get_life_state(character: dict | object | None) -> str:
     return "dying"
 
 
+CONDITION_ALIASES = {
+    "中毒": "poisoned",
+    "poisoned": "poisoned",
+    "恐惧": "frightened",
+    "恐慌": "frightened",
+    "frightened": "frightened",
+    "倒地": "prone",
+    "倒伏": "prone",
+    "prone": "prone",
+    "失明": "blinded",
+    "目盲": "blinded",
+    "blinded": "blinded",
+    "束缚": "restrained",
+    "束缚状态": "restrained",
+    "受束缚": "restrained",
+    "restrained": "restrained",
+    "擒抱": "grappled",
+    "被擒抱": "grappled",
+    "grappled": "grappled",
+    "失能": "incapacitated",
+    "incapacitated": "incapacitated",
+    "昏迷": "unconscious",
+    "昏厥": "unconscious",
+    "unconscious": "unconscious",
+    "震慑": "stunned",
+    "震慑状态": "stunned",
+    "stunned": "stunned",
+    "麻痹": "paralyzed",
+    "麻痹状态": "paralyzed",
+    "paralyzed": "paralyzed",
+    "石化": "petrified",
+    "petrified": "petrified",
+    "隐形": "invisible",
+    "invisible": "invisible",
+    "隐藏": "hidden",
+    "hidden": "hidden",
+    "闪避": "dodging",
+    "躲避": "dodging",
+    "dodging": "dodging",
+    "妖火": "faerie_fire",
+    "faerie_fire": "faerie_fire",
+    "faerie fire": "faerie_fire",
+    "引导箭": "guiding_bolt",
+    "神力打击": "guiding_bolt",
+    "guiding_bolt": "guiding_bolt",
+    "guiding bolt": "guiding_bolt",
+    "祝福": "blessed",
+    "bless": "blessed",
+    "blessed": "blessed",
+    "灾祸": "baned",
+    "bane": "baned",
+    "baned": "baned",
+    "神导术": "guided",
+    "引导": "guided",
+    "guidance": "guided",
+    "guided": "guided",
+    "抗力": "resistance",
+    "resistance": "resistance",
+}
+
+
+def normalize_condition(condition: str | None) -> str:
+    """Return the canonical 5e condition token used by local rule checks."""
+    value = str(condition or "").strip()
+    if not value:
+        return ""
+    compact = value.lower().replace("-", "_").replace(" ", "_")
+    return CONDITION_ALIASES.get(value, CONDITION_ALIASES.get(compact, compact))
+
+
+def normalize_conditions(conditions: list[str] | tuple[str, ...] | set[str] | None) -> list[str]:
+    """Normalize condition names while preserving input order and removing duplicates."""
+    normalized: list[str] = []
+    seen = set()
+    for condition in conditions or []:
+        token = normalize_condition(condition)
+        if token and token not in seen:
+            seen.add(token)
+            normalized.append(token)
+    return normalized
+
+
 INCAPACITATING_CONDITIONS = frozenset({
     "incapacitated",
     "unconscious",
@@ -202,8 +284,8 @@ def _condition_list(character: dict | object | None) -> list[str]:
     if not character:
         return []
     if isinstance(character, dict):
-        return list(character.get("conditions") or [])
-    return list(getattr(character, "conditions", None) or [])
+        return normalize_conditions(character.get("conditions") or [])
+    return normalize_conditions(getattr(character, "conditions", None) or [])
 
 
 def _set_conditions(character: object, conditions: list[str]) -> None:
@@ -215,7 +297,8 @@ def _set_conditions(character: object, conditions: list[str]) -> None:
 
 def _add_condition(character: object, condition: str) -> bool:
     conditions = _condition_list(character)
-    if condition in conditions:
+    condition = normalize_condition(condition)
+    if not condition or condition in conditions:
         return False
     conditions.append(condition)
     _set_conditions(character, conditions)
@@ -224,6 +307,7 @@ def _add_condition(character: object, condition: str) -> bool:
 
 def _remove_condition(character: object, condition: str) -> bool:
     conditions = _condition_list(character)
+    condition = normalize_condition(condition)
     updated = [item for item in conditions if item != condition]
     if len(updated) == len(conditions):
         return False
@@ -386,9 +470,10 @@ def is_incapacitated(character: dict | object | None) -> bool:
 
 def should_auto_crit_melee_target(conditions: list[str], *, distance: int, is_ranged: bool = False) -> bool:
     """Return whether a hit should become a crit under 5e close-range incapacitating rules."""
+    normalized = normalize_conditions(conditions)
     return (not is_ranged) and distance <= 1 and any(
         condition in AUTO_CRIT_MELEE_CONDITIONS
-        for condition in conditions
+        for condition in normalized
     )
 
 

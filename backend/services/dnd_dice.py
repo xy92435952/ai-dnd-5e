@@ -8,6 +8,7 @@ from services.dnd_character_rules import (
     get_ability_check_disadvantage_reasons,
     get_saving_throw_auto_fail_reasons,
     get_saving_throw_disadvantage_reasons,
+    normalize_condition,
 )
 
 ATTACK_SAVE_BONUS_CONDITIONS = frozenset({"bless", "blessed"})
@@ -32,7 +33,7 @@ def _condition_tokens(character: dict | object | None) -> set[str]:
     else:
         conditions = getattr(character, "conditions", None) or []
     return {
-        str(condition).strip().lower().replace(" ", "_").replace("-", "_")
+        normalize_condition(condition)
         for condition in conditions
         if condition
     }
