@@ -58,6 +58,14 @@ def _get_turn_advance_lock(session_id: str) -> asyncio.Lock:
     return lock
 
 
+def _release_turn_advance_lock(session_id: str) -> bool:
+    lock = _TURN_ADVANCE_LOCKS.get(session_id)
+    if lock is None or lock.locked():
+        return False
+    _TURN_ADVANCE_LOCKS.pop(session_id, None)
+    return True
+
+
 async def _build_combat_snapshot(
     db: AsyncSession,
     session: Session,

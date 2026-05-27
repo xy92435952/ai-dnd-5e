@@ -28,5 +28,10 @@ async def check_and_cleanup_combat_outcome(
                 await db.delete(old_state)
         except Exception:
             pass
+        try:
+            from api.combat._shared import _release_turn_advance_lock
+            _release_turn_advance_lock(session_id)
+        except Exception:
+            pass
 
     return combat_over, outcome
