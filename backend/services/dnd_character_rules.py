@@ -787,6 +787,7 @@ def get_class_resource_defaults(char_class: str, level: int, subclass: str = Non
             resources["tides_of_chaos_used"] = False
     # Wizard resources
     elif cls_key == "Wizard":
+        resources["arcane_recovery_used"] = False
         if subclass and ("divination" in subclass.lower() or "预言" in subclass.lower()):
             resources["portent_remaining"] = 2  # 3 at Lv14+
             if level >= 14:

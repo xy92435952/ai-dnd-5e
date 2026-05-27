@@ -500,6 +500,56 @@ async def test_short_rest_consumes_hit_die(
     assert sample_character.hit_dice_remaining == 0
 
 
+async def test_short_rest_wizard_arcane_recovery_restores_expended_slot_once(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.char_class = "Wizard"
+    sample_character.level = 3
+    sample_character.hp_current = sample_character.derived["hp_max"]
+    sample_character.spell_slots = {"1st": 2, "2nd": 0}
+    sample_character.derived = {
+        **sample_character.derived,
+        "caster_type": "full",
+        "spell_slots_max": {"1st": 4, "2nd": 2},
+    }
+    sample_character.class_resources = {"arcane_recovery_used": False}
+    await db_session.commit()
+
+    first = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "short"},
+    )
+
+    assert first.status_code == 200, first.text
+    first_result = next(c for c in first.json()["characters"] if c["name"] == sample_character.name)
+    assert first_result["slots_restored"] == {"2nd": 1}
+    assert first_result["class_resources"]["arcane_recovery_used"] is True
+
+    await db_session.refresh(sample_character)
+    assert sample_character.spell_slots == {"1st": 2, "2nd": 1}
+    assert sample_character.class_resources["arcane_recovery_used"] is True
+
+    sample_character.spell_slots = {"1st": 2, "2nd": 0}
+    await db_session.commit()
+
+    second = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "short"},
+    )
+
+    assert second.status_code == 200, second.text
+    second_result = next(c for c in second.json()["characters"] if c["name"] == sample_character.name)
+    assert second_result["slots_restored"] == {}
+
+    await db_session.refresh(sample_character)
+    assert sample_character.spell_slots == {"1st": 2, "2nd": 0}
+    assert sample_character.class_resources["arcane_recovery_used"] is True
+
+
 async def test_short_rest_healing_caps_at_exhaustion_hp_max(
     client, db_session, sample_session, sample_character, sample_user,
 ):

@@ -48,6 +48,7 @@ LONG_REST_TRANSIENT_RESOURCE_FLAGS = {
     "symbiotic_entity_active",
     "portent_value",
 }
+SPELL_SLOT_LEVEL_KEYS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"]
 
 
 @router.post("/sessions/{session_id}/journal")
@@ -394,11 +395,12 @@ def _apply_short_rest_to_character(
         character.spell_slots = slots_max
 
     class_resources = dict(character.class_resources or {})
-    changed = _restore_short_rest_class_resources(character, class_resources)
+    changed, class_slots_restored = _restore_short_rest_class_resources(character, class_resources)
     if changed:
         character.class_resources = class_resources
     _flag_character_json_fields(character)
 
+    slots_restored = slots_max if caster_type == "pact" else class_slots_restored
     return {
         "name": character.name,
         "hit_die_roll": hit_roll_result,
@@ -407,7 +409,7 @@ def _apply_short_rest_to_character(
         "hp_current": character.hp_current,
         "hp_max": hp_max,
         "base_hp_max": base_hp_max,
-        "slots_restored": slots_max if caster_type == "pact" else {},
+        "slots_restored": slots_restored,
         "hit_dice_remaining": character.hit_dice_remaining,
         "hit_dice_total": character.level,
         "hit_dice_spent": hit_dice_spent,
@@ -418,7 +420,7 @@ def _apply_short_rest_to_character(
     }
 
 
-def _restore_short_rest_class_resources(character, class_resources: dict) -> bool:
+def _restore_short_rest_class_resources(character, class_resources: dict) -> tuple[bool, dict]:
     cls_key = _normalize_class(character.char_class)
     if cls_key == "Fighter":
         class_resources["second_wind_used"] = False
@@ -429,52 +431,91 @@ def _restore_short_rest_class_resources(character, class_resources: dict) -> boo
             class_resources["superiority_dice_remaining"] = sub_effects.get("superiority_dice_max", 4)
         if sub_effects.get("samurai"):
             class_resources["fighting_spirit_remaining"] = sub_effects.get("fighting_spirit_uses", 1)
-        return True
+        return True, {}
 
     if cls_key == "Monk" and character.level >= 2:
         class_resources["ki_remaining"] = (character.derived or {}).get("subclass_effects", {}).get("ki_max", character.level)
-        return True
+        return True, {}
 
     if cls_key == "Bard" and character.level >= 5:
         cha_mod = (character.derived or {}).get("ability_modifiers", {}).get("cha", 3)
         class_resources["bardic_inspiration_remaining"] = max(1, cha_mod)
-        return True
+        return True, {}
 
     if cls_key in {"Cleric", "Paladin"}:
         class_resources["channel_divinity_used"] = False
-        return True
+        return True, {}
 
     if cls_key == "Druid":
         class_resources["wild_shape_remaining"] = 2
         class_resources.pop("wild_shape_active", None)
         class_resources.pop("wild_shape_hp", None)
         class_resources.pop("symbiotic_entity_active", None)
-        _restore_druid_natural_recovery(character)
-        return True
+        slots_restored = _restore_druid_natural_recovery(character)
+        return True, slots_restored
+
+    if cls_key == "Wizard":
+        slots_restored = _restore_wizard_arcane_recovery(character, class_resources)
+        return bool(slots_restored), slots_restored
 
     if cls_key == "Warlock":
-        return False
+        return False, {}
 
-    return False
+    return False, {}
 
 
-def _restore_druid_natural_recovery(character) -> None:
+def _restore_druid_natural_recovery(character) -> dict:
     sub_effects = (character.derived or {}).get("subclass_effects", {})
     if not (sub_effects.get("circle_of_land") and sub_effects.get("natural_recovery")):
-        return
+        return {}
 
     max_slot_level = (character.level + 1) // 2
+    recovery_budget = (character.level + 1) // 2
+    return _restore_expended_spell_slots(
+        character,
+        recovery_budget=recovery_budget,
+        max_slot_level=min(max_slot_level, 5),
+    )
+
+
+def _restore_wizard_arcane_recovery(character, class_resources: dict) -> dict:
+    if character.level < 1 or class_resources.get("arcane_recovery_used"):
+        return {}
+
+    slots_restored = _restore_expended_spell_slots(
+        character,
+        recovery_budget=max(1, (character.level + 1) // 2),
+        max_slot_level=5,
+    )
+    if slots_restored:
+        class_resources["arcane_recovery_used"] = True
+    return slots_restored
+
+
+def _restore_expended_spell_slots(
+    character,
+    *,
+    recovery_budget: int,
+    max_slot_level: int,
+) -> dict:
     slots_max = (character.derived or {}).get("spell_slots_max", {})
     current_slots = dict(character.spell_slots or {})
-    recovery_budget = (character.level + 1) // 2
-    for level in range(1, min(max_slot_level + 1, 6)):
-        slot_key = ["1st", "2nd", "3rd", "4th", "5th"][level - 1]
-        cap = slots_max.get(slot_key, 0)
-        current = current_slots.get(slot_key, 0)
-        if current < cap and recovery_budget >= level:
-            current_slots[slot_key] = current + 1
-            recovery_budget -= level
-    character.spell_slots = current_slots
+    recovered: dict[str, int] = {}
+    budget = max(0, int(recovery_budget or 0))
+    highest_slot_level = min(max_slot_level, len(SPELL_SLOT_LEVEL_KEYS))
+    for level in range(highest_slot_level, 0, -1):
+        slot_key = SPELL_SLOT_LEVEL_KEYS[level - 1]
+        cap = int(slots_max.get(slot_key, 0) or 0)
+        current = int(current_slots.get(slot_key, 0) or 0)
+        while current < cap and budget >= level:
+            current += 1
+            budget -= level
+            recovered[slot_key] = recovered.get(slot_key, 0) + 1
+        if recovered.get(slot_key):
+            current_slots[slot_key] = current
+    if recovered:
+        character.spell_slots = current_slots
+    return recovered
 
 
 def _rest_calculated_resource_values(character, cls_key: str) -> dict:
