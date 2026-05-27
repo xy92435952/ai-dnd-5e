@@ -187,8 +187,8 @@ Priority:
 - [~] Verify typing, DM thinking, room state, combat update, and reaction prompt events never cross room boundaries. Load smoke verifies typing isolation and HTTP room/session isolation; DM thinking, combat update, and reaction prompt cross-room checks still need scenario coverage.
 - [x] Verify non-members cannot read another room snapshot, members list, or session restore snapshot.
 - [x] Verify members leaving all rooms cleans WS state and dissolves rooms correctly when host leaves last. 2026-05-28: leave/kick now force-close affected WS connections after final broadcast; room dissolve closes all room sockets; tests cover state pruning and host-last dissolve.
-- [ ] Verify reconnect replaces only the same user in the same room, not another tab/user/room.
-- [ ] Verify one slow or broken WebSocket client does not block broadcast to the rest of the room.
+- [x] Verify reconnect replaces only the same user in the same room, not another tab/user/room. 2026-05-28: `test_reconnect_replaces_only_the_same_user_in_the_same_room` covers same-user replacement without disturbing other users or rooms.
+- [x] Verify one slow or broken WebSocket client does not block broadcast to the rest of the room. 2026-05-28: broadcast fan-out now runs per socket with timeout; tests cover broken send cleanup and slow-send timeout while roommates still receive events.
 
 ### P0 Multiplayer Authority And Fairness
 

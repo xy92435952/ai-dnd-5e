@@ -19,13 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 class WSManager:
-    def __init__(self):
+    def __init__(self, *, send_timeout_seconds: float = 2.0):
         # session_id -> set[WebSocket]
         self.rooms: dict[str, set[WebSocket]] = {}
         # (session_id, user_id) -> WebSocket（一个用户在一个房间内仅一个连接，重连会替换）
         self.user_ws: dict[tuple[str, str], WebSocket] = {}
         # WebSocket -> (session_id, user_id)（反向索引，便于断开时清理）
         self.ws_meta: dict[WebSocket, tuple[str, str]] = {}
+        self.send_timeout_seconds = send_timeout_seconds
         self._lock = asyncio.Lock()
 
     async def connect(self, session_id: str, user_id: str, ws: WebSocket) -> None:
@@ -142,20 +143,33 @@ class WSManager:
             targets = list(self.rooms.get(session_id, set()))
             user_map = {ws: meta for ws, meta in self.ws_meta.items() if meta[0] == session_id}
 
-        ok = 0
+        send_tasks = []
         for ws in targets:
             if exclude_user_id:
                 meta = user_map.get(ws)
                 if meta and meta[1] == exclude_user_id:
                     continue
-            try:
-                await ws.send_json(event)
-                ok += 1
-            except Exception as e:
-                logger.warning(f"WS broadcast failed for one connection: {e}")
-                # 异步清理失败连接（不阻塞广播）
-                asyncio.create_task(self._silent_disconnect(ws))
-        return ok
+            send_tasks.append(self._send_broadcast(ws, event))
+        if not send_tasks:
+            return 0
+        results = await asyncio.gather(*send_tasks)
+        return sum(1 for sent in results if sent)
+
+    async def _send_broadcast(self, ws: WebSocket, event) -> bool:
+        try:
+            await asyncio.wait_for(
+                ws.send_json(event),
+                timeout=self.send_timeout_seconds,
+            )
+            return True
+        except asyncio.TimeoutError:
+            logger.warning("WS broadcast timed out for one connection")
+            asyncio.create_task(self._silent_disconnect(ws))
+            return False
+        except Exception as e:
+            logger.warning(f"WS broadcast failed for one connection: {e}")
+            asyncio.create_task(self._silent_disconnect(ws))
+            return False
 
     async def send_to_user(self, session_id: str, user_id: str, event) -> bool:
         """点对点发送。event 同样接受 dict 或 Pydantic BaseModel。"""

@@ -6,14 +6,17 @@ from services.ws_manager import WSManager
 
 
 class FakeWebSocket:
-    def __init__(self, name, *, fail_send=False, close_delay=0):
+    def __init__(self, name, *, fail_send=False, send_delay=0, close_delay=0):
         self.name = name
         self.fail_send = fail_send
+        self.send_delay = send_delay
         self.close_delay = close_delay
         self.sent = []
         self.closed = []
 
     async def send_json(self, event):
+        if self.send_delay:
+            await asyncio.sleep(self.send_delay)
         if self.fail_send:
             raise RuntimeError(f"{self.name} send failed")
         self.sent.append(event)
@@ -167,6 +170,25 @@ async def test_failed_broadcast_connection_is_removed_without_affecting_roommate
     assert bad_ws.closed == [{"code": 1000, "reason": None}]
     assert await manager.online_users("room-a") == ["good-user"]
     assert manager.ws_meta == {good_ws: ("room-a", "good-user")}
+
+
+@pytest.mark.asyncio
+async def test_slow_broadcast_connection_times_out_without_blocking_roommates():
+    manager = WSManager(send_timeout_seconds=0.01)
+    slow_ws = FakeWebSocket("slow", send_delay=0.1)
+    good_ws = FakeWebSocket("good")
+
+    await manager.connect("room-a", "slow-user", slow_ws)
+    await manager.connect("room-a", "good-user", good_ws)
+
+    sent = await manager.broadcast("room-a", {"type": "room_state_updated"})
+    await asyncio.sleep(0.05)
+
+    assert sent == 1
+    assert good_ws.sent == [{"type": "room_state_updated"}]
+    assert slow_ws.sent == []
+    assert slow_ws.closed == [{"code": 1000, "reason": None}]
+    assert await manager.online_users("room-a") == ["good-user"]
 
 
 @pytest.mark.asyncio
