@@ -112,5 +112,6 @@ def _format_exploration_rules_note(exploration_context: dict[str, Any]) -> str:
 - Best passive scores: {json.dumps(exploration_context.get("party_best_passive") or {}, ensure_ascii=False)}
 - Character passive scores: {json.dumps(exploration_context.get("character_passives") or [], ensure_ascii=False)}
 - Group stealth rule: {json.dumps(exploration_context.get("group_stealth") or {}, ensure_ascii=False)}
+- Light, hidden, and noise rules: {json.dumps(exploration_context.get("light_and_hidden") or {}, ensure_ascii=False)}
 - Passive discovery: {json.dumps(exploration_context.get("passive_discovery") or {}, ensure_ascii=False)}
 - Use these passive perception/investigation/stealth values when deciding whether traps, hidden doors, clues, ambush signs, or sneaking creatures are noticed without an active roll."""

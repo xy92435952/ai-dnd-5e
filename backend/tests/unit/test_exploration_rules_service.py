@@ -4,13 +4,17 @@ from services.exploration_rules_service import (
     apply_trap_attack_to_target,
     apply_trap_trigger_to_target,
     build_exploration_context,
+    can_attempt_hide,
     character_passive_summary,
     group_stealth_result,
+    light_perception,
+    noise_adjusted_detection_dc,
     party_best_passive,
     passive_detects,
     passive_investigation,
     passive_perception,
     resolve_passive_discoveries,
+    resolve_hidden_status,
     resolve_surprise,
     resolve_trap_attack,
     resolve_trap_disarm,
@@ -27,16 +31,22 @@ def _character(
     proficiency_bonus: int = 2,
     proficient_skills: list[str] | None = None,
     feats: list | None = None,
+    conditions: list[str] | None = None,
+    darkvision: int = 0,
 ) -> dict:
+    derived = {
+        "ability_modifiers": mods or {},
+        "proficiency_bonus": proficiency_bonus,
+    }
+    if darkvision:
+        derived["darkvision"] = darkvision
     return {
         "id": char_id,
         "name": name,
-        "derived": {
-            "ability_modifiers": mods or {},
-            "proficiency_bonus": proficiency_bonus,
-        },
+        "derived": derived,
         "proficient_skills": proficient_skills or [],
         "feats": feats or [],
+        "conditions": conditions or [],
     }
 
 
@@ -159,7 +169,111 @@ def test_build_exploration_context_summarizes_party_passives():
     assert context["party_best_passive"]["stealth"]["score"] == 16
     assert context["group_stealth"]["success_rule"] == "at_least_half_members_meet_or_exceed_dc"
     assert context["surprise"]["rule"] == "compare_each_ambusher_stealth_total_to_each_target_passive_perception"
+    assert context["light_and_hidden"]["hide_rule"] == "cannot_hide_from_observer_that_can_see_actor_clearly"
+    assert context["light_and_hidden"]["noise_dc_modifiers"]["loud"] == -5
     assert context["passive_discovery"]["features"] == []
+
+
+def test_light_perception_applies_darkvision_one_step_improvement():
+    observer = _character(darkvision=60)
+
+    darkness = light_perception(observer, "darkness", distance_ft=30)
+    dim = light_perception(observer, "dim", distance_ft=30)
+    far_darkness = light_perception(observer, "darkness", distance_ft=90)
+
+    assert darkness["ambient_light"] == "darkness"
+    assert darkness["effective_light"] == "dim"
+    assert darkness["within_darkvision"] is True
+    assert darkness["sight_check_disadvantage"] is True
+    assert darkness["sight_blocked"] is False
+    assert dim["effective_light"] == "bright"
+    assert dim["sight_check_disadvantage"] is False
+    assert far_darkness["effective_light"] == "darkness"
+    assert far_darkness["sight_blocked"] is True
+
+
+def test_noise_adjusted_detection_dc_makes_loud_targets_easier_to_detect():
+    assert noise_adjusted_detection_dc(15, "silent")["dc"] == 20
+    assert noise_adjusted_detection_dc(15, "quiet")["dc"] == 17
+    assert noise_adjusted_detection_dc(15, "normal")["dc"] == 15
+    assert noise_adjusted_detection_dc(15, "loud")["dc"] == 10
+    assert noise_adjusted_detection_dc(15, "very_loud")["dc"] == 5
+
+
+def test_can_attempt_hide_requires_visual_obscurement_and_no_loud_noise():
+    actor = _character(char_id="rogue", name="Rogue")
+    observer = _character(char_id="guard", name="Guard")
+
+    open_bright = can_attempt_hide(actor, observer, cover="none", light_level="bright")
+    behind_cover = can_attempt_hide(actor, observer, cover="total", light_level="bright")
+    invisible = can_attempt_hide(
+        _character(char_id="rogue", name="Rogue", conditions=["invisible"]),
+        observer,
+        cover="none",
+        light_level="bright",
+    )
+    noisy = can_attempt_hide(actor, observer, cover="total", light_level="bright", noise_level="loud")
+
+    assert open_bright["can_attempt"] is False
+    assert open_bright["blockers"] == ["observer_can_see_actor_clearly"]
+    assert behind_cover["can_attempt"] is True
+    assert behind_cover["enablers"] == ["total_cover"]
+    assert invisible["can_attempt"] is True
+    assert invisible["enablers"] == ["invisible"]
+    assert noisy["can_attempt"] is False
+    assert "loud_noise_reveals_position" in noisy["blockers"]
+
+
+def test_darkness_allows_hiding_only_when_observer_sight_is_blocked():
+    actor = _character(char_id="rogue", name="Rogue")
+    human_guard = _character(char_id="human", name="Human Guard")
+    elf_guard = _character(char_id="elf", name="Elf Guard", darkvision=60)
+
+    unseen_by_human = can_attempt_hide(actor, human_guard, light_level="darkness", distance_ft=30)
+    seen_by_darkvision = can_attempt_hide(actor, elf_guard, light_level="darkness", distance_ft=30)
+
+    assert unseen_by_human["can_attempt"] is True
+    assert unseen_by_human["enablers"] == ["darkness_or_heavy_obscurement"]
+    assert seen_by_darkvision["light"]["effective_light"] == "dim"
+    assert seen_by_darkvision["can_attempt"] is False
+
+
+def test_resolve_hidden_status_uses_passive_perception_and_noise_adjusted_dc():
+    actor = _character(
+        char_id="rogue",
+        name="Rogue",
+        mods={"dex": 4},
+        proficient_skills=["stealth"],
+    )
+    guard = _character(
+        char_id="guard",
+        name="Guard",
+        mods={"wis": 2},
+        proficient_skills=["perception"],
+    )
+
+    quiet_result = resolve_hidden_status(
+        actor,
+        [guard],
+        stealth_total=15,
+        cover="total",
+        noise_level="quiet",
+    )
+    loud_result = resolve_hidden_status(
+        actor,
+        [guard],
+        stealth_total=15,
+        cover="total",
+        noise_level="loud",
+    )
+
+    assert quiet_result["detection_dc"]["dc"] == 17
+    assert quiet_result["hidden"] is True
+    assert quiet_result["condition"] == "hidden"
+    assert quiet_result["detected_by_ids"] == []
+    assert loud_result["detection_dc"]["dc"] == 10
+    assert loud_result["hidden"] is False
+    assert loud_result["detected_by_ids"] == ["guard"]
 
 
 def test_resolve_surprise_marks_targets_that_notice_no_ambushers():

@@ -29,6 +29,63 @@ PASSIVE_SKILL_ABILITIES = {
     "stealth": "dex",
 }
 
+LIGHT_LEVEL_ALIASES = {
+    "bright": "bright",
+    "bright_light": "bright",
+    "normal": "bright",
+    "lit": "bright",
+    "dim": "dim",
+    "dim_light": "dim",
+    "low": "dim",
+    "shadow": "dim",
+    "shadows": "dim",
+    "dark": "darkness",
+    "darkness": "darkness",
+    "blackout": "darkness",
+    "heavily_obscured": "darkness",
+}
+
+NOISE_LEVEL_ALIASES = {
+    "silent": "silent",
+    "silence": "silent",
+    "quiet": "quiet",
+    "whisper": "quiet",
+    "normal": "normal",
+    "soft": "normal",
+    "loud": "loud",
+    "noisy": "loud",
+    "very_loud": "very_loud",
+    "thunderous": "very_loud",
+}
+
+NOISE_DETECTION_DC_MODIFIERS = {
+    "silent": 5,
+    "quiet": 2,
+    "normal": 0,
+    "loud": -5,
+    "very_loud": -10,
+}
+
+COVER_ALIASES = {
+    "none": "none",
+    "open": "none",
+    "half": "half",
+    "half_cover": "half",
+    "three_quarters": "three_quarters",
+    "three_quarter": "three_quarters",
+    "3/4": "three_quarters",
+    "total": "total",
+    "total_cover": "total",
+    "full": "total",
+}
+
+CONDITION_ALIASES = {
+    "invisible": "invisible",
+    "\u9690\u5f62": "invisible",
+    "blinded": "blinded",
+    "\u76ee\u76f2": "blinded",
+}
+
 
 def passive_score(character: dict[str, Any] | object, skill: str = "perception") -> int:
     """Return 10 + relevant modifier + proficiency for a passive exploration skill."""
@@ -125,6 +182,150 @@ def resolve_surprise(
         "ambushers": ambushers,
         "targets": target_results,
         "surprised_target_ids": [item["target_id"] for item in target_results if item["surprised"]],
+    }
+
+
+def light_perception(
+    observer: dict[str, Any] | object | None,
+    light_level: str = "bright",
+    *,
+    distance_ft: int = 0,
+) -> dict[str, Any]:
+    """Return how an observer perceives a light level, including darkvision."""
+    ambient = _normalize_light_level(light_level)
+    distance = max(0, _as_int(distance_ft, 0))
+    darkvision = _darkvision_range(observer)
+    within_darkvision = ambient in {"dim", "darkness"} and darkvision > 0 and distance <= darkvision
+    effective = ambient
+    if within_darkvision and ambient == "darkness":
+        effective = "dim"
+    elif within_darkvision and ambient == "dim":
+        effective = "bright"
+
+    return {
+        "ambient_light": ambient,
+        "effective_light": effective,
+        "distance_ft": distance,
+        "darkvision_ft": darkvision,
+        "within_darkvision": within_darkvision,
+        "can_rely_on_sight": effective != "darkness",
+        "sight_check_disadvantage": effective == "dim",
+        "sight_blocked": effective == "darkness",
+        "rule": "dim_light_disadvantages_sight_perception_darkness_blocks_sight_darkvision_improves_one_step",
+    }
+
+
+def noise_adjusted_detection_dc(base_dc: int, noise_level: str = "normal") -> dict[str, Any]:
+    """Adjust a passive detection DC for how much noise a hidden creature makes."""
+    noise = _normalize_noise_level(noise_level)
+    modifier = NOISE_DETECTION_DC_MODIFIERS[noise]
+    base = _as_int(base_dc, 10)
+    dc = max(0, base + modifier)
+    return {
+        "base_dc": base,
+        "noise_level": noise,
+        "modifier": modifier,
+        "dc": dc,
+        "rule": "silent_or_quiet_targets_are_harder_to_detect_loud_targets_are_easier_to_detect",
+    }
+
+
+def can_attempt_hide(
+    actor: dict[str, Any] | object,
+    observer: dict[str, Any] | object | None = None,
+    *,
+    cover: str = "none",
+    light_level: str = "bright",
+    noise_level: str = "normal",
+    distance_ft: int = 0,
+) -> dict[str, Any]:
+    """Decide whether an actor has enough concealment to attempt hiding from one observer."""
+    cover_level = _normalize_cover(cover)
+    noise = _normalize_noise_level(noise_level)
+    sight = light_perception(observer, light_level, distance_ft=distance_ft)
+    actor_invisible = _has_condition(actor, "invisible")
+    observer_blinded = bool(observer is not None and _has_condition(observer, "blinded"))
+    total_cover = cover_level == "total"
+    visual_obscurement = total_cover or actor_invisible or observer_blinded or sight["sight_blocked"]
+    loud_noise = noise in {"loud", "very_loud"}
+    can_attempt = visual_obscurement and not loud_noise
+
+    blockers = []
+    if not visual_obscurement:
+        blockers.append("observer_can_see_actor_clearly")
+    if loud_noise:
+        blockers.append("loud_noise_reveals_position")
+
+    enablers = []
+    if total_cover:
+        enablers.append("total_cover")
+    if actor_invisible:
+        enablers.append("invisible")
+    if observer_blinded:
+        enablers.append("observer_blinded")
+    if sight["sight_blocked"]:
+        enablers.append("darkness_or_heavy_obscurement")
+
+    return {
+        "can_attempt": can_attempt,
+        "cover": cover_level,
+        "noise_level": noise,
+        "light": sight,
+        "actor_invisible": actor_invisible,
+        "observer_blinded": observer_blinded,
+        "visual_obscurement": visual_obscurement,
+        "enablers": enablers,
+        "blockers": blockers,
+        "rule": "cannot_hide_from_a_creature_that_can_see_you_clearly_and_loud_noise_breaks_hidden_position",
+    }
+
+
+def resolve_hidden_status(
+    actor: dict[str, Any] | object,
+    observers: list[dict[str, Any] | object],
+    *,
+    stealth_total: int | None = None,
+    cover: str = "none",
+    light_level: str = "bright",
+    noise_level: str = "normal",
+    distance_ft: int = 0,
+) -> dict[str, Any]:
+    """Resolve whether an actor is hidden from observers using passive Perception."""
+    fallback_stealth = passive_score(actor, "stealth")
+    stealth_dc = fallback_stealth if stealth_total is None else _as_int(stealth_total, fallback_stealth)
+    adjusted_dc = noise_adjusted_detection_dc(stealth_dc, noise_level)
+    observer_results = []
+
+    for observer in observers or []:
+        attempt = can_attempt_hide(
+            actor,
+            observer,
+            cover=cover,
+            light_level=light_level,
+            noise_level=noise_level,
+            distance_ft=distance_ft,
+        )
+        passive = passive_perception(observer)
+        detected = (not attempt["can_attempt"]) or passive >= adjusted_dc["dc"]
+        observer_results.append({
+            "observer_id": str(_read_attr(observer, "id", "")),
+            "name": _read_attr(observer, "name", ""),
+            "passive_perception": passive,
+            "detects": detected,
+            "attempt": attempt,
+        })
+
+    hidden = bool(observer_results) and all(not result["detects"] for result in observer_results)
+    return {
+        "actor_id": str(_read_attr(actor, "id", "")),
+        "name": _read_attr(actor, "name", ""),
+        "hidden": hidden,
+        "condition": "hidden" if hidden else None,
+        "stealth_total": stealth_dc,
+        "detection_dc": adjusted_dc,
+        "observers": observer_results,
+        "detected_by_ids": [item["observer_id"] for item in observer_results if item["detects"]],
+        "rule": "hidden_if_actor_can_attempt_hide_and_all_observers_fail_passive_detection",
     }
 
 
@@ -494,6 +695,13 @@ def build_exploration_context(
             "rule": "compare_each_ambusher_stealth_total_to_each_target_passive_perception",
             "no_surprise_source": "Alert feat or equivalent no_surprise effect",
         },
+        "light_and_hidden": {
+            "light_rule": "bright_normal_dim_disadvantages_sight_perception_darkness_blocks_sight",
+            "darkvision_rule": "within_darkvision_dim_counts_as_bright_and_darkness_counts_as_dim",
+            "hide_rule": "cannot_hide_from_observer_that_can_see_actor_clearly",
+            "noise_rule": "silent_or_quiet_targets_raise_detection_dc_loud_targets_lower_detection_dc",
+            "noise_dc_modifiers": dict(NOISE_DETECTION_DC_MODIFIERS),
+        },
         "passive_discovery": resolve_passive_discoveries(party, hidden_features or []),
         "trap_trigger": {
             "rule": "triggered_traps_roll_configured_save_then_apply_full_or_half_damage",
@@ -508,6 +716,55 @@ def build_exploration_context(
 def _normalize_skill(skill: str | None) -> str:
     value = str(skill or "").strip().lower().replace("-", "_").replace(" ", "_")
     return SKILL_ALIASES.get(value, SKILL_ALIASES.get(str(skill or "").strip(), value))
+
+
+def _normalize_light_level(light_level: str | None) -> str:
+    value = str(light_level or "").strip().lower().replace("-", "_").replace(" ", "_")
+    return LIGHT_LEVEL_ALIASES.get(value, "bright")
+
+
+def _normalize_noise_level(noise_level: str | None) -> str:
+    value = str(noise_level or "").strip().lower().replace("-", "_").replace(" ", "_")
+    return NOISE_LEVEL_ALIASES.get(value, "normal")
+
+
+def _normalize_cover(cover: str | None) -> str:
+    value = str(cover or "").strip().lower().replace("-", "_").replace(" ", "_")
+    return COVER_ALIASES.get(value, "none")
+
+
+def _darkvision_range(character: dict[str, Any] | object | None) -> int:
+    if character is None:
+        return 0
+    derived = _read_mapping(character, "derived")
+    senses = _read_mapping(character, "senses")
+    active_effects = _read_mapping(character, "active_effects")
+    candidates = [
+        derived.get("darkvision"),
+        senses.get("darkvision"),
+        active_effects.get("darkvision"),
+        _read_attr(character, "darkvision", 0),
+    ]
+    for candidate in candidates:
+        if isinstance(candidate, dict):
+            candidate = candidate.get("range_ft") or candidate.get("ft") or candidate.get("value")
+        value = _as_int(candidate, 0)
+        if value > 0:
+            return value
+    return 0
+
+
+def _has_condition(character: dict[str, Any] | object | None, condition: str) -> bool:
+    if character is None:
+        return False
+    target = CONDITION_ALIASES.get(str(condition or "").strip().lower(), str(condition or "").strip().lower())
+    for item in _read_list(character, "conditions"):
+        normalized = CONDITION_ALIASES.get(str(item or "").strip().lower(), str(item or "").strip().lower())
+        if normalized == target:
+            return True
+
+    active_effects = _read_mapping(character, "active_effects")
+    return bool(active_effects.get(target))
 
 
 def _normalize_skill_names(values: list[Any]) -> set[str]:
