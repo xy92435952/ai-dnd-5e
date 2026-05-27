@@ -10,6 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, Session, SessionMember, User
 from services import room_group_state_utils
+from services.room_audit_service import add_room_audit_log
 
 
 OFFLINE_THRESHOLD_SECONDS = 30
@@ -80,6 +81,14 @@ async def claim_character(
     session = await db.get(Session, session_id)
     if session:
         _clear_start_ready_for_user(session, user_id)
+    add_room_audit_log(
+        db,
+        session_id=session_id,
+        event_type="character_claimed",
+        actor_user_id=user_id,
+        target_user_id=user_id,
+        details={"character_id": character_id},
+    )
     await db.commit()
     await db.refresh(member)
     return member
@@ -111,6 +120,19 @@ async def kick_member(
         target_user_id=target_user_id,
     )
     if not vote_result["passed"]:
+        add_room_audit_log(
+            db,
+            session_id=session_id,
+            event_type="kick_vote_cast",
+            actor_user_id=actor_user_id,
+            target_user_id=target_user_id,
+            details={
+                "passed": False,
+                "yes_count": vote_result.get("yes_count"),
+                "threshold": vote_result.get("threshold"),
+            },
+        )
+        await db.commit()
         return {
             "kicked": None,
             "vote_pending": True,
@@ -152,10 +174,26 @@ async def kick_member(
             new_host.role = "host"
             session.host_user_id = new_host.user_id
             host_transferred_to = new_host.user_id
+            add_room_audit_log(
+                db,
+                session_id=session_id,
+                event_type="host_transferred",
+                actor_user_id=actor_user_id,
+                target_user_id=host_transferred_to,
+                details={"reason": "kick_vote", "previous_host_user_id": target_user_id},
+            )
         else:
             session.room_code = None
             session.host_user_id = None
             room_dissolved = True
+            add_room_audit_log(
+                db,
+                session_id=session_id,
+                event_type="room_dissolved",
+                actor_user_id=actor_user_id,
+                target_user_id=target_user_id,
+                details={"reason": "kick_vote"},
+            )
 
     session.game_state = room_group_state_utils.prune_member_from_multiplayer_state(
         session.game_state,
@@ -164,6 +202,26 @@ async def kick_member(
         preferred_speaker_user_id=host_transferred_to,
     )
     flag_modified(session, "game_state")
+    add_room_audit_log(
+        db,
+        session_id=session_id,
+        event_type="kick_vote_cast",
+        actor_user_id=actor_user_id,
+        target_user_id=target_user_id,
+        details={
+            "passed": True,
+            "yes_count": vote_result.get("yes_count"),
+            "threshold": vote_result.get("threshold"),
+        },
+    )
+    add_room_audit_log(
+        db,
+        session_id=session_id,
+        event_type="member_kicked",
+        actor_user_id=actor_user_id,
+        target_user_id=target_user_id,
+        details={"host_transferred_to": host_transferred_to},
+    )
 
     await db.commit()
     await room_vote_service.ensure_room_votes(db, session_id)
@@ -199,6 +257,14 @@ async def transfer_host(
     actor.role = "player"
     target.role = "host"
     session.host_user_id = new_host_user_id
+    add_room_audit_log(
+        db,
+        session_id=session_id,
+        event_type="host_transferred",
+        actor_user_id=actor_user_id,
+        target_user_id=new_host_user_id,
+        details={"reason": "manual_transfer", "previous_host_user_id": actor_user_id},
+    )
     await db.commit()
     return {"new_host_user_id": new_host_user_id}
 

@@ -50,6 +50,22 @@ async def _ready_for_start(client, session_id, *users):
         assert r.status_code == 200, r.text
 
 
+async def _room_audit_events(db_session, session_id):
+    from models import GameLog
+    from sqlalchemy import select
+
+    rows = await db_session.execute(
+        select(GameLog)
+        .where(GameLog.session_id == session_id)
+        .order_by(GameLog.created_at.asc())
+    )
+    return [
+        (log.table_decision or {}).get("audit")
+        for log in rows.scalars().all()
+        if (log.table_decision or {}).get("audit")
+    ]
+
+
 # ─── 创建 / 加入 / 离开 ─────────────────────────────────
 
 async def test_host_creates_room_gets_room_code(client, sample_module):
@@ -550,6 +566,93 @@ async def test_kick_vote_transfers_host_when_host_is_removed(client, sample_modu
 
 
 # ─── 开始游戏 ───────────────────────────────────────────
+
+async def test_sensitive_room_events_write_audit_logs(client, db_session, sample_module):
+    host = await _register(client, "audit_host")
+    p2 = await _register(client, "audit_p2")
+    p3 = await _register(client, "audit_p3")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    for user in (p2, p3):
+        joined = await client.post("/game/rooms/join", headers=_h(user["token"]), json={
+            "room_code": create["room_code"],
+        })
+        assert joined.status_code == 200, joined.text
+
+    host_char = await _create_character(client, host["token"], sample_module.id, "audit hero")
+    claimed = await client.post(
+        f"/game/rooms/{sid}/claim-character",
+        headers=_h(host["token"]),
+        json={"character_id": host_char["id"]},
+    )
+    assert claimed.status_code == 200, claimed.text
+
+    transferred = await client.post(
+        f"/game/rooms/{sid}/transfer",
+        headers=_h(host["token"]),
+        json={"new_host_user_id": p2["user_id"]},
+    )
+    assert transferred.status_code == 200, transferred.text
+
+    first_vote = await client.post(
+        f"/game/rooms/{sid}/kick",
+        headers=_h(host["token"]),
+        json={"user_id": p3["user_id"]},
+    )
+    assert first_vote.status_code == 200, first_vote.text
+    assert first_vote.json()["vote_pending"] is True
+
+    second_vote = await client.post(
+        f"/game/rooms/{sid}/kick",
+        headers=_h(p2["token"]),
+        json={"user_id": p3["user_id"]},
+    )
+    assert second_vote.status_code == 200, second_vote.text
+    assert second_vote.json()["kicked"] == p3["user_id"]
+
+    audits = await _room_audit_events(db_session, sid)
+    event_types = [event["event_type"] for event in audits]
+    assert "character_claimed" in event_types
+    assert "host_transferred" in event_types
+    assert event_types.count("kick_vote_cast") == 2
+    assert "member_kicked" in event_types
+
+    claim_audit = next(event for event in audits if event["event_type"] == "character_claimed")
+    assert claim_audit["actor_user_id"] == host["user_id"]
+    assert claim_audit["details"]["character_id"] == host_char["id"]
+
+    transfer_audit = next(event for event in audits if event["event_type"] == "host_transferred")
+    assert transfer_audit["actor_user_id"] == host["user_id"]
+    assert transfer_audit["target_user_id"] == p2["user_id"]
+
+    passed_vote = [
+        event for event in audits
+        if event["event_type"] == "kick_vote_cast" and event["details"]["passed"] is True
+    ][0]
+    assert passed_vote["actor_user_id"] == p2["user_id"]
+    assert passed_vote["target_user_id"] == p3["user_id"]
+
+
+async def test_room_dissolve_writes_audit_log(client, db_session, sample_module):
+    host = await _register(client, "audit_dissolve_host")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+
+    left = await client.post(f"/game/rooms/{sid}/leave", headers=_h(host["token"]))
+    assert left.status_code == 200, left.text
+    assert left.json()["room_dissolved"] is True
+
+    audits = await _room_audit_events(db_session, sid)
+    dissolve_audit = next(event for event in audits if event["event_type"] == "room_dissolved")
+    assert dissolve_audit["actor_user_id"] == host["user_id"]
+    assert dissolve_audit["details"]["reason"] == "host_left"
+
 
 async def test_start_game_requires_at_least_one_claimed_character(
     client, sample_module,

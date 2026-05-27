@@ -14,6 +14,7 @@ from models import Character, Module, Session, SessionMember
 from services import room_group_service
 from services import room_group_state_utils
 from services.dm_styles import normalize_dm_style
+from services.room_audit_service import add_room_audit_log
 from services.room_member_service import count_members, get_member
 
 
@@ -160,10 +161,26 @@ async def leave_room(
             new_host.role = "host"
             session.host_user_id = new_host.user_id
             transfer_to = new_host.user_id
+            add_room_audit_log(
+                db,
+                session_id=session.id,
+                event_type="host_transferred",
+                actor_user_id=user_id,
+                target_user_id=transfer_to,
+                details={"reason": "host_left", "previous_host_user_id": user_id},
+            )
         else:
             session.room_code = None
             session.host_user_id = None
             transfer_to = None
+            add_room_audit_log(
+                db,
+                session_id=session.id,
+                event_type="room_dissolved",
+                actor_user_id=user_id,
+                target_user_id=user_id,
+                details={"reason": "host_left"},
+            )
         _prune_room_member_state(
             session,
             removed_user_id=user_id,
