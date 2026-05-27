@@ -99,6 +99,15 @@ async def test_state_applicator_applies_trap_trigger_delta(monkeypatch):
 
     assert character.hp_current == 4
     assert character.conditions == ["prone"]
+    assert session.game_state["trap_states"]["dart-wall"]["triggered"] is True
+    assert session.game_state["trap_states"]["dart-wall"]["last_trigger"] == {
+        "save_ability": "dex",
+        "save_dc": 14,
+        "saved": False,
+        "damage": 5,
+        "damage_type": "piercing",
+        "conditions_added": ["prone"],
+    }
     assert applied.dice_display == [
         {
             "label": "Dart Wall saving throw",
@@ -123,6 +132,56 @@ async def test_state_applicator_applies_trap_trigger_delta(monkeypatch):
             "target_id": "char-1",
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_skips_disarmed_trap_trigger(monkeypatch):
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        game_state={"trap_states": {"dart-wall": {"disarmed": True}}},
+    )
+    character = Character(
+        id="char-1",
+        name="Scout",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Urchin",
+        ability_scores={"dex": 16},
+        derived={"hp_max": 9},
+        hp_current=9,
+        conditions=[],
+    )
+
+    monkeypatch.setattr(
+        "services.state_applicator.apply_trap_trigger_to_target",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not trigger")),
+    )
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "investigation",
+        "narrative": "The disabled dart trap stays still.",
+        "state_delta": {
+            "trap_triggers": [
+                {
+                    "target_character_id": "char-1",
+                    "trap": {"id": "dart-wall", "name": "Dart Wall"},
+                }
+            ]
+        },
+    }
+
+    applied = await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[character],
+    )
+
+    assert character.hp_current == 9
+    assert character.conditions == []
+    assert applied.dice_display == []
+    assert session.game_state["trap_states"]["dart-wall"] == {"disarmed": True}
 
 
 @pytest.mark.asyncio
