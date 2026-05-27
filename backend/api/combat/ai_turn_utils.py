@@ -1,8 +1,6 @@
 """
 api.combat.ai_turn_utils — shared helpers for AI combat turns.
 """
-from sqlalchemy.orm.attributes import flag_modified
-
 from api.combat._shared import (
     _calc_entity_turn_limits,
     _reset_ts,
@@ -10,7 +8,6 @@ from api.combat._shared import (
     _tick_conditions_enemy,
 )
 from models import GameLog
-from services.combat_legendary_action_service import refresh_legendary_actions_for_new_round
 from services.combat_reaction_service import (
     calculate_absorb_elements_prevention,
     build_pending_spell_reaction,
@@ -30,22 +27,10 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int) -> N
     combat.current_turn_index = next_index
     if next_index == 0:
         combat.round_number += 1
-        _refresh_legendary_actions(session)
     if turn_order:
         next_entity_id = turn_order[next_index]["character_id"]
         next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
-
-
-def _refresh_legendary_actions(session) -> None:
-    state = dict(getattr(session, "game_state", None) or {})
-    enemies = list(state.get("enemies") or [])
-    result = refresh_legendary_actions_for_new_round(enemies)
-    if not result["changed"]:
-        return
-    state["enemies"] = enemies
-    session.game_state = dict(state)
-    flag_modified(session, "game_state")
 
 
 def tick_ai_actor_conditions(

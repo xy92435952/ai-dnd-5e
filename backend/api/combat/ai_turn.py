@@ -28,6 +28,7 @@ from api.combat.ai_turn_spell import find_resumable_spell_reaction, handle_ai_sp
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
+from services.combat_legendary_action_service import refresh_legendary_actions_for_turn_start
 from services.combat_recharge_service import refresh_recharge_abilities_at_turn_start
 from services.dnd_rules import get_incapacitating_reasons, is_incapacitated
 
@@ -124,7 +125,8 @@ async def _ai_combat_turn_locked(
     if is_enemy:
         enemy = next((x for x in enemies if str(x.get("id")) == str(actor_id)), None)
         recharge_result = refresh_recharge_abilities_at_turn_start(enemy)
-        if recharge_result["changed"]:
+        legendary_action_result = refresh_legendary_actions_for_turn_start(enemy)
+        if recharge_result["changed"] or legendary_action_result["changed"]:
             state["enemies"] = enemies
             session.game_state = dict(state)
             flag_modified(session, "game_state")

@@ -62,23 +62,38 @@ def initialize_legendary_actions(enemy: dict[str, Any]) -> dict[str, int]:
     return {"uses": uses, "remaining": remaining}
 
 
+def refresh_legendary_actions_for_turn_start(enemy: dict[str, Any] | None) -> dict[str, Any]:
+    """Refresh one surviving monster's Legendary Action pool at the start of its turn."""
+    if not enemy:
+        return {"changed": False, "refreshed": None}
+
+    before_remaining = enemy.get("legendary_action_uses_remaining")
+    state = initialize_legendary_actions(enemy)
+    if not enemy.get("legendary_actions") or enemy.get("hp_current", 0) <= 0:
+        return {"changed": False, "refreshed": None}
+
+    changed = before_remaining != state["uses"]
+    if changed:
+        enemy["legendary_action_uses_remaining"] = state["uses"]
+    return {
+        "changed": changed,
+        "refreshed": {
+            "enemy_id": enemy.get("id"),
+            "name": enemy.get("name"),
+            "uses": state["uses"],
+        } if changed else None,
+    }
+
+
 def refresh_legendary_actions_for_new_round(enemies: list[dict[str, Any]] | None) -> dict[str, Any]:
     """Refresh each surviving monster's Legendary Action pool at the start of a round."""
     changed = False
     refreshed: list[dict[str, Any]] = []
     for enemy in enemies or []:
-        before_remaining = enemy.get("legendary_action_uses_remaining")
-        state = initialize_legendary_actions(enemy)
-        if not enemy.get("legendary_actions") or enemy.get("hp_current", 0) <= 0:
-            continue
-        if before_remaining != state["uses"]:
-            enemy["legendary_action_uses_remaining"] = state["uses"]
+        result = refresh_legendary_actions_for_turn_start(enemy)
+        if result["changed"]:
             changed = True
-            refreshed.append({
-                "enemy_id": enemy.get("id"),
-                "name": enemy.get("name"),
-                "uses": state["uses"],
-            })
+            refreshed.append(result["refreshed"])
     return {"changed": changed, "refreshed": refreshed}
 
 
