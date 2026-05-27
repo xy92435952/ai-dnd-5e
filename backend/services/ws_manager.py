@@ -63,6 +63,68 @@ class WSManager:
         logger.info(f"WS disconnected: session={session_id} user={user_id}")
         return meta
 
+    async def disconnect_user(
+        self,
+        session_id: str,
+        user_id: str,
+        *,
+        code: int = 4001,
+        reason: str = "Disconnected by room lifecycle",
+    ) -> bool:
+        """Remove and close one user's active socket in one room."""
+        async with self._lock:
+            ws = self.user_ws.pop((session_id, user_id), None)
+            if ws is None:
+                return False
+
+            self.rooms.get(session_id, set()).discard(ws)
+            self.ws_meta.pop(ws, None)
+            if not self.rooms.get(session_id):
+                self.rooms.pop(session_id, None)
+
+        try:
+            await ws.close(code=code, reason=reason)
+        except Exception:
+            pass
+        logger.info(f"WS force-disconnected: session={session_id} user={user_id}")
+        return True
+
+    async def disconnect_room(
+        self,
+        session_id: str,
+        *,
+        code: int = 4002,
+        reason: str = "Room closed",
+    ) -> int:
+        """Remove and close every active socket in a room."""
+        async with self._lock:
+            targets = set(self.rooms.pop(session_id, set()))
+            targets.update(
+                ws
+                for (sid, _uid), ws in self.user_ws.items()
+                if sid == session_id
+            )
+
+            for ws in targets:
+                meta = self.ws_meta.pop(ws, None)
+                if meta and self.user_ws.get(meta) is ws:
+                    self.user_ws.pop(meta, None)
+
+            for key in [
+                key for key in self.user_ws.keys()
+                if key[0] == session_id
+            ]:
+                self.user_ws.pop(key, None)
+
+        for ws in targets:
+            try:
+                await ws.close(code=code, reason=reason)
+            except Exception:
+                pass
+        if targets:
+            logger.info(f"WS room force-disconnected: session={session_id} count={len(targets)}")
+        return len(targets)
+
     async def broadcast(self, session_id: str, event, exclude_user_id: Optional[str] = None) -> int:
         """
         向房间内所有连接广播。返回成功发送的连接数。

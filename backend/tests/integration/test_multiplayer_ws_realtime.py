@@ -164,6 +164,152 @@ async def _wait_for_event(
     raise AssertionError(f"did not receive {event_type}; sent={ws.sent!r}")
 
 
+async def test_http_leave_closes_leaving_member_websocket_and_prunes_room_state(
+    client,
+    db_session,
+    sample_module,
+):
+    from models import Session
+    from services.ws_manager import ws_manager
+    from sqlalchemy.orm.attributes import flag_modified
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+
+    host = await _register(client, "ws_leave_host", display_name="Leave Host")
+    guest = await _register(client, "ws_leave_guest", display_name="Leave Guest")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS leave cleanup room",
+        "max_players": 4,
+    })).json()
+    sid = created["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": created["room_code"],
+    })
+
+    session = await db_session.get(Session, sid)
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
+    mp.update({
+        "current_speaker_user_id": guest["user_id"],
+        "online_user_ids": [host["user_id"], guest["user_id"]],
+        "start_ready_user_ids": [host["user_id"], guest["user_id"]],
+        "active_group_id": "scout",
+        "party_groups": [
+            {
+                "id": "main",
+                "name": "Main",
+                "location": "Hall",
+                "member_user_ids": [host["user_id"]],
+            },
+            {
+                "id": "scout",
+                "name": "Scout",
+                "location": "Alley",
+                "member_user_ids": [guest["user_id"]],
+            },
+        ],
+        "pending_actions": [
+            {"user_id": guest["user_id"], "text": "I scout ahead."},
+        ],
+        "pending_actions_by_group": {
+            "main": [],
+            "scout": [
+                {"user_id": guest["user_id"], "text": "I scout ahead."},
+            ],
+        },
+        "group_readiness": {
+            "main": {host["user_id"]: "ready"},
+            "scout": {guest["user_id"]: "ready"},
+        },
+    })
+    state["multiplayer"] = mp
+    session.game_state = state
+    flag_modified(session, "game_state")
+    await db_session.commit()
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    try:
+        await ws_manager.connect(sid, host["user_id"], host_ws)
+        await ws_manager.connect(sid, guest["user_id"], guest_ws)
+
+        response = await client.post(f"/game/rooms/{sid}/leave", headers=_h(guest["token"]))
+
+        assert response.status_code == 200, response.text
+        assert response.json()["room_dissolved"] is False
+        left = await _wait_for_event(host_ws, "member_left")
+        assert left["user_id"] == guest["user_id"]
+        assert guest_ws.closed == {"code": 4001, "reason": "Left room"}
+        assert await ws_manager.online_users(sid) == [host["user_id"]]
+
+        room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
+        assert room["current_speaker_user_id"] == host["user_id"]
+        groups = {group["id"]: group for group in room["party_groups"]}
+        assert set(groups) == {"main"}
+        assert groups["main"]["member_user_ids"] == [host["user_id"]]
+        assert room["pending_actions_by_group"] == {"main": []}
+        assert room["group_readiness"] == {"main": {host["user_id"]: "ready"}}
+
+        await db_session.refresh(session)
+        session_mp = session.game_state["multiplayer"]
+        assert session_mp["online_user_ids"] == [host["user_id"]]
+        assert session_mp["start_ready_user_ids"] == [host["user_id"]]
+        assert session_mp["pending_actions"] == []
+    finally:
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_http_last_host_leave_dissolves_room_and_closes_room_websockets(
+    client,
+    db_session,
+    sample_module,
+):
+    from models import Session
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+
+    host = await _register(client, "ws_dissolve_host", display_name="Dissolve Host")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS dissolve room",
+        "max_players": 4,
+    })).json()
+    sid = created["session_id"]
+
+    host_ws = QueueWebSocket()
+    try:
+        await ws_manager.connect(sid, host["user_id"], host_ws)
+
+        response = await client.post(f"/game/rooms/{sid}/leave", headers=_h(host["token"]))
+
+        assert response.status_code == 200, response.text
+        assert response.json()["room_dissolved"] is True
+        dissolved = await _wait_for_event(host_ws, "room_dissolved")
+        assert dissolved["by_user_id"] == host["user_id"]
+        assert host_ws.closed == {"code": 4002, "reason": "Room dissolved"}
+        assert await ws_manager.online_users(sid) == []
+        assert sid not in ws_manager.rooms
+
+        session = await db_session.get(Session, sid)
+        await db_session.refresh(session)
+        assert session.room_code is None
+        assert session.host_user_id is None
+        assert session.game_state["multiplayer"]["online_user_ids"] == []
+        assert session.game_state["multiplayer"]["party_groups"][0]["member_user_ids"] == []
+    finally:
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_ws_connect_sends_online_snapshot_to_connecting_member(
     client,
     engine,

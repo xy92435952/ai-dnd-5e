@@ -7,10 +7,12 @@ from typing import Optional, Tuple
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from api.deps import assert_module_access
 from models import Character, Module, Session, SessionMember
 from services import room_group_service
+from services import room_group_state_utils
 from services.dm_styles import normalize_dm_style
 from services.room_member_service import count_members, get_member
 
@@ -149,26 +151,60 @@ async def leave_room(
     await db.delete(member)
     await db.flush()
 
+    remaining_members = await _list_remaining_members(db, session.id)
+    remaining_user_ids = [item.user_id for item in remaining_members]
+
     if is_host:
-        result = await db.execute(
-            select(SessionMember)
-            .where(SessionMember.session_id == session.id)
-            .order_by(SessionMember.joined_at.asc())
-        )
-        new_host = result.scalars().first()
+        new_host = remaining_members[0] if remaining_members else None
         if new_host:
             new_host.role = "host"
             session.host_user_id = new_host.user_id
             transfer_to = new_host.user_id
         else:
             session.room_code = None
+            session.host_user_id = None
             transfer_to = None
+        _prune_room_member_state(
+            session,
+            removed_user_id=user_id,
+            remaining_user_ids=remaining_user_ids,
+            preferred_speaker_user_id=transfer_to,
+        )
         await db.commit()
         return {"left": user_id, "host_transferred_to": transfer_to,
                 "room_dissolved": transfer_to is None}
 
+    _prune_room_member_state(
+        session,
+        removed_user_id=user_id,
+        remaining_user_ids=remaining_user_ids,
+    )
     await db.commit()
     return {"left": user_id, "host_transferred_to": None, "room_dissolved": False}
+
+async def _list_remaining_members(db: AsyncSession, session_id: str) -> list[SessionMember]:
+    result = await db.execute(
+        select(SessionMember)
+        .where(SessionMember.session_id == session_id)
+        .order_by(SessionMember.joined_at.asc())
+    )
+    return list(result.scalars().all())
+
+
+def _prune_room_member_state(
+    session: Session,
+    *,
+    removed_user_id: str,
+    remaining_user_ids: list[str],
+    preferred_speaker_user_id: Optional[str] = None,
+) -> None:
+    session.game_state = room_group_state_utils.prune_member_from_multiplayer_state(
+        session.game_state,
+        removed_user_id,
+        remaining_user_ids,
+        preferred_speaker_user_id=preferred_speaker_user_id,
+    )
+    flag_modified(session, "game_state")
 
 
 def is_game_started(session: Session) -> bool:

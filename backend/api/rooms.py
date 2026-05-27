@@ -83,12 +83,14 @@ async def leave_room(
     # 广播：成员离开 / 房主转移 / 房间解散
     if result["room_dissolved"]:
         await ws_manager.broadcast(session_id, RoomDissolved(by_user_id=user_id))
+        await ws_manager.disconnect_room(session_id, code=4002, reason="Room dissolved")
     else:
         await ws_manager.broadcast(session_id, MemberLeft(
             user_id=user_id,
             host_transferred_to=result["host_transferred_to"],
             members=members,
         ))
+        await ws_manager.disconnect_user(session_id, user_id, code=4001, reason="Left room")
     return result
 
 
@@ -156,6 +158,7 @@ async def kick_member(
     )
     if result.get("room_dissolved"):
         await ws_manager.broadcast(session_id, RoomDissolved(by_user_id=user_id))
+        await ws_manager.disconnect_room(session_id, code=4002, reason="Room dissolved")
         return result
 
     room = await room_service.get_room_info(db, session_id)
@@ -170,6 +173,8 @@ async def kick_member(
                 new_host_user_id=result["host_transferred_to"],
             ))
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
+    if result.get("kicked"):
+        await ws_manager.disconnect_user(session_id, req.user_id, code=4003, reason="Kicked from room")
     return result
 
 

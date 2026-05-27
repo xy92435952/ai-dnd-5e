@@ -186,3 +186,62 @@ async def test_disconnect_cleans_empty_room_and_preserves_newer_reconnect():
     assert "room-a" not in manager.rooms
     assert manager.user_ws == {}
     assert manager.ws_meta == {}
+
+
+@pytest.mark.asyncio
+async def test_disconnect_user_closes_only_target_user_in_target_room():
+    manager = WSManager()
+    target_ws = FakeWebSocket("target")
+    roommate_ws = FakeWebSocket("roommate")
+    same_user_other_room_ws = FakeWebSocket("same-user-other-room")
+
+    await manager.connect("room-a", "u1", target_ws)
+    await manager.connect("room-a", "u2", roommate_ws)
+    await manager.connect("room-b", "u1", same_user_other_room_ws)
+
+    removed = await manager.disconnect_user(
+        "room-a",
+        "u1",
+        code=4101,
+        reason="Left target room",
+    )
+
+    assert removed is True
+    assert target_ws.closed == [{"code": 4101, "reason": "Left target room"}]
+    assert roommate_ws.closed == []
+    assert same_user_other_room_ws.closed == []
+    assert await manager.online_users("room-a") == ["u2"]
+    assert await manager.online_users("room-b") == ["u1"]
+    assert ("room-a", "u1") not in manager.user_ws
+    assert manager.user_ws[("room-a", "u2")] is roommate_ws
+    assert manager.user_ws[("room-b", "u1")] is same_user_other_room_ws
+
+    assert await manager.disconnect_user("room-a", "missing") is False
+
+
+@pytest.mark.asyncio
+async def test_disconnect_room_closes_only_target_room_sockets():
+    manager = WSManager()
+    room_a_user_1 = FakeWebSocket("room-a-user-1")
+    room_a_user_2 = FakeWebSocket("room-a-user-2")
+    room_b_user_1 = FakeWebSocket("room-b-user-1")
+
+    await manager.connect("room-a", "u1", room_a_user_1)
+    await manager.connect("room-a", "u2", room_a_user_2)
+    await manager.connect("room-b", "u1", room_b_user_1)
+
+    removed = await manager.disconnect_room(
+        "room-a",
+        code=4102,
+        reason="Room dissolved",
+    )
+
+    assert removed == 2
+    assert room_a_user_1.closed == [{"code": 4102, "reason": "Room dissolved"}]
+    assert room_a_user_2.closed == [{"code": 4102, "reason": "Room dissolved"}]
+    assert room_b_user_1.closed == []
+    assert "room-a" not in manager.rooms
+    assert await manager.online_users("room-a") == []
+    assert await manager.online_users("room-b") == ["u1"]
+    assert manager.user_ws == {("room-b", "u1"): room_b_user_1}
+    assert manager.ws_meta == {room_b_user_1: ("room-b", "u1")}

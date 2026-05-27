@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, Session, SessionMember, User
+from services import room_group_state_utils
 
 
 OFFLINE_THRESHOLD_SECONDS = 30
@@ -135,15 +136,18 @@ async def kick_member(
     await db.delete(target)
     await db.flush()
 
+    result = await db.execute(
+        select(SessionMember)
+        .where(SessionMember.session_id == session_id)
+        .order_by(SessionMember.joined_at.asc())
+    )
+    remaining_members = list(result.scalars().all())
+    remaining_user_ids = [member.user_id for member in remaining_members]
+
     host_transferred_to = None
     room_dissolved = False
     if was_host:
-        result = await db.execute(
-            select(SessionMember)
-            .where(SessionMember.session_id == session_id)
-            .order_by(SessionMember.joined_at.asc())
-        )
-        new_host = result.scalars().first()
+        new_host = remaining_members[0] if remaining_members else None
         if new_host:
             new_host.role = "host"
             session.host_user_id = new_host.user_id
@@ -152,6 +156,14 @@ async def kick_member(
             session.room_code = None
             session.host_user_id = None
             room_dissolved = True
+
+    session.game_state = room_group_state_utils.prune_member_from_multiplayer_state(
+        session.game_state,
+        target_user_id,
+        remaining_user_ids,
+        preferred_speaker_user_id=host_transferred_to,
+    )
+    flag_modified(session, "game_state")
 
     await db.commit()
     await room_vote_service.ensure_room_votes(db, session_id)
