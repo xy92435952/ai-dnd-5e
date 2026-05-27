@@ -83,6 +83,51 @@ def group_stealth_result(roll_results: list[dict[str, Any]], dc: int) -> dict[st
     }
 
 
+def resolve_surprise(
+    targets: list[dict[str, Any] | object],
+    ambusher_stealth_results: list[dict[str, Any]],
+    *,
+    passive_skill: str = "perception",
+) -> dict[str, Any]:
+    """Resolve 5e-style surprise from ambusher Stealth totals vs passive Perception."""
+    ambushers = [
+        {
+            "character_id": str(result.get("character_id") or result.get("id") or result.get("actor_id") or ""),
+            "name": str(result.get("name") or result.get("actor_name") or ""),
+            "total": _as_int(result.get("total"), 0),
+        }
+        for result in ambusher_stealth_results or []
+        if isinstance(result, dict) and result.get("total") is not None
+    ]
+    target_results = []
+    for target in targets or []:
+        passive = passive_score(target, passive_skill)
+        noticed = [
+            ambusher["character_id"]
+            for ambusher in ambushers
+            if passive >= ambusher["total"]
+        ]
+        no_surprise = _has_no_surprise(target)
+        surprised = bool(ambushers) and not noticed and not no_surprise
+        target_results.append({
+            "target_id": str(_read_attr(target, "id", "")),
+            "name": _read_attr(target, "name", ""),
+            "passive_skill": _normalize_skill(passive_skill),
+            "passive_score": passive,
+            "noticed_ambusher_ids": noticed,
+            "no_surprise": no_surprise,
+            "surprised": surprised,
+        })
+
+    return {
+        "rule": "target_is_surprised_if_it_notices_no_ambusher_before_combat",
+        "passive_skill": _normalize_skill(passive_skill),
+        "ambushers": ambushers,
+        "targets": target_results,
+        "surprised_target_ids": [item["target_id"] for item in target_results if item["surprised"]],
+    }
+
+
 def party_best_passive(
     characters: list[dict[str, Any] | object],
     skill: str = "perception",
@@ -445,6 +490,10 @@ def build_exploration_context(
             "skill": "stealth",
             "success_rule": "at_least_half_members_meet_or_exceed_dc",
         },
+        "surprise": {
+            "rule": "compare_each_ambusher_stealth_total_to_each_target_passive_perception",
+            "no_surprise_source": "Alert feat or equivalent no_surprise effect",
+        },
         "passive_discovery": resolve_passive_discoveries(party, hidden_features or []),
         "trap_trigger": {
             "rule": "triggered_traps_roll_configured_save_then_apply_full_or_half_damage",
@@ -474,6 +523,20 @@ def _has_feat(feats: list[Any], feat_name: str) -> bool:
     for feat in feats or []:
         name = feat.get("name", "") if isinstance(feat, dict) else str(feat)
         if name.strip().lower() == target:
+            return True
+    return False
+
+
+def _has_no_surprise(character: dict[str, Any] | object) -> bool:
+    for feat in _read_list(character, "feats"):
+        if isinstance(feat, dict):
+            name = str(feat.get("name") or "").strip().lower()
+            effects = feat.get("effects") if isinstance(feat.get("effects"), dict) else {}
+            if effects.get("no_surprise"):
+                return True
+        else:
+            name = str(feat or "").strip().lower()
+        if name in {"alert", "\u8b66\u89c9"}:
             return True
     return False
 

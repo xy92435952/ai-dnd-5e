@@ -11,6 +11,7 @@ from services.exploration_rules_service import (
     passive_investigation,
     passive_perception,
     resolve_passive_discoveries,
+    resolve_surprise,
     resolve_trap_attack,
     resolve_trap_disarm,
     resolve_trap_trigger,
@@ -157,7 +158,56 @@ def test_build_exploration_context_summarizes_party_passives():
     assert context["party_best_passive"]["stealth"]["character_id"] == "rogue"
     assert context["party_best_passive"]["stealth"]["score"] == 16
     assert context["group_stealth"]["success_rule"] == "at_least_half_members_meet_or_exceed_dc"
+    assert context["surprise"]["rule"] == "compare_each_ambusher_stealth_total_to_each_target_passive_perception"
     assert context["passive_discovery"]["features"] == []
+
+
+def test_resolve_surprise_marks_targets_that_notice_no_ambushers():
+    targets = [
+        _character(char_id="fighter", name="Fighter", mods={"wis": 0}),
+        _character(char_id="scout", name="Scout", mods={"wis": 3}, proficient_skills=["perception"]),
+    ]
+
+    result = resolve_surprise(
+        targets,
+        [
+            {"character_id": "goblin-a", "name": "Goblin A", "total": 16},
+            {"character_id": "goblin-b", "name": "Goblin B", "total": 11},
+        ],
+    )
+
+    assert result["rule"] == "target_is_surprised_if_it_notices_no_ambusher_before_combat"
+    assert result["ambushers"][0]["character_id"] == "goblin-a"
+    assert result["targets"][0]["target_id"] == "fighter"
+    assert result["targets"][0]["passive_score"] == 10
+    assert result["targets"][0]["noticed_ambusher_ids"] == []
+    assert result["targets"][0]["surprised"] is True
+    assert result["targets"][1]["target_id"] == "scout"
+    assert result["targets"][1]["passive_score"] == 15
+    assert result["targets"][1]["noticed_ambusher_ids"] == ["goblin-b"]
+    assert result["targets"][1]["surprised"] is False
+    assert result["surprised_target_ids"] == ["fighter"]
+
+
+def test_resolve_surprise_respects_alert_feat_no_surprise():
+    targets = [
+        _character(char_id="ranger", name="Ranger", mods={"wis": 0}, feats=["Alert"]),
+        _character(
+            char_id="monk",
+            name="Monk",
+            mods={"wis": 0},
+            feats=[{"name": "Custom Sense", "effects": {"no_surprise": True}}],
+        ),
+    ]
+
+    result = resolve_surprise(
+        targets,
+        [{"character_id": "assassin", "total": 25}],
+    )
+
+    assert result["surprised_target_ids"] == []
+    assert all(item["no_surprise"] for item in result["targets"])
+    assert all(not item["surprised"] for item in result["targets"])
 
 
 def test_resolve_passive_discoveries_detects_hidden_features_by_best_passive_score():
