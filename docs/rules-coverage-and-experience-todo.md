@@ -159,7 +159,7 @@ Priority:
 | [~] | P1 | Rest rules | Rest endpoint exists. | Short/long rest restore correct HP, hit dice, spell slots, features, exhaustion, and interrupted rest outcomes. |
 | [~] | P1 | Inventory/equipment economy | Buy/sell/transfer/use item services exist. | Item ownership, equipment slots, attunement if used, consumables, gold, ammo, and multiplayer permissions are covered. |
 | [~] | P1 | Stealth and perception procedures | First backend helper slice exists for passive perception/investigation, best party passive score, and 5e-style group stealth resolution. Surprise, hidden condition, light, and noise remain mostly narrative. | Passive perception, group stealth, surprise, hidden condition, light, and noise are rule-backed. |
-| [ ] | P1 | Traps and investigation | Mostly narrative. | Detect, disarm, trigger, save/attack, damage, and persistent trap state are represented. |
+| [~] | P1 | Traps and investigation | First backend passive discovery slice exists: hidden traps, secret doors, clues, and mechanisms can be checked against party best passive perception/investigation. Disarm, trigger, save/attack, damage, and persistent trap state remain. | Detect, disarm, trigger, save/attack, damage, and persistent trap state are represented. |
 | [ ] | P2 | Travel and survival | Not systematic. | Pace, navigation, foraging, random encounters, exhaustion, weather, and mounts are implemented. |
 | [ ] | P2 | Social systems | Mostly AI/narrative. | Reputation, factions, NPC disposition, persuasion/deception/intimidation consequences persist and affect options. |
 

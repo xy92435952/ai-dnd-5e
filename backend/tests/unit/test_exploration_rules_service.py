@@ -8,6 +8,7 @@ from services.exploration_rules_service import (
     passive_detects,
     passive_investigation,
     passive_perception,
+    resolve_passive_discoveries,
     passive_score,
 )
 
@@ -151,6 +152,51 @@ def test_build_exploration_context_summarizes_party_passives():
     assert context["party_best_passive"]["stealth"]["character_id"] == "rogue"
     assert context["party_best_passive"]["stealth"]["score"] == 16
     assert context["group_stealth"]["success_rule"] == "at_least_half_members_meet_or_exceed_dc"
+    assert context["passive_discovery"]["features"] == []
+
+
+def test_resolve_passive_discoveries_detects_hidden_features_by_best_passive_score():
+    characters = [
+        _character(char_id="fighter", name="Fighter", mods={"wis": 0, "int": 0}),
+        _character(char_id="scout", name="Scout", mods={"wis": 3, "int": 1}, proficient_skills=["perception"]),
+    ]
+
+    result = resolve_passive_discoveries(
+        characters,
+        [
+            {"id": "wire", "name": "Tripwire", "kind": "trap", "dc": 15},
+            {"id": "door", "name": "False Wall", "kind": "secret_door", "dc": 16},
+        ],
+    )
+
+    assert result["rule"] == "party_best_passive_for_feature_skill_meets_dc"
+    assert result["detected_feature_ids"] == ["wire"]
+    assert result["hidden_feature_ids"] == ["door"]
+    assert result["features"][0]["skill"] == "perception"
+    assert result["features"][0]["detected_by"]["character_id"] == "scout"
+    assert result["features"][0]["best_score"] == 15
+    assert result["features"][1]["detected_by"] is None
+
+
+def test_resolve_passive_discoveries_uses_investigation_for_clues_and_mechanisms():
+    characters = [
+        _character(char_id="sage", name="Sage", mods={"int": 4, "wis": 0}, proficient_skills=["investigation"]),
+    ]
+
+    result = resolve_passive_discoveries(
+        characters,
+        [
+            {"name": "Ledger clue", "kind": "clue", "dc": 15},
+            {"name": "Poison needle", "kind": "trap", "detection_skill": "investigation", "dc": 17},
+        ],
+    )
+
+    assert result["detected_feature_ids"] == ["Ledger clue"]
+    assert result["hidden_feature_ids"] == ["Poison needle"]
+    assert result["features"][0]["feature_id"] == "Ledger clue"
+    assert result["features"][0]["skill"] == "investigation"
+    assert result["features"][0]["best_score"] == 16
+    assert result["features"][1]["skill"] == "investigation"
 
 
 def test_group_stealth_succeeds_when_at_least_half_succeed():

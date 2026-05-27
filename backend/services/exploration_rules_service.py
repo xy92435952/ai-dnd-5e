@@ -110,7 +110,50 @@ def character_passive_summary(character: dict[str, Any] | object) -> dict[str, A
     }
 
 
-def build_exploration_context(characters: list[dict[str, Any] | object]) -> dict[str, Any]:
+def resolve_passive_discoveries(
+    characters: list[dict[str, Any] | object],
+    features: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Resolve which hidden scene features are noticed by passive scores."""
+    party = list(characters or [])
+    results = []
+    for index, feature in enumerate(features or []):
+        if not isinstance(feature, dict):
+            continue
+        skill = _feature_skill(feature)
+        dc = _feature_dc(feature, skill)
+        best = party_best_passive(party, skill)
+        detected = bool(party) and best["score"] >= dc
+        feature_id = str(
+            feature.get("id")
+            or feature.get("feature_id")
+            or feature.get("trap_id")
+            or feature.get("name")
+            or f"feature_{index + 1}"
+        )
+        results.append({
+            "feature_id": feature_id,
+            "name": str(feature.get("name") or feature_id),
+            "kind": str(feature.get("kind") or feature.get("type") or "hidden_feature"),
+            "dc": dc,
+            "skill": skill,
+            "detected": detected,
+            "detected_by": best if detected else None,
+            "best_score": best["score"],
+        })
+
+    return {
+        "rule": "party_best_passive_for_feature_skill_meets_dc",
+        "features": results,
+        "detected_feature_ids": [item["feature_id"] for item in results if item["detected"]],
+        "hidden_feature_ids": [item["feature_id"] for item in results if not item["detected"]],
+    }
+
+
+def build_exploration_context(
+    characters: list[dict[str, Any] | object],
+    hidden_features: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Build a compact exploration rules summary for DM input context."""
     party = list(characters or [])
     return {
@@ -124,6 +167,7 @@ def build_exploration_context(characters: list[dict[str, Any] | object]) -> dict
             "skill": "stealth",
             "success_rule": "at_least_half_members_meet_or_exceed_dc",
         },
+        "passive_discovery": resolve_passive_discoveries(party, hidden_features or []),
     }
 
 
@@ -153,6 +197,35 @@ def _roll_succeeds(result: dict[str, Any], dc: int) -> bool:
     if "success" in result and result["success"] is not None:
         return bool(result["success"])
     return _as_int(result.get("total"), 0) >= int(dc)
+
+
+def _feature_skill(feature: dict[str, Any]) -> str:
+    explicit = (
+        feature.get("detection_skill")
+        or feature.get("skill")
+        or feature.get("check")
+        or feature.get("ability")
+    )
+    if explicit:
+        return _normalize_skill(str(explicit))
+
+    kind = str(feature.get("kind") or feature.get("type") or "").strip().lower()
+    if kind in {"clue", "evidence", "mechanism", "puzzle", "riddle", "secret_mechanism"}:
+        return "investigation"
+    return "perception"
+
+
+def _feature_dc(feature: dict[str, Any], skill: str) -> int:
+    candidates = [
+        feature.get(f"{skill}_dc"),
+        feature.get("detection_dc"),
+        feature.get("passive_dc"),
+        feature.get("dc"),
+    ]
+    for value in candidates:
+        if value is not None:
+            return _as_int(value, 10)
+    return 10
 
 
 def _read_mapping(source: dict[str, Any] | object, key: str) -> dict[str, Any]:
