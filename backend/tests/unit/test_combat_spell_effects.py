@@ -104,6 +104,43 @@ async def test_apply_spell_damage_to_enemy_respects_spell_vulnerability(db_sessi
     assert enemies[0]["hp_current"] == 16
 
 
+async def test_apply_spell_damage_to_enemy_respects_component_resistance(db_session):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    enemies = [{
+        "id": "frost-giant-1",
+        "name": "Frost Giant",
+        "hp_current": 40,
+        "derived": {"hp_max": 40},
+        "resistances": ["cold"],
+    }]
+
+    result, _conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        enemies,
+        "frost-giant-1",
+        20,
+        spell_name="Ice Storm",
+        spell={"name_en": "Ice Storm"},
+        damage_components=[
+            {"damage": 8, "damage_type": "bludgeoning"},
+            {"damage": 12, "damage_type": "cold"},
+        ],
+    )
+
+    assert result["damage_before_resistance"] == 20
+    assert result["damage"] == 14
+    assert result["damage_type"] == "cold"
+    assert result["resistance_applied"] is True
+    assert [component["damage"] for component in result["damage_components"]] == [8, 6]
+    assert [component["damage_type"] for component in result["damage_components"]] == [
+        "bludgeoning",
+        "cold",
+    ]
+    assert enemies[0]["hp_current"] == 26
+
+
 async def test_apply_spell_damage_to_character_respects_fire_resistance(db_session, sample_character):
     from api.combat.spell_effects import apply_spell_damage_to_target
 

@@ -167,6 +167,102 @@ async def test_apply_confirmed_spell_effects_aoe_applies_resistance_after_save()
 
 
 @pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_aoe_applies_component_resistance_after_save():
+    enemies = [{
+        "id": "ice-troll-1",
+        "name": "Ice Troll",
+        "hp_current": 40,
+        "derived": {"hp_max": 40, "ability_modifiers": {"dex": -5}, "saving_throws": {"dex": -5}},
+        "resistances": ["cold"],
+    }]
+
+    result = await apply_confirmed_spell_effects(
+        FakeDb(),
+        session_id="sess",
+        enemies=enemies,
+        target_ids=["ice-troll-1"],
+        is_aoe=True,
+        spell_type="damage",
+        spell_name="Ice Storm",
+        spell_level=4,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"name_en": "Ice Storm", "save": "dex", "half_on_save": True},
+        damage_values=None,
+        spell_save_dc=30,
+        resolve_damage=lambda *_args: (
+            20,
+            {
+                "base_roll": {
+                    "total": 20,
+                    "parts": [
+                        {"notation": "2d8", "rolls": [4, 4], "total": 8},
+                        {"notation": "4d6", "rolls": [3, 3, 3, 3], "total": 12},
+                    ],
+                },
+                "total": 20,
+            },
+        ),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert result.result_damage == 20
+    assert result.aoe_results[0]["damage_before_resistance"] == 20
+    assert result.aoe_results[0]["damage"] == 14
+    assert [component["damage"] for component in result.aoe_results[0]["damage_components"]] == [8, 6]
+    assert enemies[0]["hp_current"] == 26
+
+
+@pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_aoe_halves_each_component_then_resistance():
+    enemies = [{
+        "id": "ice-troll-1",
+        "name": "Ice Troll",
+        "hp_current": 40,
+        "derived": {"hp_max": 40, "ability_modifiers": {"dex": 20}, "saving_throws": {"dex": 20}},
+        "resistances": ["cold"],
+    }]
+
+    result = await apply_confirmed_spell_effects(
+        FakeDb(),
+        session_id="sess",
+        enemies=enemies,
+        target_ids=["ice-troll-1"],
+        is_aoe=True,
+        spell_type="damage",
+        spell_name="Ice Storm",
+        spell_level=4,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"name_en": "Ice Storm", "save": "dex", "half_on_save": True},
+        damage_values=None,
+        spell_save_dc=10,
+        resolve_damage=lambda *_args: (
+            21,
+            {
+                "base_roll": {
+                    "total": 21,
+                    "parts": [
+                        {"notation": "2d8", "rolls": [4, 5], "total": 9},
+                        {"notation": "4d6", "rolls": [4, 3, 3, 2], "total": 12},
+                    ],
+                },
+                "total": 21,
+            },
+        ),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert result.aoe_results[0]["base_damage"] == 21
+    assert result.aoe_results[0]["damage_before_resistance"] == 10
+    assert result.aoe_results[0]["damage"] == 7
+    assert [component["damage_before_save"] for component in result.aoe_results[0]["damage_components"]] == [9, 12]
+    assert [component["damage_before_resistance"] for component in result.aoe_results[0]["damage_components"]] == [4, 6]
+    assert [component["damage"] for component in result.aoe_results[0]["damage_components"]] == [4, 3]
+    assert enemies[0]["hp_current"] == 33
+
+
+@pytest.mark.asyncio
 async def test_apply_confirmed_spell_effects_aoe_evasion_failure_takes_half_damage():
     rogue = FakeCharacter(hp_current=20)
     rogue.derived = {

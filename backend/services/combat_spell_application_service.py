@@ -16,6 +16,10 @@ from services.combat_spell_effect_service import (
 )
 from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.combat_evasion_service import resolve_save_damage, spell_half_on_save
+from services.combat_spell_damage_component_service import (
+    apply_save_to_damage_components,
+    resolve_spell_damage_components,
+)
 from services.combat_spell_resolution_service import resolve_spell_roll_amount
 
 
@@ -68,6 +72,12 @@ async def apply_confirmed_spell_effects(
             )
             save_ability = spell.get("save")
             half_on_save = spell_half_on_save(spell, default=True)
+            damage_components = resolve_spell_damage_components(
+                spell_name,
+                spell,
+                dice_detail=result.dice_detail,
+                total_damage=result.result_damage,
+            )
 
             for target_id in target_ids:
                 save_result = await roll_spell_save(
@@ -87,6 +97,13 @@ async def apply_confirmed_spell_effects(
                     half_on_save=half_on_save,
                     target=target,
                 )
+                save_components = apply_save_to_damage_components(
+                    damage_components,
+                    save_result=save_result,
+                    save_ability=save_ability,
+                    half_on_save=half_on_save,
+                    target=target,
+                )
 
                 applied, concentration_log = await apply_spell_damage_to_target(
                     db,
@@ -97,6 +114,7 @@ async def apply_confirmed_spell_effects(
                     save_result=save_result,
                     spell_name=spell_name,
                     spell=spell,
+                    damage_components=save_components,
                 )
                 if applied:
                     applied.update({
@@ -182,6 +200,19 @@ async def apply_confirmed_spell_effects(
             half_on_save=spell_half_on_save(spell, default=False),
             target=target,
         )
+        damage_components = resolve_spell_damage_components(
+            spell_name,
+            spell,
+            dice_detail=result.dice_detail,
+            total_damage=result.result_damage,
+        )
+        save_components = apply_save_to_damage_components(
+            damage_components,
+            save_result=save_result,
+            save_ability=save_ability,
+            half_on_save=spell_half_on_save(spell, default=False),
+            target=target,
+        )
         applied, concentration_log = await apply_spell_damage_to_target(
             db,
             session_id,
@@ -191,6 +222,7 @@ async def apply_confirmed_spell_effects(
             save_result=save_result,
             spell_name=spell_name,
             spell=spell,
+            damage_components=save_components,
         )
         if applied:
             applied.update({

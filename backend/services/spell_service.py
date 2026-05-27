@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Optional
+from services.combat_spell_damage_component_service import resolve_spell_damage_components
 from services.dnd_rules import roll_dice
 
 
@@ -303,12 +304,21 @@ class SpellService:
                 extra_rolls.append(r)
                 total += r["total"]
 
-        return total, {
+        dice_detail = {
             "base_roll":   base_roll,
             "extra_rolls": extra_rolls,
             "total":       total,
             "spell_mod":   spell_mod,
         }
+        damage_components = resolve_spell_damage_components(
+            spell_name,
+            {"name": spell_name, **spell},
+            dice_detail=dice_detail,
+            total_damage=total,
+        )
+        if damage_components:
+            dice_detail["damage_components"] = damage_components
+        return total, dice_detail
 
     def resolve_heal(
         self,

@@ -15,6 +15,19 @@ class FakeSpellService:
         return 4 + spell_mod, {"formula": "1d4+mod", "total": 4 + spell_mod}
 
 
+class FakeComponentSpellService(FakeSpellService):
+    def __init__(self, spell, total, components):
+        super().__init__(spell)
+        self.total = total
+        self.components = components
+
+    def resolve_damage(self, spell_name, spell_level, spell_mod):
+        return self.total + spell_mod, {
+            "total": self.total + spell_mod,
+            "damage_components": self.components,
+        }
+
+
 class FakeCombatService:
     def apply_damage(self, current_hp, damage, _max_hp):
         return max(0, current_hp - damage)
@@ -176,6 +189,64 @@ async def test_resolve_ai_spell_action_respects_enemy_spell_immunity():
 
 
 @pytest.mark.asyncio
+async def test_resolve_ai_spell_action_respects_enemy_component_immunity():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    session = FakeSession()
+    state = {
+        "enemies": [{
+            "id": "fire-elemental-1",
+            "name": "Fire Elemental",
+            "hp_current": 40,
+            "derived": {"hp_max": 40},
+            "immunities": ["fire"],
+        }]
+    }
+    enemies = state["enemies"]
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=session,
+        actor_name="Wizard",
+        is_enemy=False,
+        caster=FakeCaster(),
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 0},
+            "spell_save_dc": 13,
+        },
+        decided_target_id="fire-elemental-1",
+        decided_reason="test cast",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=enemies,
+        enemies_alive=enemies,
+        all_characters=[],
+        spell_service_obj=FakeComponentSpellService(
+            {
+                "name_en": "Meteor Swarm",
+                "level": 1,
+                "type": "damage",
+                "aoe": False,
+                "save": None,
+            },
+            40,
+            [
+                {"damage": 24, "damage_type": "fire"},
+                {"damage": 16, "damage_type": "bludgeoning"},
+            ],
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert result is not None
+    assert result.damage == 16
+    assert result.target_new_hp == 24
+    assert enemies[0]["hp_current"] == 24
+
+
+@pytest.mark.asyncio
 async def test_resolve_enemy_ai_spell_respects_character_fire_resistance():
     from services.combat_ai_spell_service import resolve_ai_spell_action
 
@@ -215,6 +286,56 @@ async def test_resolve_enemy_ai_spell_respects_character_fire_resistance():
 
     assert result is not None
     assert result.damage == 4
+    assert result.target_new_hp == 16
+    assert character.hp_current == 16
+
+
+@pytest.mark.asyncio
+async def test_resolve_enemy_ai_spell_respects_character_component_resistance():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    character = FakeCharacter(hp_current=30)
+    character.conditions = ["cold_resistance"]
+    session = FakeSession()
+
+    result = await resolve_ai_spell_action(
+        CharacterDb(character),
+        session=session,
+        actor_name="Enemy Mage",
+        is_enemy=True,
+        caster=FakeCaster(),
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 0},
+            "spell_save_dc": 13,
+        },
+        decided_target_id=character.id,
+        decided_reason="test cast",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state={"enemies": []},
+        enemies=[],
+        enemies_alive=[],
+        all_characters=[{"id": character.id, "hp_current": 30}],
+        spell_service_obj=FakeComponentSpellService(
+            {
+                "name_en": "Ice Storm",
+                "level": 1,
+                "type": "damage",
+                "aoe": False,
+                "save": None,
+            },
+            20,
+            [
+                {"damage": 8, "damage_type": "bludgeoning"},
+                {"damage": 12, "damage_type": "cold"},
+            ],
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert result is not None
+    assert result.damage == 14
     assert result.target_new_hp == 16
     assert character.hp_current == 16
 

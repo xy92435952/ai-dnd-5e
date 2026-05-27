@@ -9,6 +9,10 @@ from services.combat_concentration_service import do_concentration_check
 from services.combat_concentration_service import break_concentration_if_incapacitated
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
+from services.combat_spell_damage_component_service import (
+    normalize_damage_components,
+    resolve_spell_damage_components,
+)
 from services.combat_spell_damage_type_service import resolve_spell_damage_type
 from services.combat_spell_resolution_service import apply_frontend_dice_override
 from services.combat_temporary_hp_service import (
@@ -205,6 +209,58 @@ def _is_guiding_bolt(spell_name: str | None) -> bool:
     return str(spell_name or "").strip().lower() in {"guiding bolt", "神力打击"}
 
 
+def _apply_enemy_damage_components(
+    enemy: dict[str, Any],
+    components: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for component in normalize_damage_components(components):
+        base_damage = component["damage"]
+        damage_type = component.get("damage_type")
+        applied_damage = base_damage
+        if damage_type:
+            applied_damage = svc.apply_damage_with_resistance(
+                base_damage,
+                damage_type,
+                enemy.get("resistances", []),
+                enemy.get("immunities", []),
+                enemy.get("vulnerabilities", []),
+            )
+        results.append({
+            **component,
+            "damage_before_resistance": base_damage,
+            "damage": applied_damage,
+            "resistance_applied": applied_damage != base_damage,
+        })
+    return results
+
+
+def _apply_character_damage_components(
+    character,
+    components: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for component in normalize_damage_components(components):
+        base_damage = component["damage"]
+        damage_type = component.get("damage_type")
+        if damage_type:
+            applied_damage, resistance_applied = apply_character_damage_resistance(
+                character,
+                base_damage,
+                damage_type,
+            )
+        else:
+            applied_damage = base_damage
+            resistance_applied = False
+        results.append({
+            **component,
+            "damage_before_resistance": base_damage,
+            "damage": applied_damage,
+            "resistance_applied": resistance_applied,
+        })
+    return results
+
+
 def resolve_spell_condition(spell_name: str, spell: dict[str, Any]) -> tuple[str, str | None]:
     """Return the condition and saving throw ability for a control/utility spell."""
     if spell.get("condition"):
@@ -266,15 +322,32 @@ async def apply_spell_damage_to_target(
     is_critical: bool = False,
     spell_name: str | None = None,
     spell: dict[str, Any] | None = None,
+    damage_components: list[dict[str, Any]] | None = None,
 ):
     """Apply spell damage to an enemy dict or Character and return response result plus conc log."""
-    damage_before_resistance = max(0, int(damage or 0))
     damage_type = resolve_spell_damage_type(spell_name, spell)
+    provided_components = normalize_damage_components(damage_components)
+    damage_before_resistance = (
+        sum(component["damage"] for component in provided_components)
+        if provided_components
+        else max(0, int(damage or 0))
+    )
+    resolved_components = provided_components or resolve_spell_damage_components(
+        spell_name,
+        spell,
+        total_damage=damage_before_resistance,
+    )
     target_enemy = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
     if target_enemy:
         applied_damage = damage_before_resistance
         resistance_applied = False
-        if damage_type:
+        component_results = _apply_enemy_damage_components(target_enemy, resolved_components)
+        if component_results:
+            applied_damage = sum(component["damage"] for component in component_results)
+            resistance_applied = any(
+                component.get("resistance_applied") for component in component_results
+            )
+        elif damage_type:
             applied_damage = svc.apply_damage_with_resistance(
                 damage_before_resistance,
                 damage_type,
@@ -305,6 +378,8 @@ async def apply_spell_damage_to_target(
                 "damage_type": damage_type,
                 "resistance_applied": resistance_applied,
             })
+        if component_results:
+            result["damage_components"] = component_results
         return result, None
 
     target_character = await db.get(Character, target_id)
@@ -313,7 +388,11 @@ async def apply_spell_damage_to_target(
 
     applied_damage = damage_before_resistance
     resistance_applied = False
-    if damage_type:
+    component_results = _apply_character_damage_components(target_character, resolved_components)
+    if component_results:
+        applied_damage = sum(component["damage"] for component in component_results)
+        resistance_applied = any(component.get("resistance_applied") for component in component_results)
+    elif damage_type:
         applied_damage, resistance_applied = apply_character_damage_resistance(
             target_character,
             damage_before_resistance,
@@ -342,6 +421,8 @@ async def apply_spell_damage_to_target(
             "damage_type": damage_type,
             "resistance_applied": resistance_applied,
         })
+    if component_results:
+        result["damage_components"] = component_results
     return result, concentration_log
 
 
