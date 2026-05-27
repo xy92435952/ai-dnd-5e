@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from services.dnd_rules import roll_dice, roll_saving_throw
+from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
 
 
 SKILL_ALIASES = {
@@ -219,6 +219,43 @@ def resolve_trap_trigger(
     }
 
 
+def apply_trap_trigger_to_target(
+    trap: dict[str, Any],
+    target: dict[str, Any] | object,
+    *,
+    d20_roller: Callable[[str], dict[str, Any]] | None = None,
+    damage_roller: Callable[[str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Resolve and apply a triggered trap to a mutable character-like target."""
+    resolution = resolve_trap_trigger(
+        trap,
+        target,
+        d20_roller=d20_roller,
+        damage_roller=damage_roller,
+    )
+    before_hp = _as_int(_read_attr(target, "hp_current", 0), 0)
+    damage_result = _apply_damage_to_target(target, resolution["final_damage"])
+    added_conditions = []
+    for condition in resolution["conditions_applied"]:
+        if _add_condition(target, str(condition)):
+            added_conditions.append(str(condition))
+
+    return {
+        **resolution,
+        "mutates_hp": True,
+        "hp_before": before_hp,
+        "hp_after": _as_int(_read_attr(target, "hp_current", 0), 0),
+        "damage_application": damage_result,
+        "conditions_added": added_conditions,
+        "target_state": {
+            "hp_current": _as_int(_read_attr(target, "hp_current", 0), 0),
+            "conditions": _read_list(target, "conditions"),
+            "condition_durations": _read_mapping(target, "condition_durations"),
+            "death_saves": _read_attr(target, "death_saves", None),
+        },
+    }
+
+
 def build_exploration_context(
     characters: list[dict[str, Any] | object],
     hidden_features: list[dict[str, Any]] | None = None,
@@ -240,6 +277,7 @@ def build_exploration_context(
         "trap_trigger": {
             "rule": "triggered_traps_roll_configured_save_then_apply_full_or_half_damage",
             "mutates_hp": False,
+            "apply_rule": "apply_trap_trigger_to_target_mutates_hp_and_conditions",
         },
     }
 
@@ -264,6 +302,49 @@ def _has_feat(feats: list[Any], feat_name: str) -> bool:
         if name.strip().lower() == target:
             return True
     return False
+
+
+def _add_condition(character: dict[str, Any] | object, condition: str) -> bool:
+    normalized = str(condition or "").strip().lower()
+    if not normalized:
+        return False
+    conditions = _read_list(character, "conditions")
+    normalized_existing = {str(item).strip().lower() for item in conditions}
+    if normalized in normalized_existing:
+        return False
+    conditions.append(normalized)
+    if isinstance(character, dict):
+        character["conditions"] = conditions
+    else:
+        setattr(character, "conditions", conditions)
+    return True
+
+
+def _apply_damage_to_target(character: dict[str, Any] | object, damage: int) -> dict[str, Any]:
+    if not isinstance(character, dict):
+        return apply_character_damage(character, damage)
+
+    before_hp = _as_int(character.get("hp_current"), 0)
+    dealt = max(0, int(damage or 0))
+    after_hp = max(0, before_hp - dealt)
+    character["hp_current"] = after_hp
+    dropped_to_zero = before_hp > 0 and after_hp == 0 and dealt > 0
+    if after_hp == 0 and dealt > 0:
+        _add_condition(character, "unconscious")
+        if character.get("death_saves") is None:
+            character["death_saves"] = {"successes": 0, "failures": 0, "stable": False}
+    return {
+        "hp_before": before_hp,
+        "hp_after": after_hp,
+        "damage": dealt,
+        "damage_to_hp": dealt,
+        "dropped_to_zero": dropped_to_zero,
+        "death_save_failures_added": 0,
+        "instant_death": False,
+        "dead": False,
+        "death_saves": character.get("death_saves"),
+        "conditions": _read_list(character, "conditions"),
+    }
 
 
 def _roll_succeeds(result: dict[str, Any], dc: int) -> bool:

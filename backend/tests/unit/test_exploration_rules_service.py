@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from services.exploration_rules_service import (
+    apply_trap_trigger_to_target,
     build_exploration_context,
     character_passive_summary,
     group_stealth_result,
@@ -287,6 +288,99 @@ def test_resolve_trap_trigger_accepts_object_like_targets_and_ability_aliases():
     assert result["saved"] is False
     assert result["final_damage"] == 12
     assert result["conditions_applied"] == ["frightened"]
+
+
+def test_apply_trap_trigger_to_object_target_mutates_hp_and_conditions():
+    target = SimpleNamespace(
+        id="rogue",
+        name="Rogue",
+        hp_current=9,
+        ability_scores={"dex": 16},
+        derived={"saving_throws": {"dex": 5}, "ability_modifiers": {"dex": 3}, "hp_max": 12},
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+
+    result = apply_trap_trigger_to_target(
+        {
+            "id": "snare",
+            "save_dc": 14,
+            "damage_dice": "2d6",
+            "condition_on_fail": "restrained",
+        },
+        target,
+        d20_roller=lambda _expr: {"rolls": [5], "total": 5},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [4, 3], "total": 7},
+    )
+
+    assert result["mutates_hp"] is True
+    assert result["saved"] is False
+    assert result["hp_before"] == 9
+    assert result["hp_after"] == 2
+    assert target.hp_current == 2
+    assert target.conditions == ["restrained"]
+    assert result["conditions_added"] == ["restrained"]
+    assert result["target_state"]["hp_current"] == 2
+
+
+def test_apply_trap_trigger_to_dict_target_drops_to_zero_and_adds_unconscious():
+    target = {
+        "id": "fighter",
+        "name": "Fighter",
+        "hp_current": 4,
+        "ability_scores": {"dex": 10},
+        "derived": {"saving_throws": {"dex": 0}, "ability_modifiers": {"dex": 0}},
+        "conditions": [],
+        "condition_durations": {},
+        "death_saves": None,
+    }
+
+    result = apply_trap_trigger_to_target(
+        {"id": "pit", "dc": 14, "damage_dice": "2d8"},
+        target,
+        d20_roller=lambda _expr: {"rolls": [8], "total": 8},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [5, 4], "total": 9},
+    )
+
+    assert result["hp_after"] == 0
+    assert target["hp_current"] == 0
+    assert target["death_saves"] == {"successes": 0, "failures": 0, "stable": False}
+    assert "unconscious" in target["conditions"]
+    assert result["damage_application"]["dropped_to_zero"] is True
+    assert result["target_state"]["conditions"] == ["unconscious"]
+
+
+def test_apply_trap_trigger_does_not_duplicate_failed_condition():
+    target = SimpleNamespace(
+        id="cleric",
+        name="Cleric",
+        hp_current=10,
+        ability_scores={"wis": 14},
+        derived={"saving_throws": {"wis": 2}, "ability_modifiers": {"wis": 2}, "hp_max": 10},
+        conditions=["frightened"],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+
+    result = apply_trap_trigger_to_target(
+        {
+            "id": "glyph",
+            "saving_throw": "wis",
+            "save_dc": 18,
+            "damage_dice": "0",
+            "condition_on_fail": "frightened",
+        },
+        target,
+        d20_roller=lambda _expr: {"rolls": [3], "total": 3},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [0], "total": 0},
+    )
+
+    assert target.conditions == ["frightened"]
+    assert result["conditions_applied"] == ["frightened"]
+    assert result["conditions_added"] == []
 
 
 def test_group_stealth_succeeds_when_at_least_half_succeed():
