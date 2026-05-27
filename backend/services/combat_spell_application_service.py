@@ -96,6 +96,7 @@ async def apply_confirmed_spell_effects(
                     save_damage["damage"],
                     save_result=save_result,
                     spell_name=spell_name,
+                    spell=spell,
                 )
                 if applied:
                     applied.update({
@@ -189,6 +190,7 @@ async def apply_confirmed_spell_effects(
             save_damage["damage"],
             save_result=save_result,
             spell_name=spell_name,
+            spell=spell,
         )
         if applied:
             applied.update({

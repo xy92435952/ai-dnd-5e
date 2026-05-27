@@ -49,6 +49,85 @@ async def test_apply_spell_damage_to_enemy_updates_enemy_state(db_session):
     assert conc_log is None
 
 
+async def test_apply_spell_damage_to_enemy_respects_spell_immunity(db_session):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    enemies = [{
+        "id": "fire-elemental-1",
+        "name": "Fire Elemental",
+        "hp_current": 30,
+        "derived": {"hp_max": 30},
+        "immunities": ["火焰"],
+    }]
+
+    result, conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        enemies,
+        "fire-elemental-1",
+        18,
+        spell_name="Fireball",
+        spell={"name_en": "Fireball", "desc": "8d6 fire damage"},
+    )
+
+    assert result["damage"] == 0
+    assert result["damage_before_resistance"] == 18
+    assert result["damage_type"] == "fire"
+    assert result["resistance_applied"] is True
+    assert enemies[0]["hp_current"] == 30
+    assert conc_log is None
+
+
+async def test_apply_spell_damage_to_enemy_respects_spell_vulnerability(db_session):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    enemies = [{
+        "id": "shadow-1",
+        "name": "Shadow",
+        "hp_current": 30,
+        "derived": {"hp_max": 30},
+        "vulnerabilities": ["radiant"],
+    }]
+
+    result, _conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        enemies,
+        "shadow-1",
+        7,
+        spell_name="Sacred Flame",
+        spell={"name_en": "Sacred Flame"},
+    )
+
+    assert result["damage"] == 14
+    assert result["damage_type"] == "radiant"
+    assert enemies[0]["hp_current"] == 16
+
+
+async def test_apply_spell_damage_to_character_respects_fire_resistance(db_session, sample_character):
+    from api.combat.spell_effects import apply_spell_damage_to_target
+
+    sample_character.hp_current = 12
+    sample_character.conditions = ["fire_resistance"]
+    await db_session.commit()
+
+    result, _conc_log = await apply_spell_damage_to_target(
+        db_session,
+        "test-session",
+        [],
+        sample_character.id,
+        9,
+        spell_name="Hellish Rebuke",
+        spell={"name_en": "Hellish Rebuke"},
+    )
+
+    assert result["damage"] == 4
+    assert result["damage_before_resistance"] == 9
+    assert result["damage_type"] == "fire"
+    assert result["resistance_applied"] is True
+    assert sample_character.hp_current == 8
+
+
 async def test_guiding_bolt_damage_marks_enemy_for_next_attack(db_session):
     from api.combat.spell_effects import apply_spell_damage_to_target
 

@@ -97,6 +97,12 @@ class TestRollDice:
         result = roll_dice("1d4-1")
         assert result["total"] >= 0 and result["total"] <= 3
 
+    def test_mixed_damage_expression(self):
+        result = roll_dice("2d8+4d6")
+        assert 6 <= result["total"] <= 40
+        assert len(result["rolls"]) == 6
+        assert [part["notation"] for part in result["parts"]] == ["2d8", "4d6"]
+
     def test_advantage_never_below_disadvantage(self):
         """优势的期望值高于劣势（用采样验证）。"""
         adv_total = sum(roll_advantage()["total"] for _ in range(200))

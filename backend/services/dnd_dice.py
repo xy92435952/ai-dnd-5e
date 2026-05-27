@@ -93,7 +93,43 @@ def roll_dice(notation: str) -> dict:
             val = int(notation)
             return {"rolls": [val], "bonus": 0, "total": val, "notation": notation}
         except ValueError:
-            return {"rolls": [0], "bonus": 0, "total": 0, "notation": notation}
+            pass
+
+        term_matches = list(re.finditer(r"([+-]?)(?:(\d*)d(\d+)|(\d+))", notation))
+        if term_matches and "".join(term.group(0) for term in term_matches) == notation:
+            rolls: list[int] = []
+            parts = []
+            total = 0
+            bonus = 0
+            for term in term_matches:
+                sign = -1 if term.group(1) == "-" else 1
+                if term.group(3):
+                    count = int(term.group(2)) if term.group(2) else 1
+                    sides = int(term.group(3))
+                    term_rolls = [random.randint(1, sides) for _ in range(count)]
+                    term_total = sum(term_rolls) * sign
+                    rolls.extend(term_rolls)
+                    total += term_total
+                    parts.append({
+                        "notation": f"{'-' if sign < 0 else ''}{count}d{sides}",
+                        "rolls": term_rolls,
+                        "total": term_total,
+                    })
+                else:
+                    value = int(term.group(4)) * sign
+                    bonus += value
+                    total += value
+                    parts.append({"notation": str(value), "rolls": [], "total": value})
+            return {
+                "rolls": rolls,
+                "bonus": bonus,
+                "total": max(0, total),
+                "notation": notation,
+                "parts": parts,
+                "is_crit": False,
+                "is_fumble": False,
+            }
+        return {"rolls": [0], "bonus": 0, "total": 0, "notation": notation}
 
     count  = int(match.group(1)) if match.group(1) else 1
     sides  = int(match.group(2))

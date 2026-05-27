@@ -5,7 +5,9 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_ai_spell_models import AiSpellResolution
 from services.combat_evasion_service import resolve_save_damage, spell_half_on_save
+from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
+from services.combat_spell_damage_type_service import resolve_spell_damage_type
 from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
 
 
@@ -31,6 +33,7 @@ async def apply_ai_damage_spell(
         resolution.spell_level,
         spell_mod,
     )
+    damage_type = resolve_spell_damage_type(resolution.spell_name, resolution.spell_data)
     if resolution.spell_data.get("aoe", False):
         targets = all_characters if is_enemy else enemies_alive
         for target in [item for item in targets if item.get("hp_current", 0) > 0][:4]:
@@ -49,10 +52,21 @@ async def apply_ai_damage_spell(
                 target_for_evasion=target_for_evasion,
             )
             if not is_enemy:
-                damage_enemy(enemies, target_id, damage_this, combat_service)
+                damage_this = damage_enemy(
+                    enemies,
+                    target_id,
+                    damage_this,
+                    combat_service,
+                    damage_type=damage_type,
+                )
             else:
                 target_character = await db.get(Character, target_id)
                 if target_character:
+                    damage_this, _resistance_applied = apply_character_damage_resistance(
+                        target_character,
+                        damage_this,
+                        damage_type,
+                    )
                     apply_character_damage(target_character, damage_this)
             resolution.damage += damage_this
 
@@ -76,6 +90,14 @@ async def apply_ai_damage_spell(
             spell_save_dc=spell_save_dc,
             roll_dice_func=roll_dice_func,
         )
+        if damage_type:
+            total_damage = combat_service.apply_damage_with_resistance(
+                total_damage,
+                damage_type,
+                target_enemy.get("resistances", []),
+                target_enemy.get("immunities", []),
+                target_enemy.get("vulnerabilities", []),
+            )
         target_enemy["hp_current"] = combat_service.apply_damage(
             target_enemy.get("hp_current", 0),
             total_damage,
@@ -95,6 +117,11 @@ async def apply_ai_damage_spell(
                 spell_data=resolution.spell_data,
                 spell_save_dc=spell_save_dc,
                 roll_dice_func=roll_dice_func,
+            )
+            total_damage, _resistance_applied = apply_character_damage_resistance(
+                target_character,
+                total_damage,
+                damage_type,
             )
             apply_character_damage(target_character, total_damage)
             resolution.target_new_hp = target_character.hp_current
@@ -194,11 +221,24 @@ def damage_enemy(
     target_id: str,
     damage: int,
     combat_service: CombatService,
-) -> None:
+    *,
+    damage_type: str | None = None,
+) -> int:
     for enemy in enemies:
         if str(enemy.get("id")) == target_id:
+            applied_damage = damage
+            if damage_type:
+                applied_damage = combat_service.apply_damage_with_resistance(
+                    damage,
+                    damage_type,
+                    enemy.get("resistances", []),
+                    enemy.get("immunities", []),
+                    enemy.get("vulnerabilities", []),
+                )
             enemy["hp_current"] = combat_service.apply_damage(
                 enemy.get("hp_current", 0),
-                damage,
+                applied_damage,
                 enemy.get("derived", {}).get("hp_max", 10),
             )
+            return applied_damage
+    return damage

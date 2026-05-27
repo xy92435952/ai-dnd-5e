@@ -76,7 +76,7 @@ async def test_apply_confirmed_spell_effects_single_target_save_cantrip_deals_no
         "id": "goblin-1",
         "name": "Goblin",
         "hp_current": 10,
-        "derived": {"hp_max": 10, "ability_modifiers": {"dex": 5}, "saving_throws": {"dex": 8}},
+        "derived": {"hp_max": 10, "ability_modifiers": {"dex": 20}, "saving_throws": {"dex": 20}},
     }]
 
     result = await apply_confirmed_spell_effects(
@@ -129,6 +129,41 @@ async def test_apply_confirmed_spell_effects_aoe_evasion_success_takes_no_damage
     assert result.aoe_results[0]["damage"] == 0
     assert result.aoe_results[0]["base_damage"] == 28
     assert result.aoe_results[0]["evasion_applied"] is True
+
+
+@pytest.mark.asyncio
+async def test_apply_confirmed_spell_effects_aoe_applies_resistance_after_save():
+    enemies = [{
+        "id": "fire-elemental-1",
+        "name": "Fire Elemental",
+        "hp_current": 20,
+        "derived": {"hp_max": 20, "ability_modifiers": {"dex": -5}, "saving_throws": {"dex": -5}},
+        "immunities": ["火焰"],
+    }]
+
+    result = await apply_confirmed_spell_effects(
+        FakeDb(),
+        session_id="sess",
+        enemies=enemies,
+        target_ids=["fire-elemental-1"],
+        is_aoe=True,
+        spell_type="damage",
+        spell_name="Fireball",
+        spell_level=3,
+        spell_mod=0,
+        bonus_healing=False,
+        spell={"name_en": "Fireball", "save": "dex", "half_on_save": True},
+        damage_values=None,
+        spell_save_dc=30,
+        resolve_damage=lambda *_args: (28, {"total": 28}),
+        resolve_heal=lambda *_args: (_ for _ in ()).throw(AssertionError("should not heal")),
+    )
+
+    assert result.aoe_results[0]["base_damage"] == 28
+    assert result.aoe_results[0]["damage_before_resistance"] == 28
+    assert result.aoe_results[0]["damage"] == 0
+    assert result.aoe_results[0]["damage_type"] == "fire"
+    assert enemies[0]["hp_current"] == 20
 
 
 @pytest.mark.asyncio

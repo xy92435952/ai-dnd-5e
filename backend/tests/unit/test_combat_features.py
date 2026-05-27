@@ -176,6 +176,16 @@ class TestDamageResistance:
             resistances=["poison"], immunities=["poison"], vulnerabilities=[],
         ) == 0
 
+    def test_damage_type_aliases_match_chinese_and_english(self):
+        assert svc.apply_damage_with_resistance(
+            base_damage=20, damage_type="fire",
+            resistances=[], immunities=["火焰"], vulnerabilities=[],
+        ) == 0
+        assert svc.apply_damage_with_resistance(
+            base_damage=12, damage_type="穿刺",
+            resistances=["piercing"], immunities=[], vulnerabilities=[],
+        ) == 6
+
 
 # ──────────────────────────────────────────────────────────
 # 掩体 —— wall = full obstacle, difficult = half

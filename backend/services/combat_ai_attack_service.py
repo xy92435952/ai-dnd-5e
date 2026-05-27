@@ -1,15 +1,9 @@
 from typing import Any
 
+from services.combat_resistance_service import apply_character_damage_resistance, is_fire_damage
 from services.combat_service import CombatService
-from services.dnd_rules import _normalize_class
-
-FIRE_DAMAGE_TYPES = {"fire", "火焰", "flame"}
 
 svc = CombatService()
-
-
-def is_fire_damage(damage_type: str) -> bool:
-    return str(damage_type or "").strip().lower() in FIRE_DAMAGE_TYPES
 
 
 def choose_ai_attack_target(
@@ -124,43 +118,3 @@ def target_conditions(
     if target_data:
         return list(target_data.get("conditions", []) or [])
     return []
-
-
-def apply_character_damage_resistance(
-    target_character,
-    damage: int,
-    damage_type: str,
-) -> tuple[int, bool]:
-    """Apply the AI attack path's existing Barbarian rage and fire-resistance reductions."""
-    final_damage = damage
-    resistance_applied = False
-
-    if target_character and _normalize_class(target_character.char_class) == "Barbarian":
-        class_resources = dict(target_character.class_resources or {})
-        if class_resources.get("raging", False):
-            subclass_effects = (target_character.derived or {}).get("subclass_effects", {})
-            if subclass_effects.get("bear_totem"):
-                if damage_type not in ("心灵", "psychic"):
-                    final_damage = final_damage // 2
-                    resistance_applied = True
-            elif damage_type in (
-                "钝击",
-                "穿刺",
-                "挥砍",
-                "bludgeoning",
-                "piercing",
-                "slashing",
-            ):
-                final_damage = final_damage // 2
-                resistance_applied = True
-
-    if (
-        not resistance_applied
-        and target_character
-        and "fire_resistance" in (target_character.conditions or [])
-        and is_fire_damage(damage_type)
-    ):
-        final_damage = final_damage // 2
-        resistance_applied = True
-
-    return final_damage, resistance_applied

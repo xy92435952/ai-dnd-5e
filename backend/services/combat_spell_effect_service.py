@@ -7,7 +7,9 @@ from typing import Any
 from models import Character
 from services.combat_concentration_service import do_concentration_check
 from services.combat_concentration_service import break_concentration_if_incapacitated
+from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
+from services.combat_spell_damage_type_service import resolve_spell_damage_type
 from services.combat_spell_resolution_service import apply_frontend_dice_override
 from services.combat_temporary_hp_service import (
     apply_armor_of_agathys_to_character,
@@ -263,39 +265,68 @@ async def apply_spell_damage_to_target(
     save_result=None,
     is_critical: bool = False,
     spell_name: str | None = None,
+    spell: dict[str, Any] | None = None,
 ):
     """Apply spell damage to an enemy dict or Character and return response result plus conc log."""
+    damage_before_resistance = max(0, int(damage or 0))
+    damage_type = resolve_spell_damage_type(spell_name, spell)
     target_enemy = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
     if target_enemy:
+        applied_damage = damage_before_resistance
+        resistance_applied = False
+        if damage_type:
+            applied_damage = svc.apply_damage_with_resistance(
+                damage_before_resistance,
+                damage_type,
+                target_enemy.get("resistances", []),
+                target_enemy.get("immunities", []),
+                target_enemy.get("vulnerabilities", []),
+            )
+            resistance_applied = applied_damage != damage_before_resistance
         target_enemy["hp_current"] = svc.apply_damage(
             target_enemy.get("hp_current", 0),
-            damage,
+            applied_damage,
             target_enemy.get("derived", {}).get("hp_max", 10),
         )
         if _is_guiding_bolt(spell_name):
             _apply_condition_to_enemy(target_enemy, "guiding_bolt", 1)
-        return {
+        result = {
             "target_id": target_id,
             "target_name": target_enemy.get("name", "敌人"),
-            "damage": damage,
+            "damage": applied_damage,
             "new_hp": target_enemy["hp_current"],
             "conditions": target_enemy.get("conditions", []),
             "condition_durations": target_enemy.get("condition_durations", {}),
             "save": save_result,
-        }, None
+        }
+        if damage_type:
+            result.update({
+                "damage_before_resistance": damage_before_resistance,
+                "damage_type": damage_type,
+                "resistance_applied": resistance_applied,
+            })
+        return result, None
 
     target_character = await db.get(Character, target_id)
     if not target_character:
         return None, None
 
-    damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
-    concentration_log = await do_concentration_check(target_character, damage, session_id)
+    applied_damage = damage_before_resistance
+    resistance_applied = False
+    if damage_type:
+        applied_damage, resistance_applied = apply_character_damage_resistance(
+            target_character,
+            damage_before_resistance,
+            damage_type,
+        )
+    damage_result = apply_character_damage(target_character, applied_damage, is_critical=is_critical)
+    concentration_log = await do_concentration_check(target_character, applied_damage, session_id)
     if _is_guiding_bolt(spell_name):
         _apply_condition_to_character(target_character, "guiding_bolt", 1)
-    return {
+    result = {
         "target_id": target_id,
         "target_name": target_character.name,
-        "damage": damage,
+        "damage": applied_damage,
         "new_hp": damage_result["hp_after"],
         "hp_current": damage_result["hp_after"],
         "death_saves": damage_result["death_saves"],
@@ -304,7 +335,14 @@ async def apply_spell_damage_to_target(
         "life_state": get_life_state(target_character),
         "concentration": target_character.concentration,
         "save": save_result,
-    }, concentration_log
+    }
+    if damage_type:
+        result.update({
+            "damage_before_resistance": damage_before_resistance,
+            "damage_type": damage_type,
+            "resistance_applied": resistance_applied,
+        })
+    return result, concentration_log
 
 
 async def apply_spell_heal_to_target(db, target_id: str, heal: int):

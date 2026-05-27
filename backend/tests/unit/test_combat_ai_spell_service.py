@@ -19,6 +19,11 @@ class FakeCombatService:
     def apply_damage(self, current_hp, damage, _max_hp):
         return max(0, current_hp - damage)
 
+    def apply_damage_with_resistance(self, damage, damage_type, resistances, immunities, vulnerabilities):
+        from services.combat_damage_service import apply_damage_with_resistance
+
+        return apply_damage_with_resistance(damage, damage_type, resistances, immunities, vulnerabilities)
+
 
 class FakeCaster:
     def __init__(self):
@@ -115,6 +120,103 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     assert "Magic Bolt" in result.mechanical_narration
     assert "test cast" in result.mechanical_narration
     assert enemies[0]["hp_current"] == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_ai_spell_action_respects_enemy_spell_immunity():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    session = FakeSession()
+    state = {
+        "enemies": [{
+            "id": "fire-elemental-1",
+            "name": "Fire Elemental",
+            "hp_current": 10,
+            "derived": {"hp_max": 10},
+            "immunities": ["火焰"],
+        }]
+    }
+    enemies = state["enemies"]
+    caster = FakeCaster()
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=session,
+        actor_name="Wizard",
+        is_enemy=False,
+        caster=caster,
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3},
+            "spell_save_dc": 13,
+        },
+        decided_target_id="fire-elemental-1",
+        decided_reason="test cast",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=enemies,
+        enemies_alive=enemies,
+        all_characters=[],
+        spell_service_obj=FakeSpellService({
+            "name_en": "Fireball",
+            "level": 1,
+            "type": "damage",
+            "aoe": False,
+            "save": None,
+            "damage_type": "fire",
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert result is not None
+    assert result.damage == 0
+    assert result.target_new_hp == 10
+    assert enemies[0]["hp_current"] == 10
+
+
+@pytest.mark.asyncio
+async def test_resolve_enemy_ai_spell_respects_character_fire_resistance():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    character = FakeCharacter(hp_current=20)
+    character.conditions = ["fire_resistance"]
+    session = FakeSession()
+
+    result = await resolve_ai_spell_action(
+        CharacterDb(character),
+        session=session,
+        actor_name="Enemy Mage",
+        is_enemy=True,
+        caster=FakeCaster(),
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3},
+            "spell_save_dc": 13,
+        },
+        decided_target_id=character.id,
+        decided_reason="test cast",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state={"enemies": []},
+        enemies=[],
+        enemies_alive=[],
+        all_characters=[{"id": character.id, "hp_current": 20}],
+        spell_service_obj=FakeSpellService({
+            "name_en": "Fireball",
+            "level": 1,
+            "type": "damage",
+            "aoe": False,
+            "save": None,
+            "damage_type": "fire",
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+    )
+
+    assert result is not None
+    assert result.damage == 4
+    assert result.target_new_hp == 16
+    assert character.hp_current == 16
 
 
 @pytest.mark.asyncio
