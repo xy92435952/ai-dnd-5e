@@ -131,20 +131,22 @@ export const gameApi = {
    * @returns {Promise<CombatStateResponse>}
    */
   getCombat:    (sessionId) => api.get(`/game/combat/${sessionId}`),
-  combatAction: (sessionId, actionText, targetId = null, isRanged = false, isOffhand = false) =>
+  combatAction: (sessionId, actionText, targetId = null, isRanged = false, isOffhand = false, expectedTurnToken = null) =>
     api.post(`/game/combat/${sessionId}/action`, {
       action_text: actionText,
       target_id:   targetId,
       is_ranged:   isRanged,
       is_offhand:  isOffhand,
+      ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null) =>
+  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null) =>
     api.post(`/game/combat/${sessionId}/attack-roll`, {
       entity_id:   entityId,
       target_id:   targetId,
       action_type: actionType,
       is_offhand:  isOffhand,
       ...(d20Value != null ? { d20_value: d20Value } : {}),
+      ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   damageRoll: (sessionId, pendingAttackId, damageValues = null) =>
     api.post(`/game/combat/${sessionId}/damage-roll`, {
@@ -157,23 +159,30 @@ export const gameApi = {
       expectedTurnToken ? { expected_turn_token: expectedTurnToken } : undefined,
     ),
   endCombat:    (sessionId) => api.post(`/game/combat/${sessionId}/end`),
-  move:         (sessionId, entityId, toX, toY) =>
-    api.post(`/game/combat/${sessionId}/move`, { entity_id: entityId, to_x: toX, to_y: toY }),
-  castSpell: (sessionId, casterId, spellName, spellLevel, targetIds) =>
+  move:         (sessionId, entityId, toX, toY, expectedTurnToken = null) =>
+    api.post(`/game/combat/${sessionId}/move`, {
+      entity_id: entityId,
+      to_x: toX,
+      to_y: toY,
+      ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
+    }),
+  castSpell: (sessionId, casterId, spellName, spellLevel, targetIds, expectedTurnToken = null) =>
     api.post(`/game/combat/${sessionId}/spell`, {
       caster_id: casterId,
       spell_name: spellName,
       spell_level: spellLevel,
       target_id: Array.isArray(targetIds) ? targetIds[0] : targetIds,
       target_ids: Array.isArray(targetIds) ? targetIds : (targetIds ? [targetIds] : []),
+      ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds) =>
+  spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds, expectedTurnToken = null) =>
     api.post(`/game/combat/${sessionId}/spell-roll`, {
       caster_id: casterId,
       spell_name: spellName,
       spell_level: spellLevel,
       target_id: targetId || null,
       target_ids: targetIds || [],
+      ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   spellConfirm: (sessionId, pendingSpellId, damageValues = null) =>
     api.post(`/game/combat/${sessionId}/spell-confirm`, {

@@ -16,6 +16,11 @@ from services.combat_spell_resolution_service import (
     build_spell_resolution_context,
     consume_spell_slot_for_confirmation,
 )
+from services.combat_spell_roll_service import (
+    CombatSpellRollError,
+    spell_action_cost,
+    validate_spell_turn_state,
+)
 from services.combat_spell_target_service import collect_spell_target_names, validate_ordinary_healing_targets
 from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.combat_turn_state_service import DEFAULT_TURN_STATE, get_turn_state, save_turn_state
@@ -118,8 +123,15 @@ async def cast_direct_spell(
 
     spell_turn_state = get_turn_state(combat_obj, caster_id) if combat_obj else dict(DEFAULT_TURN_STATE)
     is_cantrip = spell["level"] == 0
-    if spell_turn_state.get("action_used") and not is_cantrip:
-        raise CombatDirectSpellError(400, "本回合行动已用尽")
+    action_cost = spell_action_cost(spell)
+    try:
+        validate_spell_turn_state(
+            spell_turn_state,
+            is_cantrip=is_cantrip,
+            action_cost=action_cost,
+        )
+    except CombatSpellRollError as exc:
+        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
 
     spell_context = build_spell_resolution_context(caster.derived)
     state = session.game_state or {}
@@ -224,7 +236,9 @@ async def cast_direct_spell(
     )
 
     if combat_obj:
-        if not is_cantrip:
+        if action_cost == "bonus":
+            spell_turn_state["bonus_action_used"] = True
+        elif action_cost == "action":
             spell_turn_state["action_used"] = True
         save_turn_state_func(combat_obj, caster_id, spell_turn_state)
 

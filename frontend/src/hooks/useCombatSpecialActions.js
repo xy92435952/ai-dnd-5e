@@ -70,6 +70,7 @@ export function useCombatSpecialActions({
   ])
 
   const handleReaction = useCallback(async (reactionType, targetId = null, characterId = null) => {
+    if (isProcessing || processingRef.current) return
     setReactionPrompt(null)
     processingRef.current = true
     setIsProcessing(true)
@@ -92,6 +93,7 @@ export function useCombatSpecialActions({
     }
   }, [
     addLog,
+    isProcessing,
     processingRef,
     sessionId,
     setError,
@@ -104,10 +106,6 @@ export function useCombatSpecialActions({
 
   const handleCancelReaction = useCallback(async (prompt = null) => {
     setReactionPrompt(null)
-    if (prompt?.trigger !== 'spell_cast') {
-      triggerAiTurn()
-      return
-    }
     processingRef.current = true
     setIsProcessing(true)
     try {

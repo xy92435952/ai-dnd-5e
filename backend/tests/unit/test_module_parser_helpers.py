@@ -90,6 +90,9 @@ def test_fill_monster_defaults_adds_combat_ready_fields():
     assert monster["spell_slots"] == {}
     assert monster["spell_ability"] is None
     assert monster["spell_save_dc"] is None
+    assert monster["vulnerabilities"] == []
+    assert monster["condition_immunities"] == []
+    assert monster["multiattack"] == 1
     assert monster["hp_dice"]
     assert monster["tactics"]
     json.dumps(monster, ensure_ascii=False)

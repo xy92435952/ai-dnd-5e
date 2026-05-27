@@ -28,6 +28,7 @@ from services.combat_direct_attack_service import (
 )
 
 from api.combat._shared import (
+    _assert_expected_turn_token,
     _broadcast_combat,
     svc,
     _save_ts,
@@ -67,6 +68,8 @@ async def combat_action(
         raise HTTPException(404, "战斗状态不存在")
 
     await db.refresh(session)  # 确保读取最新 game_state
+    _assert_expected_turn_token(combat, req.expected_turn_token, detail_prefix="Combat action")
+
     player_id = session.player_character_id
     if session.is_multiplayer and combat.turn_order:
         try:

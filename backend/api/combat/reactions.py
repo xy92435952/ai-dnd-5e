@@ -81,6 +81,24 @@ def _actor_snapshot_for_attack_reaction(player, pending_reaction: dict):
     }
 
 
+def _reaction_already_resolved(req: ReactionRequest, ts: dict) -> dict:
+    return {
+        "action": "reaction_already_resolved",
+        "reaction_type": req.reaction_type,
+        "narration": "",
+        "turn_state": ts,
+        "reaction_effect": {"already_resolved": True},
+    }
+
+
+def _has_pending_attack_reaction(ts: dict) -> bool:
+    return (ts.get("pending_attack_reaction") or {}).get("trigger") == "incoming_attack"
+
+
+def _has_pending_spell_reaction(ts: dict) -> bool:
+    return (ts.get("pending_spell_reaction") or {}).get("trigger") == "spell_cast"
+
+
 @router.post("/combat/{session_id}/reaction", response_model=CombatActionResult)
 async def use_reaction(
     session_id: str,
@@ -137,13 +155,18 @@ async def use_reaction(
     await assert_character_in_session(player, session, db)
     ts = _get_ts(combat, player_id)
     if ts.get("reaction_used"):
-        raise HTTPException(400, "本回合反应已用尽")
+        return _reaction_already_resolved(req, ts)
 
     p_class = _normalize_class(player.char_class)
     p_level = player.level
     derived = player.derived or {}
     pending_reaction = ts.get("pending_attack_reaction") or {}
     pending_spell_reaction = ts.get("pending_spell_reaction") or {}
+    attack_reaction_types = {"shield", "uncanny_dodge", "hellish_rebuke", "absorb_elements"}
+    if req.reaction_type in attack_reaction_types and not _has_pending_attack_reaction(ts):
+        return _reaction_already_resolved(req, ts)
+    if req.reaction_type == "counterspell" and not _has_pending_spell_reaction(ts):
+        return _reaction_already_resolved(req, ts)
     try:
         validate_can_take_reaction(_actor_snapshot_for_attack_reaction(player, pending_reaction))
     except CombatActionRuleError as exc:

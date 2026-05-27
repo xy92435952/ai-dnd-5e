@@ -13,6 +13,7 @@ class FakeCaster:
     id = "caster-1"
     name = "法师"
     is_player = True
+    session_id = "sess-1"
     hp_current = 20
     conditions = []
     death_saves = {}
@@ -169,7 +170,7 @@ async def test_cast_direct_spell_rejects_incapacitated_caster():
 
 
 @pytest.mark.asyncio
-async def test_cast_direct_spell_keeps_cantrip_action_available():
+async def test_cast_direct_spell_marks_action_cantrip_action_used():
     from services.combat_direct_spell_service import cast_direct_spell
 
     class CantripSpellService(FakeSpellService):
@@ -207,8 +208,140 @@ async def test_cast_direct_spell_keeps_cantrip_action_available():
 
     assert result.damage == 6
     assert result.target_new_hp == 4
-    assert result.turn_state["action_used"] is False
+    assert result.turn_state["action_used"] is True
     assert result.remaining_slots == {"1st": 1}
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_spell_rejects_action_cantrip_after_action_used():
+    from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
+
+    class CantripSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 0,
+                "type": "damage",
+                "aoe": False,
+                "casting_time": "action",
+            }
+
+        def consume_slot(self, *_args):
+            raise AssertionError("cantrips should not consume spell slots")
+
+    session = FakeSession()
+    combat = FakeCombat()
+    combat.turn_states["caster-1"]["action_used"] = True
+    caster = FakeCaster()
+
+    with pytest.raises(CombatDirectSpellError) as exc:
+        await cast_direct_spell(
+            FakeDb(),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="fire-bolt",
+            spell_level=0,
+            target_id="goblin-1",
+            target_ids=None,
+            spell_service_obj=CantripSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert exc.value.status_code == 400
+    assert "行动已用尽" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_spell_marks_bonus_action_spell_bonus_used():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class BonusSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "heal",
+                "aoe": False,
+                "casting_time": "bonus_action",
+            }
+
+        def resolve_damage(self, *_args):
+            return 0, {}
+
+        def resolve_heal(self, *_args):
+            return 5, {"formula": "1d4+3", "total": 5}
+
+    session = FakeSession()
+    combat = FakeCombat()
+    combat.turn_states["caster-1"]["action_used"] = True
+    caster = FakeCaster()
+
+    result = await cast_direct_spell(
+        FakeDb({"caster-1": caster}),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="healing-word",
+        spell_level=1,
+        target_id="caster-1",
+        target_ids=None,
+        spell_service_obj=BonusSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert result.heal == 5
+    assert result.turn_state["action_used"] is True
+    assert result.turn_state["bonus_action_used"] is True
+    assert result.remaining_slots == {"1st": 0}
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_spell_rejects_reaction_spell_in_ordinary_flow():
+    from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
+
+    class ReactionSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "utility",
+                "aoe": False,
+                "casting_time": "reaction",
+            }
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(CombatDirectSpellError) as exc:
+        await cast_direct_spell(
+            FakeDb(),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="shield",
+            spell_level=1,
+            target_id=None,
+            target_ids=None,
+            spell_service_obj=ReactionSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert exc.value.status_code == 400
+    assert "反应法术" in exc.value.detail
 
 
 @pytest.mark.asyncio

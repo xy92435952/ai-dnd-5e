@@ -21,6 +21,11 @@ class FakeCaster:
     derived = {"spell_save_dc": 14}
 
 
+class FakeCombat:
+    entity_positions = {}
+    turn_states = {}
+
+
 @pytest.mark.asyncio
 async def test_prepare_spell_roll_builds_cantrip_preview_without_consuming_slot():
     prepared = await prepare_spell_roll(
@@ -51,6 +56,112 @@ async def test_prepare_spell_roll_builds_cantrip_preview_without_consuming_slot(
     assert prepared.is_cantrip is True
     assert prepared.targets == [{"id": "goblin-1", "name": "哥布林"}]
     assert prepared.pending_spell["spell_name"] == "Fire Bolt"
+    assert prepared.pending_spell["action_cost"] == "action"
+
+
+@pytest.mark.asyncio
+async def test_prepare_spell_roll_rejects_action_cantrip_after_action_used():
+    with pytest.raises(CombatSpellRollError) as exc:
+        await prepare_spell_roll(
+            FakeDb(),
+            combat_obj=FakeCombat(),
+            session=None,
+            caster=FakeCaster(),
+            caster_id="caster-1",
+            spell_name="Fire Bolt",
+            spell_level=0,
+            spell={
+                "level": 0,
+                "type": "damage",
+                "damage_dice": "1d10",
+                "casting_time": "action",
+                "aoe": False,
+                "range": 0,
+            },
+            target_id="goblin-1",
+            target_ids=None,
+            enemies=[{"id": "goblin-1", "name": "Goblin", "hp_current": 7}],
+            default_turn_state=DEFAULT_TURN_STATE,
+            get_turn_state=lambda *_args: {"action_used": True, "bonus_action_used": False},
+            consume_slot=lambda *_args: (_ for _ in ()).throw(AssertionError("cantrip should not consume")),
+            calc_upcast_dice=lambda *_args: None,
+        )
+
+    assert exc.value.status_code == 400
+    assert "行动已用尽" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_prepare_spell_roll_allows_bonus_spell_after_action_used():
+    from models import CombatState
+
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 1}
+    combat = CombatState(
+        id="combat-1",
+        session_id="sess-1",
+        entity_positions={},
+        turn_states={},
+    )
+
+    prepared = await prepare_spell_roll(
+        FakeDb(),
+        combat_obj=combat,
+        session=None,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="Healing Word",
+        spell_level=1,
+        spell={
+            "level": 1,
+            "type": "heal",
+            "heal_dice": "1d4",
+            "casting_time": "bonus_action",
+            "aoe": False,
+            "range": 0,
+        },
+        target_id="ally-1",
+        target_ids=None,
+        enemies=[{"id": "ally-1", "name": "Ally", "hp_current": 7}],
+        default_turn_state=DEFAULT_TURN_STATE,
+        get_turn_state=lambda *_args: {"action_used": True, "bonus_action_used": False},
+        consume_slot=lambda slots, _level: (slots, None),
+        calc_upcast_dice=lambda *_args: None,
+    )
+
+    assert prepared.pending_spell["action_cost"] == "bonus"
+    assert prepared.heal_dice == "1d4"
+
+
+@pytest.mark.asyncio
+async def test_prepare_spell_roll_rejects_reaction_spell_in_ordinary_flow():
+    with pytest.raises(CombatSpellRollError) as exc:
+        await prepare_spell_roll(
+            FakeDb(),
+            combat_obj=FakeCombat(),
+            session=None,
+            caster=FakeCaster(),
+            caster_id="caster-1",
+            spell_name="Shield",
+            spell_level=1,
+            spell={
+                "level": 1,
+                "type": "utility",
+                "casting_time": "reaction",
+                "aoe": False,
+                "range": 0,
+            },
+            target_id=None,
+            target_ids=None,
+            enemies=[],
+            default_turn_state=DEFAULT_TURN_STATE,
+            get_turn_state=lambda *_args: {"action_used": False, "bonus_action_used": False},
+            consume_slot=lambda *_args: (_ for _ in ()).throw(AssertionError("reaction spell should stop first")),
+            calc_upcast_dice=lambda *_args: None,
+        )
+
+    assert exc.value.status_code == 400
+    assert "反应法术" in exc.value.detail
 
 
 @pytest.mark.asyncio

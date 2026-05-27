@@ -13,6 +13,7 @@ def build_pending_spell(
     is_cantrip: bool,
     is_aoe: bool,
     spell_type: str,
+    action_cost: str = "action",
 ) -> dict[str, Any]:
     return {
         "pending_spell_id": str(uuid.uuid4()),
@@ -23,6 +24,7 @@ def build_pending_spell(
         "is_cantrip": is_cantrip,
         "is_aoe": is_aoe,
         "spell_type": spell_type,
+        "action_cost": action_cost,
     }
 
 
@@ -40,10 +42,19 @@ def store_pending_spell(combat, caster_id: str, turn_state: dict[str, Any], pend
     return turn_state
 
 
-def complete_pending_spell(combat, caster_entity_id: str, *, is_cantrip: bool) -> dict[str, Any]:
+def complete_pending_spell(
+    combat,
+    caster_entity_id: str,
+    *,
+    is_cantrip: bool,
+    action_cost: str = "action",
+) -> dict[str, Any]:
+    del is_cantrip  # Cantrips use the same action economy as leveled spells.
     turn_state = get_turn_state(combat, caster_entity_id)
     turn_state.pop("pending_spell", None)
-    if not is_cantrip:
+    if action_cost == "bonus":
+        turn_state["bonus_action_used"] = True
+    elif action_cost == "action":
         turn_state["action_used"] = True
     save_turn_state(combat, caster_entity_id, turn_state)
     return turn_state

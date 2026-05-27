@@ -42,11 +42,12 @@ def _fill_monster_defaults(m: dict) -> dict:
         'type': '怪物', 'xp': max(10, int(m.get('cr', 1) * 100)),
         'hp_dice': f"{max(1, m.get('hp', 10) // 5)}d8",
         'ac_source': '天然护甲', 'speed': 30, 'skills': {},
-        'resistances': [], 'immunities': [], 'senses': '普通视觉',
+        'resistances': [], 'immunities': [], 'vulnerabilities': [],
+        'condition_immunities': [], 'senses': '普通视觉',
         'languages': [], 'special_abilities': [], 'legendary_actions': [],
         'known_spells': [], 'prepared_spells': [], 'cantrips': [], 'spell_slots': {},
         'spell_ability': None, 'spell_save_dc': None,
-        'typical_count': 1, 'tactics': '直接攻击最近的目标'
+        'multiattack': 1, 'typical_count': 1, 'tactics': '直接攻击最近的目标'
     }
     for k, v in defaults.items():
         if k not in m or m[k] is None:

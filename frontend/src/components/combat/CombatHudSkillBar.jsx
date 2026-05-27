@@ -1,7 +1,7 @@
 import React from 'react'
 import { JuiceAudio } from '../../juice'
 import { SKILL_INFO } from '../../data/combat'
-import { computeSkillStats } from '../../utils/combat'
+import { computeSkillStats, getSkillUnavailableReason } from '../../utils/combat'
 
 const SKILL_KIND_LABELS = {
   attack: '攻击',
@@ -12,20 +12,41 @@ const SKILL_KIND_LABELS = {
   item: '物品',
 }
 
-export default function CombatHudSkillBar({ skillBar, session, entities, selectedTarget, onSkillClick, isPlayerTurn, syncBlocked = false }) {
+export default function CombatHudSkillBar({
+  skillBar,
+  session,
+  entities,
+  selectedTarget,
+  turnState,
+  onSkillClick,
+  isPlayerTurn,
+  isProcessing = false,
+  syncBlocked = false,
+}) {
   return (
     <div>
       <div className="skill-bar">
         {skillBar.map(s => {
           const stats = computeSkillStats(s, session?.player, entities[selectedTarget])
           const info = SKILL_INFO[s.k] || {}
+          const unavailableReason = getSkillUnavailableReason({
+            skill: s,
+            turnState,
+            isPlayerTurn,
+            syncBlocked,
+            isProcessing,
+            selectedTarget,
+          })
+          const canUse = !unavailableReason
           return (
             <div
               key={s.k}
-              className={`slot-key ${s.kind} ${!s.available ? 'used' : ''}`}
-              onClick={() => !syncBlocked && onSkillClick(s)}
+              className={`slot-key ${s.kind} ${!canUse ? 'used' : ''}`}
+              onClick={() => { if (canUse) onSkillClick(s) }}
               onMouseEnter={() => { try { JuiceAudio.hover() } catch {} }}
-              style={{ cursor: s.available && isPlayerTurn && !syncBlocked ? 'pointer' : 'not-allowed' }}
+              title={unavailableReason || s.label || ''}
+              aria-disabled={!canUse}
+              style={{ cursor: canUse ? 'pointer' : 'not-allowed' }}
             >
               <span className="hot">{s.key}</span>
               <span className="glyph">{s.glyph}</span>
@@ -37,8 +58,7 @@ export default function CombatHudSkillBar({ skillBar, session, entities, selecte
                   <div className="t-meta">
                     {SKILL_KIND_LABELS[s.kind] || '—'}
                     {' · '}{s.cost || '—'}
-                    {syncBlocked && <span style={{ color: 'var(--parchment-dark)', marginLeft: 6 }}>同步中</span>}
-                    {!s.available && <span style={{ color: '#f47070', marginLeft: 6 }}>✕ 不可用</span>}
+                    {unavailableReason && <span style={{ color: '#f47070', marginLeft: 6 }}>{unavailableReason}</span>}
                   </div>
                   {stats && stats.length > 0 && stats.map((r, ri) => (
                     <div key={ri} className="t-row">
@@ -46,8 +66,8 @@ export default function CombatHudSkillBar({ skillBar, session, entities, selecte
                       <b>{r.value}</b>
                     </div>
                   ))}
-                  {(s.reason || info.desc) && (
-                    <div className="t-desc">{s.reason || info.desc}</div>
+                  {(unavailableReason || s.reason || info.desc) && (
+                    <div className="t-desc">{unavailableReason || s.reason || info.desc}</div>
                   )}
                 </div>
               )}

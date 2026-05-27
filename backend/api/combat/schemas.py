@@ -11,6 +11,7 @@ class MoveRequest(BaseModel):
     entity_id: str
     to_x: int
     to_y: int
+    expected_turn_token: Optional[str] = None
 
 
 class ConditionRequest(BaseModel):
@@ -24,6 +25,7 @@ class CombatActionRequest(BaseModel):
     action_text: str = "普通攻击"
     target_id:   Optional[str] = None
     is_ranged:   bool = False
+    expected_turn_token: Optional[str] = None
     is_offhand:  bool = False   # 副手攻击（附赠行动，需先完成主手攻击）
 
 
@@ -62,6 +64,7 @@ class AttackRollRequest(BaseModel):
     action_type: str = "melee"       # "melee" | "ranged"
     is_offhand:  bool = False
     d20_value:   Optional[int] = None  # Frontend 3D dice result
+    expected_turn_token: Optional[str] = None
 
 
 class DamageRollRequest(BaseModel):
@@ -70,11 +73,12 @@ class DamageRollRequest(BaseModel):
 
 
 class SpellRequest(BaseModel):
-    caster_id:   str
-    spell_name:  str
+    caster_id: str
+    spell_name: str
     spell_level: int = 1
-    target_id:   Optional[str]       = None   # 单目标（向后兼容）
-    target_ids:  Optional[list[str]] = None   # AoE 多目标列表
+    target_id: Optional[str] = None
+    target_ids: Optional[list[str]] = None
+    expected_turn_token: Optional[str] = None
 
 
 class SpellRollRequest(BaseModel):
@@ -83,6 +87,7 @@ class SpellRollRequest(BaseModel):
     spell_level: int = 1
     target_id:   Optional[str]       = None
     target_ids:  Optional[list[str]] = None
+    expected_turn_token: Optional[str] = None
 
 
 class SpellConfirmRequest(BaseModel):

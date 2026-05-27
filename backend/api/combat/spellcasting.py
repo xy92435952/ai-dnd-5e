@@ -13,7 +13,7 @@ from api.deps import (
     get_session_or_404,
     get_user_id,
 )
-from api.combat._shared import _broadcast_combat
+from api.combat._shared import _assert_expected_turn_token, _broadcast_combat
 from api.combat.schemas import SpellRequest
 from schemas.combat_responses import CombatActionResult
 from schemas.ws_events import CombatUpdate
@@ -46,6 +46,8 @@ async def cast_spell(
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat_obj = combat_result.scalars().first()
+    if combat_obj:
+        _assert_expected_turn_token(combat_obj, req.expected_turn_token, detail_prefix="Spell")
 
     try:
         result = await cast_direct_spell(

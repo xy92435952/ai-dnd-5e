@@ -10,6 +10,7 @@ from database import get_db
 from models import Character, CombatState, GameLog
 from api.deps import assert_can_act, assert_character_in_session, get_session_or_404, get_user_id
 from api.combat._shared import (
+    _assert_expected_turn_token,
     _get_ts,
     _broadcast_combat,
     _has_ally_adjacent_to,
@@ -53,6 +54,8 @@ async def attack_roll(
     combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
+
+    _assert_expected_turn_token(combat, req.expected_turn_token, detail_prefix="Attack roll")
 
     await db.refresh(session)
     player    = await db.get(Character, req.entity_id)

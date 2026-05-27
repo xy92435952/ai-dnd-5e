@@ -11,6 +11,7 @@ from services.combat_concentration_effect_service import (
     clear_concentration_effects_for_caster,
     track_concentration_condition,
 )
+from services.combat_condition_immunity_service import is_condition_immune
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
 from services.combat_spell_damage_component_service import (
@@ -603,24 +604,30 @@ async def apply_control_spell_to_target(
 
     if not saved:
         if target_enemy:
-            _apply_condition_to_enemy(
-                target_enemy,
-                condition_name,
-                duration_rounds,
-                caster_id=caster_id,
-                spell_name=spell_name,
-                is_concentration=is_concentration,
-            )
+            if is_condition_immune(target_enemy, condition_name):
+                saved = True
+            else:
+                _apply_condition_to_enemy(
+                    target_enemy,
+                    condition_name,
+                    duration_rounds,
+                    caster_id=caster_id,
+                    spell_name=spell_name,
+                    is_concentration=is_concentration,
+                )
         elif target_character:
-            _apply_condition_to_character(
-                target_character,
-                condition_name,
-                duration_rounds,
-                caster_id=caster_id,
-                spell_name=spell_name,
-                is_concentration=is_concentration,
-            )
-            concentration_log = break_concentration_if_incapacitated(target_character, session_id)
+            if is_condition_immune(target_character, condition_name):
+                saved = True
+            else:
+                _apply_condition_to_character(
+                    target_character,
+                    condition_name,
+                    duration_rounds,
+                    caster_id=caster_id,
+                    spell_name=spell_name,
+                    is_concentration=is_concentration,
+                )
+                concentration_log = break_concentration_if_incapacitated(target_character, session_id)
 
     target_enemy_hp = target_enemy.get("hp_current") if target_enemy else None
 
@@ -629,6 +636,10 @@ async def apply_control_spell_to_target(
         "save_detail": save_detail,
         "saved": saved,
         "applied": not saved,
+        "immune": bool(
+            (target_enemy and is_condition_immune(target_enemy, condition_name))
+            or (target_character and is_condition_immune(target_character, condition_name))
+        ),
         "target_state": (
             {
                 "target_id": target_id,

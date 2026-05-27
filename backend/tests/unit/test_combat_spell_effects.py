@@ -386,8 +386,61 @@ async def test_apply_control_spell_to_enemy_adds_condition_without_duplicate(db_
 
     assert result["condition_name"] == "paralyzed"
     assert result["save_detail"]["success"] is False
+    assert result["immune"] is False
     assert enemies[0]["conditions"] == ["paralyzed"]
     assert "condition_durations" in result["target_state"]
+
+
+async def test_apply_control_spell_to_condition_immune_enemy_is_noop(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "ooze-1",
+        "name": "Ooze",
+        "conditions": [],
+        "condition_immunities": ["paralyzed"],
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "ooze-1",
+        session_id="sess-1",
+        condition_name="paralyzed",
+        save_ability="wis",
+        spell_save_dc=30,
+    )
+
+    assert result["immune"] is True
+    assert result["applied"] is False
+    assert result["saved"] is True
+    assert enemies[0]["conditions"] == []
+    assert result["target_state"]["conditions"] == []
+
+
+async def test_apply_control_spell_reads_condition_immunity_from_legacy_immunities(db_session):
+    from services import combat_spell_effect_service as spell_effects
+
+    enemies = [{
+        "id": "construct-1",
+        "name": "Construct",
+        "conditions": [],
+        "immunities": ["中毒"],
+    }]
+
+    result = await spell_effects.apply_control_spell_to_target(
+        db_session,
+        enemies,
+        "construct-1",
+        session_id="sess-1",
+        condition_name="poisoned",
+        save_ability=None,
+        spell_save_dc=13,
+    )
+
+    assert result["immune"] is True
+    assert result["applied"] is False
+    assert enemies[0]["conditions"] == []
 
 
 async def test_apply_bless_to_enemy_adds_condition_without_save(db_session):

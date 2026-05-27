@@ -54,6 +54,11 @@ describe('useCombatPageActions websocket sync', () => {
       clearAoePreview: vi.fn(),
       onLoadCombat: vi.fn(),
       setCombatOver: vi.fn(),
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'guest-char', id: 'guest-char' }],
+      },
       ...overrides,
     }
     return { deps, ...renderHook(() => useCombatPageActions(deps)) }
@@ -209,7 +214,7 @@ describe('useCombatPageActions websocket sync', () => {
     })
 
     expect(ok).toBe(true)
-    expect(gameApi.combatAction).toHaveBeenCalledWith('sess-1', '协助', 'ally-1', false)
+    expect(gameApi.combatAction).toHaveBeenCalledWith('sess-1', '协助', 'ally-1', false, false, '1:0:guest-char')
     expect(gameApi.getCombat).toHaveBeenCalledWith('sess-1')
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true })
     expect(deps.setCombat).toHaveBeenCalledWith({

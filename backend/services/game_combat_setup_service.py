@@ -26,6 +26,7 @@ def build_enemy_from_module(monster: dict) -> dict:
     damage_dice = primary_action.get("damage_dice", "1d6+2") if primary_action else "1d6+2"
     damage_type = primary_action.get("damage_type", "钝击") if primary_action else "钝击"
     hp = monster.get("hp", 10)
+    multiattack = max(1, int(monster.get("multiattack") or monster.get("attacks_max") or 1))
 
     return {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
@@ -42,8 +43,12 @@ def build_enemy_from_module(monster: dict) -> dict:
         "speed": monster.get("speed", 30),
         "resistances": monster.get("resistances", []),
         "immunities": monster.get("immunities", []),
+        "vulnerabilities": monster.get("vulnerabilities", []),
+        "condition_immunities": monster.get("condition_immunities", []),
         "special_abilities": monster.get("special_abilities", []),
         "actions": monster.get("actions", []),
+        "multiattack": multiattack,
+        "attacks_max": multiattack,
         "known_spells": list(monster.get("known_spells") or []),
         "prepared_spells": list(monster.get("prepared_spells") or []),
         "cantrips": list(monster.get("cantrips") or []),
@@ -167,6 +172,15 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
         "dead": False,
         "attack_bonus": item.get("attack_bonus", 3),
         "damage_dice": item.get("damage_dice", "1d6+2"),
+        "damage_type": item.get("damage_type", "钝击"),
+        "resistances": item.get("resistances", []),
+        "immunities": item.get("immunities", []),
+        "vulnerabilities": item.get("vulnerabilities", []),
+        "condition_immunities": item.get("condition_immunities", []),
+        "special_abilities": item.get("special_abilities", []),
+        "actions": item.get("actions", []),
+        "multiattack": max(1, int(item.get("multiattack") or item.get("attacks_max") or 1)),
+        "attacks_max": max(1, int(item.get("multiattack") or item.get("attacks_max") or 1)),
         "tactics": "直接攻击最近的目标",
         "is_player": False,
         "initiative": 0,
@@ -190,6 +204,14 @@ def _generic_fallback_enemy() -> dict:
         "attack_bonus": 4,
         "damage_dice": "1d8+2",
         "damage_type": "钝击",
+        "resistances": [],
+        "immunities": [],
+        "vulnerabilities": [],
+        "condition_immunities": [],
+        "special_abilities": [],
+        "actions": [],
+        "multiattack": 1,
+        "attacks_max": 1,
         "tactics": "直接攻击最近的目标",
         "is_player": False,
         "initiative": 1,

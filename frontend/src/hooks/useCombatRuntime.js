@@ -148,6 +148,7 @@ export function useCombatRuntime({
     clearAoePreview,
     onLoadCombat: flow.loadCombat,
     setCombatOver: page.setCombatOver,
+    combat,
   })
 
   const { connected: wsConnected } = useWebSocket(room ? sessionId : null, onWsEvent)

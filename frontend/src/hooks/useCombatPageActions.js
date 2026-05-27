@@ -6,7 +6,7 @@
  */
 import { useCallback } from 'react'
 import { gameApi, roomsApi } from '../api/client'
-import { getAoePreviewCenterKey, aoeRadiusCells } from '../utils/combat'
+import { getAoePreviewCenterKey, aoeRadiusCells, getCombatTurnToken, getSkillUnavailableReason } from '../utils/combat'
 import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
 import { mergeRealtimeRoomEvent } from './useRoomRealtime'
 
@@ -43,6 +43,7 @@ export function useCombatPageActions({
   clearAoePreview,
   onLoadCombat,
   setCombatOver,
+  combat,
 }) {
   const onWsEvent = useCallback((event) => {
     switch (event.type) {
@@ -89,6 +90,14 @@ export function useCombatPageActions({
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,
     getIsPlayerTurn: () => canActThisTurn,
+    getUnavailableReason: (skill) => getSkillUnavailableReason({
+      skill,
+      turnState: combat?.turn_states?.[playerId || myCharacterId],
+      isPlayerTurn: canActThisTurn,
+      syncBlocked: false,
+      isProcessing,
+      selectedTarget,
+    }),
     getSelectedTarget: () => selectedTarget,
     setError,
     handleAttack,
@@ -105,6 +114,7 @@ export function useCombatPageActions({
     handleDodge,
     handleHealingPotion,
     handleClassFeature,
+    getTurnToken: () => getCombatTurnToken(combat),
   })
 
   const handleMoveTo = useCallback(async (x, y) => {
@@ -112,7 +122,7 @@ export function useCombatPageActions({
     try {
       const entityId = playerId || myCharacterId
       if (!entityId) return
-      const result = await gameApi.move(sessionId, entityId, x, y)
+      const result = await gameApi.move(sessionId, entityId, x, y, getCombatTurnToken(combat))
       if (result) {
         setCombat(prev => prev ? { ...prev, entity_positions: result.entity_positions || prev.entity_positions } : prev)
         if (result.turn_state) setTurnState(result.turn_state)
@@ -121,7 +131,7 @@ export function useCombatPageActions({
     } catch (e) {
       setError(e.message)
     }
-  }, [canActThisTurn, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
+  }, [canActThisTurn, combat, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
   const handleHelpTarget = useCallback(async (entityId) => {
     if (!helpMode || !canActThisTurn || isProcessing) return false
@@ -131,7 +141,7 @@ export function useCombatPageActions({
       return false
     }
     try {
-      const result = await gameApi.combatAction(sessionId, '协助', entityId, false)
+      const result = await gameApi.combatAction(sessionId, '协助', entityId, false, false, getCombatTurnToken(combat))
       if (result?.turn_state) setTurnState(result.turn_state)
       const fresh = await gameApi.getCombat(sessionId)
       if (fresh) setCombat(fresh)
@@ -143,6 +153,7 @@ export function useCombatPageActions({
     }
   }, [
     canActThisTurn,
+    combat,
     entities,
     helpMode,
     isProcessing,

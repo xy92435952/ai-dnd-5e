@@ -78,6 +78,7 @@ async def confirm_pending_spell(
     is_cantrip = pending["is_cantrip"]
     is_aoe = pending["is_aoe"]
     spell_type = pending["spell_type"]
+    action_cost = pending.get("action_cost", "action")
 
     await collect_spell_target_names(db, target_ids, enemies, session=session)
     if spell_type == "heal":
@@ -145,7 +146,12 @@ async def confirm_pending_spell(
         target_ids=target_ids,
     )
 
-    turn_state = complete_pending_spell_func(combat_obj, caster_entity_id, is_cantrip=is_cantrip)
+    turn_state = complete_pending_spell_func(
+        combat_obj,
+        caster_entity_id,
+        is_cantrip=is_cantrip,
+        action_cost=action_cost,
+    )
 
     wild_magic = resolve_wild_magic_for_spell(
         caster_name=caster.name,

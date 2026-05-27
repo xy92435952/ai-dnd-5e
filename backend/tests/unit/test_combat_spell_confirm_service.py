@@ -46,10 +46,19 @@ class FakeDb:
         return self.characters.get(entity_id)
 
 
-def complete_pending_spell(combat, caster_entity_id, *, is_cantrip):
+def complete_pending_spell(
+    combat,
+    caster_entity_id,
+    *,
+    is_cantrip,
+    action_cost="action",
+):
+    del is_cantrip
     turn_state = dict(combat.turn_states.get(caster_entity_id, {}))
     turn_state.pop("pending_spell", None)
-    if not is_cantrip:
+    if action_cost == "bonus":
+        turn_state["bonus_action_used"] = True
+    elif action_cost == "action":
         turn_state["action_used"] = True
     combat.turn_states[caster_entity_id] = turn_state
     return turn_state
@@ -88,6 +97,7 @@ async def test_confirm_pending_spell_consumes_slot_applies_damage_and_completes_
             "is_cantrip": False,
             "is_aoe": False,
             "spell_type": "damage",
+            "action_cost": "action",
         },
         spell={
             "type": "damage",
@@ -113,6 +123,51 @@ async def test_confirm_pending_spell_consumes_slot_applies_damage_and_completes_
     assert result.turn_state["action_used"] is True
     assert "pending_spell" not in result.turn_state
     assert result.is_concentration is True
+
+
+@pytest.mark.asyncio
+async def test_confirm_pending_spell_completes_bonus_action_cost(monkeypatch):
+    from services import combat_spell_confirm_service as confirm_service
+
+    async def fake_apply_effects(*_args, **_kwargs):
+        from services.combat_spell_application_service import SpellApplicationResult
+
+        return SpellApplicationResult(result_heal=5)
+
+    monkeypatch.setattr(confirm_service, "apply_confirmed_spell_effects", fake_apply_effects)
+
+    combat = FakeCombat()
+    combat.turn_states["caster-1"]["action_used"] = True
+    combat.turn_states["caster-1"]["bonus_action_used"] = False
+    caster = FakeCaster()
+
+    result = await confirm_service.confirm_pending_spell(
+        FakeDb({"caster-1": caster}),
+        session_id="sess-1",
+        combat_obj=combat,
+        caster=caster,
+        caster_entity_id="caster-1",
+        pending={
+            "spell_name": "Healing Word",
+            "spell_level": 1,
+            "target_ids": ["caster-1"],
+            "is_cantrip": False,
+            "is_aoe": False,
+            "spell_type": "heal",
+            "action_cost": "bonus",
+        },
+        spell={"type": "heal"},
+        state={"enemies": []},
+        enemies=[],
+        damage_values=None,
+        spell_service_obj=FakeSpellService(),
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        complete_pending_spell_func=complete_pending_spell,
+    )
+
+    assert result.heal == 5
+    assert result.turn_state["action_used"] is True
+    assert result.turn_state["bonus_action_used"] is True
 
 
 @pytest.mark.asyncio
@@ -224,3 +279,4 @@ async def test_confirm_pending_resurrection_returns_target_state():
     assert result.resurrection_results == [result.target_state]
     assert result.remaining_slots == {"5th": 0}
     assert dead_target.hp_current == 1
+    assert result.turn_state["action_used"] is True

@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { charactersApi, gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyActionResultEntityStates, applyPlayerHpUpdate } from '../utils/combat'
+import { applyActionResultEntityStates, applyPlayerHpUpdate, getCombatTurnToken } from '../utils/combat'
 import {
   getInventoryUseSuccessText,
   mergeConsumableUseResult,
@@ -39,7 +39,7 @@ export function useCombatPlayerActions({
     processingRef.current = true
     setIsProcessing(true)
     try {
-      const result = await gameApi.combatAction(sessionId, actionText, null, false)
+      const result = await gameApi.combatAction(sessionId, actionText, null, false, false, getCombatTurnToken(combat))
       if (result.turn_state) setTurnState(result.turn_state)
       addLog({ role: 'player', content: result.narration || fallbackNarration, log_type: 'combat' })
     } catch (e) {

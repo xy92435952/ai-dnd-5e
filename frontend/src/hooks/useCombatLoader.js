@@ -18,6 +18,7 @@ export function useCombatLoader({
   setPlayerSubclass,
   setPlayerSubclassEffects,
   setTurnState,
+  setReactionPrompt,
   setLogs,
   setInitiativeShown,
   setError,
@@ -45,6 +46,7 @@ export function useCombatLoader({
         setPlayerSubclass,
         setPlayerSubclassEffects,
         setTurnState,
+        setReactionPrompt,
         setLogs,
       })
 
@@ -90,6 +92,7 @@ export function useCombatLoader({
     setPlayerSpellSlots,
     setPlayerSubclass,
     setPlayerSubclassEffects,
+    setReactionPrompt,
     setSession,
     setTurnState,
     showDice,

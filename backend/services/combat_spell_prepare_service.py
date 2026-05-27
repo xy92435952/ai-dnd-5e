@@ -7,6 +7,7 @@ from services.combat_spell_roll_service import (
     CombatSpellRollError,
     build_spell_ability_context,
     build_spell_roll_preview,
+    spell_action_cost,
     validate_spell_turn_state,
 )
 from services.combat_spell_target_service import (
@@ -55,8 +56,13 @@ async def prepare_spell_roll(
         raise CombatSpellRollError(exc.status_code, exc.detail) from exc
 
     is_cantrip = spell["level"] == 0
+    action_cost = spell_action_cost(spell)
     spell_turn_state = get_turn_state(combat_obj, caster_id) if combat_obj else dict(default_turn_state)
-    spell_turn_state = validate_spell_turn_state(spell_turn_state, is_cantrip=is_cantrip)
+    spell_turn_state = validate_spell_turn_state(
+        spell_turn_state,
+        is_cantrip=is_cantrip,
+        action_cost=action_cost,
+    )
 
     if not is_cantrip:
         current_slots = dict(caster.spell_slots or {})
@@ -96,6 +102,7 @@ async def prepare_spell_roll(
         is_cantrip=is_cantrip,
         is_aoe=is_aoe,
         spell_type=spell["type"],
+        action_cost=action_cost,
     )
 
     if combat_obj:

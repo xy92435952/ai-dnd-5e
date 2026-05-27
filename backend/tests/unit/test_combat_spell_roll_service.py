@@ -4,6 +4,7 @@ from services.combat_spell_roll_service import (
     CombatSpellRollError,
     build_spell_ability_context,
     build_spell_roll_preview,
+    spell_action_cost,
     validate_spell_turn_state,
 )
 
@@ -16,8 +17,39 @@ def test_validate_spell_turn_state_rejects_leveled_spell_after_action_used():
     assert "行动已用尽" in exc.value.detail
 
 
-def test_validate_spell_turn_state_allows_cantrip_after_action_used():
-    assert validate_spell_turn_state({"action_used": True}, is_cantrip=True)["action_used"] is True
+def test_validate_spell_turn_state_rejects_action_cantrip_after_action_used():
+    with pytest.raises(CombatSpellRollError) as exc:
+        validate_spell_turn_state({"action_used": True}, is_cantrip=True)
+
+    assert exc.value.status_code == 400
+    assert "行动已用尽" in exc.value.detail
+
+
+def test_validate_spell_turn_state_uses_bonus_action_budget():
+    turn_state = {"action_used": True, "bonus_action_used": False}
+
+    assert validate_spell_turn_state(turn_state, action_cost="bonus") is turn_state
+
+    with pytest.raises(CombatSpellRollError) as exc:
+        validate_spell_turn_state({"bonus_action_used": True}, action_cost="bonus")
+
+    assert exc.value.status_code == 400
+    assert "附赠动作已用尽" in exc.value.detail
+
+
+def test_validate_spell_turn_state_rejects_reaction_spells():
+    with pytest.raises(CombatSpellRollError) as exc:
+        validate_spell_turn_state({}, action_cost="reaction")
+
+    assert exc.value.status_code == 400
+    assert "反应法术" in exc.value.detail
+
+
+def test_spell_action_cost_reads_casting_time():
+    assert spell_action_cost({"casting_time": "bonus_action"}) == "bonus"
+    assert spell_action_cost({"casting_time": "reaction"}) == "reaction"
+    assert spell_action_cost({"casting_time": "action"}) == "action"
+    assert spell_action_cost({}) == "action"
 
 
 def test_build_spell_roll_preview_prefers_upcast_damage_dice():

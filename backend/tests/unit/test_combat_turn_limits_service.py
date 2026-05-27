@@ -105,6 +105,16 @@ async def test_calculate_entity_turn_limits_for_enemy_speed_string():
 
 
 @pytest.mark.asyncio
+async def test_calculate_entity_turn_limits_uses_enemy_multiattack():
+    session = SimpleNamespace(game_state={"enemies": [{"id": "bear", "speed": "40ft", "multiattack": 2}]})
+
+    attacks, movement = await calculate_entity_turn_limits(FakeDb(), session, "bear")
+
+    assert attacks == 2
+    assert movement == 8
+
+
+@pytest.mark.asyncio
 async def test_calculate_entity_turn_limits_zeroes_enemy_speed_at_exhaustion_5():
     session = SimpleNamespace(game_state={
         "enemies": [{

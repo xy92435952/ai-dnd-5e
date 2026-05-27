@@ -30,4 +30,53 @@ describe('CombatHudSkillBar', () => {
     fireEvent.click(container.querySelector('.slot-key.item'))
     expect(onSkillClick).toHaveBeenCalledWith(expect.objectContaining({ k: 'pot_heal', kind: 'item' }))
   })
+
+  it('shows why a skill is unavailable and blocks the click', () => {
+    const onSkillClick = vi.fn()
+
+    const { container } = render(
+      <CombatHudSkillBar
+        skillBar={[
+          { k: 'atk', label: '攻击', glyph: 'A', cost: '动作', key: '1', kind: 'attack', available: true },
+        ]}
+        session={{ player: { derived: {} } }}
+        entities={{}}
+        selectedTarget={null}
+        turnState={{ action_used: false }}
+        onSkillClick={onSkillClick}
+        isPlayerTurn
+      />,
+    )
+
+    const attack = container.querySelector('.slot-key.attack')
+    expect(attack).toHaveAttribute('aria-disabled', 'true')
+    expect(attack).toHaveAttribute('title', '需要先选择目标')
+    expect(screen.getAllByText('需要先选择目标').length).toBeGreaterThan(0)
+
+    fireEvent.click(attack)
+    expect(onSkillClick).not.toHaveBeenCalled()
+  })
+
+  it('uses turn economy to explain spent actions', () => {
+    const onSkillClick = vi.fn()
+
+    const { container } = render(
+      <CombatHudSkillBar
+        skillBar={[
+          { k: 'dodge', label: '闪避', glyph: 'D', cost: '动作', key: '7', kind: 'action', available: true },
+        ]}
+        session={{ player: { derived: {} } }}
+        entities={{}}
+        selectedTarget={null}
+        turnState={{ action_used: true }}
+        onSkillClick={onSkillClick}
+        isPlayerTurn
+      />,
+    )
+
+    const dodge = container.querySelector('.slot-key.action')
+    expect(dodge).toHaveAttribute('title', '本回合动作已使用')
+    fireEvent.click(dodge)
+    expect(onSkillClick).not.toHaveBeenCalled()
+  })
 })

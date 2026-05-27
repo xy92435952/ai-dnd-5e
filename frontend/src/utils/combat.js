@@ -437,6 +437,39 @@ export function getCombatSkillBar(skillBar) {
   return skillBar && skillBar.length ? skillBar : DEFAULT_SKILL_BAR
 }
 
+export function getSkillUnavailableReason({
+  skill,
+  turnState,
+  isPlayerTurn = true,
+  syncBlocked = false,
+  isProcessing = false,
+  selectedTarget = null,
+} = {}) {
+  if (!skill) return ''
+  if (syncBlocked) return '等待战斗同步恢复'
+  if (!isPlayerTurn) return '等待你的回合'
+  if (isProcessing) return '正在结算上一项动作'
+  if (skill.available === false) return skill.reason || '当前不可用'
+
+  const key = skill.k
+  const kind = skill.kind
+  const needsTarget = ['atk', 'sneak', 'shove', 'grapple', 'off_attack', 'firebolt', 'sacred_flame'].includes(key)
+  if (needsTarget && !selectedTarget) return '需要先选择目标'
+
+  if (kind === 'bonus' || key === 'off_attack') {
+    if (turnState?.bonus_action_used) return '本回合附赠动作已使用'
+    if (key === 'off_attack' && !turnState?.action_used) return '需要先完成主手攻击'
+  }
+
+  const consumesAction = ['attack', 'spell', 'action', 'item'].includes(kind) || ['dash', 'disg', 'dodge', 'help'].includes(key)
+  if (consumesAction && turnState?.action_used) return '本回合动作已使用'
+  if (kind === 'move' && key !== 'dash' && (turnState?.movement_max ?? 0) - (turnState?.movement_used ?? 0) <= 0) {
+    return '本回合移动力已用尽'
+  }
+  if (kind === 'reaction' && turnState?.reaction_used) return '本回合反应已使用'
+  return ''
+}
+
 /**
  * 解析 "NdM" / "dM" 掷骰表达式。
  */

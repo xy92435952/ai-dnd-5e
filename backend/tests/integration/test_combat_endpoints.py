@@ -243,6 +243,97 @@ async def test_combat_move_allows_no_op_for_speed_zero_character(
     assert data["positions"][sample_character.id] == {"x": 5, "y": 5}
 
 
+async def test_combat_move_rejects_stale_expected_turn_token(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={
+            "entity_id": sample_character.id,
+            "to_x": 4,
+            "to_y": 5,
+            "expected_turn_token": "1:0:not-the-current-actor",
+        },
+    )
+
+    assert response.status_code == 409, response.text
+    assert "stale" in response.text
+    await db_session.refresh(combat_state)
+    assert combat_state.entity_positions[sample_character.id] == {"x": 5, "y": 5}
+    assert combat_state.turn_states == {}
+
+
+async def test_combat_action_rejects_stale_expected_turn_token(
+    client, db_session, sample_session, combat_state, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/action",
+        headers=headers,
+        json={
+            "action_text": "Dodge",
+            "expected_turn_token": "1:0:not-the-current-actor",
+        },
+    )
+
+    assert response.status_code == 409, response.text
+    assert "stale" in response.text
+    await db_session.refresh(combat_state)
+    assert combat_state.turn_states == {}
+
+
+async def test_attack_roll_rejects_stale_expected_turn_token(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/attack-roll",
+        headers=headers,
+        json={
+            "entity_id": sample_character.id,
+            "target_id": "goblin-1",
+            "action_type": "melee",
+            "d20_value": 15,
+            "expected_turn_token": "1:0:not-the-current-actor",
+        },
+    )
+
+    assert response.status_code == 409, response.text
+    assert "stale" in response.text
+    await db_session.refresh(combat_state)
+    assert combat_state.turn_states == {}
+
+
+async def test_spell_roll_rejects_stale_expected_turn_token(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    sample_character.char_class = "Wizard"
+    sample_character.known_spells = ["魔法飞弹"]
+    sample_character.spell_slots = {"1st": 1}
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "魔法飞弹",
+            "spell_level": 1,
+            "target_id": "goblin-1",
+            "target_ids": ["goblin-1"],
+            "expected_turn_token": "1:0:not-the-current-actor",
+        },
+    )
+
+    assert response.status_code == 409, response.text
+    assert "stale" in response.text
+    await db_session.refresh(combat_state)
+    assert combat_state.turn_states == {}
+
+
 @pytest_asyncio.fixture
 async def ai_turn_combat(db_session, sample_session, sample_character):
     """AI 回合用的最小战斗态。"""
@@ -920,6 +1011,167 @@ async def test_ai_fire_attack_offers_absorb_elements_and_reaction_restores_half_
     assert "pending_attack_reaction" not in ai_turn_combat.turn_states[sample_character.id]
 
 
+async def test_duplicate_absorb_elements_reaction_is_idempotent(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+    import api.combat.reactions as reactions
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Flame Imp"
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "damage_type": "fire",
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+
+    sample_character.char_class = "Wizard"
+    sample_character.level = 3
+    sample_character.hp_current = 12
+    sample_character.known_spells = ["鍚告敹鍏冪礌"]
+    sample_character.spell_slots = {"1st": 1}
+    sample_character.known_spells = ["Absorb Elements"]
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Fire Claw",
+            "reason": "test duplicate absorb elements",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 20,
+                "target_ac": 10,
+            },
+            damage=9,
+            damage_roll={"formula": "2d6", "rolls": [4, 5], "total": 9},
+            narration="hit",
+        )
+
+    async def fake_narrate_action(**kwargs):
+        return ""
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(reactions, "narrate_action", fake_narrate_action)
+
+    headers = await _auth_headers(client, sample_user)
+    prompt_response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+    assert prompt_response.status_code == 200, prompt_response.text
+    assert prompt_response.json()["target_new_hp"] == 3
+
+    payload = {
+        "reaction_type": "absorb_elements",
+        "target_id": enemy["id"],
+        "character_id": sample_character.id,
+    }
+    first = await client.post(f"/game/combat/{sample_session.id}/reaction", headers=headers, json=payload)
+    assert first.status_code == 200, first.text
+    assert first.json()["reaction_effect"]["hp_restored"] == 5
+
+    await db_session.refresh(sample_character)
+    hp_after_first = sample_character.hp_current
+    slots_after_first = dict(sample_character.spell_slots or {})
+
+    second = await client.post(f"/game/combat/{sample_session.id}/reaction", headers=headers, json=payload)
+    assert second.status_code == 200, second.text
+    second_body = second.json()
+    assert second_body["action"] == "reaction_already_resolved"
+    assert second_body["reaction_effect"]["already_resolved"] is True
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == hp_after_first == 8
+    assert sample_character.spell_slots == slots_after_first == {"1st": 0}
+
+
+async def test_declining_attack_reaction_clears_pending_reaction(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Flame Imp"
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "damage_type": "fire",
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+
+    sample_character.char_class = "Wizard"
+    sample_character.level = 3
+    sample_character.hp_current = 12
+    sample_character.known_spells = ["Absorb Elements"]
+    sample_character.spell_slots = {"1st": 1}
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Fire Claw",
+            "reason": "test decline attack reaction",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 20,
+                "target_ac": 10,
+            },
+            damage=9,
+            damage_roll={"formula": "2d6", "rolls": [4, 5], "total": 9},
+            narration="hit",
+        )
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+
+    headers = await _auth_headers(client, sample_user)
+    prompt_response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+    assert prompt_response.status_code == 200, prompt_response.text
+    assert prompt_response.json()["reaction_prompt"]["available_reactions"][0]["type"] == "absorb_elements"
+
+    decline = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={
+            "reaction_type": "decline",
+            "target_id": enemy["id"],
+            "character_id": sample_character.id,
+        },
+    )
+    assert decline.status_code == 200, decline.text
+    assert decline.json()["action"] == "reaction_declined"
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ai_turn_combat)
+    assert sample_character.hp_current == 3
+    assert sample_character.spell_slots == {"1st": 1}
+    assert "pending_attack_reaction" not in ai_turn_combat.turn_states[sample_character.id]
+
+
 async def test_absorb_elements_can_trigger_even_if_attack_drops_character_to_zero(
     client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):
@@ -1442,6 +1694,35 @@ async def test_condition_add_and_remove(client, db_session, sample_session, comb
         json={"entity_id": sample_character.id, "condition": "paralyzed", "is_enemy": False},
     )
     assert r.status_code == 200, r.text
+
+
+async def test_condition_add_respects_enemy_condition_immunity(client, db_session, sample_session, combat_state, sample_user):
+    headers = await _auth_headers(client, sample_user)
+    state = dict(sample_session.game_state or {})
+    state["enemies"] = [{
+        "id": "ooze-1",
+        "name": "Ooze",
+        "hp_current": 12,
+        "hp_max": 12,
+        "conditions": [],
+        "condition_immunities": ["paralyzed"],
+    }]
+    sample_session.game_state = state
+    await db_session.commit()
+
+    r = await client.post(
+        f"/game/combat/{sample_session.id}/condition/add",
+        headers=headers,
+        json={"entity_id": "ooze-1", "condition": "paralyzed", "is_enemy": True, "rounds": 3},
+    )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["immune"] is True
+    assert data["applied"] is False
+    assert data["conditions"] == []
+    await db_session.refresh(sample_session)
+    assert sample_session.game_state["enemies"][0]["conditions"] == []
 
 
 async def test_end_combat_clears_flag(client, sample_session, combat_state, db_session, sample_user):

@@ -538,7 +538,7 @@ describe('Combat render smoke', () => {
     fireEvent.click(getAttackSlot())
 
     await waitFor(() => {
-      expect(attackRollMock).toHaveBeenCalledWith('sess-1', 'guest-char', 'enemy-1', 'melee', false, 10)
+      expect(attackRollMock).toHaveBeenCalledWith('sess-1', 'guest-char', 'enemy-1', 'melee', false, 10, '2:1:guest-char')
     })
 
     await waitFor(() => {
@@ -612,7 +612,11 @@ describe('Combat render smoke', () => {
     window.dispatchEvent(new Event('user-changed'))
 
     roomsGetMock.mockResolvedValue(room)
-    getCombatMock.mockResolvedValueOnce(helpCombat).mockResolvedValue(helpedCombat)
+    getCombatMock.mockImplementation(() => (
+      combatActionMock.mock.calls.length
+        ? Promise.resolve(helpedCombat)
+        : Promise.resolve(helpCombat)
+    ))
     getSessionMock.mockResolvedValue(guestSession)
     getSkillBarMock.mockResolvedValue({
       bar: [
@@ -643,7 +647,7 @@ describe('Combat render smoke', () => {
     fireEvent.click(allyToken.closest('.iso-cell'))
 
     await waitFor(() => {
-      expect(combatActionMock).toHaveBeenCalledWith('sess-1', '协助', 'ally-char', false)
+      expect(combatActionMock).toHaveBeenCalledWith('sess-1', '协助', 'ally-char', false, false, '2:0:guest-char')
       expect(getCombatMock).toHaveBeenCalledTimes(2)
     })
   })

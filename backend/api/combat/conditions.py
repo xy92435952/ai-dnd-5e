@@ -45,6 +45,7 @@ from services.combat_concentration_effect_service import (
     clear_concentration_effects_for_caster,
     discard_condition_sources,
 )
+from services.combat_condition_immunity_service import is_condition_immune
 from services.combat_concentration_service import break_concentration_if_incapacitated
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -63,48 +64,62 @@ async def add_condition(
     state   = session.game_state or {}
 
     rounds_str = f"（{req.rounds}回合）" if req.rounds else "（永久）"
+    applied = True
+    immune = False
     if req.is_enemy:
         enemies = list(state.get("enemies", []))
         enemy = next((e for e in enemies if e["id"] == req.entity_id), None)
         if not enemy:
             raise HTTPException(404, f"敌人 {req.entity_id} 不存在")
         conditions = list(enemy.get("conditions", []))
-        if req.condition not in conditions:
-            conditions.append(req.condition)
-        if req.rounds is not None:
-            durations = dict(enemy.get("condition_durations", {}))
-            durations[req.condition] = req.rounds
-            enemy["condition_durations"] = durations
-        enemy["conditions"] = conditions
-        state["enemies"] = enemies
-        session.game_state = dict(state); flag_modified(session, "game_state")
+        immune = is_condition_immune(enemy, req.condition)
+        if immune:
+            applied = False
+        else:
+            if req.condition not in conditions:
+                conditions.append(req.condition)
+            if req.rounds is not None:
+                durations = dict(enemy.get("condition_durations", {}))
+                durations[req.condition] = req.rounds
+                enemy["condition_durations"] = durations
+            enemy["conditions"] = conditions
+            state["enemies"] = enemies
+            session.game_state = dict(state); flag_modified(session, "game_state")
     else:
         char = await db.get(Character, req.entity_id)
         if not char:
             raise HTTPException(404, "角色不存在")
         await assert_character_in_session(char, session, db)
         conditions = list(char.conditions or [])
-        if req.condition not in conditions:
-            conditions.append(req.condition)
-        char.conditions = conditions
-        if req.rounds is not None:
-            durations = dict(char.condition_durations or {})
-            durations[req.condition] = req.rounds
-            char.condition_durations = durations
-        concentration_log = break_concentration_if_incapacitated(char, session_id)
-        if concentration_log:
-            await clear_concentration_effects_for_caster(
-                db,
-                session,
-                char.id,
-                spell_name=(concentration_log.dice_result or {}).get("spell_name"),
-            )
-            db.add(concentration_log)
+        immune = is_condition_immune(char, req.condition)
+        if immune:
+            applied = False
+        else:
+            if req.condition not in conditions:
+                conditions.append(req.condition)
+            char.conditions = conditions
+            if req.rounds is not None:
+                durations = dict(char.condition_durations or {})
+                durations[req.condition] = req.rounds
+                char.condition_durations = durations
+            concentration_log = break_concentration_if_incapacitated(char, session_id)
+            if concentration_log:
+                await clear_concentration_effects_for_caster(
+                    db,
+                    session,
+                    char.id,
+                    spell_name=(concentration_log.dice_result or {}).get("spell_name"),
+                )
+                db.add(concentration_log)
 
     db.add(GameLog(
         session_id = session_id,
         role       = "system",
-        content    = f"🔴 {'敌人' if req.is_enemy else req.entity_id} 获得状态：{req.condition}{rounds_str}",
+        content    = (
+            f"🟡 {'敌人' if req.is_enemy else req.entity_id} 免疫状态：{req.condition}"
+            if immune
+            else f"🔴 {'敌人' if req.is_enemy else req.entity_id} 获得状态：{req.condition}{rounds_str}"
+        ),
         log_type   = "system",
     ))
     await db.commit()
@@ -117,7 +132,12 @@ async def add_condition(
             CombatUpdate(actor_id=req.entity_id, condition=req.condition, condition_action="add"),
             db=db,
         )
-    response = {"entity_id": req.entity_id, "conditions": conditions}
+    response = {
+        "entity_id": req.entity_id,
+        "conditions": conditions,
+        "applied": applied,
+        "immune": immune,
+    }
     if not req.is_enemy:
         response["concentration"] = char.concentration
         response["target_state"] = {

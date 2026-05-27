@@ -70,6 +70,11 @@ describe('useCombatSpellFlow', () => {
       setSelectedTarget,
       setCombatOver,
       showDice,
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'char-1', id: 'char-1' }],
+      },
     }))
 
     await act(async () => {
@@ -83,6 +88,7 @@ describe('useCombatSpellFlow', () => {
       1,
       'enemy-1',
       ['enemy-1'],
+      '1:0:char-1',
     )
     expect(addLog).toHaveBeenCalledWith({
       role: 'system',

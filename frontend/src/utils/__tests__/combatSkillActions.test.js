@@ -29,6 +29,7 @@ function makeHandler(overrides = {}) {
     handleDodge: vi.fn(),
     handleHealingPotion: vi.fn(),
     handleClassFeature: vi.fn(),
+    getTurnToken: vi.fn(() => '1:0:char-1'),
     ...overrides,
   }
   return {
@@ -124,7 +125,7 @@ describe('createCombatSkillClickHandler', () => {
 
     await handler({ k: 'off_attack', available: true })
 
-    expect(api.combatAction).toHaveBeenCalledWith('sess-1', '副手攻击', 'enemy-1', false)
+    expect(api.combatAction).toHaveBeenCalledWith('sess-1', '副手攻击', 'enemy-1', false, false, '1:0:char-1')
     expect(api.grappleShove).not.toHaveBeenCalled()
     expect(fns.setTurnState).toHaveBeenCalledWith(offhandTurnState)
     expect(fns.addLog).toHaveBeenCalledWith({
@@ -155,5 +156,17 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.setError).toHaveBeenCalledWith('请先选择目标')
     expect(api.combatAction).not.toHaveBeenCalled()
     expect(api.getCombat).not.toHaveBeenCalled()
+  })
+
+  it('reports computed unavailable reasons before routing a skill', async () => {
+    const { handler, fns, api } = makeHandler({
+      getUnavailableReason: vi.fn(() => '本回合动作已使用'),
+    })
+
+    await handler({ k: 'dodge', available: true })
+
+    expect(fns.setError).toHaveBeenCalledWith('本回合动作已使用')
+    expect(fns.handleDodge).not.toHaveBeenCalled()
+    expect(api.combatAction).not.toHaveBeenCalled()
   })
 })

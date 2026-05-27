@@ -19,6 +19,9 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
         "spell_slots": {"1st": 2, "2nd": 1},
         "spell_ability": "int",
         "spell_save_dc": 13,
+        "multiattack": 2,
+        "condition_immunities": ["charmed"],
+        "vulnerabilities": ["radiant"],
     })
 
     assert enemy["known_spells"] == ["Web"]
@@ -29,6 +32,10 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["spell_save_dc"] == 13
     assert enemy["concentration"] is None
     assert enemy["attack_bonus"] == 4
+    assert enemy["multiattack"] == 2
+    assert enemy["attacks_max"] == 2
+    assert enemy["condition_immunities"] == ["charmed"]
+    assert enemy["vulnerabilities"] == ["radiant"]
     assert enemy["derived"]["spell_ability"] == "int"
     assert enemy["derived"]["spell_save_dc"] == 13
     assert enemy["derived"]["ability_modifiers"]["int"] == 3

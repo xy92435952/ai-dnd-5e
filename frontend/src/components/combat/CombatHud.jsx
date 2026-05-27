@@ -57,8 +57,10 @@ export default function CombatHud({
           session={session}
           entities={entities}
           selectedTarget={selectedTarget}
+          turnState={turnState}
           onSkillClick={onSkillClick}
           isPlayerTurn={isPlayerTurn}
+          isProcessing={isProcessing}
           syncBlocked={syncBlocked}
         />
 

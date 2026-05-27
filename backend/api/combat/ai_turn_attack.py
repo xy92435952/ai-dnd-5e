@@ -106,6 +106,9 @@ async def handle_ai_attack_action(
     num_attacks = 1
     if achar:
         num_attacks = svc.get_attack_count(actor_derived, ai_level, ai_class)
+    elif is_enemy and e:
+        actor_ts = _get_ts(combat, actor_id)
+        num_attacks = max(1, int(actor_ts.get("attacks_max") or e.get("multiattack") or e.get("attacks_max") or 1))
 
     result_obj = None
     first_attack_roll = None

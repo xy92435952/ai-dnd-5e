@@ -9,6 +9,7 @@ from database import get_db
 from models import Character, CombatState, GameLog
 from api.deps import assert_can_act, assert_character_in_session, get_session_or_404, get_user_id
 from api.combat._shared import (
+    _assert_expected_turn_token,
     _DEFAULT_TS,
     _broadcast_combat,
     _get_ts,
@@ -67,6 +68,9 @@ async def spell_roll(
 
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat_obj = combat_result.scalars().first()
+    if not combat_obj:
+        raise HTTPException(404, "鎴樟枟鐘舵€佷笉瀛樺湪")
+    _assert_expected_turn_token(combat_obj, req.expected_turn_token, detail_prefix="Spell roll")
     try:
         prepared = await prepare_spell_roll(
             db,

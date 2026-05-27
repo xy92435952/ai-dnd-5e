@@ -53,7 +53,11 @@ describe('useCombatPlayerActions', () => {
     const deps = {
       sessionId: 'sess-1',
       playerId: 'char-1',
-      combat: { round_number: 1 },
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'char-1', id: 'char-1' }],
+      },
       isProcessing: false,
       isPlayerTurn: vi.fn(() => true),
       processingRef,
@@ -90,7 +94,7 @@ describe('useCombatPlayerActions', () => {
       await result.current.handleDodge()
     })
 
-    expect(combatActionMock).toHaveBeenCalledWith('sess-1', '闪避', null, false)
+    expect(combatActionMock).toHaveBeenCalledWith('sess-1', '闪避', null, false, false, '1:0:char-1')
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true, dodging: true })
     expect(deps.addLog).toHaveBeenCalledWith({
       role: 'player',

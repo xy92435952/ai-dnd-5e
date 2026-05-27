@@ -30,6 +30,7 @@ from services.combat_movement_rules_service import (
 )
 
 from api.combat._shared import (
+    _assert_expected_turn_token,
     _DEFAULT_TS, svc,
     _get_ts, _save_ts, _reset_ts,
     _broadcast_combat, _calc_entity_turn_limits,
@@ -65,6 +66,8 @@ async def combat_move(
     combat = combat_result.scalars().first()
     if not combat:
         raise HTTPException(404, "战斗状态不存在")
+
+    _assert_expected_turn_token(combat, req.expected_turn_token, detail_prefix="Move")
 
     if not (0 <= req.to_x < 20 and 0 <= req.to_y < 12):
         raise HTTPException(400, "目标格子超出地图范围（20×12）")

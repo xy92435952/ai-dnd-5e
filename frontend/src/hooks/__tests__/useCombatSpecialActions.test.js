@@ -110,6 +110,19 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('ignores duplicate reaction clicks while one is in flight', async () => {
+    const { result, deps, processingRef } = renderActions()
+    processingRef.current = true
+
+    await act(async () => {
+      await result.current.handleReaction('hellish_rebuke', 'enemy-1', 'char-2')
+    })
+
+    expect(useReactionMock).not.toHaveBeenCalled()
+    expect(rollDice3DMock).not.toHaveBeenCalled()
+    expect(deps.setReactionPrompt).not.toHaveBeenCalledWith(null)
+  })
+
   it('declines spell reactions on the server before resuming ai turns', async () => {
     const { result, deps } = renderActions()
 
@@ -126,14 +139,18 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
-  it('local-cancels attack reactions and resumes ai turns without a server call', async () => {
+  it('declines attack reactions on the server so refresh does not restore stale prompts', async () => {
     const { result, deps } = renderActions()
 
     await act(async () => {
-      await result.current.handleCancelReaction({ trigger: 'incoming_attack' })
+      await result.current.handleCancelReaction({
+        trigger: 'incoming_attack',
+        attacker_id: 'enemy-1',
+        reactor_character_id: 'char-2',
+      })
     })
 
-    expect(useReactionMock).not.toHaveBeenCalled()
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'enemy-1', 'char-2')
     expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })

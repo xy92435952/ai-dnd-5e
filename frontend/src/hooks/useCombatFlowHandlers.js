@@ -90,6 +90,7 @@ export function useCombatFlowHandlers({
     setPlayerSubclass,
     setPlayerSubclassEffects,
     setTurnState,
+    setReactionPrompt,
     setLogs,
     setInitiativeShown,
     setError,
@@ -157,6 +158,7 @@ export function useCombatFlowHandlers({
     setSelectedTarget,
     setCombatOver,
     showDice,
+    combat,
   })
 
   const handleDeathSave = useCombatDeathSave({

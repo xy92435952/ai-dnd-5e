@@ -9,6 +9,7 @@ const SPELL_SHORTCUT_NAMES = {
 export function createCombatSkillClickHandler({
   getIsProcessing,
   getIsPlayerTurn,
+  getUnavailableReason = () => '',
   getSelectedTarget,
   setError,
   handleAttack,
@@ -25,8 +26,14 @@ export function createCombatSkillClickHandler({
   handleDodge,
   handleHealingPotion,
   handleClassFeature,
+  getTurnToken = () => null,
 }) {
   return async function onSkillClick(skill) {
+    const blockedReason = getUnavailableReason(skill)
+    if (blockedReason) {
+      setError(blockedReason)
+      return
+    }
     if (!skill.available || getIsProcessing() || !getIsPlayerTurn()) return
 
     try {
@@ -72,7 +79,7 @@ export function createCombatSkillClickHandler({
         case 'off_attack':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }
           {
-            const result = await gameApi.combatAction(sessionId, '副手攻击', getSelectedTarget(), false)
+            const result = await gameApi.combatAction(sessionId, '副手攻击', getSelectedTarget(), false, false, getTurnToken?.())
             if (result?.turn_state) setTurnState?.(result.turn_state)
             if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
           }

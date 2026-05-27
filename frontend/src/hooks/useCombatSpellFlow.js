@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyActionResultEntityStates, parseDiceNotation } from '../utils/combat'
+import { applyActionResultEntityStates, getCombatTurnToken, parseDiceNotation } from '../utils/combat'
 
 export function useCombatSpellFlow({
   sessionId,
@@ -20,6 +20,7 @@ export function useCombatSpellFlow({
   setSelectedTarget,
   setCombatOver,
   showDice,
+  combat,
 }) {
   return useCallback(async (spell, level) => {
     if (!playerId || !canActThisTurn || isProcessing) return
@@ -40,7 +41,7 @@ export function useCombatSpellFlow({
       const targetIds = Array.isArray(effectiveTarget) ? effectiveTarget : (effectiveTarget ? [effectiveTarget] : [])
       const rollResult = await gameApi.spellRoll(
         sessionId, playerId, spell.name, level,
-        targetIds[0] || null, targetIds,
+        targetIds[0] || null, targetIds, getCombatTurnToken(combat),
       )
 
       if (rollResult.turn_state) setTurnState(rollResult.turn_state)
@@ -124,6 +125,7 @@ export function useCombatSpellFlow({
   }, [
     addLog,
     canActThisTurn,
+    combat,
     isProcessing,
     playerId,
     processingRef,

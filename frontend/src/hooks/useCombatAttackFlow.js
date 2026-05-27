@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
-import { applyActionResultEntityStates, parseDiceNotation } from '../utils/combat'
+import { applyActionResultEntityStates, getCombatTurnToken, parseDiceNotation } from '../utils/combat'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 
 function ignoreOptionalEffect(fn) {
@@ -43,7 +43,7 @@ export function useCombatAttackFlow({
 
       const atkResult = await gameApi.attackRoll(
         sessionId, playerId, selectedTarget,
-        isRanged ? 'ranged' : 'melee', false, d20,
+        isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat),
       )
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)

@@ -11,8 +11,29 @@ class CombatSpellRollError(Exception):
         return self.detail
 
 
-def validate_spell_turn_state(turn_state: dict, *, is_cantrip: bool) -> dict:
-    if turn_state.get("action_used") and not is_cantrip:
+def spell_action_cost(spell: dict | None) -> str:
+    casting_time = str((spell or {}).get("casting_time") or "action").lower()
+    if "bonus" in casting_time:
+        return "bonus"
+    if "reaction" in casting_time:
+        return "reaction"
+    return "action"
+
+
+def validate_spell_turn_state(
+    turn_state: dict,
+    *,
+    is_cantrip: bool = False,
+    action_cost: str = "action",
+) -> dict:
+    del is_cantrip  # Cantrips still consume their normal casting action.
+    if action_cost == "reaction":
+        raise CombatSpellRollError(400, "反应法术必须由反应触发")
+    if action_cost == "bonus":
+        if turn_state.get("bonus_action_used"):
+            raise CombatSpellRollError(400, "本回合附赠动作已用尽")
+        return turn_state
+    if turn_state.get("action_used"):
         raise CombatSpellRollError(400, "本回合行动已用尽")
     return turn_state
 

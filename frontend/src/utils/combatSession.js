@@ -15,6 +15,7 @@ export function applyCombatSessionSnapshot({
   setPlayerSubclass,
   setPlayerSubclassEffects,
   setTurnState,
+  setReactionPrompt,
   setLogs,
 }) {
   setCombat(combatData)
@@ -33,7 +34,12 @@ export function applyCombatSessionSnapshot({
   if (player?.subclass) setPlayerSubclass(player.subclass)
   if (player?.derived?.subclass_effects) setPlayerSubclassEffects(player.derived.subclass_effects)
 
-  if (playerId) setTurnState(getPlayerTurnState(combatData, playerId))
+  if (playerId) {
+    const playerTurnState = getPlayerTurnState(combatData, playerId)
+    setTurnState(playerTurnState)
+    const pendingReaction = getPendingReactionPrompt(playerTurnState, playerId)
+    if (setReactionPrompt) setReactionPrompt(pendingReaction)
+  }
 
   const combatLogs = (sessionData?.logs || []).filter(l =>
     l.log_type === 'combat' || l.log_type === 'system'
@@ -44,4 +50,26 @@ export function applyCombatSessionSnapshot({
     playerId,
     playerEntry: (combatData?.turn_order || []).find(t => t.character_id === playerId),
   }
+}
+
+export function getPendingReactionPrompt(turnState, playerId) {
+  if (!turnState || !playerId || turnState.reaction_used) return null
+
+  const attackReaction = turnState.pending_attack_reaction
+  if (attackReaction?.trigger === 'incoming_attack') {
+    return {
+      ...attackReaction,
+      reactor_character_id: attackReaction.reactor_character_id || playerId,
+    }
+  }
+
+  const spellReaction = turnState.pending_spell_reaction
+  if (spellReaction?.trigger === 'spell_cast') {
+    return {
+      ...spellReaction,
+      reactor_character_id: spellReaction.reactor_character_id || playerId,
+    }
+  }
+
+  return null
 }
