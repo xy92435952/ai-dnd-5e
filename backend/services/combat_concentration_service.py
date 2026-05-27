@@ -33,6 +33,7 @@ def break_concentration_if_incapacitated(
             "automatic": True,
             "reason": "incapacitated",
             "reasons": reasons,
+            "spell_name": spell_name,
         },
     )
 
@@ -99,6 +100,7 @@ async def do_concentration_check(
             "type": "concentration",
             "dc": check["dc"],
             "broke": check["broke"],
+            "spell_name": spell_name,
             **roll_result,
         },
     )

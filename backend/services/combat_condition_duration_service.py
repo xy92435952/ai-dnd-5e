@@ -1,5 +1,7 @@
 from typing import Any
 
+from services.combat_concentration_effect_service import discard_condition_sources
+
 
 def tick_character_conditions(char) -> list[str]:
     """回合开始时递减角色状态持续时间，到期自动移除。返回已移除的条件列表。"""
@@ -12,6 +14,7 @@ def tick_character_conditions(char) -> list[str]:
         if durations[condition] <= 0:
             durations.pop(condition)
             conditions = [current for current in conditions if current != condition]
+            discard_condition_sources(char, condition)
             removed.append(condition)
 
     char.condition_durations = durations
@@ -30,6 +33,7 @@ def tick_enemy_conditions(enemy: dict[str, Any]) -> list[str]:
         if durations[condition] <= 0:
             durations.pop(condition)
             conditions = [current for current in conditions if current != condition]
+            discard_condition_sources(enemy, condition)
             removed.append(condition)
 
     enemy["condition_durations"] = durations

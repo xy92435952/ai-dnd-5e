@@ -5,6 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import GameLog
 from services.combat_pending_spell_service import complete_pending_spell
+from services.combat_concentration_effect_service import set_concentration_with_cleanup
 from services.combat_service import CombatService
 from services.combat_spell_application_service import apply_confirmed_spell_effects
 from services.combat_spell_resolution_service import (
@@ -90,10 +91,20 @@ async def confirm_pending_spell(
     )
     caster.spell_slots = new_slots
 
+    if spell.get("concentration"):
+        await set_concentration_with_cleanup(
+            db,
+            session,
+            caster,
+            spell_name,
+            caster_id=caster_entity_id,
+        )
+
     spell_context = build_spell_resolution_context(caster.derived)
     spell_application = await apply_confirmed_spell_effects(
         db,
         session_id=session_id,
+        caster_id=caster_entity_id,
         enemies=enemies,
         target_ids=target_ids,
         is_aoe=is_aoe,
@@ -113,9 +124,6 @@ async def confirm_pending_spell(
         if session is not None:
             session.game_state = dict(state)
             flag_modified_func(session, "game_state")
-
-    if spell.get("concentration"):
-        caster.concentration = spell_name
 
     mechanical_narration = build_spell_mechanical_narration(
         caster_name=caster.name,

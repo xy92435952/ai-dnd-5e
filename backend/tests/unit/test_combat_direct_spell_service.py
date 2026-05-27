@@ -310,6 +310,84 @@ async def test_cast_direct_aoe_control_defaults_to_alive_enemies():
 
 
 @pytest.mark.asyncio
+async def test_cast_direct_concentration_spell_clears_previous_tracked_effects():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class AoeControlSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "name_en": "Web" if name == "Web" else "Bless",
+                "level": 2 if name == "Web" else 1,
+                "type": "utility",
+                "aoe": name == "Web",
+                "condition": "restrained" if name == "Web" else "blessed",
+                "save": None,
+                "concentration": True,
+                "duration_rounds": 600 if name == "Web" else 10,
+            }
+
+        def consume_slot(self, slots, spell_level):
+            slots = dict(slots)
+            key = "2nd" if spell_level == 2 else "1st"
+            slots[key] = slots.get(key, 0) - 1
+            return slots, None
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 1, "2nd": 1}
+
+    web = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="Web",
+        spell_level=2,
+        target_id=None,
+        target_ids=[],
+        spell_service_obj=AoeControlSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert [item["target_id"] for item in web.aoe_results] == ["goblin-1", "orc-1"]
+    assert session.game_state["enemies"][0]["conditions"] == ["restrained"]
+    assert session.game_state["enemies"][0]["condition_sources"]["restrained"][0]["caster_id"] == "caster-1"
+    assert caster.concentration == "Web"
+
+    combat.turn_states["caster-1"]["action_used"] = False
+    bless = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=session,
+        combat_obj=combat,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="Bless",
+        spell_level=1,
+        target_id="goblin-1",
+        target_ids=None,
+        spell_service_obj=AoeControlSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert bless.target_state["conditions"] == ["blessed"]
+    assert session.game_state["enemies"][0]["conditions"] == ["blessed"]
+    assert session.game_state["enemies"][0]["condition_durations"] == {"blessed": 10}
+    assert "condition_sources" in session.game_state["enemies"][0]
+    assert "restrained" not in session.game_state["enemies"][0]["condition_sources"]
+    assert session.game_state["enemies"][2].get("conditions", []) == []
+    assert caster.concentration == "Bless"
+
+
+@pytest.mark.asyncio
 async def test_cast_direct_armor_of_agathys_defaults_to_self_target():
     from services.combat_direct_spell_service import cast_direct_spell
 

@@ -105,6 +105,7 @@ async def _build_combat_snapshot(
             "hp_max": hp_max,
             "ac": ac,
             "conditions": enemy.get("conditions", []),
+            "condition_durations": enemy.get("condition_durations", {}),
             "derived": {**derived, "hp_max": hp_max, "ac": ac},
         }
 

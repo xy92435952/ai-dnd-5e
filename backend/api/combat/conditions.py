@@ -41,6 +41,10 @@ from api.combat.schemas import (
 )
 from schemas.combat_responses import ConditionUpdateResult
 from schemas.ws_events import CombatUpdate
+from services.combat_concentration_effect_service import (
+    clear_concentration_effects_for_caster,
+    discard_condition_sources,
+)
 from services.combat_concentration_service import break_concentration_if_incapacitated
 
 router = APIRouter(prefix="/game", tags=["combat"])
@@ -89,6 +93,12 @@ async def add_condition(
             char.condition_durations = durations
         concentration_log = break_concentration_if_incapacitated(char, session_id)
         if concentration_log:
+            await clear_concentration_effects_for_caster(
+                db,
+                session,
+                char.id,
+                spell_name=(concentration_log.dice_result or {}).get("spell_name"),
+            )
             db.add(concentration_log)
 
     db.add(GameLog(
@@ -139,6 +149,7 @@ async def remove_condition(
             raise HTTPException(404, f"敌人 {req.entity_id} 不存在")
         conditions = [c for c in enemy.get("conditions", []) if c != req.condition]
         enemy["conditions"] = conditions
+        discard_condition_sources(enemy, req.condition)
         state["enemies"] = enemies
         session.game_state = dict(state); flag_modified(session, "game_state")
     else:
@@ -148,6 +159,7 @@ async def remove_condition(
         await assert_character_in_session(char, session, db)
         conditions = [c for c in (char.conditions or []) if c != req.condition]
         char.conditions = conditions
+        discard_condition_sources(char, req.condition)
 
     db.add(GameLog(
         session_id = session_id,

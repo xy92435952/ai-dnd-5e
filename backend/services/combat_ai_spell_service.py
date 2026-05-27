@@ -3,6 +3,7 @@ from typing import Any, Callable
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
+from services.combat_concentration_effect_service import set_concentration_with_cleanup
 from services.combat_ai_spell_damage_service import (
     apply_ai_damage_spell as _apply_ai_damage_spell,
     damage_after_ai_enemy_save as _damage_after_ai_enemy_save,
@@ -74,6 +75,15 @@ async def resolve_ai_spell_action(
         if not consume_ai_spell_slot(caster, spell_level):
             return None
 
+    if spell_data.get("concentration") and caster:
+        await set_concentration_with_cleanup(
+            db,
+            session,
+            caster,
+            spell_name,
+            caster_id=getattr(caster, "id", None),
+        )
+
     resolution = AiSpellResolution(
         spell_name=spell_name,
         spell_level=spell_level,
@@ -115,12 +125,10 @@ async def resolve_ai_spell_action(
             enemies=enemies,
             spell_save_dc=spell_save_dc,
             state=state,
+            caster_id=getattr(caster, "id", None) if caster else None,
             flag_modified_func=flag_modified_func,
             roll_dice_func=roll_dice_func,
         )
-
-    if spell_data.get("concentration") and caster:
-        caster.concentration = spell_name
 
     resolution.mechanical_narration = build_ai_spell_narration(
         actor_name=actor_name,

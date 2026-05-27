@@ -6,6 +6,7 @@ from models import Character, GameLog
 from services.character_roster import CharacterRoster
 from services.combat_action_rules_service import can_take_reaction
 from services.combat_concentration_service import do_concentration_check
+from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_grid_service import chebyshev_distance
@@ -112,6 +113,12 @@ async def resolve_opportunity_attacks(
                         session.id,
                     )
                     if concentration_log:
+                        await clear_concentration_effects_for_caster(
+                            db,
+                            session,
+                            moving_char.id,
+                            spell_name=(concentration_log.dice_result or {}).get("spell_name"),
+                        )
                         db.add(concentration_log)
                     retaliation = apply_armor_of_agathys_retaliation_to_enemy(
                         defender=moving_char,

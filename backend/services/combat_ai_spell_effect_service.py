@@ -3,6 +3,7 @@ from typing import Any, Callable
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
+from services.combat_concentration_effect_service import track_concentration_condition
 from services.combat_ai_spell_models import AiSpellResolution, CONTROL_CONDITION_MAP
 from services.combat_spell_effect_service import (
     resolve_spell_condition,
@@ -45,6 +46,7 @@ async def apply_ai_control_spell(
     enemies: list[dict[str, Any]],
     spell_save_dc: int,
     state: dict[str, Any],
+    caster_id: str | None = None,
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     roll_dice_func: Callable[[str], dict[str, Any]] = roll_dice,
 ) -> None:
@@ -73,13 +75,26 @@ async def apply_ai_control_spell(
         saved = bool(save_detail and save_detail["success"])
         if not saved:
             conditions = target_enemy.get("conditions", [])
+            condition_preexisting = condition in conditions
+            durations = dict(target_enemy.get("condition_durations", {}))
+            had_previous_duration = condition in durations
+            previous_duration = durations.get(condition)
             if condition not in conditions:
                 conditions.append(condition)
                 target_enemy["conditions"] = conditions
             if duration_rounds is not None:
-                durations = dict(target_enemy.get("condition_durations", {}))
                 durations[condition] = duration_rounds
                 target_enemy["condition_durations"] = durations
+            if resolution.spell_data.get("concentration"):
+                track_concentration_condition(
+                    target_enemy,
+                    condition,
+                    caster_id=caster_id,
+                    spell_name=resolution.spell_name,
+                    condition_preexisting=condition_preexisting,
+                    previous_duration=previous_duration,
+                    had_previous_duration=had_previous_duration,
+                )
             enemy_hp = target_enemy.get("hp_current")
             resolution.target_state = {
                 "target_id": resolution.spell_target,
@@ -117,13 +132,26 @@ async def apply_ai_control_spell(
         saved = bool(save_detail and save_detail["success"])
         if not saved:
             conditions = list(target_character.conditions or [])
+            condition_preexisting = condition in conditions
+            durations = dict(target_character.condition_durations or {})
+            had_previous_duration = condition in durations
+            previous_duration = durations.get(condition)
             if condition not in conditions:
                 conditions.append(condition)
                 target_character.conditions = conditions
             if duration_rounds is not None:
-                durations = dict(target_character.condition_durations or {})
                 durations[condition] = duration_rounds
                 target_character.condition_durations = durations
+            if resolution.spell_data.get("concentration"):
+                track_concentration_condition(
+                    target_character,
+                    condition,
+                    caster_id=caster_id,
+                    spell_name=resolution.spell_name,
+                    condition_preexisting=condition_preexisting,
+                    previous_duration=previous_duration,
+                    had_previous_duration=had_previous_duration,
+                )
             resolution.target_state = {
                 "target_id": resolution.spell_target,
                 "target_name": target_character.name,

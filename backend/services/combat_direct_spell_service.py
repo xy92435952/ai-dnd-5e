@@ -5,6 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from services.character_roster import CharacterRoster
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_concentration_effect_service import set_concentration_with_cleanup
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.combat_service import CombatService
 from services.combat_spell_application_service import apply_confirmed_spell_effects
@@ -151,6 +152,15 @@ async def cast_direct_spell(
         raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
     caster.spell_slots = new_slots
 
+    if spell.get("concentration"):
+        await set_concentration_with_cleanup(
+            db,
+            session,
+            caster,
+            spell_name,
+            caster_id=caster_id,
+        )
+
     result_damage = 0
     result_heal = 0
     dice_detail: dict[str, Any] = {}
@@ -170,6 +180,7 @@ async def cast_direct_spell(
         spell_application = await apply_confirmed_spell_effects(
             db,
             session_id=session_id,
+            caster_id=caster_id,
             enemies=enemies,
             target_ids=resolved_target_ids,
             is_aoe=is_aoe,
@@ -196,9 +207,6 @@ async def cast_direct_spell(
             state["enemies"] = enemies
             session.game_state = dict(state)
             flag_modified_func(session, "game_state")
-
-    if spell.get("concentration"):
-        caster.concentration = spell_name
 
     narration = build_spell_mechanical_narration(
         caster_name=caster.name,

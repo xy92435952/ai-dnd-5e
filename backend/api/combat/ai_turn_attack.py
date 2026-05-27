@@ -20,6 +20,7 @@ from services.combat_ai_attack_service import (
     target_conditions,
 )
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_movement_rules_service import (
     MovementRuleError,
@@ -438,6 +439,13 @@ async def handle_ai_attack_action(
         tchar_conc = await db.get(Character, target_id)
         if tchar_conc:
             conc_log = await _do_concentration_check(tchar_conc, total_damage, session_id)
+            if conc_log and conc_log.dice_result and conc_log.dice_result.get("broke"):
+                await clear_concentration_effects_for_caster(
+                    db,
+                    session,
+                    tchar_conc.id,
+                    spell_name=conc_log.dice_result.get("spell_name"),
+                )
 
     ai_tick_logs = tick_ai_actor_conditions(
         session_id=session_id,

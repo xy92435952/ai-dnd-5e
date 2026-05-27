@@ -7,6 +7,7 @@ from typing import Any, Callable
 from models import Character
 from services.character_roster import CharacterRoster
 from services.combat_concentration_service import do_concentration_check
+from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
 from services.combat_damage_bonus_service import (
     DamageExtraResult,
     PendingDamageRoll,
@@ -217,6 +218,18 @@ async def apply_attack_damage_to_target(
     )
     damage_result = apply_character_damage(target_character, damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, damage, session_id)
+    if (
+        session is not None
+        and concentration_log
+        and concentration_log.dice_result
+        and concentration_log.dice_result.get("broke")
+    ):
+        await clear_concentration_effects_for_caster(
+            db,
+            session,
+            target_character.id,
+            spell_name=concentration_log.dice_result.get("spell_name"),
+        )
     target_state = build_character_target_state(target_character)
     temporary_hp_involved = (
         damage_result["temporary_hp_before"]

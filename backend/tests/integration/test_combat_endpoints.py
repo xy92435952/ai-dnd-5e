@@ -78,6 +78,33 @@ async def test_get_combat_state_returns_entities(client, sample_session, combat_
     assert len(data["entities"]) == 2
 
 
+async def test_get_combat_state_includes_enemy_condition_durations(
+    client, db_session, sample_session, combat_state, sample_user,
+):
+    """Enemy duration metadata must reach combat clients with the entity snapshot."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    state = dict(sample_session.game_state or {})
+    enemies = list(state.get("enemies") or [])
+    enemies[0] = {
+        **enemies[0],
+        "conditions": ["restrained"],
+        "condition_durations": {"restrained": 2},
+    }
+    state["enemies"] = enemies
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+
+    assert r.status_code == 200, r.text
+    enemy = r.json()["entities"]["goblin-1"]
+    assert enemy["conditions"] == ["restrained"]
+    assert enemy["condition_durations"] == {"restrained": 2}
+
+
 async def test_get_skill_bar(client, sample_session, combat_state, sample_user, sample_character):
     """GET /game/combat/{id}/skill-bar — info.py 模块。"""
     headers = await _auth_headers(client, sample_user)

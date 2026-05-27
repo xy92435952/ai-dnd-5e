@@ -572,3 +572,139 @@ async def test_apply_control_spell_to_character_breaks_concentration_when_incapa
     assert result["target_state"]["life_state"] == "alive"
     assert result["concentration_log"].dice_result["automatic"] is True
     assert result["concentration_log"].dice_result["reasons"] == ["paralyzed"]
+
+
+def test_concentration_condition_sources_clear_only_matching_caster():
+    from services.combat_concentration_effect_service import (
+        clear_concentration_sources_from_target,
+        track_concentration_condition,
+    )
+
+    enemy = {
+        "id": "goblin-1",
+        "conditions": ["restrained", "blessed"],
+        "condition_durations": {"restrained": 600, "blessed": 10},
+    }
+    track_concentration_condition(
+        enemy,
+        "restrained",
+        caster_id="caster-a",
+        spell_name="Web",
+        condition_preexisting=True,
+        previous_duration=3,
+        had_previous_duration=True,
+    )
+    track_concentration_condition(
+        enemy,
+        "blessed",
+        caster_id="caster-b",
+        spell_name="Bless",
+        condition_preexisting=False,
+    )
+
+    removed = clear_concentration_sources_from_target(
+        enemy,
+        caster_id="caster-a",
+        spell_name="Web",
+    )
+
+    assert removed == []
+    assert enemy["conditions"] == ["restrained", "blessed"]
+    assert enemy["condition_durations"]["restrained"] == 3
+    assert enemy["condition_durations"]["blessed"] == 10
+    assert "restrained" not in enemy["condition_sources"]
+    assert enemy["condition_sources"]["blessed"][0]["caster_id"] == "caster-b"
+
+
+def test_concentration_condition_sources_remove_added_condition():
+    from services.combat_concentration_effect_service import (
+        clear_concentration_sources_from_target,
+        track_concentration_condition,
+    )
+
+    enemy = {
+        "id": "goblin-1",
+        "conditions": ["restrained", "poisoned"],
+        "condition_durations": {"restrained": 600, "poisoned": 4},
+    }
+    track_concentration_condition(
+        enemy,
+        "restrained",
+        caster_id="caster-a",
+        spell_name="Web",
+        condition_preexisting=False,
+    )
+
+    removed = clear_concentration_sources_from_target(
+        enemy,
+        caster_id="caster-a",
+        spell_name="Web",
+    )
+
+    assert removed == ["restrained"]
+    assert enemy["conditions"] == ["poisoned"]
+    assert enemy["condition_durations"] == {"poisoned": 4}
+    assert "condition_sources" not in enemy
+
+
+async def test_spell_damage_breaking_concentration_clears_tracked_enemy_effect(
+    db_session,
+    sample_session,
+    sample_character,
+    monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from services.combat_concentration_effect_service import track_concentration_condition
+    from services.combat_spell_effect_service import apply_spell_damage_to_target
+
+    enemy = {
+        "id": "goblin-1",
+        "name": "Goblin",
+        "hp_current": 7,
+        "conditions": ["restrained"],
+        "condition_durations": {"restrained": 600},
+        "derived": {"hp_max": 7},
+    }
+    track_concentration_condition(
+        enemy,
+        "restrained",
+        caster_id=sample_character.id,
+        spell_name="Web",
+        condition_preexisting=False,
+    )
+    sample_session.game_state = {
+        **(sample_session.game_state or {}),
+        "enemies": [enemy],
+    }
+    flag_modified(sample_session, "game_state")
+    sample_character.concentration = "Web"
+    sample_character.hp_current = 12
+    sample_character.conditions = []
+    sample_character.condition_durations = {}
+    await db_session.commit()
+
+    monkeypatch.setattr(
+        "services.combat_concentration_service.svc.check_concentration",
+        lambda **_kwargs: {
+            "spell_name": "Web",
+            "dc": 10,
+            "broke": True,
+            "roll_result": {"d20": 1, "modifier": 2, "total": 3},
+        },
+    )
+
+    _result, conc_log = await apply_spell_damage_to_target(
+        db_session,
+        sample_session.id,
+        [],
+        sample_character.id,
+        4,
+        session=sample_session,
+    )
+
+    assert conc_log.dice_result["broke"] is True
+    assert sample_character.concentration is None
+    assert sample_session.game_state["enemies"][0]["conditions"] == []
+    assert sample_session.game_state["enemies"][0]["condition_durations"] == {}
+    assert "condition_sources" not in sample_session.game_state["enemies"][0]

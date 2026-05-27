@@ -42,6 +42,7 @@ async def apply_confirmed_spell_effects(
     db,
     *,
     session_id: str,
+    caster_id: str | None = None,
     enemies: list[dict[str, Any]],
     target_ids: list[str],
     is_aoe: bool,
@@ -53,6 +54,7 @@ async def apply_confirmed_spell_effects(
     spell: dict[str, Any],
     damage_values: list[int] | None,
     spell_save_dc: int,
+    session=None,
     resolve_damage: Callable[[str, int, int], tuple[int, dict]],
     resolve_heal: Callable[[str, int, int, bool], tuple[int, dict]],
 ) -> SpellApplicationResult:
@@ -115,6 +117,7 @@ async def apply_confirmed_spell_effects(
                     spell_name=spell_name,
                     spell=spell,
                     damage_components=save_components,
+                    session=session,
                 )
                 if applied:
                     applied.update({
@@ -142,6 +145,9 @@ async def apply_confirmed_spell_effects(
                     save_ability=save_ability,
                     spell_save_dc=spell_save_dc,
                     duration_rounds=duration_rounds,
+                    caster_id=caster_id,
+                    spell_name=spell_name,
+                    is_concentration=bool(spell.get("concentration")),
                 )
                 if result.save_detail is None and control_result.get("save_detail"):
                     result.save_detail = control_result["save_detail"]
@@ -223,6 +229,7 @@ async def apply_confirmed_spell_effects(
             spell_name=spell_name,
             spell=spell,
             damage_components=save_components,
+            session=session,
         )
         if applied:
             applied.update({
@@ -283,6 +290,9 @@ async def apply_confirmed_spell_effects(
             save_ability=save_ability,
             spell_save_dc=spell_save_dc,
             duration_rounds=duration_rounds,
+            caster_id=caster_id,
+            spell_name=spell_name,
+            is_concentration=bool(spell.get("concentration")),
         )
         result.save_detail = control_result["save_detail"]
         result.target_state = control_result.get("target_state")

@@ -7,6 +7,10 @@ from typing import Any
 from models import Character
 from services.combat_concentration_service import do_concentration_check
 from services.combat_concentration_service import break_concentration_if_incapacitated
+from services.combat_concentration_effect_service import (
+    clear_concentration_effects_for_caster,
+    track_concentration_condition,
+)
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
 from services.combat_spell_damage_component_service import (
@@ -179,30 +183,64 @@ def _apply_condition_to_enemy(
     enemy: dict[str, Any],
     condition_name: str,
     duration_rounds: int | None,
+    *,
+    caster_id: str | None = None,
+    spell_name: str | None = None,
+    is_concentration: bool = False,
 ) -> None:
     conditions = list(enemy.get("conditions", []))
+    condition_preexisting = condition_name in conditions
+    durations = dict(enemy.get("condition_durations", {}))
+    had_previous_duration = condition_name in durations
+    previous_duration = durations.get(condition_name)
     if condition_name not in conditions:
         conditions.append(condition_name)
     enemy["conditions"] = conditions
     if duration_rounds is not None:
-        durations = dict(enemy.get("condition_durations", {}))
         durations[condition_name] = duration_rounds
         enemy["condition_durations"] = durations
+    if is_concentration:
+        track_concentration_condition(
+            enemy,
+            condition_name,
+            caster_id=caster_id,
+            spell_name=spell_name,
+            condition_preexisting=condition_preexisting,
+            previous_duration=previous_duration,
+            had_previous_duration=had_previous_duration,
+        )
 
 
 def _apply_condition_to_character(
     character,
     condition_name: str,
     duration_rounds: int | None,
+    *,
+    caster_id: str | None = None,
+    spell_name: str | None = None,
+    is_concentration: bool = False,
 ) -> None:
     conditions = list(character.conditions or [])
+    condition_preexisting = condition_name in conditions
+    durations = dict(character.condition_durations or {})
+    had_previous_duration = condition_name in durations
+    previous_duration = durations.get(condition_name)
     if condition_name not in conditions:
         conditions.append(condition_name)
     character.conditions = conditions
     if duration_rounds is not None:
-        durations = dict(character.condition_durations or {})
         durations[condition_name] = duration_rounds
         character.condition_durations = durations
+    if is_concentration:
+        track_concentration_condition(
+            character,
+            condition_name,
+            caster_id=caster_id,
+            spell_name=spell_name,
+            condition_preexisting=condition_preexisting,
+            previous_duration=previous_duration,
+            had_previous_duration=had_previous_duration,
+        )
 
 
 def _is_guiding_bolt(spell_name: str | None) -> bool:
@@ -323,6 +361,7 @@ async def apply_spell_damage_to_target(
     spell_name: str | None = None,
     spell: dict[str, Any] | None = None,
     damage_components: list[dict[str, Any]] | None = None,
+    session=None,
 ):
     """Apply spell damage to an enemy dict or Character and return response result plus conc log."""
     damage_type = resolve_spell_damage_type(spell_name, spell)
@@ -400,6 +439,18 @@ async def apply_spell_damage_to_target(
         )
     damage_result = apply_character_damage(target_character, applied_damage, is_critical=is_critical)
     concentration_log = await do_concentration_check(target_character, applied_damage, session_id)
+    if (
+        session is not None
+        and concentration_log
+        and concentration_log.dice_result
+        and concentration_log.dice_result.get("broke")
+    ):
+        await clear_concentration_effects_for_caster(
+            db,
+            session,
+            target_character.id,
+            spell_name=concentration_log.dice_result.get("spell_name"),
+        )
     if _is_guiding_bolt(spell_name):
         _apply_condition_to_character(target_character, "guiding_bolt", 1)
     result = {
@@ -521,6 +572,9 @@ async def apply_control_spell_to_target(
     save_ability: str | None,
     spell_save_dc: int,
     duration_rounds: int | None = None,
+    caster_id: str | None = None,
+    spell_name: str | None = None,
+    is_concentration: bool = False,
 ):
     """Resolve a control spell save and apply its condition if the target fails."""
     saved = False
@@ -549,9 +603,23 @@ async def apply_control_spell_to_target(
 
     if not saved:
         if target_enemy:
-            _apply_condition_to_enemy(target_enemy, condition_name, duration_rounds)
+            _apply_condition_to_enemy(
+                target_enemy,
+                condition_name,
+                duration_rounds,
+                caster_id=caster_id,
+                spell_name=spell_name,
+                is_concentration=is_concentration,
+            )
         elif target_character:
-            _apply_condition_to_character(target_character, condition_name, duration_rounds)
+            _apply_condition_to_character(
+                target_character,
+                condition_name,
+                duration_rounds,
+                caster_id=caster_id,
+                spell_name=spell_name,
+                is_concentration=is_concentration,
+            )
             concentration_log = break_concentration_if_incapacitated(target_character, session_id)
 
     target_enemy_hp = target_enemy.get("hp_current") if target_enemy else None
