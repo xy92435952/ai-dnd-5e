@@ -198,7 +198,7 @@ Priority:
 - [x] Verify host transfer works and does not grant action access to unclaimed characters. 2026-05-28: transfer keeps host permissions separate from character ownership; unclaimed `is_player=True` characters now reject member action attempts until claimed.
 - [x] Verify only the character owner can act for a player character in multiplayer combat. 2026-05-28: non-owner room members are rejected from another player's `attack-roll` and `/end-turn`, and the turn index remains unchanged.
 - [x] Verify players cannot skip enemy, AI companion, or other player turns through `/end-turn`. 2026-05-28: `/end-turn` rejects enemy/AI-controlled turns, AI companion turns, and non-owner attempts to end another player's turn.
-- [ ] Verify inactive/disconnected players have a clear takeover or timeout path.
+- [x] Verify inactive/disconnected players have a clear takeover or timeout path. 2026-05-28: `/ai-takeover` succeeds for stale/offline current speakers, rejects online/self/single-player cases, records takeover metadata, and returns speak turn to the triggering online member.
 - [ ] Add audit logs for sensitive room events: kick vote, host transfer, character claim, room dissolve.
 
 ### P1 Combat UX
