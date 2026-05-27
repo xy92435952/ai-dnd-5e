@@ -32,10 +32,13 @@ def passive_score(character: dict[str, Any] | object, skill: str = "perception")
     skill_key = _normalize_skill(skill)
     derived = _read_mapping(character, "derived")
     ability = PASSIVE_SKILL_ABILITIES.get(skill_key, "wis")
-    mods = dict(derived.get("ability_modifiers") or {})
+    mods = dict(derived.get("ability_modifiers") or _read_mapping(character, "ability_modifiers"))
     score = 10 + _as_int(mods.get(ability), 0)
 
-    prof = _as_int(derived.get("proficiency_bonus"), 2)
+    prof = _as_int(
+        derived.get("proficiency_bonus", _read_attr(character, "proficiency_bonus", 2)),
+        2,
+    )
     proficient_skills = _normalize_skill_names(_read_list(character, "proficient_skills"))
     if skill_key in proficient_skills:
         score += prof
@@ -94,6 +97,34 @@ def party_best_passive(
         if best is None or current["score"] > best["score"]:
             best = current
     return best or {"character_id": "", "name": "", "score": 0, "skill": _normalize_skill(skill)}
+
+
+def character_passive_summary(character: dict[str, Any] | object) -> dict[str, Any]:
+    """Return passive exploration scores for a single character."""
+    return {
+        "character_id": str(_read_attr(character, "id", "")),
+        "name": _read_attr(character, "name", ""),
+        "passive_perception": passive_perception(character),
+        "passive_investigation": passive_investigation(character),
+        "passive_stealth": passive_score(character, "stealth"),
+    }
+
+
+def build_exploration_context(characters: list[dict[str, Any] | object]) -> dict[str, Any]:
+    """Build a compact exploration rules summary for DM input context."""
+    party = list(characters or [])
+    return {
+        "character_passives": [character_passive_summary(character) for character in party],
+        "party_best_passive": {
+            "perception": party_best_passive(party, "perception"),
+            "investigation": party_best_passive(party, "investigation"),
+            "stealth": party_best_passive(party, "stealth"),
+        },
+        "group_stealth": {
+            "skill": "stealth",
+            "success_rule": "at_least_half_members_meet_or_exceed_dc",
+        },
+    }
 
 
 def _normalize_skill(skill: str | None) -> str:

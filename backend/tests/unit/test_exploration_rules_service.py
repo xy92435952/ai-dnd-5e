@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 from services.exploration_rules_service import (
+    build_exploration_context,
+    character_passive_summary,
     group_stealth_result,
     party_best_passive,
     passive_detects,
@@ -52,6 +54,18 @@ def test_passive_score_normalizes_chinese_skill_aliases():
     assert passive_score(character, "\u6f5c\u884c") == 16
 
 
+def test_passive_score_accepts_flat_character_snapshots():
+    snapshot = {
+        "id": "flat",
+        "name": "Flat Snapshot",
+        "ability_modifiers": {"wis": 2},
+        "proficiency_bonus": 3,
+        "proficient_skills": ["perception"],
+    }
+
+    assert passive_perception(snapshot) == 15
+
+
 def test_passive_investigation_uses_intelligence_and_observant_bonus():
     character = _character(
         mods={"int": 1, "wis": 4},
@@ -96,6 +110,47 @@ def test_party_best_passive_accepts_object_like_characters():
     )
 
     assert party_best_passive([character])["score"] == 14
+
+
+def test_character_passive_summary_contains_core_exploration_scores():
+    character = _character(
+        char_id="scout",
+        name="Scout",
+        mods={"wis": 2, "int": 1, "dex": 4},
+        proficiency_bonus=2,
+        proficient_skills=["perception", "stealth"],
+    )
+
+    assert character_passive_summary(character) == {
+        "character_id": "scout",
+        "name": "Scout",
+        "passive_perception": 14,
+        "passive_investigation": 11,
+        "passive_stealth": 16,
+    }
+
+
+def test_build_exploration_context_summarizes_party_passives():
+    characters = [
+        _character(char_id="wizard", name="Wizard", mods={"int": 4, "wis": 0, "dex": 1}),
+        _character(
+            char_id="rogue",
+            name="Rogue",
+            mods={"int": 0, "wis": 2, "dex": 4},
+            proficient_skills=["perception", "stealth"],
+        ),
+    ]
+
+    context = build_exploration_context(characters)
+
+    assert context["character_passives"][0]["passive_investigation"] == 14
+    assert context["party_best_passive"]["perception"]["character_id"] == "rogue"
+    assert context["party_best_passive"]["perception"]["score"] == 14
+    assert context["party_best_passive"]["investigation"]["character_id"] == "wizard"
+    assert context["party_best_passive"]["investigation"]["score"] == 14
+    assert context["party_best_passive"]["stealth"]["character_id"] == "rogue"
+    assert context["party_best_passive"]["stealth"]["score"] == 16
+    assert context["group_stealth"]["success_rule"] == "at_least_half_members_meet_or_exceed_dc"
 
 
 def test_group_stealth_succeeds_when_at_least_half_succeed():

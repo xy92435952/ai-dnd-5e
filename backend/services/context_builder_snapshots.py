@@ -4,6 +4,7 @@ from schemas.game_schemas import GameState
 from services.context_builder_multiplayer import build_multiplayer_context
 from services.dnd_rules import get_effective_derived, get_effective_hp_base, get_life_state
 from services.dm_styles import get_dm_style
+from services.exploration_rules_service import build_exploration_context
 
 ENEMY_FIELDS = [
     "id", "name", "hp_current", "hp_max", "ac", "conditions",
@@ -19,6 +20,7 @@ CHAR_FIELDS = [
     "death_saves", "concentration", "known_spells",
     "cantrips", "equipped", "active_effects",
     "proficient_skills", "proficient_saves",
+    "feats",
     "is_player", "personality", "backstory",
     "speech_style", "combat_preference", "catchphrase",
 ]
@@ -52,6 +54,7 @@ def build_character_snapshot(char) -> dict:
         "cantrips": char.cantrips or [],
         "proficient_skills": char.proficient_skills or [],
         "proficient_saves": char.proficient_saves or [],
+        "feats": getattr(char, "feats", None) or [],
         "is_player": char.is_player,
         "personality": char.personality or "",
         "backstory": char.backstory or "",
@@ -109,6 +112,7 @@ def build_game_state_payload(
         )
 
     state["characters"] = [build_character_snapshot(char) for char in characters]
+    state["exploration_context"] = build_exploration_context(state["characters"])
 
     if session.combat_active and combat_state:
         state["round_number"] = combat_state.round_number
