@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from services.combat_damage_service import normalize_damage_type
 from services.dnd_rules import (
     get_effective_hp_max,
     get_temporary_hp,
@@ -37,6 +38,14 @@ COUNTERSPELL_NAMES = {
 
 COUNTERSPELL_RANGE_SQUARES = 12
 SIGHT_BLOCKING_TERRAIN = {"wall", "opaque", "blocking", "blocker", "total_cover"}
+
+ABSORB_ELEMENTS_NAMES = {
+    "absorb elements",
+    "absorb_elements",
+    "Absorb Elements",
+    "吸收元素",
+}
+ABSORB_ELEMENTS_DAMAGE_TYPES = {"acid", "cold", "fire", "lightning", "thunder"}
 
 
 def _optional_int(value: Any) -> int | None:
@@ -84,6 +93,7 @@ def build_pending_attack_reaction(
             "attack_total": int(event.get("attack_total") or 0),
             "target_ac": int(event.get("target_ac") or 10),
             "damage": damage,
+            "damage_type": normalize_damage_type(event.get("damage_type")) or None,
             "hp_before": event.get("hp_before"),
             "hp_after": event.get("hp_after"),
             "hit": bool(event.get("hit", True)),
@@ -165,11 +175,20 @@ def _normalized_spell_key(value: Any) -> str:
     return str(value or "").strip().lower().replace("_", " ").replace("-", " ")
 
 
-def character_knows_counterspell(character: Any) -> bool:
+def _character_spells(character: Any) -> set[str]:
     known = set(getattr(character, "known_spells", None) or [])
     known |= set(getattr(character, "prepared_spells", None) or [])
-    normalized_known = {_normalized_spell_key(spell) for spell in known}
+    return {_normalized_spell_key(spell) for spell in known}
+
+
+def character_knows_counterspell(character: Any) -> bool:
+    normalized_known = _character_spells(character)
     return any(_normalized_spell_key(name) in normalized_known for name in COUNTERSPELL_NAMES)
+
+
+def character_knows_absorb_elements(character: Any) -> bool:
+    normalized_known = _character_spells(character)
+    return any(_normalized_spell_key(name) in normalized_known for name in ABSORB_ELEMENTS_NAMES)
 
 
 def choose_counterspell_slot(
@@ -190,6 +209,18 @@ def choose_counterspell_slot(
     auto_slots = [(key, level) for key, level in available if level >= target_level]
     if auto_slots:
         return min(auto_slots, key=lambda item: item[1])
+    return min(available, key=lambda item: item[1])
+
+
+def choose_absorb_elements_slot(spell_slots: dict[str, Any] | None) -> tuple[str, int] | None:
+    slots = dict(spell_slots or {})
+    available = [
+        (key, level)
+        for key, level in SLOT_LEVELS.items()
+        if level >= 1 and int(slots.get(key) or 0) > 0
+    ]
+    if not available:
+        return None
     return min(available, key=lambda item: item[1])
 
 
@@ -396,6 +427,69 @@ def calculate_uncanny_dodge_prevention(pending_reaction: dict[str, Any] | None) 
         "original_damage": 0,
         "reduced_damage": 0,
         "damage_prevented": 0,
+    }
+
+
+def calculate_absorb_elements_prevention(pending_reaction: dict[str, Any] | None) -> dict[str, Any]:
+    """Return the damage prevented by Absorb Elements on matching elemental damage."""
+    for index, event in enumerate((pending_reaction or {}).get("events") or []):
+        damage = int(event.get("damage") or 0)
+        damage_type = normalize_damage_type(event.get("damage_type"))
+        if not event.get("hit") or damage <= 0 or damage_type not in ABSORB_ELEMENTS_DAMAGE_TYPES:
+            continue
+        reduced_damage = damage // 2
+        return {
+            "damage_type": damage_type,
+            "original_damage": damage,
+            "reduced_damage": reduced_damage,
+            "damage_prevented": damage - reduced_damage,
+            "affected_attack_index": index,
+        }
+    return {
+        "damage_type": None,
+        "original_damage": 0,
+        "reduced_damage": 0,
+        "damage_prevented": 0,
+        "affected_attack_index": None,
+    }
+
+
+def apply_absorb_elements_state(character: Any, damage_type: str, slot_level: int) -> dict[str, Any]:
+    """Track Absorb Elements resistance and its next-melee-hit damage rider."""
+    normalized_type = normalize_damage_type(damage_type)
+    level = max(1, int(slot_level or 1))
+    resources = dict(getattr(character, "class_resources", None) or {})
+    resources["absorb_elements"] = {
+        "damage_type": normalized_type,
+        "damage_dice": f"{level}d6",
+        "slot_level": level,
+    }
+    character.class_resources = resources
+    _flag_json_modified(character, "class_resources")
+
+    resistance_condition = f"{normalized_type}_resistance"
+    conditions = list(getattr(character, "conditions", None) or [])
+    already_resistant = resistance_condition in conditions
+    if resistance_condition not in conditions:
+        conditions.append(resistance_condition)
+    character.conditions = conditions
+    _flag_json_modified(character, "conditions")
+
+    durations = dict(getattr(character, "condition_durations", None) or {})
+    if not already_resistant:
+        durations[resistance_condition] = 1
+        character.condition_durations = durations
+        _flag_json_modified(character, "condition_durations")
+    elif resistance_condition in durations:
+        durations[resistance_condition] = max(int(durations.get(resistance_condition) or 0), 1)
+        character.condition_durations = durations
+        _flag_json_modified(character, "condition_durations")
+
+    return {
+        "damage_type": normalized_type,
+        "damage_dice": f"{level}d6",
+        "slot_level": level,
+        "resistance_condition": resistance_condition,
     }
 
 

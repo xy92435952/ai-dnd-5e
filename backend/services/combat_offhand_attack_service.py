@@ -6,7 +6,10 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character
 from services.combat_attack_damage_service import apply_attack_damage_to_target
 from services.combat_attack_roll_service import CombatAttackRollError
-from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_damage_bonus_service import (
+    apply_absorb_elements_damage_rider,
+    apply_sustained_damage_effects,
+)
 from services.combat_grid_service import chebyshev_distance
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
@@ -121,6 +124,18 @@ async def resolve_offhand_attack(
         )
         damage = sustained.damage
         extra_damage_notes = sustained.extra_damage_notes
+        absorb = apply_absorb_elements_damage_rider(
+            attacker=player,
+            damage=damage,
+            extra_damage_notes=extra_damage_notes,
+            is_ranged=False,
+            target_id=target["id"],
+            target_is_enemy=target["is_enemy"],
+            enemies=enemies,
+            apply_damage_with_resistance=resistance_func,
+        )
+        damage = absorb.damage
+        extra_damage_notes = absorb.extra_damage_notes
         target_new_hp, concentration_log, target_state = await apply_attack_damage_to_target(
             db,
             session_id=session_id,

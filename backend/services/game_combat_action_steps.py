@@ -3,7 +3,10 @@ from typing import Any
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Session
-from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_damage_bonus_service import (
+    apply_absorb_elements_damage_rider,
+    apply_sustained_damage_effects,
+)
 from services.combat_movement_rules_service import MovementRuleError, validate_displacement_allowed
 
 
@@ -63,6 +66,7 @@ def execute_attack_action(
     positions: dict[str, Any],
     state: dict[str, Any],
     enemies: list[dict[str, Any]],
+    player: Any | None = None,
     player_id: str,
     player_derived: dict[str, Any],
     player_conditions: list[str] | None,
@@ -166,6 +170,18 @@ def execute_attack_action(
         )
         damage = sustained.damage
         extra_damage_notes = sustained.extra_damage_notes
+        absorb = apply_absorb_elements_damage_rider(
+            attacker=player,
+            damage=damage,
+            extra_damage_notes=extra_damage_notes,
+            is_ranged=is_ranged,
+            target_id=target_enemy["id"],
+            target_is_enemy=True,
+            enemies=enemies,
+            apply_damage_with_resistance=resistance_func,
+        )
+        damage = absorb.damage
+        extra_damage_notes = absorb.extra_damage_notes
         target_enemy["hp_current"] = combat_service.apply_damage(
             target_enemy.get("hp_current", 0),
             damage,

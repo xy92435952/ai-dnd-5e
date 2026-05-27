@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from sqlalchemy.orm.attributes import flag_modified
+
 from services.dnd_rules import roll_dice
 
 
@@ -127,6 +129,59 @@ def apply_sustained_damage_effects(
             notes.append(f"{effect['note']}+{applied_extra}({raw_extra})")
 
     return DamageExtraResult(damage=damage, extra_damage_notes=notes)
+
+
+def apply_absorb_elements_damage_rider(
+    *,
+    attacker: Any | None,
+    damage: int,
+    extra_damage_notes: list[str],
+    is_ranged: bool,
+    target_id: str,
+    target_is_enemy: bool,
+    enemies: list[dict[str, Any]],
+    apply_damage_with_resistance: Callable[[int, str, list, list, list], int],
+    roll_dice_func: Callable[[str], dict[str, Any]] | None = None,
+) -> DamageExtraResult:
+    """Consume Absorb Elements' one-shot next-melee-hit damage rider."""
+    if not attacker or is_ranged:
+        return DamageExtraResult(damage=damage, extra_damage_notes=list(extra_damage_notes))
+
+    resources = dict(getattr(attacker, "class_resources", None) or {})
+    absorb = resources.get("absorb_elements")
+    if not isinstance(absorb, dict):
+        return DamageExtraResult(damage=damage, extra_damage_notes=list(extra_damage_notes))
+
+    damage_type = str(absorb.get("damage_type") or "")
+    dice_expr = str(absorb.get("damage_dice") or "1d6")
+    roll = (roll_dice_func or roll_dice)(dice_expr)
+    raw_extra = int(roll.get("total", 0) or 0)
+    applied_extra = _apply_extra_damage_resistance(
+        raw_damage=raw_extra,
+        damage_type=damage_type,
+        target_id=target_id,
+        target_is_enemy=target_is_enemy,
+        enemies=enemies,
+        apply_damage_with_resistance=apply_damage_with_resistance,
+    )
+
+    notes = list(extra_damage_notes)
+    if applied_extra == raw_extra:
+        notes.append(f"Absorb Elements+{applied_extra} {damage_type}")
+    else:
+        notes.append(f"Absorb Elements+{applied_extra}({raw_extra}) {damage_type}")
+
+    resources.pop("absorb_elements", None)
+    attacker.class_resources = resources
+    try:
+        flag_modified(attacker, "class_resources")
+    except Exception:
+        pass
+
+    return DamageExtraResult(
+        damage=damage + applied_extra,
+        extra_damage_notes=notes,
+    )
 
 
 def roll_pending_damage(
@@ -321,6 +376,8 @@ def resolve_damage_extras(
     enemies: list[dict[str, Any]],
     positions: dict[str, Any],
     damage_type: str,
+    is_ranged: bool = False,
+    attacker: Any | None = None,
     attacker_concentration: str | None = None,
     target_conditions: list[str] | None = None,
     has_ally_adjacent_to: Callable[[str, str, list[dict[str, Any]], dict[str, Any]], bool],
@@ -374,10 +431,20 @@ def resolve_damage_extras(
         weapon_damage_type=damage_type,
         apply_damage_with_resistance=apply_damage_with_resistance,
     )
-
-    return DamageExtraResult(
+    absorb = apply_absorb_elements_damage_rider(
+        attacker=attacker,
         damage=sustained.damage,
         extra_damage_notes=sustained.extra_damage_notes,
+        is_ranged=is_ranged,
+        target_id=target_id,
+        target_is_enemy=target_is_enemy,
+        enemies=enemies,
+        apply_damage_with_resistance=apply_damage_with_resistance,
+    )
+
+    return DamageExtraResult(
+        damage=absorb.damage,
+        extra_damage_notes=absorb.extra_damage_notes,
         sneak_attack_applied=sneak.sneak_attack_applied,
         sneak_attack_damage=sneak.sneak_attack_damage,
         sneak_attack_dice=sneak.sneak_attack_dice,

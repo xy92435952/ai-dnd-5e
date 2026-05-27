@@ -823,6 +823,240 @@ async def test_ai_fire_attack_respects_player_fire_resistance(
     assert sample_character.hp_current == 7
 
 
+async def test_ai_fire_attack_offers_absorb_elements_and_reaction_restores_half_damage(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+    import api.combat.reactions as reactions
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Flame Imp"
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "damage_type": "fire",
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+
+    sample_character.char_class = "Wizard"
+    sample_character.level = 3
+    sample_character.hp_current = 12
+    sample_character.known_spells = ["吸收元素"]
+    sample_character.spell_slots = {"1st": 1}
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Fire Claw",
+            "reason": "test absorb elements",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 20,
+                "target_ac": 10,
+            },
+            damage=9,
+            damage_roll={"formula": "2d6", "rolls": [4, 5], "total": 9},
+            narration="hit",
+        )
+
+    async def fake_narrate_action(**kwargs):
+        return ""
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(reactions, "narrate_action", fake_narrate_action)
+
+    headers = await _auth_headers(client, sample_user)
+    prompt_response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+    assert prompt_response.status_code == 200, prompt_response.text
+    prompt_body = prompt_response.json()
+    assert prompt_body["damage"] == 9
+    assert prompt_body["target_new_hp"] == 3
+    assert prompt_body["player_can_react"] is True
+    absorb = next(
+        reaction
+        for reaction in prompt_body["reaction_prompt"]["available_reactions"]
+        if reaction["type"] == "absorb_elements"
+    )
+    assert absorb["damage_type"] == "fire"
+    assert absorb["damage_prevented"] == 5
+    assert absorb["extra_damage_dice"] == "1d6"
+
+    reaction = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={
+            "reaction_type": "absorb_elements",
+            "target_id": enemy["id"],
+            "character_id": sample_character.id,
+        },
+    )
+    assert reaction.status_code == 200, reaction.text
+    reaction_body = reaction.json()
+    assert reaction_body["reaction_effect"]["damage_prevented"] == 5
+    assert reaction_body["reaction_effect"]["hp_restored"] == 5
+    assert reaction_body["reaction_effect"]["damage_dice"] == "1d6"
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ai_turn_combat)
+    assert sample_character.hp_current == 8
+    assert sample_character.spell_slots["1st"] == 0
+    assert sample_character.class_resources["absorb_elements"]["damage_type"] == "fire"
+    assert sample_character.condition_durations["fire_resistance"] == 1
+    assert ai_turn_combat.turn_states[sample_character.id]["reaction_used"] is True
+    assert "pending_attack_reaction" not in ai_turn_combat.turn_states[sample_character.id]
+
+
+async def test_absorb_elements_can_trigger_even_if_attack_drops_character_to_zero(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+    import api.combat.reactions as reactions
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Flame Imp"
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "damage_type": "fire",
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+
+    sample_character.char_class = "Wizard"
+    sample_character.level = 3
+    sample_character.hp_current = 6
+    sample_character.known_spells = ["吸收元素"]
+    sample_character.spell_slots = {"1st": 1}
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Fire Claw",
+            "reason": "test absorb elements at zero",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 20,
+                "target_ac": 10,
+            },
+            damage=9,
+            damage_roll={"formula": "2d6", "rolls": [4, 5], "total": 9},
+            narration="hit",
+        )
+
+    async def fake_narrate_action(**kwargs):
+        return ""
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(reactions, "narrate_action", fake_narrate_action)
+
+    headers = await _auth_headers(client, sample_user)
+    prompt_response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+    assert prompt_response.status_code == 200, prompt_response.text
+    prompt_body = prompt_response.json()
+    assert prompt_body["target_new_hp"] == 0
+    assert prompt_body["reaction_prompt"]["available_reactions"][0]["type"] == "absorb_elements"
+
+    reaction = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={
+            "reaction_type": "absorb_elements",
+            "target_id": enemy["id"],
+            "character_id": sample_character.id,
+        },
+    )
+    assert reaction.status_code == 200, reaction.text
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 5
+    assert sample_character.death_saves is None
+    assert "unconscious" not in (sample_character.conditions or [])
+
+
+async def test_ai_bludgeoning_attack_does_not_offer_absorb_elements(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "damage_type": "bludgeoning",
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+
+    sample_character.known_spells = ["吸收元素"]
+    sample_character.spell_slots = {"1st": 1}
+    sample_character.hp_current = 12
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Club",
+            "reason": "test non elemental damage",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 20,
+                "target_ac": 10,
+            },
+            damage=8,
+            damage_roll={"formula": "1d8", "rolls": [8], "total": 8},
+            narration="hit",
+        )
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body.get("reaction_prompt") is None
+    await db_session.refresh(sample_character)
+    assert sample_character.spell_slots["1st"] == 1
+
+
 async def test_ai_hex_bonus_is_not_reduced_by_player_fire_resistance(
     client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):

@@ -11,8 +11,11 @@ from api.combat._shared import (
 )
 from models import GameLog
 from services.combat_reaction_service import (
+    calculate_absorb_elements_prevention,
     build_pending_spell_reaction,
+    character_knows_absorb_elements,
     character_knows_counterspell,
+    choose_absorb_elements_slot,
     choose_counterspell_slot,
     resolve_counterspell_eligibility,
     calculate_shield_prevention,
@@ -110,6 +113,33 @@ def build_reaction_prompt(
             "resulting_ac": p_derived_r.get("ac", 10) + 5,
             "damage_prevented": shield_preview["damage_prevented"],
             "blocked_attacks": shield_preview["blocked_attacks"],
+        })
+
+    absorb_slot = choose_absorb_elements_slot(p_slots)
+    absorb_preview = calculate_absorb_elements_prevention(pending_reaction)
+    if (
+        character_knows_absorb_elements(player_check)
+        and absorb_slot
+        and absorb_preview["damage_prevented"] > 0
+    ):
+        slot_key, slot_level = absorb_slot
+        available_reactions.append({
+            "id": "absorb_elements",
+            "name": "Absorb Elements",
+            "type": "absorb_elements",
+            "cost": f"{slot_key} spell slot",
+            "slot_level": slot_key,
+            "slot_level_number": slot_level,
+            "slots_remaining": p_slots.get(slot_key, 0),
+            "effect": (
+                f"Gain resistance to {absorb_preview['damage_type']} and reduce this hit "
+                f"from {absorb_preview['original_damage']} to {absorb_preview['reduced_damage']}; "
+                f"next melee hit deals +{slot_level}d6 {absorb_preview['damage_type']}."
+            ),
+            "damage_type": absorb_preview["damage_type"],
+            "damage_prevented": absorb_preview["damage_prevented"],
+            "reduced_damage": absorb_preview["reduced_damage"],
+            "extra_damage_dice": f"{slot_level}d6",
         })
 
     if p_cls == "Rogue" and p_level >= 5:

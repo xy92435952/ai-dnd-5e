@@ -137,6 +137,8 @@ async def resolve_pending_attack_damage(
         enemies=enemies,
         positions=positions,
         damage_type=damage_type,
+        is_ranged=is_ranged,
+        attacker=player,
         attacker_concentration=getattr(player, "concentration", None),
         target_conditions=target_conditions,
         has_ally_adjacent_to=has_ally_adjacent_to,

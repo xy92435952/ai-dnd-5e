@@ -25,12 +25,16 @@ from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.combat_reaction_service import (
+    apply_absorb_elements_state,
+    calculate_absorb_elements_prevention,
     calculate_counterspell_result,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
+    character_knows_absorb_elements,
     character_knows_counterspell,
+    choose_absorb_elements_slot,
     choose_counterspell_slot,
     resolve_counterspell_eligibility,
     restore_prevented_damage,
@@ -61,6 +65,22 @@ from schemas.ws_events import CombatUpdate
 router = APIRouter(prefix="/game", tags=["combat"])
 
 
+def _actor_snapshot_for_attack_reaction(player, pending_reaction: dict):
+    if not pending_reaction or pending_reaction.get("trigger") != "incoming_attack":
+        return player
+    hp_before = pending_reaction.get("target_hp_before_damage")
+    if not isinstance(hp_before, int):
+        hp_before = getattr(player, "hp_current", 0)
+    return {
+        "hp_current": hp_before,
+        "death_saves": None,
+        "conditions": pending_reaction.get(
+            "target_conditions_before_damage",
+            getattr(player, "conditions", None) or [],
+        ),
+    }
+
+
 @router.post("/combat/{session_id}/reaction", response_model=CombatActionResult)
 async def use_reaction(
     session_id: str,
@@ -70,7 +90,7 @@ async def use_reaction(
 ):
     """
     Player uses reaction during enemy turn.
-    reaction_type: "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke"
+    reaction_type: "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke" | "absorb_elements"
     Called by frontend when an enemy attack or spell cast offers a reaction prompt.
     """
     session = await get_session_or_404(session_id, db)
@@ -115,11 +135,6 @@ async def use_reaction(
         raise HTTPException(404, "玩家角色不存在")
 
     await assert_character_in_session(player, session, db)
-    try:
-        validate_can_take_reaction(player)
-    except CombatActionRuleError as exc:
-        raise HTTPException(exc.status_code, exc.detail) from exc
-
     ts = _get_ts(combat, player_id)
     if ts.get("reaction_used"):
         raise HTTPException(400, "本回合反应已用尽")
@@ -129,6 +144,11 @@ async def use_reaction(
     derived = player.derived or {}
     pending_reaction = ts.get("pending_attack_reaction") or {}
     pending_spell_reaction = ts.get("pending_spell_reaction") or {}
+    try:
+        validate_can_take_reaction(_actor_snapshot_for_attack_reaction(player, pending_reaction))
+    except CombatActionRuleError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))
     narration = ""
@@ -214,6 +234,52 @@ async def use_reaction(
         if hp_result["hp_restored"] > 0:
             narration += f" 恢复 {hp_result['hp_restored']} 点已结算伤害。"
         reaction_effect = {"damage_halved": True, **dodge_result, **hp_result}
+
+    elif req.reaction_type == "absorb_elements":
+        if not character_knows_absorb_elements(player):
+            raise HTTPException(400, "You have not learned Absorb Elements")
+
+        slot_choice = choose_absorb_elements_slot(player.spell_slots or {})
+        if not slot_choice:
+            raise HTTPException(400, "No available 1st-level or higher spell slot")
+
+        absorb_result = calculate_absorb_elements_prevention(pending_reaction)
+        if absorb_result["damage_prevented"] <= 0 or not absorb_result["damage_type"]:
+            raise HTTPException(
+                400,
+                "Absorb Elements requires incoming acid, cold, fire, lightning, or thunder damage",
+            )
+
+        slot_key, slot_level = slot_choice
+        consume_named_spell_slot(player, slot_key)
+        hp_result = restore_prevented_damage(
+            player,
+            pending_reaction,
+            absorb_result["damage_prevented"],
+        )
+        absorb_state = apply_absorb_elements_state(
+            player,
+            absorb_result["damage_type"],
+            slot_level,
+        )
+
+        ts["reaction_used"] = True
+        ts.pop("pending_attack_reaction", None)
+        _save_ts(combat, player_id, ts)
+
+        reaction_target_name = pending_reaction.get("attacker_name") or "attacker"
+        narration = (
+            f"{player.name} uses Absorb Elements, bracing against "
+            f"{absorb_result['damage_type']} damage."
+        )
+        if hp_result["hp_restored"] > 0:
+            narration += f" Restored {hp_result['hp_restored']} already-applied damage."
+        reaction_effect = {
+            "slot_used": slot_key,
+            **absorb_result,
+            **absorb_state,
+            **hp_result,
+        }
 
     elif req.reaction_type == "hellish_rebuke":
         # Tiefling racial / Warlock: deal 2d10 fire damage to attacker

@@ -225,6 +225,67 @@ def test_resolve_damage_extras_combines_sneak_attack_and_resistance(monkeypatch)
     assert result.extra_damage_notes == ["偷袭3d6=6"]
 
 
+def test_absorb_elements_damage_rider_applies_to_next_melee_hit_and_is_consumed(monkeypatch):
+    from types import SimpleNamespace
+    from services import combat_damage_bonus_service as attack_damage
+
+    attacker = SimpleNamespace(
+        class_resources={
+            "absorb_elements": {
+                "damage_type": "fire",
+                "damage_dice": "2d6",
+                "slot_level": 2,
+            }
+        }
+    )
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: {"total": 7, "rolls": [3, 4]})
+
+    result = attack_damage.apply_absorb_elements_damage_rider(
+        attacker=attacker,
+        damage=10,
+        extra_damage_notes=[],
+        is_ranged=False,
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1", "resistances": ["fire"], "immunities": [], "vulnerabilities": []}],
+        apply_damage_with_resistance=lambda damage, damage_type, resistances, *_args: damage // 2 if damage_type in resistances else damage,
+    )
+
+    assert result.damage == 13
+    assert result.extra_damage_notes == ["Absorb Elements+3(7) fire"]
+    assert "absorb_elements" not in attacker.class_resources
+
+
+def test_absorb_elements_damage_rider_waits_for_melee_hit():
+    from types import SimpleNamespace
+    from services import combat_damage_bonus_service as attack_damage
+
+    attacker = SimpleNamespace(
+        class_resources={
+            "absorb_elements": {
+                "damage_type": "cold",
+                "damage_dice": "1d6",
+                "slot_level": 1,
+            }
+        }
+    )
+
+    result = attack_damage.apply_absorb_elements_damage_rider(
+        attacker=attacker,
+        damage=10,
+        extra_damage_notes=[],
+        is_ranged=True,
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1"}],
+        apply_damage_with_resistance=lambda damage, *_args: damage,
+    )
+
+    assert result.damage == 10
+    assert result.extra_damage_notes == []
+    assert "absorb_elements" in attacker.class_resources
+
+
 async def test_apply_attack_damage_to_enemy_updates_enemy_hp(db_session):
     from api.combat.attack_damage import apply_attack_damage_to_target
 

@@ -57,6 +57,33 @@ describe('ReactionPrompt', () => {
     expect(onReact).toHaveBeenCalledWith('counterspell', 'enemy-mage', 'char-2')
   })
 
+  it('passes Absorb Elements actions through from available reactions', async () => {
+    const onReact = vi.fn()
+    render(
+      <ReactionPrompt
+        prompt={{
+          context: 'Incoming fire damage',
+          attacker_id: 'enemy-1',
+          reactor_character_id: 'char-2',
+          available_reactions: [
+            {
+              id: 'absorb_elements',
+              type: 'absorb_elements',
+              name: 'Absorb Elements',
+              effect: 'Reduce fire damage',
+            },
+          ],
+        }}
+        onReact={onReact}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Absorb Elements/ }))
+
+    expect(onReact).toHaveBeenCalledWith('absorb_elements', 'enemy-1', 'char-2')
+  })
+
   it('passes the prompt back when cancelling a reaction window', async () => {
     const prompt = {
       trigger: 'spell_cast',

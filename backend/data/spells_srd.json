@@ -1,4 +1,5 @@
 [
+  {"name":"吸收元素","name_en":"Absorb Elements","type":"utility","level":1,"school":"防护","casting_time":"reaction","range":0,"concentration":false,"save":null,"desc":"当你受到酸、寒冷、火焰、闪电或雷鸣伤害时作为反应，获得对应伤害抗性直到你的下一回合开始，并使下一次近战攻击额外造成1d6对应元素伤害。升环：每高一环额外伤害增加1d6。","classes":["Druid","Ranger","Sorcerer","Wizard"]},
   // ─── 0环（戏法）────────────────────────────────────────
   {"name":"火焰射线","name_en":"Fire Bolt","type":"damage","level":0,"school":"咒法","casting_time":"action","range":24,"concentration":false,"save":null,"damage_dice":"1d10","cantrip_scale":{"1":"1d10","5":"2d10","11":"3d10","17":"4d10"},"desc":"投掷一束火焰能量，需法术攻击检定命中目标，造成火焰伤害。","classes":["Sorcerer","Wizard"]},
   {"name":"神圣烈焰","name_en":"Sacred Flame","type":"damage","level":0,"school":"咒法","casting_time":"action","range":12,"concentration":false,"save":"dex","damage_dice":"1d8","cantrip_scale":{"1":"1d8","5":"2d8","11":"3d8","17":"4d8"},"desc":"辉光从上方洒落，目标需DEX豁免，失败受辐射伤害，豁免无效。","classes":["Cleric"]},

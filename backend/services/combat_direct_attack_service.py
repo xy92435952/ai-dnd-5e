@@ -11,7 +11,10 @@ from services.combat_attack_modifier_service import (
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
-from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_damage_bonus_service import (
+    apply_absorb_elements_damage_rider,
+    apply_sustained_damage_effects,
+)
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_temporary_hp_service import apply_generic_temporary_hp_to_character
@@ -260,6 +263,18 @@ async def prepare_direct_attack(
         )
         damage = sustained.damage
         extra_damage_notes = sustained.extra_damage_notes
+        absorb = apply_absorb_elements_damage_rider(
+            attacker=player,
+            damage=damage,
+            extra_damage_notes=extra_damage_notes,
+            is_ranged=is_ranged,
+            target_id=resolved_target_id,
+            target_is_enemy=target.is_enemy,
+            enemies=enemies,
+            apply_damage_with_resistance=combat_service.apply_damage_with_resistance,
+        )
+        damage = absorb.damage
+        extra_damage_notes = absorb.extra_damage_notes
 
     save_turn_state_func(combat, player_id, turn_state)
 

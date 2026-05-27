@@ -74,6 +74,7 @@ def execute_parsed_combat_actions(
                 positions=positions,
                 state=state,
                 enemies=enemies,
+                player=player,
                 player_id=player_id,
                 player_derived=player_derived,
                 player_conditions=list(getattr(player, "conditions", None) or []),

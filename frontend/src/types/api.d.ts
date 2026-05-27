@@ -727,7 +727,7 @@ export interface paths {
         /**
          * Use Reaction
          * @description Player uses reaction during enemy turn.
-         *     reaction_type: "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke"
+         *     reaction_type: "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke" | "absorb_elements"
          *     Called by frontend when an enemy attack or spell cast offers a reaction prompt.
          */
         post: operations["use_reaction_game_combat__session_id__reaction_post"];

@@ -1,13 +1,17 @@
 from types import SimpleNamespace
 
 from services.combat_reaction_service import (
+    apply_absorb_elements_state,
     build_pending_attack_reaction,
+    calculate_absorb_elements_prevention,
     calculate_counterspell_result,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
+    character_knows_absorb_elements,
     character_knows_counterspell,
+    choose_absorb_elements_slot,
     choose_counterspell_slot,
     resolve_counterspell_eligibility,
     restore_prevented_damage,
@@ -40,6 +44,7 @@ def test_build_pending_attack_reaction_captures_attack_events():
                 "conditions_before": ["armor_of_agathys"],
                 "condition_durations_before": {"armor_of_agathys": 600},
                 "hit": True,
+                "damage_type": "fire",
             },
         ],
     )
@@ -54,6 +59,7 @@ def test_build_pending_attack_reaction_captures_attack_events():
     assert pending["target_conditions_before_damage"] == ["armor_of_agathys"]
     assert pending["target_condition_durations_before_damage"] == {"armor_of_agathys": 600}
     assert pending["events"][0]["attack_total"] == 17
+    assert pending["events"][0]["damage_type"] == "fire"
 
 
 def test_shield_prevention_only_blocks_attacks_under_plus_five_ac():
@@ -83,6 +89,43 @@ def test_uncanny_dodge_halves_first_qualifying_hit():
         "original_damage": 7,
         "reduced_damage": 3,
         "damage_prevented": 4,
+    }
+
+
+def test_absorb_elements_halves_first_qualifying_elemental_hit():
+    pending = {
+        "events": [
+            {"damage": 6, "damage_type": "slashing", "hit": True},
+            {"damage": 9, "damage_type": "fire", "hit": True},
+            {"damage": 8, "damage_type": "cold", "hit": True},
+        ],
+    }
+
+    result = calculate_absorb_elements_prevention(pending)
+
+    assert result == {
+        "damage_type": "fire",
+        "original_damage": 9,
+        "reduced_damage": 4,
+        "damage_prevented": 5,
+        "affected_attack_index": 1,
+    }
+
+
+def test_absorb_elements_ignores_non_elemental_or_missed_damage():
+    pending = {
+        "events": [
+            {"damage": 7, "damage_type": "fire", "hit": False},
+            {"damage": 6, "damage_type": "piercing", "hit": True},
+        ],
+    }
+
+    assert calculate_absorb_elements_prevention(pending) == {
+        "damage_type": None,
+        "original_damage": 0,
+        "reduced_damage": 0,
+        "damage_prevented": 0,
+        "affected_attack_index": None,
     }
 
 
@@ -265,6 +308,61 @@ def test_character_knows_counterspell_matches_english_and_chinese_names():
         known_spells=[],
         prepared_spells=["counterspell"],
     ))
+
+
+def test_character_knows_absorb_elements_matches_english_and_chinese_names():
+    assert character_knows_absorb_elements(SimpleNamespace(
+        known_spells=["吸收元素"],
+        prepared_spells=[],
+    ))
+    assert character_knows_absorb_elements(SimpleNamespace(
+        known_spells=[],
+        prepared_spells=["absorb_elements"],
+    ))
+
+
+def test_choose_absorb_elements_slot_prefers_lowest_available_slot():
+    assert choose_absorb_elements_slot({"1st": 0, "2nd": 1, "4th": 1}) == ("2nd", 2)
+    assert choose_absorb_elements_slot({"1st": 1, "2nd": 1}) == ("1st", 1)
+    assert choose_absorb_elements_slot({"1st": 0}) is None
+
+
+def test_apply_absorb_elements_state_adds_resistance_and_next_hit_rider():
+    character = SimpleNamespace(
+        class_resources={},
+        conditions=[],
+        condition_durations={},
+    )
+
+    result = apply_absorb_elements_state(character, "fire", 2)
+
+    assert result == {
+        "damage_type": "fire",
+        "damage_dice": "2d6",
+        "slot_level": 2,
+        "resistance_condition": "fire_resistance",
+    }
+    assert character.class_resources["absorb_elements"] == {
+        "damage_type": "fire",
+        "damage_dice": "2d6",
+        "slot_level": 2,
+    }
+    assert "fire_resistance" in character.conditions
+    assert character.condition_durations["fire_resistance"] == 1
+
+
+def test_apply_absorb_elements_state_does_not_add_timer_to_permanent_resistance():
+    character = SimpleNamespace(
+        class_resources={},
+        conditions=["fire_resistance"],
+        condition_durations={},
+    )
+
+    apply_absorb_elements_state(character, "fire", 1)
+
+    assert character.conditions == ["fire_resistance"]
+    assert character.condition_durations == {}
+    assert character.class_resources["absorb_elements"]["damage_dice"] == "1d6"
 
 
 def test_choose_counterspell_slot_prefers_lowest_automatic_slot():

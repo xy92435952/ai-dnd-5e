@@ -313,10 +313,11 @@ async def handle_ai_attack_action(
                 else:
                     tchar_for_resistance = await db.get(Character, target_id)
                     if tchar_for_resistance:
+                        weapon_damage_type = actor_derived.get("damage_type", "bludgeoning")
                         atk_damage, _resistance_applied = apply_character_damage_resistance(
                             tchar_for_resistance,
                             atk_damage,
-                            actor_derived.get("damage_type", "bludgeoning"),
+                            weapon_damage_type,
                         )
                 sustained = apply_sustained_damage_effects(
                     damage=atk_damage,
@@ -385,6 +386,7 @@ async def handle_ai_attack_action(
                                 "attack_total": result_obj.attack_roll.get("attack_total", 0),
                                 "target_ac": result_obj.attack_roll.get("target_ac", target_derived.get("ac", 10)),
                                 "damage": applied_damage,
+                                "damage_type": weapon_damage_type,
                                 "hp_before": hp_before_damage,
                                 "hp_after": target_new_hp,
                                 "temporary_hp_before": temporary_hp_before_damage,

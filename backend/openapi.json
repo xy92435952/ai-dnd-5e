@@ -5785,7 +5785,7 @@
     },
     "/game/combat/{session_id}/reaction": {
       "post": {
-        "description": "Player uses reaction during enemy turn.\nreaction_type: \"shield\" | \"counterspell\" | \"decline\" | \"uncanny_dodge\" | \"hellish_rebuke\"\nCalled by frontend when an enemy attack or spell cast offers a reaction prompt.",
+        "description": "Player uses reaction during enemy turn.\nreaction_type: \"shield\" | \"counterspell\" | \"decline\" | \"uncanny_dodge\" | \"hellish_rebuke\" | \"absorb_elements\"\nCalled by frontend when an enemy attack or spell cast offers a reaction prompt.",
         "operationId": "use_reaction_game_combat__session_id__reaction_post",
         "parameters": [
           {
