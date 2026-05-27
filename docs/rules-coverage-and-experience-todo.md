@@ -196,8 +196,8 @@ Priority:
 - [x] Verify kick vote threshold in 2-player, 3-player, and 4-player rooms. 2026-05-28: 2-player rooms reject kick votes, 3-player and 4-player rooms require 2 eligible yes votes, and removal clears the open vote.
 - [x] Verify target cannot vote on their own kick proposal. 2026-05-28: target self-vote returns 400 and the target remains excluded from eligible voters/yes votes.
 - [x] Verify host transfer works and does not grant action access to unclaimed characters. 2026-05-28: transfer keeps host permissions separate from character ownership; unclaimed `is_player=True` characters now reject member action attempts until claimed.
-- [ ] Verify only the character owner can act for a player character in multiplayer combat.
-- [ ] Verify players cannot skip enemy, AI companion, or other player turns through `/end-turn`.
+- [x] Verify only the character owner can act for a player character in multiplayer combat. 2026-05-28: non-owner room members are rejected from another player's `attack-roll` and `/end-turn`, and the turn index remains unchanged.
+- [x] Verify players cannot skip enemy, AI companion, or other player turns through `/end-turn`. 2026-05-28: `/end-turn` rejects enemy/AI-controlled turns, AI companion turns, and non-owner attempts to end another player's turn.
 - [ ] Verify inactive/disconnected players have a clear takeover or timeout path.
 - [ ] Add audit logs for sensitive room events: kick vote, host transfer, character claim, room dissolve.
 
