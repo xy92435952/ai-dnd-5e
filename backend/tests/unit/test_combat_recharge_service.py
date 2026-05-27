@@ -32,6 +32,8 @@ def test_normalize_recharge_abilities_collects_explicit_and_action_data():
             "area": "15 ft cone",
             "max_targets": 3,
             "aoe": True,
+            "condition_on_failed_save": "poisoned",
+            "condition_duration_rounds": 2,
         }],
         "special_abilities": [{
             "name": "Keen Smell",
@@ -50,6 +52,8 @@ def test_normalize_recharge_abilities_collects_explicit_and_action_data():
     assert abilities[1]["area"] == "15 ft cone"
     assert abilities[1]["max_targets"] == 3
     assert abilities[1]["aoe"] is True
+    assert abilities[1]["condition_on_failed_save"] == "poisoned"
+    assert abilities[1]["condition_duration_rounds"] == 2
 
 
 def test_refresh_recharge_abilities_rolls_only_unavailable_abilities():

@@ -257,6 +257,225 @@ async def test_handle_ai_special_action_area_recharge_hits_multiple_targets(monk
 
 
 @pytest.mark.asyncio
+async def test_handle_ai_special_action_applies_failed_save_condition(monkeypatch):
+    from api.combat.ai_turn_special import handle_ai_special_action
+
+    character = FakeCharacter(hp_current=30)
+    enemy = {
+        "id": "dragon-1",
+        "name": "Dragon",
+        "hp_current": 50,
+        "recharge_abilities": [{
+            "id": "breath",
+            "name": "Poison Breath",
+            "threshold": 5,
+            "available": True,
+            "damage_dice": "4d6",
+            "damage_type": "poison",
+            "save": "con",
+            "save_dc": 13,
+            "half_on_save": True,
+            "condition_on_failed_save": "poisoned",
+            "condition_duration_rounds": 2,
+        }],
+    }
+    db = FakeDb(character)
+    combat = FakeCombat()
+
+    monkeypatch.setattr(
+        "api.combat.ai_turn_special.roll_dice",
+        lambda expr: {"notation": expr, "rolls": [2, 2, 2, 2], "total": 8},
+    )
+    monkeypatch.setattr(
+        "api.combat.ai_turn_special.roll_saving_throw",
+        lambda *_args, **_kwargs: {"ability": "con", "dc": 13, "total": 9, "success": False},
+    )
+    monkeypatch.setattr("api.combat.ai_turn_special.tick_ai_actor_conditions", lambda **_kwargs: [])
+
+    async def fake_advance(combat, _session, _db, _turn_order, next_index):
+        combat.current_turn_index = next_index
+
+    monkeypatch.setattr("api.combat.ai_turn_special.advance_ai_turn", fake_advance)
+
+    result = await handle_ai_special_action(
+        session_id="session-1",
+        db=db,
+        session=FakeSession([enemy]),
+        combat=combat,
+        turn_order=combat.turn_order,
+        next_index=1,
+        actor_id="dragon-1",
+        actor_name="Dragon",
+        is_enemy=True,
+        enemy=enemy,
+        enemies=[enemy],
+        all_characters=[{"id": character.id, "name": character.name, "hp_current": 30}],
+        positions={"dragon-1": {"x": 0, "y": 0}, character.id: {"x": 2, "y": 0}},
+        decided_target_id=character.id,
+        decided_reason="test poison",
+        decision={"action_type": "special", "action_name": "Poison Breath"},
+    )
+
+    assert result is not None
+    assert result["target_results"][0]["condition_result"] == {
+        "condition": "poisoned",
+        "applied": True,
+        "immune": False,
+        "duration_rounds": 2,
+        "concentration_broken": False,
+    }
+    assert character.conditions == ["poisoned"]
+    assert character.condition_durations == {"poisoned": 2}
+    assert result["target_state"]["conditions"] == ["poisoned"]
+    assert result["target_state"]["condition_durations"] == {"poisoned": 2}
+    assert "Conditions applied: poisoned." in result["narration"]
+
+
+@pytest.mark.asyncio
+async def test_handle_ai_special_action_does_not_apply_condition_on_successful_save(monkeypatch):
+    from api.combat.ai_turn_special import handle_ai_special_action
+
+    character = FakeCharacter(hp_current=30)
+    enemy = {
+        "id": "dragon-1",
+        "name": "Dragon",
+        "hp_current": 50,
+        "recharge_abilities": [{
+            "id": "breath",
+            "name": "Poison Breath",
+            "threshold": 5,
+            "available": True,
+            "damage_dice": "4d6",
+            "damage_type": "poison",
+            "save": "con",
+            "save_dc": 13,
+            "half_on_save": True,
+            "condition_on_failed_save": "poisoned",
+            "condition_duration_rounds": 2,
+        }],
+    }
+    db = FakeDb(character)
+    combat = FakeCombat()
+
+    monkeypatch.setattr(
+        "api.combat.ai_turn_special.roll_dice",
+        lambda expr: {"notation": expr, "rolls": [2, 2, 2, 2], "total": 8},
+    )
+    monkeypatch.setattr(
+        "api.combat.ai_turn_special.roll_saving_throw",
+        lambda *_args, **_kwargs: {"ability": "con", "dc": 13, "total": 18, "success": True},
+    )
+    monkeypatch.setattr("api.combat.ai_turn_special.tick_ai_actor_conditions", lambda **_kwargs: [])
+
+    async def fake_advance(combat, _session, _db, _turn_order, next_index):
+        combat.current_turn_index = next_index
+
+    monkeypatch.setattr("api.combat.ai_turn_special.advance_ai_turn", fake_advance)
+
+    result = await handle_ai_special_action(
+        session_id="session-1",
+        db=db,
+        session=FakeSession([enemy]),
+        combat=combat,
+        turn_order=combat.turn_order,
+        next_index=1,
+        actor_id="dragon-1",
+        actor_name="Dragon",
+        is_enemy=True,
+        enemy=enemy,
+        enemies=[enemy],
+        all_characters=[{"id": character.id, "name": character.name, "hp_current": 30}],
+        positions={"dragon-1": {"x": 0, "y": 0}, character.id: {"x": 2, "y": 0}},
+        decided_target_id=character.id,
+        decided_reason="test poison",
+        decision={"action_type": "special", "action_name": "Poison Breath"},
+    )
+
+    assert result is not None
+    assert result["damage"] == 4
+    assert result["target_results"][0]["condition_result"] == {
+        "condition": "poisoned",
+        "applied": False,
+        "immune": False,
+        "reason": "save_success",
+    }
+    assert character.conditions == []
+    assert character.condition_durations == {}
+
+
+@pytest.mark.asyncio
+async def test_handle_ai_special_action_respects_condition_immunity(monkeypatch):
+    from api.combat.ai_turn_special import handle_ai_special_action
+
+    character = FakeCharacter(hp_current=30)
+    character.class_resources = {"condition_immunities": ["poisoned"]}
+    enemy = {
+        "id": "dragon-1",
+        "name": "Dragon",
+        "hp_current": 50,
+        "recharge_abilities": [{
+            "id": "breath",
+            "name": "Poison Breath",
+            "threshold": 5,
+            "available": True,
+            "damage_dice": "4d6",
+            "damage_type": "poison",
+            "save": "con",
+            "save_dc": 13,
+            "half_on_save": True,
+            "condition_on_failed_save": "poisoned",
+            "condition_duration_rounds": 2,
+        }],
+    }
+    db = FakeDb(character)
+    combat = FakeCombat()
+
+    monkeypatch.setattr(
+        "api.combat.ai_turn_special.roll_dice",
+        lambda expr: {"notation": expr, "rolls": [2, 2, 2, 2], "total": 8},
+    )
+    monkeypatch.setattr(
+        "api.combat.ai_turn_special.roll_saving_throw",
+        lambda *_args, **_kwargs: {"ability": "con", "dc": 13, "total": 9, "success": False},
+    )
+    monkeypatch.setattr("api.combat.ai_turn_special.tick_ai_actor_conditions", lambda **_kwargs: [])
+
+    async def fake_advance(combat, _session, _db, _turn_order, next_index):
+        combat.current_turn_index = next_index
+
+    monkeypatch.setattr("api.combat.ai_turn_special.advance_ai_turn", fake_advance)
+
+    result = await handle_ai_special_action(
+        session_id="session-1",
+        db=db,
+        session=FakeSession([enemy]),
+        combat=combat,
+        turn_order=combat.turn_order,
+        next_index=1,
+        actor_id="dragon-1",
+        actor_name="Dragon",
+        is_enemy=True,
+        enemy=enemy,
+        enemies=[enemy],
+        all_characters=[{"id": character.id, "name": character.name, "hp_current": 30}],
+        positions={"dragon-1": {"x": 0, "y": 0}, character.id: {"x": 2, "y": 0}},
+        decided_target_id=character.id,
+        decided_reason="test poison",
+        decision={"action_type": "special", "action_name": "Poison Breath"},
+    )
+
+    assert result is not None
+    assert result["target_results"][0]["condition_result"] == {
+        "condition": "poisoned",
+        "applied": False,
+        "immune": True,
+        "reason": "condition_immunity",
+    }
+    assert character.conditions == []
+    assert character.condition_durations == {}
+
+
+@pytest.mark.asyncio
 async def test_handle_ai_special_action_returns_none_without_available_recharge():
     from api.combat.ai_turn_special import handle_ai_special_action
 

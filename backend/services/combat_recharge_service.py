@@ -94,6 +94,13 @@ def normalize_recharge_abilities(monster: dict[str, Any] | None) -> list[dict[st
             "target_count",
             "aoe",
             "half_on_save",
+            "condition",
+            "condition_name",
+            "condition_on_failed_save",
+            "conditions_on_failed_save",
+            "condition_duration",
+            "condition_duration_rounds",
+            "duration_rounds",
         ):
             if field in candidate and candidate.get(field) is not None:
                 ability[field] = candidate.get(field)

@@ -10,11 +10,14 @@ from sqlalchemy.orm.attributes import flag_modified
 from api.combat._shared import _get_ts, svc
 from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
 from models import Character, CombatState, GameLog
+from services.combat_condition_immunity_service import is_condition_immune, normalize_condition
+from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
+from services.combat_concentration_service import break_concentration_if_incapacitated
 from services.combat_grid_service import chebyshev_distance
 from services.combat_recharge_service import choose_recharge_ability, mark_recharge_ability_used
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_temporary_hp_service import build_character_target_state
-from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
+from services.dnd_rules import apply_character_damage, get_life_state, roll_dice, roll_saving_throw
 
 
 async def handle_ai_special_action(
@@ -70,6 +73,8 @@ async def handle_ai_special_action(
     for target in targets:
         applied = await _apply_recharge_damage_to_target(
             db,
+            session_id=session_id,
+            session=session,
             target=target,
             enemies=enemies,
             ability=ability,
@@ -178,6 +183,8 @@ async def handle_ai_special_action(
 async def _apply_recharge_damage_to_target(
     db,
     *,
+    session_id: str,
+    session,
     target: dict[str, Any],
     enemies: list[dict[str, Any]],
     ability: dict[str, Any],
@@ -199,8 +206,21 @@ async def _apply_recharge_damage_to_target(
             damage_type,
         )
         apply_character_damage(target_character, applied_damage)
+        condition_result = await _apply_recharge_condition_to_target(
+            db,
+            session_id=session_id,
+            session=session,
+            target=target_character,
+            ability=ability,
+            save_detail=save_detail,
+        )
         target_state = build_character_target_state(target_character)
         target_state["target_name"] = target_name
+        if condition_result:
+            target_state["conditions"] = target_character.conditions or []
+            target_state["condition_durations"] = target_character.condition_durations or {}
+            target_state["life_state"] = get_life_state(target_character)
+            target_state["concentration"] = target_character.concentration
         return {
             "target_id": str(target_character.id),
             "target_name": target_name,
@@ -209,6 +229,7 @@ async def _apply_recharge_damage_to_target(
             "damage_after_save": damage_after_save,
             "damage_type": damage_type,
             "save": save_detail,
+            "condition_result": condition_result,
             "target_new_hp": target_character.hp_current,
             "target_state": target_state,
             **target_state,
@@ -231,6 +252,14 @@ async def _apply_recharge_damage_to_target(
         applied_damage,
         target_enemy.get("derived", {}).get("hp_max", target_enemy.get("hp_max", 10)),
     )
+    condition_result = await _apply_recharge_condition_to_target(
+        db,
+        session_id=session_id,
+        session=session,
+        target=target_enemy,
+        ability=ability,
+        save_detail=save_detail,
+    )
     target_state = _enemy_target_state(target_enemy)
     return {
         "target_id": str(target_enemy.get("id")),
@@ -240,10 +269,110 @@ async def _apply_recharge_damage_to_target(
         "damage_after_save": damage_after_save,
         "damage_type": damage_type,
         "save": save_detail,
+        "condition_result": condition_result,
         "target_new_hp": target_enemy["hp_current"],
         "target_state": target_state,
         **target_state,
     }
+
+
+async def _apply_recharge_condition_to_target(
+    db,
+    *,
+    session_id: str,
+    session,
+    target: dict[str, Any] | Character,
+    ability: dict[str, Any],
+    save_detail: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    condition = _recharge_condition(ability)
+    if not condition:
+        return None
+
+    save_succeeded = bool(save_detail and save_detail.get("success"))
+    if save_succeeded:
+        return {
+            "condition": condition,
+            "applied": False,
+            "immune": False,
+            "reason": "save_success",
+        }
+
+    if is_condition_immune(target, condition):
+        return {
+            "condition": condition,
+            "applied": False,
+            "immune": True,
+            "reason": "condition_immunity",
+        }
+
+    duration_rounds = _recharge_condition_duration(ability)
+    if isinstance(target, dict):
+        conditions = list(target.get("conditions", []) or [])
+        if condition not in conditions:
+            conditions.append(condition)
+        target["conditions"] = conditions
+        if duration_rounds is not None:
+            durations = dict(target.get("condition_durations", {}) or {})
+            durations[condition] = duration_rounds
+            target["condition_durations"] = durations
+        return {
+            "condition": condition,
+            "applied": True,
+            "immune": False,
+            "duration_rounds": duration_rounds,
+        }
+
+    conditions = list(target.conditions or [])
+    if condition not in conditions:
+        conditions.append(condition)
+    target.conditions = conditions
+    if duration_rounds is not None:
+        durations = dict(target.condition_durations or {})
+        durations[condition] = duration_rounds
+        target.condition_durations = durations
+    concentration_log = break_concentration_if_incapacitated(target, session_id)
+    if concentration_log:
+        await clear_concentration_effects_for_caster(
+            db,
+            session,
+            target.id,
+            spell_name=(concentration_log.dice_result or {}).get("spell_name"),
+        )
+        db.add(concentration_log)
+    return {
+        "condition": condition,
+        "applied": True,
+        "immune": False,
+        "duration_rounds": duration_rounds,
+        "concentration_broken": bool(concentration_log),
+    }
+
+
+def _recharge_condition(ability: dict[str, Any]) -> str | None:
+    for key in ("condition_on_failed_save", "condition_name", "condition"):
+        condition = normalize_condition(ability.get(key))
+        if condition:
+            return condition
+    values = ability.get("conditions_on_failed_save")
+    if isinstance(values, list):
+        for value in values:
+            condition = normalize_condition(value)
+            if condition:
+                return condition
+    return None
+
+
+def _recharge_condition_duration(ability: dict[str, Any]) -> int | None:
+    for key in ("condition_duration_rounds", "duration_rounds", "condition_duration"):
+        value = ability.get(key)
+        if value is None:
+            continue
+        try:
+            return max(1, int(value))
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _choose_special_targets(
@@ -424,10 +553,16 @@ def _special_narration(
     elif save_detail:
         outcome = "succeeds" if save_detail.get("success") else "fails"
         save_text = f" {target_name} {outcome} a DC {save_detail.get('dc')} {save_detail.get('ability')} save."
+    conditions = [
+        str((result.get("condition_result") or {}).get("condition"))
+        for result in target_results or []
+        if (result.get("condition_result") or {}).get("applied")
+    ]
+    condition_text = f" Conditions applied: {', '.join(sorted(set(conditions)))}." if conditions else ""
     reason_text = f" ({reason})" if reason else ""
     return (
         f"{actor_name} uses {ability.get('name', 'a special ability')} on {target_name}, "
-        f"dealing {damage} {damage_type} damage.{save_text}{reason_text}"
+        f"dealing {damage} {damage_type} damage.{save_text}{condition_text}{reason_text}"
     )
 
 
