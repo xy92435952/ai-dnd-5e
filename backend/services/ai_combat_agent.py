@@ -131,6 +131,7 @@ def _build_enemy_prompt(
         actor_x=actor_pos.get("x", "?"),
         actor_y=actor_pos.get("y", "?"),
         actor_actions=_format_actions(actor.get("actions", [])),
+        spell_info=_format_spells(actor),
         tactics=module_tactics or "无特殊战术指令",
         difficulty_instructions=_DIFFICULTY_INSTRUCTIONS.get(
             module_difficulty,

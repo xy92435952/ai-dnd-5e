@@ -40,6 +40,8 @@ AC：{actor_ac}
 位置：({actor_x}, {actor_y})
 可用行动：
 {actor_actions}
+可用法术（剩余法术位）：
+{spell_info}
 
 ## 战术指令
 {tactics}
