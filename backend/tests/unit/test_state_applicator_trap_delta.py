@@ -16,6 +16,104 @@ class FakeDb:
 
 
 @pytest.mark.asyncio
+async def test_state_applicator_records_scene_trap_update():
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        current_scene="Crypt Hall",
+        game_state={},
+    )
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "investigation",
+        "narrative": "You spot a tripwire near the third flagstone.",
+        "state_delta": {
+            "trap_updates": [
+                {
+                    "id": "tripwire-1",
+                    "name": "Tripwire",
+                    "status": "discovered",
+                    "armed": True,
+                    "notes": "Third flagstone in Crypt Hall",
+                    "source": "passive_perception",
+                }
+            ]
+        },
+    }
+
+    await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[],
+    )
+
+    assert session.game_state["trap_states"]["tripwire-1"] == {
+        "id": "tripwire-1",
+        "name": "Tripwire",
+        "scene_id": "Crypt Hall",
+        "armed": True,
+        "status": "discovered",
+        "hidden": False,
+        "discovered": True,
+        "notes": "Third flagstone in Crypt Hall",
+        "source": "passive_perception",
+    }
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_trap_update_resets_and_removes_existing_state():
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        current_scene="Crypt Hall",
+        game_state={
+            "trap_states": {
+                "tripwire-1": {
+                    "id": "tripwire-1",
+                    "name": "Tripwire",
+                    "scene_id": "Crypt Hall",
+                    "triggered": True,
+                    "disarmed": True,
+                    "last_target_id": "char-1",
+                }
+            }
+        },
+    )
+    applicator = StateApplicator(FakeDb())
+
+    await applicator.apply(
+        session,
+        json.dumps({
+            "narrative": "The mechanism resets.",
+            "state_delta": {
+                "trap_updates": [{"id": "tripwire-1", "status": "reset"}]
+            },
+        }),
+        characters=[],
+    )
+
+    trap_state = session.game_state["trap_states"]["tripwire-1"]
+    assert trap_state["armed"] is True
+    assert trap_state["disarmed"] is False
+    assert trap_state["triggered"] is False
+    assert trap_state["disabled"] is False
+    assert trap_state["last_target_id"] == "char-1"
+
+    await applicator.apply(
+        session,
+        json.dumps({
+            "narrative": "The wire is gone.",
+            "state_delta": {
+                "trap_updates": [{"id": "tripwire-1", "status": "removed"}]
+            },
+        }),
+        characters=[],
+    )
+
+    assert "tripwire-1" not in session.game_state["trap_states"]
+
+
+@pytest.mark.asyncio
 async def test_state_applicator_applies_trap_trigger_delta(monkeypatch):
     session = Session(
         id="session-1",

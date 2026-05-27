@@ -95,6 +95,8 @@ class StateApplicator:
             sub_delta = ai_turn.get("state_delta", {})
             for char_delta in sub_delta.get("characters", []):
                 await self._apply_character_delta(char_delta, char_map, session.id)
+            for trap_update in sub_delta.get("trap_updates", []):
+                self._apply_trap_update_delta(trap_update, session)
             for trap_delta in sub_delta.get("trap_triggers", []):
                 self._apply_trap_trigger_delta(trap_delta, char_map, ar, session)
             for attack_delta in sub_delta.get("trap_attacks", []):
@@ -114,6 +116,9 @@ class StateApplicator:
         # ── 金币变化 ──
         for gold_delta in delta.get("gold_changes", []):
             await self._apply_gold_change(gold_delta, char_map)
+
+        for trap_update in delta.get("trap_updates", []):
+            self._apply_trap_update_delta(trap_update, session)
 
         for trap_delta in delta.get("trap_triggers", []):
             self._apply_trap_trigger_delta(trap_delta, char_map, ar, session)
@@ -262,6 +267,87 @@ class StateApplicator:
     # ─────────────────────────────────────────────
 
     # Exploration trap triggers.
+    def _apply_trap_update_delta(self, delta: dict, session: Session) -> None:
+        if not isinstance(delta, dict):
+            return
+
+        trap_data = delta.get("trap") if isinstance(delta.get("trap"), dict) else delta
+        trap_id = self._trap_id_from_update(trap_data)
+        if not trap_id:
+            logger.warning("trap_updates missing trap id/name")
+            return
+
+        game_state = dict(session.game_state or {})
+        trap_states = dict(game_state.get("trap_states") or {})
+        if self._trap_update_removes(delta):
+            trap_states.pop(trap_id, None)
+            game_state["trap_states"] = trap_states
+            session.game_state = game_state
+            flag_modified(session, "game_state")
+            return
+
+        existing = dict(trap_states.get(trap_id) or {})
+        status = str(delta.get("status") or trap_data.get("status") or "").strip().lower()
+        update = {
+            "id": trap_id,
+            "name": str(trap_data.get("name") or existing.get("name") or trap_id),
+            "scene_id": str(
+                delta.get("scene_id")
+                or delta.get("scene_key")
+                or trap_data.get("scene_id")
+                or existing.get("scene_id")
+                or session.current_scene
+                or ""
+            ),
+        }
+        for key in (
+            "discovered",
+            "hidden",
+            "armed",
+            "disarmed",
+            "triggered",
+            "disabled",
+        ):
+            value = delta.get(key, trap_data.get(key))
+            if value is not None:
+                update[key] = bool(value)
+
+        if status:
+            update["status"] = status
+            update.update(self._trap_status_flags(status))
+
+        notes = delta.get("notes", trap_data.get("notes"))
+        if notes is not None:
+            update["notes"] = str(notes)
+        source = delta.get("source", trap_data.get("source"))
+        if source is not None:
+            update["source"] = str(source)
+
+        existing.update(update)
+        trap_states[trap_id] = existing
+        game_state["trap_states"] = trap_states
+        session.game_state = game_state
+        flag_modified(session, "game_state")
+
+    def _trap_update_removes(self, delta: dict) -> bool:
+        status = str(delta.get("status") or "").strip().lower()
+        return bool(delta.get("remove") or delta.get("removed") or status == "removed")
+
+    def _trap_status_flags(self, status: str) -> dict:
+        if status == "hidden":
+            return {"hidden": True, "discovered": False}
+        if status == "discovered":
+            return {"hidden": False, "discovered": True}
+        if status == "armed":
+            return {"armed": True, "disarmed": False, "disabled": False}
+        if status == "disarmed":
+            return {"disarmed": True, "armed": False, "disabled": True}
+        if status == "triggered":
+            return {"triggered": True, "armed": False}
+        if status == "reset":
+            return {"armed": True, "disarmed": False, "triggered": False, "disabled": False}
+        return {}
+
     def _apply_trap_trigger_delta(
         self,
         delta: dict,
@@ -554,6 +640,16 @@ class StateApplicator:
             or trap_data.get("feature_id")
             or trap_data.get("name")
             or "trap"
+        )
+
+    def _trap_id_from_update(self, trap: dict) -> str:
+        trap_data = trap if isinstance(trap, dict) else {}
+        return str(
+            trap_data.get("id")
+            or trap_data.get("trap_id")
+            or trap_data.get("feature_id")
+            or trap_data.get("name")
+            or ""
         )
 
     # Gold changes.

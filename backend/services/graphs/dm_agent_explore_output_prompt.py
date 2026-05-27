@@ -32,6 +32,18 @@ EXPLORE_OUTPUT_SECTION = """
     "gold_changes": [
       {"id": "获得金币的角色ID（通常是玩家角色ID）", "amount": 0, "reason": "获取来源"}
     ],
+    "trap_updates": [
+      {
+        "id": "trap-id",
+        "name": "trap name",
+        "scene_id": "scene or room id",
+        "status": "hidden|discovered|armed|disarmed|triggered|reset|removed",
+        "discovered": true,
+        "hidden": false,
+        "armed": true,
+        "notes": "short state note"
+      }
+    ],
     "trap_triggers": [
       {
         "target_character_id": "character-id",

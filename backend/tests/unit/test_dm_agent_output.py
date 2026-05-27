@@ -13,6 +13,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
             "characters": [{"id": "c1", "hp_change": "-3"}],
             "enemies": [{"id": "e1", "hp_change": "-7"}],
             "gold_changes": [{"character_id": "c1", "amount": "12"}],
+            "trap_updates": [{"id": "wire", "status": "discovered"}],
             "trap_triggers": [{"target_character_id": "c1", "trap": {"name": "Dart"}}],
             "trap_attacks": [{"target_character_id": "c1", "trap": {"name": "Blade"}}],
             "trap_disarms": [{"actor_character_id": "c1", "trap": {"name": "Wire"}}],
@@ -34,6 +35,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
     assert data["state_delta"]["characters"][0]["hp_change"] == -3
     assert data["state_delta"]["enemies"][0]["hp_change"] == -7
     assert data["state_delta"]["gold_changes"][0]["amount"] == 12
+    assert data["state_delta"]["trap_updates"][0]["status"] == "discovered"
     assert data["state_delta"]["trap_triggers"][0]["trap"]["name"] == "Dart"
     assert data["state_delta"]["trap_attacks"][0]["trap"]["name"] == "Blade"
     assert data["state_delta"]["trap_disarms"][0]["trap"]["name"] == "Wire"
@@ -116,6 +118,7 @@ def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types()
             "characters": {"id": "c1", "hp_change": "-5"},
             "enemies": "bad",
             "gold_changes": {"id": "c1", "amount": "7"},
+            "trap_updates": {"id": "wire"},
             "trap_triggers": {"target_character_id": "c1"},
             "trap_attacks": {"target_character_id": "c1"},
             "trap_disarms": {"actor_character_id": "c1"},
@@ -133,6 +136,7 @@ def test_normalize_dm_output_repairs_schema_conflicts_and_bad_collection_types()
     assert data["state_delta"]["characters"] == []
     assert data["state_delta"]["enemies"] == []
     assert data["state_delta"]["gold_changes"] == []
+    assert data["state_delta"]["trap_updates"] == []
     assert data["state_delta"]["trap_triggers"] == []
     assert data["state_delta"]["trap_attacks"] == []
     assert data["state_delta"]["trap_disarms"] == []

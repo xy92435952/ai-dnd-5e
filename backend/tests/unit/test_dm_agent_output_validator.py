@@ -8,6 +8,7 @@ def test_validator_removes_mechanical_outcomes_while_check_is_pending():
             "characters": [{"id": "c1", "hp_change": -3}],
             "enemies": [{"id": "e1", "hp_change": -5}],
             "gold_changes": [{"id": "c1", "amount": 20}],
+            "trap_updates": [{"id": "wire", "status": "discovered"}],
             "trap_triggers": [{"target_character_id": "c1", "trap": {"name": "Dart"}}],
             "trap_attacks": [{"target_character_id": "c1", "trap": {"name": "Blade"}}],
             "trap_disarms": [{"actor_character_id": "c1", "trap": {"name": "Wire"}}],
@@ -23,6 +24,7 @@ def test_validator_removes_mechanical_outcomes_while_check_is_pending():
     assert repaired["state_delta"]["characters"] == []
     assert repaired["state_delta"]["enemies"] == []
     assert repaired["state_delta"]["gold_changes"] == []
+    assert repaired["state_delta"]["trap_updates"] == []
     assert repaired["state_delta"]["trap_triggers"] == []
     assert repaired["state_delta"]["trap_attacks"] == []
     assert repaired["state_delta"]["trap_disarms"] == []
