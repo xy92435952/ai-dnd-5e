@@ -27,16 +27,16 @@ def parse_recharge_threshold(value: Any) -> int | None:
     if not text:
         return None
 
-    explicit = re.search(r"recharge(?:s|d)?(?:\s+on)?\s*[:(]?\s*([2-6])(?:\s*[-–—]\s*6)?", text)
-    if explicit:
-        return int(explicit.group(1))
+    if "recharge" in text:
+        tail = text[text.find("recharge"):]
+        digits = [int(match) for match in re.findall(r"\b([2-6])\b", tail)]
+        return digits[0] if digits else None
 
-    range_match = re.search(r"\b([2-6])\s*[-–—]\s*6\b", text)
-    if range_match:
-        return int(range_match.group(1))
-
-    if re.fullmatch(r"[2-6]", text):
-        return int(text)
+    digits = [int(match) for match in re.findall(r"\b([2-6])\b", text)]
+    if len(digits) >= 2 and digits[-1] == 6:
+        return digits[0]
+    if len(digits) == 1 and re.fullmatch(r"\s*[2-6]\s*", text):
+        return digits[0]
 
     return None
 
@@ -84,9 +84,12 @@ def normalize_recharge_abilities(monster: dict[str, Any] | None) -> list[dict[st
             "damage_dice",
             "damage_type",
             "extra_effects",
+            "save",
             "save_dc",
             "saving_throw",
             "area",
+            "targeting",
+            "half_on_save",
         ):
             if field in candidate and candidate.get(field) is not None:
                 ability[field] = candidate.get(field)
@@ -139,6 +142,54 @@ def refresh_recharge_abilities_at_turn_start(
     return {"changed": changed, "events": events, "abilities": abilities}
 
 
+def choose_recharge_ability(
+    enemy: dict[str, Any] | None,
+    *,
+    action_name: str | None = None,
+) -> dict[str, Any] | None:
+    """Return an available recharge ability, preferring the requested action name."""
+    if not enemy:
+        return None
+    abilities = normalize_recharge_abilities(enemy)
+    if not abilities:
+        enemy["recharge_abilities"] = []
+        return None
+
+    enemy["recharge_abilities"] = abilities
+    available = [ability for ability in abilities if ability.get("available", True)]
+    if not available:
+        return None
+
+    requested = _normalize_action_name(action_name)
+    if requested:
+        for ability in available:
+            if _normalize_action_name(ability.get("name")) == requested:
+                return ability
+        return None
+    return available[0]
+
+
+def mark_recharge_ability_used(
+    enemy: dict[str, Any] | None,
+    ability_id: str | None,
+) -> bool:
+    """Mark a recharge ability unavailable after it has been used."""
+    if not enemy or not ability_id:
+        return False
+    abilities = normalize_recharge_abilities(enemy)
+    changed = False
+    for ability in abilities:
+        if str(ability.get("id")) != str(ability_id):
+            continue
+        if ability.get("available", True):
+            ability["available"] = False
+            ability.pop("last_recharge_roll", None)
+            changed = True
+        break
+    enemy["recharge_abilities"] = abilities
+    return changed
+
+
 def _as_dicts(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -169,3 +220,7 @@ def _candidate_threshold(candidate: dict[str, Any]) -> int | None:
 def _ability_id(name: str, source: str, index: int) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
     return f"{source}_{slug or index + 1}"
+
+
+def _normalize_action_name(value: Any) -> str:
+    return str(value or "").strip().lower().replace("_", " ").replace("-", " ")

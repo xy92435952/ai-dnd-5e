@@ -49,7 +49,7 @@ def ensure_valid_ai_decision_targets(
         decision["target_id"] = str(targets_alive[0].get("id"))
         target_replaced = True
 
-    if decision["action_type"] in ("attack", "spell") and not decision["target_id"]:
+    if decision["action_type"] in ("attack", "spell", "special") and not decision["target_id"]:
         decision["target_id"] = str(targets_alive[0].get("id"))
 
     return decision, target_replaced

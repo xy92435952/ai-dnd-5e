@@ -1,4 +1,6 @@
 from services.combat_recharge_service import (
+    choose_recharge_ability,
+    mark_recharge_ability_used,
     normalize_recharge_abilities,
     parse_recharge_threshold,
     refresh_recharge_abilities_at_turn_start,
@@ -83,3 +85,33 @@ def test_refresh_recharge_abilities_keeps_failed_roll_unavailable():
     assert result["events"][0]["recharged"] is False
     assert enemy["recharge_abilities"][0]["available"] is False
     assert enemy["recharge_abilities"][0]["last_recharge_roll"] == 4
+
+
+def test_choose_recharge_ability_prefers_available_requested_action_name():
+    enemy = {
+        "recharge_abilities": [
+            {"id": "breath", "name": "Breath Weapon", "threshold": 5, "available": False},
+            {"id": "gaze", "name": "Terrifying Gaze", "threshold": 6, "available": True},
+        ],
+    }
+
+    assert choose_recharge_ability(enemy, action_name="Breath Weapon") is None
+    chosen = choose_recharge_ability(enemy, action_name="Terrifying Gaze")
+
+    assert chosen["id"] == "gaze"
+
+
+def test_mark_recharge_ability_used_sets_available_false():
+    enemy = {
+        "recharge_abilities": [{
+            "id": "breath",
+            "name": "Breath Weapon",
+            "threshold": 5,
+            "available": True,
+            "last_recharge_roll": 6,
+        }],
+    }
+
+    assert mark_recharge_ability_used(enemy, "breath") is True
+    assert enemy["recharge_abilities"][0]["available"] is False
+    assert "last_recharge_roll" not in enemy["recharge_abilities"][0]

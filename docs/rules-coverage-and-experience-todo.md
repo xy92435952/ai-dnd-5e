@@ -144,7 +144,7 @@ Priority:
 | --- | --- | --- | --- | --- |
 | [~] | P0 | Parsed monster stat blocks | Module parser fills monster defaults including vulnerabilities, condition immunities, and multiattack. | Uploaded modules produce combat-ready enemies with HP, AC, attacks, saves, speed, and abilities. |
 | [~] | P0 | Enemy AI combat actions | AI turn service chooses attack/spell/actions and now uses enemy multiattack for attack count. | Enemies pick legal actions, respect resources, avoid impossible movement, and produce readable narration. |
-| [~] | P1 | Monster traits | First slices complete: damage resistance/immunity/vulnerability data is preserved, condition immunity blocks control conditions, multiattack feeds AI turn limits, Pack Tactics grants attack advantage, and Recharge ability availability is parsed/preserved/refreshed at enemy turn start. | Resistance, immunity, condition immunity, multiattack, recharge, pack tactics, legendary resistance are represented. |
+| [~] | P1 | Monster traits | First slices complete: damage resistance/immunity/vulnerability data is preserved, condition immunity blocks control conditions, multiattack feeds AI turn limits, Pack Tactics grants attack advantage, and damage-type Recharge abilities are parsed/preserved/refreshed/usable by enemy AI. | Resistance, immunity, condition immunity, multiattack, recharge, pack tactics, legendary resistance are represented. |
 | [ ] | P1 | Encounter balance | Not systematic. | Encounter builder estimates difficulty from party size/level, action economy, and terrain. |
 | [ ] | P2 | Legendary/lair actions | Not implemented. | Boss encounters can act outside normal turns and show clear UI prompts/logs. |
 | [ ] | P2 | Environmental hazards | Partial narrative. | Traps, surfaces, falling, fire, poison gas, difficult terrain, and cover are rule-backed. |
@@ -327,7 +327,7 @@ Priority:
 2. P0/P1 multiplayer pressure: repeat the 50-user load smoke and add missing assertions from real failures.
 3. P1 combat UX: action economy display, unavailable reasons, reaction before/after HP clarity.
 4. P1 spell system: unify spell target/area/slot/upcast/condition application before adding many more spells. First slice complete for action economy: action cantrips consume action, bonus-action spells consume bonus action, and reaction spells are rejected from ordinary cast flows.
-5. P1 monster traits: multiattack, resistances, immunities, condition immunity, recharge. First slices complete for condition immunity, multiattack turn limits, Pack Tactics, and Recharge availability tracking; actual Recharge action execution and legendary resistance remain.
+5. P1 monster traits: multiattack, resistances, immunities, condition immunity, recharge. First slices complete for condition immunity, multiattack turn limits, Pack Tactics, and damage-type Recharge action execution; complex Recharge rider effects, real AoE targeting, and legendary resistance remain.
 6. P1 exploration rules: stealth, perception, traps, rest consequences, travel/exhaustion.
 7. P2 CRPG depth: encounter templates, companion approval, branching quest state, loot economy.
 

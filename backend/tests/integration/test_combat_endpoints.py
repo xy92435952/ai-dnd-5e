@@ -495,6 +495,72 @@ async def test_ai_turn_dash_decision_does_not_500(
     assert data["next_turn_index"] == 1
 
 
+async def test_ai_turn_uses_available_recharge_special_action(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_special as ai_turn_special
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["recharge_abilities"] = [{
+        "id": "breath",
+        "name": "Fire Breath",
+        "threshold": 5,
+        "available": True,
+        "damage_dice": "6d6",
+        "damage_type": "fire",
+        "save": "dex",
+        "save_dc": 13,
+        "half_on_save": True,
+    }]
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    sample_character.hp_current = 30
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "hp_max": 30,
+        "ability_modifiers": {"dex": 0},
+        "saving_throws": {"dex": 0},
+    }
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "special",
+            "target_id": sample_character.id,
+            "action_name": "Fire Breath",
+            "reason": "test breath",
+        }
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(
+        ai_turn_special,
+        "roll_dice",
+        lambda expr: {"notation": expr, "rolls": [3, 3, 3, 3, 3, 3], "total": 18},
+    )
+    monkeypatch.setattr(
+        ai_turn_special,
+        "roll_saving_throw",
+        lambda *_args, **_kwargs: {"ability": "dex", "dc": 13, "total": 10, "success": False},
+    )
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["special_action"]["name"] == "Fire Breath"
+    assert body["damage"] == 18
+    assert body["target_new_hp"] == 12
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == 12
+    await db_session.refresh(sample_session)
+    assert sample_session.game_state["enemies"][0]["recharge_abilities"][0]["available"] is False
+
+
 async def test_ai_spell_can_be_counterspelled_before_effect_resolves(
     client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):

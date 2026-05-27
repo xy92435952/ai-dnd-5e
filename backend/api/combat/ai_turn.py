@@ -23,6 +23,7 @@ from api.combat._shared import (
 from api.combat.ai_turn_utils import advance_ai_turn
 from api.combat.ai_turn_context import build_ai_turn_context
 from api.combat.ai_turn_actions import handle_ai_simple_action
+from api.combat.ai_turn_special import handle_ai_special_action
 from api.combat.ai_turn_spell import find_resumable_spell_reaction, handle_ai_spell_action
 from api.combat.ai_turn_attack import handle_ai_attack_action
 from schemas.combat_responses import EndTurnResult
@@ -247,6 +248,26 @@ async def _ai_combat_turn_locked(
     )
     if simple_response is not None:
         return await _broadcast_ai_turn_result(session, combat, db, simple_response)
+
+    special_response = await handle_ai_special_action(
+        session_id,
+        db,
+        session,
+        combat,
+        turn_order,
+        next_index,
+        actor_id,
+        actor_name,
+        is_enemy,
+        e,
+        enemies,
+        all_characters,
+        decided_target_id,
+        decided_reason,
+        decision,
+    )
+    if special_response is not None:
+        return await _broadcast_ai_turn_result(session, combat, db, special_response)
 
     spell_response = await handle_ai_spell_action(
         session_id,

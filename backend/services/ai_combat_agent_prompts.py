@@ -14,7 +14,7 @@ DIFFICULTY_INSTRUCTIONS = {
     "normal": """## 难度：普通
 你有基本的战斗智慧：
 - 优先攻击威胁较大或HP较低的目标
-- 会使用自己的特殊能力和法术（如果有的话）
+- 会使用自己的特殊能力和法术（如果有的话）；Recharge 能力可用时可选择 action_type="special"
 - 低血量（< 30% HP）时会考虑撤退或切换防御策略
 - 不会刻意集火已倒下的角色
 - 会利用基本的位置优势（远程保持距离，近战贴近）""",
@@ -68,7 +68,7 @@ AC：{actor_ac}
 ## 输出格式
 只返回以下 JSON，不要有任何其他文字：
 {{
-  "action_type": "attack|spell|move|dodge|dash|disengage",
+  "action_type": "attack|spell|special|move|dodge|dash|disengage",
   "target_id": "目标实体ID 或 null（dodge/dash/disengage 时为 null）",
   "action_name": "使用的具体攻击或法术名称（从可用行动中选择）或 null",
   "move_first": true,
