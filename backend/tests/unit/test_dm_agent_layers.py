@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from services.graphs import dm_agent
 
@@ -67,6 +68,45 @@ def test_rules_layer_warns_against_unprompted_hp_changes_outside_combat():
     assert "非战斗规则边界" in context
     assert "不要凭空进入回合制战斗" in context
     assert "修改 HP" in context
+
+
+def test_rules_layer_includes_backend_exploration_context():
+    game_state = {
+        "combat_active": False,
+        "current_actor_id": "c1",
+        "current_actor_name": "Scout",
+        "characters": [{"id": "c1", "name": "Scout", "char_class": "Rogue", "level": 1}],
+        "exploration_context": {
+            "party_best_passive": {
+                "perception": {"character_id": "c1", "name": "Scout", "score": 15, "skill": "perception"}
+            },
+            "character_passives": [
+                {
+                    "character_id": "c1",
+                    "name": "Scout",
+                    "passive_perception": 15,
+                    "passive_investigation": 11,
+                    "passive_stealth": 16,
+                }
+            ],
+            "group_stealth": {
+                "skill": "stealth",
+                "success_rule": "at_least_half_members_meet_or_exceed_dc",
+            },
+        },
+    }
+
+    context = dm_agent._build_rules_context({
+        "action_source": "human_input",
+        "player_action": "I search for hidden doors.",
+        "game_state": json.dumps(game_state),
+        "input_meta": {"source": "human_input"},
+    })
+
+    assert "Exploration Rules Snapshot" in context
+    assert "backend-authored rule context" in context
+    assert "passive_perception" in context
+    assert "at_least_half_members_meet_or_exceed_dc" in context
 
 
 def test_memory_context_marks_retrieval_as_reference_only():

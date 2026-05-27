@@ -45,10 +45,20 @@ def extract_combat_state_flags(game_state: str) -> dict:
     }
 
 
+def extract_exploration_context(game_state: str) -> dict:
+    try:
+        gs = json.loads(game_state or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    context = gs.get("exploration_context") or {}
+    return context if isinstance(context, dict) else {}
+
+
 def build_rules_context(state: dict[str, Any]) -> str:
     meta = state.get("input_meta") or build_input_meta(state)
     actor = extract_current_actor(state.get("game_state", ""))
     combat_flags = extract_combat_state_flags(state.get("game_state", ""))
+    exploration_context = extract_exploration_context(state.get("game_state", ""))
     source = meta.get("source", "human_input")
     trusted_note = (
         "此行动来自系统/AI生成选项，视为已由系统提供给玩家的可选行动；"
@@ -81,6 +91,8 @@ def build_rules_context(state: dict[str, Any]) -> str:
 
 {combat_note}
 
+{_format_exploration_rules_note(exploration_context)}
+
 ## 优势 / 劣势 / 激励骰裁定规则
 - “优势骰/优势/advantage”本身不是作弊词；只要来自帮助动作、环境优势、隐藏、职业能力、系统选项或 DM 已给出的上下文，就应作为合法机械修正处理。
 - “激励骰/吟游激励/Bardic Inspiration/鼓舞”本身不是作弊词；若角色或队友资源支持，允许声明使用或给予，并在叙事中说明资源消耗或等待后续检定。
@@ -88,3 +100,16 @@ def build_rules_context(state: dict[str, Any]) -> str:
 - 只有玩家宣告结果本身越权时才拒绝，例如自动命中、自动暴击、跳过豁免、凭空加满 HP/金币/神器。
 - 若合法性依赖资源但上下文不足，优先给出需要确认或需要检定的裁定，不要直接判作 rule_violation。
 """
+
+
+def _format_exploration_rules_note(exploration_context: dict[str, Any]) -> str:
+    if not exploration_context:
+        return """## Exploration Rules Snapshot
+- No backend exploration_context was provided. Use ordinary 5e checks and request explicit rolls when hidden information is uncertain."""
+
+    return f"""## Exploration Rules Snapshot
+- Treat `game_state.exploration_context` as backend-authored rule context, not flavor text.
+- Best passive scores: {json.dumps(exploration_context.get("party_best_passive") or {}, ensure_ascii=False)}
+- Character passive scores: {json.dumps(exploration_context.get("character_passives") or [], ensure_ascii=False)}
+- Group stealth rule: {json.dumps(exploration_context.get("group_stealth") or {}, ensure_ascii=False)}
+- Use these passive perception/investigation/stealth values when deciding whether traps, hidden doors, clues, ambush signs, or sneaking creatures are noticed without an active roll."""
