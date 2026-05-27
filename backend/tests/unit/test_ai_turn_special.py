@@ -100,6 +100,87 @@ class FakeCombat:
     turn_states = {"dragon-1": {"action_used": False}}
 
 
+def test_area_special_targets_uses_cone_template():
+    from api.combat.ai_turn_special import _area_special_targets
+
+    targets = [
+        {"id": "front", "name": "Front", "hp_current": 10},
+        {"id": "side", "name": "Side", "hp_current": 10},
+        {"id": "behind", "name": "Behind", "hp_current": 10},
+        {"id": "far", "name": "Far", "hp_current": 10},
+    ]
+
+    selected = _area_special_targets(
+        targets,
+        target_id="front",
+        ability={"area": "15 ft cone", "max_targets": 4},
+        actor_id="dragon-1",
+        positions={
+            "dragon-1": {"x": 0, "y": 0},
+            "front": {"x": 3, "y": 0},
+            "side": {"x": 2, "y": 1},
+            "behind": {"x": -1, "y": 0},
+            "far": {"x": 5, "y": 0},
+        },
+    )
+
+    assert [target["id"] for target in selected] == ["front", "side"]
+
+
+def test_area_special_targets_uses_line_template():
+    from api.combat.ai_turn_special import _area_special_targets
+
+    targets = [
+        {"id": "near", "name": "Near", "hp_current": 10},
+        {"id": "far", "name": "Far", "hp_current": 10},
+        {"id": "off_line", "name": "Off Line", "hp_current": 10},
+        {"id": "behind", "name": "Behind", "hp_current": 10},
+    ]
+
+    selected = _area_special_targets(
+        targets,
+        target_id="near",
+        ability={"area": "30 ft line", "max_targets": 4},
+        actor_id="dragon-1",
+        positions={
+            "dragon-1": {"x": 0, "y": 0},
+            "near": {"x": 2, "y": 0},
+            "far": {"x": 5, "y": 0},
+            "off_line": {"x": 4, "y": 1},
+            "behind": {"x": -1, "y": 0},
+        },
+    )
+
+    assert [target["id"] for target in selected] == ["near", "far"]
+
+
+def test_area_special_targets_uses_radius_template_around_anchor():
+    from api.combat.ai_turn_special import _area_special_targets
+
+    targets = [
+        {"id": "anchor", "name": "Anchor", "hp_current": 10},
+        {"id": "near_anchor", "name": "Near Anchor", "hp_current": 10},
+        {"id": "near_actor", "name": "Near Actor", "hp_current": 10},
+        {"id": "outside", "name": "Outside", "hp_current": 10},
+    ]
+
+    selected = _area_special_targets(
+        targets,
+        target_id="anchor",
+        ability={"area": "10 ft radius", "max_targets": 4},
+        actor_id="dragon-1",
+        positions={
+            "dragon-1": {"x": 0, "y": 0},
+            "anchor": {"x": 4, "y": 0},
+            "near_anchor": {"x": 5, "y": 1},
+            "near_actor": {"x": 1, "y": 0},
+            "outside": {"x": 7, "y": 0},
+        },
+    )
+
+    assert [target["id"] for target in selected] == ["anchor", "near_anchor"]
+
+
 @pytest.mark.asyncio
 async def test_handle_ai_special_action_uses_recharge_damage_and_spends_ability(monkeypatch):
     from api.combat.ai_turn_special import handle_ai_special_action

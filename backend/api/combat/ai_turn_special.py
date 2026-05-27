@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from sqlalchemy import select
@@ -456,6 +457,17 @@ def _area_special_targets(
         return alive[:max_targets]
 
     range_tiles = _area_range_tiles(ability)
+    template_targets = _template_area_targets(
+        ranked,
+        target_id=target_id,
+        template_type=_area_template_type(ability),
+        range_tiles=range_tiles,
+        actor_position=actor_position,
+        positions=positions,
+    )
+    if template_targets:
+        return template_targets[:max_targets]
+
     in_range = [item for item in ranked if item[0] <= range_tiles]
     candidates = in_range or ranked
     candidates.sort(key=lambda item: (item[1], item[0], str(item[2].get("id"))))
@@ -471,6 +483,149 @@ def _area_range_tiles(ability: dict[str, Any]) -> int:
     if distances:
         return max(1, max(distances) // 5)
     return 6
+
+
+def _area_template_type(ability: dict[str, Any]) -> str:
+    text = " ".join(
+        str(ability.get(key, ""))
+        for key in ("area", "targeting", "description", "extra_effects", "reach_or_range")
+    ).lower()
+    if "cone" in text:
+        return "cone"
+    if "line" in text:
+        return "line"
+    if any(marker in text for marker in ("radius", "sphere", "burst", "aura")):
+        return "radius"
+    return "range"
+
+
+def _template_area_targets(
+    ranked: list[tuple[int, int, dict[str, Any]]],
+    *,
+    target_id: str | None,
+    template_type: str,
+    range_tiles: int,
+    actor_position: dict[str, Any] | None,
+    positions: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if template_type not in {"cone", "line", "radius"} or not actor_position:
+        return []
+
+    anchor_position = positions.get(str(target_id)) if target_id else None
+    if not anchor_position and ranked:
+        anchor_position = positions.get(str(ranked[0][2].get("id")))
+    if not anchor_position:
+        return []
+
+    selected = []
+    for item in ranked:
+        if template_type in {"cone", "line"} and item[0] > range_tiles:
+            continue
+        if _point_in_area_template(
+            actor_position=actor_position,
+            anchor_position=anchor_position,
+            target_position=positions.get(str(item[2].get("id"))),
+            template_type=template_type,
+            range_tiles=range_tiles,
+        ):
+            selected.append(item)
+    selected.sort(key=lambda item: (item[1], item[0], str(item[2].get("id"))))
+    return [item[2] for item in selected]
+
+
+def _point_in_area_template(
+    *,
+    actor_position: dict[str, Any],
+    anchor_position: dict[str, Any],
+    target_position: dict[str, Any] | None,
+    template_type: str,
+    range_tiles: int,
+) -> bool:
+    if not target_position:
+        return False
+
+    dx = int(target_position.get("x", 0)) - int(actor_position.get("x", 0))
+    dy = int(target_position.get("y", 0)) - int(actor_position.get("y", 0))
+    distance = max(abs(dx), abs(dy))
+    if distance <= 0:
+        return False
+
+    if template_type == "radius":
+        anchor_dx = int(target_position.get("x", 0)) - int(anchor_position.get("x", 0))
+        anchor_dy = int(target_position.get("y", 0)) - int(anchor_position.get("y", 0))
+        return max(abs(anchor_dx), abs(anchor_dy)) <= range_tiles
+
+    if distance > range_tiles:
+        return False
+
+    direction = _template_direction(actor_position, anchor_position)
+    if direction == (0, 0):
+        return False
+
+    if template_type == "line":
+        return _point_on_line_template(dx, dy, direction, range_tiles)
+    if template_type == "cone":
+        return _point_in_cone_template(dx, dy, direction, range_tiles)
+    return False
+
+
+def _template_direction(
+    actor_position: dict[str, Any],
+    anchor_position: dict[str, Any],
+) -> tuple[int, int]:
+    dx = int(anchor_position.get("x", 0)) - int(actor_position.get("x", 0))
+    dy = int(anchor_position.get("y", 0)) - int(actor_position.get("y", 0))
+    return (_sign(dx), _sign(dy))
+
+
+def _point_on_line_template(
+    dx: int,
+    dy: int,
+    direction: tuple[int, int],
+    range_tiles: int,
+) -> bool:
+    step_x, step_y = direction
+    if step_x == 0:
+        return dx == 0 and _same_direction(dy, step_y) and abs(dy) <= range_tiles
+    if step_y == 0:
+        return dy == 0 and _same_direction(dx, step_x) and abs(dx) <= range_tiles
+    return (
+        abs(dx) == abs(dy)
+        and _same_direction(dx, step_x)
+        and _same_direction(dy, step_y)
+        and abs(dx) <= range_tiles
+    )
+
+
+def _point_in_cone_template(
+    dx: int,
+    dy: int,
+    direction: tuple[int, int],
+    range_tiles: int,
+) -> bool:
+    distance = max(abs(dx), abs(dy))
+    if distance <= 0 or distance > range_tiles:
+        return False
+
+    dir_x, dir_y = direction
+    magnitude = math.hypot(dx, dy)
+    dir_magnitude = math.hypot(dir_x, dir_y)
+    if not magnitude or not dir_magnitude:
+        return False
+    cosine = ((dx * dir_x) + (dy * dir_y)) / (magnitude * dir_magnitude)
+    return cosine >= math.cos(math.radians(45))
+
+
+def _same_direction(value: int, direction: int) -> bool:
+    return direction == 0 or (value != 0 and _sign(value) == direction)
+
+
+def _sign(value: int) -> int:
+    if value > 0:
+        return 1
+    if value < 0:
+        return -1
+    return 0
 
 
 def _max_area_targets(ability: dict[str, Any], *, default: int) -> int:
