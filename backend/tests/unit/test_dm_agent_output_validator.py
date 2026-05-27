@@ -8,6 +8,7 @@ def test_validator_removes_mechanical_outcomes_while_check_is_pending():
             "characters": [{"id": "c1", "hp_change": -3}],
             "enemies": [{"id": "e1", "hp_change": -5}],
             "gold_changes": [{"id": "c1", "amount": 20}],
+            "trap_triggers": [{"target_character_id": "c1", "trap": {"name": "Dart"}}],
             "combat_trigger": True,
             "combat_end": True,
         },
@@ -20,6 +21,7 @@ def test_validator_removes_mechanical_outcomes_while_check_is_pending():
     assert repaired["state_delta"]["characters"] == []
     assert repaired["state_delta"]["enemies"] == []
     assert repaired["state_delta"]["gold_changes"] == []
+    assert repaired["state_delta"]["trap_triggers"] == []
     assert repaired["state_delta"]["combat_trigger"] is False
     assert repaired["state_delta"]["combat_end"] is False
     assert repaired["ai_turns"] == []

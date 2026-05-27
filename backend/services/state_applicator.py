@@ -25,6 +25,7 @@ from models.character import Character
 from models.session import Session, CombatState
 from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
 from services.dnd_rules import apply_character_damage, apply_character_healing, get_effective_hp_max, stabilize_character
+from services.exploration_rules_service import apply_trap_trigger_to_target
 from services.state_apply_result import ApplyResult
 from services.state_log_service import append_session_history, write_game_logs
 
@@ -90,6 +91,8 @@ class StateApplicator:
             sub_delta = ai_turn.get("state_delta", {})
             for char_delta in sub_delta.get("characters", []):
                 await self._apply_character_delta(char_delta, char_map, session.id)
+            for trap_delta in sub_delta.get("trap_triggers", []):
+                self._apply_trap_trigger_delta(trap_delta, char_map, ar, session.id)
             if combat_state:
                 for enemy_delta in sub_delta.get("enemies", []):
                     self._apply_enemy_delta(enemy_delta, session)
@@ -103,6 +106,9 @@ class StateApplicator:
         # ── 金币变化 ──
         for gold_delta in delta.get("gold_changes", []):
             await self._apply_gold_change(gold_delta, char_map)
+
+        for trap_delta in delta.get("trap_triggers", []):
+            self._apply_trap_trigger_delta(trap_delta, char_map, ar, session.id)
 
         # ── 位置变化（自然语言战斗中的移动）──
         if combat_state:
@@ -241,6 +247,72 @@ class StateApplicator:
     # 金币变化
     # ─────────────────────────────────────────────
 
+    # Exploration trap triggers.
+    def _apply_trap_trigger_delta(
+        self,
+        delta: dict,
+        char_map: dict[str, Character],
+        ar: ApplyResult,
+        session_id: str,
+    ) -> None:
+        if not isinstance(delta, dict):
+            return
+
+        target_id = str(
+            delta.get("target_character_id")
+            or delta.get("character_id")
+            or delta.get("target_id")
+            or delta.get("id")
+            or ""
+        )
+        target = char_map.get(target_id)
+        if not target:
+            logger.warning(f"trap_triggers contains unknown character ID: {target_id}")
+            return
+
+        trap = delta.get("trap") if isinstance(delta.get("trap"), dict) else delta
+        result = apply_trap_trigger_to_target(trap, target)
+        ar.dice_display.extend(self._trap_dice_display(result))
+        logger.info(
+            "trap triggered: session=%s trap=%s target=%s damage=%s hp=%s->%s",
+            session_id,
+            result.get("trap_id"),
+            target_id[:8],
+            result.get("final_damage", 0),
+            result.get("hp_before"),
+            result.get("hp_after"),
+        )
+
+    def _trap_dice_display(self, result: dict) -> list[dict]:
+        trap_name = result.get("name") or result.get("trap_id") or "Trap"
+        save = result.get("save") if isinstance(result.get("save"), dict) else {}
+        damage_roll = result.get("damage_roll") if isinstance(result.get("damage_roll"), dict) else {}
+        return [
+            {
+                "label": f"{trap_name} saving throw",
+                "kind": "saving_throw",
+                "ability": result.get("save_ability"),
+                "dc": result.get("save_dc"),
+                "raw": save.get("d20"),
+                "modifier": save.get("modifier", 0),
+                "total": save.get("total"),
+                "success": result.get("saved"),
+                "target_id": result.get("target_id"),
+            },
+            {
+                "label": f"{trap_name} damage",
+                "kind": "damage",
+                "damage_type": result.get("damage_type"),
+                "formula": result.get("damage_dice"),
+                "rolls": damage_roll.get("rolls", []),
+                "raw": result.get("rolled_damage", damage_roll.get("total", 0)),
+                "total": result.get("final_damage", 0),
+                "halved": bool(result.get("saved") and result.get("half_on_save")),
+                "target_id": result.get("target_id"),
+            },
+        ]
+
+    # Gold changes.
     async def _apply_gold_change(
         self,
         delta: dict,

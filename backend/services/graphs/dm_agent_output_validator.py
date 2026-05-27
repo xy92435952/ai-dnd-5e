@@ -57,6 +57,12 @@ def validate_dm_output_adjudication(data: dict, state: dict | None = None) -> tu
             warnings,
             "removed gold changes because the action still requires a check",
         )
+        _clear_list_delta(
+            delta,
+            "trap_triggers",
+            warnings,
+            "removed trap triggers because the action still requires a check",
+        )
         _clear_flag(
             delta,
             "combat_trigger",

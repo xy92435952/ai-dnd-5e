@@ -32,6 +32,21 @@ EXPLORE_OUTPUT_SECTION = """
     "gold_changes": [
       {"id": "获得金币的角色ID（通常是玩家角色ID）", "amount": 0, "reason": "获取来源"}
     ],
+    "trap_triggers": [
+      {
+        "target_character_id": "character-id",
+        "trap": {
+          "id": "trap-id",
+          "name": "trap name",
+          "save_ability": "dex",
+          "save_dc": 15,
+          "damage_dice": "2d6",
+          "damage_type": "piercing",
+          "half_on_save": true,
+          "conditions_on_fail": []
+        }
+      }
+    ],
     "combat_trigger": false,
     "combat_trigger_reason": null,
     "initial_enemies": [],
