@@ -596,6 +596,136 @@ async def test_counterspell_prompt_falls_back_to_party_caster_when_target_cannot
     assert ai_turn_combat.turn_states[wizard.id]["pending_spell_reaction"]["spell_name"] == "魔法飞弹"
 
 
+async def test_counterspell_prompt_is_not_offered_beyond_60ft(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    import services.ai_combat_agent as ai_agent
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Enemy Mage"
+    enemy["known_spells"] = ["魔法飞弹"]
+    enemy["spell_slots"] = {"1st": 1}
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "spell_ability": "int",
+        "ability_modifiers": {"int": 3, "dex": 1},
+        "spell_save_dc": 13,
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    sample_character.char_class = "Wizard"
+    sample_character.level = 5
+    sample_character.known_spells = ["Counterspell"]
+    sample_character.spell_slots = {"3rd": 1}
+    sample_character.hp_current = 12
+    ai_turn_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        enemy["id"]: {"x": 18, "y": 5},
+    }
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "spell",
+            "target_id": sample_character.id,
+            "action_name": "魔法飞弹",
+            "reason": "test counterspell range",
+        }
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body.get("player_can_react") in (None, False)
+    assert body.get("reaction_prompt") is None
+    assert body["damage"] > 0
+    assert body["target_new_hp"] < 12
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ai_turn_combat)
+    assert sample_character.spell_slots["3rd"] == 1
+    assert "pending_spell_reaction" not in ai_turn_combat.turn_states.get(sample_character.id, {})
+
+
+async def test_counterspell_reaction_rechecks_range_before_consuming_slot(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    import services.ai_combat_agent as ai_agent
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Enemy Mage"
+    enemy["known_spells"] = ["魔法飞弹"]
+    enemy["spell_slots"] = {"1st": 1}
+    enemy["derived"] = {
+        **enemy.get("derived", {}),
+        "spell_ability": "int",
+        "ability_modifiers": {"int": 3, "dex": 1},
+        "spell_save_dc": 13,
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    sample_character.char_class = "Wizard"
+    sample_character.level = 5
+    sample_character.known_spells = ["Counterspell"]
+    sample_character.spell_slots = {"3rd": 1}
+    sample_character.hp_current = 12
+    ai_turn_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        enemy["id"]: {"x": 10, "y": 5},
+    }
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "spell",
+            "target_id": sample_character.id,
+            "action_name": "魔法飞弹",
+            "reason": "test stale counterspell range",
+        }
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+
+    headers = await _auth_headers(client, sample_user)
+    prompt_response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+    assert prompt_response.status_code == 200, prompt_response.text
+    assert prompt_response.json()["reaction_prompt"]["options"][0]["type"] == "counterspell"
+
+    await db_session.refresh(ai_turn_combat)
+    ai_turn_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        enemy["id"]: {"x": 18, "y": 5},
+    }
+    await db_session.commit()
+
+    reaction = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={
+            "reaction_type": "counterspell",
+            "target_id": enemy["id"],
+            "character_id": sample_character.id,
+        },
+    )
+
+    assert reaction.status_code == 400, reaction.text
+    assert "out of range" in reaction.text
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ai_turn_combat)
+    await db_session.refresh(sample_session)
+    assert sample_character.spell_slots["3rd"] == 1
+    assert sample_session.game_state["enemies"][0]["spell_slots"]["1st"] == 1
+    assert ai_turn_combat.turn_states[sample_character.id]["pending_spell_reaction"]["spell_name"] == "魔法飞弹"
+
+
 async def test_concurrent_ai_turn_with_same_token_only_advances_once(
     client, db_session, sample_session, ai_turn_combat, sample_user, monkeypatch,
 ):

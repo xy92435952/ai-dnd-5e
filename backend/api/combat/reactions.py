@@ -32,6 +32,7 @@ from services.combat_reaction_service import (
     calculate_uncanny_dodge_prevention,
     character_knows_counterspell,
     choose_counterspell_slot,
+    resolve_counterspell_eligibility,
     restore_prevented_damage,
 )
 from services.combat_ai_spell_service import consume_ai_spell_slot, consume_named_spell_slot
@@ -287,6 +288,29 @@ async def use_reaction(
             raise HTTPException(400, "No available 3rd-level or higher spell slot")
         slot_key, slot_level = slot_choice
 
+        caster_id = pending_spell_reaction.get("caster_id")
+        caster_conditions = []
+        for enemy in enemies:
+            if str(enemy.get("id")) == str(caster_id):
+                caster_conditions = enemy.get("conditions", [])
+                break
+        eligibility = resolve_counterspell_eligibility(
+            reactor=player,
+            caster_id=caster_id,
+            combat=combat,
+            caster_conditions=caster_conditions,
+        )
+        if not eligibility["can_counterspell"]:
+            reason = eligibility.get("reason") or "not_eligible"
+            if reason == "out_of_range":
+                raise HTTPException(
+                    400,
+                    f"Counterspell target is out of range ({eligibility.get('distance_ft')}ft > {eligibility.get('range_ft')}ft)",
+                )
+            if reason in {"caster_not_visible", "reactor_blinded"}:
+                raise HTTPException(400, "Counterspell requires seeing the spellcaster")
+            raise HTTPException(400, "Counterspell cannot be used right now")
+
         counter_result = calculate_counterspell_result(
             countered_spell_level=spell_level,
             counterspell_slot_level=slot_level,
@@ -303,7 +327,6 @@ async def use_reaction(
             ts.pop("resume_spell_reaction", None)
         _save_ts(combat, player_id, ts)
         if counter_result["success"]:
-            caster_id = pending_spell_reaction.get("caster_id")
             for enemy in enemies:
                 if str(enemy.get("id")) == str(caster_id):
                     if spell_level > 0:

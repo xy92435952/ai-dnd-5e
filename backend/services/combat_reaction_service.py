@@ -8,6 +8,7 @@ from services.dnd_rules import (
     get_effective_hp_max,
     get_temporary_hp,
     get_wild_shape_hp,
+    normalize_conditions,
     roll_saving_throw,
 )
 
@@ -33,6 +34,9 @@ COUNTERSPELL_NAMES = {
     "反制法术",
     "反制法術",
 }
+
+COUNTERSPELL_RANGE_SQUARES = 12
+SIGHT_BLOCKING_TERRAIN = {"wall", "opaque", "blocking", "blocker", "total_cover"}
 
 
 def _optional_int(value: Any) -> int | None:
@@ -211,6 +215,117 @@ def build_pending_spell_reaction(
         "decision": dict(decision or {}),
         "decided_reason": decided_reason or "",
     }
+
+
+def _position(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    if "x" not in value or "y" not in value:
+        return None
+    return value
+
+
+def _distance_squares(pos_a: dict[str, Any], pos_b: dict[str, Any]) -> int:
+    return max(
+        abs(int(pos_a.get("x", 0)) - int(pos_b.get("x", 0))),
+        abs(int(pos_a.get("y", 0)) - int(pos_b.get("y", 0))),
+    )
+
+
+def _line_cells_between(pos_a: dict[str, Any], pos_b: dict[str, Any]) -> list[str]:
+    ax, ay = int(pos_a.get("x", 0)), int(pos_a.get("y", 0))
+    bx, by = int(pos_b.get("x", 0)), int(pos_b.get("y", 0))
+    dx = bx - ax
+    dy = by - ay
+    steps = max(abs(dx), abs(dy))
+    if steps <= 1:
+        return []
+
+    cells = []
+    for step in range(1, steps):
+        cx = ax + round(dx * step / steps)
+        cy = ay + round(dy * step / steps)
+        cells.append(f"{cx}_{cy}")
+    return cells
+
+
+def _conditions(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        raw = value.get("conditions") or []
+    else:
+        raw = getattr(value, "conditions", None) or []
+    return normalize_conditions(raw)
+
+
+def resolve_counterspell_eligibility(
+    *,
+    reactor: Any,
+    caster_id: str | None,
+    combat: Any | None = None,
+    caster_conditions: list[str] | None = None,
+    range_squares: int = COUNTERSPELL_RANGE_SQUARES,
+) -> dict[str, Any]:
+    """Return whether a reactor can see a spellcaster within Counterspell range."""
+    result = {
+        "can_counterspell": True,
+        "reason": None,
+        "distance_squares": None,
+        "distance_ft": None,
+        "range_squares": int(range_squares),
+        "range_ft": int(range_squares) * 5,
+        "visible": True,
+    }
+    if not reactor or not caster_id:
+        result.update({
+            "can_counterspell": False,
+            "reason": "missing_reactor_or_caster",
+        })
+        return result
+
+    reactor_conditions = _conditions(reactor)
+    normalized_caster_conditions = normalize_conditions(caster_conditions or [])
+    if "blinded" in reactor_conditions:
+        result.update({
+            "can_counterspell": False,
+            "reason": "reactor_blinded",
+            "visible": False,
+        })
+        return result
+    if {"invisible", "hidden"} & set(normalized_caster_conditions):
+        result.update({
+            "can_counterspell": False,
+            "reason": "caster_not_visible",
+            "visible": False,
+        })
+        return result
+
+    positions = dict(getattr(combat, "entity_positions", None) or {}) if combat else {}
+    reactor_pos = _position(positions.get(str(getattr(reactor, "id", ""))))
+    caster_pos = _position(positions.get(str(caster_id)))
+    if not reactor_pos or not caster_pos:
+        return result
+
+    distance = _distance_squares(reactor_pos, caster_pos)
+    result["distance_squares"] = distance
+    result["distance_ft"] = distance * 5
+    if distance > int(range_squares):
+        result.update({
+            "can_counterspell": False,
+            "reason": "out_of_range",
+        })
+        return result
+
+    grid_data = dict(getattr(combat, "grid_data", None) or {})
+    for cell in _line_cells_between(reactor_pos, caster_pos):
+        if str(grid_data.get(cell, "")).lower() in SIGHT_BLOCKING_TERRAIN:
+            result.update({
+                "can_counterspell": False,
+                "reason": "caster_not_visible",
+                "visible": False,
+            })
+            return result
+
+    return result
 
 
 def calculate_counterspell_result(

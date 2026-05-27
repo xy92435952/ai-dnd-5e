@@ -140,6 +140,8 @@ async def handle_ai_spell_action(
                 spell_target_id=decided_target_id,
                 decision=decision,
                 decided_reason=decided_reason,
+                combat=combat,
+                caster_conditions=(enemy or {}).get("conditions", []) if is_enemy else getattr(achar, "conditions", []),
             )
             if has_prompt:
                 _save_ts(combat, reactor.id, reactor_ts)

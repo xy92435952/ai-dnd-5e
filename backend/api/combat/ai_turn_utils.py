@@ -14,6 +14,7 @@ from services.combat_reaction_service import (
     build_pending_spell_reaction,
     character_knows_counterspell,
     choose_counterspell_slot,
+    resolve_counterspell_eligibility,
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
 )
@@ -173,6 +174,8 @@ def build_counterspell_prompt(
     spell_target_id: str | None,
     decision: dict,
     decided_reason: str,
+    combat=None,
+    caster_conditions: list[str] | None = None,
 ):
     if not player_check:
         return False, False, None
@@ -183,6 +186,15 @@ def build_counterspell_prompt(
 
     slot_choice = choose_counterspell_slot(player_check.spell_slots or {}, spell_level)
     if not slot_choice:
+        return True, False, None
+
+    eligibility = resolve_counterspell_eligibility(
+        reactor=player_check,
+        caster_id=actor_id,
+        combat=combat,
+        caster_conditions=caster_conditions,
+    )
+    if not eligibility["can_counterspell"]:
         return True, False, None
 
     slot_key, slot_level = slot_choice
@@ -239,6 +251,7 @@ def build_counterspell_prompt(
         "reactor_character_id": str(player_check.id),
         "target_id": actor_id,
         "spell_target_id": str(spell_target_id) if spell_target_id is not None else None,
+        "range": eligibility,
         "spell_slots": player_check.spell_slots or {},
         "available_reactions": [reaction],
         "options": [{

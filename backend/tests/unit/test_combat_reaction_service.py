@@ -9,6 +9,7 @@ from services.combat_reaction_service import (
     calculate_uncanny_dodge_prevention,
     character_knows_counterspell,
     choose_counterspell_slot,
+    resolve_counterspell_eligibility,
     restore_prevented_damage,
 )
 
@@ -302,3 +303,85 @@ def test_counterspell_result_rolls_for_higher_level_spells():
         "modifier": 4,
         "total": 14,
     }
+
+
+def test_counterspell_eligibility_allows_target_within_60ft_and_clear_sight():
+    reactor = SimpleNamespace(id="wizard-1", conditions=[])
+    combat = SimpleNamespace(
+        entity_positions={
+            "wizard-1": {"x": 1, "y": 1},
+            "enemy-mage": {"x": 13, "y": 1},
+        },
+        grid_data={},
+    )
+
+    result = resolve_counterspell_eligibility(
+        reactor=reactor,
+        caster_id="enemy-mage",
+        combat=combat,
+    )
+
+    assert result["can_counterspell"] is True
+    assert result["distance_ft"] == 60
+    assert result["range_ft"] == 60
+
+
+def test_counterspell_eligibility_blocks_out_of_range_caster():
+    reactor = SimpleNamespace(id="wizard-1", conditions=[])
+    combat = SimpleNamespace(
+        entity_positions={
+            "wizard-1": {"x": 0, "y": 0},
+            "enemy-mage": {"x": 13, "y": 0},
+        },
+        grid_data={},
+    )
+
+    result = resolve_counterspell_eligibility(
+        reactor=reactor,
+        caster_id="enemy-mage",
+        combat=combat,
+    )
+
+    assert result["can_counterspell"] is False
+    assert result["reason"] == "out_of_range"
+    assert result["distance_ft"] == 65
+
+
+def test_counterspell_eligibility_blocks_wall_line_of_sight():
+    reactor = SimpleNamespace(id="wizard-1", conditions=[])
+    combat = SimpleNamespace(
+        entity_positions={
+            "wizard-1": {"x": 0, "y": 0},
+            "enemy-mage": {"x": 6, "y": 0},
+        },
+        grid_data={"3_0": "wall"},
+    )
+
+    result = resolve_counterspell_eligibility(
+        reactor=reactor,
+        caster_id="enemy-mage",
+        combat=combat,
+    )
+
+    assert result["can_counterspell"] is False
+    assert result["reason"] == "caster_not_visible"
+    assert result["visible"] is False
+
+
+def test_counterspell_eligibility_blocks_blinded_reactor_or_invisible_caster():
+    blinded = resolve_counterspell_eligibility(
+        reactor=SimpleNamespace(id="wizard-1", conditions=["blinded"]),
+        caster_id="enemy-mage",
+        combat=SimpleNamespace(entity_positions={}, grid_data={}),
+    )
+    invisible = resolve_counterspell_eligibility(
+        reactor=SimpleNamespace(id="wizard-1", conditions=[]),
+        caster_id="enemy-mage",
+        combat=SimpleNamespace(entity_positions={}, grid_data={}),
+        caster_conditions=["invisible"],
+    )
+
+    assert blinded["can_counterspell"] is False
+    assert blinded["reason"] == "reactor_blinded"
+    assert invisible["can_counterspell"] is False
+    assert invisible["reason"] == "caster_not_visible"

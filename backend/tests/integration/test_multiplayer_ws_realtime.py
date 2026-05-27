@@ -1549,6 +1549,8 @@ async def test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_c
         assert ai_body["reaction_prompt"]["trigger"] == "spell_cast"
         assert ai_body["reaction_prompt"]["reactor_character_id"] == guest_char.id
         assert ai_body["reaction_prompt"]["spell_target_id"] == host_char.id
+        assert ai_body["reaction_prompt"]["range"]["distance_ft"] == 5
+        assert ai_body["reaction_prompt"]["range"]["range_ft"] == 60
         assert ai_body["reaction_prompt"]["options"][0]["type"] == "counterspell"
 
         guest_ai_update = await _wait_for_event(
@@ -1567,6 +1569,8 @@ async def test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_c
             assert update["player_can_react"] is True
             assert update["reaction_prompt"]["reactor_character_id"] == guest_char.id
             assert update["reaction_prompt"]["spell_target_id"] == host_char.id
+            assert update["reaction_prompt"]["range"]["distance_ft"] == 5
+            assert update["reaction_prompt"]["range"]["range_ft"] == 60
             assert update["current_entity_id"] == enemy["id"]
 
         await db_session.refresh(combat_row)
