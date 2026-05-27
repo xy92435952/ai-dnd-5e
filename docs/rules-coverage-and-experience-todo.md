@@ -193,8 +193,8 @@ Priority:
 ### P0 Multiplayer Authority And Fairness
 
 - [x] Use voting for kick flow instead of giving host absolute unilateral removal power.
-- [ ] Verify kick vote threshold in 2-player, 3-player, and 4-player rooms.
-- [ ] Verify target cannot vote on their own kick proposal.
+- [x] Verify kick vote threshold in 2-player, 3-player, and 4-player rooms. 2026-05-28: 2-player rooms reject kick votes, 3-player and 4-player rooms require 2 eligible yes votes, and removal clears the open vote.
+- [x] Verify target cannot vote on their own kick proposal. 2026-05-28: target self-vote returns 400 and the target remains excluded from eligible voters/yes votes.
 - [ ] Verify host transfer works and does not grant action access to unclaimed characters.
 - [ ] Verify only the character owner can act for a player character in multiplayer combat.
 - [ ] Verify players cannot skip enemy, AI companion, or other player turns through `/end-turn`.

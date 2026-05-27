@@ -306,6 +306,101 @@ async def test_kick_member_requires_room_vote_majority(client, sample_module):
     assert room_after_pass["room_votes"] == []
 
 
+async def test_four_player_kick_vote_passes_with_two_of_three_eligible_voters(client, sample_module):
+    host = await _register(client, "vote4_host")
+    p2 = await _register(client, "vote4_p2")
+    p3 = await _register(client, "vote4_p3")
+    target = await _register(client, "vote4_target")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    for user in (p2, p3, target):
+        joined = await client.post("/game/rooms/join", headers=_h(user["token"]), json={
+            "room_code": create["room_code"],
+        })
+        assert joined.status_code == 200, joined.text
+
+    first_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(p2["token"]),
+        json={"user_id": target["user_id"]},
+    )
+    assert first_vote.status_code == 200, first_vote.text
+    first_body = first_vote.json()
+    assert first_body["kicked"] is None
+    assert first_body["vote_pending"] is True
+    assert first_body["vote"]["threshold"] == 2
+    assert first_body["vote"]["eligible_voter_user_ids"] == [
+        host["user_id"],
+        p2["user_id"],
+        p3["user_id"],
+    ]
+    assert first_body["vote"]["yes_user_ids"] == [p2["user_id"]]
+
+    second_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(host["token"]),
+        json={"user_id": target["user_id"]},
+    )
+    assert second_vote.status_code == 200, second_vote.text
+    second_body = second_vote.json()
+    assert second_body["kicked"] == target["user_id"]
+    assert second_body["vote_pending"] is False
+    assert second_body["vote"]["threshold"] == 2
+    assert second_body["vote"]["yes_user_ids"] == [p2["user_id"], host["user_id"]]
+
+    room_after_pass = (await client.get(
+        f"/game/rooms/{create['session_id']}",
+        headers=_h(host["token"]),
+    )).json()
+    assert {member["user_id"] for member in room_after_pass["members"]} == {
+        host["user_id"],
+        p2["user_id"],
+        p3["user_id"],
+    }
+    assert room_after_pass["room_votes"] == []
+
+
+async def test_kick_vote_target_cannot_vote_on_their_own_removal(client, sample_module):
+    host = await _register(client, "vote_self_host")
+    voter = await _register(client, "vote_self_voter")
+    target = await _register(client, "vote_self_target")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    for user in (voter, target):
+        joined = await client.post("/game/rooms/join", headers=_h(user["token"]), json={
+            "room_code": create["room_code"],
+        })
+        assert joined.status_code == 200, joined.text
+
+    first_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(voter["token"]),
+        json={"user_id": target["user_id"]},
+    )
+    assert first_vote.status_code == 200, first_vote.text
+    assert first_vote.json()["vote_pending"] is True
+
+    target_vote = await client.post(
+        f"/game/rooms/{create['session_id']}/kick",
+        headers=_h(target["token"]),
+        json={"user_id": target["user_id"]},
+    )
+    assert target_vote.status_code == 400
+
+    room_after_target_attempt = (await client.get(
+        f"/game/rooms/{create['session_id']}",
+        headers=_h(host["token"]),
+    )).json()
+    vote = room_after_target_attempt["room_votes"][0]
+    assert vote["target_user_id"] == target["user_id"]
+    assert vote["yes_user_ids"] == [voter["user_id"]]
+    assert target["user_id"] not in vote["eligible_voter_user_ids"]
+
+
 async def test_kick_vote_transfers_host_when_host_is_removed(client, sample_module, monkeypatch):
     import services.ws_manager as ws_module
 
