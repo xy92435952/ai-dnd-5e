@@ -155,23 +155,24 @@ async def use_reaction(
 
     await assert_character_in_session(player, session, db)
     ts = _get_ts(combat, player_id)
+    pending_reaction = ts.get("pending_attack_reaction") or {}
+    pending_spell_reaction = ts.get("pending_spell_reaction") or {}
+    try:
+        validate_can_take_reaction(_actor_snapshot_for_attack_reaction(player, pending_reaction))
+    except CombatActionRuleError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+
     if ts.get("reaction_used"):
         return _reaction_already_resolved(req, ts)
 
     p_class = _normalize_class(player.char_class)
     p_level = player.level
     derived = player.derived or {}
-    pending_reaction = ts.get("pending_attack_reaction") or {}
-    pending_spell_reaction = ts.get("pending_spell_reaction") or {}
     attack_reaction_types = {"shield", "uncanny_dodge", "hellish_rebuke", "absorb_elements"}
     if req.reaction_type in attack_reaction_types and not _has_pending_attack_reaction(ts):
         return _reaction_already_resolved(req, ts)
     if req.reaction_type == "counterspell" and not _has_pending_spell_reaction(ts):
         return _reaction_already_resolved(req, ts)
-    try:
-        validate_can_take_reaction(_actor_snapshot_for_attack_reaction(player, pending_reaction))
-    except CombatActionRuleError as exc:
-        raise HTTPException(exc.status_code, exc.detail) from exc
 
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))

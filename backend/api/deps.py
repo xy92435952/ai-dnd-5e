@@ -274,9 +274,11 @@ async def assert_can_act(
             except (IndexError, AttributeError):
                 pass
 
-    # AI 托管的角色（未被认领或已降级）→ 房间任意成员可在该角色回合触发
-    if not char.is_player or char.user_id is None:
+    # AI 托管/降级角色可由房间成员触发；未认领的玩家角色不能被任意成员代控。
+    if not char.is_player:
         return
+    if char.user_id is None:
+        raise HTTPException(403, "This player character has not been claimed")
 
     if char.user_id != user_id:
         raise HTTPException(403, "这不是你的角色")

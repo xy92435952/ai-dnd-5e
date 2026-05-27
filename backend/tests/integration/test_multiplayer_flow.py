@@ -233,6 +233,84 @@ async def test_host_transfers_then_old_host_loses_perm(client, sample_module):
     assert bad.status_code == 403
 
 
+async def test_host_transfer_does_not_grant_control_of_unclaimed_player_character(
+    client,
+    db_session,
+    sample_module,
+):
+    import uuid
+
+    from models import Character, CombatState, Session
+    from sqlalchemy.orm.attributes import flag_modified
+
+    host = await _register(client, "transfer_guard_host")
+    new_host = await _register(client, "transfer_guard_new_host")
+
+    create = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id, "save_name": "T", "max_players": 4,
+    })).json()
+    sid = create["session_id"]
+    joined = await client.post("/game/rooms/join", headers=_h(new_host["token"]), json={
+        "room_code": create["room_code"],
+    })
+    assert joined.status_code == 200, joined.text
+
+    transferred = await client.post(
+        f"/game/rooms/{sid}/transfer",
+        headers=_h(host["token"]),
+        json={"new_host_user_id": new_host["user_id"]},
+    )
+    assert transferred.status_code == 200, transferred.text
+
+    unclaimed = Character(
+        id=str(uuid.uuid4()),
+        name="unclaimed player",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+        derived={"hp_max": 12, "ac": 16, "initiative": 2},
+        hp_current=12,
+        is_player=True,
+        user_id=None,
+        session_id=sid,
+    )
+    db_session.add(unclaimed)
+    await db_session.commit()
+
+    session = await db_session.get(Session, sid)
+    session.combat_active = True
+    state = dict(session.game_state or {})
+    state["enemies"] = [{
+        "id": "guard-1",
+        "name": "guard",
+        "hp_current": 9,
+        "max_hp": 9,
+        "derived": {"hp_max": 9, "ac": 13},
+        "actions": [{"name": "spear", "type": "melee_attack", "damage_dice": "1d6"}],
+    }]
+    session.game_state = state
+    flag_modified(session, "game_state")
+    combat = CombatState(
+        id=str(uuid.uuid4()),
+        session_id=sid,
+        entity_positions={unclaimed.id: {"x": 5, "y": 5}, "guard-1": {"x": 6, "y": 5}},
+        turn_order=[
+            {"character_id": unclaimed.id, "name": unclaimed.name, "initiative": 14, "is_player": True, "is_enemy": False},
+            {"character_id": "guard-1", "name": "guard", "initiative": 8, "is_player": False, "is_enemy": True},
+        ],
+        current_turn_index=0,
+        round_number=1,
+        turn_states={},
+    )
+    db_session.add(combat)
+    await db_session.commit()
+
+    end_turn = await client.post(f"/game/combat/{sid}/end-turn", headers=_h(new_host["token"]))
+    assert end_turn.status_code == 403
+    assert "not been claimed" in end_turn.text
+
+
 async def test_two_player_room_cannot_start_kick_vote(client, sample_module):
     host = await _register(client, "host_kick")
     p2   = await _register(client, "guest_kick")

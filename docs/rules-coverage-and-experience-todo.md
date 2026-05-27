@@ -88,7 +88,7 @@ Priority:
 | Status | Priority | Rule Area | Current State | Done Definition |
 | --- | --- | --- | --- | --- |
 | [x] | P0 | Unconscious/dying/death saves | Death save endpoint and healing interactions exist. | 0 HP, stable, healing from 0, death save crits, and three failures are tested in combat. |
-| [~] | P0 | Incapacitation gates | Action/reaction validators exist. | Every action endpoint uses one common rule state to reject incapacitated, dead, stunned, paralyzed, etc. |
+| [~] | P0 | Incapacitation gates | Action/reaction validators exist; reaction already-resolved paths now still reject 0 HP, dead, stable, or stunned actors. | Every action endpoint uses one common rule state to reject incapacitated, dead, stunned, paralyzed, etc. |
 | [~] | P1 | Prone, grappled, restrained | Services exist for grapple/shove/movement impact. | Movement, attack advantage/disadvantage, escape checks, shove prone, and drag behavior are complete. |
 | [~] | P1 | Concentration | Concentration checks and cleanup services exist. | Damage, voluntary new concentration, incapacitation, death, spell end, and multiplayer sync all clear effects. |
 | [~] | P1 | Exhaustion | Data exists and healing tests account for HP max. | All six exhaustion levels affect checks, speed, attacks/saves, HP max, speed zero, and death. |
@@ -195,7 +195,7 @@ Priority:
 - [x] Use voting for kick flow instead of giving host absolute unilateral removal power.
 - [x] Verify kick vote threshold in 2-player, 3-player, and 4-player rooms. 2026-05-28: 2-player rooms reject kick votes, 3-player and 4-player rooms require 2 eligible yes votes, and removal clears the open vote.
 - [x] Verify target cannot vote on their own kick proposal. 2026-05-28: target self-vote returns 400 and the target remains excluded from eligible voters/yes votes.
-- [ ] Verify host transfer works and does not grant action access to unclaimed characters.
+- [x] Verify host transfer works and does not grant action access to unclaimed characters. 2026-05-28: transfer keeps host permissions separate from character ownership; unclaimed `is_player=True` characters now reject member action attempts until claimed.
 - [ ] Verify only the character owner can act for a player character in multiplayer combat.
 - [ ] Verify players cannot skip enemy, AI companion, or other player turns through `/end-turn`.
 - [ ] Verify inactive/disconnected players have a clear takeover or timeout path.
