@@ -13,17 +13,17 @@ from services.dnd_rules import _normalize_class
 from services.spell_service import spell_service
 
 
-async def _find_counterspell_reactor(db, session, target_id: str | None):
+async def _counterspell_reactor_candidates(db, session, target_id: str | None):
     roster = CharacterRoster(db, session)
     party = await roster.allies_alive()
+    candidates = []
     if target_id:
         for character in party:
             if str(character.id) == str(target_id):
-                return character
-    for character in party:
-        if character.is_player:
-            return character
-    return party[0] if party else None
+                candidates.append(character)
+                break
+    candidates.extend(character for character in party if character not in candidates)
+    return candidates
 
 
 def _find_pending_counterspell(combat, actor_id: str):
@@ -128,8 +128,7 @@ async def handle_ai_spell_action(
     spell_data = spell_service.get(spell_name) if decision.get("action_type") == "spell" and spell_name else None
     if is_enemy and spell_data and not resume_spell:
         spell_level = resolve_ai_spell_level(decision, spell_data)
-        reactor = await _find_counterspell_reactor(db, session, decided_target_id)
-        if reactor:
+        for reactor in await _counterspell_reactor_candidates(db, session, decided_target_id):
             reactor_ts = _get_ts(combat, reactor.id)
             player_can_react, has_prompt, reaction_prompt = build_counterspell_prompt(
                 player_check=reactor,
