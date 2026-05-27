@@ -47,6 +47,19 @@ EXPLORE_OUTPUT_SECTION = """
         }
       }
     ],
+    "trap_attacks": [
+      {
+        "target_character_id": "character-id",
+        "trap": {
+          "id": "trap-id",
+          "name": "trap name",
+          "attack_bonus": 5,
+          "damage_dice": "1d10",
+          "damage_type": "piercing",
+          "conditions_on_hit": []
+        }
+      }
+    ],
     "trap_disarms": [
       {
         "actor_character_id": "character-id",

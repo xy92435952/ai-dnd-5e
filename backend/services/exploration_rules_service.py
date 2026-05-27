@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
+from services.dnd_rules import apply_character_damage, roll_attack, roll_dice, roll_saving_throw
 
 
 SKILL_ALIASES = {
@@ -256,6 +256,111 @@ def apply_trap_trigger_to_target(
     }
 
 
+def resolve_trap_attack(
+    trap: dict[str, Any],
+    target: dict[str, Any] | object,
+    *,
+    d20_roller: Callable[[str], dict[str, Any]] | None = None,
+    damage_roller: Callable[[str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Resolve an attack-roll trap against a target without mutating HP."""
+    trap_data = trap if isinstance(trap, dict) else {}
+    trap_id = _trap_id(trap_data)
+    attack_bonus = _as_int(
+        trap_data.get(
+            "attack_bonus",
+            trap_data.get("to_hit_bonus", trap_data.get("to_hit", trap_data.get("attack", 0))),
+        ),
+        0,
+    )
+    crit_threshold = _as_int(trap_data.get("crit_threshold", 20), 20)
+    target_dict = _character_dict(target)
+    target_derived = dict(target_dict.get("derived") or {})
+    if "ac" not in target_derived:
+        target_derived["ac"] = _as_int(
+            _read_attr(target, "ac", trap_data.get("target_ac", 13)),
+            13,
+        )
+    target_dict["derived"] = target_derived
+
+    attack_result = roll_attack(
+        {
+            "id": trap_id,
+            "name": str(trap_data.get("name") or trap_id),
+            "derived": {"attack_bonus": attack_bonus, "ranged_attack_bonus": attack_bonus},
+        },
+        target_dict,
+        is_ranged=bool(trap_data.get("ranged", True)),
+        crit_threshold=crit_threshold,
+        d20_roller=d20_roller,
+    )
+    hit = bool(attack_result.get("hit"))
+    damage_dice = str(trap_data.get("damage_dice") or trap_data.get("damage") or "0")
+    damage_roll = (damage_roller or roll_dice)(damage_dice) if hit else {
+        "notation": damage_dice,
+        "rolls": [],
+        "total": 0,
+    }
+    rolled_damage = max(0, _as_int(damage_roll.get("total"), 0))
+    conditions_on_hit = _read_inline_list(
+        trap_data.get("conditions_on_hit", trap_data.get("condition_on_hit", []))
+    )
+
+    return {
+        "trap_id": trap_id,
+        "name": str(trap_data.get("name") or trap_id),
+        "target_id": str(_read_attr(target, "id", "")),
+        "target_name": _read_attr(target, "name", ""),
+        "attack_bonus": attack_bonus,
+        "attack": attack_result,
+        "hit": hit,
+        "damage_dice": damage_dice,
+        "damage_type": str(trap_data.get("damage_type") or ""),
+        "damage_roll": damage_roll,
+        "rolled_damage": rolled_damage,
+        "final_damage": rolled_damage if hit else 0,
+        "conditions_applied": conditions_on_hit if hit else [],
+        "mutates_hp": False,
+    }
+
+
+def apply_trap_attack_to_target(
+    trap: dict[str, Any],
+    target: dict[str, Any] | object,
+    *,
+    d20_roller: Callable[[str], dict[str, Any]] | None = None,
+    damage_roller: Callable[[str], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Resolve and apply an attack-roll trap to a mutable character-like target."""
+    resolution = resolve_trap_attack(
+        trap,
+        target,
+        d20_roller=d20_roller,
+        damage_roller=damage_roller,
+    )
+    before_hp = _as_int(_read_attr(target, "hp_current", 0), 0)
+    damage_result = _apply_damage_to_target(target, resolution["final_damage"])
+    added_conditions = []
+    for condition in resolution["conditions_applied"]:
+        if _add_condition(target, str(condition)):
+            added_conditions.append(str(condition))
+
+    return {
+        **resolution,
+        "mutates_hp": True,
+        "hp_before": before_hp,
+        "hp_after": _as_int(_read_attr(target, "hp_current", 0), 0),
+        "damage_application": damage_result,
+        "conditions_added": added_conditions,
+        "target_state": {
+            "hp_current": _as_int(_read_attr(target, "hp_current", 0), 0),
+            "conditions": _read_list(target, "conditions"),
+            "condition_durations": _read_mapping(target, "condition_durations"),
+            "death_saves": _read_attr(target, "death_saves", None),
+        },
+    }
+
+
 def resolve_trap_disarm(
     trap: dict[str, Any],
     actor: dict[str, Any] | object,
@@ -298,13 +403,7 @@ def resolve_trap_disarm(
     success = total >= dc
     failure_triggers = bool(trap_data.get("trigger_on_failed_disarm", True))
     triggered = (not success) and failure_triggers
-    trap_id = str(
-        trap_data.get("id")
-        or trap_data.get("trap_id")
-        or trap_data.get("feature_id")
-        or trap_data.get("name")
-        or "trap"
-    )
+    trap_id = _trap_id(trap_data)
 
     return {
         "trap_id": trap_id,
@@ -351,6 +450,7 @@ def build_exploration_context(
             "rule": "triggered_traps_roll_configured_save_then_apply_full_or_half_damage",
             "mutates_hp": False,
             "apply_rule": "apply_trap_trigger_to_target_mutates_hp_and_conditions",
+            "attack_rule": "attack_roll_traps_compare_configured_attack_bonus_to_target_ac",
             "disarm_rule": "resolve_trap_disarm_rolls_configured_ability_plus_tool_proficiency",
         },
     }
@@ -389,6 +489,16 @@ def _has_tool_proficiency(character: dict[str, Any] | object, tool: str) -> bool
         if _normalize_tool_name(item) == target:
             return True
     return False
+
+
+def _trap_id(trap_data: dict[str, Any]) -> str:
+    return str(
+        trap_data.get("id")
+        or trap_data.get("trap_id")
+        or trap_data.get("feature_id")
+        or trap_data.get("name")
+        or "trap"
+    )
 
 
 def _normalize_tool_name(tool: Any) -> str:

@@ -126,6 +126,149 @@ async def test_state_applicator_applies_trap_trigger_delta(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_state_applicator_applies_trap_attack_delta(monkeypatch):
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        game_state={},
+    )
+    character = Character(
+        id="char-1",
+        name="Scout",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Urchin",
+        ability_scores={"dex": 16},
+        derived={"ac": 15, "hp_max": 9},
+        hp_current=9,
+        conditions=[],
+    )
+
+    def fake_apply_trap_attack_to_target(trap, target):
+        target.hp_current = 5
+        target.conditions = ["poisoned"]
+        return {
+            "trap_id": trap["id"],
+            "name": trap["name"],
+            "target_id": target.id,
+            "target_name": target.name,
+            "attack_bonus": 5,
+            "attack": {
+                "d20": 13,
+                "attack_bonus": 5,
+                "attack_total": 18,
+                "target_ac": 15,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            },
+            "hit": True,
+            "damage_dice": "1d8",
+            "damage_type": "poison",
+            "damage_roll": {"rolls": [4], "total": 4},
+            "rolled_damage": 4,
+            "final_damage": 4,
+            "conditions_applied": ["poisoned"],
+            "conditions_added": ["poisoned"],
+            "mutates_hp": True,
+            "hp_before": 9,
+            "hp_after": 5,
+        }
+
+    monkeypatch.setattr(
+        "services.state_applicator.apply_trap_attack_to_target",
+        fake_apply_trap_attack_to_target,
+    )
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "investigation",
+        "narrative": "A needle springs from the lock.",
+        "state_delta": {
+            "trap_attacks": [
+                {
+                    "target_character_id": "char-1",
+                    "trap": {
+                        "id": "needle",
+                        "name": "Poison Needle",
+                        "attack_bonus": 5,
+                        "damage_dice": "1d8",
+                        "damage_type": "poison",
+                    },
+                }
+            ]
+        },
+    }
+
+    applied = await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[character],
+    )
+
+    assert character.hp_current == 5
+    assert character.conditions == ["poisoned"]
+    assert session.game_state["trap_states"]["needle"]["triggered"] is True
+    assert session.game_state["trap_states"]["needle"]["last_attack"] == {
+        "target_ac": 15,
+        "total": 18,
+        "hit": True,
+        "damage": 4,
+    }
+    assert [item["kind"] for item in applied.dice_display] == ["attack_roll", "damage"]
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_skips_disarmed_trap_attack(monkeypatch):
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        game_state={"trap_states": {"needle": {"disarmed": True}}},
+    )
+    character = Character(
+        id="char-1",
+        name="Scout",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Urchin",
+        ability_scores={"dex": 16},
+        derived={"ac": 15, "hp_max": 9},
+        hp_current=9,
+        conditions=[],
+    )
+
+    monkeypatch.setattr(
+        "services.state_applicator.apply_trap_attack_to_target",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not attack")),
+    )
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "investigation",
+        "narrative": "The disabled needle stays still.",
+        "state_delta": {
+            "trap_attacks": [
+                {
+                    "target_character_id": "char-1",
+                    "trap": {"id": "needle", "name": "Poison Needle", "attack_bonus": 5},
+                }
+            ]
+        },
+    }
+
+    applied = await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[character],
+    )
+
+    assert character.hp_current == 9
+    assert character.conditions == []
+    assert applied.dice_display == []
+    assert session.game_state["trap_states"]["needle"] == {"disarmed": True}
+
+
+@pytest.mark.asyncio
 async def test_state_applicator_records_successful_trap_disarm(monkeypatch):
     session = Session(
         id="session-1",

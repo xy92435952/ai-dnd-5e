@@ -65,6 +65,12 @@ def validate_dm_output_adjudication(data: dict, state: dict | None = None) -> tu
         )
         _clear_list_delta(
             delta,
+            "trap_attacks",
+            warnings,
+            "removed trap attacks because the action still requires a check",
+        )
+        _clear_list_delta(
+            delta,
             "trap_disarms",
             warnings,
             "removed trap disarms because the action still requires a check",

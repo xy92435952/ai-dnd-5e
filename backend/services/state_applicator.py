@@ -25,7 +25,11 @@ from models.character import Character
 from models.session import Session, CombatState
 from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
 from services.dnd_rules import apply_character_damage, apply_character_healing, get_effective_hp_max, stabilize_character
-from services.exploration_rules_service import apply_trap_trigger_to_target, resolve_trap_disarm
+from services.exploration_rules_service import (
+    apply_trap_attack_to_target,
+    apply_trap_trigger_to_target,
+    resolve_trap_disarm,
+)
 from services.state_apply_result import ApplyResult
 from services.state_log_service import append_session_history, write_game_logs
 
@@ -93,6 +97,8 @@ class StateApplicator:
                 await self._apply_character_delta(char_delta, char_map, session.id)
             for trap_delta in sub_delta.get("trap_triggers", []):
                 self._apply_trap_trigger_delta(trap_delta, char_map, ar, session.id)
+            for attack_delta in sub_delta.get("trap_attacks", []):
+                self._apply_trap_attack_delta(attack_delta, char_map, ar, session)
             for disarm_delta in sub_delta.get("trap_disarms", []):
                 self._apply_trap_disarm_delta(disarm_delta, char_map, ar, session)
             if combat_state:
@@ -111,6 +117,9 @@ class StateApplicator:
 
         for trap_delta in delta.get("trap_triggers", []):
             self._apply_trap_trigger_delta(trap_delta, char_map, ar, session.id)
+
+        for attack_delta in delta.get("trap_attacks", []):
+            self._apply_trap_attack_delta(attack_delta, char_map, ar, session)
 
         for disarm_delta in delta.get("trap_disarms", []):
             self._apply_trap_disarm_delta(disarm_delta, char_map, ar, session)
@@ -317,6 +326,105 @@ class StateApplicator:
             },
         ]
 
+    def _apply_trap_attack_delta(
+        self,
+        delta: dict,
+        char_map: dict[str, Character],
+        ar: ApplyResult,
+        session: Session,
+    ) -> None:
+        if not isinstance(delta, dict):
+            return
+
+        target_id = str(
+            delta.get("target_character_id")
+            or delta.get("character_id")
+            or delta.get("target_id")
+            or delta.get("id")
+            or ""
+        )
+        target = char_map.get(target_id)
+        if not target:
+            logger.warning(f"trap_attacks contains unknown target character ID: {target_id}")
+            return
+
+        trap = delta.get("trap") if isinstance(delta.get("trap"), dict) else delta
+        trap_id = self._trap_id_from_data(trap)
+        if self._trap_is_disarmed(session, trap_id):
+            logger.info("ignored disarmed trap attack: session=%s trap=%s", session.id, trap_id)
+            return
+
+        result = apply_trap_attack_to_target(trap, target)
+        ar.dice_display.extend(self._trap_attack_dice_display(result))
+        self._record_trap_attack_state(session, result)
+        logger.info(
+            "trap attack: session=%s trap=%s target=%s hit=%s damage=%s hp=%s->%s",
+            session.id,
+            result.get("trap_id"),
+            target_id[:8],
+            result.get("hit"),
+            result.get("final_damage", 0),
+            result.get("hp_before"),
+            result.get("hp_after"),
+        )
+
+    def _trap_attack_dice_display(self, result: dict) -> list[dict]:
+        trap_name = result.get("name") or result.get("trap_id") or "Trap"
+        attack = result.get("attack") if isinstance(result.get("attack"), dict) else {}
+        damage_roll = result.get("damage_roll") if isinstance(result.get("damage_roll"), dict) else {}
+        display = [
+            {
+                "label": f"{trap_name} attack roll",
+                "kind": "attack_roll",
+                "raw": attack.get("d20"),
+                "modifier": attack.get("attack_bonus", 0),
+                "total": attack.get("attack_total"),
+                "target_ac": attack.get("target_ac"),
+                "hit": result.get("hit"),
+                "is_crit": attack.get("is_crit"),
+                "is_fumble": attack.get("is_fumble"),
+                "target_id": result.get("target_id"),
+                "trap_id": result.get("trap_id"),
+            }
+        ]
+        if result.get("hit"):
+            display.append({
+                "label": f"{trap_name} damage",
+                "kind": "damage",
+                "damage_type": result.get("damage_type"),
+                "formula": result.get("damage_dice"),
+                "rolls": damage_roll.get("rolls", []),
+                "raw": result.get("rolled_damage", damage_roll.get("total", 0)),
+                "total": result.get("final_damage", 0),
+                "target_id": result.get("target_id"),
+                "trap_id": result.get("trap_id"),
+            })
+        return display
+
+    def _record_trap_attack_state(self, session: Session, result: dict) -> None:
+        game_state = dict(session.game_state or {})
+        trap_states = dict(game_state.get("trap_states") or {})
+        trap_id = str(result.get("trap_id") or "")
+        if not trap_id:
+            return
+        existing = dict(trap_states.get(trap_id) or {})
+        existing.update({
+            "id": trap_id,
+            "name": result.get("name") or trap_id,
+            "triggered": True,
+            "last_target_id": result.get("target_id"),
+            "last_attack": {
+                "target_ac": (result.get("attack") or {}).get("target_ac"),
+                "total": (result.get("attack") or {}).get("attack_total"),
+                "hit": result.get("hit"),
+                "damage": result.get("final_damage", 0),
+            },
+        })
+        trap_states[trap_id] = existing
+        game_state["trap_states"] = trap_states
+        session.game_state = game_state
+        flag_modified(session, "game_state")
+
     def _apply_trap_disarm_delta(
         self,
         delta: dict,
@@ -400,6 +508,21 @@ class StateApplicator:
         game_state["trap_states"] = trap_states
         session.game_state = game_state
         flag_modified(session, "game_state")
+
+    def _trap_is_disarmed(self, session: Session, trap_id: str) -> bool:
+        trap_states = ((session.game_state or {}).get("trap_states") or {})
+        trap_state = trap_states.get(trap_id) if isinstance(trap_states, dict) else None
+        return bool(isinstance(trap_state, dict) and trap_state.get("disarmed"))
+
+    def _trap_id_from_data(self, trap: dict) -> str:
+        trap_data = trap if isinstance(trap, dict) else {}
+        return str(
+            trap_data.get("id")
+            or trap_data.get("trap_id")
+            or trap_data.get("feature_id")
+            or trap_data.get("name")
+            or "trap"
+        )
 
     # Gold changes.
     async def _apply_gold_change(

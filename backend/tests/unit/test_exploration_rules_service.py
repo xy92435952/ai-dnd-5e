@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from services.exploration_rules_service import (
+    apply_trap_attack_to_target,
     apply_trap_trigger_to_target,
     build_exploration_context,
     character_passive_summary,
@@ -10,6 +11,7 @@ from services.exploration_rules_service import (
     passive_investigation,
     passive_perception,
     resolve_passive_discoveries,
+    resolve_trap_attack,
     resolve_trap_disarm,
     resolve_trap_trigger,
     passive_score,
@@ -382,6 +384,87 @@ def test_apply_trap_trigger_does_not_duplicate_failed_condition():
     assert target.conditions == ["frightened"]
     assert result["conditions_applied"] == ["frightened"]
     assert result["conditions_added"] == []
+
+
+def test_resolve_trap_attack_hits_ac_and_rolls_damage():
+    target = _character(char_id="rogue", name="Rogue")
+    target["derived"]["ac"] = 15
+
+    result = resolve_trap_attack(
+        {
+            "id": "blade",
+            "name": "Swinging Blade",
+            "attack_bonus": 6,
+            "damage_dice": "1d10",
+            "damage_type": "slashing",
+            "condition_on_hit": "bleeding",
+        },
+        target,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [12], "total": 12},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [7], "total": 7},
+    )
+
+    assert result["trap_id"] == "blade"
+    assert result["target_id"] == "rogue"
+    assert result["attack"]["attack_total"] == 18
+    assert result["attack"]["target_ac"] == 15
+    assert result["hit"] is True
+    assert result["damage_dice"] == "1d10"
+    assert result["final_damage"] == 7
+    assert result["conditions_applied"] == ["bleeding"]
+    assert result["mutates_hp"] is False
+
+
+def test_resolve_trap_attack_miss_does_not_roll_damage():
+    target = _character(char_id="fighter", name="Fighter")
+    target["derived"]["ac"] = 18
+
+    result = resolve_trap_attack(
+        {"id": "dart", "to_hit": 4, "damage_dice": "1d6"},
+        target,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [5], "total": 5},
+        damage_roller=lambda _expr: (_ for _ in ()).throw(AssertionError("should not roll damage")),
+    )
+
+    assert result["attack"]["attack_total"] == 9
+    assert result["hit"] is False
+    assert result["final_damage"] == 0
+    assert result["damage_roll"]["rolls"] == []
+    assert result["conditions_applied"] == []
+
+
+def test_apply_trap_attack_to_target_mutates_hp_and_conditions_on_hit():
+    target = SimpleNamespace(
+        id="cleric",
+        name="Cleric",
+        hp_current=10,
+        ability_scores={"dex": 10},
+        derived={"ac": 14, "hp_max": 10},
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+
+    result = apply_trap_attack_to_target(
+        {
+            "id": "needle",
+            "attack_bonus": 5,
+            "damage_dice": "1d6",
+            "damage_type": "poison",
+            "conditions_on_hit": ["poisoned"],
+        },
+        target,
+        d20_roller=lambda expr: {"notation": expr, "rolls": [11], "total": 11},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [4], "total": 4},
+    )
+
+    assert result["hit"] is True
+    assert result["hp_before"] == 10
+    assert result["hp_after"] == 6
+    assert target.hp_current == 6
+    assert target.conditions == ["poisoned"]
+    assert result["conditions_added"] == ["poisoned"]
 
 
 def test_resolve_trap_disarm_uses_configured_ability_and_tool_proficiency():
