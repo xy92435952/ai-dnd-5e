@@ -40,6 +40,7 @@ describe('useCombatPageActions websocket sync', () => {
       setError: vi.fn(),
       setCombat: vi.fn(),
       setTurnState: vi.fn(),
+      setReactionPrompt: vi.fn(),
       setSpellModalOpen: vi.fn(),
       setHelpMode: vi.fn(),
       handleAttack: vi.fn(),
@@ -84,6 +85,38 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false, movement_used: 2 })
     expect(deps.setCombatOver).toHaveBeenCalledWith({ result: 'victory' })
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens websocket reaction prompts only for the controlled character', () => {
+    const { result, deps } = renderActions()
+    const prompt = {
+      trigger: 'spell_cast',
+      reactor_character_id: 'guest-char',
+      options: [{ type: 'counterspell' }],
+    }
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        player_can_react: true,
+        reaction_prompt: prompt,
+      })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(prompt)
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        player_can_react: true,
+        reaction_prompt: {
+          ...prompt,
+          reactor_character_id: 'host-char',
+        },
+      })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledTimes(1)
   })
 
   it('reloads combat for turn, movement, and dm response realtime events', () => {

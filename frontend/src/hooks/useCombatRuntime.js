@@ -131,6 +131,7 @@ export function useCombatRuntime({
     setError,
     setCombat,
     setTurnState,
+    setReactionPrompt,
     addLog,
     setSpellModalOpen,
     setSpellQuickPick,

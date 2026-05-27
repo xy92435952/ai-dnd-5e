@@ -26,6 +26,7 @@ export function useCombatPageActions({
   setError,
   setCombat,
   setTurnState,
+  setReactionPrompt,
   addLog,
   setSpellModalOpen,
   setSpellQuickPick,
@@ -53,6 +54,12 @@ export function useCombatPageActions({
             setTurnState(event.combat.turn_states[entry.character_id] || null)
           }
         }
+        if (event.player_can_react && event.reaction_prompt) {
+          const reactorId = event.reaction_prompt.reactor_character_id
+          if (!myCharacterId || reactorId === myCharacterId) {
+            setReactionPrompt?.(event.reaction_prompt)
+          }
+        }
         if (event.combat_over) {
           setCombatOver?.(event.outcome)
         }
@@ -77,7 +84,7 @@ export function useCombatPageActions({
       default:
         break
     }
-  }, [sessionId, setRoom, setCombat, setCombatOver, setTurnState, onLoadCombat])
+  }, [myCharacterId, sessionId, setRoom, setCombat, setCombatOver, setReactionPrompt, setTurnState, onLoadCombat])
 
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,
