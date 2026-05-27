@@ -23,7 +23,11 @@ from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.character_roster import CharacterRoster
-from services.combat_movement_rules_service import MovementRuleError, apply_stand_up_from_prone
+from services.combat_movement_rules_service import (
+    MovementRuleError,
+    apply_stand_up_from_prone,
+    validate_displacement_allowed,
+)
 
 from api.combat._shared import (
     _DEFAULT_TS, svc,
@@ -79,6 +83,10 @@ async def combat_move(
     if cur:
         # Chebyshev 距离（对角移动和直线移动同等消耗，符合 5e 标准规则）
         dist      = max(abs(cur["x"] - req.to_x), abs(cur["y"] - req.to_y))
+        try:
+            validate_displacement_allowed(stand_result.conditions, dist)
+        except MovementRuleError as exc:
+            raise HTTPException(400, "Cannot move while speed is 0") from exc
         remaining = ts["movement_max"] - ts["movement_used"]
         if dist > remaining:
             raise HTTPException(400, f"移动距离 {dist} 格超出剩余移动力（剩余 {remaining} 格）")
@@ -154,7 +162,7 @@ async def _apply_stand_up_for_moving_entity(db, session, entity_id: str, turn_st
         try:
             result = apply_stand_up_from_prone(turn_state, enemy.get("conditions", []))
         except MovementRuleError as exc:
-            raise HTTPException(400, "移动力不足，无法从倒地状态起身") from exc
+            raise HTTPException(400, _movement_rule_error_detail(exc)) from exc
         if result.stood_up:
             enemy["conditions"] = result.conditions
             session.game_state = dict(state)
@@ -167,10 +175,16 @@ async def _apply_stand_up_for_moving_entity(db, session, entity_id: str, turn_st
     try:
         result = apply_stand_up_from_prone(turn_state, character.conditions or [])
     except MovementRuleError as exc:
-        raise HTTPException(400, "移动力不足，无法从倒地状态起身") from exc
+        raise HTTPException(400, _movement_rule_error_detail(exc)) from exc
     if result.stood_up:
         character.conditions = result.conditions
     return result
+
+
+def _movement_rule_error_detail(exc: MovementRuleError) -> str:
+    if str(exc).startswith("speed_zero_condition_blocks"):
+        return "Cannot stand up or move while speed is 0"
+    return "Not enough movement to stand up from prone"
 
 
 # ── 法术 ─────────────────────────────────────────────────

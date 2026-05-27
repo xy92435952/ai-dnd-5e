@@ -69,3 +69,21 @@ async def test_apply_stand_up_for_moving_entity_raises_http_error_when_too_slow(
         )
 
     assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_apply_stand_up_for_moving_entity_rejects_speed_zero_condition():
+    from api.combat.movement import _apply_stand_up_for_moving_entity
+
+    character = SimpleNamespace(conditions=["prone", "grappled"])
+
+    with pytest.raises(HTTPException) as exc:
+        await _apply_stand_up_for_moving_entity(
+            FakeDb(character),
+            SimpleNamespace(game_state={}),
+            "hero-1",
+            {"movement_used": 0, "movement_max": 6, "base_movement_max": 6},
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Cannot stand up or move while speed is 0"

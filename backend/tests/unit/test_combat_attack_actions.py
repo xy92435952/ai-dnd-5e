@@ -22,6 +22,7 @@ class FakeCombat:
                 "action_used": False,
                 "movement_used": 0,
                 "movement_max": 6,
+                "base_movement_max": 6,
             }
         }
 
@@ -55,4 +56,36 @@ async def test_dodge_action_marks_actor_as_dodging(monkeypatch):
     assert result["turn_state"]["action_used"] is True
     assert result["turn_state"]["dodging"] is True
     assert combat.turn_states["hero-1"]["dodging"] is True
+    assert db.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_dash_adds_base_movement_not_current_total_again(monkeypatch):
+    from api.combat.attack_actions import maybe_handle_pre_attack_action
+
+    db = FakeDb()
+    combat = FakeCombat()
+    combat.turn_states["hero-1"]["movement_max"] = 12
+    monkeypatch.setattr(
+        "api.combat.attack_actions._save_ts",
+        lambda combat_obj, entity_id, turn_state: combat_obj.turn_states.__setitem__(str(entity_id), turn_state),
+    )
+
+    result = await maybe_handle_pre_attack_action(
+        session_id="sess-1",
+        action_text="dash",
+        target_id=None,
+        db=db,
+        session=SimpleNamespace(),
+        combat=combat,
+        player=None,
+        player_id="hero-1",
+        player_name="英雄",
+        state={},
+        enemies=[],
+    )
+
+    assert result["action"] == "dash"
+    assert result["turn_state"]["movement_max"] == 18
+    assert combat.turn_states["hero-1"]["movement_max"] == 18
     assert db.commits == 1

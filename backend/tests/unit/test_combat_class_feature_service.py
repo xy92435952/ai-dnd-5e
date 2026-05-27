@@ -107,6 +107,23 @@ def test_action_surge_resets_action_and_attack_count():
     assert result.turn_state["attacks_made"] == 0
 
 
+def test_cunning_action_dash_adds_base_movement_not_current_total_again():
+    player = _character(char_class="Rogue", level=2)
+
+    result = resolve_combat_class_feature(
+        feature="cunning_action_dash",
+        player=player,
+        player_id="hero",
+        combat=_combat(),
+        turn_state=_turn_state(movement_max=12, base_movement_max=6),
+        combat_service=CombatService(),
+        roll_dice_fn=lambda *_args: (_ for _ in ()).throw(AssertionError("should not roll")),
+    )
+
+    assert result.turn_state["bonus_action_used"] is True
+    assert result.turn_state["movement_max"] == 18
+
+
 def test_tides_of_chaos_marks_next_d20_advantage():
     player = _character(char_class="Sorcerer", class_resources={})
 

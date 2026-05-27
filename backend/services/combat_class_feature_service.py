@@ -130,7 +130,10 @@ def resolve_combat_class_feature(
             _fail("本回合附赠行动已用尽")
 
         turn_state["bonus_action_used"] = True
-        turn_state["movement_max"] = turn_state["movement_max"] * 2
+        turn_state["movement_max"] = (
+            turn_state["movement_max"]
+            + turn_state.get("base_movement_max", turn_state["movement_max"])
+        )
         save_turn_state(combat, player_id, turn_state)
         narration = f"💨 {player.name} 使用「灵巧动作-冲刺」！移动力翻倍！"
 

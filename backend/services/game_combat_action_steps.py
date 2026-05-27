@@ -4,6 +4,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Session
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
+from services.combat_movement_rules_service import MovementRuleError, validate_displacement_allowed
 
 
 def execute_move_action(
@@ -14,6 +15,7 @@ def execute_move_action(
     turn_state: dict[str, Any],
     move_remaining: int,
     action: dict[str, Any],
+    actor_conditions: list[str] | None,
     action_results: list[str],
     executed_action_types: list[str],
     move_toward,
@@ -27,6 +29,17 @@ def execute_move_action(
 
     current_position = positions.get(player_id)
     if not current_position:
+        return move_remaining
+
+    desired_distance = max(
+        abs(current_position.get("x", 0) - destination.get("x", 0)),
+        abs(current_position.get("y", 0) - destination.get("y", 0)),
+    )
+    try:
+        validate_displacement_allowed(actor_conditions or [], desired_distance)
+    except MovementRuleError:
+        action_results.append("速度为 0，无法移动")
+        executed_action_types.append("move_blocked")
         return move_remaining
 
     result = move_toward(current_position, destination, move_remaining, positions, player_id)

@@ -27,6 +27,39 @@ class FakeCombatService:
         return damage
 
 
+def test_execute_move_action_blocks_speed_zero_condition():
+    from services.game_combat_action_steps import execute_move_action
+
+    positions = {
+        "hero-1": {"x": 0, "y": 0},
+        "goblin-1": {"x": 5, "y": 0},
+    }
+    combat_state = SimpleNamespace(entity_positions=positions)
+    turn_state = {"movement_used": 0, "movement_max": 6}
+    action_results = []
+    executed_action_types = []
+
+    move_remaining = execute_move_action(
+        combat_state=combat_state,
+        positions=positions,
+        player_id="hero-1",
+        turn_state=turn_state,
+        move_remaining=6,
+        action={"type": "move", "target_id": "goblin-1"},
+        actor_conditions=["被擒抱"],
+        action_results=action_results,
+        executed_action_types=executed_action_types,
+        move_toward=lambda *_args: {"x": 1, "y": 0, "steps": 1},
+        save_turn_state=lambda *_args: None,
+    )
+
+    assert move_remaining == 6
+    assert positions["hero-1"] == {"x": 0, "y": 0}
+    assert turn_state["movement_used"] == 0
+    assert action_results == ["速度为 0，无法移动"]
+    assert executed_action_types == ["move_blocked"]
+
+
 def test_execute_attack_action_consumes_guiding_bolt_and_applies_hex(monkeypatch):
     from services import combat_damage_bonus_service
     from services.game_combat_action_steps import execute_attack_action

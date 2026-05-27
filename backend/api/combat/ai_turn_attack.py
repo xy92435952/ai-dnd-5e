@@ -21,7 +21,11 @@ from services.combat_ai_attack_service import (
 )
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
-from services.combat_movement_rules_service import MovementRuleError, apply_stand_up_from_prone
+from services.combat_movement_rules_service import (
+    MovementRuleError,
+    apply_stand_up_from_prone,
+    validate_displacement_allowed,
+)
 from services.combat_narrator import narrate_batch
 from services.combat_reaction_service import build_pending_attack_reaction
 from services.combat_temporary_hp_service import (
@@ -155,7 +159,17 @@ async def handle_ai_attack_action(
                         achar.conditions = stand_result.conditions
                     all_narrations.append(f"{actor_name} 起身，消耗 {stand_result.movement_cost * 5}ft 移动力")
             move_remaining = actor_ts_pre["movement_max"] - actor_ts_pre["movement_used"]
-            move_result = _ai_move_toward(ai_atk_pos, ai_tgt_pos, move_remaining, positions, actor_id)
+            movement_conditions = stand_result.conditions if stand_result else actor_conditions
+            desired_distance = max(
+                abs(ai_atk_pos["x"] - ai_tgt_pos["x"]),
+                abs(ai_atk_pos["y"] - ai_tgt_pos["y"]),
+            )
+            try:
+                validate_displacement_allowed(movement_conditions, desired_distance)
+                move_result = _ai_move_toward(ai_atk_pos, ai_tgt_pos, move_remaining, positions, actor_id)
+            except MovementRuleError:
+                move_result = None
+                all_narrations.append(f"{actor_name} 的速度为 0，无法接近目标")
             if move_result:
                 new_pos = {"x": move_result["x"], "y": move_result["y"]}
                 positions[str(actor_id)] = new_pos

@@ -3,7 +3,11 @@ api.combat.ai_turn_actions — AI simple action branch handlers.
 """
 from api.combat._shared import _get_ts, _save_ts, _ai_move_toward
 from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
-from services.combat_movement_rules_service import MovementRuleError, apply_stand_up_from_prone
+from services.combat_movement_rules_service import (
+    MovementRuleError,
+    apply_stand_up_from_prone,
+    validate_displacement_allowed,
+)
 
 
 async def handle_ai_simple_action(
@@ -61,10 +65,15 @@ async def handle_ai_simple_action(
         if decided_target_id:
             dash_tgt_pos = positions.get(str(decided_target_id))
             dash_ts = _get_ts(combat, actor_id)
+            actor_conditions = (
+                enemy.get("conditions", [])
+                if is_enemy and enemy
+                else getattr(character, "conditions", None) or []
+            )
             try:
                 stand_result = apply_stand_up_from_prone(
                     dash_ts,
-                    enemy.get("conditions", []) if is_enemy and enemy else getattr(character, "conditions", None) or [],
+                    actor_conditions,
                 )
             except MovementRuleError:
                 stand_result = None
@@ -80,7 +89,21 @@ async def handle_ai_simple_action(
                 if stand_result is not None
                 else 0
             )
-            dash_result = _ai_move_toward(positions.get(str(actor_id)), dash_tgt_pos, dash_budget, positions, actor_id)
+            movement_conditions = stand_result.conditions if stand_result else actor_conditions
+            actor_pos = positions.get(str(actor_id))
+            desired_distance = (
+                max(
+                    abs(actor_pos["x"] - dash_tgt_pos["x"]),
+                    abs(actor_pos["y"] - dash_tgt_pos["y"]),
+                )
+                if actor_pos and dash_tgt_pos
+                else 0
+            )
+            try:
+                validate_displacement_allowed(movement_conditions, desired_distance)
+                dash_result = _ai_move_toward(actor_pos, dash_tgt_pos, dash_budget, positions, actor_id)
+            except MovementRuleError:
+                dash_result = None
             if dash_result:
                 positions[str(actor_id)] = {"x": dash_result["x"], "y": dash_result["y"]}
                 combat.entity_positions = positions

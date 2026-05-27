@@ -33,11 +33,11 @@ async def maybe_handle_pre_attack_action(
     ts = _get_ts(combat, player_id)
 
     # ── 冲刺 ────────────────────────────────────────────
-    if "冲刺" in action_text:
+    if "冲刺" in action_text or "dash" in action_text.lower():
         if ts["action_used"]:
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
-        ts["movement_max"] = ts["movement_max"] * 2
+        ts["movement_max"] = ts["movement_max"] + ts.get("base_movement_max", ts["movement_max"])
         _save_ts(combat, player_id, ts)
         db.add(GameLog(
             session_id=session_id, role="player",

@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from services.dnd_rules import normalize_condition, normalize_conditions
+from services.dnd_rules import (
+    has_speed_zero_condition,
+    normalize_condition,
+    normalize_conditions,
+)
 
 
 class MovementRuleError(Exception):
@@ -32,6 +36,17 @@ def has_condition_alias(conditions: list[str] | None, condition: str) -> bool:
     return normalize_condition(condition) in normalize_conditions(conditions or [])
 
 
+def movement_is_speed_zero(conditions: list[str] | None) -> bool:
+    return has_speed_zero_condition({"conditions": list(conditions or [])})
+
+
+def validate_displacement_allowed(conditions: list[str] | None, distance: int) -> None:
+    if distance <= 0:
+        return
+    if movement_is_speed_zero(conditions):
+        raise MovementRuleError("speed_zero_condition_blocks_movement")
+
+
 def apply_stand_up_from_prone(
     turn_state: dict[str, Any],
     conditions: list[str] | None,
@@ -44,6 +59,8 @@ def apply_stand_up_from_prone(
             turn_state=updated_turn_state,
             conditions=current_conditions,
         )
+    if movement_is_speed_zero(current_conditions):
+        raise MovementRuleError("speed_zero_condition_blocks_standing")
 
     movement_max = max(0, int(updated_turn_state.get("movement_max", 0) or 0))
     base_movement_max = max(0, int(updated_turn_state.get("base_movement_max", movement_max) or 0))

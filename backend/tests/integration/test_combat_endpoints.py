@@ -164,6 +164,58 @@ async def test_natural_language_unreachable_melee_moves_without_fake_attack(
     assert "目标不在攻击范围内" not in data["narrative"]
 
 
+async def test_combat_move_rejects_speed_zero_character(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    sample_character.conditions = ["grappled"]
+    combat_state.turn_states = {
+        sample_character.id: {
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        }
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 4, "to_y": 5},
+    )
+
+    assert response.status_code == 400, response.text
+    assert "speed is 0" in response.text
+    await db_session.refresh(combat_state)
+    assert combat_state.entity_positions[sample_character.id] == {"x": 5, "y": 5}
+
+
+async def test_combat_move_allows_no_op_for_speed_zero_character(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    sample_character.conditions = ["grappled"]
+    combat_state.turn_states = {
+        sample_character.id: {
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        }
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 5, "to_y": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["movement_used"] == 0
+    assert data["positions"][sample_character.id] == {"x": 5, "y": 5}
+
+
 @pytest_asyncio.fixture
 async def ai_turn_combat(db_session, sample_session, sample_character):
     """AI 回合用的最小战斗态。"""

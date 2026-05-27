@@ -57,6 +57,7 @@ def execute_parsed_combat_actions(
                 turn_state=turn_state,
                 move_remaining=move_remaining,
                 action=action,
+                actor_conditions=list(getattr(player, "conditions", None) or []),
                 action_results=action_results,
                 executed_action_types=executed_action_types,
                 move_toward=move_toward,
@@ -109,7 +110,10 @@ def execute_parsed_combat_actions(
             action_used = True
 
         elif action_type == "dash" and not action_used:
-            turn_state["movement_max"] *= 2
+            turn_state["movement_max"] = (
+                turn_state["movement_max"]
+                + turn_state.get("base_movement_max", turn_state["movement_max"])
+            )
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("冲刺！移动力翻倍")
             executed_action_types.append("dash")
