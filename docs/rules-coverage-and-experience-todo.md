@@ -243,7 +243,7 @@ Priority:
 - [x] Add tests for duplicate HTTP submit on slow network. Absorb Elements reaction duplicate POST is idempotent; movement, combat action, attack-roll, and spell-roll reject stale turn tokens; 2026-05-28 exploration `/game/action` idempotency tests cover cached replay, mismatched payload rejection, and in-flight duplicate rejection.
 - [x] Add idempotency keys or turn tokens to state-changing combat and exploration endpoints. Combat move/action/attack-roll/spell-roll/spell/end-turn/ai-turn accept optional turn tokens; 2026-05-28 `/game/action` accepts optional `idempotency_key`, caches completed exploration responses, and rejects pending duplicate submits.
 - [~] Add cleanup for stale pending reactions, stale group readiness, and abandoned WS connections. Combat reaction decline now clears pending attack/spell prompts, and already-resolved reactions are safe to resubmit; group readiness and abandoned WS cleanup still need broader coverage.
-- [ ] Add database migration readiness check for local SQLite -> Postgres path.
+- [x] Add database migration readiness check for local SQLite -> Postgres path. 2026-05-29: added `backend/check_migration_readiness.py`, which performs an offline preflight for PostgreSQL target URL, source SQLite table/column coverage against current ORM metadata, JSON column parseability, and Alembic single-head revision chain.
 - [ ] Add production-like seeded scenario that can be used for repeatable smoke tests.
 
 ### P2 CRPG Depth
