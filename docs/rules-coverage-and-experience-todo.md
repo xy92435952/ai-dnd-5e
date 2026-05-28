@@ -184,7 +184,7 @@ Priority:
 - [x] Run the 50-user load smoke twice in a row with the same prefix to test idempotent login/reuse. 2026-05-28 second run reused the same prefix/users, cleanup OK, elapsed ~55.5s.
 - [x] Run 13-room test shape: 12 rooms with 4 players and 1 room with 2 players.
 - [x] Verify one full room rejects overflow join while other rooms remain usable.
-- [~] Verify typing, DM thinking, room state, combat update, and reaction prompt events never cross room boundaries. Load smoke verifies typing isolation and HTTP room/session isolation; 2026-05-28 integration coverage verifies DM thinking/responded, room state, and combat update events stay inside the acting room. Reaction prompt cross-room/recipient checks still need scenario coverage.
+- [x] Verify typing, DM thinking, room state, combat update, and reaction prompt events never cross room boundaries. Load smoke verifies typing isolation and HTTP room/session isolation; 2026-05-28 integration coverage verifies DM thinking/responded, room state, combat update, and reaction prompt events stay inside the acting room. Same-room eligible-reactor-only visibility remains tracked separately as a UX/security decision.
 - [x] Verify non-members cannot read another room snapshot, members list, or session restore snapshot.
 - [x] Verify members leaving all rooms cleans WS state and dissolves rooms correctly when host leaves last. 2026-05-28: leave/kick now force-close affected WS connections after final broadcast; room dissolve closes all room sockets; tests cover state pruning and host-last dissolve.
 - [x] Verify reconnect replaces only the same user in the same room, not another tab/user/room. 2026-05-28: `test_reconnect_replaces_only_the_same_user_in_the_same_room` covers same-user replacement without disturbing other users or rooms.
@@ -307,7 +307,7 @@ Priority:
 - [ ] Submit exploration actions from different players.
 - [ ] Verify speaking/action ownership and group readiness.
 - [ ] Trigger combat and verify each player only controls their own character.
-- [ ] Verify reaction prompt is visible only to the eligible reactor.
+- [ ] Decide and verify whether reaction prompts should be visible only to the eligible reactor; current backend behavior room-broadcasts `reaction_prompt` in `combat_update`, while cross-room leakage is covered by integration tests.
 - [ ] Refresh one guest during combat and verify restore.
 - [ ] Disconnect/reconnect one guest and verify WS online state.
 - [ ] Leave room in different orders and verify cleanup.
