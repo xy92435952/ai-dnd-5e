@@ -237,7 +237,7 @@ Priority:
 
 ### P1 Persistence And Recovery
 
-- [ ] Audit every mutation of SQLAlchemy JSON fields for top-level assignment and `flag_modified`.
+- [x] Audit every mutation of SQLAlchemy JSON fields for top-level assignment and `flag_modified`. 2026-05-28: added an AST regression test that derives JSON columns from SQLAlchemy models and scans `backend/api` + `backend/services` for ORM JSON in-place mutations without explicit top-level assignment or `flag_modified`.
 - [x] Add tests for refresh/reconnect during pending reaction prompt.
 - [x] Add tests for refresh/reconnect during DM thinking. 2026-05-28: multiplayer actions persist `dm_thinking` in room state until DM response/failure clears it; HTTP room refresh and fresh WS `room_state_updated` restore the pending indicator, with frontend hook coverage for loading recovery.
 - [x] Add tests for duplicate HTTP submit on slow network. Absorb Elements reaction duplicate POST is idempotent; movement, combat action, attack-roll, and spell-roll reject stale turn tokens; 2026-05-28 exploration `/game/action` idempotency tests cover cached replay, mismatched payload rejection, and in-flight duplicate rejection.
