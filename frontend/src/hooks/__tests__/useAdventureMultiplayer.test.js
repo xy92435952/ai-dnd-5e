@@ -17,6 +17,7 @@ function renderMultiplayer(room, myUserId = 'me', overrides = {}) {
     session: props.session,
     loadSession: props.loadSession,
     refreshRoom: props.refreshRoom,
+    setIsLoading: props.setIsLoading,
     onReconnectSynced: props.onReconnectSynced,
   }), {
     initialProps: {
@@ -25,6 +26,7 @@ function renderMultiplayer(room, myUserId = 'me', overrides = {}) {
       session: null,
       loadSession: vi.fn(),
       refreshRoom: vi.fn(),
+      setIsLoading: vi.fn(),
       ...overrides,
     },
   })
@@ -129,5 +131,40 @@ describe('useAdventureMultiplayer', () => {
     })
 
     await waitFor(() => expect(onReconnectSynced).toHaveBeenCalledTimes(1))
+  })
+
+  it('restores loading when room snapshot says another player is waiting on DM', () => {
+    const setIsLoading = vi.fn()
+    const room = {
+      is_multiplayer: true,
+      _currentSpeaker: 'other',
+      _dmThinking: {
+        active: true,
+        by_user_id: 'other',
+        action_text: 'Open the sealed gate',
+      },
+      members: [
+        { user_id: 'me', display_name: 'Me' },
+        { user_id: 'other', display_name: 'Other' },
+      ],
+    }
+
+    renderMultiplayer(room, 'me', { setIsLoading })
+
+    expect(setIsLoading).toHaveBeenCalledWith(true)
+  })
+
+  it('clears loading when refreshed room snapshot has no pending DM thinking', () => {
+    const setIsLoading = vi.fn()
+    const room = {
+      is_multiplayer: true,
+      _currentSpeaker: 'me',
+      _dmThinking: null,
+      members: [{ user_id: 'me', display_name: 'Me' }],
+    }
+
+    renderMultiplayer(room, 'me', { setIsLoading })
+
+    expect(setIsLoading).toHaveBeenCalledWith(false)
   })
 })

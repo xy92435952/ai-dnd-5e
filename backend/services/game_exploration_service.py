@@ -8,6 +8,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, CombatState, Module, Session
 from services.context_builder import ContextBuilder
+from services.dm_thinking_service import clear_dm_thinking, clear_dm_thinking_state
 from services.game_combat_setup_service import init_combat
 from services.game_multiplayer_service import send_dm_responded_with_visibility
 from services.langgraph_client import langgraph_client
@@ -41,83 +42,104 @@ async def execute_exploration_action(
         current_actor_id=actor.id if actor else None,
     )
 
+    session_id = session.id
+    is_multiplayer = bool(session.is_multiplayer)
+    thinking_cleared_for_success = False
     try:
-        dm_result = await langgraph_client.call_dm_agent(
-            **inputs,
-            action_source=action_source,
-            conversation_id=session.id,
-        )
-    except Exception as exc:
-        raise HTTPException(502, f"AI服务暂时不可用: {str(exc)}") from exc
-    if not dm_result.get("success", True):
-        raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
+        try:
+            dm_result = await langgraph_client.call_dm_agent(
+                **inputs,
+                action_source=action_source,
+                conversation_id=session.id,
+            )
+        except Exception as exc:
+            raise HTTPException(502, f"AI服务暂时不可用: {str(exc)}") from exc
+        if not dm_result.get("success", True):
+            raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
 
-    multiplayer_visibility = getattr(after_success, "multiplayer_visibility", {}) if after_success else {}
-    multiplayer_table_reason = getattr(after_success, "multiplayer_table_reason", "") if after_success else ""
-    multiplayer_table_decision = getattr(after_success, "multiplayer_table_decision", {}) if after_success else {}
-    _attach_multiplayer_table_metadata(
-        dm_result=dm_result,
-        multiplayer_visibility=multiplayer_visibility,
-        multiplayer_table_reason=multiplayer_table_reason,
-        multiplayer_table_decision=multiplayer_table_decision,
-    )
-
-    applicator = StateApplicator(db)
-    applied = await applicator.apply(
-        session=session,
-        result_json=dm_result["result"],
-        characters=characters,
-        combat_state=combat_state,
-    )
-
-    if applied.combat_triggered:
-        await init_combat(
-            session=session,
-            initial_enemies=applied.initial_enemies,
-            characters=characters,
-            module=module,
-            db=db,
-        )
-
-    if after_success:
-        await after_success()
-
-    _persist_last_turn(
-        session=session,
-        applied=applied,
-        actor_user_id=actor_user_id,
-        is_takeover=is_takeover,
-        takeover_by_user_id=takeover_by_user_id,
-    )
-    await db.commit()
-
-    if session.is_multiplayer:
-        await _broadcast_exploration_result(
-            db=db,
-            session=session,
-            actor_user_id=actor_user_id,
-            applied=applied,
+        multiplayer_visibility = getattr(after_success, "multiplayer_visibility", {}) if after_success else {}
+        multiplayer_table_reason = getattr(after_success, "multiplayer_table_reason", "") if after_success else ""
+        multiplayer_table_decision = getattr(after_success, "multiplayer_table_decision", {}) if after_success else {}
+        _attach_multiplayer_table_metadata(
+            dm_result=dm_result,
             multiplayer_visibility=multiplayer_visibility,
             multiplayer_table_reason=multiplayer_table_reason,
             multiplayer_table_decision=multiplayer_table_decision,
         )
 
-    return {
-        "type": applied.action_type,
-        "narrative": applied.narrative,
-        "companion_reactions": applied.companion_reactions,
-        "dice_display": applied.dice_display,
-        "player_choices": [] if is_takeover else applied.player_choices,
-        "needs_check": None if is_takeover else applied.needs_check,
-        "combat_triggered": applied.combat_triggered,
-        "combat_ended": applied.combat_ended,
-        "combat_end_result": applied.combat_end_result,
-        "combat_update": None,
-        "visibility": multiplayer_visibility,
-        "table_reason": multiplayer_table_reason,
-        "table_decision": multiplayer_table_decision,
-        "errors": applied.errors,
-    }
+        applicator = StateApplicator(db)
+        applied = await applicator.apply(
+            session=session,
+            result_json=dm_result["result"],
+            characters=characters,
+            combat_state=combat_state,
+        )
+
+        if applied.combat_triggered:
+            await init_combat(
+                session=session,
+                initial_enemies=applied.initial_enemies,
+                characters=characters,
+                module=module,
+                db=db,
+            )
+
+        if after_success:
+            await after_success()
+
+        _persist_last_turn(
+            session=session,
+            applied=applied,
+            actor_user_id=actor_user_id,
+            is_takeover=is_takeover,
+            takeover_by_user_id=takeover_by_user_id,
+        )
+        if session.is_multiplayer:
+            clear_dm_thinking_state(session, actor_user_id=actor_user_id)
+            thinking_cleared_for_success = True
+        await db.commit()
+
+        if session.is_multiplayer:
+            await _broadcast_exploration_result(
+                db=db,
+                session=session,
+                actor_user_id=actor_user_id,
+                applied=applied,
+                multiplayer_visibility=multiplayer_visibility,
+                multiplayer_table_reason=multiplayer_table_reason,
+                multiplayer_table_decision=multiplayer_table_decision,
+            )
+
+        return {
+            "type": applied.action_type,
+            "narrative": applied.narrative,
+            "companion_reactions": applied.companion_reactions,
+            "dice_display": applied.dice_display,
+            "player_choices": [] if is_takeover else applied.player_choices,
+            "needs_check": None if is_takeover else applied.needs_check,
+            "combat_triggered": applied.combat_triggered,
+            "combat_ended": applied.combat_ended,
+            "combat_end_result": applied.combat_end_result,
+            "combat_update": None,
+            "visibility": multiplayer_visibility,
+            "table_reason": multiplayer_table_reason,
+            "table_decision": multiplayer_table_decision,
+            "errors": applied.errors,
+        }
+    finally:
+        if is_multiplayer and not thinking_cleared_for_success:
+            try:
+                await db.rollback()
+                fresh_session = await db.get(Session, session_id)
+                if fresh_session:
+                    await clear_dm_thinking(
+                        db,
+                        fresh_session,
+                        actor_user_id=actor_user_id,
+                        broadcast_room=True,
+                    )
+            except Exception:
+                pass
 
 
 def _attach_multiplayer_table_metadata(

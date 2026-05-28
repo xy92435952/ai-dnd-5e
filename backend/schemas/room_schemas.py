@@ -99,6 +99,7 @@ class RoomInfo(BaseModel):
     members: List[MemberInfo] = []
     ai_companions: List[AiCompanionInfo] = []
     current_speaker_user_id: Optional[str] = None
+    dm_thinking: Optional[dict] = None
     speak_round: int = 0
     party_groups: List[dict] = []
     active_group_id: Optional[str] = None

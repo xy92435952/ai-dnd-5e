@@ -206,6 +206,17 @@
             "title": "Entity Id",
             "type": "string"
           },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          },
           "is_offhand": {
             "default": false,
             "title": "Is Offhand",
@@ -962,6 +973,22 @@
             "title": "Ordinary Healing Blocked",
             "type": "boolean"
           },
+          "rest_interrupted": {
+            "default": false,
+            "title": "Rest Interrupted",
+            "type": "boolean"
+          },
+          "rest_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Type"
+          },
           "slots_restored": {
             "additionalProperties": true,
             "default": {},
@@ -1033,6 +1060,17 @@
             "default": "普通攻击",
             "title": "Action Text",
             "type": "string"
+          },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
           },
           "is_offhand": {
             "default": false,
@@ -2760,6 +2798,17 @@
             "title": "Entity Id",
             "type": "string"
           },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          },
           "to_x": {
             "title": "To X",
             "type": "integer"
@@ -3101,6 +3150,22 @@
             "title": "Characters",
             "type": "array"
           },
+          "interrupted": {
+            "default": false,
+            "title": "Interrupted",
+            "type": "boolean"
+          },
+          "interruption_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interruption Reason"
+          },
           "rest_type": {
             "title": "Rest Type",
             "type": "string"
@@ -3167,6 +3232,18 @@
               }
             ],
             "title": "Dm Style"
+          },
+          "dm_thinking": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dm Thinking"
           },
           "game_started": {
             "title": "Game Started",
@@ -3856,6 +3933,17 @@
             "title": "Caster Id",
             "type": "string"
           },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          },
           "spell_level": {
             "default": 1,
             "title": "Spell Level",
@@ -3903,6 +3991,17 @@
           "caster_id": {
             "title": "Caster Id",
             "type": "string"
+          },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
           },
           "spell_level": {
             "default": 1,
@@ -7194,6 +7293,32 @@
               "default": "long",
               "title": "Rest Type",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "interrupted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Interrupted",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "interruption_reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Interruption Reason"
             }
           }
         ],

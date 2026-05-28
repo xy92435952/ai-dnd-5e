@@ -14,9 +14,11 @@ export function useAdventureMultiplayer({
   session,
   loadSession,
   refreshRoom,
+  setIsLoading,
   onReconnectSynced,
 }) {
   const currentSpeakerUid = room?._currentSpeaker
+  const dmThinking = room?._dmThinking || null
   const isMySpeakTurn = !room || (!!currentSpeakerUid && currentSpeakerUid === myUserId)
   const currentSpeakerName = useMemo(() => (
     (room?.members || []).find(m => m.user_id === currentSpeakerUid)?.display_name
@@ -47,6 +49,17 @@ export function useAdventureMultiplayer({
     prevWsConnectedRef.current = wsConnected
     if (wsConnected) hasConnectedOnceRef.current = true
   }, [wsConnected, room, session, loadSession, refreshRoom, onReconnectSynced])
+
+  useEffect(() => {
+    if (!room || !setIsLoading) return
+    if (dmThinking?.active && dmThinking.by_user_id !== myUserId) {
+      setIsLoading(true)
+      return
+    }
+    if (!dmThinking) {
+      setIsLoading(false)
+    }
+  }, [room, dmThinking, myUserId, setIsLoading])
 
   const prevSpeakerRef = useRef(null)
   useEffect(() => {

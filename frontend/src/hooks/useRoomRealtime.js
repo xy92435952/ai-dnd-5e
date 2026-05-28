@@ -3,9 +3,11 @@ import { roomsApi } from '../api/client'
 
 export function normalizeRealtimeRoom(room) {
   if (!room?.is_multiplayer) return null
+  const dmThinking = room.dm_thinking?.active ? room.dm_thinking : null
   return {
     ...room,
     _currentSpeaker: room.current_speaker_user_id,
+    _dmThinking: dmThinking,
   }
 }
 

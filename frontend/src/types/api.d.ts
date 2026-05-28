@@ -1469,6 +1469,8 @@ export interface components {
             d20_value?: number | null;
             /** Entity Id */
             entity_id: string;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
             /**
              * Is Offhand
              * @default false
@@ -1842,6 +1844,13 @@ export interface components {
              */
             ordinary_healing_blocked: boolean;
             /**
+             * Rest Interrupted
+             * @default false
+             */
+            rest_interrupted: boolean;
+            /** Rest Type */
+            rest_type?: string | null;
+            /**
              * Slots Restored
              * @default {}
              */
@@ -1878,6 +1887,8 @@ export interface components {
              * @default 普通攻击
              */
             action_text: string;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
             /**
              * Is Offhand
              * @default false
@@ -2632,6 +2643,8 @@ export interface components {
         MoveRequest: {
             /** Entity Id */
             entity_id: string;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
             /** To X */
             to_x: number;
             /** To Y */
@@ -2809,6 +2822,13 @@ export interface components {
              * @default []
              */
             characters: components["schemas"]["CharacterRestResult"][];
+            /**
+             * Interrupted
+             * @default false
+             */
+            interrupted: boolean;
+            /** Interruption Reason */
+            interruption_reason?: string | null;
             /** Rest Type */
             rest_type: string;
         } & {
@@ -2829,6 +2849,10 @@ export interface components {
             current_speaker_user_id?: string | null;
             /** Dm Style */
             dm_style?: {
+                [key: string]: unknown;
+            } | null;
+            /** Dm Thinking */
+            dm_thinking?: {
                 [key: string]: unknown;
             } | null;
             /** Game Started */
@@ -3143,6 +3167,8 @@ export interface components {
         SpellRequest: {
             /** Caster Id */
             caster_id: string;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
             /**
              * Spell Level
              * @default 1
@@ -3159,6 +3185,8 @@ export interface components {
         SpellRollRequest: {
             /** Caster Id */
             caster_id: string;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
             /**
              * Spell Level
              * @default 1
@@ -5392,6 +5420,8 @@ export interface operations {
         parameters: {
             query?: {
                 rest_type?: string;
+                interrupted?: boolean;
+                interruption_reason?: string | null;
             };
             header?: never;
             path: {

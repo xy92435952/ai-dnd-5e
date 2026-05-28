@@ -37,6 +37,7 @@ async def get_room_info(
         "members": members,
         "ai_companions": ai_companions,
         "current_speaker_user_id": mp.get("current_speaker_user_id"),
+        "dm_thinking": mp.get("dm_thinking"),
         "speak_round": mp.get("speak_round", 0),
         "party_groups": mp_state["party_groups"],
         "active_group_id": mp_state["active_group_id"],

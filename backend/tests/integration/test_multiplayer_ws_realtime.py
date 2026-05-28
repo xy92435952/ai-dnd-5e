@@ -795,6 +795,219 @@ async def test_http_multiplayer_action_reaches_room_websocket_clients(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_dm_thinking_survives_refresh_and_reconnect_until_response(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Room snapshots should let refreshing/reconnecting players recover in-flight DM thinking."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    dm_call_started = asyncio.Event()
+    release_dm_call = asyncio.Event()
+
+    async def fake_call_dm_agent(**kwargs):
+        dm_call_started.set()
+        await asyncio.wait_for(release_dm_call.wait(), timeout=2)
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "The delayed answer arrives.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {},
+                "needs_check": {"required": False},
+                "combat_triggered": False,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_dm_thinking_reconnect",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+
+    guest_ws = QueueWebSocket()
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    action_task = None
+    reconnect_ws = None
+    reconnect_task = None
+    try:
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(guest_ws, "member_online")
+
+        action_task = asyncio.create_task(client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I ask the DM a slow question.",
+        }))
+
+        await asyncio.wait_for(dm_call_started.wait(), timeout=2)
+        thinking = await _wait_for_event(guest_ws, "dm_thinking_start", timeout=2)
+        assert thinking["by_user_id"] == host["user_id"]
+        assert thinking["action_text"] == "I ask the DM a slow question."
+
+        refreshed = await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))
+        assert refreshed.status_code == 200, refreshed.text
+        refreshed_thinking = refreshed.json()["dm_thinking"]
+        assert refreshed_thinking["active"] is True
+        assert refreshed_thinking["by_user_id"] == host["user_id"]
+        assert refreshed_thinking["action_text"] == "I ask the DM a slow question."
+
+        reconnect_ws = QueueWebSocket()
+        reconnect_task = asyncio.create_task(ws_api.ws_endpoint(reconnect_ws, sid, token=guest["token"]))
+        await asyncio.wait_for(reconnect_ws.accepted.wait(), timeout=1)
+        reconnect_room = await _wait_for_event(reconnect_ws, "room_state_updated", timeout=2)
+        reconnect_thinking = reconnect_room["room"]["dm_thinking"]
+        assert reconnect_thinking["active"] is True
+        assert reconnect_thinking["by_user_id"] == host["user_id"]
+        after_reconnect_snapshot = len(reconnect_ws.sent)
+
+        release_dm_call.set()
+        response = await asyncio.wait_for(action_task, timeout=3)
+        assert response.status_code == 200, response.text
+        assert response.json()["narrative"] == "The delayed answer arrives."
+
+        final_room = await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))
+        assert final_room.status_code == 200, final_room.text
+        assert final_room.json()["dm_thinking"] is None
+
+        room_update = await _wait_for_event(
+            reconnect_ws,
+            "room_state_updated",
+            timeout=2,
+            start_index=after_reconnect_snapshot,
+        )
+        assert room_update["room"]["dm_thinking"] is None
+    finally:
+        if action_task and not action_task.done():
+            release_dm_call.set()
+            await asyncio.gather(action_task, return_exceptions=True)
+        await guest_ws.disconnect()
+        if reconnect_ws:
+            await reconnect_ws.disconnect()
+        tasks = [guest_task]
+        if reconnect_task:
+            tasks.append(reconnect_task)
+        await asyncio.gather(*tasks, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_multiplayer_dm_thinking_clears_after_failed_dm_call(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """A failed DM call should not leave teammates stuck in a thinking state."""
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    dm_call_started = asyncio.Event()
+    release_dm_call = asyncio.Event()
+
+    async def fake_call_dm_agent(**kwargs):
+        dm_call_started.set()
+        await asyncio.wait_for(release_dm_call.wait(), timeout=2)
+        raise RuntimeError("simulated DM outage")
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_dm_thinking_failure",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+
+    guest_ws = QueueWebSocket()
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    action_task = None
+    try:
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(guest_ws, "member_online")
+        await _wait_for_event(guest_ws, "room_state_updated")
+
+        action_task = asyncio.create_task(client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I ask the DM a doomed question.",
+        }))
+
+        await asyncio.wait_for(dm_call_started.wait(), timeout=2)
+        thinking = await _wait_for_event(guest_ws, "dm_thinking_start", timeout=2)
+        assert thinking["by_user_id"] == host["user_id"]
+        after_thinking = len(guest_ws.sent)
+
+        refreshed = await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))
+        assert refreshed.status_code == 200, refreshed.text
+        assert refreshed.json()["dm_thinking"]["by_user_id"] == host["user_id"]
+
+        release_dm_call.set()
+        response = await asyncio.wait_for(action_task, timeout=3)
+        assert response.status_code == 502, response.text
+
+        final_room = await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))
+        assert final_room.status_code == 200, final_room.text
+        assert final_room.json()["dm_thinking"] is None
+
+        room_update = await _wait_for_event(
+            guest_ws,
+            "room_state_updated",
+            timeout=2,
+            start_index=after_thinking,
+        )
+        assert room_update["room"]["dm_thinking"] is None
+    finally:
+        if action_task and not action_task.done():
+            release_dm_call.set()
+            await asyncio.gather(action_task, return_exceptions=True)
+        await guest_ws.disconnect()
+        await asyncio.gather(guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_dm_events_do_not_cross_room_boundaries(
     client,
     db_session,

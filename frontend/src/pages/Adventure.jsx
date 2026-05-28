@@ -182,6 +182,7 @@ export default function Adventure() {
     session,
     loadSession,
     refreshRoom,
+    setIsLoading,
     onReconnectSynced: showReconnectSynced,
   })
 

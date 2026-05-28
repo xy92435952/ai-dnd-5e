@@ -18,9 +18,29 @@ describe('normalizeRealtimeRoom', () => {
     expect(normalizeRealtimeRoom({
       is_multiplayer: true,
       current_speaker_user_id: 'u2',
+      dm_thinking: {
+        active: true,
+        by_user_id: 'u1',
+        action_text: 'Open the door',
+      },
     })).toMatchObject({
       is_multiplayer: true,
       _currentSpeaker: 'u2',
+      _dmThinking: {
+        active: true,
+        by_user_id: 'u1',
+        action_text: 'Open the door',
+      },
+    })
+  })
+
+  it('drops inactive DM thinking snapshots', () => {
+    expect(normalizeRealtimeRoom({
+      is_multiplayer: true,
+      current_speaker_user_id: 'u2',
+      dm_thinking: { active: false, by_user_id: 'u1' },
+    })).toMatchObject({
+      _dmThinking: null,
     })
   })
 

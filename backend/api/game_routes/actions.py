@@ -28,6 +28,7 @@ from services.game_exploration_service import execute_exploration_action
 from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
 from services import room_service
+from services.dm_thinking_service import clear_dm_thinking, start_dm_thinking
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -66,6 +67,7 @@ async def player_action(
                     multiplayer_decision=multiplayer_decision,
                 )
             effective_action_text = multiplayer_decision.effective_action_text or req.action_text
+        await start_dm_thinking(db, session, actor_user_id=user_id, action_text=req.action_text)
         await _broadcast_dm_thinking(session.id, user_id, req.action_text)
     else:
         player = await db.get(Character, session.player_character_id)
@@ -89,18 +91,27 @@ async def player_action(
             action_source=action_source,
         )
         if blocked:
+            await clear_dm_thinking(db, session, actor_user_id=user_id, broadcast_room=True)
             return blocked
 
     if session.combat_active and combat_state and player:
         await assert_can_act(session, user_id, player.id, db)
-        return await execute_natural_language_combat_action(
-            db=db,
-            session=session,
-            combat_state=combat_state,
-            player=player,
-            characters=characters,
-            action_text=req.action_text,
-        )
+        try:
+            result = await execute_natural_language_combat_action(
+                db=db,
+                session=session,
+                combat_state=combat_state,
+                player=player,
+                characters=characters,
+                action_text=req.action_text,
+            )
+            await clear_dm_thinking(db, session, actor_user_id=user_id, broadcast_room=True)
+            return result
+        except Exception:
+            await db.rollback()
+            fresh_session = await get_session_or_404(req.session_id, db)
+            await clear_dm_thinking(db, fresh_session, actor_user_id=user_id, broadcast_room=True)
+            raise
 
     async def after_multiplayer_success():
         await apply_multiplayer_room_decision(
@@ -186,6 +197,7 @@ async def ai_takeover_action(
         content=f"[AI 代演] {action_text}",
         log_type="narrative",
     ))
+    await start_dm_thinking(db, session, actor_user_id=speaker_uid, action_text=action_text)
     await _broadcast_dm_thinking(session.id, speaker_uid, action_text)
 
     return await execute_exploration_action(
