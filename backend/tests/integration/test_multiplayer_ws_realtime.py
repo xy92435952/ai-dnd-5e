@@ -984,7 +984,10 @@ async def test_multiplayer_dm_thinking_clears_after_failed_dm_call(
 
         release_dm_call.set()
         response = await asyncio.wait_for(action_task, timeout=3)
-        assert response.status_code == 502, response.text
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["type"] == "llm_error"
+        assert body["retryable"] is True
 
         final_room = await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))
         assert final_room.status_code == 200, final_room.text

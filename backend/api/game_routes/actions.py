@@ -64,15 +64,16 @@ async def _run_player_action_idempotently(
 ):
     session = await get_session_or_404(req.session_id, db)
     await assert_session_access(session, user_id, db)
+    session_id = session.id
     action_source = normalize_action_source(session, req.action_text, req.action_source)
     fingerprint = action_payload_fingerprint(
-        session_id=session.id,
+        session_id=session_id,
         user_id=user_id,
         action_text=req.action_text,
         action_source=action_source,
     )
 
-    lock = await get_action_idempotency_lock(session.id, user_id, key)
+    lock = await get_action_idempotency_lock(session_id, user_id, key)
     async with lock:
         await db.refresh(session)
         cached = get_cached_action_response(session, key=key, fingerprint=fingerprint)
@@ -81,10 +82,13 @@ async def _run_player_action_idempotently(
         await persist_pending_record(db, session, key=key, fingerprint=fingerprint, user_id=user_id)
     try:
         result = await _run_player_action(req=req, db=db, user_id=user_id)
+        if result.get("retryable"):
+            await clear_pending_record(db, session_id, key=key, fingerprint=fingerprint)
+            return result
         await persist_completed_record(db, session, key=key, fingerprint=fingerprint, response=result)
         return result
     except Exception:
-        await clear_pending_record(db, session.id, key=key, fingerprint=fingerprint)
+        await clear_pending_record(db, session_id, key=key, fingerprint=fingerprint)
         raise
 
 

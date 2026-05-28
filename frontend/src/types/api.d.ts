@@ -2739,6 +2739,11 @@ export interface components {
              */
             player_choices: unknown[];
             /**
+             * Retryable
+             * @default false
+             */
+            retryable: boolean;
+            /**
              * Table Decision
              * @default {}
              */

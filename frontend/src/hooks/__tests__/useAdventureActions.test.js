@@ -102,6 +102,36 @@ describe('useAdventureActions', () => {
     }))
   })
 
+  it('keeps existing prompts and restores input when the DM response is retryable', async () => {
+    gameApi.action.mockResolvedValue({
+      type: 'llm_error',
+      narrative: 'AI DM temporarily failed; retry the same action.',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+      retryable: true,
+      errors: [{ code: 'llm_unavailable', detail: 'temporary outage' }],
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleAction(undefined, { idempotencyKey: 'retryable-key' })
+    })
+
+    expect(deps.setInput).toHaveBeenCalledWith('')
+    expect(deps.setInput).toHaveBeenCalledWith(deps.input.trim())
+    expect(deps.setError).toHaveBeenCalledWith('AI DM temporarily failed; retry the same action.')
+    expect(deps.addLog).toHaveBeenCalledWith('system', 'AI DM temporarily failed; retry the same action.', 'system')
+    expect(deps.setPendingCheck).not.toHaveBeenCalled()
+    expect(deps.setChoices).not.toHaveBeenCalled()
+    expect(deps.enterDialogueStage).not.toHaveBeenCalled()
+    expect(gameApi.getSession).not.toHaveBeenCalled()
+  })
+
   it('attaches multiplayer table reason to DM theatre segments', async () => {
     gameApi.action.mockResolvedValue({
       type: 'multiplayer_table',

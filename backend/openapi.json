@@ -2997,6 +2997,11 @@
             "title": "Player Choices",
             "type": "array"
           },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
           "table_decision": {
             "additionalProperties": true,
             "default": {},

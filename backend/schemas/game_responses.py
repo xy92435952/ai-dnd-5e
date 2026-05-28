@@ -131,6 +131,7 @@ class PlayerActionResponse(BaseModel):
     table_reason: str = ""
     table_decision: dict[str, Any] = {}
     errors: list[Any] = []
+    retryable: bool = False
 
 
 # ─── /game/skill-check ─────────────────────────────────────

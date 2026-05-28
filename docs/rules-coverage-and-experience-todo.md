@@ -232,7 +232,7 @@ Priority:
 - [ ] Add scenario memory tests: NPC name, location, clue, quest state, and prior consequence survive several turns.
 - [ ] Add combat narration tests that AI text never contradicts backend dice results.
 - [ ] Add multiplayer table-decision tests where multiple groups submit actions and only the active/ready group is resolved.
-- [ ] Add fallback behavior when LLM call fails: preserve state, show retry, and avoid double-applying action.
+- [x] Add fallback behavior when LLM call fails: preserve state, show retry, and avoid double-applying action. 2026-05-28: exploration `/game/action` returns retryable `llm_error` without applying state or persisting failed player logs; idempotency pending records are cleared instead of cached, and the frontend restores the submitted text while keeping existing prompts available for retry.
 - [ ] Add configurable model timeout and cancellation handling for DM thinking state.
 
 ### P1 Persistence And Recovery
@@ -279,7 +279,7 @@ Priority:
 - [ ] Run frontend tests: `cd frontend && npm test -- --run`.
 - [ ] Run frontend build: `cd frontend && npm run build`.
 - [ ] Run frontend lint when touching frontend code: `cd frontend && npm run lint`.
-- [ ] Run OpenAPI/type generation after backend schema changes.
+- [x] Run OpenAPI/type generation after backend schema changes. 2026-05-28: regenerated `backend/openapi.json` and `frontend/src/types/api.d.ts` after adding `idempotency_key` and retryable action responses.
 - [ ] Run multiplayer load smoke when touching rooms, WS, access control, combat broadcast, or session restore.
 
 ### Manual Browser Flow: Single Player

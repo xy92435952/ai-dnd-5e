@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -53,9 +52,11 @@ async def execute_exploration_action(
                 conversation_id=session.id,
             )
         except Exception as exc:
-            raise HTTPException(502, f"AI服务暂时不可用: {str(exc)}") from exc
+            await db.rollback()
+            return _build_llm_failure_response(exc)
         if not dm_result.get("success", True):
-            raise HTTPException(502, f"DM代理处理失败: {dm_result.get('error', '未知错误')}")
+            await db.rollback()
+            return _build_llm_failure_response(dm_result.get("error", "Unknown DM agent error"))
 
         multiplayer_visibility = getattr(after_success, "multiplayer_visibility", {}) if after_success else {}
         multiplayer_table_reason = getattr(after_success, "multiplayer_table_reason", "") if after_success else ""
@@ -165,6 +166,27 @@ def _attach_multiplayer_table_metadata(
         dm_result["result"] = json.dumps(result_payload, ensure_ascii=False)
     except Exception:
         pass
+
+
+def _build_llm_failure_response(error: object) -> dict:
+    detail = str(error or "Unknown AI service error")
+    return {
+        "type": "llm_error",
+        "narrative": "AI DM 暂时没有完成回应，当前行动尚未写入剧情。请稍后重试同一个行动。",
+        "companion_reactions": "",
+        "dice_display": [],
+        "player_choices": [],
+        "needs_check": {"required": False},
+        "combat_triggered": False,
+        "combat_ended": False,
+        "combat_end_result": None,
+        "combat_update": None,
+        "visibility": {},
+        "table_reason": "",
+        "table_decision": {},
+        "errors": [{"code": "llm_unavailable", "detail": detail}],
+        "retryable": True,
+    }
 
 
 def _persist_last_turn(

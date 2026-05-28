@@ -118,8 +118,6 @@ export function useAdventureActions({
     }
     setInput('')
     setError('')
-    setPendingCheck(null)
-    setChoices([])
     setIsLoading(true)
     addLog('player', text, 'narrative')
     try {
@@ -130,6 +128,16 @@ export function useAdventureActions({
         idempotency_key: options.idempotencyKey || createActionIdempotencyKey(sessionId),
       })
 
+      if (resp.retryable) {
+        const message = resp.narrative || 'AI DM 暂时没有完成回应，当前行动尚未写入剧情。请稍后重试。'
+        setInput(text)
+        setError(message)
+        addLog('system', message, 'system')
+        return
+      }
+
+      setPendingCheck(null)
+      setChoices([])
       const queue = buildDialogueQueue(resp.narrative, resp.companion_reactions, companions)
       if (resp.visibility && Array.isArray(queue)) {
         queue.forEach(seg => {

@@ -254,6 +254,106 @@ async def test_action_idempotency_key_rejects_duplicate_while_pending(
             await asyncio.gather(first_task, return_exceptions=True)
 
 
+async def test_llm_failure_returns_retryable_response_without_mutating_state(
+    client, db_session, sample_session, sample_character, sample_user, monkeypatch,
+):
+    """A DM outage should leave persisted adventure state untouched and tell the UI to retry."""
+    import services.langgraph_client as lc
+    from models import GameLog
+    from sqlalchemy import select
+
+    async def fake_failing_dm_agent(**kwargs):
+        raise RuntimeError("simulated outage")
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_failing_dm_agent)
+
+    original_state = dict(sample_session.game_state or {})
+    original_scene = sample_session.current_scene
+    original_hp = sample_character.hp_current
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post("/game/action", headers=headers, json={
+        "session_id": sample_session.id,
+        "action_text": "Open the unstable gate",
+    })
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["type"] == "llm_error"
+    assert body["retryable"] is True
+    assert body["errors"][0]["code"] == "llm_unavailable"
+    assert "simulated outage" in body["errors"][0]["detail"]
+
+    await db_session.refresh(sample_session)
+    await db_session.refresh(sample_character)
+    assert sample_session.game_state == original_state
+    assert sample_session.current_scene == original_scene
+    assert sample_character.hp_current == original_hp
+
+    logs = (
+        await db_session.execute(
+            select(GameLog).where(
+                GameLog.session_id == sample_session.id,
+                GameLog.content == "Open the unstable gate",
+            )
+        )
+    ).scalars().all()
+    assert logs == []
+
+
+async def test_idempotency_key_does_not_cache_retryable_llm_failure(
+    client, db_session, sample_session, sample_user, monkeypatch,
+):
+    """Retryable DM failures should clear the pending idempotency record so retry can run again."""
+    import json as _json
+    import services.langgraph_client as lc
+
+    calls = 0
+
+    async def fake_flaky_dm_agent(**kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("temporary outage")
+        payload = {
+            "action_type": "exploration",
+            "narrative": "The gate opens on retry.",
+            "player_choices": [],
+            "companion_reactions": "",
+            "state_delta": {},
+            "needs_check": {"required": False},
+            "combat_triggered": False,
+            "combat_ended": False,
+            "dice_display": [],
+        }
+        return {"result": _json.dumps(payload), "success": True}
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_flaky_dm_agent)
+
+    headers = await _auth_headers(client, sample_user)
+    payload = {
+        "session_id": sample_session.id,
+        "action_text": "Open the gate after a hiccup",
+        "idempotency_key": "idem-flaky-dm",
+    }
+
+    first = await client.post("/game/action", headers=headers, json=payload)
+    assert first.status_code == 200, first.text
+    assert first.json()["type"] == "llm_error"
+
+    await db_session.refresh(sample_session)
+    assert "idem-flaky-dm" not in (sample_session.game_state.get("action_idempotency") or {})
+
+    second = await client.post("/game/action", headers=headers, json=payload)
+    assert second.status_code == 200, second.text
+    assert second.json()["narrative"] == "The gate opens on retry."
+    assert calls == 2
+
+    await db_session.refresh(sample_session)
+    records = sample_session.game_state["action_idempotency"]
+    assert records["idem-flaky-dm"]["status"] == "completed"
+
+
 async def test_subsequent_action_overwrites_last_turn(
     client, db_session, sample_session, sample_user,
 ):
