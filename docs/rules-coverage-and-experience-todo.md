@@ -233,7 +233,7 @@ Priority:
 - [ ] Add combat narration tests that AI text never contradicts backend dice results.
 - [ ] Add multiplayer table-decision tests where multiple groups submit actions and only the active/ready group is resolved.
 - [x] Add fallback behavior when LLM call fails: preserve state, show retry, and avoid double-applying action. 2026-05-28: exploration `/game/action` returns retryable `llm_error` without applying state or persisting failed player logs; idempotency pending records are cleared instead of cached, and the frontend restores the submitted text while keeping existing prompts available for retry.
-- [ ] Add configurable model timeout and cancellation handling for DM thinking state.
+- [x] Add configurable model timeout and cancellation handling for DM thinking state. 2026-05-28: exploration DM calls are wrapped with `DM_AGENT_TIMEOUT_SECONDS` / `settings.dm_agent_timeout_seconds`, timeout cancels the stuck model task, returns retryable `llm_timeout`, preserves state, and clears multiplayer `dm_thinking`.
 
 ### P1 Persistence And Recovery
 

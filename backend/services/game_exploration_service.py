@@ -1,7 +1,9 @@
+import asyncio
 import json
 from datetime import datetime
 from typing import Optional
 
+from config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -46,10 +48,20 @@ async def execute_exploration_action(
     thinking_cleared_for_success = False
     try:
         try:
-            dm_result = await langgraph_client.call_dm_agent(
-                **inputs,
-                action_source=action_source,
-                conversation_id=session.id,
+            dm_result = await asyncio.wait_for(
+                langgraph_client.call_dm_agent(
+                    **inputs,
+                    action_source=action_source,
+                    conversation_id=session.id,
+                ),
+                timeout=max(0.1, float(settings.dm_agent_timeout_seconds)),
+            )
+        except asyncio.TimeoutError as exc:
+            await db.rollback()
+            return _build_llm_failure_response(
+                exc,
+                code="llm_timeout",
+                message="AI DM 回应超时，当前行动尚未写入剧情。请稍后重试同一个行动。",
             )
         except Exception as exc:
             await db.rollback()
@@ -168,11 +180,16 @@ def _attach_multiplayer_table_metadata(
         pass
 
 
-def _build_llm_failure_response(error: object) -> dict:
+def _build_llm_failure_response(
+    error: object,
+    *,
+    code: str = "llm_unavailable",
+    message: str = "AI DM 暂时没有完成回应，当前行动尚未写入剧情。请稍后重试同一个行动。",
+) -> dict:
     detail = str(error or "Unknown AI service error")
     return {
         "type": "llm_error",
-        "narrative": "AI DM 暂时没有完成回应，当前行动尚未写入剧情。请稍后重试同一个行动。",
+        "narrative": message,
         "companion_reactions": "",
         "dice_display": [],
         "player_choices": [],
@@ -184,7 +201,7 @@ def _build_llm_failure_response(error: object) -> dict:
         "visibility": {},
         "table_reason": "",
         "table_decision": {},
-        "errors": [{"code": "llm_unavailable", "detail": detail}],
+        "errors": [{"code": code, "detail": detail}],
         "retryable": True,
     }
 

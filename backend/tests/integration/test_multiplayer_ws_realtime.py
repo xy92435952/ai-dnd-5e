@@ -1011,6 +1011,92 @@ async def test_multiplayer_dm_thinking_clears_after_failed_dm_call(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_dm_thinking_clears_after_dm_timeout(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """A timed-out DM call should cancel work and clear recoverable thinking state."""
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    import services.game_exploration_service as exploration_service
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+    monkeypatch.setattr(exploration_service.settings, "dm_agent_timeout_seconds", 0.01)
+
+    dm_call_started = asyncio.Event()
+    dm_call_cancelled = asyncio.Event()
+
+    async def fake_call_dm_agent(**kwargs):
+        dm_call_started.set()
+        try:
+            await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            dm_call_cancelled.set()
+            raise
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_dm_thinking_timeout",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+
+    guest_ws = QueueWebSocket()
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(guest_ws, "member_online")
+        await _wait_for_event(guest_ws, "room_state_updated")
+        before_action_events = len(guest_ws.sent)
+
+        response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I ask the DM a question that times out.",
+        })
+        assert dm_call_started.is_set()
+        assert dm_call_cancelled.is_set()
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["type"] == "llm_error"
+        assert body["retryable"] is True
+        assert body["errors"][0]["code"] == "llm_timeout"
+
+        final_room = await client.get(f"/game/rooms/{sid}", headers=_h(guest["token"]))
+        assert final_room.status_code == 200, final_room.text
+        assert final_room.json()["dm_thinking"] is None
+
+        room_update = await _wait_for_event(
+            guest_ws,
+            "room_state_updated",
+            timeout=2,
+            start_index=before_action_events,
+        )
+        assert room_update["room"]["dm_thinking"] is None
+    finally:
+        await guest_ws.disconnect()
+        await asyncio.gather(guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_dm_events_do_not_cross_room_boundaries(
     client,
     db_session,

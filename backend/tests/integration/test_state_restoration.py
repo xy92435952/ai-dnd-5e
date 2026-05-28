@@ -301,6 +301,53 @@ async def test_llm_failure_returns_retryable_response_without_mutating_state(
     assert logs == []
 
 
+async def test_dm_agent_timeout_cancels_call_and_preserves_state(
+    client, db_session, sample_session, sample_character, sample_user, monkeypatch,
+):
+    """Configured DM timeouts should cancel the stuck model task and leave state retryable."""
+    import asyncio
+    import services.langgraph_client as lc
+    import services.game_exploration_service as exploration_service
+
+    call_started = asyncio.Event()
+    call_cancelled = asyncio.Event()
+
+    async def fake_stuck_dm_agent(**kwargs):
+        call_started.set()
+        try:
+            await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            call_cancelled.set()
+            raise
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_stuck_dm_agent)
+    monkeypatch.setattr(exploration_service.settings, "dm_agent_timeout_seconds", 0.01)
+
+    original_state = dict(sample_session.game_state or {})
+    original_scene = sample_session.current_scene
+    original_hp = sample_character.hp_current
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post("/game/action", headers=headers, json={
+        "session_id": sample_session.id,
+        "action_text": "Wait too long at the gate",
+    })
+
+    assert call_started.is_set()
+    assert call_cancelled.is_set()
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["type"] == "llm_error"
+    assert body["retryable"] is True
+    assert body["errors"][0]["code"] == "llm_timeout"
+
+    await db_session.refresh(sample_session)
+    await db_session.refresh(sample_character)
+    assert sample_session.game_state == original_state
+    assert sample_session.current_scene == original_scene
+    assert sample_character.hp_current == original_hp
+
+
 async def test_idempotency_key_does_not_cache_retryable_llm_failure(
     client, db_session, sample_session, sample_user, monkeypatch,
 ):
