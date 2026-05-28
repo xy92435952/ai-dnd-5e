@@ -2685,6 +2685,8 @@ export interface components {
             action_source: "human_input" | "ai_generated_choice" | "system_action" | "ai_takeover";
             /** Action Text */
             action_text: string;
+            /** Idempotency Key */
+            idempotency_key?: string | null;
             /** Session Id */
             session_id: string;
         };

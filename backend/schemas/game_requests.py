@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateSessionRequest(BaseModel):
@@ -15,6 +15,7 @@ class PlayerActionRequest(BaseModel):
     session_id: str
     action_text: str
     action_source: Literal["human_input", "ai_generated_choice", "system_action", "ai_takeover"] = "human_input"
+    idempotency_key: Optional[str] = Field(default=None, max_length=80)
 
 
 class SkillCheckRequest(BaseModel):

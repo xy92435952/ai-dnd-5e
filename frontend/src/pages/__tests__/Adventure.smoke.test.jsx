@@ -223,11 +223,11 @@ describe('Adventure render smoke', () => {
     fireEvent.click(screen.getByRole('button', { name: /伸手触碰低处的符文/ }))
 
     await waitFor(() => {
-      expect(actionMock).toHaveBeenCalledWith({
+      expect(actionMock).toHaveBeenCalledWith(expect.objectContaining({
         session_id: 'sess-1',
         action_text: '伸手触碰低处的符文',
         action_source: 'ai_generated_choice',
-      })
+      }))
     })
 
     cleanup()
@@ -319,13 +319,14 @@ describe('Adventure render smoke', () => {
     fireEvent.click(screen.getByRole('button', { name: /发送/ }))
 
     await waitFor(() => {
-      expect(actionMock).toHaveBeenCalledWith({
+      expect(actionMock).toHaveBeenCalledWith(expect.objectContaining({
         session_id: 'sess-1',
         action_text: '我撬开后门。',
         action_source: 'human_input',
-      })
+      }))
     })
     const payload = actionMock.mock.calls[0][0]
+    expect(payload.idempotency_key).toEqual(expect.any(String))
     expect(payload.action_text).not.toContain('队友意图')
 
     cleanup()

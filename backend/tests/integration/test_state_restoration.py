@@ -120,6 +120,140 @@ async def test_needs_check_required_persisted_to_last_turn(
 
 # ─── flag_modified 约定 ─────────────────────────────────
 
+async def test_action_idempotency_key_replays_cached_response_without_duplicate_mutation(
+    client, db_session, sample_session, sample_user, monkeypatch,
+):
+    """Repeating an exploration action with the same key should not call DM or write logs twice."""
+    import json as _json
+    import services.langgraph_client as lc
+    from models import GameLog
+    from sqlalchemy import select
+
+    call_count = 0
+
+    async def fake_call_dm_agent_once(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        payload = {
+            "action_type": "exploration",
+            "narrative": "The gate opens only once.",
+            "player_choices": [{"text": "Step inside"}],
+            "companion_reactions": "",
+            "state_delta": {},
+            "needs_check": {"required": False},
+            "combat_triggered": False,
+            "combat_ended": False,
+            "dice_display": [],
+        }
+        return {"result": _json.dumps(payload), "success": True}
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent_once)
+
+    headers = await _auth_headers(client, sample_user)
+    payload = {
+        "session_id": sample_session.id,
+        "action_text": "Open the gate",
+        "idempotency_key": "idem-open-gate",
+    }
+
+    first = await client.post("/game/action", headers=headers, json=payload)
+    assert first.status_code == 200, first.text
+    second = await client.post("/game/action", headers=headers, json=payload)
+    assert second.status_code == 200, second.text
+
+    assert first.json() == second.json()
+    assert call_count == 1
+
+    logs = (
+        await db_session.execute(
+            select(GameLog).where(
+                GameLog.session_id == sample_session.id,
+                GameLog.role == "player",
+                GameLog.content == "Open the gate",
+            )
+        )
+    ).scalars().all()
+    assert len(logs) == 1
+
+    await db_session.refresh(sample_session)
+    records = sample_session.game_state["action_idempotency"]
+    assert records["idem-open-gate"]["status"] == "completed"
+
+
+async def test_action_idempotency_key_rejects_different_payload(
+    client, sample_session, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    first = await client.post("/game/action", headers=headers, json={
+        "session_id": sample_session.id,
+        "action_text": "Open the gate",
+        "idempotency_key": "idem-payload-mismatch",
+    })
+    assert first.status_code == 200, first.text
+
+    second = await client.post("/game/action", headers=headers, json={
+        "session_id": sample_session.id,
+        "action_text": "Open the other gate",
+        "idempotency_key": "idem-payload-mismatch",
+    })
+    assert second.status_code == 409
+    assert "different action" in second.text
+
+
+async def test_action_idempotency_key_rejects_duplicate_while_pending(
+    client, sample_session, sample_user, monkeypatch,
+):
+    import asyncio
+    import json as _json
+    import services.langgraph_client as lc
+
+    call_started = asyncio.Event()
+    release_call = asyncio.Event()
+
+    async def fake_slow_dm_agent(**kwargs):
+        call_started.set()
+        await asyncio.wait_for(release_call.wait(), timeout=2)
+        payload = {
+            "action_type": "exploration",
+            "narrative": "Slow answer complete.",
+            "player_choices": [],
+            "companion_reactions": "",
+            "state_delta": {},
+            "needs_check": {"required": False},
+            "combat_triggered": False,
+            "combat_ended": False,
+            "dice_display": [],
+        }
+        return {"result": _json.dumps(payload), "success": True}
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_slow_dm_agent)
+
+    headers = await _auth_headers(client, sample_user)
+    payload = {
+        "session_id": sample_session.id,
+        "action_text": "Wait for the slow answer",
+        "idempotency_key": "idem-slow-answer",
+    }
+    first_task = asyncio.create_task(client.post("/game/action", headers=headers, json=payload))
+    try:
+        await asyncio.wait_for(call_started.wait(), timeout=2)
+        duplicate = await client.post("/game/action", headers=headers, json=payload)
+        assert duplicate.status_code == 409
+        assert "already in progress" in duplicate.text
+
+        release_call.set()
+        first = await asyncio.wait_for(first_task, timeout=3)
+        assert first.status_code == 200, first.text
+
+        replay = await client.post("/game/action", headers=headers, json=payload)
+        assert replay.status_code == 200, replay.text
+        assert replay.json() == first.json()
+    finally:
+        if not first_task.done():
+            release_call.set()
+            await asyncio.gather(first_task, return_exceptions=True)
+
+
 async def test_subsequent_action_overwrites_last_turn(
     client, db_session, sample_session, sample_user,
 ):

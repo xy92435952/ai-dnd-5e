@@ -15,6 +15,11 @@
 import { useCallback } from 'react'
 import { gameApi, charactersApi } from '../api/client'
 
+function createActionIdempotencyKey(sessionId) {
+  const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `${sessionId}:${random}`
+}
+
 function formatSlotSummary(slots) {
   if (!slots || Object.keys(slots).length === 0) return ''
   return `法术位 ${Object.entries(slots).map(([level, count]) => `${level}+${count}`).join('/')}`
@@ -122,6 +127,7 @@ export function useAdventureActions({
         session_id: sessionId,
         action_text: text,
         action_source: options.actionSource || 'human_input',
+        idempotency_key: options.idempotencyKey || createActionIdempotencyKey(sessionId),
       })
 
       const queue = buildDialogueQueue(resp.narrative, resp.companion_reactions, companions)

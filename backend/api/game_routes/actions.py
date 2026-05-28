@@ -29,6 +29,15 @@ from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
 from services import room_service
 from services.dm_thinking_service import clear_dm_thinking, start_dm_thinking
+from services.game_action_idempotency_service import (
+    action_payload_fingerprint,
+    clear_pending_record,
+    get_action_idempotency_lock,
+    get_cached_action_response,
+    normalize_idempotency_key,
+    persist_completed_record,
+    persist_pending_record,
+)
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -40,6 +49,51 @@ async def player_action(
     user_id: str = Depends(get_user_id),
 ):
     """玩家行动统一入口：战斗自然语言分支 + 探索 DM Agent 分支。"""
+    key = normalize_idempotency_key(req.idempotency_key)
+    if key:
+        return await _run_player_action_idempotently(req=req, db=db, user_id=user_id, key=key)
+    return await _run_player_action(req=req, db=db, user_id=user_id)
+
+
+async def _run_player_action_idempotently(
+    *,
+    req: PlayerActionRequest,
+    db: AsyncSession,
+    user_id: str,
+    key: str,
+):
+    session = await get_session_or_404(req.session_id, db)
+    await assert_session_access(session, user_id, db)
+    action_source = normalize_action_source(session, req.action_text, req.action_source)
+    fingerprint = action_payload_fingerprint(
+        session_id=session.id,
+        user_id=user_id,
+        action_text=req.action_text,
+        action_source=action_source,
+    )
+
+    lock = await get_action_idempotency_lock(session.id, user_id, key)
+    async with lock:
+        await db.refresh(session)
+        cached = get_cached_action_response(session, key=key, fingerprint=fingerprint)
+        if cached is not None:
+            return cached
+        await persist_pending_record(db, session, key=key, fingerprint=fingerprint, user_id=user_id)
+    try:
+        result = await _run_player_action(req=req, db=db, user_id=user_id)
+        await persist_completed_record(db, session, key=key, fingerprint=fingerprint, response=result)
+        return result
+    except Exception:
+        await clear_pending_record(db, session.id, key=key, fingerprint=fingerprint)
+        raise
+
+
+async def _run_player_action(
+    *,
+    req: PlayerActionRequest,
+    db: AsyncSession,
+    user_id: str,
+):
     session = await get_session_or_404(req.session_id, db)
     await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id)

@@ -76,6 +76,32 @@ describe('useAdventureActions', () => {
     ])
   })
 
+  it('sends an idempotency key with adventure actions', async () => {
+    gameApi.action.mockResolvedValue({
+      type: 'exploration',
+      narrative: '鍚庨棬寮€浜嗐€?',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleAction(undefined, { idempotencyKey: 'fixed-action-key' })
+    })
+
+    expect(gameApi.action).toHaveBeenCalledWith(expect.objectContaining({
+      session_id: 'sess-1',
+      action_text: deps.input.trim(),
+      action_source: 'human_input',
+      idempotency_key: 'fixed-action-key',
+    }))
+  })
+
   it('attaches multiplayer table reason to DM theatre segments', async () => {
     gameApi.action.mockResolvedValue({
       type: 'multiplayer_table',

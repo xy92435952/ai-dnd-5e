@@ -2899,6 +2899,18 @@
             "title": "Action Text",
             "type": "string"
           },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
           "session_id": {
             "title": "Session Id",
             "type": "string"

@@ -240,8 +240,8 @@ Priority:
 - [ ] Audit every mutation of SQLAlchemy JSON fields for top-level assignment and `flag_modified`.
 - [x] Add tests for refresh/reconnect during pending reaction prompt.
 - [x] Add tests for refresh/reconnect during DM thinking. 2026-05-28: multiplayer actions persist `dm_thinking` in room state until DM response/failure clears it; HTTP room refresh and fresh WS `room_state_updated` restore the pending indicator, with frontend hook coverage for loading recovery.
-- [~] Add tests for duplicate HTTP submit on slow network. Absorb Elements reaction duplicate POST is idempotent; movement, combat action, attack-roll, and spell-roll now reject stale turn tokens; remaining exploration mutations still need coverage.
-- [~] Add idempotency keys or turn tokens to state-changing combat and exploration endpoints. Combat move/action/attack-roll/spell-roll/spell/end-turn/ai-turn now accept optional turn tokens; exploration endpoints still need an idempotency strategy.
+- [x] Add tests for duplicate HTTP submit on slow network. Absorb Elements reaction duplicate POST is idempotent; movement, combat action, attack-roll, and spell-roll reject stale turn tokens; 2026-05-28 exploration `/game/action` idempotency tests cover cached replay, mismatched payload rejection, and in-flight duplicate rejection.
+- [x] Add idempotency keys or turn tokens to state-changing combat and exploration endpoints. Combat move/action/attack-roll/spell-roll/spell/end-turn/ai-turn accept optional turn tokens; 2026-05-28 `/game/action` accepts optional `idempotency_key`, caches completed exploration responses, and rejects pending duplicate submits.
 - [~] Add cleanup for stale pending reactions, stale group readiness, and abandoned WS connections. Combat reaction decline now clears pending attack/spell prompts, and already-resolved reactions are safe to resubmit; group readiness and abandoned WS cleanup still need broader coverage.
 - [ ] Add database migration readiness check for local SQLite -> Postgres path.
 - [ ] Add production-like seeded scenario that can be used for repeatable smoke tests.
