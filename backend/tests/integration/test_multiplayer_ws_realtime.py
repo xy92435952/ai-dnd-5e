@@ -164,6 +164,15 @@ async def _wait_for_event(
     raise AssertionError(f"did not receive {event_type}; sent={ws.sent!r}")
 
 
+def _assert_no_event_types(ws: QueueWebSocket, start_index: int, event_types: set[str]) -> None:
+    leaked = [
+        event
+        for event in ws.sent[start_index:]
+        if event.get("type") in event_types
+    ]
+    assert leaked == []
+
+
 async def test_http_leave_closes_leaving_member_websocket_and_prunes_room_state(
     client,
     db_session,
@@ -777,6 +786,115 @@ async def test_http_multiplayer_action_reaches_room_websocket_clients(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_dm_events_do_not_cross_room_boundaries(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """DM thinking/responded/speak-turn/room snapshots stay inside the acting room."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "Only one table hears the lock click.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {},
+                "needs_check": {"required": False},
+                "combat_triggered": False,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    room_a = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_dm_isolation_a",
+    )
+    room_b = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_dm_isolation_b",
+    )
+
+    a_host = room_a["host"]
+    a_guest = room_a["guest"]
+    b_host = room_b["host"]
+    b_guest = room_b["guest"]
+    a_sid = room_a["session_id"]
+    b_sid = room_b["session_id"]
+
+    a_guest_ws = QueueWebSocket()
+    b_host_ws = QueueWebSocket()
+    b_guest_ws = QueueWebSocket()
+    a_guest_task = asyncio.create_task(ws_api.ws_endpoint(a_guest_ws, a_sid, token=a_guest["token"]))
+    b_host_task = asyncio.create_task(ws_api.ws_endpoint(b_host_ws, b_sid, token=b_host["token"]))
+    b_guest_task = asyncio.create_task(ws_api.ws_endpoint(b_guest_ws, b_sid, token=b_guest["token"]))
+
+    try:
+        await asyncio.wait_for(a_guest_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(b_host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(b_guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(a_guest_ws, "member_online")
+        await _wait_for_event(b_host_ws, "member_online")
+        await _wait_for_event(b_guest_ws, "member_online")
+        await _wait_for_event(b_host_ws, "room_state_updated")
+        await _wait_for_event(b_guest_ws, "room_state_updated")
+
+        b_host_before = len(b_host_ws.sent)
+        b_guest_before = len(b_guest_ws.sent)
+
+        response = await client.post("/game/action", headers=_h(a_host["token"]), json={
+            "session_id": a_sid,
+            "action_text": "I quietly open the lock.",
+        })
+        assert response.status_code == 200, response.text
+
+        thinking = await _wait_for_event(a_guest_ws, "dm_thinking_start", timeout=2)
+        assert thinking["by_user_id"] == a_host["user_id"]
+        dm_response = await _wait_for_event(a_guest_ws, "dm_responded", timeout=2)
+        assert dm_response["narrative"] == "Only one table hears the lock click."
+        speak_turn = await _wait_for_event(a_guest_ws, "dm_speak_turn", timeout=2)
+        assert speak_turn["user_id"] == a_guest["user_id"]
+        room_update = await _wait_for_event(a_guest_ws, "room_state_updated", timeout=2)
+        assert room_update["room"]["session_id"] == a_sid
+
+        await asyncio.sleep(0.05)
+        forbidden = {"dm_thinking_start", "dm_responded", "dm_speak_turn", "room_state_updated"}
+        _assert_no_event_types(b_host_ws, b_host_before, forbidden)
+        _assert_no_event_types(b_guest_ws, b_guest_before, forbidden)
+    finally:
+        await a_guest_ws.disconnect()
+        await b_host_ws.disconnect()
+        await b_guest_ws.disconnect()
+        await asyncio.gather(a_guest_task, b_host_task, b_guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_http_multiplayer_combat_trigger_notifies_room_websocket_clients(
     client,
     db_session,
@@ -1025,6 +1143,158 @@ async def test_multiplayer_damage_roll_broadcasts_combat_update(
         await host_ws.disconnect()
         await guest_ws.disconnect()
         await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
+async def test_multiplayer_combat_updates_do_not_cross_room_boundaries(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Combat updates from one table must not refresh another table's clients."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    import services.combat_narrator as narrator
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "combat_start",
+                "narrative": "A sentry blocks only this table's gate.",
+                "player_choices": [],
+                "companion_reactions": "",
+                "state_delta": {
+                    "combat_trigger": True,
+                    "initial_enemies": [{
+                        "name": "Clockwork Sentry",
+                        "hp": 9,
+                        "ac": 13,
+                        "attack_bonus": 3,
+                        "damage_dice": "1d6+1",
+                    }],
+                },
+                "needs_check": {"required": False},
+                "combat_triggered": True,
+                "combat_ended": False,
+                "dice_display": [],
+            }),
+            "success": True,
+        }
+
+    async def fake_narrate_action(**kwargs):
+        return None
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+    monkeypatch.setattr(narrator, "narrate_action", fake_narrate_action)
+
+    room_a = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_combat_isolation_a",
+    )
+    room_b = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_combat_isolation_b",
+    )
+
+    a_host = room_a["host"]
+    a_guest = room_a["guest"]
+    b_host = room_b["host"]
+    a_sid = room_a["session_id"]
+    b_sid = room_b["session_id"]
+    a_host_char = room_a["host_char"]
+
+    a_guest_ws = QueueWebSocket()
+    b_host_ws = QueueWebSocket()
+    a_guest_task = asyncio.create_task(ws_api.ws_endpoint(a_guest_ws, a_sid, token=a_guest["token"]))
+    b_host_task = asyncio.create_task(ws_api.ws_endpoint(b_host_ws, b_sid, token=b_host["token"]))
+
+    try:
+        await asyncio.wait_for(a_guest_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(b_host_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(a_guest_ws, "member_online")
+        await _wait_for_event(b_host_ws, "member_online")
+        await _wait_for_event(b_host_ws, "room_state_updated")
+
+        start_response = await client.post("/game/action", headers=_h(a_host["token"]), json={
+            "session_id": a_sid,
+            "action_text": "I draw the sentry into melee.",
+        })
+        assert start_response.status_code == 200, start_response.text
+        await _wait_for_event(a_guest_ws, "dm_responded", timeout=2)
+
+        combat_payload = (await client.get(f"/game/combat/{a_sid}", headers=_h(a_host["token"]))).json()
+        enemy = next(entity for entity in combat_payload["entities"].values() if entity["is_enemy"])
+        host_turn_index = next(
+            index
+            for index, turn in enumerate(combat_payload["turn_order"])
+            if turn["character_id"] == a_host_char.id
+        )
+
+        from models import CombatState
+        from sqlalchemy import select
+
+        combat_row = (
+            await db_session.execute(select(CombatState).where(CombatState.session_id == a_sid))
+        ).scalars().first()
+        combat_row.current_turn_index = host_turn_index
+        positions = dict(combat_row.entity_positions or {})
+        positions[a_host_char.id] = {"x": 5, "y": 5}
+        positions[enemy["id"]] = {"x": 6, "y": 5}
+        combat_row.entity_positions = positions
+        await db_session.commit()
+
+        b_before = len(b_host_ws.sent)
+        a_before = len(a_guest_ws.sent)
+        attack = await client.post(
+            f"/game/combat/{a_sid}/attack-roll",
+            headers=_h(a_host["token"]),
+            json={
+                "entity_id": a_host_char.id,
+                "target_id": enemy["id"],
+                "action_type": "melee",
+                "d20_value": 18,
+            },
+        )
+        assert attack.status_code == 200, attack.text
+
+        damage = await client.post(
+            f"/game/combat/{a_sid}/damage-roll",
+            headers=_h(a_host["token"]),
+            json={
+                "pending_attack_id": attack.json()["pending_attack_id"],
+                "damage_values": [4],
+            },
+        )
+        assert damage.status_code == 200, damage.text
+
+        update = await _wait_for_event(a_guest_ws, "combat_update", timeout=2, start_index=a_before)
+        assert update["combat"]["session_id"] == a_sid
+
+        await asyncio.sleep(0.05)
+        _assert_no_event_types(b_host_ws, b_before, {"combat_update"})
+    finally:
+        await a_guest_ws.disconnect()
+        await b_host_ws.disconnect()
+        await asyncio.gather(a_guest_task, b_host_task, return_exceptions=True)
         ws_manager.rooms.clear()
         ws_manager.user_ws.clear()
         ws_manager.ws_meta.clear()
