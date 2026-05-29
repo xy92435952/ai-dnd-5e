@@ -1816,9 +1816,30 @@
 
 /* 动作配额圆点 — 顶部 */
 .action-pips {
-  display: flex; gap: 8px;
+  display: flex; gap: 6px;
   justify-content: center;
   padding: 4px 0 2px;
+}
+.action-pip {
+  min-width: 48px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  color: var(--parchment);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.1;
+  text-align: center;
+}
+.action-pip .pip-label {
+  color: rgba(230,218,190,.78);
+}
+.action-pip .pip-state {
+  color: var(--arcane-light);
+  font-weight: 700;
+}
+.action-pip.used .pip-state {
+  color: rgba(200,190,170,.52);
 }
 .pip {
   position: relative;
@@ -1834,6 +1855,7 @@
 .pip.action { color: #f04040; border-color: rgba(240,64,64,.6); box-shadow: 0 0 0 1px #0a0604, 0 0 12px -2px rgba(240,64,64,.6), inset 0 1px 0 rgba(240,64,64,.2); }
 .pip.bonus  { color: #6ac484; border-color: rgba(106,196,132,.6); box-shadow: 0 0 0 1px #0a0604, 0 0 12px -2px rgba(106,196,132,.6), inset 0 1px 0 rgba(106,196,132,.2); }
 .pip.react  { color: #f0c864; border-color: rgba(240,200,100,.6); box-shadow: 0 0 0 1px #0a0604, 0 0 12px -2px rgba(240,200,100,.6), inset 0 1px 0 rgba(240,200,100,.2); }
+.pip.move   { color: var(--arcane-light); border-color: rgba(95,216,232,.6); box-shadow: 0 0 0 1px #0a0604, 0 0 12px -2px rgba(95,216,232,.55), inset 0 1px 0 rgba(95,216,232,.2); }
 .pip.used   { color: #3a3a3a; border-color: rgba(90,60,30,.4); box-shadow: none; opacity: .45; }
 
 /* 中央 · 技能快捷栏 */
