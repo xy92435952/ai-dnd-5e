@@ -1759,6 +1759,7 @@ async def test_simulated_multiplayer_split_party_turn_preserves_other_group_queu
     assert "【同分队队友意图】" in seen["player_action"]
     assert "艾拉玩家：我在门边准备法术警戒。" in seen["player_action"]
     assert "酒馆组 1 条" in seen["player_action"]
+    assert "我继续和老板套话。" not in seen["player_action"]
 
     room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
     assert room["pending_actions_by_group"]["alley"] == []
