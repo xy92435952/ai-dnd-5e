@@ -54,6 +54,7 @@ describe('useCombatPageActions websocket sync', () => {
       clearAoePreview: vi.fn(),
       onLoadCombat: vi.fn(),
       setCombatOver: vi.fn(),
+      onCombatEnded: vi.fn(),
       combat: {
         round_number: 1,
         current_turn_index: 0,
@@ -181,6 +182,26 @@ describe('useCombatPageActions websocket sync', () => {
 
     expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
+  it('cleans local combat state and skips reload when websocket says combat ended', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        combat: null,
+        combat_over: true,
+        outcome: 'victory',
+      })
+    })
+
+    expect(deps.setCombatOver).toHaveBeenCalledWith('victory')
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.setTurnState).toHaveBeenCalledWith(null)
+    expect(deps.setCombat).toHaveBeenCalledWith(null)
+    expect(deps.onCombatEnded).toHaveBeenCalledWith('victory')
+    expect(deps.onLoadCombat).not.toHaveBeenCalled()
   })
 
   it('reloads combat for turn, movement, and dm response realtime events', () => {

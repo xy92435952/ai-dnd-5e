@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useWebSocket } from './useWebSocket'
 import { useCombatSkillBar } from './useCombatSkillBar'
 import { useCombatSpells } from './useCombatSpells'
@@ -11,6 +12,7 @@ import { canDriveAiCombatTurns } from '../utils/combat'
 
 export function useCombatRuntime({
   sessionId,
+  navigate,
   room,
   setRoom,
   refreshRoom,
@@ -25,7 +27,9 @@ export function useCombatRuntime({
     combat,
     setCombat,
     isProcessing,
+    setIsProcessing,
     combatOver,
+    setCombatOver,
     spellModalOpen,
     setSpellModalOpen,
     spellQuickPick,
@@ -50,6 +54,8 @@ export function useCombatRuntime({
     session,
     setSession,
     setError,
+    aiTimer,
+    processingRef,
   } = page
   const {
     selectedTarget,
@@ -69,6 +75,39 @@ export function useCombatRuntime({
   const { logs, logsEndRef, addLog } = log
   const controlledPlayerId = room && myCharacterId ? myCharacterId : playerId
   const canDriveAiTurns = canDriveAiCombatTurns({ room, myUserId })
+  const handleCombatEnded = useCallback((outcome = 'ended') => {
+    if (aiTimer.current) {
+      clearTimeout(aiTimer.current)
+      aiTimer.current = null
+    }
+    processingRef.current = false
+    setIsProcessing(false)
+    setCombat(null)
+    setTurnState(null)
+    setReactionPrompt(null)
+    setCombatOver(outcome)
+    setMoveMode(false)
+    setHelpMode(false)
+    setSelectedTarget(null)
+    clearAoePreview()
+    setError('')
+    navigate?.(`/adventure/${sessionId}`)
+  }, [
+    aiTimer,
+    clearAoePreview,
+    navigate,
+    processingRef,
+    sessionId,
+    setCombat,
+    setCombatOver,
+    setError,
+    setHelpMode,
+    setIsProcessing,
+    setMoveMode,
+    setReactionPrompt,
+    setSelectedTarget,
+    setTurnState,
+  ])
 
   const spells = useCombatSpells(sessionId)
   const skillBarV10 = useCombatSkillBar({
@@ -113,6 +152,7 @@ export function useCombatRuntime({
     controlledPlayerId,
     canActThisTurn: derived.canActThisTurn,
     canDriveAiTurns,
+    onCombatEnded: handleCombatEnded,
   })
 
   const { onWsEvent, onSkillClick, handleMoveTo, handleHelpTarget, handleSpellHover } = useCombatPageActions({
@@ -148,6 +188,7 @@ export function useCombatRuntime({
     clearAoePreview,
     onLoadCombat: flow.loadCombat,
     setCombatOver: page.setCombatOver,
+    onCombatEnded: handleCombatEnded,
     combat,
   })
 

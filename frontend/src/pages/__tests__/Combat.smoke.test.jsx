@@ -267,6 +267,23 @@ describe('Combat render smoke', () => {
     })
   })
 
+  it('returns to Adventure when combat has already ended before refresh completes', async () => {
+    getCombatMock.mockRejectedValue(new Error('当前没有进行中的战斗'))
+
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+          <Route path="/adventure/:sessionId" element={<div>Adventure restored</div>} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText('Adventure restored')
+    expect(getSessionMock).not.toHaveBeenCalled()
+    expect(screen.queryByText(/鍔犺浇鎴樻枟/)).not.toBeInTheDocument()
+  })
+
   it('can use a consumable directly from combat', async () => {
     render(
       <MemoryRouter initialEntries={['/combat/sess-1']}>

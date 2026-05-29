@@ -44,6 +44,7 @@ export function useCombatPageActions({
   clearAoePreview,
   onLoadCombat,
   setCombatOver,
+  onCombatEnded,
   combat,
 }) {
   const onWsEvent = useCallback((event) => {
@@ -51,6 +52,14 @@ export function useCombatPageActions({
       case 'combat_update':
         {
           const hasReactionPrompt = !!(event.player_can_react && event.reaction_prompt)
+          if (event.combat_over && !event.combat) {
+            setCombatOver?.(event.outcome || 'ended')
+            setReactionPrompt?.(null)
+            setTurnState?.(null)
+            setCombat?.(null)
+            onCombatEnded?.(event.outcome || 'ended')
+            break
+          }
           if (event.combat) {
             setCombat(event.combat)
             const entry = event.combat.turn_order?.[event.combat.current_turn_index]
@@ -88,7 +97,7 @@ export function useCombatPageActions({
       default:
         break
     }
-  }, [sessionId, setRoom, setCombat, setCombatOver, setReactionPrompt, setTurnState, onLoadCombat])
+  }, [sessionId, setRoom, setCombat, setCombatOver, setReactionPrompt, setTurnState, onLoadCombat, onCombatEnded])
 
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,

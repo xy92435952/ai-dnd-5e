@@ -18,6 +18,7 @@ export function useCombatFlowHandlers({
   controlledPlayerId = null,
   canActThisTurn = true,
   canDriveAiTurns = true,
+  onCombatEnded,
 }) {
   const {
     combat,
@@ -93,6 +94,7 @@ export function useCombatFlowHandlers({
     setLogs,
     setInitiativeShown,
     setError,
+    onCombatEnded,
     showDice,
     triggerAiTurn,
     isPlayerTurn,

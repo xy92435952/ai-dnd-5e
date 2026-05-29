@@ -42,6 +42,7 @@ describe('useCombatLoader', () => {
       setLogs: vi.fn(),
       setInitiativeShown: vi.fn(),
       setError: vi.fn(),
+      onCombatEnded: vi.fn(),
       showDice: vi.fn(),
       triggerAiTurn: vi.fn(),
       isPlayerTurn: vi.fn(c => c?.turn_order?.[c.current_turn_index]?.is_player === true),
@@ -217,5 +218,20 @@ describe('useCombatLoader', () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
     expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
+  it('treats missing combat state as ended and returns through the cleanup path', async () => {
+    getCombatMock.mockRejectedValue(new Error('当前没有进行中的战斗'))
+    const { result, deps, aiTimer } = renderLoader()
+    aiTimer.current = setTimeout(() => {}, 1000)
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(aiTimer.current).toBeNull()
+    expect(deps.onCombatEnded).toHaveBeenCalledWith()
+    expect(deps.setError).not.toHaveBeenCalled()
+    expect(getSessionMock).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { gameApi } from '../api/client'
 import { applyCombatSessionSnapshot } from '../utils/combatSession'
+import { isCombatEndedError } from '../utils/combatEnded'
 
 export function useCombatLoader({
   sessionId,
@@ -22,6 +23,7 @@ export function useCombatLoader({
   setLogs,
   setInitiativeShown,
   setError,
+  onCombatEnded,
   showDice,
   triggerAiTurn,
   isPlayerTurn,
@@ -71,6 +73,14 @@ export function useCombatLoader({
         }, 1000)
       }
     } catch (e) {
+      if (isCombatEndedError(e)) {
+        if (aiTimer.current) {
+          clearTimeout(aiTimer.current)
+          aiTimer.current = null
+        }
+        onCombatEnded?.()
+        return
+      }
       setError(e.message)
     }
   }, [
@@ -95,6 +105,7 @@ export function useCombatLoader({
     setReactionPrompt,
     setSession,
     setTurnState,
+    onCombatEnded,
     showDice,
     triggerAiTurn,
   ])

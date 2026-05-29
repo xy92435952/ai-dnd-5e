@@ -12,6 +12,7 @@ import asyncio
 import uuid as _uuid
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 
 from models import CombatState
 
@@ -2077,3 +2078,10 @@ async def test_end_combat_clears_flag(client, sample_session, combat_state, db_s
     assert r.status_code == 200, r.text
     await db_session.refresh(sample_session)
     assert sample_session.combat_active is False
+    deleted = await db_session.execute(
+        select(CombatState).where(CombatState.id == combat_state.id)
+    )
+    assert deleted.scalar_one_or_none() is None
+
+    followup = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert followup.status_code == 404

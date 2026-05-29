@@ -57,6 +57,7 @@ export default function Combat() {
     page,
     targeting,
     log,
+    navigate,
   })
   const {
     session,
