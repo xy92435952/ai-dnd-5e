@@ -69,25 +69,19 @@ async def divine_smite(
     player.spell_slots = current_slots
 
     # 计算斩击伤害
-    smite = svc.calc_divine_smite_damage(req.slot_level, req.target_is_undead)
-
-    # 前端骰子物理结果覆盖
-    if req.damage_values:
-        smite["damage"] = sum(req.damage_values)
-
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()
 
     state   = session.game_state or {}
     enemies = list(state.get("enemies", []))
+    all_ts = dict(combat.turn_states or {}) if combat else {}
+    player_ts = all_ts.get(str(player.id), {})
 
     # 确定斩击目标：优先用前端传入的 target_id
     smite_target_id = req.target_id
     if not smite_target_id:
         # Fallback：从 pending_attack 或最近日志推断
         if combat:
-            all_ts = dict(combat.turn_states or {})
-            player_ts = all_ts.get(str(session.player_character_id), {})
             smite_target_id = player_ts.get("last_attack_target")
         if not smite_target_id:
             # 最后兜底：第一个存活敌人
@@ -95,6 +89,24 @@ async def divine_smite(
                 if e.get("hp_current", 0) > 0:
                     smite_target_id = e["id"]
                     break
+
+    smite_is_crit = (
+        bool(player_ts["last_attack_is_crit"])
+        if "last_attack_is_crit" in player_ts
+        else bool(req.is_crit)
+    )
+    smite = svc.calc_divine_smite_damage(
+        req.slot_level,
+        req.target_is_undead,
+        is_crit=smite_is_crit,
+    )
+    if req.damage_values:
+        smite["damage"] = sum(req.damage_values)
+        smite["roll"] = {
+            **(smite.get("roll") or {}),
+            "total": smite["damage"],
+            "rolls": req.damage_values,
+        }
 
     # 对目标施加伤害
     target_new_hp = None
@@ -168,6 +180,8 @@ async def divine_smite(
         "narration":       narration,
         "smite_damage":    smite["damage"],
         "smite_dice":      smite["dice"],
+        "is_crit":         smite.get("is_crit", False),
+        "target_id":       smite_target_id,
         "target_name":     target_name,
         "target_new_hp":   target_new_hp,
         "remaining_slots": current_slots,

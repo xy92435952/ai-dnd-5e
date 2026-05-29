@@ -1758,6 +1758,37 @@ async def test_attack_roll_then_damage_roll_applies_damage(
     assert "pending_attack" not in damage_data["turn_state"]
 
 
+async def test_smite_uses_last_attack_crit_context(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.char_class = "Paladin"
+    sample_character.spell_slots = {"1st": 1}
+    combat_state.turn_states = {
+        sample_character.id: {
+            "last_attack_target": "goblin-1",
+            "last_attack_is_crit": True,
+        },
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/smite",
+        headers=headers,
+        json={
+            "slot_level": 1,
+            "target_id": "goblin-1",
+            "damage_values": [2, 3, 4, 5],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["smite_damage"] == 14
+    assert data["smite_dice"] == "4d8"
+    assert data["is_crit"] is True
+
+
 async def test_attack_roll_consumes_tracked_ammunition(
     client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):

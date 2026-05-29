@@ -133,7 +133,11 @@ export function useCombatAttackFlow({
           }
 
           if (dmgResult.can_smite) {
-            setSmitePrompt({ show: true, targetId: dmgResult.target_id })
+            setSmitePrompt({
+              show: true,
+              targetId: dmgResult.target_id,
+              isCrit: Boolean(dmgResult.is_crit),
+            })
           }
 
           if (dmgResult.combat_over) { setCombatOver(dmgResult.outcome) }

@@ -109,6 +109,13 @@ class TestDivineSmite:
         r = svc.calc_divine_smite_damage(slot_level=1, target_is_undead=True)
         assert r["dice"] == "3d8"
 
+    def test_critical_hit_doubles_smite_dice(self):
+        r = svc.calc_divine_smite_damage(slot_level=1, target_is_undead=False, is_crit=True)
+        assert r["base_dice"] == "2d8"
+        assert r["dice"] == "4d8"
+        assert r["is_crit"] is True
+        assert 4 <= r["damage"] <= 32
+
     def test_max_cap_6d8_even_undead(self):
         """5 环位 + undead 也只 6d8（封顶，否则 7d8）。"""
         r = svc.calc_divine_smite_damage(slot_level=5, target_is_undead=True)

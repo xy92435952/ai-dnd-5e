@@ -3161,6 +3161,8 @@ export interface components {
         SmiteRequest: {
             /** Damage Values */
             damage_values?: number[] | null;
+            /** Is Crit */
+            is_crit?: boolean | null;
             /**
              * Slot Level
              * @default 1

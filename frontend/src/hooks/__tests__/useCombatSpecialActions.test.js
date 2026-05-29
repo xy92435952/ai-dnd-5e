@@ -86,7 +86,7 @@ describe('useCombatSpecialActions', () => {
 
     expect(rollDice3DMock).toHaveBeenCalledWith(8, 2)
     expect(deps.showDice).toHaveBeenCalledWith({ faces: 8, result: 9, label: '神圣斩击', count: 2 })
-    expect(smiteMock).toHaveBeenCalledWith('sess-1', 1, false, [4, 5], 'enemy-1')
+    expect(smiteMock).toHaveBeenCalledWith('sess-1', 1, false, [4, 5], 'enemy-1', false)
     expect(deps.setSmitePrompt).toHaveBeenCalledWith(null)
 
     const hpUpdater = deps.setCombat.mock.calls[0][0]
@@ -95,6 +95,21 @@ describe('useCombatSpecialActions', () => {
         'enemy-1': { id: 'enemy-1', hp_current: 8 },
       },
     }).entities['enemy-1'].hp_current).toBe(2)
+  })
+
+  it('doubles smite dice after a critical hit', async () => {
+    rollDice3DMock.mockResolvedValueOnce({ total: 18, rolls: [4, 5, 4, 5] })
+    const { result, deps } = renderActions({
+      smitePrompt: { show: true, targetId: 'enemy-1', isCrit: true },
+    })
+
+    await act(async () => {
+      await result.current.handleSmite(1)
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(8, 4)
+    expect(deps.showDice).toHaveBeenCalledWith({ faces: 8, result: 18, label: '神圣斩击', count: 4 })
+    expect(smiteMock).toHaveBeenCalledWith('sess-1', 1, false, [4, 5, 4, 5], 'enemy-1', true)
   })
 
   it('uses reaction and resumes ai turns', async () => {

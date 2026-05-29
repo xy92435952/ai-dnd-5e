@@ -3920,6 +3920,17 @@
             ],
             "title": "Damage Values"
           },
+          "is_crit": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Crit"
+          },
           "slot_level": {
             "default": 1,
             "title": "Slot Level",

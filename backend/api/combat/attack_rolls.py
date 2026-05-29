@@ -259,6 +259,8 @@ async def damage_roll(
     # ── Clear pending_attack ──
     ts = _get_ts(combat, attacker_entity_id)
     ts.pop("pending_attack", None)
+    ts["last_attack_target"] = damage_resolution.target_id
+    ts["last_attack_is_crit"] = bool(damage_resolution.is_crit)
     _save_ts(combat, attacker_entity_id, ts)
 
     # ── GameLog ──
@@ -332,6 +334,7 @@ async def damage_roll(
         "combat_over":          combat_over,
         "outcome":              outcome,
         "can_smite":            can_smite,
+        "is_crit":              damage_resolution.is_crit,
         "concentration_check":  conc_log.dice_result if conc_log else None,
         "turn_state":           ts,
     }

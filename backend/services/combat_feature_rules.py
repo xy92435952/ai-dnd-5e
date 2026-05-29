@@ -32,13 +32,26 @@ def check_sneak_attack(
     return False
 
 
-def calc_divine_smite_damage(slot_level: int, target_is_undead: bool = False) -> dict:
+def calc_divine_smite_damage(
+    slot_level: int,
+    target_is_undead: bool = False,
+    is_crit: bool = False,
+) -> dict:
     dice_count = 1 + slot_level
     if target_is_undead:
         dice_count += 1
     dice_count = min(dice_count, 6)
+    base_dice_count = dice_count
+    if is_crit:
+        dice_count *= 2
     result = roll_dice(f"{dice_count}d8")
-    return {"damage": result["total"], "dice": f"{dice_count}d8", "roll": result}
+    return {
+        "damage": result["total"],
+        "dice": f"{dice_count}d8",
+        "roll": result,
+        "base_dice": f"{base_dice_count}d8",
+        "is_crit": is_crit,
+    }
 
 
 def get_rage_bonus(level: int) -> int:

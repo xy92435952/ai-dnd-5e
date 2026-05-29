@@ -39,6 +39,7 @@ class SmiteRequest(BaseModel):
     target_is_undead: bool = False      # 目标是否为亡灵/邪魔
     damage_values:    Optional[list[int]] = None  # 前端骰子物理结果
     target_id:        Optional[str] = None        # 斩击目标（前端传入）
+    is_crit: Optional[bool] = None  # Bound hit crit context
 
 
 class ClassFeatureRequest(BaseModel):

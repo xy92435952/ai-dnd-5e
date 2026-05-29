@@ -196,6 +196,9 @@ async def combat_action(
 
     # 更新攻击计数
     ts = consume_direct_attack_turn(prepared.turn_state, attacks_max=prepared.attacks_max)
+    if attack_result_dict["hit"]:
+        ts["last_attack_target"] = prepared.target_id
+        ts["last_attack_is_crit"] = bool(attack_result_dict.get("is_crit"))
     _save_ts(combat, player_id, ts)
 
     # Extra Attack 提示
