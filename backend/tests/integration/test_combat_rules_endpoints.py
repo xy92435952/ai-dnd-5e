@@ -336,6 +336,40 @@ async def test_incapacitating_condition_blocks_combat_action(
     assert "unconscious" in response.text
 
 
+@pytest.mark.parametrize("action_text", ["dash", "disengage", "help", "dodge"])
+async def test_incapacitating_condition_blocks_basic_combat_actions(
+    action_text, client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["stunned"]
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        }
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/action",
+        headers=headers,
+        json={"action_text": action_text, "target_id": sample_character.id},
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    assert "stunned" in response.text
+
+    await db_session.refresh(dying_combat)
+    assert dying_combat.turn_states[sample_character.id]["action_used"] is False
+
+
 async def test_incapacitating_condition_blocks_reaction(
     client, db_session, sample_session, sample_character, sample_user, dying_combat,
 ):

@@ -11,6 +11,7 @@ from api.combat._shared import _get_ts, _save_ts
 from services.character_roster import CharacterRoster
 from services.dnd_rules import get_effective_hp_max
 from services.combat_attack_roll_service import CombatAttackRollError
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_offhand_attack_service import resolve_offhand_attack
 from services.session_access_service import assert_character_in_session
 
@@ -34,6 +35,7 @@ async def maybe_handle_pre_attack_action(
 
     # ── 冲刺 ────────────────────────────────────────────
     if "冲刺" in action_text or "dash" in action_text.lower():
+        _assert_player_can_take_basic_action(player)
         if ts["action_used"]:
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
@@ -52,6 +54,7 @@ async def maybe_handle_pre_attack_action(
 
     # ── 脱离接战 ────────────────────────────────────────
     if "脱离" in action_text or "disengage" in action_text.lower():
+        _assert_player_can_take_basic_action(player)
         if ts["action_used"]:
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
@@ -70,6 +73,7 @@ async def maybe_handle_pre_attack_action(
 
     # ── 协助 ────────────────────────────────────────────
     if "协助" in action_text or "help" in action_text.lower():
+        _assert_player_can_take_basic_action(player)
         if ts["action_used"]:
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
@@ -112,6 +116,7 @@ async def maybe_handle_pre_attack_action(
     # ── 闪避 ────────────────────────────────────────────
     is_dodge = "闪避" in action_text or "dodge" in action_text.lower()
     if is_dodge:
+        _assert_player_can_take_basic_action(player)
         if ts["action_used"]:
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
@@ -182,3 +187,10 @@ async def maybe_handle_pre_attack_action(
         }
 
     return None
+
+
+def _assert_player_can_take_basic_action(player: Character | None) -> None:
+    try:
+        validate_can_take_action(player)
+    except CombatActionRuleError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc

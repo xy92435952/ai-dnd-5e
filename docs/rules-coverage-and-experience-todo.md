@@ -66,7 +66,7 @@ Priority:
 | [x] | P0 | Initiative and turn order | Combat state tracks turn order/current turn. | Player, AI companion, and enemy turns advance deterministically in single and multiplayer. |
 | [x] | P0 | Action tracking | Turn state tracks action, bonus action, reaction, movement. | Every combat endpoint refuses illegal extra use and reports clear reason to UI. |
 | [x] | P0 | Movement budget | Movement used/max are tracked. | Move endpoint enforces speed, difficult terrain, prone stand-up cost, grapple/restrained speed, and opportunity triggers. |
-| [~] | P1 | Dash/disengage/help/dodge | Several action keys and effects exist. | All basic actions are exposed in UI, enforce action economy, and affect attacks/movement exactly once. |
+| [~] | P1 | Dash/disengage/help/dodge | Several action keys and effects exist. 2026-05-30: direct `/game/combat/{session_id}/action` dash/disengage/help/dodge now share the actor-state action gate, so stunned/incapacitated actors cannot bypass turn-state rules through these basic actions; covered by `backend/tests/integration/test_combat_rules_endpoints.py`. | All basic actions are exposed in UI, enforce action economy, and affect attacks/movement exactly once. |
 | [~] | P1 | Ready action | Not trusted as a full reaction trigger system. | Players can ready attack/spell/move with a condition; backend resolves trigger and consumes reaction. |
 | [ ] | P2 | Held turns / delay | Not established. | UI and backend support waiting without corrupting initiative or multiplayer ownership. |
 
