@@ -62,6 +62,8 @@ The script checks that:
 - typing events broadcast only inside the sender's room
 - typing events do not echo back to the sender
 - created test room members leave, and the rooms are dissolved at the end
+- dissolved rooms reject former-member room/session reads with 403
+- dissolved room codes reject new joins with 404
 
 ## Check Script
 

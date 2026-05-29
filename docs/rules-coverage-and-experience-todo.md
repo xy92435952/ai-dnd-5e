@@ -280,7 +280,7 @@ Priority:
 - [ ] Run frontend build: `cd frontend && npm run build`.
 - [ ] Run frontend lint when touching frontend code: `cd frontend && npm run lint`.
 - [x] Run OpenAPI/type generation after backend schema changes. 2026-05-28: regenerated `backend/openapi.json` and `frontend/src/types/api.d.ts` after adding `idempotency_key` and retryable action responses.
-- [ ] Run multiplayer load smoke when touching rooms, WS, access control, combat broadcast, or session restore.
+- [x] Run multiplayer load smoke when touching rooms, WS, access control, combat broadcast, or session restore. 2026-05-30 after WS/room cleanup changes: enhanced `scripts/multiplayer_ws_loadtest.py` now verifies dissolved rooms reject former-member room/session reads with 403 and old room-code joins with 404; real local run on `127.0.0.1:8002` with `--seed-sqlite-module backend/ai_trpg.db --prefix codex_load_20260530_cleanup_verify` passed with 50 users, 13 rooms, 50 WS, `cleanup_ok=true`, `cleanup_verification_ok=true`, elapsed ~30.4s.
 
 ### Manual Browser Flow: Single Player
 
@@ -314,12 +314,12 @@ Priority:
 
 ### Manual Browser Flow: 50 Online Across Rooms
 
-- [ ] Run scripted 50-user WS smoke.
+- [x] Run scripted 50-user WS smoke. 2026-05-30: `scripts/multiplayer_ws_loadtest.py` passed locally against `127.0.0.1:8002` with 50 users, 13 rooms, 50 WebSocket connections, ping/pong, room/session access isolation, typing isolation, and cleanup verification.
 - [ ] While load test is running, manually open one room and verify UI remains responsive.
-- [ ] Trigger typing events in one room and verify no cross-room event leak.
+- [x] Trigger typing events in one room and verify no cross-room event leak. 2026-05-30: the 50-user load smoke verified same-room typing delivery, no echo to sender, and no typing event in other rooms.
 - [ ] Trigger one combat update in a room and verify unrelated rooms do not refresh.
 - [ ] Watch backend memory/CPU/log volume for obvious runaway behavior.
-- [ ] Confirm all created test rooms clean up or are intentionally left as dissolved records.
+- [x] Confirm all created test rooms clean up or are intentionally left as dissolved records. 2026-05-30: enhanced load smoke confirmed all 13 created rooms dissolved via normal leave flow, former members receive 403 on room/member/session reads, and old room codes return 404 on join attempts.
 
 ## Suggested Implementation Order
 

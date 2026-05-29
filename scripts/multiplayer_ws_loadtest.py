@@ -873,6 +873,94 @@ async def cleanup_rooms(
     return results
 
 
+async def verify_cleanup_effects(
+    client: httpx.AsyncClient,
+    base_url: str,
+    rooms: list[RoomRecord],
+    timings: dict[str, list[float]],
+) -> list[dict[str, Any]]:
+    """Verify dissolved rooms are no longer readable or joinable."""
+    results = []
+    for room in rooms:
+        room_result: dict[str, Any] = {
+            "session_id": room.session_id,
+            "room_code": room.room_code,
+            "ok": True,
+            "checks": [],
+        }
+        former_user = room.host
+
+        forbidden_reads = [
+            (
+                "former_get_room_forbidden",
+                "cleanup_former_get_room_forbidden_ms",
+                "GET",
+                f"/game/rooms/{room.session_id}",
+                {403},
+                {},
+            ),
+            (
+                "former_list_members_forbidden",
+                "cleanup_former_list_members_forbidden_ms",
+                "GET",
+                f"/game/rooms/{room.session_id}/members",
+                {403},
+                {},
+            ),
+            (
+                "former_get_session_forbidden",
+                "cleanup_former_get_session_forbidden_ms",
+                "GET",
+                f"/game/sessions/{room.session_id}",
+                {403},
+                {},
+            ),
+            (
+                "old_room_code_rejected",
+                "cleanup_old_room_code_join_rejected_ms",
+                "POST",
+                "/game/rooms/join",
+                {404},
+                {"json": {"room_code": room.room_code}},
+            ),
+        ]
+
+        for name, label, method, path, expected, kwargs in forbidden_reads:
+            try:
+                status, _ = await timed(
+                    label,
+                    timings,
+                    request_json(
+                        client,
+                        method,
+                        api_url(base_url, path),
+                        headers={"Authorization": f"Bearer {former_user.token}"},
+                        expected=expected,
+                        **kwargs,
+                    ),
+                )
+                check_ok = status in expected
+                room_result["checks"].append({
+                    "name": name,
+                    "status_code": status,
+                    "ok": check_ok,
+                })
+                if not check_ok:
+                    room_result["ok"] = False
+            except Exception as exc:
+                room_result["ok"] = False
+                room_result["checks"].append({
+                    "name": name,
+                    "status_code": None,
+                    "ok": False,
+                    "error": str(exc),
+                })
+                break
+
+        results.append(room_result)
+    return results
+
+
 async def cleanup_module(
     client: httpx.AsyncClient,
     base_url: str,
@@ -995,6 +1083,11 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         finally:
             await close_websockets(ws_records)
             cleanup = await cleanup_rooms(client, args.base_url, rooms) if rooms else []
+            cleanup_verification = (
+                await verify_cleanup_effects(client, args.base_url, rooms, timings)
+                if rooms
+                else []
+            )
             module_cleanup = await cleanup_module(
                 client,
                 args.base_url,
@@ -1005,11 +1098,18 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 seed_module_cleanup = cleanup_seeded_sqlite_module(args.seed_sqlite_module, seeded_module_id)
 
     cleanup_ok = all(item.get("ok") for item in cleanup) if cleanup else True
+    cleanup_verification_ok = (
+        all(item.get("ok") for item in cleanup_verification)
+        if cleanup_verification
+        else True
+    )
     module_cleanup_ok = module_cleanup is None or bool(module_cleanup.get("ok"))
     seed_module_cleanup_ok = seed_module_cleanup is None or bool(seed_module_cleanup.get("ok"))
     cleanup_errors = []
     if not cleanup_ok:
         cleanup_errors.append("room cleanup failed")
+    if not cleanup_verification_ok:
+        cleanup_errors.append("room cleanup verification failed")
     if not module_cleanup_ok:
         cleanup_errors.append("module cleanup failed")
     if not seed_module_cleanup_ok:
@@ -1034,6 +1134,8 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         "room_sizes": [len(room.users) for room in rooms],
         "cleanup_ok": cleanup_ok,
         "cleanup": cleanup,
+        "cleanup_verification_ok": cleanup_verification_ok,
+        "cleanup_verification": cleanup_verification,
         "module_cleanup_ok": module_cleanup_ok,
         "module_cleanup": module_cleanup,
         "seed_module_cleanup_ok": seed_module_cleanup_ok,

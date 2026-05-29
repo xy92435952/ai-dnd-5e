@@ -13,6 +13,7 @@ from scripts.multiplayer_ws_loadtest import (
     RoomRecord,
     UserRecord,
     cleanup_rooms,
+    verify_cleanup_effects,
     verify_room_access_isolation,
     verify_session_snapshots,
 )
@@ -105,6 +106,23 @@ class FakeAccessClient:
         return url.split("/game/sessions/", 1)[1].split("/", 1)[0]
 
 
+class FakeCleanupClient:
+    def __init__(self, *, join_status=404):
+        self.join_status = join_status
+        self.requests = []
+
+    async def request(self, method, url, **kwargs):
+        self.requests.append({
+            "method": method,
+            "url": url,
+            "headers": kwargs.get("headers"),
+            "json": kwargs.get("json"),
+        })
+        if method == "POST" and url.endswith("/game/rooms/join"):
+            return FakeResponse(self.join_status, {"detail": "join result"})
+        return FakeResponse(403, {"detail": "not a room member"})
+
+
 def _user(name):
     return UserRecord(username=name, token=f"{name}-token", user_id=f"{name}-id")
 
@@ -186,6 +204,71 @@ async def test_cleanup_rooms_fails_when_final_leave_does_not_dissolve_room():
 
     assert results[0]["ok"] is False
     assert results[0]["room_dissolved"] is False
+
+
+@pytest.mark.asyncio
+async def test_verify_cleanup_effects_blocks_former_members_and_old_room_code():
+    host = _user("host")
+    room = RoomRecord(
+        session_id="session-1",
+        room_code="ABCD12",
+        host=host,
+        users=[host],
+        dm_style="classic",
+    )
+    client = FakeCleanupClient()
+    timings = {}
+
+    results = await verify_cleanup_effects(client, "http://testserver", [room], timings)
+
+    assert results == [{
+        "session_id": "session-1",
+        "room_code": "ABCD12",
+        "ok": True,
+        "checks": [
+            {"name": "former_get_room_forbidden", "status_code": 403, "ok": True},
+            {"name": "former_list_members_forbidden", "status_code": 403, "ok": True},
+            {"name": "former_get_session_forbidden", "status_code": 403, "ok": True},
+            {"name": "old_room_code_rejected", "status_code": 404, "ok": True},
+        ],
+    }]
+    assert [request["method"] for request in client.requests] == ["GET", "GET", "GET", "POST"]
+    assert [request["url"] for request in client.requests] == [
+        "http://testserver/game/rooms/session-1",
+        "http://testserver/game/rooms/session-1/members",
+        "http://testserver/game/sessions/session-1",
+        "http://testserver/game/rooms/join",
+    ]
+    assert client.requests[-1]["json"] == {"room_code": "ABCD12"}
+    assert {request["headers"]["Authorization"] for request in client.requests} == {
+        "Bearer host-token",
+    }
+    assert timings["cleanup_former_get_room_forbidden_ms"]
+    assert timings["cleanup_former_list_members_forbidden_ms"]
+    assert timings["cleanup_former_get_session_forbidden_ms"]
+    assert timings["cleanup_old_room_code_join_rejected_ms"]
+
+
+@pytest.mark.asyncio
+async def test_verify_cleanup_effects_fails_when_old_room_code_can_still_join():
+    host = _user("host")
+    room = RoomRecord(
+        session_id="session-1",
+        room_code="ABCD12",
+        host=host,
+        users=[host],
+        dm_style="classic",
+    )
+    client = FakeCleanupClient(join_status=200)
+
+    results = await verify_cleanup_effects(client, "http://testserver", [room], {})
+
+    assert results[0]["ok"] is False
+    failed = results[0]["checks"][-1]
+    assert failed["name"] == "old_room_code_rejected"
+    assert failed["status_code"] is None
+    assert failed["ok"] is False
+    assert "returned 200" in failed["error"]
 
 
 @pytest.mark.asyncio
