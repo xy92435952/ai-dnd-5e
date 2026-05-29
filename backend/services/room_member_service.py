@@ -30,6 +30,33 @@ def _clear_start_ready_for_user(session: Session, user_id: str) -> None:
     flag_modified(session, "game_state")
 
 
+def _record_offline_for_user(session: Session, user_id: str) -> None:
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
+    offline_at = dict(mp.get("last_offline_at_by_user_id") or {})
+    offline_at[user_id] = datetime.utcnow().isoformat() + "Z"
+    mp["last_offline_at_by_user_id"] = offline_at
+    state["multiplayer"] = mp
+    session.game_state = state
+    flag_modified(session, "game_state")
+
+
+def _clear_offline_for_user(session: Session, user_id: str) -> None:
+    state = dict(session.game_state or {})
+    mp = dict(state.get("multiplayer") or {})
+    offline_at = dict(mp.get("last_offline_at_by_user_id") or {})
+    if user_id not in offline_at:
+        return
+    offline_at.pop(user_id, None)
+    if offline_at:
+        mp["last_offline_at_by_user_id"] = offline_at
+    else:
+        mp.pop("last_offline_at_by_user_id", None)
+    state["multiplayer"] = mp
+    session.game_state = state
+    flag_modified(session, "game_state")
+
+
 async def claim_character(
     db: AsyncSession,
     user_id: str,
@@ -311,6 +338,9 @@ async def update_heartbeat(
     member = await get_member(db, session_id, user_id)
     if member:
         member.last_seen_at = datetime.utcnow()
+        session = await db.get(Session, session_id)
+        if session:
+            _clear_offline_for_user(session, user_id)
         await db.commit()
 
 
@@ -323,6 +353,9 @@ async def mark_offline(
     member = await get_member(db, session_id, user_id)
     if member:
         member.last_seen_at = None
+        session = await db.get(Session, session_id)
+        if session:
+            _record_offline_for_user(session, user_id)
         await db.commit()
 
 

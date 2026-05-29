@@ -72,10 +72,14 @@ async def health():
 
 
 async def _ws_stale_cleanup_loop():
-    from services.ws_cleanup_service import cleanup_stale_ws_connections
+    from services.ws_cleanup_service import (
+        cleanup_abandoned_waiting_rooms,
+        cleanup_stale_ws_connections,
+    )
 
     interval = max(5, int(settings.ws_stale_cleanup_interval_seconds))
     stale_after = max(1, int(settings.ws_stale_disconnect_after_seconds))
+    abandoned_after = max(stale_after * 4, 120)
 
     while True:
         await asyncio.sleep(interval)
@@ -84,6 +88,10 @@ async def _ws_stale_cleanup_loop():
                 await cleanup_stale_ws_connections(
                     db,
                     stale_after_seconds=stale_after,
+                )
+                await cleanup_abandoned_waiting_rooms(
+                    db,
+                    abandoned_after_seconds=abandoned_after,
                 )
         except Exception as exc:
             logger.warning("WS stale cleanup loop failed: %s", exc)

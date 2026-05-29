@@ -248,8 +248,9 @@ async def seed_smoke_scenario(
             for combatant in combatants
         },
     )
-    session.game_state["enemies"] = enemies
-    session.game_state["encounter_balance"] = {
+    game_state = dict(session.game_state or {})
+    game_state["enemies"] = enemies
+    game_state["encounter_balance"] = {
         "party_size": 2,
         "average_level": 3,
         "monster_xp": 300,
@@ -257,6 +258,7 @@ async def seed_smoke_scenario(
         "difficulty": "medium",
         "thresholds": {"easy": 150, "medium": 300, "hard": 450, "deadly": 800},
     }
+    session.game_state = game_state
 
     db.add_all([
         user,
