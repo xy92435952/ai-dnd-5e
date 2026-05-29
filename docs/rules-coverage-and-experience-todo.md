@@ -229,7 +229,7 @@ Priority:
 
 - [x] Add regression prompts for DM output schema: narrative, needs_check, state_delta, player_choices, companion_reactions. 2026-05-29: added offline DM schema regression prompts covering dialogue choices, pending skill checks, runtime wrapping, and companion handoff in `backend/tests/unit/test_dm_agent_schema_regression_prompts.py`.
 - [x] Add tests that hostile prompt injection in player input cannot override rule math or JSON schema. 2026-05-29: added DM graph guard regression coverage for prompt injection and rule-cheating input, verifying blocked outputs keep the public schema and apply no state deltas; also expanded deterministic English rule-violation guard coverage.
-- [ ] Add scenario memory tests: NPC name, location, clue, quest state, and prior consequence survive several turns.
+- [x] Add scenario memory tests: NPC name, location, clue, quest state, and prior consequence survive several turns. 2026-05-29: added `test_state_applicator_preserves_scenario_memory_across_several_turns`, covering three sequential DM turns that preserve NPC facts/promises, location scene vibe, clues, quest status, world flags, and prior decisions.
 - [ ] Add combat narration tests that AI text never contradicts backend dice results.
 - [ ] Add multiplayer table-decision tests where multiple groups submit actions and only the active/ready group is resolved.
 - [x] Add fallback behavior when LLM call fails: preserve state, show retry, and avoid double-applying action. 2026-05-28: exploration `/game/action` returns retryable `llm_error` without applying state or persisting failed player logs; idempotency pending records are cleared instead of cached, and the frontend restores the submitted text while keeping existing prompts available for retry.

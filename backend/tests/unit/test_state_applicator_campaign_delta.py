@@ -74,3 +74,118 @@ async def test_state_applicator_merges_campaign_delta_into_session_memory():
     assert session.campaign_state["key_decisions"] == ["救下铁匠", "信任铁匠"]
     assert session.campaign_state["world_flags"] == {"met_smith": True, "smith_trusted": True}
     assert [c["text"] for c in session.campaign_state["clues"]] == ["旧钥匙", "暗门在井底"]
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_preserves_scenario_memory_across_several_turns():
+    session = Session(
+        id="session-memory",
+        module_id="module-1",
+        game_state={},
+        campaign_state={},
+    )
+    applicator = StateApplicator(FakeDb())
+
+    turns = [
+        {
+            "narrative": "Captain Mira admits the eclipse gate was sealed beneath the old observatory.",
+            "campaign_delta": {
+                "quest_updates": [
+                    {"quest": "Find the Eclipse Gate", "status": "active", "outcome": ""}
+                ],
+                "npc_updates": [
+                    {
+                        "name": "Captain Mira",
+                        "relationship": "wary ally",
+                        "key_facts": ["Knows the old observatory route"],
+                        "promises": ["Will wait at the east stair"],
+                    }
+                ],
+                "key_decisions_add": ["Trusted Captain Mira with the moon-sigil clue"],
+                "clues_add": [{"text": "The gate is below the old observatory", "category": "location"}],
+                "scene_vibe": {
+                    "location": "Lantern Archive",
+                    "time_of_day": "midnight",
+                    "tension": "tense",
+                },
+            },
+        },
+        {
+            "narrative": "The party follows Mira's directions and finds a cracked moon-sigil in the observatory.",
+            "campaign_delta": {
+                "quest_updates": [
+                    {"quest": "Find the Eclipse Gate", "status": "active", "outcome": "Reached the observatory"}
+                ],
+                "npc_updates": [
+                    {
+                        "name": "Captain Mira",
+                        "relationship": "trusted",
+                        "key_facts": ["Knows the old observatory route"],
+                        "promises": ["Will wait at the east stair"],
+                    }
+                ],
+                "clues_add": [
+                    {"text": "A cracked moon-sigil matches the archive sketch", "category": "item"}
+                ],
+                "scene_vibe": {
+                    "location": "Old Observatory",
+                    "time_of_day": "pre-dawn",
+                    "tension": "danger",
+                },
+            },
+        },
+        {
+            "narrative": "Mira keeps her promise, and the moon-sigil opens the stair to the sealed gate.",
+            "campaign_delta": {
+                "quest_updates": [
+                    {"quest": "Find the Eclipse Gate", "status": "completed", "outcome": "Gate entrance found"}
+                ],
+                "npc_updates": [
+                    {
+                        "name": "Captain Mira",
+                        "relationship": "trusted",
+                        "key_facts": ["Kept her promise at the east stair"],
+                        "promises": [],
+                    }
+                ],
+                "key_decisions_add": ["Used the cracked moon-sigil instead of forcing the gate"],
+                "world_flags_set": {"eclipse_gate_found": True},
+                "scene_vibe": {
+                    "location": "Eclipse Gate",
+                    "time_of_day": "dawn",
+                    "tension": "focused",
+                },
+            },
+        },
+    ]
+
+    for turn in turns:
+        await applicator.apply(session, json.dumps(turn, ensure_ascii=False), characters=[])
+
+    assert session.campaign_state["quest_log"] == [
+        {"quest": "Find the Eclipse Gate", "status": "completed", "outcome": "Gate entrance found"}
+    ]
+    assert session.campaign_state["npc_registry"]["Captain Mira"] == {
+        "relationship": "trusted",
+        "key_facts": [
+            "Knows the old observatory route",
+            "Kept her promise at the east stair",
+        ],
+        "promises": ["Will wait at the east stair"],
+    }
+    assert session.campaign_state["key_decisions"] == [
+        "Trusted Captain Mira with the moon-sigil clue",
+        "Used the cracked moon-sigil instead of forcing the gate",
+    ]
+    assert [clue["text"] for clue in session.campaign_state["clues"]] == [
+        "The gate is below the old observatory",
+        "A cracked moon-sigil matches the archive sketch",
+    ]
+    assert session.campaign_state["world_flags"] == {"eclipse_gate_found": True}
+    assert session.game_state["scene_vibe"] == {
+        "location": "Eclipse Gate",
+        "time_of_day": "dawn",
+        "tension": "focused",
+    }
+    assert "Captain Mira admits" in session.session_history
+    assert "moon-sigil opens the stair" in session.session_history
