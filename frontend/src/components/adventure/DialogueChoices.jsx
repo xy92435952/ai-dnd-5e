@@ -1,4 +1,5 @@
 import { JuiceAudio } from '../../juice'
+import { getChoiceIntent } from '../../utils/adventureChoices'
 import { computeChoicePreview, getChoiceCheckTag, KIND_TO_SKILL_ZH } from '../../utils/skillCheck'
 
 export default function DialogueChoices({
@@ -15,10 +16,11 @@ export default function DialogueChoices({
       {choices.slice(0, 9).map((c, i) => {
         const obj = typeof c === 'string' ? { text: c, tags: [] } : c
         const preview = computeChoicePreview(obj, player)
+        const intent = getChoiceIntent(obj)
         return (
           <button
             key={i}
-            className={`choice ${obj.action ? 'action' : ''} ${obj.ended ? 'ended' : ''}`}
+            className={`choice choice-intent-${intent.type} ${obj.action ? 'action' : ''} ${obj.ended ? 'ended' : ''}`}
             onMouseEnter={() => { try { JuiceAudio.hover() } catch {} }}
             onClick={() => {
               try { JuiceAudio.select() } catch {}
@@ -41,6 +43,7 @@ export default function DialogueChoices({
             <span className="idx">{i + 1}</span>
             <span className="body">
               <span className="choice-mainline">
+                <span className={`choice-intent-badge ${intent.type}`}>{intent.label}</span>
                 {obj.tags?.length > 0 && (
                   <span className="tags">
                     {obj.tags.map((t, ti) => (

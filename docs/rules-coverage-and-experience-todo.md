@@ -217,7 +217,7 @@ Priority:
 ### P1 Adventure UX
 
 - [x] Make skill-check choices consistently show skill, DC, risk, and likely ability before clicking. 2026-05-29: Adventure choices now show persistent skill, ability, DC, and risk badges before click, sharing one metadata parser with the skill-check click path and covering tag-based plus top-level check metadata.
-- [ ] Distinguish pure roleplay, dialogue, movement, investigation, rest, lore, and danger choices visually.
+- [x] Distinguish pure roleplay, dialogue, movement, investigation, rest, lore, and danger choices visually. 2026-05-29: Adventure choices now derive persistent intent badges for roleplay, dialogue, movement, investigation, rest, lore, and danger from explicit fields, tags, skill checks, and text hints, with utility and component coverage.
 - [ ] Show recent consequences and quest updates after state delta is applied.
 - [ ] Show party member reactions in a secondary area so they add flavor without burying main DM narration.
 - [ ] Add "continue / ask / act" affordances that help players recover when unsure what to type.

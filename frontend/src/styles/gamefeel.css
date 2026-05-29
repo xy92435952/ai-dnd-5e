@@ -461,6 +461,58 @@
   display: block;
   min-width: 0;
 }
+.choice-intent-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border: 1px solid rgba(213,184,121,.32);
+  border-radius: 4px;
+  background: rgba(213,184,121,.08);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.choice-intent-badge.roleplay {
+  border-color: rgba(213,184,121,.32);
+  background: rgba(213,184,121,.08);
+  color: var(--parchment-dark);
+}
+.choice-intent-badge.dialogue {
+  border-color: rgba(127,232,248,.48);
+  background: rgba(47,168,184,.14);
+  color: var(--arcane-light, #5fd8e8);
+}
+.choice-intent-badge.movement {
+  border-color: rgba(106,196,132,.46);
+  background: rgba(42,106,58,.14);
+  color: #9fe6a8;
+}
+.choice-intent-badge.investigation {
+  border-color: rgba(200,160,255,.46);
+  background: rgba(122,79,196,.14);
+  color: #d4b2ff;
+}
+.choice-intent-badge.rest {
+  border-color: rgba(240,208,96,.48);
+  background: rgba(138,90,24,.16);
+  color: var(--amber);
+}
+.choice-intent-badge.lore {
+  border-color: rgba(112,180,240,.42);
+  background: rgba(38,80,130,.15);
+  color: #a9d7ff;
+}
+.choice-intent-badge.danger {
+  border-color: rgba(240,64,64,.58);
+  background: rgba(138,26,26,.2);
+  color: #ff9a8f;
+}
 .choice .tags {
   display: inline-flex;
   gap: 4px;

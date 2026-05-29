@@ -89,4 +89,39 @@ describe('DialogueChoices', () => {
       context: '辨认符文',
     })
   })
+
+  it('renders visible intent badges for different choice types', () => {
+    render(
+      <DialogueChoices
+        choices={[
+          '向陌生人点头致意',
+          { text: '询问酒馆老板', action_type: 'dialogue', tags: [] },
+          { text: '进入东侧走廊', choice_type: 'movement', tags: [] },
+          { text: '检查墙上的符文', choice_type: 'investigation', tags: [] },
+          { text: '扎营休息', choice_type: 'rest', tags: [] },
+          { text: '回忆古老传说', choice_type: 'lore', tags: [] },
+          { text: '拔剑威胁守卫', action: true, tags: [] },
+        ]}
+        player={makePlayer()}
+        setPendingCheck={vi.fn()}
+        onAction={vi.fn()}
+        disabled={false}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: /向陌生人点头致意/ })).toHaveClass('choice-intent-roleplay')
+    expect(screen.getByText('扮演')).toHaveClass('choice-intent-badge', 'roleplay')
+    expect(screen.getByRole('button', { name: /询问酒馆老板/ })).toHaveClass('choice-intent-dialogue')
+    expect(screen.getByText('对话')).toHaveClass('choice-intent-badge', 'dialogue')
+    expect(screen.getByRole('button', { name: /进入东侧走廊/ })).toHaveClass('choice-intent-movement')
+    expect(screen.getByText('移动')).toHaveClass('choice-intent-badge', 'movement')
+    expect(screen.getByRole('button', { name: /检查墙上的符文/ })).toHaveClass('choice-intent-investigation')
+    expect(screen.getByText('调查')).toHaveClass('choice-intent-badge', 'investigation')
+    expect(screen.getByRole('button', { name: /扎营休息/ })).toHaveClass('choice-intent-rest')
+    expect(screen.getByText('休整')).toHaveClass('choice-intent-badge', 'rest')
+    expect(screen.getByRole('button', { name: /回忆古老传说/ })).toHaveClass('choice-intent-lore')
+    expect(screen.getByText('知识')).toHaveClass('choice-intent-badge', 'lore')
+    expect(screen.getByRole('button', { name: /拔剑威胁守卫/ })).toHaveClass('choice-intent-danger')
+    expect(screen.getByText('危险')).toHaveClass('choice-intent-badge', 'danger')
+  })
 })
