@@ -1,21 +1,33 @@
 /**
- * utils/skillCheck.js — 技能检定相关静态映射 + 选项预测函数。
+ * utils/skillCheck.js - static skill-check mappings and choice preview helpers.
  *
- * 从 Adventure.jsx 抽出来；computeChoicePreview 给"选项 hover tooltip"用，
- * 把 DC + 玩家修正值 → 成功率百分比，让玩家选选项时能看到风险预估。
+ * Adventure choice buttons use this to show the likely check, DC, ability,
+ * modifier, success chance, and risk before the player clicks.
  */
 
-/** kind → 6 种属性的映射（兜底 wis）。 */
 export const KIND_TO_ABILITY = {
   insight: 'wis', perception: 'wis', wisdom: 'wis',
   persuade: 'cha', intim: 'cha', deception: 'cha', performance: 'cha', charisma: 'cha',
   athletic: 'str', strength: 'str',
   acrobat: 'dex', stealth: 'dex', sleight: 'dex', dex: 'dex',
   arcana: 'int', investigate: 'int', history: 'int', nature: 'int', religion: 'int',
-  check: 'wis',  // 兜底
+  洞察: 'wis', 察觉: 'wis',
+  劝说: 'cha', 威吓: 'cha', 欺瞒: 'cha', 表演: 'cha',
+  运动: 'str',
+  特技: 'dex', 隐匿: 'dex', 巧手: 'dex',
+  奥秘: 'int', 调查: 'int', 历史: 'int', 自然: 'int', 宗教: 'int',
+  check: 'wis',
 }
 
-/** kind → 中文技能名（用于熟练匹配 + UI 显示）。 */
+const ABILITY_LABELS = {
+  str: 'STR',
+  dex: 'DEX',
+  con: 'CON',
+  int: 'INT',
+  wis: 'WIS',
+  cha: 'CHA',
+}
+
 export const KIND_TO_SKILL_ZH = {
   insight: '洞察', persuade: '劝说', intim: '威吓',
   perception: '察觉', athletic: '运动', acrobat: '特技',
@@ -24,26 +36,37 @@ export const KIND_TO_SKILL_ZH = {
   deception: '欺瞒', performance: '表演', sleight: '巧手',
 }
 
+export function getChoiceCheckTag(choice = {}) {
+  if (!choice?.skill_check) return null
+  const taggedCheck = Array.isArray(choice.tags)
+    ? choice.tags.find(tag => tag?.dc != null)
+    : null
+  const dc = taggedCheck?.dc ?? choice.dc
+  if (dc === null || dc === undefined) return null
+
+  return {
+    ...(taggedCheck || {}),
+    dc,
+    kind: taggedCheck?.kind || choice.kind || choice.check_type || 'check',
+    label: taggedCheck?.label || choice.label || choice.check_type || null,
+  }
+}
+
 /**
- * 给一个对话选项 + 当前玩家，估算它的检定成功率与提示。
- * 没有 skill_check 标记或缺 dc 的选项返回 null（纯角色扮演选项）。
+ * Estimate the check preview for a generated dialogue choice.
  *
- * @param {{ tags?: Array<{dc?:number, kind?:string, label?:string}>,
- *           skill_check?: boolean, ended?: boolean, action?: boolean }} choice
- * @param {{ derived?: object, proficient_skills?: string[] } | null} player
- * @returns {{ rows: Array<{label:string, value:string|number}>,
- *             hint: string|null } | null}
+ * Choices without `skill_check` or a usable DC return null.
  */
 export function computeChoicePreview(choice, player) {
-  // 没有检定需求就不预告（纯角色扮演选项）
-  const tag = (choice.tags || []).find(t => t.dc != null) || null
-  if (!tag || !choice.skill_check || !player) return null
+  const tag = getChoiceCheckTag(choice)
+  if (!tag || !player) return null
 
   const dc = Number(tag.dc)
   if (!Number.isFinite(dc)) return null
 
-  const kind = (tag.kind || 'check').toLowerCase()
+  const kind = String(tag.kind || 'check').toLowerCase()
   const ability = KIND_TO_ABILITY[kind] || 'wis'
+  const abilityLabel = ABILITY_LABELS[ability] || ability.toUpperCase()
   const skillZh = KIND_TO_SKILL_ZH[kind] || tag.label || '检定'
 
   const mods = player.derived?.ability_modifiers || {}
@@ -52,25 +75,38 @@ export function computeChoicePreview(choice, player) {
   const proficient = (player.proficient_skills || []).includes(skillZh)
   const totalMod = abilMod + (proficient ? profBonus : 0)
 
-  // 成功率 = P(d20 >= dc - totalMod)，d20 均匀，结果取值 [5%, 95%]
   const needed = dc - totalMod
   let successPct
-  if (needed <= 1)       successPct = 95
+  if (needed <= 1) successPct = 95
   else if (needed >= 20) successPct = 5
-  else                   successPct = Math.max(5, Math.min(95, (21 - needed) * 5))
+  else successPct = Math.max(5, Math.min(95, (21 - needed) * 5))
 
   const sign = totalMod >= 0 ? '+' : ''
+  const riskTone = successPct >= 80 ? 'low' : successPct <= 30 ? 'high' : 'medium'
+  const riskLabel = riskTone === 'low' ? '低风险' : riskTone === 'high' ? '高风险' : '中风险'
+  const summary = {
+    skill: skillZh,
+    ability: abilityLabel,
+    dc,
+    modifier: `${sign}${totalMod}`,
+    success: `${successPct}%`,
+    successPct,
+    risk: riskLabel,
+    riskTone,
+  }
   const rows = [
     { label: '目标难度', value: `DC ${dc}` },
-    { label: `${skillZh}修正`, value: `${sign}${totalMod}${proficient ? ' (熟)' : ''}` },
+    { label: '对应属性', value: abilityLabel },
+    { label: `${skillZh}修正`, value: `${sign}${totalMod}${proficient ? ' (熟练)' : ''}` },
     { label: '成功率', value: `${successPct}%` },
+    { label: '风险', value: `${riskLabel} · ${successPct}%` },
   ]
 
   let hint = null
-  if (choice.ended)      hint = '⚠ 此选项将结束当前场景'
-  else if (choice.action) hint = '⚔ 攻击性行动 —— 可能触发战斗'
+  if (choice.ended) hint = '此选项将结束当前场景'
+  else if (choice.action) hint = '攻击性行动，可能触发战斗'
   else if (successPct >= 80) hint = '胜券在握'
   else if (successPct <= 30) hint = '九死一生'
 
-  return { rows, hint }
+  return { rows, hint, summary }
 }

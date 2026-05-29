@@ -1,5 +1,5 @@
 import { JuiceAudio } from '../../juice'
-import { computeChoicePreview, KIND_TO_SKILL_ZH } from '../../utils/skillCheck'
+import { computeChoicePreview, getChoiceCheckTag, KIND_TO_SKILL_ZH } from '../../utils/skillCheck'
 
 export default function DialogueChoices({
   choices,
@@ -22,11 +22,9 @@ export default function DialogueChoices({
             onMouseEnter={() => { try { JuiceAudio.hover() } catch {} }}
             onClick={() => {
               try { JuiceAudio.select() } catch {}
-              const checkTag = obj.skill_check
-                ? (obj.tags || []).find(t => t.dc != null)
-                : null
+              const checkTag = getChoiceCheckTag(obj)
               if (checkTag && checkTag.dc != null) {
-                const kind = (checkTag.kind || 'check').toLowerCase()
+                const kind = String(checkTag.kind || 'check').toLowerCase()
                 const skillZh = KIND_TO_SKILL_ZH[kind] || checkTag.label || '检定'
                 setPendingCheck({
                   check_type: skillZh,
@@ -42,18 +40,37 @@ export default function DialogueChoices({
           >
             <span className="idx">{i + 1}</span>
             <span className="body">
-              {obj.tags?.length > 0 && (
-                <span className="tags">
-                  {obj.tags.map((t, ti) => (
-                    <span key={ti} className={`tag-mini tm-${t.kind || 'check'}`}>
-                      [{t.label}{t.dc ? ` · DC${t.dc}` : ''}]
-                    </span>
-                  ))}
+              <span className="choice-mainline">
+                {obj.tags?.length > 0 && (
+                  <span className="tags">
+                    {obj.tags.map((t, ti) => (
+                      <span key={ti} className={`tag-mini tm-${t.kind || 'check'}`}>
+                        [{t.label}{t.dc ? ` · DC${t.dc}` : ''}]
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <span>{obj.text}</span>
+                {obj.skill_check && !preview && (
+                  <span className="choice-check-flag">检定</span>
+                )}
+              </span>
+
+              {preview && (
+                <span className="choice-check-summary" aria-label="技能检定预览">
+                  <span className="choice-check-pill skill">
+                    <span>技能</span><b>{preview.summary.skill}</b>
+                  </span>
+                  <span className="choice-check-pill ability">
+                    <span>属性</span><b>{preview.summary.ability}</b>
+                  </span>
+                  <span className="choice-check-pill dc">
+                    <span>难度</span><b>DC {preview.summary.dc}</b>
+                  </span>
+                  <span className={`choice-check-pill risk ${preview.summary.riskTone}`}>
+                    <span>风险</span><b>{preview.summary.risk} · {preview.summary.success}</b>
+                  </span>
                 </span>
-              )}
-              <span>{obj.text}</span>
-              {obj.skill_check && (
-                <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--parchment-dark)' }}>🎲</span>
               )}
             </span>
             {preview && (

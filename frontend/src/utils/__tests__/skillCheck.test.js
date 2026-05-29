@@ -1,15 +1,9 @@
 /**
- * skillCheck.js 单元测试 —— computeChoicePreview 的成功率推导。
- *
- * 主要验：
- *   - 没 skill_check 标记的选项返回 null
- *   - 熟练加值正确叠加
- *   - 边界 dc（极易/极难）成功率被 clamp 到 [5%, 95%]
- *   - hint 文案按规则触发
+ * skillCheck.js unit tests for choice preview probability, visible metadata,
+ * and skill/ability mapping.
  */
 import { describe, it, expect } from 'vitest'
-import { computeChoicePreview, KIND_TO_ABILITY, KIND_TO_SKILL_ZH } from '../skillCheck'
-
+import { computeChoicePreview, getChoiceCheckTag, KIND_TO_ABILITY, KIND_TO_SKILL_ZH } from '../skillCheck'
 
 function makePlayer(overrides = {}) {
   return {
@@ -22,62 +16,76 @@ function makePlayer(overrides = {}) {
   }
 }
 
-
 describe('computeChoicePreview', () => {
-  it('没 skill_check 标记 → null', () => {
+  it('没有 skill_check 标记时返回 null', () => {
     const choice = { tags: [{ dc: 15, kind: 'athletic' }], skill_check: false }
     expect(computeChoicePreview(choice, makePlayer())).toBeNull()
   })
 
-  it('没 dc tag → null', () => {
+  it('没有 dc metadata 时返回 null', () => {
     const choice = { tags: [], skill_check: true }
     expect(computeChoicePreview(choice, makePlayer())).toBeNull()
   })
 
-  it('player 为 null → null', () => {
+  it('player 为 null 时返回 null', () => {
     const choice = { tags: [{ dc: 10, kind: 'insight' }], skill_check: true }
     expect(computeChoicePreview(choice, null)).toBeNull()
   })
 
-  it('熟练 + DC 10 + str_mod 3 → modifier=5, 成功率高', () => {
+  it('熟练 + DC 10 + str_mod 3 会生成低风险预览', () => {
     const choice = { tags: [{ dc: 10, kind: 'athletic' }], skill_check: true }
     const result = computeChoicePreview(choice, makePlayer())
+
     expect(result).not.toBeNull()
-    const modRow = result.rows.find(r => r.label.includes('运动修正'))
+    expect(result.summary).toMatchObject({
+      skill: '运动',
+      ability: 'STR',
+      dc: 10,
+      modifier: '+5',
+      success: '80%',
+      risk: '低风险',
+      riskTone: 'low',
+    })
+
+    const modRow = result.rows.find(row => row.label.includes('运动修正'))
     expect(modRow.value).toContain('+5')
-    expect(modRow.value).toContain('(熟)')
-    // dc 10 - 5 = 5 → P(d20 >= 5) = 80% → hint "胜券在握"
+    expect(modRow.value).toContain('(熟练)')
+    expect(result.rows).toContainEqual({ label: '对应属性', value: 'STR' })
+    expect(result.rows).toContainEqual({ label: '风险', value: '低风险 · 80%' })
     expect(result.hint).toBe('胜券在握')
   })
 
-  it('不熟练 + 高 DC → 成功率低', () => {
+  it('不熟练 + 高 DC 会生成高风险预览', () => {
     const choice = { tags: [{ dc: 18, kind: 'arcana' }], skill_check: true }
     const result = computeChoicePreview(choice, makePlayer())
-    // arcana → int_mod=0, 不在 proficient_skills
-    const modRow = result.rows.find(r => r.label.includes('奥秘修正'))
+
+    expect(result.summary).toMatchObject({
+      skill: '奥秘',
+      ability: 'INT',
+      risk: '高风险',
+      riskTone: 'high',
+    })
+    const modRow = result.rows.find(row => row.label.includes('奥秘修正'))
     expect(modRow.value).toBe('+0')
-    // dc 18 - 0 = 18 → 成功率 < 30% → hint "九死一生"
     expect(result.hint).toBe('九死一生')
   })
 
   it('成功率 clamp 在 [5%, 95%]', () => {
-    // dc 1 (极易) → 应该被 clamp 到 95%
     const easy = { tags: [{ dc: 1, kind: 'check' }], skill_check: true }
     const r1 = computeChoicePreview(easy, makePlayer())
-    expect(r1.rows.find(r => r.label === '成功率').value).toBe('95%')
+    expect(r1.rows.find(row => row.label === '成功率').value).toBe('95%')
 
-    // dc 30 (极难) + 不熟练 wis check → 应该被 clamp 到 5%
     const hard = { tags: [{ dc: 30, kind: 'check' }], skill_check: true }
     const r2 = computeChoicePreview(hard, makePlayer())
-    expect(r2.rows.find(r => r.label === '成功率').value).toBe('5%')
+    expect(r2.rows.find(row => row.label === '成功率').value).toBe('5%')
   })
 
-  it('choice.ended → hint "结束当前场景"，覆盖成功率 hint', () => {
+  it('choice.ended 覆盖成功率提示', () => {
     const choice = { tags: [{ dc: 10, kind: 'athletic' }], skill_check: true, ended: true }
     expect(computeChoicePreview(choice, makePlayer()).hint).toContain('结束当前场景')
   })
 
-  it('choice.action → hint "攻击性行动"，覆盖成功率 hint', () => {
+  it('choice.action 覆盖成功率提示', () => {
     const choice = { tags: [{ dc: 12, kind: 'athletic' }], skill_check: true, action: true }
     expect(computeChoicePreview(choice, makePlayer()).hint).toContain('攻击性行动')
   })
@@ -85,26 +93,43 @@ describe('computeChoicePreview', () => {
   it('未知 kind 兜底用 wis', () => {
     const choice = { tags: [{ dc: 10, kind: 'mysterious-skill' }], skill_check: true }
     const result = computeChoicePreview(choice, makePlayer())
-    // wis_mod = 1（无熟练），modifier=+1
-    const modRow = result.rows.find(r => r.label.includes('修正'))
+    const modRow = result.rows.find(row => row.label.includes('修正'))
     expect(modRow.value).toContain('+1')
+  })
+
+  it('supports top-level skill check metadata when tags are missing', () => {
+    const choice = { text: '看穿谎言', skill_check: true, check_type: '洞察', dc: 14 }
+
+    expect(getChoiceCheckTag(choice)).toMatchObject({
+      dc: 14,
+      kind: '洞察',
+      label: '洞察',
+    })
+
+    expect(computeChoicePreview(choice, makePlayer()).summary).toMatchObject({
+      skill: '洞察',
+      ability: 'WIS',
+      dc: 14,
+      modifier: '+1',
+      success: '40%',
+      risk: '中风险',
+    })
   })
 })
 
-
 describe('KIND_TO_ABILITY mapping', () => {
-  it('完整覆盖关键技能', () => {
+  it('覆盖关键技能', () => {
     expect(KIND_TO_ABILITY.athletic).toBe('str')
     expect(KIND_TO_ABILITY.acrobat).toBe('dex')
     expect(KIND_TO_ABILITY.arcana).toBe('int')
     expect(KIND_TO_ABILITY.insight).toBe('wis')
     expect(KIND_TO_ABILITY.persuade).toBe('cha')
+    expect(KIND_TO_ABILITY.洞察).toBe('wis')
   })
 })
 
-
 describe('KIND_TO_SKILL_ZH mapping', () => {
-  it('返回中文技能名（用于熟练查表）', () => {
+  it('返回中文技能名用于熟练匹配和 UI 显示', () => {
     expect(KIND_TO_SKILL_ZH.athletic).toBe('运动')
     expect(KIND_TO_SKILL_ZH.stealth).toBe('隐匿')
     expect(KIND_TO_SKILL_ZH.arcana).toBe('奥秘')
