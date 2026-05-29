@@ -98,14 +98,29 @@ describe('useCombatSpecialActions', () => {
   })
 
   it('uses reaction and resumes ai turns', async () => {
+    useReactionMock.mockResolvedValueOnce({
+      narration: '护盾术让攻击落空',
+      turn_state: { reaction_used: true },
+      reaction_effect: {
+        hp_before_reaction: 3,
+        hp_after_reaction: 12,
+        hp_restored: 9,
+      },
+    })
     const { result, deps } = renderActions()
 
     await act(async () => {
-      await result.current.handleReaction('hellish_rebuke', 'enemy-1', 'char-2')
+      await result.current.handleReaction('shield', 'enemy-1', 'char-2')
     })
 
-    expect(rollDice3DMock).toHaveBeenCalledWith(10, 2)
-    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'hellish_rebuke', 'enemy-1', 'char-2')
+    expect(rollDice3DMock).not.toHaveBeenCalled()
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'shield', 'enemy-1', 'char-2')
+    expect(deps.addLog).toHaveBeenCalledWith({
+      role: 'player',
+      content: '护盾术让攻击落空',
+      log_type: 'combat',
+      state_changes: ['char-2 HP 3 -> 12（反应恢复 9）', '反应已用'],
+    })
     expect(deps.setTurnState).toHaveBeenCalledWith({ reaction_used: true })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })

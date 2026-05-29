@@ -6,7 +6,13 @@ export function isReactionPromptForCharacter(prompt, characterId) {
 }
 
 export function normalizeReactionOptions(prompt = {}) {
-  const rawOptions = prompt.options || (prompt.available_reactions || []).map(reaction => ({
+  const reactions = prompt.available_reactions || []
+  const reactionsByType = new Map()
+  reactions.forEach(reaction => {
+    if (reaction.id) reactionsByType.set(reaction.id, reaction)
+    if (reaction.type) reactionsByType.set(reaction.type, reaction)
+  })
+  const rawOptions = prompt.options || reactions.map(reaction => ({
     type: reaction.id || reaction.type,
     target_id: prompt.target_id || prompt.attacker_id,
     character_id: prompt.reactor_character_id,
@@ -15,11 +21,45 @@ export function normalizeReactionOptions(prompt = {}) {
     damage_prevented: reaction.damage_prevented,
   }))
 
-  return rawOptions.map(option => ({
-    ...option,
-    target_id: option.target_id || prompt.target_id || prompt.attacker_id,
-    character_id: option.character_id || prompt.reactor_character_id,
-  }))
+  return rawOptions.map(option => {
+    const reaction = reactionsByType.get(option.type) || {}
+    const enriched = {
+      ...option,
+      cost: option.cost ?? reaction.cost,
+      damage_prevented: option.damage_prevented ?? reaction.damage_prevented,
+      target_id: option.target_id || prompt.target_id || prompt.attacker_id,
+      character_id: option.character_id || prompt.reactor_character_id,
+    }
+    return {
+      ...enriched,
+      ...withHpPreview(prompt, enriched),
+    }
+  })
+}
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function withHpPreview(prompt, option) {
+  const preview = getReactionOptionHpPreview(prompt, option)
+  return preview ? { hp_preview: preview } : {}
+}
+
+export function getReactionOptionHpPreview(prompt = {}, option = {}) {
+  const prevented = toNumber(option.damage_prevented)
+  if (!prevented || prevented <= 0) return null
+
+  const hpBefore = toNumber(prompt.target_hp_before_damage ?? prompt.hp_before)
+  const incoming = toNumber(prompt.incoming_damage)
+  if (hpBefore === null || incoming === null) return `预计减免 ${prevented} 伤害`
+
+  const noReactionHp = Math.max(0, hpBefore - incoming)
+  const reactionHp = Math.min(hpBefore, noReactionHp + prevented)
+  if (reactionHp <= noReactionHp) return null
+  return `HP ${hpBefore} -> ${noReactionHp}，反应后 ${reactionHp}`
 }
 
 export function getReactionPromptContext(prompt = {}) {
@@ -40,6 +80,11 @@ export function getReactionPromptMeta(prompt = {}) {
   }
   if (prompt.incoming_damage !== undefined) {
     items.push(`伤害 ${prompt.incoming_damage}`)
+  }
+  const hpBefore = toNumber(prompt.target_hp_before_damage ?? prompt.hp_before)
+  const incoming = toNumber(prompt.incoming_damage)
+  if (hpBefore !== null && incoming !== null) {
+    items.push(`HP ${hpBefore} -> ${Math.max(0, hpBefore - incoming)}`)
   }
   if (prompt.spell_level !== undefined && prompt.spell_name) {
     items.push(`${prompt.spell_name} ${prompt.spell_level}环`)

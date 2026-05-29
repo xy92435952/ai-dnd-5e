@@ -89,4 +89,21 @@ describe('combatLog', () => {
       tone: 'miss',
     })
   })
+
+  it('summarizes reaction hp rollback from reaction effects', () => {
+    expect(buildCombatStateChangeSummary({
+      reaction_type: 'shield',
+      reaction_effect: {
+        hp_before_reaction: 3,
+        hp_after_reaction: 12,
+        hp_restored: 9,
+      },
+      turn_state: { reaction_used: true },
+    }, {
+      targetName: 'Tester',
+    })).toEqual([
+      'Tester HP 3 -> 12（反应恢复 9）',
+      '反应已用',
+    ])
+  })
 })

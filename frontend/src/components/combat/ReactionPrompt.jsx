@@ -54,6 +54,7 @@ export default function ReactionPrompt({
             >
               <span>{opt.label}</span>
               {opt.cost && <small>{opt.cost}</small>}
+              {opt.hp_preview && <small className="reaction-prompt-hp">{opt.hp_preview}</small>}
             </button>
           ))}
           <button className="btn-ghost reaction-prompt-decline" onClick={() => onCancel?.(prompt)}>

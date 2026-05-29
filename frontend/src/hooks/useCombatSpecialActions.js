@@ -93,7 +93,9 @@ export function useCombatSpecialActions({
         role: 'player',
         content: result.narration,
         log_type: 'combat',
-        state_changes: buildCombatStateChangeSummary(result),
+        state_changes: buildCombatStateChangeSummary(result, {
+          targetName: characterId || '反应者',
+        }),
       })
       if (result.turn_state) setTurnState(result.turn_state)
       processingRef.current = false

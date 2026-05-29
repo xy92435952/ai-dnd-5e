@@ -152,6 +152,7 @@ describe('ReactionPrompt', () => {
           attack_roll: 18,
           player_ac: 14,
           incoming_damage: 9,
+          target_hp_before_damage: 12,
           available_reactions: [
             {
               id: 'shield',
@@ -159,6 +160,7 @@ describe('ReactionPrompt', () => {
               name: 'Shield',
               cost: '1st-level spell slot',
               effect: '+5 AC',
+              damage_prevented: 9,
             },
           ],
         }}
@@ -170,6 +172,8 @@ describe('ReactionPrompt', () => {
     expect(screen.getByRole('dialog', { name: '反应触发' })).toBeInTheDocument()
     expect(screen.getByText('攻击 18 vs AC14')).toBeInTheDocument()
     expect(screen.getByText('伤害 9')).toBeInTheDocument()
+    expect(screen.getByText('HP 12 -> 3')).toBeInTheDocument()
+    expect(screen.getByText('HP 12 -> 3，反应后 12')).toBeInTheDocument()
     expect(screen.getByText('1st-level spell slot')).toBeInTheDocument()
   })
 })

@@ -236,6 +236,35 @@ function summarizeTargetResult(result = {}, options = {}) {
   })
 }
 
+function summarizeReactionHpResult(result = {}, options = {}) {
+  const effect = result.reaction_effect || {}
+  const before = effect.hp_before_reaction
+  const after = effect.hp_after_reaction
+  if (before === null || before === undefined || after === null || after === undefined) return []
+
+  const restored = effect.hp_restored ?? 0
+  if (before === after && restored <= 0) return []
+  const label = targetLabelFrom(result, options)
+  const suffix = restored > 0 ? `（反应恢复 ${restored}）` : ''
+  const entries = [`${label} HP ${before} -> ${after}${suffix}`]
+
+  if (
+    effect.temporary_hp_before_reaction !== undefined
+    && effect.temporary_hp_after_reaction !== undefined
+    && effect.temporary_hp_before_reaction !== effect.temporary_hp_after_reaction
+  ) {
+    entries.push(`${label} 临时HP ${effect.temporary_hp_before_reaction} -> ${effect.temporary_hp_after_reaction}`)
+  }
+  if (
+    effect.wild_shape_hp_before_reaction !== undefined
+    && effect.wild_shape_hp_after_reaction !== undefined
+    && effect.wild_shape_hp_before_reaction !== effect.wild_shape_hp_after_reaction
+  ) {
+    entries.push(`${label} 野性变身HP ${effect.wild_shape_hp_before_reaction} -> ${effect.wild_shape_hp_after_reaction}`)
+  }
+  return entries
+}
+
 function summarizeWeaponResource(resource = null) {
   if (!resource?.consumed || !resource.weapon) return null
   if (resource.resource_type === 'ammunition') {
@@ -253,6 +282,7 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
 
   const entries = [
     ...summarizeTargetResult(result, options),
+    ...summarizeReactionHpResult(result, options),
   ]
 
   const resultGroups = [
