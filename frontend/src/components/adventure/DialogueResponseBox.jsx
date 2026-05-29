@@ -1,5 +1,6 @@
 import DialoguePendingCheck from './DialoguePendingCheck'
 import DialogueChoices from './DialogueChoices'
+import DialogueRecoveryAffordances from './DialogueRecoveryAffordances'
 import DialogueFreeSpeak from './DialogueFreeSpeak'
 
 export default function DialogueResponseBox({
@@ -51,6 +52,14 @@ export default function DialogueResponseBox({
         choices={choices}
         player={player}
         setPendingCheck={setPendingCheck}
+        onAction={onAction}
+        disabled={disabled}
+      />
+
+      <DialogueRecoveryAffordances
+        input={input}
+        setInput={setInput}
+        inputRef={inputRef}
         onAction={onAction}
         disabled={disabled}
       />
