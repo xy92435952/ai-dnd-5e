@@ -20,6 +20,22 @@ class ParsedCombatExecutionResult:
     dice_display: list[dict[str, Any]]
     total_damage: int
     executed_action_types: list[str]
+    errors: list[str]
+
+
+ACTION_ALREADY_USED_MESSAGE = "本回合行动已用尽，请使用「结束回合」"
+
+
+def _record_spent_action(
+    *,
+    action_results: list[str],
+    errors: list[str],
+    executed_action_types: list[str],
+) -> None:
+    if not errors:
+        errors.append(ACTION_ALREADY_USED_MESSAGE)
+    action_results.append(ACTION_ALREADY_USED_MESSAGE)
+    executed_action_types.append("action_blocked")
 
 
 def execute_parsed_combat_actions(
@@ -44,13 +60,14 @@ def execute_parsed_combat_actions(
     action_results: list[str] = []
     dice_display: list[dict[str, Any]] = []
     total_damage = 0
-    action_used = False
+    standard_action_used = bool(turn_state.get("action_used"))
     executed_action_types: list[str] = []
+    errors: list[str] = []
 
     for action in parsed_actions:
         action_type = action.get("type", "")
 
-        if action_type == "move" and not action_used:
+        if action_type == "move":
             move_remaining = _execute_move_action(
                 combat_state=combat_state,
                 positions=positions,
@@ -65,9 +82,16 @@ def execute_parsed_combat_actions(
                 save_turn_state=save_turn_state,
             )
 
-        elif action_type == "attack" and not action_used:
+        elif action_type == "attack":
+            if standard_action_used:
+                _record_spent_action(
+                    action_results=action_results,
+                    errors=errors,
+                    executed_action_types=executed_action_types,
+                )
+                continue
             validate_can_take_action(player)
-            action_used = True
+            standard_action_used = True
             damage_done = _execute_attack_action(
                 session=session,
                 combat_state=combat_state,
@@ -89,9 +113,16 @@ def execute_parsed_combat_actions(
             )
             total_damage += damage_done
 
-        elif action_type == "creative" and not action_used:
+        elif action_type == "creative":
+            if standard_action_used:
+                _record_spent_action(
+                    action_results=action_results,
+                    errors=errors,
+                    executed_action_types=executed_action_types,
+                )
+                continue
             validate_can_take_action(player)
-            action_used = True
+            standard_action_used = True
             damage_done = _execute_creative_action(
                 session=session,
                 state=state,
@@ -106,15 +137,29 @@ def execute_parsed_combat_actions(
             )
             total_damage += damage_done
 
-        elif action_type == "dodge" and not action_used:
+        elif action_type == "dodge":
+            if standard_action_used:
+                _record_spent_action(
+                    action_results=action_results,
+                    errors=errors,
+                    executed_action_types=executed_action_types,
+                )
+                continue
             validate_can_take_action(player)
             turn_state["dodging"] = True
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("采取闪避动作，攻击你的敌人获得劣势")
             executed_action_types.append("dodge")
-            action_used = True
+            standard_action_used = True
 
-        elif action_type == "dash" and not action_used:
+        elif action_type == "dash":
+            if standard_action_used:
+                _record_spent_action(
+                    action_results=action_results,
+                    errors=errors,
+                    executed_action_types=executed_action_types,
+                )
+                continue
             validate_can_take_action(player)
             turn_state["movement_max"] = (
                 turn_state["movement_max"]
@@ -123,17 +168,24 @@ def execute_parsed_combat_actions(
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("冲刺！移动力翻倍")
             executed_action_types.append("dash")
-            action_used = True
+            standard_action_used = True
 
-        elif action_type == "disengage" and not action_used:
+        elif action_type == "disengage":
+            if standard_action_used:
+                _record_spent_action(
+                    action_results=action_results,
+                    errors=errors,
+                    executed_action_types=executed_action_types,
+                )
+                continue
             validate_can_take_action(player)
             turn_state["disengaged"] = True
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("脱离接战，移动不触发借机攻击")
             executed_action_types.append("disengage")
-            action_used = True
+            standard_action_used = True
 
-    if action_used:
+    if standard_action_used and not turn_state.get("action_used"):
         turn_state["action_used"] = True
         save_turn_state(combat_state, player_id, turn_state)
 
@@ -142,6 +194,7 @@ def execute_parsed_combat_actions(
         dice_display=dice_display,
         total_damage=total_damage,
         executed_action_types=executed_action_types,
+        errors=errors,
     )
 
 

@@ -991,6 +991,7 @@ async def test_multiplayer_combat_action_rejects_non_current_turn_player(
 ):
     import uuid as _uuid
 
+    from sqlalchemy import select
     from sqlalchemy.orm.attributes import flag_modified
 
     from models import CombatState, Session
@@ -1072,6 +1073,18 @@ async def test_multiplayer_combat_action_rejects_non_current_turn_player(
     })
 
     assert response.status_code == 403, response.text
+    await db_session.refresh(session)
+    combat_rows = await db_session.execute(
+        select(CombatState).where(CombatState.session_id == sid)
+    )
+    combat_after = combat_rows.scalars().first()
+    assert session.game_state["enemies"][0]["hp_current"] == 9
+    assert combat_after.entity_positions == {
+        host_char["id"]: {"x": 5, "y": 5},
+        guest_char["id"]: {"x": 4, "y": 5},
+        "guard-1": {"x": 6, "y": 5},
+    }
+    assert combat_after.turn_states == {}
 
 
 async def test_start_game_requires_ready_votes_after_characters_are_claimed(client, sample_module):

@@ -76,16 +76,19 @@ async def execute_natural_language_combat_action(
         executed_action_types=execution.executed_action_types,
         parsed_actions=parsed["actions"],
     )
-    narrative = await narrate_action(
-        actor_name=player.name,
-        actor_class=player.char_class,
-        target_name="",
-        action_type=narration_action_type,
-        extra_details=f"玩家行动: {action_text}\n结果: {mechanical_summary}",
-        damage=execution.total_damage,
-    )
-    if not narrative:
+    if execution.errors:
         narrative = mechanical_summary
+    else:
+        narrative = await narrate_action(
+            actor_name=player.name,
+            actor_class=player.char_class,
+            target_name="",
+            action_type=narration_action_type,
+            extra_details=f"玩家行动: {action_text}\n结果: {mechanical_summary}",
+            damage=execution.total_damage,
+        )
+        if not narrative:
+            narrative = mechanical_summary
 
     combat_over, outcome = resolve_combat_end_state(session=session, enemies=enemies)
 
@@ -111,7 +114,7 @@ async def execute_natural_language_combat_action(
         "combat_end_result": outcome,
         "combat_update": combat_update,
         "action_results": execution.action_results,
-        "errors": [],
+        "errors": execution.errors,
     }
 
 

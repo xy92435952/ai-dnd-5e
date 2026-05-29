@@ -191,6 +191,75 @@ async def test_natural_language_unreachable_melee_moves_without_fake_attack(
     assert "目标不在攻击范围内" not in data["narrative"]
 
 
+async def test_natural_language_combat_respects_spent_action_and_remaining_movement(
+    client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
+):
+    """Manual /game/action combat text may spend remaining movement but cannot reuse an action."""
+    from services import action_parser, combat_narrator, input_guard
+    from services.game_combat_action_executor import ACTION_ALREADY_USED_MESSAGE
+
+    async def fake_classify_player_input(*_args, **_kwargs):
+        return {"verdict": "in_game", "reason": "test", "refusal": ""}
+
+    async def fake_parse_combat_action(**kwargs):
+        assert kwargs["move_remaining"] == 2
+        return {
+            "actions": [
+                {"type": "move", "target_id": "goblin-1"},
+                {"type": "attack", "target_id": "goblin-1", "is_ranged": False},
+            ],
+            "narrative_hint": kwargs["player_input"],
+            "_fallback": False,
+        }
+
+    async def fake_narrate_action(**_kwargs):
+        return None
+
+    monkeypatch.setattr(input_guard, "classify_player_input", fake_classify_player_input)
+    monkeypatch.setattr(action_parser, "parse_combat_action", fake_parse_combat_action)
+    monkeypatch.setattr(combat_narrator, "narrate_action", fake_narrate_action)
+
+    combat_state.entity_positions = {
+        sample_character.id: {"x": 0, "y": 0},
+        "goblin-1": {"x": 4, "y": 0},
+    }
+    combat_state.turn_states = {
+        sample_character.id: {
+            "action_used": True,
+            "movement_used": 4,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        }
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        "/game/action",
+        headers=headers,
+        json={
+            "session_id": sample_session.id,
+            "action_text": "I move closer and attack the goblin.",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["type"] == "combat_action"
+    assert data["dice_display"] == []
+    assert data["errors"] == [ACTION_ALREADY_USED_MESSAGE]
+    assert data["combat_update"]["entity_positions"][sample_character.id] == {"x": 2, "y": 0}
+    assert data["combat_update"]["turn_states"][sample_character.id]["action_used"] is True
+    assert data["combat_update"]["turn_states"][sample_character.id]["movement_used"] == 6
+
+    await db_session.refresh(combat_state)
+    await db_session.refresh(sample_session)
+    assert combat_state.entity_positions[sample_character.id] == {"x": 2, "y": 0}
+    assert combat_state.turn_states[sample_character.id]["action_used"] is True
+    assert combat_state.turn_states[sample_character.id]["movement_used"] == 6
+    assert sample_session.game_state["enemies"][0]["hp_current"] == 7
+
+
 async def test_combat_move_rejects_speed_zero_character(
     client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):
