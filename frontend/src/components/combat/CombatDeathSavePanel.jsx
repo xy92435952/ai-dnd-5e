@@ -34,11 +34,20 @@ export default function CombatDeathSavePanel({
   const failures = saves.failures || 0
   const canRoll = lifeState === 'dying' && isPlayerTurn && !isProcessing && !syncBlocked
   const title = lifeState === 'stable' ? '已稳定' : '濒死豁免'
+  const disabledReason = lifeState === 'stable'
+    ? '角色已稳定'
+    : syncBlocked
+      ? '等待战斗同步恢复'
+      : isProcessing
+        ? '正在结算上一项动作'
+        : !isPlayerTurn
+          ? '等待你的回合'
+          : ''
   const hint = lifeState === 'stable'
     ? '角色已稳定，等待治疗或战斗结束。'
-    : isPlayerTurn
-      ? '轮到你时进行 d20 死亡豁免。'
-      : '等待你的回合进行死亡豁免。'
+    : disabledReason
+      ? `${disabledReason}后进行死亡豁免。`
+      : '轮到你时进行 d20 死亡豁免。'
 
   return (
     <div style={{
@@ -69,6 +78,7 @@ export default function CombatDeathSavePanel({
         className="btn-danger"
         onClick={onDeathSave}
         disabled={!canRoll}
+        title={disabledReason || '掷 d20 死亡豁免'}
         style={{ fontSize: 10, padding: '6px 8px' }}
       >
         {syncBlocked ? '同步中' : lifeState === 'stable' ? '无需检定' : '掷死亡豁免'}

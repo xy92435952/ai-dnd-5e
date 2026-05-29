@@ -23,9 +23,11 @@ export default function SpellModalTabs({
       {[1,2,3,4,5].map(lvl => {
         const cnt = available(lvl)
         const hasSpells = spellList.some(s => s.level <= lvl)
+        const disabledReason = cnt <= 0 ? `没有可用的 ${lvl} 环法术位` : !hasSpells ? `没有可用的 ${lvl} 环法术` : ''
         return (
           <button key={lvl} onClick={() => { setLevel(lvl); setSelectedSpell(null) }}
             disabled={cnt <= 0 || !hasSpells}
+            title={disabledReason || `${lvl} 环法术`}
             className="px-2 py-1 rounded text-xs"
             style={{
               background: level===lvl ? 'rgba(138,90,246,0.25)' : 'var(--bg)',

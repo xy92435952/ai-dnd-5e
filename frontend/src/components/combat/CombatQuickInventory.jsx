@@ -48,7 +48,13 @@ export default function CombatQuickInventory({
 
   const actionUsed = Boolean(turnState?.action_used)
   const waitingTurn = !isPlayerTurn
-  const disabledReason = actionUsed ? '本回合动作已使用' : waitingTurn ? '等待你的回合' : ''
+  const disabledReason = disabled
+    ? '正在结算或同步战斗'
+    : actionUsed
+      ? '本回合动作已使用'
+      : waitingTurn
+        ? '等待你的回合'
+        : ''
   const formatQuickLabel = (item) => {
     const label = getInventoryItemLabel(item)
     if (item.uses != null) return `${label} (${item.uses})`
@@ -104,6 +110,7 @@ export default function CombatQuickInventory({
                   key={item.key}
                   aria-label={`用于 ${label}`}
                   disabled={disabled || actionUsed || waitingTurn || Boolean(busyName)}
+                  title={disabledReason || `用于 ${label}`}
                   defaultValue=""
                   onChange={(event) => {
                     const targetId = event.target.value
@@ -135,6 +142,7 @@ export default function CombatQuickInventory({
                 disabled={disabled || actionUsed || waitingTurn || Boolean(busyName)}
                 onClick={() => handleUseConsumable(item)}
                 aria-label={`使用 ${label}`}
+                title={disabledReason || `使用 ${label}`}
                 style={{ fontSize: 10, padding: '4px 7px' }}
               >
                 {quickLabel}

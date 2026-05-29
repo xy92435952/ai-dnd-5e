@@ -10,6 +10,9 @@
 import { MANEUVERS } from '../../data/combat'
 
 export default function ManeuverModal({ diceType, remaining, onUse, onClose }) {
+  const hasDice = remaining > 0
+  const unavailableReason = hasDice ? '' : '没有可用优越骰'
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -30,14 +33,19 @@ export default function ManeuverModal({ diceType, remaining, onUse, onClose }) {
             <button
               key={m.id}
               className="panel"
+              disabled={!hasDice}
+              title={unavailableReason || m.name}
+              aria-disabled={!hasDice}
               style={{
-                padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10,
                 border: '1px solid var(--wood-light)', background: 'var(--bg)', textAlign: 'left',
                 transition: 'border-color 0.2s',
+                opacity: hasDice ? 1 : 0.45,
+                cursor: hasDice ? 'pointer' : 'not-allowed',
               }}
               onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--wood-light)'}
-              onClick={() => { onUse(m.id); onClose() }}
+              onClick={() => { if (hasDice) { onUse(m.id); onClose() } }}
             >
               <span style={{ fontSize: 20 }}>{m.icon}</span>
               <div>
@@ -47,6 +55,11 @@ export default function ManeuverModal({ diceType, remaining, onUse, onClose }) {
             </button>
           ))}
         </div>
+        {!hasDice && (
+          <div style={{ color: 'var(--parchment-dark)', fontSize: 11, marginTop: 10 }}>
+            {unavailableReason}，无法发动战技。
+          </div>
+        )}
         <button className="btn-fantasy" style={{ width: '100%', marginTop: 12, fontSize: 12 }} onClick={onClose}>取消</button>
       </div>
     </div>

@@ -48,6 +48,11 @@ export default function SpellModal({ spells = [], cantrips = [], slots = {}, qui
       ? true
       : available(level) > 0
     : false
+  const castDisabledReason = selectedSpell
+    ? isCantripSpell(selectedSpell, cantrips) || available(level) > 0
+      ? ''
+      : `没有可用的 ${level} 环法术位`
+    : '请选择法术'
 
   return (
     <div onClick={onClose} style={{
@@ -87,6 +92,7 @@ export default function SpellModal({ spells = [], cantrips = [], slots = {}, qui
 
         <SpellModalActions
           canCast={canCast}
+          disabledReason={castDisabledReason}
           selectedSpell={selectedSpell}
           level={level}
           onCast={onCast}

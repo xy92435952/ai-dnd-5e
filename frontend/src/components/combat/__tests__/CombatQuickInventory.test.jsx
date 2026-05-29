@@ -271,4 +271,28 @@ describe('CombatQuickInventory', () => {
     expect(screen.getByRole('button', { name: '使用 治疗药水' })).toBeDisabled()
     expect(screen.getByText('等待你的回合')).toBeInTheDocument()
   })
+
+  it('explains disabled consumables while combat is processing or syncing', () => {
+    render(
+      <CombatQuickInventory
+        session={{
+          session_id: 'sess-1',
+          player: {
+            id: 'char-1',
+            equipment: {
+              gear: [
+                { name: 'Healing Potion', zh: '治疗药水', consumable: true },
+              ],
+            },
+          },
+        }}
+        disabled
+      />,
+    )
+
+    const button = screen.getByRole('button', { name: '使用 治疗药水' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', '正在结算或同步战斗')
+    expect(screen.getByText('正在结算或同步战斗')).toBeInTheDocument()
+  })
 })
