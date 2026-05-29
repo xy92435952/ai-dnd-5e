@@ -611,6 +611,55 @@
 .choice.action .idx { color: #f04040; border-color: rgba(196,40,40,.5); background: rgba(196,40,40,.1); }
 .choice.action:hover .idx { background: #f04040; color: #1a0604; box-shadow: 0 0 10px #f04040; }
 
+.quest-recent-list {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+.quest-recent-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  padding: 2px 7px;
+  border: 1px solid rgba(213,184,121,.28);
+  border-radius: 4px;
+  background: rgba(213,184,121,.08);
+  color: var(--parchment-light);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quest-recent-item b {
+  color: rgba(213,184,121,.76);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0;
+}
+.quest-recent-item.quest {
+  border-color: rgba(240,208,96,.5);
+  background: rgba(138,90,24,.16);
+}
+.quest-recent-item.clue {
+  border-color: rgba(127,232,248,.46);
+  background: rgba(47,168,184,.12);
+}
+.quest-recent-item.decision {
+  border-color: rgba(200,160,255,.46);
+  background: rgba(122,79,196,.14);
+}
+.quest-recent-item.npc {
+  border-color: rgba(106,196,132,.46);
+  background: rgba(42,106,58,.14);
+}
+.quest-recent-item.world {
+  border-color: rgba(240,64,64,.46);
+  background: rgba(138,26,26,.16);
+}
+
 .choice.ended {
   opacity: .4;
   text-decoration: line-through;

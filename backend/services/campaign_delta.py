@@ -41,6 +41,27 @@ def _unique_append(items: list, value: Any, limit: int | None = None) -> list:
     return items[-limit:] if limit else items
 
 
+def _recent_update(
+    update_type: str,
+    label: Any,
+    detail: Any = "",
+    now_iso: str | None = None,
+    extra: dict | None = None,
+) -> dict | None:
+    label_text = _clean_text(label, 120)
+    if not label_text:
+        return None
+    entry = {
+        "type": _clean_text(update_type, 24),
+        "label": label_text,
+        "detail": _clean_text(detail, 180),
+        "at": now_iso or (datetime.utcnow().isoformat() + "Z"),
+    }
+    if extra:
+        entry.update({k: v for k, v in extra.items() if v is not None})
+    return entry
+
+
 def normalize_campaign_delta(delta: Any) -> dict:
     delta = delta if isinstance(delta, dict) else {}
 
@@ -103,6 +124,11 @@ def apply_campaign_delta(existing_state: dict | None, delta: Any, now_iso: str |
     now_iso = now_iso or (datetime.utcnow().isoformat() + "Z")
     delta = normalize_campaign_delta(delta)
     merged = deepcopy(existing_state or {})
+    recent_updates = [
+        dict(item)
+        for item in _strict_list(merged.get("recent_updates"))
+        if isinstance(item, dict) and item.get("label")
+    ]
 
     quest_map = {
         q.get("quest"): dict(q)
@@ -111,6 +137,15 @@ def apply_campaign_delta(existing_state: dict | None, delta: Any, now_iso: str |
     }
     for update in delta["quest_updates"]:
         quest_map[update["quest"]] = update
+        recent = _recent_update(
+            "quest",
+            update["quest"],
+            update.get("outcome") or update.get("status"),
+            now_iso,
+            {"status": update.get("status")},
+        )
+        if recent:
+            recent_updates.append(recent)
     if quest_map:
         merged["quest_log"] = list(quest_map.values())
 
@@ -132,17 +167,34 @@ def apply_campaign_delta(existing_state: dict | None, delta: Any, now_iso: str |
             "key_facts": facts,
             "promises": promises,
         }
+        detail_parts = [update["relationship"]]
+        if update["key_facts"]:
+            detail_parts.append(update["key_facts"][-1])
+        elif update["promises"]:
+            detail_parts.append(update["promises"][-1])
+        recent = _recent_update("npc", name, " / ".join(part for part in detail_parts if part), now_iso)
+        if recent:
+            recent_updates.append(recent)
     if npc_registry:
         merged["npc_registry"] = npc_registry
 
     decisions = list(merged.get("key_decisions", []) or [])
     for decision in delta["key_decisions_add"]:
+        is_new_decision = decision not in decisions
         decisions = _unique_append(decisions, decision, limit=20)
+        if is_new_decision:
+            recent = _recent_update("decision", decision, "关键决定", now_iso)
+            if recent:
+                recent_updates.append(recent)
     if decisions:
         merged["key_decisions"] = decisions
 
     world_flags = dict(merged.get("world_flags", {}) or {})
     world_flags.update(delta["world_flags_set"])
+    for key, value in delta["world_flags_set"].items():
+        recent = _recent_update("world", key, "已触发" if value else "已清除", now_iso)
+        if recent:
+            recent_updates.append(recent)
     if world_flags:
         merged["world_flags"] = world_flags
 
@@ -161,8 +213,14 @@ def apply_campaign_delta(existing_state: dict | None, delta: Any, now_iso: str |
             "found_at": now_iso,
             "is_new": True,
         })
+        recent = _recent_update("clue", clue["text"], clue["category"], now_iso)
+        if recent:
+            recent_updates.append(recent)
         seen_clues.add(clue["text"])
     if clues:
         merged["clues"] = clues[-40:]
+
+    if recent_updates:
+        merged["recent_updates"] = recent_updates[-12:]
 
     return merged

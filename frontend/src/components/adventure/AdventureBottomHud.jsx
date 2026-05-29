@@ -10,6 +10,7 @@ export default function AdventureBottomHud({
   clues,
   npcUpdates,
   keyDecisions,
+  recentConsequences,
   onOpenCharacter,
   onOpenJournal,
 }) {
@@ -30,6 +31,7 @@ export default function AdventureBottomHud({
         clues={clues}
         npcUpdates={npcUpdates}
         keyDecisions={keyDecisions}
+        recentConsequences={recentConsequences}
       />
 
       <div style={{ display: 'flex', gap: 4 }}>

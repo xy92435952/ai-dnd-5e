@@ -1,4 +1,18 @@
-export default function AdventureQuestHud({ questLine, clues, npcUpdates = [], keyDecisions = [] }) {
+const RECENT_TYPE_LABELS = {
+  quest: '任务',
+  clue: '线索',
+  decision: '决定',
+  npc: 'NPC',
+  world: '后果',
+}
+
+export default function AdventureQuestHud({
+  questLine,
+  clues,
+  npcUpdates = [],
+  keyDecisions = [],
+  recentConsequences = [],
+}) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -56,6 +70,28 @@ export default function AdventureQuestHud({ questLine, clues, npcUpdates = [], k
                 · {decision}
               </span>
             ))}
+          </div>
+        </>
+      )}
+      {recentConsequences.length > 0 && (
+        <>
+          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>最近</span>
+          <div className="quest-recent-list">
+            {recentConsequences.map((item, index) => {
+              const type = item.type || 'note'
+              const typeLabel = RECENT_TYPE_LABELS[type] || '记录'
+              const detail = item.detail ? `：${item.detail}` : ''
+              return (
+                <span
+                  key={`${type}-${item.label}-${index}`}
+                  className={`quest-recent-item ${type}`}
+                  title={`${typeLabel} ${item.label}${detail}`}
+                >
+                  <b>{typeLabel}</b>{item.label}{detail}
+                </span>
+              )
+            })}
           </div>
         </>
       )}

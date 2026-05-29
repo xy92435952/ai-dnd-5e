@@ -236,6 +236,7 @@ export default function Adventure() {
     questLine,
     npcUpdates,
     keyDecisions,
+    recentConsequences,
     allMembers,
     latestDmLine,
   } = useAdventureDerivedState({ session, player, companions, logs })
@@ -391,6 +392,7 @@ export default function Adventure() {
           clues={clues}
           npcUpdates={npcUpdates}
           keyDecisions={keyDecisions}
+          recentConsequences={recentConsequences}
           onOpenCharacter={(id) => navigate(`/character/${id}?sessionId=${sessionId}`)}
           onOpenJournal={() => setJournalOpen(true)}
         />

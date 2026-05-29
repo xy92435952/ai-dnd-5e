@@ -92,3 +92,43 @@ def test_apply_campaign_delta_merges_quests_npcs_flags_decisions_and_clues():
             "is_new": True,
         },
     ]
+    assert merged["recent_updates"] == [
+        {
+            "type": "quest",
+            "label": "寻找矿工",
+            "detail": "矿工获救",
+            "at": "2026-05-08T00:00:00Z",
+            "status": "completed",
+        },
+        {
+            "type": "quest",
+            "label": "调查暗门",
+            "detail": "active",
+            "at": "2026-05-08T00:00:00Z",
+            "status": "active",
+        },
+        {
+            "type": "npc",
+            "label": "铁匠",
+            "detail": "友好 / 愿意修装备",
+            "at": "2026-05-08T00:00:00Z",
+        },
+        {
+            "type": "decision",
+            "label": "信任铁匠",
+            "detail": "关键决定",
+            "at": "2026-05-08T00:00:00Z",
+        },
+        {
+            "type": "world",
+            "label": "smith_trusted",
+            "detail": "已触发",
+            "at": "2026-05-08T00:00:00Z",
+        },
+        {
+            "type": "clue",
+            "label": "暗门在井底",
+            "detail": "location",
+            "at": "2026-05-08T00:00:00Z",
+        },
+    ]

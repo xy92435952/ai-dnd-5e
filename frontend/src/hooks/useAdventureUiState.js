@@ -74,6 +74,12 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
       : []
   ), [session])
 
+  const recentConsequences = useMemo(() => (
+    Array.isArray(session?.campaign_state?.recent_updates)
+      ? session.campaign_state.recent_updates.slice(-4).reverse()
+      : []
+  ), [session])
+
   return {
     canPrepareSpells,
     sceneVibe: session?.game_state?.scene_vibe || {},
@@ -81,6 +87,7 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
     questLine: session?.campaign_state?.quest_log?.find(q => q.status === 'active'),
     npcUpdates,
     keyDecisions,
+    recentConsequences,
     allMembers,
     latestDmLine,
   }

@@ -45,6 +45,13 @@ describe('useAdventureDerivedState', () => {
             铁匠: { relationship: '友好', key_facts: ['愿意修装备'] },
           },
           key_decisions: ['救下铁匠', '信任铁匠'],
+          recent_updates: [
+            { type: 'quest', label: '旧任务', detail: 'completed', at: '1' },
+            { type: 'npc', label: '铁匠', detail: '友好', at: '2' },
+            { type: 'decision', label: '信任铁匠', detail: '关键决定', at: '3' },
+            { type: 'clue', label: '暗门在井底', detail: 'location', at: '4' },
+            { type: 'world', label: 'smith_trusted', detail: '已触发', at: '5' },
+          ],
         },
       },
       player: { id: 'p1', name: '法师', char_class: 'Wizard' },
@@ -64,6 +71,12 @@ describe('useAdventureDerivedState', () => {
       { name: '铁匠', relationship: '友好', keyFacts: ['愿意修装备'] },
     ])
     expect(result.current.keyDecisions).toEqual(['救下铁匠', '信任铁匠'])
+    expect(result.current.recentConsequences).toEqual([
+      { type: 'world', label: 'smith_trusted', detail: '已触发', at: '5' },
+      { type: 'clue', label: '暗门在井底', detail: 'location', at: '4' },
+      { type: 'decision', label: '信任铁匠', detail: '关键决定', at: '3' },
+      { type: 'npc', label: '铁匠', detail: '友好', at: '2' },
+    ])
     expect(result.current.allMembers).toEqual([
       { id: 'p1', name: '法师', char_class: 'Wizard', isPlayer: true },
       { id: 'c1', name: '战士', isPlayer: false },
