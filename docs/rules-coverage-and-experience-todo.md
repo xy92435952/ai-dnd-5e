@@ -227,7 +227,7 @@ Priority:
 
 ### P1 AI Quality
 
-- [ ] Add regression prompts for DM output schema: narrative, needs_check, state_delta, player_choices, companion_reactions.
+- [x] Add regression prompts for DM output schema: narrative, needs_check, state_delta, player_choices, companion_reactions. 2026-05-29: added offline DM schema regression prompts covering dialogue choices, pending skill checks, runtime wrapping, and companion handoff in `backend/tests/unit/test_dm_agent_schema_regression_prompts.py`.
 - [ ] Add tests that hostile prompt injection in player input cannot override rule math or JSON schema.
 - [ ] Add scenario memory tests: NPC name, location, clue, quest state, and prior consequence survive several turns.
 - [ ] Add combat narration tests that AI text never contradicts backend dice results.
