@@ -340,6 +340,7 @@ class PreparedSpellsResult(BaseModel):
     model_config = ConfigDict(extra="allow")
     prepared_spells: list[str]
     max_prepared: int
+    preparation_type: Optional[str] = None
 
 
 class GoldUpdateResult(BaseModel):

@@ -4,6 +4,7 @@ import pytest
 
 from models import Character
 from services.dnd_rules import calc_derived
+from services.spell_service import spell_service
 
 pytestmark = pytest.mark.integration
 
@@ -91,6 +92,51 @@ async def test_level_up_updates_class_resources_and_serializes_them(client, db_s
 
     await db_session.refresh(fighter)
     assert fighter.class_resources == resources
+
+
+async def test_prepared_caster_can_prepare_spells_from_class_list(client, db_session, sample_user):
+    ability_scores = {"str": 10, "dex": 12, "con": 14, "int": 10, "wis": 16, "cha": 10}
+    derived = calc_derived("Cleric", 1, ability_scores, None, race="Human")
+    cleric_spell = next(
+        spell["name"]
+        for spell in spell_service.get_for_class("Cleric")
+        if spell.get("level", 0) > 0
+    )
+    cleric = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Prepared Cleric",
+        race="Human",
+        char_class="Cleric",
+        level=1,
+        ability_scores=ability_scores,
+        derived=derived,
+        hp_current=derived["hp_max"],
+        spell_slots=dict(derived.get("spell_slots_max", {})),
+        known_spells=[],
+        prepared_spells=[],
+        proficient_skills=[],
+        proficient_saves=["wis", "cha"],
+        is_player=True,
+    )
+    db_session.add(cleric)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.patch(
+        f"/characters/{cleric.id}/prepared-spells",
+        headers=headers,
+        json={"prepared_spells": [cleric_spell]},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["prepared_spells"] == [cleric_spell]
+    assert data["max_prepared"] == 4
+    assert data["preparation_type"] == "prepared"
+
+    await db_session.refresh(cleric)
+    assert cleric.prepared_spells == [cleric_spell]
 
 
 async def test_exhaustion_level_4_clamps_hp_and_serializes_effective_max(

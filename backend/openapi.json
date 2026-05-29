@@ -3100,6 +3100,17 @@
             "title": "Max Prepared",
             "type": "integer"
           },
+          "preparation_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preparation Type"
+          },
           "prepared_spells": {
             "items": {
               "type": "string"

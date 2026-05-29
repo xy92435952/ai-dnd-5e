@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from services.dnd_rules import CASTER_TYPE, SPELL_PREPARATION_TYPE, _normalize_class
+
 
 @dataclass
 class CharacterSpellError(Exception):
@@ -16,26 +18,65 @@ def build_prepared_spells_update(
     requested_spells: list[str],
     level: int,
     derived: dict | None,
+    char_class: str | None = None,
+    available_class_spells: list[str] | None = None,
 ) -> dict:
+    cls_key = _normalize_class(char_class) if char_class else None
+    preparation_type = SPELL_PREPARATION_TYPE.get(cls_key) if cls_key else None
     known = set(known_spells or [])
-    for spell in requested_spells:
-        if spell not in known:
-            raise CharacterSpellError(400, f"法术【{spell}】不在已知法术列表中")
+    requested = list(requested_spells)
+
+    if preparation_type == "known":
+        if set(requested) != known or len(requested) != len(known):
+            raise CharacterSpellError(400, "Known-spell casters do not prepare a daily subset")
+        return {
+            "prepared_spells": list(known_spells or []),
+            "max_prepared": len(known),
+            "preparation_type": preparation_type,
+        }
+
+    allowed_spells = known
+    if preparation_type == "prepared" and available_class_spells is not None:
+        allowed_spells = set(available_class_spells)
+
+    for spell in requested:
+        if spell not in allowed_spells:
+            source = "class spell list" if preparation_type == "prepared" else "known spell list"
+            raise CharacterSpellError(400, f"Spell '{spell}' is not in the character's {source}")
 
     derived_data = derived or {}
     modifiers = derived_data.get("ability_modifiers", {})
     spell_ability = derived_data.get("spell_ability")
     spell_modifier = modifiers.get(spell_ability, 0) if spell_ability else 0
-    max_prepared = max(1, level + spell_modifier)
+    max_prepared = _max_prepared_spells(
+        level=level,
+        spell_modifier=spell_modifier,
+        cls_key=cls_key,
+        preparation_type=preparation_type,
+    )
 
-    if len(requested_spells) > max_prepared:
+    if len(requested) > max_prepared:
         raise CharacterSpellError(
             400,
-            f"已备法术上限为 {max_prepared}（等级{level}+修正{spell_modifier}），"
-            f"你选了 {len(requested_spells)} 个",
+            f"Prepared spell limit is {max_prepared} "
+            f"(level {level}, modifier {spell_modifier}); selected {len(requested)}.",
         )
 
     return {
-        "prepared_spells": list(requested_spells),
+        "prepared_spells": requested,
         "max_prepared": max_prepared,
+        "preparation_type": preparation_type or "spellbook",
     }
+
+
+def _max_prepared_spells(
+    *,
+    level: int,
+    spell_modifier: int,
+    cls_key: str | None,
+    preparation_type: str | None,
+) -> int:
+    caster_type = CASTER_TYPE.get(cls_key) if cls_key else None
+    if preparation_type == "prepared" and caster_type == "half":
+        return max(1, (level // 2) + spell_modifier)
+    return max(1, level + spell_modifier)

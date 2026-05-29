@@ -8,11 +8,13 @@ from services.character_leveling_service import CharacterLevelingError, build_le
 from services.character_serializer import serialize_character
 from services.character_spell_service import CharacterSpellError, build_prepared_spells_update
 from services.dnd_rules import (
+    _normalize_class,
     clamp_current_hp_to_effective_max,
     get_effective_hp_base,
     get_effective_hp_max,
     get_exhaustion_effects,
 )
+from services.spell_service import spell_service
 
 
 async def update_character_prepared_spells(
@@ -29,12 +31,19 @@ async def update_character_prepared_spells(
     if user_id is not None:
         await assert_character_access(char, user_id, db)
 
+    cls_key = _normalize_class(char.char_class)
     try:
         result = build_prepared_spells_update(
             known_spells=char.known_spells,
             requested_spells=req.prepared_spells,
             level=char.level,
             derived=char.derived,
+            char_class=cls_key,
+            available_class_spells=[
+                spell["name"]
+                for spell in spell_service.get_for_class(cls_key)
+                if spell.get("level", 0) > 0
+            ],
         )
     except CharacterSpellError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc

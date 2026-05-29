@@ -2805,6 +2805,8 @@ export interface components {
         PreparedSpellsResult: {
             /** Max Prepared */
             max_prepared: number;
+            /** Preparation Type */
+            preparation_type?: string | null;
             /** Prepared Spells */
             prepared_spells: string[];
         } & {
