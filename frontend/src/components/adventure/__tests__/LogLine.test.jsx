@@ -35,4 +35,15 @@ describe('LogLine', () => {
     expect(screen.getByText('私密')).toBeInTheDocument()
     expect(screen.queryByText('主持')).not.toBeInTheDocument()
   })
+
+  it('shows companion speaker names when companion reactions are logged', () => {
+    render(<LogLine entry={{
+      role: 'companion',
+      speaker: '艾莉',
+      content: '我盯着后门。',
+    }} />)
+
+    expect(screen.getByText(/艾莉/)).toBeInTheDocument()
+    expect(screen.getByText(/我盯着后门/)).toBeInTheDocument()
+  })
 })

@@ -66,7 +66,9 @@ function logsToHistoryEntries(logs = [], player) {
 
     // 队友（companion 或 companion_{name}）
     if (role === 'companion' || role.startsWith('companion_')) {
-      const maybeName = role.startsWith('companion_') ? role.slice('companion_'.length) : '队友'
+      const maybeName = role.startsWith('companion_')
+        ? role.slice('companion_'.length)
+        : l.speaker || l.companion_speaker || '队友'
       entries.push({
         kind: 'companion',
         speaker: maybeName,

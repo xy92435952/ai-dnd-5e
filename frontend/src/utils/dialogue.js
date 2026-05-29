@@ -133,10 +133,23 @@ export function buildDialogueQueue(narrative, companionReactions, companionList 
       })
     })
   }
-  if (companionReactions) {
-    splitCompanionReactions(companionReactions, companionList || []).forEach(seg => {
-      queue.push({ speaker: seg.speaker, role: 'companion', text: seg.text, color: seg.color })
-    })
+  const reactions = splitCompanionReactions(companionReactions, companionList || [])
+    .map(seg => ({ speaker: seg.speaker, role: 'companion', text: seg.text, color: seg.color }))
+
+  if (reactions.length > 0) {
+    let target = null
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (queue[i]?.role === 'dm') {
+        target = queue[i]
+        break
+      }
+    }
+    if (!target) target = queue[queue.length - 1]
+    if (target) {
+      target.companionReactions = reactions
+    } else {
+      queue.push(...reactions)
+    }
   }
   return queue
 }

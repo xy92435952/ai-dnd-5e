@@ -127,7 +127,7 @@ describe('extractNarrative', () => {
 
 
 describe('buildDialogueQueue', () => {
-  it('combines DM narrative and companion reactions in display order', () => {
+  it('keeps companion reactions on a secondary field instead of the main queue', () => {
     const queue = buildDialogueQueue(
       '[村长]: 夜路不好走。\n他把灯递给你。',
       '[艾莉]: 我来断后。',
@@ -136,8 +136,15 @@ describe('buildDialogueQueue', () => {
 
     expect(queue).toEqual([
       { speaker: '村长', role: 'npc', text: '[村长]: 夜路不好走。', color: undefined },
-      { speaker: 'DM', role: 'dm', text: '他把灯递给你。', color: undefined },
-      { speaker: '艾莉', role: 'companion', text: '我来断后。', color: undefined },
+      {
+        speaker: 'DM',
+        role: 'dm',
+        text: '他把灯递给你。',
+        color: undefined,
+        companionReactions: [
+          { speaker: '艾莉', role: 'companion', text: '我来断后。', color: undefined },
+        ],
+      },
     ])
   })
 

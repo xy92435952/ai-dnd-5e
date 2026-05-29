@@ -1,4 +1,5 @@
 import StageBubble from './StageBubble'
+import CompanionReactionPanel from './CompanionReactionPanel'
 
 export default function DialogueStagePlayer({
   dialogueQueue,
@@ -18,6 +19,10 @@ export default function DialogueStagePlayer({
       }}
     >
       <StageBubble seg={dialogueQueue[dialogueIdx]} typingText={typingText} typingDone={typingDone} />
+      <CompanionReactionPanel
+        reactions={dialogueQueue[dialogueIdx].companionReactions}
+        visible={typingDone}
+      />
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 10,

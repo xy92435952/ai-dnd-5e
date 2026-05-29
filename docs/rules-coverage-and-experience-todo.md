@@ -219,7 +219,7 @@ Priority:
 - [x] Make skill-check choices consistently show skill, DC, risk, and likely ability before clicking. 2026-05-29: Adventure choices now show persistent skill, ability, DC, and risk badges before click, sharing one metadata parser with the skill-check click path and covering tag-based plus top-level check metadata.
 - [x] Distinguish pure roleplay, dialogue, movement, investigation, rest, lore, and danger choices visually. 2026-05-29: Adventure choices now derive persistent intent badges for roleplay, dialogue, movement, investigation, rest, lore, and danger from explicit fields, tags, skill checks, and text hints, with utility and component coverage.
 - [x] Show recent consequences and quest updates after state delta is applied. 2026-05-29: campaign delta application now records bounded recent quest, clue, decision, NPC, and world-flag updates in `campaign_state.recent_updates`, and the Adventure quest HUD surfaces the newest consequences with backend, hook, component, and smoke coverage.
-- [ ] Show party member reactions in a secondary area so they add flavor without burying main DM narration.
+- [x] Show party member reactions in a secondary area so they add flavor without burying main DM narration. 2026-05-29: Adventure dialogue queues now attach `companion_reactions` as secondary metadata on the main DM/NPC stage segment, render them in a separate companion reaction panel after the main line finishes typing, and still log each companion line with speaker metadata for history.
 - [ ] Add "continue / ask / act" affordances that help players recover when unsure what to type.
 - [ ] Add journal view for NPCs, quests, clues, locations, and unresolved threats.
 - [ ] Add checkpoint restore UI that explains what will be restored.

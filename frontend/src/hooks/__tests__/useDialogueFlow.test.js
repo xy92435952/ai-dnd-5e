@@ -67,8 +67,12 @@ describe('useDialogueFlow', () => {
     const { result, addLog } = createHook()
     act(() => {
       result.current.enterStage([
-        { role: 'dm', text: 'a' },
-        { role: 'companion', text: 'b' },
+        {
+          role: 'dm',
+          text: 'a',
+          companionReactions: [{ role: 'companion', speaker: '艾莉', text: 'b' }],
+        },
+        { role: 'npc', speaker: '村长', text: 'c' },
       ])
     })
     // 第 1 次 advance：补全字
@@ -76,13 +80,14 @@ describe('useDialogueFlow', () => {
     // 第 2 次 advance：log 第 0 段，进 idx=1
     act(() => { result.current.advance() })
     expect(addLog).toHaveBeenCalledWith('dm', 'a', 'narrative')
+    expect(addLog).toHaveBeenCalledWith('companion', 'b', 'companion', { speaker: '艾莉' })
     expect(result.current.dialogueIdx).toBe(1)
     expect(result.current.dialogueMode).toBe('stage')
 
     // 第 3 / 4 次：补全 + log 第 1 段，队列结束回 chat
     act(() => { result.current.advance() })
     act(() => { result.current.advance() })
-    expect(addLog).toHaveBeenCalledWith('companion', 'b', 'companion')
+    expect(addLog).toHaveBeenCalledWith('npc', 'c', 'npc')
     expect(result.current.dialogueMode).toBe('chat')
     expect(result.current.dialogueQueue).toEqual([])
   })

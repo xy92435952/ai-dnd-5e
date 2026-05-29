@@ -66,12 +66,13 @@ export default function LogLine({ entry }) {
     )
   }
   if (role === 'companion') {
+    const speaker = entry.speaker || entry.companion_speaker || '队友'
     return (
       <p style={{
         color: 'var(--emerald-light)', fontSize: 12,
         margin: '4px 0', padding: '0 0 0 14px', fontStyle: 'italic',
         borderLeft: '2px solid rgba(90,168,120,.5)',
-      }}>❖ {renderLightMarkdown(txt, '#a8f0c0')}</p>
+      }}>❖ {speaker}：{renderLightMarkdown(txt, '#a8f0c0')}</p>
     )
   }
   if (role === 'dice') {

@@ -98,6 +98,13 @@ export function useDialogueFlow({ addLog }) {
       } else {
         addLog(seg.role, seg.text, seg.role === 'dm' ? 'narrative' : seg.role)
       }
+      if (Array.isArray(seg.companionReactions)) {
+        seg.companionReactions.forEach(reaction => {
+          if (!reaction?.text) return
+          const reactionExtra = { ...extra, speaker: reaction.speaker }
+          addLog('companion', reaction.text, 'companion', reactionExtra)
+        })
+      }
     }
     const next = dialogueIdx + 1
     if (next >= dialogueQueue.length) {
