@@ -13,6 +13,7 @@ import {
   buildInitiativeChips,
   buildThreatCells,
   canActInCombatTurn,
+  collectSpellCastTargetIds,
   computeSkillStats,
   canDriveAiCombatTurns,
   formatWeaponResourceLog,
@@ -152,6 +153,35 @@ describe('combat grid helpers', () => {
       entityPositions: {},
       playerPos: { x: 2, y: 2 },
     })).toBe('2_2')
+  })
+
+  it('collectSpellCastTargetIds returns living entities inside the AoE preview', () => {
+    expect(collectSpellCastTargetIds({
+      spell: {
+        name: '火球术',
+        type: 'damage',
+        aoe: true,
+        desc: '半径10尺爆炸',
+      },
+      playerId: 'player',
+      aoeHover: '3_3',
+      combat: {
+        entity_positions: {
+          player: { x: 2, y: 2 },
+          enemy1: { x: 3, y: 3 },
+          enemy2: { x: 8, y: 8 },
+          ally: { x: 4, y: 4 },
+          deadEnemy: { x: 2, y: 3 },
+        },
+        entities: {
+          player: { id: 'player', is_enemy: false, hp_current: 12 },
+          enemy1: { id: 'enemy1', is_enemy: true, hp_current: 7 },
+          enemy2: { id: 'enemy2', is_enemy: true, hp_current: 7 },
+          ally: { id: 'ally', is_enemy: false, hp_current: 5 },
+          deadEnemy: { id: 'deadEnemy', is_enemy: true, hp_current: 0 },
+        },
+      },
+    })).toEqual(['player', 'enemy1', 'ally'])
   })
 
   it('buildCombatGrid 生成固定尺寸格子并挂载实体', () => {

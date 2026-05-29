@@ -155,14 +155,14 @@ export function getSpellCastDisabledReason({
   spell,
   level = 0,
   cantrips = [],
-  available = () => 0,
+  available = null,
   selectedTarget = null,
   aoeHover = null,
 } = {}) {
   if (!spell) return '请选择法术'
 
   const isCantrip = spell.level === 0 || (cantrips || []).some(name => spellNameMatches(spell, name))
-  if (!isCantrip && available(level) <= 0) return `没有可用的 ${level} 环法术位`
+  if (!isCantrip && typeof available === 'function' && available(level) <= 0) return `没有可用的 ${level} 环法术位`
 
   const spellType = String(spell.type || '').toLowerCase()
   const isAoe = !!spell.aoe
@@ -175,6 +175,45 @@ export function getSpellCastDisabledReason({
   }
 
   return ''
+}
+
+export function collectSpellCastTargetIds({
+  spell,
+  selectedTarget = null,
+  playerId = null,
+  combat = null,
+  aoeHover = null,
+} = {}) {
+  if (!spell) return []
+  if (!spell.aoe) {
+    const target = spell.type === 'heal' ? (selectedTarget || playerId) : selectedTarget
+    return target ? [target] : []
+  }
+
+  const entityPositions = combat?.entity_positions || {}
+  const entities = combat?.entities || {}
+  const playerPos = playerId ? entityPositions[playerId] : null
+  const centerKey = aoeHover || getAoePreviewCenterKey({
+    selectedTarget,
+    entityPositions,
+    playerPos,
+  })
+  const cells = buildAoeCells({
+    aoePreview: buildSpellAoePreview(spell),
+    aoeHover: centerKey,
+    origin: playerPos,
+  })
+  if (!cells.ring.size) return []
+
+  return Object.entries(entityPositions)
+    .filter(([, pos]) => pos && cells.ring.has(`${pos.x}_${pos.y}`))
+    .filter(([entityId]) => {
+      const entity = entities[entityId]
+      if (!entity || isCombatEntityDead(entity)) return false
+      if (spell.type === 'heal') return !entity.is_enemy
+      return true
+    })
+    .map(([entityId]) => entityId)
 }
 
 function normalizeEntityStateUpdate(targetId, update = {}) {

@@ -211,6 +211,74 @@ describe('useCombatSpellFlow', () => {
     })
   })
 
+  it('sends explicit AoE targets gathered from the hovered template cells', async () => {
+    spellRollMock.mockResolvedValueOnce({
+      pending_spell_id: 'pending-fireball',
+      damage_dice: '8d6',
+      targets: [
+        { id: 'goblin-1', name: '哥布林' },
+        { id: 'goblin-2', name: '哥布林弓手' },
+      ],
+      turn_state: { action_used: true },
+    })
+    const processingRef = { current: false }
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'wizard-1',
+      selectedTarget: null,
+      aoeHover: '6_5',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice: vi.fn(),
+      combat: {
+        round_number: 2,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'wizard-1', id: 'wizard-1' }],
+        entity_positions: {
+          'wizard-1': { x: 5, y: 5 },
+          'goblin-1': { x: 6, y: 5 },
+          'goblin-2': { x: 7, y: 5 },
+          'goblin-far': { x: 10, y: 10 },
+        },
+        entities: {
+          'wizard-1': { id: 'wizard-1', is_enemy: false, hp_current: 18 },
+          'goblin-1': { id: 'goblin-1', is_enemy: true, hp_current: 7 },
+          'goblin-2': { id: 'goblin-2', is_enemy: true, hp_current: 7 },
+          'goblin-far': { id: 'goblin-far', is_enemy: true, hp_current: 7 },
+        },
+      },
+    }))
+
+    await act(async () => {
+      await result.current({
+        name: '火球术',
+        type: 'damage',
+        aoe: true,
+        desc: '半径5尺爆炸',
+      }, 3)
+    })
+
+    expect(spellRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'wizard-1',
+      '火球术',
+      3,
+      'wizard-1',
+      ['wizard-1', 'goblin-1', 'goblin-2'],
+      '2:0:wizard-1',
+    )
+  })
+
   it('does not cast when the current user does not control this turn', async () => {
     const setIsProcessing = vi.fn()
     const setSpellModalOpen = vi.fn()

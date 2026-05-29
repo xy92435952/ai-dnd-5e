@@ -1,7 +1,13 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyActionResultEntityStates, getCombatTurnToken, getSpellCastDisabledReason, parseDiceNotation } from '../utils/combat'
+import {
+  applyActionResultEntityStates,
+  collectSpellCastTargetIds,
+  getCombatTurnToken,
+  getSpellCastDisabledReason,
+  parseDiceNotation,
+} from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
@@ -37,13 +43,13 @@ export function useCombatSpellFlow({
       setError(blockedReason)
       return
     }
-    const target = selectedTarget || null
-    const effectiveTarget = spell.type === 'heal' ? (target || playerId) : target
-
-    if (spell.type === 'damage' && !effectiveTarget) {
-      setError('请先选择一个目标再施法')
-      return
-    }
+    const targetIds = collectSpellCastTargetIds({
+      spell,
+      selectedTarget,
+      playerId,
+      combat,
+      aoeHover,
+    })
 
     processingRef.current = true
     setIsProcessing(true)
@@ -51,7 +57,6 @@ export function useCombatSpellFlow({
     setError('')
 
     try {
-      const targetIds = Array.isArray(effectiveTarget) ? effectiveTarget : (effectiveTarget ? [effectiveTarget] : [])
       const rollResult = await gameApi.spellRoll(
         sessionId, playerId, spell.name, level,
         targetIds[0] || null, targetIds, getCombatTurnToken(combat),
