@@ -13,6 +13,7 @@ import pytest
 import pytest_asyncio
 
 from models import CombatState, Character
+from models import SessionMember
 
 pytestmark = pytest.mark.integration
 
@@ -380,6 +381,125 @@ async def test_zero_hp_character_cannot_make_exploration_skill_check(
 
 
 # ─── AoE 群体伤害 / 治疗 ──────────────────────────────────
+
+@pytest.mark.parametrize("life_state", ["dying", "stable", "dead"])
+async def test_zero_hp_character_cannot_submit_exploration_action(
+    life_state, client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_session.combat_active = False
+    sample_character.hp_current = 0
+    sample_character.death_saves = {
+        "dying": {"successes": 0, "failures": 0, "stable": False},
+        "stable": {"successes": 0, "failures": 0, "stable": True},
+        "dead": {"successes": 0, "failures": 3, "stable": False},
+    }[life_state]
+    await db_session.commit()
+
+    response = await client.post(
+        "/game/action",
+        headers=headers,
+        json={
+            "session_id": sample_session.id,
+            "action_text": "I search the old room.",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    assert life_state in response.text
+
+
+async def test_incapacitating_condition_blocks_exploration_action(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_session.combat_active = False
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["paralyzed"]
+    await db_session.commit()
+
+    response = await client.post(
+        "/game/action",
+        headers=headers,
+        json={
+            "session_id": sample_session.id,
+            "action_text": "I force the door open.",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    assert "paralyzed" in response.text
+
+
+async def test_ai_takeover_cannot_submit_for_zero_hp_speaker(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    import uuid as _uuid
+    from datetime import datetime, timedelta
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from models import User
+    import bcrypt
+
+    guest = User(
+        id=str(_uuid.uuid4()),
+        username="takeover_guest",
+        password_hash=bcrypt.hashpw(b"password", bcrypt.gensalt()).decode(),
+        display_name="Takeover Guest",
+    )
+    db_session.add(guest)
+    sample_session.is_multiplayer = True
+    sample_session.room_code = "TOVR01"
+    sample_session.host_user_id = sample_user.id
+    sample_session.combat_active = False
+    sample_session.game_state = {
+        **(sample_session.game_state or {}),
+        "multiplayer": {
+            "game_started": True,
+            "current_speaker_user_id": sample_user.id,
+            "online_user_ids": [guest.id],
+        },
+    }
+    flag_modified(sample_session, "game_state")
+    sample_character.hp_current = 0
+    sample_character.death_saves = {"successes": 0, "failures": 0, "stable": False}
+    sample_character.user_id = sample_user.id
+    sample_character.is_player = True
+    db_session.add_all([
+        SessionMember(
+            session_id=sample_session.id,
+            user_id=sample_user.id,
+            role="host",
+            character_id=sample_character.id,
+            last_seen_at=datetime.utcnow() - timedelta(seconds=120),
+        ),
+        SessionMember(
+            session_id=sample_session.id,
+            user_id=guest.id,
+            role="player",
+            last_seen_at=datetime.utcnow(),
+        ),
+    ])
+    await db_session.commit()
+
+    login = await client.post("/auth/login", json={
+        "username": guest.username,
+        "password": "password",
+    })
+    headers = {"Authorization": f"Bearer {login.json()['token']}"}
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/ai-takeover",
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    assert "dying" in response.text
+
 
 @pytest_asyncio.fixture
 async def aoe_combat(db_session, sample_session, sample_character):

@@ -109,6 +109,8 @@ async def _run_player_action(
         await room_service.update_heartbeat(db, session.id, user_id)
         player = await _resolve_multiplayer_player(db, session, user_id)
         if not session.combat_active:
+            if player:
+                await assert_can_act(session, user_id, player.id, db, require_current_turn=False)
             _assert_current_speaker(session, user_id)
             multiplayer_decision = await _run_multiplayer_table_gate(
                 db=db,
@@ -129,6 +131,8 @@ async def _run_player_action(
         await _broadcast_dm_thinking(session.id, user_id, req.action_text)
     else:
         player = await db.get(Character, session.player_character_id)
+        if not session.combat_active and player:
+            await assert_can_act(session, user_id, player.id, db, require_current_turn=False)
 
     roster = CharacterRoster(db, session)
     characters = await roster.party()
@@ -238,6 +242,8 @@ async def ai_takeover_action(
     speaker_char = await db.get(Character, speaker_member.character_id)
     if not speaker_char:
         raise HTTPException(404, "speaker 的角色已被删除")
+
+    await assert_can_act(session, speaker_uid, speaker_char.id, db, require_current_turn=False)
 
     module = await db.get(Module, session.module_id)
     roster = CharacterRoster(db, session)
