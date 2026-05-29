@@ -1,6 +1,7 @@
 from services.combat_prediction_service import (
     build_combat_prediction,
     calculate_hit_and_crit_rate,
+    get_damage_range,
 )
 
 
@@ -37,6 +38,8 @@ def test_build_prediction_uses_ranged_bonus_and_damage_map():
 
     assert result["attack_bonus"] == 7
     assert result["damage_dice"] == "1d6"
+    assert result["damage_min"] == 4
+    assert result["damage_max"] == 9
     assert result["damage_type"] == "切割"
     assert result["target"]["name"] == "骷髅"
     assert "远程" in result["modifiers"]
@@ -64,3 +67,10 @@ def test_build_prediction_surfaces_cover_and_advantage_state():
     assert result["disadvantage"] is False
     assert "半掩护" in result["modifiers"]
     assert "优势" in result["modifiers"]
+
+
+def test_get_damage_range_handles_flat_and_multi_term_dice():
+    assert get_damage_range("1d8", 3) == (4, 11)
+    assert get_damage_range("2d8+4d6", 0) == (6, 40)
+    assert get_damage_range("3d4+3", 0) == (6, 15)
+    assert get_damage_range("—", 0) == (0, 0)

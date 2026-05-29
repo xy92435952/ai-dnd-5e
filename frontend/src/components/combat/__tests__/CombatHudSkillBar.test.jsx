@@ -93,6 +93,8 @@ describe('CombatHudSkillBar', () => {
           hit_rate: 0.7,
           crit_rate: 0.05,
           expected_damage: 5.8,
+          damage_min: 4,
+          damage_max: 11,
           damage_dice: '1d8+3',
           damage_type: '穿刺',
           target_ac: 13,
@@ -112,6 +114,8 @@ describe('CombatHudSkillBar', () => {
     expect(screen.getByText('70%')).toBeInTheDocument()
     expect(screen.getByText('伤害')).toBeInTheDocument()
     expect(screen.getByText('1d8+3 · 期望 5.8 穿刺')).toBeInTheDocument()
+    expect(screen.getByText('伤害范围')).toBeInTheDocument()
+    expect(screen.getByText('4-11 穿刺')).toBeInTheDocument()
     expect(screen.getByText('目标AC')).toBeInTheDocument()
     expect(screen.getByText('13 -> 18')).toBeInTheDocument()
     expect(screen.getByText('掩护')).toBeInTheDocument()

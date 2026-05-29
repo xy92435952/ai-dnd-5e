@@ -29,6 +29,14 @@ function formatDamagePreview(prediction = {}) {
   return dice || '—'
 }
 
+function formatDamageRange(prediction = {}) {
+  const min = prediction.damage_min
+  const max = prediction.damage_max
+  if (min === null || min === undefined || max === null || max === undefined) return null
+  const type = prediction.damage_type || ''
+  return `${min}-${max}${type ? ` ${type}` : ''}`
+}
+
 function normalizeModifierTags(prediction = {}) {
   const tags = Array.isArray(prediction.modifiers) ? [...prediction.modifiers] : []
   if (prediction.advantage && !tags.includes('优势')) tags.unshift('优势')
@@ -43,6 +51,8 @@ export function buildCombatPreviewRows({ prediction = null, skill = null, player
     rows.push({ label: '命中率', value: formatPercent(prediction.hit_rate), tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : 'neutral' })
     if (prediction.crit_rate !== undefined) rows.push({ label: '暴击率', value: formatPercent(prediction.crit_rate) })
     rows.push({ label: '伤害', value: formatDamagePreview(prediction) })
+    const damageRange = formatDamageRange(prediction)
+    if (damageRange) rows.push({ label: '伤害范围', value: damageRange })
 
     const targetAc = prediction.target_ac ?? prediction.target?.ac ?? target?.ac
     const effectiveAc = prediction.effective_target_ac ?? targetAc

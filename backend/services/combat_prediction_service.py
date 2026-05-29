@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 
@@ -9,6 +10,41 @@ ACTION_PREDICTION_MAP = {
     "sacred_flame": {"dice": "1d8", "avg": 4.5, "type": "光耀", "ability": None},
     "shove": {"dice": "—", "avg": 0.0, "type": "力量对抗", "ability": None},
 }
+
+
+def get_damage_range(damage_dice: str, flat_bonus: int = 0) -> tuple[int, int]:
+    notation = str(damage_dice or "").strip().lower().replace(" ", "")
+    if not notation or notation == "—":
+        return 0, max(0, flat_bonus)
+
+    term_matches = list(re.finditer(r"([+-]?)(?:(\d*)d(\d+)|(\d+))", notation))
+    if not term_matches or "".join(term.group(0) for term in term_matches) != notation:
+        try:
+            value = int(notation)
+        except ValueError:
+            return max(0, flat_bonus), max(0, flat_bonus)
+        total = value + flat_bonus
+        return max(0, total), max(0, total)
+
+    minimum = flat_bonus
+    maximum = flat_bonus
+    for term in term_matches:
+        sign = -1 if term.group(1) == "-" else 1
+        if term.group(3):
+            count = int(term.group(2)) if term.group(2) else 1
+            sides = int(term.group(3))
+            if sign > 0:
+                minimum += count
+                maximum += count * sides
+            else:
+                minimum -= count * sides
+                maximum -= count
+        else:
+            value = int(term.group(4)) * sign
+            minimum += value
+            maximum += value
+
+    return max(0, minimum), max(0, maximum)
 
 
 def calculate_hit_and_crit_rate(
@@ -86,6 +122,7 @@ def build_combat_prediction(
         ability_bonus = attacker_derived.get("ability_modifiers", {}).get(info["ability"], 0)
 
     damage_average = info["avg"] + ability_bonus
+    damage_min, damage_max = get_damage_range(info["dice"], ability_bonus)
     expected_damage = round(hit_rate * damage_average + crit_rate * info["avg"], 1)
 
     modifiers = []
@@ -114,6 +151,8 @@ def build_combat_prediction(
         "hit_rate": round(hit_rate, 2),
         "crit_rate": round(crit_rate, 3),
         "expected_damage": expected_damage,
+        "damage_min": damage_min,
+        "damage_max": damage_max,
         "damage_dice": info["dice"],
         "damage_type": info["type"],
         "attack_bonus": attack_bonus,

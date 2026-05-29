@@ -17,6 +17,8 @@ describe('TargetCard', () => {
           hit_rate: 0.65,
           crit_rate: 0.05,
           expected_damage: 4.9,
+          damage_min: 4,
+          damage_max: 11,
           damage_dice: '1d8+3',
           damage_type: '钝击',
           target_ac: 13,
@@ -36,6 +38,8 @@ describe('TargetCard', () => {
     expect(screen.getByText('暴击率')).toBeInTheDocument()
     expect(screen.getByText('5%')).toBeInTheDocument()
     expect(screen.getByText('1d8+3 · 期望 4.9 钝击')).toBeInTheDocument()
+    expect(screen.getByText('伤害范围')).toBeInTheDocument()
+    expect(screen.getByText('4-11 钝击')).toBeInTheDocument()
     expect(screen.getByText('13 -> 15')).toBeInTheDocument()
     expect(screen.getByText('+2 AC')).toBeInTheDocument()
     expect(screen.getByText('+6')).toBeInTheDocument()
