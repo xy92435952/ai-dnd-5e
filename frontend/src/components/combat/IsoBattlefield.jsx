@@ -48,6 +48,7 @@ export default function IsoBattlefield({
       <IsoBattlefieldCell
         key={key}
         className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ` aoe${aoeTemplateClass}` : ''}${isAoeCenter ? ' aoe-center' : ''}`}
+        gridKey={key}
         onClick={() => {
           if (ent && !isWall) {
             if (helpMode && !ent.is_enemy && entId !== playerId) {

@@ -174,7 +174,7 @@ Priority:
 - [ ] Verify manual natural-language combat actions do not bypass movement, turn ownership, or action economy.
 - [ ] Verify combat can end and return to Adventure without stale loading, stale prompts, or orphaned WS state.
 - [x] Verify page refresh during Adventure restores session state for single-player and multiplayer. 2026-05-29: Adventure refresh smoke now covers single-player logs plus pending skill-check restoration, multiplayer speaker/online state, group pending intents/readiness, disabled non-speaker input, and suppression of other-player choices; `prepareOpeningStage` no longer reopens theatre for existing turns with player history.
-- [ ] Verify page refresh during Combat restores current turn, positions, HP, reactions, and prompts.
+- [x] Verify page refresh during Combat restores current turn, positions, HP, reactions, and prompts. 2026-05-29: Combat smoke now covers a refreshed multiplayer combat snapshot restoring the current turn banner/status, controlled character HP and movement, action-used pips, combat logs, grid positions via `data-grid-key`/`data-entity-id`, low enemy HP state, and a pending Shield reaction prompt with attack/damage/HP preview; `combatSession` unit coverage still restores attack/spell reaction prompts from turn state.
 - [ ] Verify server restart behavior is understandable: session restore works where persisted, and WS reconnect errors are visible.
 
 ### P0 Multiplayer Isolation And Capacity

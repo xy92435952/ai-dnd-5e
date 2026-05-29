@@ -435,6 +435,152 @@ describe('Combat render smoke', () => {
     expect(endTurnMock).not.toHaveBeenCalled()
   })
 
+  it('restores multiplayer combat turn, battlefield state, hp, and pending reaction after refresh', async () => {
+    wsConnectedMock.mockReturnValue(true)
+    const restoredCombat = {
+      ...combatFixture,
+      round_number: 4,
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'host-char', name: 'Host Hero', is_player: true, initiative: 18 },
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 16 },
+        { character_id: 'enemy-1', name: '训练假人', is_enemy: true, initiative: 8 },
+      ],
+      entities: {
+        ...combatFixture.entities,
+        'host-char': {
+          id: 'host-char',
+          name: 'Host Hero',
+          is_enemy: false,
+          hp_current: 12,
+          hp_max: 12,
+          ac: 16,
+          char_class: 'Fighter',
+        },
+        'guest-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'guest-char',
+          name: 'Guest Hero',
+          hp_current: 5,
+          hp_max: 18,
+          ac: 15,
+          char_class: 'Wizard',
+          derived: {
+            hp_max: 18,
+            ac: 15,
+            initiative: 3,
+            spell_save_dc: 14,
+          },
+        },
+        'enemy-1': {
+          ...combatFixture.entities['enemy-1'],
+          hp_current: 2,
+          hp_max: 10,
+        },
+      },
+      entity_positions: {
+        'host-char': { x: 9, y: 6 },
+        'guest-char': { x: 10, y: 6 },
+        'enemy-1': { x: 12, y: 6 },
+      },
+      turn_states: {
+        'host-char': { action_used: false, movement_used: 0, movement_max: 6 },
+        'guest-char': {
+          action_used: true,
+          bonus_action_used: false,
+          reaction_used: false,
+          movement_used: 3,
+          movement_max: 6,
+          pending_attack_reaction: {
+            trigger: 'incoming_attack',
+            attacker_id: 'enemy-1',
+            attacker_name: '训练假人',
+            target_id: 'guest-char',
+            reactor_character_id: 'guest-char',
+            reactor_name: 'Guest Hero',
+            incoming_damage: 7,
+            target_hp_before_damage: 5,
+            attack_roll: 17,
+            player_ac: 15,
+            available_reactions: [
+              { type: 'shield', name: 'Shield', cost: '1环法术位', damage_prevented: 7 },
+            ],
+          },
+        },
+      },
+    }
+    const restoredSession = {
+      ...sessionFixture,
+      player: {
+        ...sessionFixture.player,
+        id: 'guest-char',
+        name: 'Guest Hero',
+        hp_current: 5,
+        hp_max: 18,
+        char_class: 'Wizard',
+        level: 3,
+        spell_slots: { '1st': 1 },
+        derived: {
+          ...sessionFixture.player.derived,
+          hp_max: 18,
+          ac: 15,
+          initiative: 3,
+          spell_save_dc: 14,
+        },
+      },
+      logs: [
+        { id: 'combat-log-1', log_type: 'combat', role: 'system', content: '上一轮命中，等待反应。' },
+      ],
+    }
+    const room = {
+      is_multiplayer: true,
+      session_id: 'sess-1',
+      room_code: '234567',
+      host_user_id: 'host-user',
+      members: [
+        { user_id: 'host-user', display_name: 'Host', character_id: 'host-char', is_online: true },
+        { user_id: 'guest-user', display_name: 'Guest', character_id: 'guest-char', is_online: true },
+      ],
+    }
+
+    localStorage.setItem('user', JSON.stringify({ user_id: 'guest-user', display_name: 'Guest' }))
+    window.dispatchEvent(new Event('user-changed'))
+    roomsGetMock.mockResolvedValue(room)
+    getCombatMock.mockResolvedValue(restoredCombat)
+    getSessionMock.mockResolvedValue(restoredSession)
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/当前回合：Guest（Guest Hero）/)
+    expect(screen.getByText('你的回合')).toBeInTheDocument()
+    expect(screen.getByText('R 4')).toBeInTheDocument()
+    expect(screen.getByText('上一轮命中，等待反应。')).toBeInTheDocument()
+
+    const portrait = container.querySelector('.hud-portrait')
+    expect(portrait).toHaveTextContent('Guest Hero')
+    expect(portrait).toHaveTextContent('5 / 18')
+    expect(portrait).toHaveTextContent('移动 3/6')
+    expect(container.querySelector('.action-pips .pip.action.used')).toBeTruthy()
+
+    expect(container.querySelector('.iso-unit.player.active')).toBeTruthy()
+    expect(container.querySelector('.iso-unit.enemy.low')).toBeTruthy()
+    expect(container.querySelector('[data-grid-key="10_6"] [data-entity-id="guest-char"]')).toBeTruthy()
+    expect(container.querySelector('[data-grid-key="12_6"] [data-entity-id="enemy-1"]')).toBeTruthy()
+
+    const prompt = await screen.findByRole('dialog', { name: /反应触发/ })
+    expect(prompt).toHaveTextContent('训练假人 的攻击造成 7 点待处理伤害')
+    expect(prompt).toHaveTextContent('攻击 17 vs AC15')
+    expect(prompt).toHaveTextContent('HP 5 -> 0')
+    expect(prompt).toHaveTextContent('Shield')
+    expect(prompt).toHaveTextContent('HP 5 -> 0，反应后 5')
+  })
+
   it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {
     wsConnectedMock.mockReturnValue(true)
     const hostTurnCombat = {
