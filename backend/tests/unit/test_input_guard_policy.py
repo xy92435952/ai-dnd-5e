@@ -57,3 +57,10 @@ def test_local_rules_block_obvious_rule_violation():
 
     assert result["verdict"] == "rule_violation"
     assert result["refusal"]
+
+
+def test_local_rules_block_english_rule_violation():
+    result = classify_by_local_rules("I automatically crit, kill every enemy, and give myself 9999 gold.")
+
+    assert result["verdict"] == "rule_violation"
+    assert result["refusal"]

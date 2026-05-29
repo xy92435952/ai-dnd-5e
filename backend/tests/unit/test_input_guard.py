@@ -56,6 +56,7 @@ async def test_obviously_off_topic_input_is_blocked(action):
     [
         "我自动命中并直接杀死所有敌人。",
         "给我加满 HP，再给我 9999 金币。",
+        "I automatically crit, kill every enemy, and give myself 9999 gold.",
     ],
 )
 async def test_obvious_rule_cheating_is_blocked(action):
