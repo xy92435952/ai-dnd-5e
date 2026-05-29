@@ -170,7 +170,7 @@ Priority:
 - [ ] Run a full single-player happy-path playthrough from login -> module -> character -> opening scene -> skill check -> combat -> rest -> checkpoint restore.
 - [ ] Run a full 4-player multiplayer happy-path playthrough from create room -> join -> claim characters -> start -> exploration action -> combat -> reactions -> end combat.
 - [ ] Verify every visible combat button either performs a legal action or shows a useful disabled/error state.
-- [ ] Verify Adventure skill-check options still open the dice flow and produce success/failure state changes.
+- [x] Verify Adventure skill-check options still open the dice flow and produce success/failure state changes. 2026-05-29: Adventure smoke now covers clicking a `skill_check` choice, opening the pending dice panel, rolling success and failure outcomes, calling `/game/skill-check`, and sending the result plus original choice context back through `/game/action` as `system_action`.
 - [ ] Verify manual natural-language combat actions do not bypass movement, turn ownership, or action economy.
 - [ ] Verify combat can end and return to Adventure without stale loading, stale prompts, or orphaned WS state.
 - [ ] Verify page refresh during Adventure restores session state for single-player and multiplayer.

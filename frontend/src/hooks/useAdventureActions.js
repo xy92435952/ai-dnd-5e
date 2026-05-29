@@ -217,7 +217,7 @@ export function useAdventureActions({
     }
     const autoMsg = await rollPending()
     if (autoMsg) {
-      setTimeout(() => handleAction(autoMsg), 800)
+      setTimeout(() => handleAction(autoMsg, { actionSource: 'system_action' }), 800)
     }
     inputRef.current?.focus()
   }, [actionBlockedReason, handleAction, inputRef, rollPending, setError])

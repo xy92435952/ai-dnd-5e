@@ -20,6 +20,8 @@ const {
   sessionFixture,
   actionMock,
   aiTakeoverMock,
+  skillCheckMock,
+  rollDice3DMock,
   getSessionMock,
   roomsGetMock,
   wsConnectedMock,
@@ -44,6 +46,8 @@ const {
   },
   actionMock: vi.fn(),
   aiTakeoverMock: vi.fn(),
+  skillCheckMock: vi.fn(),
+  rollDice3DMock: vi.fn(),
   getSessionMock: vi.fn(),
   roomsGetMock: vi.fn(),
   wsConnectedMock: vi.fn(),
@@ -58,7 +62,7 @@ vi.mock('../../api/client', () => ({
     getSession: getSessionMock,
     action:     actionMock,
     aiTakeover: aiTakeoverMock,
-    skillCheck: vi.fn(),
+    skillCheck: skillCheckMock,
     rest:       vi.fn(),
     saveCheckpoint:  vi.fn(),
     getCheckpoint:   vi.fn(),
@@ -79,7 +83,7 @@ vi.mock('../../hooks/useWebSocket', () => ({
 
 vi.mock('../../components/DiceRollerOverlay', () => ({
   default:    () => null,
-  rollDice3D: vi.fn().mockResolvedValue({ total: 10 }),
+  rollDice3D: rollDice3DMock,
 }))
 
 vi.mock('../../juice', () => ({
@@ -101,6 +105,14 @@ describe('Adventure render smoke', () => {
     submitGroupActionMock.mockResolvedValue({})
     joinGroupMock.mockResolvedValue({})
     setGroupReadinessMock.mockResolvedValue({})
+    rollDice3DMock.mockResolvedValue({ total: 10, rolls: [10] })
+    skillCheckMock.mockResolvedValue({
+      d20: 10,
+      modifier: 1,
+      total: 11,
+      success: false,
+      proficient: false,
+    })
   })
 
   it('能挂载且不抛 TDZ / hook 顺序错误', () => {
@@ -172,6 +184,159 @@ describe('Adventure render smoke', () => {
 
     expect(errSpy.mock.calls.map(c => c.join(' ')).join('\n')).not.toMatch(/KIND_TO_SKILL_ZH|ReferenceError/)
     errSpy.mockRestore()
+    cleanup()
+  })
+
+  it('技能检定成功后把结果和原始选择作为系统行动回传给 DM', async () => {
+    rollDice3DMock.mockResolvedValue({ total: 18, rolls: [18] })
+    skillCheckMock.mockResolvedValue({
+      d20: 18,
+      modifier: 2,
+      total: 20,
+      success: true,
+      proficient: true,
+    })
+    actionMock.mockResolvedValue({
+      type: 'exploration',
+      narrative: '你辨认出暗纹是古老的封印符号。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      game_state: {
+        last_turn: {
+          last_actor_user_id: null,
+          player_choices: [{
+            text: '仔细辨认暗纹',
+            skill_check: true,
+            tags: [{ kind: 'perception', label: '察觉', dc: 12 }],
+          }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: {
+          hp_max: 10,
+          proficiency_bonus: 2,
+          ability_modifiers: { wis: 2 },
+        },
+        proficient_skills: ['察觉'],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByRole('button', { name: /仔细辨认暗纹/ })
+    fireEvent.click(screen.getByRole('button', { name: /仔细辨认暗纹/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /投掷 d20/ }))
+
+    await waitFor(() => {
+      expect(skillCheckMock).toHaveBeenCalledWith({
+        session_id: 'sess-1',
+        character_id: 'char-1',
+        skill: '察觉',
+        dc: 12,
+        d20_value: 18,
+        second_d20_value: null,
+      })
+    })
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledWith(expect.objectContaining({
+        session_id: 'sess-1',
+        action_source: 'system_action',
+        action_text: expect.stringContaining('察觉检定 成功'),
+      }))
+    }, { timeout: 1500 })
+    const payload = actionMock.mock.calls[0][0]
+    expect(payload.action_text).toContain('20 vs DC12')
+    expect(payload.action_text).toContain('我的行动："仔细辨认暗纹"')
+
+    cleanup()
+  })
+
+  it('技能检定失败后也会把失败结果作为系统行动回传给 DM', async () => {
+    rollDice3DMock.mockResolvedValue({ total: 4, rolls: [4] })
+    skillCheckMock.mockResolvedValue({
+      d20: 4,
+      modifier: 1,
+      total: 5,
+      success: false,
+      proficient: false,
+    })
+    actionMock.mockResolvedValue({
+      type: 'exploration',
+      narrative: '暗纹像是普通磨损，你没能看出更多。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      game_state: {
+        last_turn: {
+          last_actor_user_id: null,
+          player_choices: [{
+            text: '翻找潮湿的账本',
+            skill_check: true,
+            check_type: '调查',
+            dc: 14,
+          }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: {
+          hp_max: 10,
+          proficiency_bonus: 2,
+          ability_modifiers: { int: 1 },
+        },
+        proficient_skills: [],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByRole('button', { name: /翻找潮湿的账本/ })
+    fireEvent.click(screen.getByRole('button', { name: /翻找潮湿的账本/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /投掷 d20/ }))
+
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledWith(expect.objectContaining({
+        session_id: 'sess-1',
+        action_source: 'system_action',
+        action_text: expect.stringContaining('调查检定 失败'),
+      }))
+    }, { timeout: 1500 })
+    const payload = actionMock.mock.calls[0][0]
+    expect(payload.action_text).toContain('5 vs DC14')
+    expect(payload.action_text).toContain('我的行动："翻找潮湿的账本"')
+
     cleanup()
   })
 
