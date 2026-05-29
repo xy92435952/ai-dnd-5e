@@ -262,10 +262,16 @@ export function useAdventureActions({
 
   const handleCheckpoint = useCallback(async () => {
     try {
-      await gameApi.saveCheckpoint(sessionId)
+      const result = await gameApi.saveCheckpoint(sessionId)
+      if (result?.ok === false) {
+        addLog('system', `存档未更新：${result.message || '没有可以存档的内容'}`, 'system')
+        return result
+      }
       addLog('system', '💾 战役进度已保存', 'system')
+      return result
     } catch (e) {
       addLog('system', `保存失败：${e.message}`, 'system')
+      throw e
     }
   }, [addLog, sessionId])
 

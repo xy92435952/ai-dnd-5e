@@ -33,6 +33,7 @@ import { useAdventureDerivedState, useAdventureUiState } from '../hooks/useAdven
 import { useDialogueWsSync } from '../hooks/useDialogueWsSync'
 import RestModal from '../components/adventure/RestModal'
 import JournalModal from '../components/adventure/JournalModal'
+import CheckpointModal from '../components/adventure/CheckpointModal'
 import PrepareSpellsModal from '../components/adventure/PrepareSpellsModal'
 import MultiplayerSpeakBar from '../components/adventure/MultiplayerSpeakBar'
 import AdventureTopBar from '../components/adventure/AdventureTopBar'
@@ -72,6 +73,7 @@ export default function Adventure() {
   const inputRef = useRef(null)
   const syncNoticeTimerRef = useRef(null)
   const [syncNotice, setSyncNotice] = useState('')
+  const [checkpointOpen, setCheckpointOpen] = useState(false)
 
   const { userId: myUserId } = useUser()
   const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId)
@@ -267,6 +269,13 @@ export default function Adventure() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#06040a', position: 'relative', zIndex: 1 }}>
       <DiceRollerOverlay />
       {prepareOpen && player && <PrepareSpellsModal player={player} onSave={handlePrepareSpells} onClose={() => setPrepareOpen(false)} />}
+      {checkpointOpen && (
+        <CheckpointModal
+          sessionId={sessionId}
+          onSave={handleCheckpoint}
+          onClose={() => setCheckpointOpen(false)}
+        />
+      )}
       {journalOpen && (
         <JournalModal
           session={session}
@@ -325,7 +334,7 @@ export default function Adventure() {
         isLoading={isLoading}
         canPrepareSpells={canPrepareSpells}
         onHome={() => navigate('/')}
-        onCheckpoint={handleCheckpoint}
+        onCheckpoint={() => setCheckpointOpen(true)}
         onShowHistory={() => setShowHistory(true)}
         onOpenJournal={() => { setJournalOpen(true); if (!journalText) handleGenerateJournal() }}
         onOpenRest={() => setRestOpen(true)}

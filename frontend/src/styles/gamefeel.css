@@ -763,6 +763,98 @@
   color: var(--blood-light);
 }
 
+.checkpoint-explainer {
+  padding: 12px;
+  border: 1px solid rgba(240,208,96,.32);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(26,18,8,.72), rgba(10,6,4,.86));
+}
+.checkpoint-explainer p {
+  margin: 0;
+  color: var(--parchment);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.checkpoint-explainer .checkpoint-warning {
+  margin-top: 6px;
+  color: var(--parchment-dark);
+  font-size: 12px;
+}
+.checkpoint-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.checkpoint-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid rgba(127,232,248,.28);
+  border-radius: 4px;
+  background: rgba(10,24,34,.42);
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
+.checkpoint-pill b {
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.checkpoint-preview {
+  min-height: 120px;
+  max-height: 34vh;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(138,90,24,.42);
+  border-radius: 6px;
+  background: rgba(10,6,4,.72);
+}
+.checkpoint-preview-section {
+  min-width: 0;
+  padding: 8px;
+  border-left: 2px solid rgba(240,208,96,.38);
+  background: rgba(0,0,0,.2);
+}
+.checkpoint-preview-section h4 {
+  margin: 0 0 6px;
+  color: var(--amber);
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.checkpoint-preview-section ul {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--parchment);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.checkpoint-preview-section li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+.checkpoint-empty {
+  margin: 0;
+  color: var(--parchment-dark);
+  font-size: 12px;
+  font-style: italic;
+}
+.checkpoint-error {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(240,64,64,.45);
+  border-radius: 4px;
+  color: var(--blood-light);
+  background: rgba(138,26,26,.16);
+  font-size: 12px;
+}
+
 .choice.ended {
   opacity: .4;
   text-decoration: line-through;

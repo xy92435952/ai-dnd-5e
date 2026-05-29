@@ -5,6 +5,7 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     action: vi.fn(),
     getSession: vi.fn().mockResolvedValue({ player: null, companions: [] }),
+    saveCheckpoint: vi.fn(),
   },
   charactersApi: {
     prepareSpells: vi.fn(),
@@ -252,5 +253,41 @@ describe('useAdventureActions', () => {
         hit_dice_total: 1,
       }],
     }, 'short')).toContain('满血未消耗生命骰')
+  })
+
+  it('returns checkpoint save result so the UI can update its explanation', async () => {
+    gameApi.saveCheckpoint.mockResolvedValue({
+      ok: true,
+      campaign_state: { quest_log: [{ quest: '寻找矿工', status: 'active' }] },
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    let checkpoint
+    await act(async () => {
+      checkpoint = await result.current.handleCheckpoint()
+    })
+
+    expect(gameApi.saveCheckpoint).toHaveBeenCalledWith('sess-1')
+    expect(checkpoint).toEqual({
+      ok: true,
+      campaign_state: { quest_log: [{ quest: '寻找矿工', status: 'active' }] },
+    })
+    expect(deps.addLog).toHaveBeenCalledWith('system', '💾 战役进度已保存', 'system')
+  })
+
+  it('reports when checkpoint save has no visible content', async () => {
+    gameApi.saveCheckpoint.mockResolvedValue({
+      ok: false,
+      message: '没有可以存档的内容',
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleCheckpoint()
+    })
+
+    expect(deps.addLog).toHaveBeenCalledWith('system', '存档未更新：没有可以存档的内容', 'system')
   })
 })
