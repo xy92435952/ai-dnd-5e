@@ -15,6 +15,7 @@ from services.combat_attack_targeting_service import get_target_conditions, reso
 from services.combat_damage_bonus_service import (
     apply_absorb_elements_damage_rider,
     apply_sustained_damage_effects,
+    roll_extra_damage_dice,
 )
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
@@ -218,6 +219,9 @@ async def prepare_direct_attack(
         and turn_state.get("attacks_made", 0) <= 1
     ):
         fury_roll = roll_dice(f"1d6+{player_level // 2}")
+        if attack_result.get("is_crit"):
+            crit_roll = roll_dice("1d6")
+            fury_roll = {"total": fury_roll["total"] + crit_roll["total"]}
         damage += fury_roll["total"]
         extra_damage_notes.append(f"神圣狂怒+{fury_roll['total']}")
 
@@ -235,6 +239,7 @@ async def prepare_direct_attack(
             subclass_effects=subclass_effects,
             turn_state=turn_state,
             has_advantage=attack_advantage or defense_advantage,
+            is_crit=bool(attack_result.get("is_crit")),
             combat_service=combat_service,
             has_ally_adjacent_to=has_ally_adjacent_to,
         )
@@ -265,6 +270,7 @@ async def prepare_direct_attack(
             enemies=enemies,
             weapon_damage_type=damage_type,
             apply_damage_with_resistance=combat_service.apply_damage_with_resistance,
+            is_crit=bool(attack_result.get("is_crit")),
         )
         damage = sustained.damage
         extra_damage_notes = sustained.extra_damage_notes
@@ -277,6 +283,7 @@ async def prepare_direct_attack(
             target_is_enemy=target.is_enemy,
             enemies=enemies,
             apply_damage_with_resistance=combat_service.apply_damage_with_resistance,
+            is_crit=bool(attack_result.get("is_crit")),
         )
         damage = absorb.damage
         extra_damage_notes = absorb.extra_damage_notes
@@ -373,6 +380,7 @@ async def _apply_direct_sneak_attack(
     subclass_effects: dict[str, Any],
     turn_state: dict[str, Any],
     has_advantage: bool,
+    is_crit: bool = False,
     combat_service: CombatService,
     has_ally_adjacent_to: Callable[[str, str, list[dict[str, Any]], dict[str, Any]], bool] | None,
 ) -> dict[str, Any]:
@@ -418,8 +426,8 @@ async def _apply_direct_sneak_attack(
         and turn_state.get("attacks_made", 0) == 0
     ):
         dice_count = combat_service.calc_sneak_attack_dice(player.level)
-        sneak_roll = roll_dice(f"{dice_count}d6")
-        sneak_attack_damage = sneak_roll["total"]
+        sneak_roll = roll_extra_damage_dice(f"{dice_count}d6", is_crit=is_crit)
+        sneak_attack_damage = sneak_roll.total
         damage += sneak_attack_damage
         sneak_attack_applied = True
         extra_damage_notes.append(f"偷袭{dice_count}d6={sneak_attack_damage}")

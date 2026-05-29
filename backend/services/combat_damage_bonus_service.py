@@ -16,6 +16,13 @@ class PendingDamageRoll:
 
 
 @dataclass(frozen=True)
+class ExtraDamageRoll:
+    total: int
+    base_total: int
+    crit_extra: int
+
+
+@dataclass(frozen=True)
 class DamageExtraResult:
     damage: int
     extra_damage_notes: list[str]
@@ -58,6 +65,27 @@ def _concentration_matches(active: str | None, names: set[str]) -> bool:
     return bool(active_key) and active_key in {_normalize_effect_token(name) for name in names}
 
 
+def roll_extra_damage_dice(
+    dice_expr: str,
+    *,
+    is_crit: bool = False,
+    roll_dice_func: Callable[[str], dict[str, Any]] | None = None,
+) -> ExtraDamageRoll:
+    """Roll attack rider dice, adding one more dice roll on a critical hit."""
+    dice = roll_dice_func or roll_dice
+    base_roll = dice(dice_expr)
+    base_total = int(base_roll.get("total", 0) or 0)
+    crit_extra = 0
+    if is_crit:
+        crit_roll = dice(dice_expr)
+        crit_extra = int(crit_roll.get("total", 0) or 0)
+    return ExtraDamageRoll(
+        total=base_total + crit_extra,
+        base_total=base_total,
+        crit_extra=crit_extra,
+    )
+
+
 def _apply_extra_damage_resistance(
     *,
     raw_damage: int,
@@ -92,10 +120,10 @@ def apply_sustained_damage_effects(
     weapon_damage_type: str,
     apply_damage_with_resistance: Callable[[int, str, list, list, list], int],
     roll_dice_func: Callable[[str], dict[str, Any]] | None = None,
+    is_crit: bool = False,
 ) -> DamageExtraResult:
     """Apply concentration-based on-hit damage such as Hex and Divine Favor."""
     notes = list(extra_damage_notes)
-    dice = roll_dice_func or roll_dice
     target_condition_keys = {
         _normalize_effect_token(condition)
         for condition in (target_conditions or [])
@@ -111,8 +139,12 @@ def apply_sustained_damage_effects(
         if required_conditions and not (required_conditions & target_condition_keys):
             continue
 
-        roll = dice(effect["dice"])
-        raw_extra = int(roll.get("total", 0) or 0)
+        roll = roll_extra_damage_dice(
+            effect["dice"],
+            is_crit=is_crit,
+            roll_dice_func=roll_dice_func,
+        )
+        raw_extra = roll.total
         damage_type = effect["damage_type"] or weapon_damage_type
         applied_extra = _apply_extra_damage_resistance(
             raw_damage=raw_extra,
@@ -142,6 +174,7 @@ def apply_absorb_elements_damage_rider(
     enemies: list[dict[str, Any]],
     apply_damage_with_resistance: Callable[[int, str, list, list, list], int],
     roll_dice_func: Callable[[str], dict[str, Any]] | None = None,
+    is_crit: bool = False,
 ) -> DamageExtraResult:
     """Consume Absorb Elements' one-shot next-melee-hit damage rider."""
     if not attacker or is_ranged:
@@ -154,8 +187,12 @@ def apply_absorb_elements_damage_rider(
 
     damage_type = str(absorb.get("damage_type") or "")
     dice_expr = str(absorb.get("damage_dice") or "1d6")
-    roll = (roll_dice_func or roll_dice)(dice_expr)
-    raw_extra = int(roll.get("total", 0) or 0)
+    roll = roll_extra_damage_dice(
+        dice_expr,
+        is_crit=is_crit,
+        roll_dice_func=roll_dice_func,
+    )
+    raw_extra = roll.total
     applied_extra = _apply_extra_damage_resistance(
         raw_damage=raw_extra,
         damage_type=damage_type,
@@ -262,11 +299,15 @@ def apply_divine_fury(
     subclass_effects: dict[str, Any],
     level: int,
     turn_state: dict[str, Any],
+    is_crit: bool = False,
 ) -> DamageExtraResult:
     notes = list(extra_damage_notes)
     if pending.get("is_raging") and subclass_effects.get("divine_fury"):
         if turn_state.get("attacks_made", 1) <= 1:
             fury_roll = roll_dice(f"1d6+{level // 2}")
+            if is_crit:
+                crit_roll = roll_dice("1d6")
+                fury_roll = {"total": fury_roll["total"] + crit_roll["total"]}
             damage += fury_roll["total"]
             notes.append(f"神圣狂怒+{fury_roll['total']}")
 
@@ -287,6 +328,7 @@ def apply_sneak_attack(
     ally_list: list[dict[str, Any]],
     enemies: list[dict[str, Any]],
     positions: dict[str, Any],
+    is_crit: bool = False,
     has_ally_adjacent_to: Callable[[str, str, list[dict[str, Any]], dict[str, Any]], bool],
     check_sneak_attack: Callable[..., bool],
     calc_sneak_attack_dice: Callable[[int], int],
@@ -322,8 +364,8 @@ def apply_sneak_attack(
     )
     if can_sneak and attacks_before == 0:
         dice_count = calc_sneak_attack_dice(level)
-        sneak_roll = roll_dice(f"{dice_count}d6")
-        sneak_damage = sneak_roll["total"]
+        sneak_roll = roll_extra_damage_dice(f"{dice_count}d6", is_crit=is_crit)
+        sneak_damage = sneak_roll.total
         sneak_dice = f"{dice_count}d6"
         damage += sneak_damage
         notes.append(f"偷袭{dice_count}d6={sneak_damage}")
@@ -385,6 +427,7 @@ def resolve_damage_extras(
     calc_sneak_attack_dice: Callable[[int], int],
     apply_damage_with_resistance: Callable[[int, str, list, list, list], int],
 ) -> DamageExtraResult:
+    is_crit = bool(pending.get("is_crit"))
     divine = apply_divine_fury(
         damage=damage,
         extra_damage_notes=extra_damage_notes,
@@ -392,6 +435,7 @@ def resolve_damage_extras(
         subclass_effects=subclass_effects,
         level=level,
         turn_state=turn_state,
+        is_crit=is_crit,
     )
 
     sneak = apply_sneak_attack(
@@ -407,6 +451,7 @@ def resolve_damage_extras(
         ally_list=ally_list,
         enemies=enemies,
         positions=positions,
+        is_crit=is_crit,
         has_ally_adjacent_to=has_ally_adjacent_to,
         check_sneak_attack=check_sneak_attack,
         calc_sneak_attack_dice=calc_sneak_attack_dice,
@@ -430,6 +475,7 @@ def resolve_damage_extras(
         enemies=enemies,
         weapon_damage_type=damage_type,
         apply_damage_with_resistance=apply_damage_with_resistance,
+        is_crit=is_crit,
     )
     absorb = apply_absorb_elements_damage_rider(
         attacker=attacker,
@@ -440,6 +486,7 @@ def resolve_damage_extras(
         target_is_enemy=target_is_enemy,
         enemies=enemies,
         apply_damage_with_resistance=apply_damage_with_resistance,
+        is_crit=is_crit,
     )
 
     return DamageExtraResult(

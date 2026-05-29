@@ -189,6 +189,50 @@ async def test_prepare_direct_attack_consumes_help_and_forces_assassinate_crit(m
 
 
 @pytest.mark.asyncio
+async def test_prepare_direct_attack_doubles_sneak_attack_on_critical_hit(monkeypatch):
+    from services import combat_damage_bonus_service
+    from services import combat_direct_attack_service as direct_attack
+
+    rolls = iter([
+        {"formula": "2d6", "rolls": [3, 4], "total": 7},
+        {"formula": "2d6", "rolls": [2, 4], "total": 6},
+    ])
+    monkeypatch.setattr(combat_damage_bonus_service, "roll_dice", lambda expr: next(rolls))
+    combat_service = FakeCombatService()
+    combat_service.check_sneak_attack = lambda *_args, **_kwargs: True
+    combat = FakeCombat()
+
+    def crit_attack(**kwargs):
+        result = FakeCombatService.resolve_melee_attack(combat_service, **kwargs)
+        result.attack_roll["is_crit"] = True
+        return result
+
+    combat_service.resolve_melee_attack = crit_attack
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 20,
+            "derived": {"ac": 15},
+            "conditions": [],
+        }],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.damage == 18
+    assert prepared.sneak_attack_damage == 13
+    assert prepared.extra_damage_notes[-1].endswith("13")
+
+
+@pytest.mark.asyncio
 async def test_prepare_direct_attack_applies_disadvantage_against_dodging_target():
     from services import combat_direct_attack_service as direct_attack
 
@@ -252,6 +296,51 @@ async def test_prepare_direct_attack_applies_hex_on_marked_target(monkeypatch):
 
     assert prepared.damage == 9
     assert prepared.extra_damage_notes == ["Hex+4"]
+
+
+@pytest.mark.asyncio
+async def test_prepare_direct_attack_doubles_hex_on_critical_hit(monkeypatch):
+    from services import combat_damage_bonus_service
+    from services import combat_direct_attack_service as direct_attack
+
+    rolls = iter([
+        {"formula": "1d6", "rolls": [4], "total": 4},
+        {"formula": "1d6", "rolls": [5], "total": 5},
+    ])
+    monkeypatch.setattr(combat_damage_bonus_service, "roll_dice", lambda expr: next(rolls))
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    player = FakeFighter()
+    player.concentration = "Hex"
+
+    def crit_attack(**kwargs):
+        result = FakeCombatService.resolve_melee_attack(combat_service, **kwargs)
+        result.attack_roll["is_crit"] = True
+        return result
+
+    combat_service.resolve_melee_attack = crit_attack
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=player,
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 12,
+            "derived": {"ac": 15},
+            "conditions": ["hexed"],
+        }],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.damage == 14
+    assert prepared.extra_damage_notes == ["Hex+9"]
 
 
 @pytest.mark.asyncio

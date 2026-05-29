@@ -123,6 +123,7 @@ async def resolve_offhand_attack(
             enemies=enemies,
             weapon_damage_type=damage_type,
             apply_damage_with_resistance=resistance_func,
+            is_crit=bool(attack.attack_roll.get("is_crit")),
         )
         damage = sustained.damage
         extra_damage_notes = sustained.extra_damage_notes
@@ -135,6 +136,7 @@ async def resolve_offhand_attack(
             target_is_enemy=target["is_enemy"],
             enemies=enemies,
             apply_damage_with_resistance=resistance_func,
+            is_crit=bool(attack.attack_roll.get("is_crit")),
         )
         damage = absorb.damage
         extra_damage_notes = absorb.extra_damage_notes

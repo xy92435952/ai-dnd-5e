@@ -42,6 +42,25 @@ def test_roll_pending_damage_applies_frontend_values_and_crit(monkeypatch):
     assert result.damage == 16
 
 
+def test_roll_extra_damage_dice_doubles_only_dice_on_crit():
+    from services import combat_damage_bonus_service as attack_damage
+
+    rolls = iter([
+        {"total": 4, "rolls": [4]},
+        {"total": 3, "rolls": [3]},
+    ])
+
+    result = attack_damage.roll_extra_damage_dice(
+        "1d6",
+        is_crit=True,
+        roll_dice_func=lambda expr: next(rolls),
+    )
+
+    assert result.base_total == 4
+    assert result.crit_extra == 3
+    assert result.total == 7
+
+
 def test_apply_basic_damage_bonuses_collects_notes():
     from api.combat.attack_damage import apply_basic_damage_bonuses
 
@@ -81,6 +100,29 @@ def test_apply_divine_fury_adds_once_on_first_raging_hit(monkeypatch):
 
     assert result.damage == 15
     assert result.extra_damage_notes == ["狂暴+2", "神圣狂怒+5"]
+
+
+def test_apply_divine_fury_crit_doubles_bonus_die_not_level_bonus(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    rolls = iter([
+        {"total": 5, "rolls": [3]},
+        {"total": 4, "rolls": [4]},
+    ])
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: next(rolls))
+
+    result = attack_damage.apply_divine_fury(
+        damage=10,
+        extra_damage_notes=[],
+        pending={"is_raging": True},
+        subclass_effects={"divine_fury": True},
+        level=5,
+        turn_state={"attacks_made": 1},
+        is_crit=True,
+    )
+
+    assert result.damage == 19
+    assert result.extra_damage_notes[0].endswith("9")
 
 
 def test_apply_sneak_attack_uses_advantage_on_first_rogue_attack(monkeypatch):
@@ -128,6 +170,40 @@ def test_apply_target_resistance_uses_enemy_resistance_lists():
     assert result == 6
 
 
+def test_apply_sneak_attack_crit_doubles_sneak_dice(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    rolls = iter([
+        {"total": 7, "rolls": [4, 3]},
+        {"total": 6, "rolls": [2, 4]},
+    ])
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: next(rolls))
+
+    result = attack_damage.apply_sneak_attack(
+        damage=10,
+        extra_damage_notes=[],
+        attacker_class="Rogue",
+        level=3,
+        pending={"advantage": True},
+        subclass_effects={},
+        turn_state={"attacks_made": 1},
+        target_id="enemy-1",
+        attacker_id="rogue-1",
+        ally_list=[],
+        enemies=[],
+        positions={},
+        is_crit=True,
+        has_ally_adjacent_to=lambda *args: False,
+        check_sneak_attack=lambda *args, **kwargs: True,
+        calc_sneak_attack_dice=lambda level: 2,
+    )
+
+    assert result.damage == 23
+    assert result.sneak_attack_damage == 13
+    assert result.sneak_attack_dice == "2d6"
+    assert result.extra_damage_notes[0].endswith("13")
+
+
 def test_apply_sustained_damage_effects_adds_hex_only_to_hexed_target(monkeypatch):
     from services import combat_damage_bonus_service as attack_damage
 
@@ -147,6 +223,32 @@ def test_apply_sustained_damage_effects_adds_hex_only_to_hexed_target(monkeypatc
 
     assert result.damage == 14
     assert result.extra_damage_notes == ["Hex+4"]
+
+
+def test_apply_sustained_damage_effects_crit_doubles_rider_dice(monkeypatch):
+    from services import combat_damage_bonus_service as attack_damage
+
+    rolls = iter([
+        {"total": 4, "rolls": [4]},
+        {"total": 5, "rolls": [5]},
+    ])
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: next(rolls))
+
+    result = attack_damage.apply_sustained_damage_effects(
+        damage=10,
+        extra_damage_notes=[],
+        attacker_concentration="Hex",
+        target_conditions=["hexed"],
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1", "resistances": [], "immunities": [], "vulnerabilities": []}],
+        weapon_damage_type="piercing",
+        apply_damage_with_resistance=lambda damage, *_args: damage,
+        is_crit=True,
+    )
+
+    assert result.damage == 19
+    assert result.extra_damage_notes == ["Hex+9"]
 
 
 def test_apply_sustained_damage_effects_skips_hex_without_marked_target(monkeypatch):
@@ -253,6 +355,42 @@ def test_absorb_elements_damage_rider_applies_to_next_melee_hit_and_is_consumed(
 
     assert result.damage == 13
     assert result.extra_damage_notes == ["Absorb Elements+3(7) fire"]
+    assert "absorb_elements" not in attacker.class_resources
+
+
+def test_absorb_elements_damage_rider_crit_doubles_absorb_dice(monkeypatch):
+    from types import SimpleNamespace
+    from services import combat_damage_bonus_service as attack_damage
+
+    attacker = SimpleNamespace(
+        class_resources={
+            "absorb_elements": {
+                "damage_type": "fire",
+                "damage_dice": "1d6",
+                "slot_level": 1,
+            }
+        }
+    )
+    rolls = iter([
+        {"total": 3, "rolls": [3]},
+        {"total": 5, "rolls": [5]},
+    ])
+    monkeypatch.setattr(attack_damage, "roll_dice", lambda expr: next(rolls))
+
+    result = attack_damage.apply_absorb_elements_damage_rider(
+        attacker=attacker,
+        damage=10,
+        extra_damage_notes=[],
+        is_ranged=False,
+        target_id="enemy-1",
+        target_is_enemy=True,
+        enemies=[{"id": "enemy-1", "resistances": [], "immunities": [], "vulnerabilities": []}],
+        apply_damage_with_resistance=lambda damage, *_args: damage,
+        is_crit=True,
+    )
+
+    assert result.damage == 18
+    assert result.extra_damage_notes == ["Absorb Elements+8 fire"]
     assert "absorb_elements" not in attacker.class_resources
 
 
