@@ -1478,6 +1478,8 @@ export interface components {
             is_offhand: boolean;
             /** Target Id */
             target_id: string;
+            /** Weapon Name */
+            weapon_name?: string | null;
         };
         /** Body_upload_module_modules_upload_post */
         Body_upload_module_modules_upload_post: {
@@ -1624,6 +1626,13 @@ export interface components {
             catchphrase?: string | null;
             /** Char Class */
             char_class: string;
+            /**
+             * Class Resources
+             * @default {}
+             */
+            class_resources: {
+                [key: string]: unknown;
+            };
             /** Combat Preference */
             combat_preference?: string | null;
             /** Concentration */

@@ -225,6 +225,17 @@
           "target_id": {
             "title": "Target Id",
             "type": "string"
+          },
+          "weapon_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weapon Name"
           }
         },
         "required": [
@@ -531,6 +542,12 @@
           "char_class": {
             "title": "Char Class",
             "type": "string"
+          },
+          "class_resources": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Class Resources",
+            "type": "object"
           },
           "combat_preference": {
             "anyOf": [

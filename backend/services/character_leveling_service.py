@@ -10,6 +10,7 @@ from services.dnd_rules import (
     _normalize_class,
     ability_modifier,
     calc_derived,
+    get_class_resource_defaults,
     get_effective_hp_max,
     roll_dice,
 )
@@ -45,6 +46,7 @@ def build_level_up_update(
     fighting_style: str | None = None,
     feats: list | None = None,
     equipment: dict | None = None,
+    class_resources: dict | None = None,
     race: str | None = None,
     proficient_skills: list[str] | None = None,
     ability_score_increases: dict | None = None,
@@ -114,6 +116,21 @@ def build_level_up_update(
         old_slots_max=old_derived.get("spell_slots_max", {}),
         new_slots_max=next_derived.get("spell_slots_max", {}),
     )
+    next_class_resources = _advance_class_resources(
+        current_resources=class_resources,
+        old_defaults=_class_resource_defaults_for_level(
+            char_class=cls_key,
+            level=old_level,
+            subclass=subclass,
+            derived=old_derived,
+        ),
+        new_defaults=_class_resource_defaults_for_level(
+            char_class=cls_key,
+            level=new_level,
+            subclass=subclass,
+            derived=next_derived,
+        ),
+    )
 
     return {
         "old_level": old_level,
@@ -125,6 +142,7 @@ def build_level_up_update(
         "derived": next_derived,
         "hp_current": new_hp_current,
         "spell_slots": next_spell_slots,
+        "class_resources": next_class_resources,
         "new_spell_slots": next_derived.get("spell_slots_max", {}),
     }
 
@@ -144,3 +162,66 @@ def _advance_spell_slots(
         next_slots[slot_key] = min(max_value, current_value + gained)
 
     return next_slots
+
+
+def _class_resource_defaults_for_level(
+    *,
+    char_class: str,
+    level: int,
+    subclass: str | None,
+    derived: dict | None,
+) -> dict:
+    cls_key = _normalize_class(char_class)
+    resources = get_class_resource_defaults(cls_key, level, subclass=subclass)
+    derived = derived or {}
+    subclass_effects = derived.get("subclass_effects", {}) or {}
+    ability_mods = derived.get("ability_modifiers", {}) or {}
+
+    if cls_key == "Fighter":
+        if subclass_effects.get("battle_master"):
+            resources["superiority_dice_remaining"] = subclass_effects.get("superiority_dice_max", 4)
+        if subclass_effects.get("samurai"):
+            resources["fighting_spirit_remaining"] = subclass_effects.get(
+                "fighting_spirit_uses",
+                max(1, ability_mods.get("wis", 1)),
+            )
+    if cls_key == "Bard":
+        resources["bardic_inspiration_remaining"] = max(1, ability_mods.get("cha", 3))
+    if cls_key == "Cleric" and subclass_effects.get("war_domain"):
+        resources["war_priest_remaining"] = max(1, ability_mods.get("wis", 1))
+    if cls_key == "Wizard" and subclass_effects.get("divination"):
+        resources["portent_remaining"] = subclass_effects.get("portent_count", 3 if level >= 14 else 2)
+    if cls_key == "Monk" and level >= 2:
+        resources["ki_remaining"] = subclass_effects.get("ki_max", level)
+
+    return resources
+
+
+def _advance_class_resources(
+    *,
+    current_resources: dict | None,
+    old_defaults: dict | None,
+    new_defaults: dict | None,
+) -> dict:
+    next_resources = dict(current_resources or {})
+    old_defaults = old_defaults or {}
+
+    for key, new_default in (new_defaults or {}).items():
+        if isinstance(new_default, bool):
+            next_resources[key] = bool(next_resources.get(key, new_default))
+            continue
+
+        if isinstance(new_default, int):
+            current_value = next_resources.get(key, old_defaults.get(key, 0))
+            old_value = old_defaults.get(key, 0)
+            gained = max(0, new_default - old_value)
+            try:
+                next_value = int(current_value or 0) + gained
+            except (TypeError, ValueError):
+                next_value = gained
+            next_resources[key] = min(new_default, next_value)
+            continue
+
+        next_resources.setdefault(key, new_default)
+
+    return next_resources

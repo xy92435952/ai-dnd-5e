@@ -48,4 +48,5 @@ def serialize_character(char: Any) -> dict:
         "multiclass_info": char.multiclass_info,
         "subclass_effects": derived.get("subclass_effects", {}),
         "condition_durations": char.condition_durations or {},
+        "class_resources": getattr(char, "class_resources", None) or {},
     }

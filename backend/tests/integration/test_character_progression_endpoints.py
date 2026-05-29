@@ -52,6 +52,47 @@ async def test_level_up_adds_new_spell_slots_without_refilling_spent_slots(clien
     assert data["spell_slots"]["2nd"] == 2
 
 
+async def test_level_up_updates_class_resources_and_serializes_them(client, db_session, sample_user):
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived("Fighter", 1, ability_scores, None, race="Human")
+    fighter = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Leveling Fighter",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        class_resources={"second_wind_used": True},
+        proficient_skills=[],
+        proficient_saves=["str", "con"],
+        is_player=True,
+    )
+    db_session.add(fighter)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{fighter.id}/level-up",
+        headers=headers,
+        json={"use_average_hp": True},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    resources = payload["character"]["class_resources"]
+    assert payload["character"]["level"] == 2
+    assert resources["second_wind_used"] is True
+    assert resources["action_surge_used"] is False
+    assert payload["level_up_details"]["class_resources"] == resources
+
+    await db_session.refresh(fighter)
+    assert fighter.class_resources == resources
+
+
 async def test_exhaustion_level_4_clamps_hp_and_serializes_effective_max(
     client, db_session, sample_character, sample_user,
 ):

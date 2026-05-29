@@ -3,6 +3,55 @@ from types import SimpleNamespace
 from services.character_serializer import serialize_character
 
 
+def _minimal_character(**overrides):
+    data = {
+        "id": "char-min",
+        "is_player": True,
+        "name": "Minimal",
+        "race": "Human",
+        "char_class": "Fighter",
+        "subclass": None,
+        "level": 1,
+        "background": None,
+        "alignment": None,
+        "ability_scores": {},
+        "derived": {"hp_max": 12, "ac": 16},
+        "hp_current": 12,
+        "spell_slots": None,
+        "known_spells": None,
+        "prepared_spells": None,
+        "cantrips": None,
+        "concentration": None,
+        "proficient_skills": None,
+        "proficient_saves": None,
+        "equipment": None,
+        "fighting_style": None,
+        "languages": None,
+        "tool_proficiencies": None,
+        "feats": None,
+        "conditions": [],
+        "death_saves": None,
+        "personality": None,
+        "speech_style": None,
+        "combat_preference": None,
+        "backstory": None,
+        "catchphrase": None,
+        "multiclass_info": None,
+        "condition_durations": {},
+        "class_resources": {},
+    }
+    data.update(overrides)
+    return SimpleNamespace(**data)
+
+
+def test_serialize_character_includes_class_resources():
+    char = _minimal_character(class_resources={"second_wind_used": True})
+
+    data = serialize_character(char)
+
+    assert data["class_resources"] == {"second_wind_used": True}
+
+
 def test_serialize_character_falls_back_to_safe_collections_and_derived_values():
     char = SimpleNamespace(
         id="char-1",

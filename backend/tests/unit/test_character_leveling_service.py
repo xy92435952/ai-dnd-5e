@@ -57,6 +57,101 @@ def test_build_level_up_update_caps_current_hp_at_exhaustion_max():
     assert update["hp_current"] == update["derived"]["hp_max"] // 2
 
 
+def test_build_level_up_update_advances_class_resources_without_restoring_spent_uses():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived("Fighter", 1, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=1,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        class_resources={"second_wind_used": True},
+        race="Human",
+    )
+
+    assert update["new_level"] == 2
+    assert update["class_resources"]["second_wind_used"] is True
+    assert update["class_resources"]["action_surge_used"] is False
+
+
+def test_build_level_up_update_adds_only_new_barbarian_rage_uses():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 8, "wis": 10, "cha": 10}
+    old_derived = calc_derived("Barbarian", 2, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Barbarian",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        class_resources={"rage_remaining": 0, "raging": False},
+        race="Human",
+    )
+
+    assert update["new_level"] == 3
+    assert update["class_resources"]["rage_remaining"] == 1
+    assert update["class_resources"]["raging"] is False
+
+
+def test_build_level_up_update_backfills_missing_resource_from_old_level_defaults():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 8, "wis": 10, "cha": 10}
+    old_derived = calc_derived("Barbarian", 2, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Barbarian",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        class_resources={},
+        race="Human",
+    )
+
+    assert update["class_resources"]["rage_remaining"] == 3
+    assert update["class_resources"]["raging"] is False
+
+
+def test_build_level_up_update_expands_battle_master_superiority_dice_capacity():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        6,
+        ability_scores,
+        "Battle Master",
+        race="Human",
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=6,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Battle Master",
+        class_resources={
+            "second_wind_used": True,
+            "action_surge_used": True,
+            "superiority_dice_remaining": 1,
+        },
+        race="Human",
+    )
+
+    assert update["new_level"] == 7
+    assert update["class_resources"]["superiority_dice_remaining"] == 2
+    assert update["class_resources"]["second_wind_used"] is True
+    assert update["class_resources"]["action_surge_used"] is True
+
+
 def test_build_level_up_update_validates_asi_total_increase():
     with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
         character_leveling_service.build_level_up_update(

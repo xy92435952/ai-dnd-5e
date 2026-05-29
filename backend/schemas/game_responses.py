@@ -323,6 +323,7 @@ class CharacterDetail(BaseModel):
     multiclass_info:    Optional[dict[str, Any]] = None
     subclass_effects:   dict[str, Any] = {}
     condition_durations: dict[str, Any] = {}
+    class_resources: dict[str, Any] = {}
 
 
 class GeneratePartyResponse(BaseModel):

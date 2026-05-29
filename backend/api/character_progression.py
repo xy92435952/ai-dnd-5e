@@ -71,6 +71,7 @@ async def level_up_character(
             fighting_style=char.fighting_style,
             feats=char.feats,
             equipment=char.equipment,
+            class_resources=char.class_resources,
             race=char.race,
             proficient_skills=char.proficient_skills,
             ability_score_increases=req.ability_score_increases,
@@ -86,6 +87,7 @@ async def level_up_character(
     char.derived = update["derived"]
     char.hp_current = update["hp_current"]
     char.spell_slots = update["spell_slots"]
+    char.class_resources = update["class_resources"]
     clamp_current_hp_to_effective_max(char)
 
     await db.commit()
@@ -98,6 +100,7 @@ async def level_up_character(
             "hp_gain": update["hp_gain"],
             "is_asi_level": update["is_asi_level"],
             "new_spell_slots": update["new_spell_slots"],
+            "class_resources": update["class_resources"],
         },
     }
 
