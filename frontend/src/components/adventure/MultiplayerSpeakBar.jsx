@@ -9,10 +9,12 @@ import {
   getSpeakTurnStatusText,
   getSpeakerOnlineStatus,
 } from '../../utils/multiplayerStatus'
+import WebSocketStatusPill from '../multiplayer/WebSocketStatusPill'
 
 export default function MultiplayerSpeakBar({
   room,
   wsConnected = false,
+  wsStatus = null,
   syncNotice = '',
   myUserId = null,
   player = null,
@@ -47,17 +49,7 @@ export default function MultiplayerSpeakBar({
         {isMySpeakTurn ? `✦ ${statusText}` : statusText}
       </span>
       <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-        <span title={wsConnected ? 'WebSocket 已连接' : '正在等待 WebSocket 重连'} style={{
-          padding: '2px 7px',
-          border: `1px solid ${wsConnected ? 'var(--emerald-light)' : 'var(--wood-light)'}`,
-          color: wsConnected ? 'var(--emerald-light)' : 'var(--parchment-dark)',
-          borderRadius: 3,
-          fontSize: 10,
-          fontFamily: 'var(--font-mono)',
-          whiteSpace: 'nowrap',
-        }}>
-          {wsConnected ? '同步在线' : '同步中'}
-        </span>
+        <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
         {syncNotice && (
           <span title="最近一次重连后的补漏刷新已完成" style={{
             padding: '2px 7px',

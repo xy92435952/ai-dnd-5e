@@ -159,7 +159,7 @@ export default function Adventure() {
     setIsLoading, setRoom,
   })
 
-  const { connected: wsConnected, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
+  const { connected: wsConnected, status: wsStatus, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
   const multiplayerSyncBlocked = !!room && !wsConnected
   const actionBlockedReason = multiplayerSyncBlocked ? '房间正在重新同步，请恢复连接后再发言。' : ''
   const showReconnectSynced = useCallback(() => {
@@ -297,6 +297,7 @@ export default function Adventure() {
       <MultiplayerSpeakBar
         room={room}
         wsConnected={wsConnected}
+        wsStatus={wsStatus}
         syncNotice={syncNotice}
         myUserId={myUserId}
         player={player}

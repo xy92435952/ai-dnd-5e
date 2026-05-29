@@ -192,7 +192,7 @@ export function useCombatRuntime({
     combat,
   })
 
-  const { connected: wsConnected } = useWebSocket(room ? sessionId : null, onWsEvent)
+  const { connected: wsConnected, status: wsStatus } = useWebSocket(room ? sessionId : null, onWsEvent)
   const combatSyncBlocked = !!room && !wsConnected
   const combatSyncBlockedReason = combatSyncBlocked ? '战斗房间正在重新同步，请恢复连接后再行动。' : ''
 
@@ -236,6 +236,7 @@ export function useCombatRuntime({
     logsEndRef,
     derived,
     wsConnected,
+    wsStatus,
     combatSyncBlocked,
     combatSyncBlockedReason,
     actions: {

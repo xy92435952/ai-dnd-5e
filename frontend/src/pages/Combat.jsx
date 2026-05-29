@@ -80,6 +80,7 @@ export default function Combat() {
     prediction,
     derived,
     wsConnected,
+    wsStatus,
     combatSyncBlocked,
     actions,
   } = runtime
@@ -154,6 +155,7 @@ export default function Combat() {
       <MultiplayerTurnBar
         room={room}
         wsConnected={wsConnected}
+        wsStatus={wsStatus}
         syncBlocked={combatSyncBlocked}
         currentTurnLabel={currentTurnLabel}
         isMyTurnMP={isMyTurnMP}

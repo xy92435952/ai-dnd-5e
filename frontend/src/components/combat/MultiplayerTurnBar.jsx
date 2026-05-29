@@ -1,9 +1,11 @@
 import { getCombatTurnControllerStatus, getCombatTurnStatusText } from '../../utils/multiplayerStatus'
 import MultiplayerSessionStatusBar from '../multiplayer/MultiplayerSessionStatusBar'
+import WebSocketStatusPill from '../multiplayer/WebSocketStatusPill'
 
 export default function MultiplayerTurnBar({
   room,
   wsConnected = false,
+  wsStatus = null,
   syncBlocked = false,
   currentTurnLabel,
   isMyTurnMP,
@@ -27,17 +29,7 @@ export default function MultiplayerTurnBar({
       focusLabel={statusText}
       tone={!syncBlocked && isMyTurnMP ? 'active' : 'table'}
     >
-      <span style={{
-        padding: '2px 7px',
-        border: `1px solid ${wsConnected ? 'var(--emerald-light)' : 'var(--wood-light)'}`,
-        color: wsConnected ? 'var(--emerald-light)' : 'var(--parchment-dark)',
-        borderRadius: 3,
-        fontSize: 10,
-        fontFamily: 'var(--font-mono)',
-        whiteSpace: 'nowrap',
-      }}>
-        {wsConnected ? '同步在线' : '同步中'}
-      </span>
+      <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
     </MultiplayerSessionStatusBar>
   )
 }

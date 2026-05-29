@@ -37,9 +37,33 @@ describe('MultiplayerSpeakBar', () => {
   })
 
   it('shows reconnecting status while websocket is disconnected', () => {
-    renderBar({ wsConnected: false })
+    renderBar({
+      wsConnected: false,
+      wsStatus: {
+        state: 'reconnecting',
+        label: '正在重连',
+        detail: '服务器暂不可达或正在重启，正在自动重连。',
+        retryInMs: 1000,
+      },
+    })
 
-    expect(screen.getByText('同步中')).toBeInTheDocument()
+    expect(screen.getByText('正在重连')).toBeInTheDocument()
+    expect(screen.getByTitle('服务器暂不可达或正在重启，正在自动重连。 · 1秒后重试')).toBeInTheDocument()
+  })
+
+  it('shows terminal websocket errors so players know how to recover', () => {
+    renderBar({
+      wsConnected: false,
+      wsStatus: {
+        state: 'auth_error',
+        label: '登录失效',
+        detail: '登录凭证已失效，请重新登录后恢复联机同步。',
+        canRetry: false,
+      },
+    })
+
+    expect(screen.getByText('登录失效')).toBeInTheDocument()
+    expect(screen.getByTitle('登录凭证已失效，请重新登录后恢复联机同步。')).toBeInTheDocument()
   })
 
   it('shows a short resynced notice after reconnect refresh completes', () => {

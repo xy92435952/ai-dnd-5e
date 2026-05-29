@@ -76,7 +76,7 @@ export default function Room() {
     }
   }, [refresh, nav, sessionId])
 
-  const { connected: wsConnected } = useWebSocket(sessionId, onEvent)
+  const { connected: wsConnected, status: wsStatus } = useWebSocket(sessionId, onEvent)
   useRoomReconnectRefresh({
     room,
     wsConnected,
@@ -243,6 +243,8 @@ export default function Room() {
         claimedCount={claimedCount}
         memberCount={memberCount}
         busy={busy}
+        wsConnected={wsConnected}
+        wsStatus={wsStatus}
         onFocusGroup={onFocusGroup}
       />
 

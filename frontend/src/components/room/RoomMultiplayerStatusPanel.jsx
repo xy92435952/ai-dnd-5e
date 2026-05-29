@@ -5,12 +5,15 @@ import {
   getMultiplayerTableStatus,
 } from '../../utils/multiplayerGroups'
 import MultiplayerSessionStatusBar from '../multiplayer/MultiplayerSessionStatusBar'
+import WebSocketStatusPill from '../multiplayer/WebSocketStatusPill'
 
 export default function RoomMultiplayerStatusPanel({
   room,
   claimedCount,
   memberCount,
   busy,
+  wsConnected = false,
+  wsStatus = null,
   onFocusGroup,
 }) {
   if (!room?.is_multiplayer) return null
@@ -26,7 +29,9 @@ export default function RoomMultiplayerStatusPanel({
           title={`${claimedCount}/${memberCount} 已认领角色`}
           reason={`当前焦点：${tableStatus.activeGroupLabel || '主队'}`}
           nextLabel={tableStatus.nextReadySummary}
-        />
+        >
+          <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
+        </MultiplayerSessionStatusBar>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>

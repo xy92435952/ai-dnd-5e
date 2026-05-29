@@ -37,6 +37,8 @@ describe('RoomMultiplayerStatusPanel', () => {
         claimedCount={1}
         memberCount={2}
         busy={false}
+        wsConnected={true}
+        wsStatus={{ state: 'connected', label: '同步在线', detail: '实时同步已连接。' }}
         onFocusGroup={vi.fn()}
       />
     )
@@ -45,7 +47,30 @@ describe('RoomMultiplayerStatusPanel', () => {
     expect(screen.getByText('1/2 已认领角色')).toBeInTheDocument()
     expect(screen.getByText('当前焦点：后巷组')).toBeInTheDocument()
     expect(screen.getByText('下一处理：后巷组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(screen.getByText('同步在线')).toBeInTheDocument()
     expect(screen.getByText('房间 234567')).toBeInTheDocument()
+  })
+
+  it('shows lobby websocket restart recovery state', () => {
+    render(
+      <RoomMultiplayerStatusPanel
+        room={room}
+        claimedCount={1}
+        memberCount={2}
+        busy={false}
+        wsConnected={false}
+        wsStatus={{
+          state: 'reconnecting',
+          label: '正在重连',
+          detail: '服务器暂不可达或正在重启，正在自动重连。',
+          retryInMs: 4000,
+        }}
+        onFocusGroup={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('正在重连')).toBeInTheDocument()
+    expect(screen.getByTitle('服务器暂不可达或正在重启，正在自动重连。 · 4秒后重试')).toBeInTheDocument()
   })
 
   it('stays hidden for single-player rooms', () => {
