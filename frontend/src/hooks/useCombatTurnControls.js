@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
 
 export function useCombatTurnControls({
   sessionId,
@@ -79,7 +80,7 @@ export function useCombatTurnControls({
         setIsProcessing(false)
         return
       }
-      setError(e.message)
+      setError(formatCombatError(e))
       processingRef.current = false
       setIsProcessing(false)
     }

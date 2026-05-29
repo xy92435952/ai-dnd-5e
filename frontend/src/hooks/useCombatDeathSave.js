@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
 
 export function useCombatDeathSave({
   sessionId,
@@ -58,7 +59,7 @@ export function useCombatDeathSave({
             : `${result.character_name || '角色'} 死亡豁免 d20=${result.d20}（成功 ${saves.successes || 0}/3，失败 ${saves.failures || 0}/3）`
       addLog({ role: 'system', content: label, log_type: 'dice' })
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)

@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { charactersApi, gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates, applyPlayerHpUpdate, getCombatTurnToken } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
 import {
   getInventoryUseSuccessText,
   mergeConsumableUseResult,
@@ -43,7 +44,7 @@ export function useCombatPlayerActions({
       if (result.turn_state) setTurnState(result.turn_state)
       addLog({ role: 'player', content: result.narration || fallbackNarration, log_type: 'combat' })
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)
@@ -93,7 +94,7 @@ export function useCombatPlayerActions({
         return updated
       })
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)
@@ -140,7 +141,7 @@ export function useCombatPlayerActions({
       if (result.turn_state) setTurnState(result.turn_state)
       addLog({ role: 'player', content: getInventoryUseSuccessText(potion, result), log_type: 'combat' })
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)

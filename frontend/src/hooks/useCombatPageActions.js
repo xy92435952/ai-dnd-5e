@@ -8,6 +8,7 @@ import { useCallback } from 'react'
 import { gameApi, roomsApi } from '../api/client'
 import { getAoePreviewCenterKey, aoeRadiusCells, getCombatTurnToken, getSkillUnavailableReason } from '../utils/combat'
 import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
+import { formatCombatError } from '../utils/combatErrors'
 import { mergeRealtimeRoomEvent } from './useRoomRealtime'
 
 export function useCombatPageActions({
@@ -129,7 +130,7 @@ export function useCombatPageActions({
       }
       setMoveMode(false)
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     }
   }, [canActThisTurn, combat, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
@@ -148,7 +149,7 @@ export function useCombatPageActions({
       setHelpMode(false)
       return true
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
       return false
     }
   }, [

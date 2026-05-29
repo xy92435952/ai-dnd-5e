@@ -1,3 +1,5 @@
+import { formatCombatError } from './combatErrors'
+
 const SPELL_SHORTCUT_NAMES = {
   bless: '祝福',
   heal: '治愈创伤',
@@ -136,7 +138,7 @@ export function createCombatSkillClickHandler({
           break
       }
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     }
   }
 }

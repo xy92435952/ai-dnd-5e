@@ -203,7 +203,7 @@ Priority:
 
 ### P1 Combat UX
 
-- [ ] Replace ambiguous combat errors with player-facing messages: out of range, no action, no slot, not your turn, target dead, blocked by condition.
+- [x] Replace ambiguous combat errors with player-facing messages: out of range, no action, no slot, not your turn, target dead, blocked by condition. 2026-05-29: added frontend combat error mapping for stale turn tokens, not-your-turn, out-of-range, spent action/bonus/reaction/movement, no spell slot, invalid/dead target, and blocked-by-condition errors, with hook coverage across attack, spell, special action, movement/help, turn, death save, and skill-bar flows.
 - [~] Show action economy state in UI: action, bonus action, reaction, movement remaining. Combat HUD already shows pips and movement; skill buttons now explain spent action/bonus/reaction/movement reasons.
 - [ ] Show hover/selection preview for hit chance, damage range, cover, advantage/disadvantage, and resource cost.
 - [ ] Show AoE templates for sphere, cone, line, cube, and aura spells.

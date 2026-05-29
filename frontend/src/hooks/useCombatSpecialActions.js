@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
 
 export function useCombatSpecialActions({
   sessionId,
@@ -48,7 +49,7 @@ export function useCombatSpecialActions({
       })
       if (result.combat_over) setCombatOver(result.outcome)
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)
@@ -86,7 +87,7 @@ export function useCombatSpecialActions({
       setIsProcessing(false)
       triggerAiTurn()
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
       processingRef.current = false
       setIsProcessing(false)
       triggerAiTurn()
@@ -116,7 +117,7 @@ export function useCombatSpecialActions({
         prompt.reactor_character_id || null,
       )
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)
@@ -162,7 +163,7 @@ export function useCombatSpecialActions({
         })
       })
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)

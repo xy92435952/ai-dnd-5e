@@ -8,6 +8,7 @@ import {
   getCombatTurnToken,
   parseDiceNotation,
 } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 
 function ignoreOptionalEffect(fn) {
@@ -125,7 +126,7 @@ export function useCombatAttackFlow({
 
           if (dmgResult.combat_over) { setCombatOver(dmgResult.outcome) }
         } catch (e2) {
-          setError(e2.message)
+          setError(formatCombatError(e2))
         } finally {
           setSelectedTarget(null)
           processingRef.current = false
@@ -133,7 +134,7 @@ export function useCombatAttackFlow({
         }
       }, 1800)
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
       processingRef.current = false
       setIsProcessing(false)
     }

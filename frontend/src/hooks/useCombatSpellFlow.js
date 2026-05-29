@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates, getCombatTurnToken, parseDiceNotation } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
 
 export function useCombatSpellFlow({
   sessionId,
@@ -111,14 +112,14 @@ export function useCombatSpellFlow({
 
           if (confirmResult.combat_over) { setCombatOver(confirmResult.outcome) }
         } catch (e2) {
-          setError(e2.message)
+          setError(formatCombatError(e2))
         } finally {
           processingRef.current = false
           setIsProcessing(false)
         }
       }, 1200)
     } catch (e) {
-      setError(e.message)
+      setError(formatCombatError(e))
       processingRef.current = false
       setIsProcessing(false)
     }
