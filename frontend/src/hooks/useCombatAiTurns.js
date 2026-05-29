@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { applyActionResultEntityStates, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
+import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
 const AI_TURN_LIMIT = 20
 
@@ -90,6 +91,7 @@ export function useCombatAiTurns({
           dice_result: result.attack_result?.d20
             ? { attack: result.attack_result, damage: result.damage }
             : null,
+          state_changes: buildCombatStateChangeSummary(result),
         })
 
         const promptReactorId = result.reaction_prompt?.reactor_character_id

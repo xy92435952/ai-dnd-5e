@@ -3,6 +3,7 @@ import { charactersApi, gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates, applyPlayerHpUpdate, getCombatTurnToken } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
+import { buildCombatStateChangeSummary } from '../utils/combatLog'
 import {
   getInventoryUseSuccessText,
   mergeConsumableUseResult,
@@ -42,7 +43,12 @@ export function useCombatPlayerActions({
     try {
       const result = await gameApi.combatAction(sessionId, actionText, null, false, false, getCombatTurnToken(combat))
       if (result.turn_state) setTurnState(result.turn_state)
-      addLog({ role: 'player', content: result.narration || fallbackNarration, log_type: 'combat' })
+      addLog({
+        role: 'player',
+        content: result.narration || fallbackNarration,
+        log_type: 'combat',
+        state_changes: buildCombatStateChangeSummary(result),
+      })
     } catch (e) {
       setError(formatCombatError(e))
     } finally {
@@ -75,7 +81,12 @@ export function useCombatPlayerActions({
       }
 
       const result = await gameApi.classFeature(sessionId, featureName)
-      addLog({ role: 'player', content: result.narration, log_type: 'combat' })
+      addLog({
+        role: 'player',
+        content: result.narration,
+        log_type: 'combat',
+        state_changes: buildCombatStateChangeSummary(result, { targetName: session?.player?.name || playerId }),
+      })
       if (result.turn_state) setTurnState(result.turn_state)
       if (result.class_resources) setClassResources(result.class_resources)
       setCombat(prev => {
@@ -106,6 +117,7 @@ export function useCombatPlayerActions({
     playerId,
     processingRef,
     sessionId,
+    session?.player?.name,
     setClassResources,
     setCombat,
     setError,
@@ -139,7 +151,15 @@ export function useCombatPlayerActions({
       })
       setSession?.(mergeConsumableUseResult(session, result))
       if (result.turn_state) setTurnState(result.turn_state)
-      addLog({ role: 'player', content: getInventoryUseSuccessText(potion, result), log_type: 'combat' })
+      addLog({
+        role: 'player',
+        content: getInventoryUseSuccessText(potion, result),
+        log_type: 'combat',
+        state_changes: buildCombatStateChangeSummary(result, {
+          targetName: player.name || player.id,
+          hpBefore: player.hp_current,
+        }),
+      })
     } catch (e) {
       setError(formatCombatError(e))
     } finally {

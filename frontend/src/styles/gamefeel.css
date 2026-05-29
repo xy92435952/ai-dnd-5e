@@ -1357,33 +1357,81 @@
 .end-turn-mega:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(240,208,96,.9), inset 0 1px 0 rgba(255,240,180,.7), 0 6px 0 #1a0e04, 0 0 34px -4px rgba(240,208,96,.9); }
 .end-turn-mega:active { transform: translateY(2px); box-shadow: 0 0 0 1px rgba(240,208,96,.7), inset 0 1px 0 rgba(255,240,180,.55), 0 2px 0 #1a0e04; }
 
-/* 战斗日志 — 游戏化 */
+/* 战斗日志 */
 .combat-log {
-  padding: 8px 12px;
+  padding: 8px 10px;
   background: linear-gradient(180deg, rgba(0,0,0,.4), rgba(0,0,0,.7));
   border: 1px solid rgba(138,90,24,.4);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--parchment-dark);
-  max-height: 120px;
+  max-height: 150px;
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.45;
+  margin-top: 4px;
 }
 .log-entry {
-  padding: 3px 0;
+  padding: 6px 0;
   border-bottom: 1px dashed rgba(138,90,24,.2);
-  display: flex; gap: 8px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
 }
 .log-entry:last-child { border-bottom: none; }
-.log-entry .roll {
-  flex-shrink: 0;
+.log-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.log-entry-icon {
+  display: inline-flex;
+  color: var(--amber);
+}
+.log-entry-role {
   font-weight: 700;
   color: var(--amber);
-  width: 70px;
+  white-space: nowrap;
 }
-.log-entry.crit .roll { color: var(--arcane-light, #5fd8e8); text-shadow: 0 0 6px var(--arcane-light, #5fd8e8); }
-.log-entry.miss .roll { color: var(--parchment-dark); }
-.log-entry.dmg  .roll { color: #f04040; }
+.log-entry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.log-section {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 6px;
+}
+.log-section-label {
+  color: rgba(213,184,121,.72);
+  text-align: right;
+}
+.log-section-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  min-width: 0;
+}
+.log-section-items span {
+  overflow-wrap: anywhere;
+}
+.log-section.rules .log-section-items { color: var(--amber); }
+.log-section.dice .log-section-items { color: var(--arcane-light, #5fd8e8); }
+.log-section.state .log-section-items { color: #9fd68a; }
+.log-section.narration .log-section-items { color: var(--parchment-light); }
+.log-entry.crit .log-entry-icon,
+.log-entry.crit .log-entry-role,
+.log-entry.crit .log-section.rules .log-section-items {
+  color: var(--arcane-light, #5fd8e8);
+  text-shadow: 0 0 6px var(--arcane-light, #5fd8e8);
+}
+.log-entry.miss .log-entry-icon,
+.log-entry.miss .log-entry-role {
+  color: var(--parchment-dark);
+}
+.log-entry.dmg .log-section.dice .log-section-items { color: #f04040; }
 
 /* 选中目标信息 */
 .target-card {

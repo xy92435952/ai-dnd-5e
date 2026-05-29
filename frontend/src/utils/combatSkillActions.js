@@ -1,4 +1,5 @@
 import { formatCombatError } from './combatErrors'
+import { buildCombatStateChangeSummary } from './combatLog'
 
 const SPELL_SHORTCUT_NAMES = {
   bless: '祝福',
@@ -65,7 +66,12 @@ export function createCombatSkillClickHandler({
           {
             const result = await gameApi.grappleShove(sessionId, 'shove', getSelectedTarget(), 'prone')
             if (result?.turn_state) setTurnState?.(result.turn_state)
-            if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
+            if (result?.narration) addLog?.({
+              role: 'player',
+              content: result.narration,
+              log_type: 'combat',
+              state_changes: buildCombatStateChangeSummary(result, { targetName: getSelectedTarget() }),
+            })
           }
           setCombat(await gameApi.getCombat(sessionId))
           break
@@ -74,7 +80,12 @@ export function createCombatSkillClickHandler({
           {
             const result = await gameApi.grappleShove(sessionId, 'grapple', getSelectedTarget(), 'prone')
             if (result?.turn_state) setTurnState?.(result.turn_state)
-            if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
+            if (result?.narration) addLog?.({
+              role: 'player',
+              content: result.narration,
+              log_type: 'combat',
+              state_changes: buildCombatStateChangeSummary(result, { targetName: getSelectedTarget() }),
+            })
           }
           setCombat(await gameApi.getCombat(sessionId))
           break
@@ -83,7 +94,12 @@ export function createCombatSkillClickHandler({
           {
             const result = await gameApi.combatAction(sessionId, '副手攻击', getSelectedTarget(), false, false, getTurnToken?.())
             if (result?.turn_state) setTurnState?.(result.turn_state)
-            if (result?.narration) addLog?.({ role: 'player', content: result.narration, log_type: 'combat' })
+            if (result?.narration) addLog?.({
+              role: 'player',
+              content: result.narration,
+              log_type: 'combat',
+              state_changes: buildCombatStateChangeSummary(result, { targetName: getSelectedTarget() }),
+            })
           }
           setCombat(await gameApi.getCombat(sessionId))
           break

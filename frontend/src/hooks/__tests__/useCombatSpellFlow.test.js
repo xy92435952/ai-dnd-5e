@@ -118,6 +118,12 @@ describe('useCombatSpellFlow', () => {
       role: 'player',
       content: '魔法飞弹击中训练假人',
       log_type: 'combat',
+      dice_result: null,
+      state_changes: [
+        '训练假人 HP 3',
+        '法术位剩余 1环 1',
+        '动作已用',
+      ],
     })
     expect(setSelectedTarget).toHaveBeenCalledWith(null)
     expect(processingRef.current).toBe(false)

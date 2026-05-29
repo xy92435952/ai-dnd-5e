@@ -9,6 +9,7 @@ import {
   parseDiceNotation,
 } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
+import { buildCombatStateChangeSummary } from '../utils/combatLog'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 
 function ignoreOptionalEffect(fn) {
@@ -79,6 +80,8 @@ export function useCombatAttackFlow({
           : `${atkResult.attacker_name} 攻击 ${atkResult.target_name}，未命中。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`)
         addLog({ role: 'player', content: missText, log_type: 'combat',
           dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: false, is_crit: false, is_fumble: atkResult.is_fumble } },
+          rule_result: atkResult.is_fumble ? '大失手' : '攻击未命中',
+          state_changes: buildCombatStateChangeSummary(atkResult),
         })
         setSelectedTarget(null)
         processingRef.current = false
@@ -95,6 +98,8 @@ export function useCombatAttackFlow({
       const hitLabel = atkResult.is_crit ? '\uD83D\uDCA5 暴击！' : '命中！'
       addLog({ role: 'system', content: `${hitLabel} ${atkResult.attacker_name} 对 ${atkResult.target_name}（${atkResult.attack_total} vs AC${atkResult.target_ac}）`, log_type: 'combat',
         dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: true, is_crit: atkResult.is_crit, is_fumble: false } },
+        rule_result: atkResult.is_crit ? '暴击命中' : '攻击命中',
+        state_changes: buildCombatStateChangeSummary(atkResult),
       })
 
       setTimeout(async () => {
@@ -114,6 +119,12 @@ export function useCombatAttackFlow({
 
           addLog({ role: 'player', content: dmgResult.narration, log_type: 'combat',
             dice_result: { damage: dmgResult.damage_total, total_damage: dmgResult.total_damage },
+            rule_result: dmgResult.total_damage !== undefined
+              ? `实际伤害 ${dmgResult.total_damage}`
+              : undefined,
+            state_changes: buildCombatStateChangeSummary(dmgResult, {
+              targetName: atkResult.target_name,
+            }),
           })
 
           if (dmgResult.sneak_attack_damage > 0) {

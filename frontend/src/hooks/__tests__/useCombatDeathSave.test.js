@@ -107,6 +107,8 @@ describe('useCombatDeathSave', () => {
       role: 'system',
       content: 'Tester 掷出自然 20，恢复 1 HP！',
       log_type: 'dice',
+      dice_result: { type: 'death_save', d20: 20, outcome: 'revive' },
+      state_changes: ['Tester HP 1'],
     })
     expect(processingRef.current).toBe(false)
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)

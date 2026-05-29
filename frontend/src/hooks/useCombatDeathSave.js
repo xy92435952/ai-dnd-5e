@@ -3,6 +3,7 @@ import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
+import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
 export function useCombatDeathSave({
   sessionId,
@@ -57,7 +58,15 @@ export function useCombatDeathSave({
           : result.outcome === 'dead'
             ? `${result.character_name || '角色'} 死亡豁免失败，生命消逝。`
             : `${result.character_name || '角色'} 死亡豁免 d20=${result.d20}（成功 ${saves.successes || 0}/3，失败 ${saves.failures || 0}/3）`
-      addLog({ role: 'system', content: label, log_type: 'dice' })
+      addLog({
+        role: 'system',
+        content: label,
+        log_type: 'dice',
+        dice_result: { type: 'death_save', d20: result.d20, outcome: result.outcome },
+        state_changes: buildCombatStateChangeSummary(result, {
+          targetName: result.character_name || '角色',
+        }),
+      })
     } catch (e) {
       setError(formatCombatError(e))
     } finally {

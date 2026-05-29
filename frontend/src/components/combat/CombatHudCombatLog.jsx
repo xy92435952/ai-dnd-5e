@@ -1,19 +1,11 @@
 import React from 'react'
+import CombatLogEntry from './CombatLogEntry'
 
 export default function CombatHudCombatLog({ logs, logsEndRef }) {
   return (
-    <div className="combat-log" style={{ marginTop: 4 }}>
+    <div className="combat-log">
       {logs.slice(-8).map((log, i) => (
-        <div key={log.id || i} className={`log-entry ${
-          log.dice_result?.is_crit ? 'crit' :
-          log.dice_result?.is_fumble ? 'miss' :
-          log.log_type === 'combat' ? 'dmg' : 'normal'
-        }`}>
-          <span className="roll">
-            {log.dice_result ? `d20=${log.dice_result.d20 || log.dice_result.total}` : '日志'}
-          </span>
-          <span>{(log.content || '').slice(0, 80)}</span>
-        </div>
+        <CombatLogEntry key={log.id || i} log={log} />
       ))}
       <div ref={logsEndRef} />
     </div>

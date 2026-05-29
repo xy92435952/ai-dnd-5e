@@ -3,6 +3,7 @@ import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
+import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
 export function useCombatSpecialActions({
   sessionId,
@@ -38,7 +39,14 @@ export function useCombatSpecialActions({
 
       const result = await gameApi.smite(sessionId, slotLevel, false, smiteRolls, currentSmiteTarget)
 
-      addLog({ role: 'player', content: result.narration, log_type: 'combat' })
+      addLog({
+        role: 'player',
+        content: result.narration,
+        log_type: 'combat',
+        state_changes: buildCombatStateChangeSummary(result, {
+          targetName: currentSmiteTarget,
+        }),
+      })
       if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)
       setCombat(prev => {
         if (!prev) return prev
@@ -81,7 +89,12 @@ export function useCombatSpecialActions({
         showDice({ faces: 10, result: total, label: '地狱斥责 2d10', count: 2 })
       }
       const result = await gameApi.useReaction(sessionId, reactionType, targetId, characterId)
-      addLog({ role: 'player', content: result.narration, log_type: 'combat' })
+      addLog({
+        role: 'player',
+        content: result.narration,
+        log_type: 'combat',
+        state_changes: buildCombatStateChangeSummary(result),
+      })
       if (result.turn_state) setTurnState(result.turn_state)
       processingRef.current = false
       setIsProcessing(false)
@@ -152,6 +165,9 @@ export function useCombatSpecialActions({
           value: result.superiority_die_roll,
           die: result.superiority_die,
         } : null,
+        state_changes: buildCombatStateChangeSummary(result, {
+          targetName: selectedTarget,
+        }),
       })
       if (result.turn_state) setTurnState(result.turn_state)
       if (result.class_resources) setClassResources(result.class_resources)

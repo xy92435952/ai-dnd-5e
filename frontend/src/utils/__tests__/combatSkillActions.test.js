@@ -111,6 +111,7 @@ describe('createCombatSkillClickHandler', () => {
       role: 'player',
       content: 'Tester 推倒训练假人',
       log_type: 'combat',
+      state_changes: ['动作已用'],
     })
     expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
   })
@@ -132,6 +133,7 @@ describe('createCombatSkillClickHandler', () => {
       role: 'player',
       content: 'Tester 使用副手攻击命中训练假人',
       log_type: 'combat',
+      state_changes: ['动作已用，附赠动作已用'],
     })
     expect(api.getCombat).toHaveBeenCalledWith('sess-1')
     expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })

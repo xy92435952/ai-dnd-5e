@@ -94,6 +94,11 @@ describe('useCombatAiTurns', () => {
         attack: { d20: 12 },
         damage: 3,
       },
+      state_changes: [
+        'char-1 HP 0',
+        '死亡豁免 成功 0/3，失败 1/3',
+        '状态 unconscious',
+      ],
     })
     const updater = deps.setCombat.mock.calls.find(([arg]) => typeof arg === 'function')[0]
     expect(updater({

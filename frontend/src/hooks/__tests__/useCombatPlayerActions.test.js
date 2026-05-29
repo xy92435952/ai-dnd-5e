@@ -100,6 +100,7 @@ describe('useCombatPlayerActions', () => {
       role: 'player',
       content: '你采取了闪避姿态',
       log_type: 'combat',
+      state_changes: ['动作已用'],
     })
     expect(processingRef.current).toBe(false)
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
@@ -158,6 +159,7 @@ describe('useCombatPlayerActions', () => {
       role: 'player',
       content: '治疗药水 恢复 6 HP',
       log_type: 'combat',
+      state_changes: ['Tester HP 4 -> 10', '动作已用'],
     })
     expect(deps.setSession).toHaveBeenCalledWith(expect.objectContaining({
       player: expect.objectContaining({
