@@ -103,6 +103,69 @@ async def test_group_actions_are_scoped_and_clearable(db_session, sample_module,
 
 
 @pytest.mark.asyncio
+async def test_new_group_action_clears_stale_readiness_for_all_group_members(db_session, sample_module, sample_user):
+    session = await room_service.create_room(
+        db_session,
+        user_id=sample_user.id,
+        module_id=sample_module.id,
+        save_name="Stale readiness room",
+        max_players=4,
+    )
+    ally = User(username="stale_ready_ally", password_hash="x", display_name="Ally")
+    db_session.add(ally)
+    await db_session.flush()
+    db_session.add(SessionMember(session_id=session.id, user_id=ally.id, role="player"))
+    await db_session.commit()
+
+    await room_service.set_member_group(
+        db_session,
+        session_id=session.id,
+        user_id=ally.id,
+        group_id="main",
+        group_name="Main",
+        location="Tavern hall",
+    )
+    await room_service.submit_group_action(
+        db_session,
+        session_id=session.id,
+        user_id=sample_user.id,
+        group_id="main",
+        action_text="I inspect the door seam.",
+    )
+    await room_service.set_group_readiness(
+        db_session,
+        session_id=session.id,
+        user_id=sample_user.id,
+        group_id="main",
+        status="ready",
+    )
+    await room_service.set_group_readiness(
+        db_session,
+        session_id=session.id,
+        user_id=ally.id,
+        group_id="main",
+        status="ready",
+    )
+
+    updated = await room_service.submit_group_action(
+        db_session,
+        session_id=session.id,
+        user_id=ally.id,
+        group_id="main",
+        action_text="I switch to helping break the door.",
+    )
+
+    assert [item["text"] for item in updated["pending_actions_by_group"]["main"]] == [
+        "I inspect the door seam.",
+        "I switch to helping break the door.",
+    ]
+    assert updated["group_readiness"]["main"] == {
+        sample_user.id: "drafting",
+        ally.id: "drafting",
+    }
+
+
+@pytest.mark.asyncio
 async def test_member_cannot_submit_action_to_other_group(db_session, sample_module, sample_user):
     session = await room_service.create_room(
         db_session,

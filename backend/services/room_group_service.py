@@ -180,8 +180,11 @@ async def submit_group_action(
         "created_at": datetime.utcnow().isoformat(),
     })
     pending[clean_group_id] = actions[-20:]
-    group_readiness = dict(readiness.get(clean_group_id) or {})
-    group_readiness[user_id] = "drafting"
+    group_member_ids = group.get("member_user_ids") or []
+    group_readiness = {
+        member_user_id: "drafting"
+        for member_user_id in group_member_ids
+    }
     readiness[clean_group_id] = group_readiness
 
     mp["pending_actions_by_group"] = pending
