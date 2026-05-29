@@ -286,7 +286,13 @@ export default function Adventure() {
           onClose={() => setJournalOpen(false)}
         />
       )}
-      {restOpen && <RestModal onRest={handleRest} onClose={() => setRestOpen(false)} />}
+      {restOpen && (
+        <RestModal
+          party={allMembers}
+          onRest={handleRest}
+          onClose={() => setRestOpen(false)}
+        />
+      )}
 
       <MultiplayerSpeakBar
         room={room}
