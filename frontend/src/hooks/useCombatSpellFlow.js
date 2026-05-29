@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyActionResultEntityStates, getCombatTurnToken, parseDiceNotation } from '../utils/combat'
+import { applyActionResultEntityStates, getCombatTurnToken, getSpellCastDisabledReason, parseDiceNotation } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
@@ -9,6 +9,7 @@ export function useCombatSpellFlow({
   sessionId,
   playerId,
   selectedTarget,
+  aoeHover = null,
   isProcessing,
   canActThisTurn = true,
   processingRef,
@@ -26,6 +27,16 @@ export function useCombatSpellFlow({
 }) {
   return useCallback(async (spell, level) => {
     if (!playerId || !canActThisTurn || isProcessing) return
+    const blockedReason = getSpellCastDisabledReason({
+      spell,
+      level,
+      selectedTarget,
+      aoeHover,
+    })
+    if (blockedReason) {
+      setError(blockedReason)
+      return
+    }
     const target = selectedTarget || null
     const effectiveTarget = spell.type === 'heal' ? (target || playerId) : target
 
@@ -140,6 +151,7 @@ export function useCombatSpellFlow({
     playerId,
     processingRef,
     selectedTarget,
+    aoeHover,
     sessionId,
     setCombat,
     setCombatOver,

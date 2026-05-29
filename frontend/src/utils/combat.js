@@ -151,6 +151,32 @@ export function buildSpellAoePreview(spell) {
   return preview
 }
 
+export function getSpellCastDisabledReason({
+  spell,
+  level = 0,
+  cantrips = [],
+  available = () => 0,
+  selectedTarget = null,
+  aoeHover = null,
+} = {}) {
+  if (!spell) return '请选择法术'
+
+  const isCantrip = spell.level === 0 || (cantrips || []).some(name => spellNameMatches(spell, name))
+  if (!isCantrip && available(level) <= 0) return `没有可用的 ${level} 环法术位`
+
+  const spellType = String(spell.type || '').toLowerCase()
+  const isAoe = !!spell.aoe
+  const template = isAoe ? getAoeTemplateType(spell) : null
+  const needsSelectedTarget = !isAoe && (skillRequiresTarget(spell) || ['damage', 'control'].includes(spellType))
+  if (needsSelectedTarget && !selectedTarget) return '请先选择一个目标再施法'
+
+  if (isAoe && template !== 'aura' && !aoeHover) {
+    return '请先在战场上确认法术中心点'
+  }
+
+  return ''
+}
+
 function normalizeEntityStateUpdate(targetId, update = {}) {
   if (!targetId && !update?.target_id && !update?.entity_id) return null
   const resolvedTargetId = targetId || update.target_id || update.entity_id

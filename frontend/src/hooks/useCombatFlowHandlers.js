@@ -146,6 +146,7 @@ export function useCombatFlowHandlers({
     sessionId,
     playerId: actorId,
     selectedTarget,
+    aoeHover: targeting.aoeHover,
     isProcessing,
     canActThisTurn,
     processingRef,

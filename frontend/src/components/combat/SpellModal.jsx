@@ -17,13 +17,23 @@ import { SpellIcon } from '../Icons'
 import SpellModalTabs from './SpellModalTabs'
 import SpellModalList from './SpellModalList'
 import SpellModalActions from './SpellModalActions'
-import { spellNameMatches } from '../../utils/combat'
+import { getSpellCastDisabledReason, spellNameMatches } from '../../utils/combat'
 
 function isCantripSpell(spell, cantripNames) {
   return spell.level === 0 || (cantripNames || []).some(name => spellNameMatches(spell, name))
 }
 
-export default function SpellModal({ spells = [], cantrips = [], slots = {}, quickPick, onCast, onClose, onSpellHover }) {
+export default function SpellModal({
+  spells = [],
+  cantrips = [],
+  slots = {},
+  quickPick,
+  selectedTarget = null,
+  aoeHover = null,
+  onCast,
+  onClose,
+  onSpellHover,
+}) {
   const [selectedSpell, setSelectedSpell] = useState(null)
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
 
@@ -43,16 +53,15 @@ export default function SpellModal({ spells = [], cantrips = [], slots = {}, qui
     onSpellHover?.(picked)
   }, [cantrips, onSpellHover, quickPick, spells])
 
-  const canCast = selectedSpell
-    ? isCantripSpell(selectedSpell, cantrips)
-      ? true
-      : available(level) > 0
-    : false
-  const castDisabledReason = selectedSpell
-    ? isCantripSpell(selectedSpell, cantrips) || available(level) > 0
-      ? ''
-      : `没有可用的 ${level} 环法术位`
-    : '请选择法术'
+  const castDisabledReason = getSpellCastDisabledReason({
+    spell: selectedSpell,
+    level,
+    cantrips,
+    available,
+    selectedTarget,
+    aoeHover,
+  })
+  const canCast = !castDisabledReason
 
   return (
     <div onClick={onClose} style={{

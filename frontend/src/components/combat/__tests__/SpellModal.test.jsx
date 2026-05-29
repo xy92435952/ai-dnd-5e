@@ -20,6 +20,7 @@ describe('SpellModal', () => {
         cantrips={['Fire Bolt']}
         slots={{}}
         quickPick="火焰射线"
+        selectedTarget="enemy-1"
         onCast={onCast}
         onClose={vi.fn()}
         onSpellHover={onSpellHover}
@@ -114,5 +115,72 @@ describe('SpellModal', () => {
     const firstLevelTab = screen.getByRole('button', { name: '1环 (0)' })
     expect(firstLevelTab).toBeDisabled()
     expect(firstLevelTab).toHaveAttribute('title', '没有可用的 1 环法术位')
+  })
+
+  it('blocks target-based damage spells before a target is selected', () => {
+    const onCast = vi.fn()
+
+    render(
+      <SpellModal
+        spells={[{
+          name: '魔法飞弹',
+          name_en: 'Magic Missile',
+          level: 1,
+          type: 'damage',
+          damage: '1d4+1',
+        }]}
+        cantrips={[]}
+        slots={{ '1st': 1 }}
+        selectedTarget={null}
+        aoeHover={null}
+        onCast={onCast}
+        onClose={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '1环 (1)' }))
+    fireEvent.click(screen.getByText('魔法飞弹'))
+    const cast = screen.getByRole('button', { name: /^施放/ })
+    expect(cast).toBeDisabled()
+    expect(cast).toHaveAttribute('title', '请先选择一个目标再施法')
+    expect(screen.getByText('请先选择一个目标再施法')).toBeInTheDocument()
+
+    fireEvent.click(cast)
+    expect(onCast).not.toHaveBeenCalled()
+  })
+
+  it('blocks aoe spells until the battlefield has a hovered center point', () => {
+    const onCast = vi.fn()
+
+    render(
+      <SpellModal
+        spells={[{
+          name: '火球术',
+          name_en: 'Fireball',
+          level: 3,
+          type: 'damage',
+          aoe: true,
+          damage: '8d6',
+        }]}
+        cantrips={[]}
+        slots={{ '3rd': 1 }}
+        selectedTarget="enemy-1"
+        aoeHover={null}
+        onCast={onCast}
+        onClose={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '3环 (1)' }))
+    fireEvent.click(screen.getByText('火球术'))
+    const cast = screen.getByRole('button', { name: /^施放/ })
+    expect(cast).toBeDisabled()
+    expect(cast).toHaveAttribute('title', '请先在战场上确认法术中心点')
+    expect(screen.getByText('请先在战场上确认法术中心点')).toBeInTheDocument()
+
+    fireEvent.click(cast)
+    expect(onCast).not.toHaveBeenCalled()
   })
 })

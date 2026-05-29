@@ -245,6 +245,8 @@ export default function Combat() {
         spellQuickPick={spellQuickPick}
         playerAvailableSpells={playerAvailableSpells}
         playerCantrips={playerCantrips}
+        selectedTarget={selectedTarget}
+        aoeHover={aoeHover}
         onCastSpell={handleCastSpell}
         onCloseSpell={() => { setSpellModalOpen(false); setSpellQuickPick(null); clearAoePreview() }}
         onSpellHover={handleSpellHover}
