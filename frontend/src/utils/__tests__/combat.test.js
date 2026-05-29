@@ -17,6 +17,8 @@ import {
   computeSkillStats,
   canDriveAiCombatTurns,
   formatWeaponResourceLog,
+  getSpellCastDisabledReason,
+  getSpellMaxTargets,
   getAoePreviewCenterKey,
   getAoeTemplateType,
   getAiCombatTurnDriverUserId,
@@ -182,6 +184,81 @@ describe('combat grid helpers', () => {
         },
       },
     })).toEqual(['player', 'enemy1', 'ally'])
+  })
+
+  it('collectSpellCastTargetIds honors explicit AoE target caps', () => {
+    expect(getSpellMaxTargets({
+      name: 'Mass Healing Word',
+      type: 'heal',
+      aoe: true,
+      max_targets: 2,
+    })).toBe(2)
+
+    expect(collectSpellCastTargetIds({
+      spell: {
+        name: 'Mass Healing Word',
+        type: 'heal',
+        aoe: true,
+        max_targets: 2,
+        desc: 'up to 6 creatures recover hit points',
+      },
+      playerId: 'player',
+      aoeHover: '3_3',
+      combat: {
+        entity_positions: {
+          player: { x: 2, y: 2 },
+          ally1: { x: 3, y: 3 },
+          ally2: { x: 4, y: 3 },
+          ally3: { x: 4, y: 4 },
+          enemy1: { x: 3, y: 4 },
+        },
+        entities: {
+          player: { id: 'player', is_enemy: false, hp_current: 4 },
+          ally1: { id: 'ally1', is_enemy: false, hp_current: 5 },
+          ally2: { id: 'ally2', is_enemy: false, hp_current: 6 },
+          ally3: { id: 'ally3', is_enemy: false, hp_current: 7 },
+          enemy1: { id: 'enemy1', is_enemy: true, hp_current: 7 },
+        },
+      },
+    })).toEqual(['player', 'ally1'])
+  })
+
+  it('getSpellCastDisabledReason blocks invalid target types and empty AoE cells before submit', () => {
+    const combat = {
+      entity_positions: {
+        hero: { x: 1, y: 1 },
+        ally: { x: 2, y: 1 },
+        enemy: { x: 8, y: 8 },
+        dead: { x: 2, y: 2 },
+      },
+      entities: {
+        hero: { id: 'hero', is_enemy: false, hp_current: 10 },
+        ally: { id: 'ally', is_enemy: false, hp_current: 0, death_saves: { failures: 3 } },
+        enemy: { id: 'enemy', is_enemy: true, hp_current: 7 },
+        dead: { id: 'dead', is_enemy: true, hp_current: 0, life_state: 'dead' },
+      },
+    }
+
+    expect(getSpellCastDisabledReason({
+      spell: { name: 'Cure Wounds', type: 'heal', level: 1, target_type: 'ally' },
+      selectedTarget: 'enemy',
+      playerId: 'hero',
+      combat,
+    })).toBe('请选择队友或自己作为法术目标')
+
+    expect(getSpellCastDisabledReason({
+      spell: { name: 'Fire Bolt', type: 'damage', level: 0, target_type: 'enemy' },
+      selectedTarget: 'hero',
+      playerId: 'hero',
+      combat,
+    })).toBe('请选择敌人作为法术目标')
+
+    expect(getSpellCastDisabledReason({
+      spell: { name: 'Fireball', type: 'damage', level: 3, aoe: true, desc: '5ft radius blast' },
+      playerId: 'hero',
+      aoeHover: '12_12',
+      combat,
+    })).toBe('法术范围内没有可结算目标')
   })
 
   it('buildCombatGrid 生成固定尺寸格子并挂载实体', () => {

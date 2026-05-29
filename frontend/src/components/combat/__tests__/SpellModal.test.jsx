@@ -183,4 +183,43 @@ describe('SpellModal', () => {
     fireEvent.click(cast)
     expect(onCast).not.toHaveBeenCalled()
   })
+
+  it('blocks healing spells when an enemy is selected', () => {
+    const onCast = vi.fn()
+
+    render(
+      <SpellModal
+        spells={[{
+          name: 'Cure Wounds',
+          level: 1,
+          type: 'heal',
+          target_type: 'ally',
+          heal: '1d8',
+        }]}
+        cantrips={[]}
+        slots={{ '1st': 1 }}
+        selectedTarget="enemy-1"
+        playerId="hero-1"
+        combat={{
+          entities: {
+            'hero-1': { id: 'hero-1', is_enemy: false, hp_current: 8 },
+            'enemy-1': { id: 'enemy-1', is_enemy: true, hp_current: 7 },
+          },
+        }}
+        onCast={onCast}
+        onClose={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByTitle('1 环法术'))
+    fireEvent.click(screen.getByText('Cure Wounds'))
+
+    const cast = screen.getByTitle('请选择队友或自己作为法术目标')
+    expect(cast).toBeDisabled()
+    expect(cast).toHaveAttribute('title', '请选择队友或自己作为法术目标')
+    expect(screen.getByText('请选择队友或自己作为法术目标')).toBeInTheDocument()
+    fireEvent.click(cast)
+    expect(onCast).not.toHaveBeenCalled()
+  })
 })

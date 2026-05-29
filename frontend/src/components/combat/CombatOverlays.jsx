@@ -13,6 +13,8 @@ export default function CombatOverlays({
   playerAvailableSpells,
   playerCantrips,
   selectedTarget,
+  playerId,
+  combat,
   aoeHover,
   aoeLockedCenter,
   onCastSpell,
@@ -45,6 +47,8 @@ export default function CombatOverlays({
           slots={playerSpellSlots}
           quickPick={spellQuickPick}
           selectedTarget={selectedTarget}
+          playerId={playerId}
+          combat={combat}
           aoeHover={aoeLockedCenter || aoeHover}
           onCast={onCastSpell}
           onClose={onCloseSpell}

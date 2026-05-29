@@ -279,6 +279,57 @@ describe('useCombatSpellFlow', () => {
     )
   })
 
+  it('blocks empty AoE ground points instead of sending an empty target list', async () => {
+    const setError = vi.fn()
+    const setIsProcessing = vi.fn()
+    const setSpellModalOpen = vi.fn()
+    const processingRef = { current: false }
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'wizard-1',
+      selectedTarget: null,
+      aoeHover: '12_12',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing,
+      setSpellModalOpen,
+      setError,
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice: vi.fn(),
+      combat: {
+        entity_positions: {
+          'wizard-1': { x: 5, y: 5 },
+          'goblin-1': { x: 6, y: 5 },
+        },
+        entities: {
+          'wizard-1': { id: 'wizard-1', is_enemy: false, hp_current: 18 },
+          'goblin-1': { id: 'goblin-1', is_enemy: true, hp_current: 7 },
+        },
+      },
+    }))
+
+    await act(async () => {
+      await result.current({
+        name: 'Fireball',
+        type: 'damage',
+        aoe: true,
+        desc: '5ft radius blast',
+      }, 3)
+    })
+
+    expect(spellRollMock).not.toHaveBeenCalled()
+    expect(setError).toHaveBeenCalledWith('法术范围内没有可结算目标')
+    expect(setSpellModalOpen).not.toHaveBeenCalled()
+    expect(setIsProcessing).not.toHaveBeenCalled()
+    expect(processingRef.current).toBe(false)
+  })
+
   it('does not cast when the current user does not control this turn', async () => {
     const setIsProcessing = vi.fn()
     const setSpellModalOpen = vi.fn()

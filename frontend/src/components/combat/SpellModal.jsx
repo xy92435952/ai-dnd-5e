@@ -29,6 +29,8 @@ export default function SpellModal({
   slots = {},
   quickPick,
   selectedTarget = null,
+  playerId = null,
+  combat = null,
   aoeHover = null,
   onCast,
   onClose,
@@ -59,6 +61,8 @@ export default function SpellModal({
     cantrips,
     available,
     selectedTarget,
+    playerId,
+    combat,
     aoeHover,
   })
   const canCast = !castDisabledReason

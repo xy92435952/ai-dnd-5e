@@ -253,6 +253,8 @@ export default function Combat() {
         playerAvailableSpells={playerAvailableSpells}
         playerCantrips={playerCantrips}
         selectedTarget={selectedTarget}
+        playerId={effectivePlayerId || playerId}
+        combat={combat}
         aoeHover={aoeHover}
         aoeLockedCenter={aoeLockedCenter}
         onCastSpell={handleCastSpell}

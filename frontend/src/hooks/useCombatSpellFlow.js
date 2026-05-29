@@ -37,6 +37,8 @@ export function useCombatSpellFlow({
       spell,
       level,
       selectedTarget,
+      playerId,
+      combat,
       aoeHover,
     })
     if (blockedReason) {
@@ -49,6 +51,7 @@ export function useCombatSpellFlow({
       playerId,
       combat,
       aoeHover,
+      level,
     })
 
     processingRef.current = true

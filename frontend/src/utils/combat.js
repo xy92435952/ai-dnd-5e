@@ -151,6 +151,77 @@ export function buildSpellAoePreview(spell) {
   return preview
 }
 
+function readPositiveInteger(value) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : null
+}
+
+export function getSpellMaxTargets(spell = {}, level = spell?.level ?? 0) {
+  const targeting = spell.targeting && typeof spell.targeting === 'object' ? spell.targeting : {}
+  const explicit = readPositiveInteger(
+    spell.max_targets
+    ?? spell.maxTargets
+    ?? spell.target_count
+    ?? spell.targetCount
+    ?? targeting.max_targets
+    ?? targeting.maxTargets
+    ?? targeting.target_count
+    ?? targeting.targetCount,
+  )
+  if (explicit) return explicit
+
+  const text = `${spell.targets || ''} ${spell.target || ''} ${spell.desc || ''} ${spell.description || ''}`.toLowerCase()
+  const explicitText = text.match(/(?:up to|maximum|max|最多)\s*(\d+)/)
+  if (explicitText) return readPositiveInteger(explicitText[1])
+
+  const baseLevel = readPositiveInteger(spell.level)
+  if (baseLevel && level > baseLevel && /additional target|one extra target|多一个目标|额外目标/.test(text)) {
+    return 1 + Math.max(0, level - baseLevel)
+  }
+
+  return null
+}
+
+function getSpellTargetSide(spell = {}) {
+  const targeting = spell.targeting && typeof spell.targeting === 'object' ? spell.targeting : {}
+  const targetType = normalizeTargetHint(
+    spell.target_type
+    ?? spell.targetType
+    ?? spell.target
+    ?? targeting.target_type
+    ?? targeting.targetType
+    ?? targeting.type,
+  )
+  if (['self', 'self_only', 'self_target', 'selftarget'].includes(targetType)) return 'self'
+  if (['ally', 'allies', 'friendly', 'friend', 'party', 'willing'].includes(targetType)) return 'ally'
+  if (['enemy', 'enemies', 'hostile', 'foe'].includes(targetType)) return 'enemy'
+  if (String(spell.type || '').toLowerCase() === 'heal') return 'ally'
+  return 'any'
+}
+
+function getSelectedSpellTargetId({ spell, selectedTarget, playerId }) {
+  if (!spell || spell.aoe) return null
+  if (String(spell.type || '').toLowerCase() === 'heal') return selectedTarget || playerId || null
+  return selectedTarget || null
+}
+
+function getSpellTargetEntityIssue({ spell, targetId, entities = {}, playerId = null } = {}) {
+  if (!spell || !targetId || !entities?.[targetId]) return ''
+  const entity = entities[targetId]
+  const targetSide = getSpellTargetSide(spell)
+  const spellType = String(spell.type || '').toLowerCase()
+
+  if (isCombatEntityDead(entity)) {
+    return spellType === 'heal'
+      ? '目标已死亡，普通治疗无法复活'
+      : '目标已经无法作为法术目标'
+  }
+  if (targetSide === 'self' && playerId && targetId !== playerId) return '这个法术只能以自己为目标'
+  if (targetSide === 'ally' && entity.is_enemy) return '请选择队友或自己作为法术目标'
+  if (targetSide === 'enemy' && !entity.is_enemy) return '请选择敌人作为法术目标'
+  return ''
+}
+
 export function getSpellCastDisabledReason({
   spell,
   level = 0,
@@ -158,6 +229,8 @@ export function getSpellCastDisabledReason({
   available = null,
   selectedTarget = null,
   aoeHover = null,
+  playerId = null,
+  combat = null,
 } = {}) {
   if (!spell) return '请选择法术'
 
@@ -170,8 +243,22 @@ export function getSpellCastDisabledReason({
   const needsSelectedTarget = !isAoe && (skillRequiresTarget(spell) || ['damage', 'control'].includes(spellType))
   if (needsSelectedTarget && !selectedTarget) return '请先选择一个目标再施法'
 
+  const selectedTargetId = getSelectedSpellTargetId({ spell, selectedTarget, playerId })
+  const targetIssue = getSpellTargetEntityIssue({
+    spell,
+    targetId: selectedTargetId,
+    entities: combat?.entities || {},
+    playerId,
+  })
+  if (targetIssue) return targetIssue
+
   if (isAoe && template !== 'aura' && !aoeHover) {
     return '请先在战场上确认法术中心点'
+  }
+
+  if (isAoe && combat) {
+    const targetIds = collectSpellCastTargetIds({ spell, selectedTarget, playerId, combat, aoeHover, level })
+    if (!targetIds.length) return '法术范围内没有可结算目标'
   }
 
   return ''
@@ -183,6 +270,7 @@ export function collectSpellCastTargetIds({
   playerId = null,
   combat = null,
   aoeHover = null,
+  level = spell?.level ?? 0,
 } = {}) {
   if (!spell) return []
   if (!spell.aoe) {
@@ -205,7 +293,7 @@ export function collectSpellCastTargetIds({
   })
   if (!cells.ring.size) return []
 
-  return Object.entries(entityPositions)
+  const targetIds = Object.entries(entityPositions)
     .filter(([, pos]) => pos && cells.ring.has(`${pos.x}_${pos.y}`))
     .filter(([entityId]) => {
       const entity = entities[entityId]
@@ -214,6 +302,8 @@ export function collectSpellCastTargetIds({
       return true
     })
     .map(([entityId]) => entityId)
+  const maxTargets = getSpellMaxTargets(spell, level)
+  return maxTargets ? targetIds.slice(0, maxTargets) : targetIds
 }
 
 function normalizeEntityStateUpdate(targetId, update = {}) {
