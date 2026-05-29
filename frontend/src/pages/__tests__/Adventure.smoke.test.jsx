@@ -340,6 +340,122 @@ describe('Adventure render smoke', () => {
     cleanup()
   })
 
+  it('刷新 Adventure 后恢复单人日志、选项和待检定状态', async () => {
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      logs: [
+        { id: 'log-1', role: 'dm', log_type: 'narrative', content: '石门后传来低沉回声。' },
+        { id: 'log-2', role: 'player', log_type: 'narrative', content: '我靠近石门。' },
+      ],
+      game_state: {
+        last_turn: {
+          last_actor_user_id: null,
+          player_choices: [
+            { text: '继续聆听门后的声音', tags: [] },
+          ],
+          needs_check: {
+            required: true,
+            check_type: '察觉',
+            dc: 13,
+            context: '辨认门后声音',
+          },
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: {
+          hp_max: 10,
+          proficiency_bonus: 2,
+          ability_modifiers: { wis: 1 },
+        },
+        proficient_skills: [],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText('石门后传来低沉回声。')).toBeInTheDocument()
+    expect(screen.getByText(/我靠近石门。/)).toBeInTheDocument()
+    expect(screen.getByText(/察觉检定 · DC 13/)).toBeInTheDocument()
+    expect(screen.getByText('辨认门后声音')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /继续聆听门后的声音/ })).not.toBeInTheDocument()
+
+    cleanup()
+  })
+
+  it('刷新多人 Adventure 后恢复房间发言权和分队待处理意图', async () => {
+    wsConnectedMock.mockReturnValue(true)
+    roomsGetMock.mockResolvedValue({
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'other',
+      active_group_id: 'alley',
+      members: [
+        { user_id: 'me', display_name: '我', character_id: 'char-1', character_name: 'Tester', is_online: true },
+        { user_id: 'other', display_name: '队友', character_id: 'char-2', character_name: 'Ally', is_online: true },
+      ],
+      party_groups: [
+        { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'other'] },
+      ],
+      pending_actions_by_group: {
+        alley: [{ user_id: 'me', display_name: '我', text: '我检查仓库门锁。' }],
+      },
+      group_readiness: {
+        alley: { me: 'ready', other: 'drafting' },
+      },
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      is_multiplayer: true,
+      game_state: {
+        last_turn: {
+          last_actor_user_id: 'other',
+          player_choices: [{ text: '队友可见的选择', tags: [] }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+      logs: [
+        { id: 'log-1', role: 'dm', log_type: 'narrative', content: '分队停在后巷。' },
+      ],
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText(/等待 队友 发言/)).toBeInTheDocument()
+    expect(screen.getByText('同步在线')).toBeInTheDocument()
+    expect(screen.getByTitle('当前发言者状态')).toHaveTextContent('发言 队友 · 在线')
+    expect(screen.getAllByText('后巷组').length).toBeGreaterThan(0)
+    expect(screen.getByText(/我检查仓库门锁。/)).toBeInTheDocument()
+    expect(screen.getByText(/我 · 已确认/)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/等待发言权/)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /队友可见的选择/ })).not.toBeInTheDocument()
+
+    cleanup()
+  })
+
   it('点击 DM 生成的普通选项时带 ai_generated_choice 来源', async () => {
     actionMock.mockResolvedValue({
       type: 'exploration',

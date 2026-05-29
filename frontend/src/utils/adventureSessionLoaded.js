@@ -36,7 +36,7 @@ export function prepareOpeningStage(data, {
     (l.log_type === 'narrative' || !l.log_type) &&
     l.content
   )
-  if (dmNarratives.length !== 1) {
+  if (displayLogs.length !== 1 || dmNarratives.length !== 1) {
     return { displayLogs, openingQueue: null, sessionKey: sid }
   }
 

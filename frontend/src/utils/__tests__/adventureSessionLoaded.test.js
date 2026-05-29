@@ -100,4 +100,21 @@ describe('prepareOpeningStage', () => {
     expect(result.openingQueue).toBeNull()
     expect(result.displayLogs).toHaveLength(2)
   })
+
+  it('does not reopen theatre for an existing adventure turn with player history', () => {
+    const result = prepareOpeningStage({
+      session_id: 's1',
+      logs: [
+        { id: 'l1', role: 'dm', log_type: 'narrative', content: '石门后传来低沉回声。' },
+        { id: 'l2', role: 'player', log_type: 'narrative', content: '我靠近石门。' },
+      ],
+    }, {
+      sessionId: 'fallback',
+      dialogueQueueLength: 0,
+      openingTriggered: new Set(),
+    })
+
+    expect(result.openingQueue).toBeNull()
+    expect(result.displayLogs).toHaveLength(2)
+  })
 })
