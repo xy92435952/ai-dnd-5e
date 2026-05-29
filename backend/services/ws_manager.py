@@ -10,8 +10,8 @@
 """
 import asyncio
 import logging
-from typing import Optional
 from datetime import datetime
+from typing import Iterable, Optional
 
 from fastapi import WebSocket
 
@@ -194,6 +194,25 @@ class WSManager:
                 uid for (sid, uid) in self.user_ws.keys()
                 if sid == session_id
             ]
+
+    async def prune_stale_connections(
+        self,
+        stale_members: Iterable[tuple[str, str]],
+        *,
+        code: int = 4001,
+        reason: str = "Stale websocket connection",
+    ) -> int:
+        """Close and remove a batch of known-stale member sockets."""
+        removed = 0
+        seen: set[tuple[str, str]] = set()
+        for session_id, user_id in stale_members:
+            key = (session_id, user_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            if await self.disconnect_user(session_id, user_id, code=code, reason=reason):
+                removed += 1
+        return removed
 
     async def _silent_disconnect(self, ws: WebSocket) -> None:
         try:

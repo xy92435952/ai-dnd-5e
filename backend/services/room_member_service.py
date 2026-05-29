@@ -326,6 +326,21 @@ async def mark_offline(
         await db.commit()
 
 
+async def list_stale_members(
+    db: AsyncSession,
+    *,
+    stale_after_seconds: int = OFFLINE_THRESHOLD_SECONDS,
+) -> list[tuple[str, str]]:
+    """Return room members whose heartbeat is older than the stale window."""
+    threshold = datetime.utcnow() - timedelta(seconds=stale_after_seconds)
+    result = await db.execute(
+        select(SessionMember.session_id, SessionMember.user_id)
+        .where(SessionMember.last_seen_at.is_not(None))
+        .where(SessionMember.last_seen_at < threshold)
+    )
+    return [(session_id, user_id) for session_id, user_id in result.all()]
+
+
 async def get_member(
     db: AsyncSession,
     session_id: str,

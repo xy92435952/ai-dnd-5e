@@ -1,6 +1,9 @@
+import asyncio
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 
 from config import settings
 from database import init_db
@@ -12,6 +15,10 @@ from api.game import router as game_router
 from api.combat import router as combat_router
 from api.rooms import router as rooms_router
 from api.ws import router as ws_router
+from database import AsyncSessionLocal
+
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -20,7 +27,16 @@ async def lifespan(app: FastAPI):
     # 初始化 LangGraph 对话记忆
     from services.graphs.dm_agent import initialize_memory
     await initialize_memory()
+    cleanup_task = None
+    if settings.enable_ws_stale_cleanup:
+        cleanup_task = asyncio.create_task(_ws_stale_cleanup_loop())
     yield
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
@@ -53,3 +69,21 @@ app.include_router(ws_router)
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "0.1.0"}
+
+
+async def _ws_stale_cleanup_loop():
+    from services.ws_cleanup_service import cleanup_stale_ws_connections
+
+    interval = max(5, int(settings.ws_stale_cleanup_interval_seconds))
+    stale_after = max(1, int(settings.ws_stale_disconnect_after_seconds))
+
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            async with AsyncSessionLocal() as db:
+                await cleanup_stale_ws_connections(
+                    db,
+                    stale_after_seconds=stale_after,
+                )
+        except Exception as exc:
+            logger.warning("WS stale cleanup loop failed: %s", exc)

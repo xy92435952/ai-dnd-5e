@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
     # 部署环境：development / production
     env: str = "development"
+    enable_ws_stale_cleanup: bool = False
+    ws_stale_cleanup_interval_seconds: int = 30
+    ws_stale_disconnect_after_seconds: int = 30
 
     class Config:
         env_file = ".env"

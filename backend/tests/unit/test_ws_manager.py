@@ -267,3 +267,28 @@ async def test_disconnect_room_closes_only_target_room_sockets():
     assert await manager.online_users("room-b") == ["u1"]
     assert manager.user_ws == {("room-b", "u1"): room_b_user_1}
     assert manager.ws_meta == {room_b_user_1: ("room-b", "u1")}
+
+
+@pytest.mark.asyncio
+async def test_prune_stale_connections_removes_each_stale_socket_once():
+    manager = WSManager()
+    stale_one = FakeWebSocket("stale-one")
+    stale_two = FakeWebSocket("stale-two")
+    fresh = FakeWebSocket("fresh")
+
+    await manager.connect("room-a", "u1", stale_one)
+    await manager.connect("room-a", "u2", stale_two)
+    await manager.connect("room-a", "u3", fresh)
+
+    removed = await manager.prune_stale_connections(
+        [("room-a", "u1"), ("room-a", "u1"), ("room-a", "u2")],
+        code=4105,
+        reason="Stale heartbeat",
+    )
+
+    assert removed == 2
+    assert stale_one.closed == [{"code": 4105, "reason": "Stale heartbeat"}]
+    assert stale_two.closed == [{"code": 4105, "reason": "Stale heartbeat"}]
+    assert fresh.closed == []
+    assert await manager.online_users("room-a") == ["u3"]
+    assert manager.user_ws == {("room-a", "u3"): fresh}

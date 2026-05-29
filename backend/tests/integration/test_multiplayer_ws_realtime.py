@@ -608,6 +608,82 @@ async def test_ws_disconnect_marks_member_offline_in_realtime_snapshot(
         ws_manager.ws_meta.clear()
 
 
+async def test_ws_stale_cleanup_disconnects_inactive_member_and_broadcasts_offline_snapshot(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Stale heartbeats should be cleaned up and reflected in the room snapshot."""
+    import api.ws as ws_api
+    from datetime import datetime, timedelta
+    from models import SessionMember
+    from services.ws_cleanup_service import cleanup_stale_ws_connections
+    from services.ws_manager import ws_manager
+    from sqlalchemy import select
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    host = await _register(client, "ws_stale_host", display_name="Host Player")
+    guest = await _register(client, "ws_stale_guest", display_name="Guest Player")
+    created = (await client.post("/game/rooms/create", headers=_h(host["token"]), json={
+        "module_id": sample_module.id,
+        "save_name": "WS stale cleanup room",
+        "max_players": 4,
+    })).json()
+    sid = created["session_id"]
+    await client.post("/game/rooms/join", headers=_h(guest["token"]), json={
+        "room_code": created["room_code"],
+    })
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        guest_member = (
+            await db_session.execute(
+                select(SessionMember).where(
+                    SessionMember.session_id == sid,
+                    SessionMember.user_id == guest["user_id"],
+                )
+            )
+        ).scalar_one()
+        guest_member.last_seen_at = datetime.utcnow() - timedelta(seconds=120)
+        await db_session.commit()
+
+        removed = await cleanup_stale_ws_connections(db_session, stale_after_seconds=30)
+        assert removed == [(sid, guest["user_id"])]
+        offline = await _wait_for_event(host_ws, "member_offline", timeout=2)
+        offline_guest = next(item for item in offline["members"] if item["user_id"] == guest["user_id"])
+        assert offline_guest["is_online"] is False
+        assert guest_ws.closed == {"code": 4001, "reason": "Stale websocket connection"}
+        assert await ws_manager.online_users(sid) == [host["user_id"]]
+
+        await db_session.refresh(guest_member)
+        assert guest_member.last_seen_at is None
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_ws_typing_and_speak_done_drive_table_realtime_events(
     client,
     db_session,
