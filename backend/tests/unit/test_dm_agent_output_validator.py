@@ -85,3 +85,120 @@ def test_validator_removes_enemy_delta_outside_combat_without_trigger():
 
     assert repaired["state_delta"]["enemies"] == []
     assert any("outside combat" in warning for warning in warnings)
+
+
+def test_validator_replaces_combat_narrative_that_contradicts_backend_miss():
+    data = {
+        "narrative": "Your blade hits the guard cleanly and bloodies his shoulder.",
+        "dice_results": [
+            {
+                "label": "Player attack",
+                "total": 11,
+                "against": "AC 15",
+                "outcome": "miss",
+            }
+        ],
+        "needs_check": {"required": False},
+        "state_delta": {
+            "characters": [],
+            "enemies": [],
+            "combat_trigger": False,
+            "combat_end": False,
+        },
+    }
+
+    repaired, warnings = validate_dm_output_adjudication(data, {"combat_active": True})
+
+    assert "Player attack: miss total 11 vs AC 15" in repaired["narrative"]
+    assert "hits the guard" not in repaired["narrative"]
+    assert any("contradicted backend dice results" in warning for warning in warnings)
+    assert repaired["adjudication_warnings"] == warnings
+
+
+def test_validator_replaces_combat_narrative_that_contradicts_backend_hit():
+    data = {
+        "narrative": "The arrow misses and clatters against the stones.",
+        "dice_results": [
+            {
+                "label": "Ranged attack",
+                "total": 19,
+                "against": "AC 14",
+                "outcome": "hit",
+            }
+        ],
+        "needs_check": {"required": False},
+        "state_delta": {
+            "characters": [],
+            "enemies": [{"id": "g1", "hp_change": -6}],
+            "combat_trigger": False,
+            "combat_end": False,
+        },
+    }
+
+    repaired, warnings = validate_dm_output_adjudication(data, {"combat_active": True})
+
+    assert "Ranged attack: hit total 19 vs AC 14" in repaired["narrative"]
+    assert "misses" not in repaired["narrative"]
+    assert any("contradicted backend dice results" in warning for warning in warnings)
+
+
+def test_validator_replaces_ai_turn_narrative_that_contradicts_backend_save():
+    data = {
+        "narrative": "The spell flashes across the room.",
+        "dice_results": [],
+        "needs_check": {"required": False},
+        "state_delta": {
+            "characters": [],
+            "enemies": [],
+            "combat_trigger": False,
+            "combat_end": False,
+        },
+        "ai_turns": [
+            {
+                "actor_id": "enemy-mage",
+                "narrative": "You fail the save and stagger under the curse.",
+                "dice_results": [
+                    {
+                        "label": "Wizard wisdom save",
+                        "total": 17,
+                        "against": "DC 13",
+                        "outcome": "success",
+                    }
+                ],
+                "state_delta": {"characters": [], "enemies": []},
+            }
+        ],
+    }
+
+    repaired, warnings = validate_dm_output_adjudication(data, {"combat_active": True})
+
+    assert "Wizard wisdom save: success total 17 vs DC 13" in repaired["ai_turns"][0]["narrative"]
+    assert "fail the save" not in repaired["ai_turns"][0]["narrative"]
+    assert any("AI combat narrative" in warning for warning in warnings)
+
+
+def test_validator_keeps_combat_narrative_when_it_matches_backend_dice():
+    data = {
+        "narrative": "The spear misses as you twist behind the broken pillar.",
+        "dice_results": [
+            {
+                "label": "Enemy attack",
+                "total": 9,
+                "against": "AC 16",
+                "outcome": "miss",
+            }
+        ],
+        "needs_check": {"required": False},
+        "state_delta": {
+            "characters": [],
+            "enemies": [],
+            "combat_trigger": False,
+            "combat_end": False,
+        },
+    }
+
+    repaired, warnings = validate_dm_output_adjudication(data, {"combat_active": True})
+
+    assert repaired["narrative"] == "The spear misses as you twist behind the broken pillar."
+    assert warnings == []
+    assert "adjudication_warnings" not in repaired
