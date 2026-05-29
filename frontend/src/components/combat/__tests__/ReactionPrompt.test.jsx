@@ -110,6 +110,35 @@ describe('ReactionPrompt', () => {
     expect(onCancel).toHaveBeenCalledWith(prompt)
   })
 
+  it('explains when an eligible reactor has no usable reaction option', () => {
+    const prompt = {
+      trigger: 'incoming_attack',
+      context: 'Incoming attack',
+      attacker_id: 'enemy-1',
+      reactor_character_id: 'char-2',
+      available_reactions: [],
+    }
+    const onReact = vi.fn()
+    const onCancel = vi.fn()
+
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={prompt}
+        onReact={onReact}
+        onCancel={onCancel}
+      />,
+    )
+
+    expect(screen.getByRole('dialog', { name: '反应触发' })).toBeInTheDocument()
+    expect(screen.getByText('当前没有可用反应，只能放弃反应窗口。')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Shield|Counterspell|Hellish Rebuke|Absorb Elements/ })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /放弃反应/ }))
+    expect(onCancel).toHaveBeenCalledWith(prompt)
+    expect(onReact).not.toHaveBeenCalled()
+  })
+
   it('shows a non-blocking watcher notice for non-reactors', () => {
     const onReact = vi.fn()
     const onCancel = vi.fn()
@@ -174,6 +203,8 @@ describe('ReactionPrompt', () => {
     expect(screen.getByText('伤害 9')).toBeInTheDocument()
     expect(screen.getByText('HP 12 -> 3')).toBeInTheDocument()
     expect(screen.getByText('HP 12 -> 3，反应后 12')).toBeInTheDocument()
+    const action = screen.getByRole('button', { name: /Shield/ })
+    expect(action).toHaveAttribute('title', 'Shield - +5 AC · 1st-level spell slot')
     expect(screen.getByText('1st-level spell slot')).toBeInTheDocument()
   })
 })

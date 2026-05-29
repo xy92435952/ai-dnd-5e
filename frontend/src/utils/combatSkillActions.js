@@ -4,7 +4,6 @@ import { buildCombatStateChangeSummary } from './combatLog'
 const SPELL_SHORTCUT_NAMES = {
   bless: '祝福',
   heal: '治愈创伤',
-  shield: '护盾',
   firebolt: '火焰射线',
   sacred_flame: '神圣烈焰',
 }
@@ -55,11 +54,13 @@ export function createCombatSkillClickHandler({
           break
         case 'bless':
         case 'heal':
-        case 'shield':
         case 'firebolt':
         case 'sacred_flame':
           setSpellQuickPick?.(SPELL_SHORTCUT_NAMES[skill.k] || null)
           setSpellModalOpen(true)
+          break
+        case 'shield':
+          setError('护盾术是反应法术，会在被攻击命中时自动提示')
           break
         case 'shove':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }

@@ -46,17 +46,22 @@ export default function ReactionPrompt({
         )}
 
         <div className="reaction-prompt-actions">
-          {options.map((opt, i) => (
+          {options.length > 0 ? options.map((opt, i) => (
             <button
               key={`${opt.type}-${i}`}
               className="btn-gold reaction-prompt-action"
+              title={opt.cost ? `${opt.label} · ${opt.cost}` : opt.label}
               onClick={() => onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)}
             >
               <span>{opt.label}</span>
               {opt.cost && <small>{opt.cost}</small>}
               {opt.hp_preview && <small className="reaction-prompt-hp">{opt.hp_preview}</small>}
             </button>
-          ))}
+          )) : (
+            <div style={{ color: 'var(--parchment-dark)', fontSize: 12 }}>
+              当前没有可用反应，只能放弃反应窗口。
+            </div>
+          )}
           <button className="btn-ghost reaction-prompt-decline" onClick={() => onCancel?.(prompt)}>
             放弃反应
           </button>

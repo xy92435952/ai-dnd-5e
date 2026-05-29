@@ -70,6 +70,16 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.setSpellModalOpen).toHaveBeenCalledWith(true)
   })
 
+  it('explains that Shield is a reaction instead of opening the active spell modal', async () => {
+    const { handler, fns } = makeHandler()
+
+    await handler({ k: 'shield', available: true })
+
+    expect(fns.setError).toHaveBeenCalledWith('护盾术是反应法术，会在被攻击命中时自动提示')
+    expect(fns.setSpellQuickPick).not.toHaveBeenCalled()
+    expect(fns.setSpellModalOpen).not.toHaveBeenCalled()
+  })
+
   it('routes class skill keys to existing class feature names', async () => {
     const { handler, fns } = makeHandler()
 

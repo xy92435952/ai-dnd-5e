@@ -43,12 +43,28 @@ export default function IsoBattlefield({
     const isAoeCenter = aoeCells.center === key
     const isAoeRing = !isAoeCenter && aoeCells.ring.has(key) && !isWall
     const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
+    const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall)
+    const disabledReason = isWall
+      ? '墙体阻挡，无法选择或移动'
+      : !ent && !moveMode
+        ? '开启移动模式后可选择空格移动'
+        : ''
+    const title = ent
+      ? helpMode && !ent.is_enemy && entId !== playerId
+        ? `协助 ${ent.name || entId}`
+        : `选择 ${ent.name || entId}`
+      : moveMode && !isWall
+        ? `移动到 ${x}, ${y}`
+        : ''
 
     return (
       <IsoBattlefieldCell
         key={key}
         className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ` aoe${aoeTemplateClass}` : ''}${isAoeCenter ? ' aoe-center' : ''}`}
         gridKey={key}
+        interactive={interactive}
+        disabledReason={disabledReason}
+        title={title}
         onClick={() => {
           if (ent && !isWall) {
             if (helpMode && !ent.is_enemy && entId !== playerId) {

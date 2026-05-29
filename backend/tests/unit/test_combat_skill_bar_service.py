@@ -75,3 +75,20 @@ def test_action_cost_skills_are_not_labeled_as_bonus_actions():
     assert slots["divine_sense"]["cost"] == "动作"
     assert slots["divine_sense"]["kind"] == "action"
     assert slots["pot_heal"]["kind"] == "item"
+
+
+def test_wizard_shield_is_shown_as_reaction_prompt_not_active_cast():
+    bar = build_skill_bar(_character("Wizard", level=3, slots={"1st": 1}))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["shield"]["cost"] == "反应·1环"
+    assert slots["shield"]["available"] is False
+    assert slots["shield"]["reason"] == "反应法术会在被攻击时自动提示"
+
+
+def test_wizard_shield_still_reports_missing_slots_first():
+    bar = build_skill_bar(_character("Wizard", level=3, slots={"1st": 0}))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["shield"]["available"] is False
+    assert slots["shield"]["reason"] == "需要 1 环法术位"

@@ -98,8 +98,8 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
         bar.append({
             "k": "shield", "label": "护盾术", "glyph": "✡",
             "cost": "反应·1环", "key": "4", "kind": "spell",
-            "available": has_slot_1,
-            "reason": None if has_slot_1 else "需要 1 环法术位",
+            "available": False,
+            "reason": "反应法术会在被攻击时自动提示" if has_slot_1 else "需要 1 环法术位",
         })
     else:
         bar.append({
