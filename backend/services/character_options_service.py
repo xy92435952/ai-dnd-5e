@@ -22,10 +22,12 @@ from services.dnd_rules import (
     SPELLCASTER_CLASSES,
     SPELL_PREPARATION_TYPE,
     STARTING_EQUIPMENT,
+    STARTING_GEAR_PACKS,
     STARTING_SPELLS_COUNT,
     SUBCLASS_BONUS_SPELLS,
     WEAPONS,
     get_cantrips_count,
+    get_item_zh,
 )
 
 
@@ -62,6 +64,7 @@ def build_character_options(spell_service) -> dict:
         "weapons": WEAPONS,
         "armor": ARMOR,
         "starting_equipment": STARTING_EQUIPMENT,
+        "starting_gear_packs": build_starting_gear_pack_options(),
         "background_features": BACKGROUND_FEATURES,
         "racial_languages": RACIAL_LANGUAGES,
         "all_languages": ALL_LANGUAGES,
@@ -73,4 +76,14 @@ def build_character_options(spell_service) -> dict:
         "asi_levels_rogue": ASI_LEVELS_ROGUE,
         "class_armor_proficiency": CLASS_ARMOR_PROFICIENCY,
         "class_weapon_proficiency": CLASS_WEAPON_PROFICIENCY,
+    }
+
+
+def build_starting_gear_pack_options() -> dict:
+    return {
+        pack_name: [
+            {"name": item_name, "zh": get_item_zh(item_name), "quantity": quantity}
+            for item_name, quantity in items
+        ]
+        for pack_name, items in STARTING_GEAR_PACKS.items()
     }

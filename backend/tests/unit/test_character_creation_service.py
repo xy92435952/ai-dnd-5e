@@ -30,7 +30,27 @@ def test_build_starting_equipment_equips_fighter_heavy_armor_loadout():
     assert equipment["weapons"][0]["equipped"] is True
     assert equipment["weapons"][1]["equipped"] is False
     assert equipment["weapons"][1]["ammo"] == 20
-    assert equipment["gear"] == [{"name": "Explorer's Pack", "zh": "探险者背包"}]
+    assert [item["name"] for item in equipment["gear"]] == [
+        "Backpack",
+        "Bedroll",
+        "Mess Kit",
+        "Tinderbox",
+        *["Torch"] * 10,
+        *["Rations (1 day)"] * 10,
+        "Waterskin",
+        "Rope (50ft)",
+    ]
+    assert equipment["gear"][0] == {
+        "name": "Backpack",
+        "zh": "背包",
+        "cost": 2,
+        "weight": 5,
+        "consumable": False,
+        "description": "背包（容纳30磅）",
+        "source_pack": "Explorer's Pack",
+    }
+    assert equipment["gear"][4]["source_pack"] == "Explorer's Pack"
+    assert equipment["gear"][4]["consumable"] is True
 
 
 def test_build_starting_equipment_expands_thrown_weapon_bundle():
@@ -41,6 +61,23 @@ def test_build_starting_equipment_expands_thrown_weapon_bundle():
     assert equipment["weapons"][0]["ammo"] == 20
     assert equipment["armor"][0]["name"] == "Leather"
     assert all(item["name"] != "Two Handaxes" for item in equipment["gear"])
+
+
+def test_build_starting_equipment_expands_spellcasting_focus_as_gear():
+    equipment = character_creation_service.build_starting_equipment("Wizard", 0)
+
+    gear_names = [item["name"] for item in equipment["gear"]]
+    assert "Scholar's Pack" not in gear_names
+    assert "Book of Lore" in gear_names
+    assert "Component Pouch" in gear_names
+    assert equipment["gear"][-1] == {
+        "name": "Component Pouch",
+        "zh": "材料包",
+        "cost": 25,
+        "weight": 2,
+        "consumable": False,
+        "description": "材料包（施法材料）",
+    }
 
 
 def test_build_starting_equipment_expands_javelin_bundle():

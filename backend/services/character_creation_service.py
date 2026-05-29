@@ -7,7 +7,9 @@ from services.dnd_rules import (
     CLASS_SKILL_CHOICES,
     FIGHTING_STYLE_CLASSES,
     RACIAL_LANGUAGES,
+    SHOP_GEAR,
     STARTING_EQUIPMENT,
+    STARTING_GEAR_PACKS,
     WEAPONS,
     get_item_zh,
 )
@@ -58,7 +60,7 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
                             )
                         )
             else:
-                gear.append({"name": name, "zh": get_item_zh(name)})
+                _append_gear_items(gear, name)
         elif slot == "armor":
             armor = ARMOR.get(name)
             if armor:
@@ -66,9 +68,27 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
         elif slot == "offhand" and name == "Shield":
             shield = {"name": "Shield", "zh": "盾牌", "ac": 2, "equipped": True}
         else:
-            gear.append({"name": name, "zh": get_item_zh(name)})
+            _append_gear_items(gear, name)
 
     return {"weapons": weapons, "armor": armor_list, "shield": shield, "gear": gear, "gold": 10}
+
+
+def _append_gear_items(gear: list[dict], name: str) -> None:
+    pack_items = STARTING_GEAR_PACKS.get(name)
+    if pack_items:
+        for item_name, quantity in pack_items:
+            for _ in range(max(0, int(quantity))):
+                gear.append(_build_gear_entry(item_name, source_pack=name))
+        return
+
+    gear.append(_build_gear_entry(name))
+
+
+def _build_gear_entry(name: str, *, source_pack: str | None = None) -> dict:
+    entry = {**SHOP_GEAR.get(name, {}), "name": name, "zh": get_item_zh(name)}
+    if source_pack:
+        entry["source_pack"] = source_pack
+    return entry
 
 
 def _build_weapon_entry(name: str, weapon: dict, *, equipped: bool) -> dict:

@@ -51,6 +51,7 @@ describe('useCombatPageActions websocket sync', () => {
       setMoveMode: vi.fn(),
       setAoePreview: vi.fn(),
       setAoeHover: vi.fn(),
+      setAoeLockedCenter: vi.fn(),
       clearAoePreview: vi.fn(),
       onLoadCombat: vi.fn(),
       setCombatOver: vi.fn(),

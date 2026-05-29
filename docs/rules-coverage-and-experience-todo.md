@@ -53,7 +53,7 @@ Priority:
 | Status | Priority | Rule Area | Current State | Done Definition |
 | --- | --- | --- | --- | --- |
 | [x] | P0 | Basic races/classes/backgrounds | Data tables exist for common options. | All creation options serialize cleanly and produce valid level 1 characters. |
-| [~] | P0 | Starting equipment | Equipment tables and inventory services exist. | Every class/background can start with valid equipped gear, AC, weapon attacks, ammo, and pack items. |
+| [~] | P0 | Starting equipment | Equipment tables and inventory services exist; class equipment choices now expand PHB-style packs into concrete inventory gear, expose pack contents through `/characters/options`, and preview those contents on the character creation equipment step. Covered by `backend/tests/unit/test_character_creation_service.py`, `backend/tests/unit/test_character_options_service.py`, and `frontend/src/components/character-create/__tests__/CharacterCreateStepEquipment.test.jsx`. Remaining work: background starting gear/gold variants and broader all-class manual playthrough checks. | Every class/background can start with valid equipped gear, AC, weapon attacks, ammo, and pack items. |
 | [~] | P1 | Level up | Level-up schema/service exists. | Level-up updates HP, proficiency, features, spells, class resources, and derived stats for all supported classes. |
 | [~] | P1 | Spell learning/preparation | Known/prepared/cantrip fields exist. | Known casters, prepared casters, half casters, pact magic, and subclass spells follow 5e-like limits. |
 | [ ] | P1 | Multiclass rules | Model field exists, deeper rules not complete. | Multiclass spell slots, proficiencies, prerequisites, class features, and UI are implemented and tested. |
