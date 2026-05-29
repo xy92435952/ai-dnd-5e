@@ -277,4 +277,49 @@ describe('IsoBattlefield', () => {
     fireEvent.click(cell)
     expect(onMoveTo).toHaveBeenCalledWith(4, 7)
   })
+
+  it('locks an AoE center by clicking an empty battlefield cell', () => {
+    const onAoeHover = vi.fn()
+    const onAoeLockCenter = vi.fn()
+    const onMoveTo = vi.fn()
+    const onSelectTarget = vi.fn()
+
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 4, y0: 7 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{}}
+        entities={{}}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: '4_7', ring: new Set(['4_7']) }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={{ radius: 1 }}
+        aoeHover="4_7"
+        aoeLockedCenter="4_7"
+        playerId="player"
+        onSelectTarget={onSelectTarget}
+        onMoveTo={onMoveTo}
+        onAoeHover={onAoeHover}
+        onAoeLockCenter={onAoeLockCenter}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell).toHaveAttribute('role', 'button')
+    expect(cell).toHaveAttribute('title', '已确认法术中心 4, 7')
+
+    fireEvent.mouseLeave(cell)
+    expect(onAoeHover).not.toHaveBeenCalledWith(null)
+
+    fireEvent.click(cell)
+    expect(onAoeLockCenter).toHaveBeenCalledWith('4_7')
+    expect(onMoveTo).not.toHaveBeenCalled()
+    expect(onSelectTarget).not.toHaveBeenCalled()
+  })
 })

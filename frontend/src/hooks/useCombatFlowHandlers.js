@@ -53,6 +53,7 @@ export function useCombatFlowHandlers({
   const {
     selectedTarget,
     setSelectedTarget,
+    aoeLockedCenter,
     setMoveMode,
     isRanged,
     setHelpMode,
@@ -146,7 +147,7 @@ export function useCombatFlowHandlers({
     sessionId,
     playerId: actorId,
     selectedTarget,
-    aoeHover: targeting.aoeHover,
+    aoeHover: aoeLockedCenter || targeting.aoeHover,
     isProcessing,
     canActThisTurn,
     processingRef,

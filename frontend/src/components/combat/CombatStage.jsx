@@ -19,6 +19,7 @@ export default function CombatStage({
   helpMode,
   aoePreview,
   aoeHover,
+  aoeLockedCenter,
   playerId,
   prediction,
   floats,
@@ -27,6 +28,7 @@ export default function CombatStage({
   onHelpTarget,
   onMoveTo,
   onAoeHover,
+  onAoeLockCenter,
   onReturn,
 }) {
   return (
@@ -50,11 +52,13 @@ export default function CombatStage({
         helpMode={helpMode}
         aoePreview={aoePreview}
         aoeHover={aoeHover}
+        aoeLockedCenter={aoeLockedCenter}
         playerId={playerId}
         onSelectTarget={onSelectTarget}
         onHelpTarget={onHelpTarget}
         onMoveTo={onMoveTo}
         onAoeHover={onAoeHover}
+        onAoeLockCenter={onAoeLockCenter}
       />
 
       <TargetCard entity={selectedTargetEntity} prediction={prediction} />

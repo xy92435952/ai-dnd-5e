@@ -17,6 +17,7 @@ describe('useCombatTargeting', () => {
     expect(result.current.showThreat).toBe(false)
     expect(result.current.aoePreview).toBeNull()
     expect(result.current.aoeHover).toBeNull()
+    expect(result.current.aoeLockedCenter).toBeNull()
     expect(result.current.helpMode).toBe(false)
   })
 
@@ -68,13 +69,16 @@ describe('useCombatTargeting', () => {
     act(() => {
       result.current.setAoePreview({ radius: 3, spellName: 'fireball' })
       result.current.setAoeHover('5_4')
+      result.current.setAoeLockedCenter('5_4')
     })
     expect(result.current.aoePreview).toEqual({ radius: 3, spellName: 'fireball' })
     expect(result.current.aoeHover).toBe('5_4')
+    expect(result.current.aoeLockedCenter).toBe('5_4')
 
     act(() => { result.current.clearAoePreview() })
     expect(result.current.aoePreview).toBeNull()
     expect(result.current.aoeHover).toBeNull()
+    expect(result.current.aoeLockedCenter).toBeNull()
   })
 
   it('isRanged / showThreat 是独立开关，不被互斥逻辑影响', () => {

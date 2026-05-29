@@ -22,6 +22,7 @@ export function useCombatDerivedState({
   showThreat,
   aoePreview,
   aoeHover,
+  aoeLockedCenter,
   spells,
   playerKnownSpells,
   playerCantrips,
@@ -59,8 +60,8 @@ export function useCombatDerivedState({
   const playerPos = effectivePlayerId ? entityPositions[effectivePlayerId] : null
 
   const aoeCells = useMemo(() =>
-    buildAoeCells({ aoePreview, aoeHover, origin: playerPos }),
-  [aoePreview, aoeHover, playerPos])
+    buildAoeCells({ aoePreview, aoeHover: aoeLockedCenter || aoeHover, origin: playerPos }),
+  [aoePreview, aoeHover, aoeLockedCenter, playerPos])
 
   const cam = getCameraWindow({
     playerPos,

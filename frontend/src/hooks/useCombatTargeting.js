@@ -25,6 +25,7 @@ export function useCombatTargeting() {
   // AoE 法术预览：选中 AoE 法术后地图 hover 显示冲击半径
   const [aoePreview, setAoePreview] = useState(null) // { radius, spellName } | null
   const [aoeHover,   setAoeHover]   = useState(null) // "x_y" | null
+  const [aoeLockedCenter, setAoeLockedCenter] = useState(null) // 点击确认的中心点 "x_y" | null
 
   // 协助模式：点击友军使其下次攻击获得优势
   const [helpMode, setHelpMode] = useState(false)
@@ -55,6 +56,7 @@ export function useCombatTargeting() {
   const clearAoePreview = useCallback(() => {
     setAoePreview(null)
     setAoeHover(null)
+    setAoeLockedCenter(null)
   }, [])
 
   return {
@@ -62,13 +64,13 @@ export function useCombatTargeting() {
     selectedTarget,
     moveMode, isRanged,
     showThreat,
-    aoePreview, aoeHover,
+    aoePreview, aoeHover, aoeLockedCenter,
     helpMode,
     // 直接 setter（外部偶尔需要细粒度控制时用）
     setSelectedTarget,
     setMoveMode, setIsRanged,
     setShowThreat,
-    setAoePreview, setAoeHover,
+    setAoePreview, setAoeHover, setAoeLockedCenter,
     setHelpMode,
     // 高层动作（推荐使用）
     clearTargeting,

@@ -40,6 +40,7 @@ export default function Combat() {
     showThreat, setShowThreat,
     aoePreview,
     aoeHover,
+    aoeLockedCenter,
   } = targeting
   const log = useCombatLog()
   const {
@@ -119,6 +120,7 @@ export default function Combat() {
     handleCancelReaction,
     handleManeuver,
     setAoeHover,
+    setAoeLockedCenter,
     setSmitePrompt,
     setSpellModalOpen,
     setSpellQuickPick,
@@ -193,6 +195,7 @@ export default function Combat() {
         helpMode={helpMode}
         aoePreview={aoePreview}
         aoeHover={aoeHover}
+        aoeLockedCenter={aoeLockedCenter}
         playerId={effectivePlayerId || playerId}
         prediction={prediction}
         floats={floats}
@@ -201,6 +204,10 @@ export default function Combat() {
         onHelpTarget={handleHelpTarget}
         onMoveTo={handleMoveTo}
         onAoeHover={setAoeHover}
+        onAoeLockCenter={(key) => {
+          setAoeLockedCenter(key)
+          setAoeHover(key)
+        }}
         onReturn={endCombatAndReturn}
       />
 
@@ -247,6 +254,7 @@ export default function Combat() {
         playerCantrips={playerCantrips}
         selectedTarget={selectedTarget}
         aoeHover={aoeHover}
+        aoeLockedCenter={aoeLockedCenter}
         onCastSpell={handleCastSpell}
         onCloseSpell={() => { setSpellModalOpen(false); setSpellQuickPick(null); clearAoePreview() }}
         onSpellHover={handleSpellHover}

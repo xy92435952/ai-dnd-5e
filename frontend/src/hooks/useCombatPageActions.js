@@ -41,6 +41,7 @@ export function useCombatPageActions({
   setMoveMode,
   setAoePreview,
   setAoeHover,
+  setAoeLockedCenter,
   clearAoePreview,
   onLoadCombat,
   setCombatOver,
@@ -188,10 +189,11 @@ export function useCombatPageActions({
         playerPos,
       })
       setAoeHover(centerKey)
+      setAoeLockedCenter(null)
     } else {
       clearAoePreview()
     }
-  }, [clearAoePreview, entityPositions, playerPos, selectedTarget, setAoeHover, setAoePreview])
+  }, [clearAoePreview, entityPositions, playerPos, selectedTarget, setAoeHover, setAoeLockedCenter, setAoePreview])
 
   return {
     onWsEvent,

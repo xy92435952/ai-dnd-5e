@@ -36,6 +36,7 @@ describe('useCombatDerivedState', () => {
       showThreat: true,
       aoePreview: { radius: 1 },
       aoeHover: '6_5',
+      aoeLockedCenter: null,
       spells: [
         { name: 'Magic Missile', classes: ['Wizard'] },
         { name: 'Cure Wounds', classes: ['Cleric'] },
@@ -66,6 +67,31 @@ describe('useCombatDerivedState', () => {
     expect(result.current.skillBar).toBe(DEFAULT_SKILL_BAR)
     expect(result.current.threatCells.has('5_5')).toBe(true)
     expect(result.current.aoeCells.center).toBe('6_5')
+  })
+
+  it('AoE locked center takes priority over transient hover cells', () => {
+    const { result } = renderHook(() => useCombatDerivedState({
+      combat,
+      room: null,
+      myCharacterId: null,
+      playerId: 'player',
+      selectedTarget: null,
+      showThreat: false,
+      aoePreview: { radius: 1 },
+      aoeHover: '6_5',
+      aoeLockedCenter: '8_8',
+      spells: [],
+      playerKnownSpells: [],
+      playerCantrips: [],
+      playerClass: '',
+      skillBarV10: [],
+      gridWidth: 20,
+      gridHeight: 12,
+      viewWidth: 12,
+      viewHeight: 8,
+    }))
+
+    expect(result.current.aoeCells.center).toBe('8_8')
   })
 
   it('combat 为空时返回安全兜底', () => {

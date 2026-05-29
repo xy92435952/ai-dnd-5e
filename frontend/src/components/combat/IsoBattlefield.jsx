@@ -17,11 +17,13 @@ export default function IsoBattlefield({
   helpMode,
   aoePreview,
   aoeHover,
+  aoeLockedCenter,
   playerId,
   onSelectTarget,
   onHelpTarget = () => {},
   onMoveTo,
   onAoeHover,
+  onAoeLockCenter = () => {},
 }) {
   const renderCell = (x, y) => {
     const key = `${x}_${y}`
@@ -43,16 +45,18 @@ export default function IsoBattlefield({
     const isAoeCenter = aoeCells.center === key
     const isAoeRing = !isAoeCenter && aoeCells.ring.has(key) && !isWall
     const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
-    const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall)
+    const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
       ? '墙体阻挡，无法选择或移动'
-      : !ent && !moveMode
+      : !ent && !moveMode && !aoePreview
         ? '开启移动模式后可选择空格移动'
         : ''
     const title = ent
       ? helpMode && !ent.is_enemy && entId !== playerId
         ? `协助 ${ent.name || entId}`
         : `选择 ${ent.name || entId}`
+      : aoePreview && !isWall
+        ? (aoeLockedCenter === key ? `已确认法术中心 ${x}, ${y}` : `确认法术中心 ${x}, ${y}`)
       : moveMode && !isWall
         ? `移动到 ${x}, ${y}`
         : ''
@@ -66,7 +70,9 @@ export default function IsoBattlefield({
         disabledReason={disabledReason}
         title={title}
         onClick={() => {
-          if (ent && !isWall) {
+          if (aoePreview && !isWall && !ent) {
+            onAoeLockCenter(key)
+          } else if (ent && !isWall) {
             if (helpMode && !ent.is_enemy && entId !== playerId) {
               onHelpTarget(entId, ent)
             } else {
@@ -76,8 +82,8 @@ export default function IsoBattlefield({
             onMoveTo(x, y)
           }
         }}
-        onMouseEnter={() => { if (aoePreview) onAoeHover(key) }}
-        onMouseLeave={() => { if (aoePreview && aoeHover === key) onAoeHover(null) }}
+        onMouseEnter={() => { if (aoePreview && !aoeLockedCenter) onAoeHover(key) }}
+        onMouseLeave={() => { if (aoePreview && !aoeLockedCenter && aoeHover === key) onAoeHover(null) }}
       >
         {ent && (
           <IsoUnit
