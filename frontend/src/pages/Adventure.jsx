@@ -267,7 +267,16 @@ export default function Adventure() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#06040a', position: 'relative', zIndex: 1 }}>
       <DiceRollerOverlay />
       {prepareOpen && player && <PrepareSpellsModal player={player} onSave={handlePrepareSpells} onClose={() => setPrepareOpen(false)} />}
-      {journalOpen && <JournalModal text={journalText} loading={journalLoading} onGenerate={handleGenerateJournal} onClose={() => setJournalOpen(false)} />}
+      {journalOpen && (
+        <JournalModal
+          session={session}
+          room={room}
+          text={journalText}
+          loading={journalLoading}
+          onGenerate={handleGenerateJournal}
+          onClose={() => setJournalOpen(false)}
+        />
+      )}
       {restOpen && <RestModal onRest={handleRest} onClose={() => setRestOpen(false)} />}
 
       <MultiplayerSpeakBar
