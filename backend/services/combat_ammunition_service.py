@@ -33,16 +33,29 @@ class WeaponResourceUse:
         return payload
 
 
-def consume_attack_weapon_resource(character, *, is_ranged: bool) -> WeaponResourceUse:
+def consume_attack_weapon_resource(
+    character,
+    *,
+    is_ranged: bool,
+    weapon_name: str | None = None,
+) -> WeaponResourceUse:
     """Consume ammo/thrown inventory for a committed ranged weapon attack."""
     equipment = deepcopy(getattr(character, "equipment", None) or {})
     weapons = list(equipment.get("weapons", []))
 
-    selected = _select_attack_weapon_index(weapons, is_ranged=is_ranged)
+    selected = _select_attack_weapon_index(
+        weapons,
+        is_ranged=is_ranged,
+        weapon_name=weapon_name,
+    )
     if selected is None:
+        if weapon_name:
+            raise CombatAttackRollError(400, f"Selected weapon is not available: {weapon_name}")
         if is_ranged:
             raise CombatAttackRollError(400, "No ranged or thrown weapon available")
         return WeaponResourceUse()
+    if weapon_name and selected[1].get("name") != weapon_name:
+        raise CombatAttackRollError(400, f"Selected weapon is not available: {weapon_name}")
 
     weapon_index, weapon = selected
     weapon_name = weapon.get("name")
@@ -101,9 +114,18 @@ def consume_attack_weapon_resource(character, *, is_ranged: bool) -> WeaponResou
     )
 
 
-def choose_attack_weapon(equipment: dict | None, *, is_ranged: bool) -> dict[str, Any] | None:
+def choose_attack_weapon(
+    equipment: dict | None,
+    *,
+    is_ranged: bool,
+    weapon_name: str | None = None,
+) -> dict[str, Any] | None:
     weapons = list((equipment or {}).get("weapons", []))
-    selected = _select_attack_weapon_index(weapons, is_ranged=is_ranged)
+    selected = _select_attack_weapon_index(
+        weapons,
+        is_ranged=is_ranged,
+        weapon_name=weapon_name,
+    )
     if selected is None:
         return None
     return dict(selected[1])
@@ -121,6 +143,7 @@ def _select_attack_weapon_index(
     weapons: list[Any],
     *,
     is_ranged: bool,
+    weapon_name: str | None = None,
 ) -> tuple[int, dict[str, Any]] | None:
     indexed = [(idx, weapon) for idx, weapon in enumerate(weapons) if isinstance(weapon, dict)]
     if not indexed:
@@ -131,6 +154,9 @@ def _select_attack_weapon_index(
             candidate for candidate in indexed
             if not _is_pure_ranged_weapon(candidate[1])
         ]
+        selected = _find_named_available_weapon(melee_candidates, weapon_name)
+        if selected:
+            return selected
         equipped = [candidate for candidate in melee_candidates if candidate[1].get("equipped")]
         return (equipped or melee_candidates or indexed)[0]
 
@@ -140,6 +166,10 @@ def _select_attack_weapon_index(
     ]
     if not ranged_candidates:
         return None
+
+    selected = _find_named_available_weapon(ranged_candidates, weapon_name)
+    if selected:
+        return selected
 
     equipped_available = [
         candidate for candidate in ranged_candidates
@@ -151,6 +181,24 @@ def _select_attack_weapon_index(
     ]
     equipped = [candidate for candidate in ranged_candidates if candidate[1].get("equipped")]
     return (equipped_available or available or equipped or ranged_candidates)[0]
+
+
+def _find_named_available_weapon(
+    candidates: list[tuple[int, dict[str, Any]]],
+    weapon_name: str | None,
+) -> tuple[int, dict[str, Any]] | None:
+    if not weapon_name:
+        return None
+
+    named = [
+        candidate for candidate in candidates
+        if candidate[1].get("name") == weapon_name
+    ]
+    available = [
+        candidate for candidate in named
+        if _has_available_resource(candidate[1])
+    ]
+    return (available or named or [None])[0]
 
 
 def _has_available_resource(weapon: dict[str, Any]) -> bool:

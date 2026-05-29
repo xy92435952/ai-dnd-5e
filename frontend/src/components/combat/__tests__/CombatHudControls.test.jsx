@@ -1,6 +1,42 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import CombatHudControls from '../CombatHudControls'
+import { getAttackWeaponOptions } from '../../../utils/combatWeapons'
+
+const TEST_CHARACTER = {
+  equipment: {
+    weapons: [
+      {
+        name: 'Longsword',
+        zh: '长剑',
+        type: 'martial_melee',
+        properties: ['versatile(1d10)'],
+        equipped: true,
+      },
+      {
+        name: 'Javelin',
+        zh: '标枪',
+        type: 'simple_melee',
+        properties: ['thrown(30/120)'],
+        equipped: false,
+      },
+      {
+        name: 'Longbow',
+        zh: '长弓',
+        type: 'martial_ranged',
+        properties: ['ammunition', 'range(150/600)', 'two-handed'],
+        ammo: 7,
+      },
+      {
+        name: 'Light Crossbow',
+        zh: '轻弩',
+        type: 'simple_ranged',
+        properties: ['ammunition', 'range(80/320)', 'loading', 'two-handed'],
+        ammo: 0,
+      },
+    ],
+  },
+}
 
 function renderControls(overrides = {}) {
   const props = {
@@ -9,9 +45,12 @@ function renderControls(overrides = {}) {
     syncBlocked: false,
     moveMode: false,
     isRanged: false,
+    selectedWeaponName: '',
+    character: TEST_CHARACTER,
     onEndTurn: vi.fn(),
     onToggleMove: vi.fn(),
     onToggleRanged: vi.fn(),
+    onSelectedWeaponChange: vi.fn(),
     onOpenCharacter: vi.fn(),
     onReturnAdventure: vi.fn(),
     onForceEndCombat: vi.fn(),
@@ -28,10 +67,12 @@ describe('CombatHudControls', () => {
     fireEvent.click(screen.getByRole('button', { name: /结束回合/ }))
     fireEvent.click(screen.getByRole('button', { name: /移动/ }))
     fireEvent.click(screen.getByRole('button', { name: /远程/ }))
+    fireEvent.change(screen.getByLabelText('攻击武器'), { target: { value: 'Javelin' } })
 
     expect(props.onEndTurn).toHaveBeenCalledTimes(1)
     expect(props.onToggleMove).toHaveBeenCalledTimes(1)
     expect(props.onToggleRanged).toHaveBeenCalledTimes(1)
+    expect(props.onSelectedWeaponChange).toHaveBeenCalledWith('Javelin')
   })
 
   it('explains disabled turn controls while waiting for another turn', () => {
@@ -65,5 +106,28 @@ describe('CombatHudControls', () => {
     expect(endTurn).toBeDisabled()
     expect(endTurn).toHaveAttribute('title', '等待战斗同步恢复')
     expect(screen.getByText('等待战斗同步恢复')).toBeInTheDocument()
+  })
+
+  it('filters attack weapons by melee and ranged mode', () => {
+    expect(getAttackWeaponOptions(TEST_CHARACTER, false).map(weapon => weapon.name)).toEqual([
+      'Longsword',
+      'Javelin',
+    ])
+    expect(getAttackWeaponOptions(TEST_CHARACTER, true).map(weapon => weapon.name)).toEqual([
+      'Javelin',
+      'Longbow',
+    ])
+  })
+
+  it('renders ranged weapon resources and preserves the selected weapon value', () => {
+    renderControls({
+      isRanged: true,
+      selectedWeaponName: 'Longbow',
+    })
+
+    const selector = screen.getByLabelText('攻击武器')
+    expect(selector).toHaveValue('Longbow')
+    expect(screen.getByRole('option', { name: '长弓 · 弹药 7' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /轻弩/ })).not.toBeInTheDocument()
   })
 })

@@ -26,6 +26,7 @@ export default function CombatHud({
   syncBlocked = false,
   moveMode,
   isRanged,
+  selectedWeaponName,
   onSessionChange,
   onTurnStateChange,
   onError,
@@ -34,6 +35,7 @@ export default function CombatHud({
   onEndTurn,
   onToggleMove,
   onToggleRanged,
+  onSelectedWeaponChange,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -93,9 +95,12 @@ export default function CombatHud({
           syncBlocked={syncBlocked}
           moveMode={moveMode}
           isRanged={isRanged}
+          selectedWeaponName={selectedWeaponName}
+          character={controlledCharacter || session?.player}
           onEndTurn={onEndTurn}
           onToggleMove={onToggleMove}
           onToggleRanged={onToggleRanged}
+          onSelectedWeaponChange={onSelectedWeaponChange}
           onOpenCharacter={onOpenCharacter}
           onReturnAdventure={onReturnAdventure}
           onForceEndCombat={onForceEndCombat}

@@ -139,12 +139,13 @@ export const gameApi = {
       is_offhand:  isOffhand,
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null) =>
+  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null, weaponName = null) =>
     api.post(`/game/combat/${sessionId}/attack-roll`, {
       entity_id:   entityId,
       target_id:   targetId,
       action_type: actionType,
       is_offhand:  isOffhand,
+      ...(weaponName ? { weapon_name: weaponName } : {}),
       ...(d20Value != null ? { d20_value: d20Value } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),

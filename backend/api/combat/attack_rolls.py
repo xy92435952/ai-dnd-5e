@@ -76,6 +76,7 @@ async def attack_roll(
             target_id=req.target_id,
             action_type=req.action_type,
             is_offhand=req.is_offhand,
+            weapon_name=req.weapon_name,
             d20_value=req.d20_value,
             enemies=enemies,
         )

@@ -57,6 +57,7 @@ async def prepare_attack_roll(
     is_offhand: bool,
     d20_value: int | None,
     enemies: list[dict[str, Any]],
+    weapon_name: str | None = None,
     combat_service: CombatService = svc,
     roll_attack_func: Callable[..., dict[str, Any]] = roll_attack,
     get_turn_state_func: Callable[[Any, str], dict[str, Any]] = get_turn_state,
@@ -101,7 +102,11 @@ async def prepare_attack_roll(
     if not in_range:
         raise CombatAttackRollError(400, range_error or "目标不在攻击范围内")
 
-    weapon_resource_use = consume_attack_weapon_resource(player, is_ranged=is_ranged)
+    weapon_resource_use = consume_attack_weapon_resource(
+        player,
+        is_ranged=is_ranged,
+        weapon_name=weapon_name,
+    )
     weapon_resource = weapon_resource_use.to_dict() or None
 
     player_conditions = list(player.conditions or [])

@@ -25,6 +25,7 @@ export function useCombatAttackFlow({
   playerId,
   selectedTarget,
   isRanged,
+  selectedWeaponName,
   combat,
   isProcessing,
   canActThisTurn = true,
@@ -51,7 +52,7 @@ export function useCombatAttackFlow({
 
       const atkResult = await gameApi.attackRoll(
         sessionId, playerId, selectedTarget,
-        isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat),
+        isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat), selectedWeaponName || null,
       )
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
@@ -159,6 +160,7 @@ export function useCombatAttackFlow({
     playerId,
     processingRef,
     selectedTarget,
+    selectedWeaponName,
     sessionId,
     setCombat,
     setCombatOver,

@@ -56,6 +56,7 @@ export function useCombatFlowHandlers({
     aoeLockedCenter,
     setMoveMode,
     isRanged,
+    selectedWeaponName,
     setHelpMode,
   } = targeting
   const { setLogs, addLog } = log
@@ -127,6 +128,7 @@ export function useCombatFlowHandlers({
     playerId: actorId,
     selectedTarget,
     isRanged,
+    selectedWeaponName,
     combat,
     isProcessing,
     canActThisTurn,

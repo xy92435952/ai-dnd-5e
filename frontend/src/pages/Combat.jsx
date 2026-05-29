@@ -36,6 +36,7 @@ export default function Combat() {
     selectedTarget, setSelectedTarget,
     moveMode, setMoveMode,
     helpMode,
+    selectedWeaponName, setSelectedWeaponName,
     isRanged, setIsRanged,
     showThreat, setShowThreat,
     aoePreview,
@@ -230,6 +231,7 @@ export default function Combat() {
         syncBlocked={combatSyncBlocked}
         moveMode={moveMode}
         isRanged={isRanged}
+        selectedWeaponName={selectedWeaponName}
         onSessionChange={runtime.setSession}
         onTurnStateChange={page.setTurnState}
         onError={page.setError}
@@ -238,6 +240,7 @@ export default function Combat() {
         onEndTurn={handleEndTurn}
         onToggleMove={() => setMoveMode(m => !m)}
         onToggleRanged={() => setIsRanged(r => !r)}
+        onSelectedWeaponChange={setSelectedWeaponName}
         onOpenCharacter={() => playerId && navigate(`/character/${playerId}?sessionId=${sessionId}`)}
         onReturnAdventure={returnToAdventure}
         onForceEndCombat={forceEndCombat}

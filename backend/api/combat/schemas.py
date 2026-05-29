@@ -63,6 +63,7 @@ class AttackRollRequest(BaseModel):
     target_id:   str
     action_type: str = "melee"       # "melee" | "ranged"
     is_offhand:  bool = False
+    weapon_name: Optional[str] = None
     d20_value:   Optional[int] = None  # Frontend 3D dice result
     expected_turn_token: Optional[str] = None
 

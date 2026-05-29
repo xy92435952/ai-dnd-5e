@@ -18,6 +18,7 @@ export function useCombatTargeting() {
   // 移动模式：地图格子变成"点击移动到此格"
   const [moveMode, setMoveMode] = useState(false)
   const [isRanged, setIsRanged] = useState(false)
+  const [selectedWeaponName, setSelectedWeaponName] = useState('')
 
   // 威胁区显示开关：红色斜纹覆盖敌人攻击范围
   const [showThreat, setShowThreat] = useState(false)
@@ -62,13 +63,13 @@ export function useCombatTargeting() {
   return {
     // 状态
     selectedTarget,
-    moveMode, isRanged,
+    moveMode, isRanged, selectedWeaponName,
     showThreat,
     aoePreview, aoeHover, aoeLockedCenter,
     helpMode,
     // 直接 setter（外部偶尔需要细粒度控制时用）
     setSelectedTarget,
-    setMoveMode, setIsRanged,
+    setMoveMode, setIsRanged, setSelectedWeaponName,
     setShowThreat,
     setAoePreview, setAoeHover, setAoeLockedCenter,
     setHelpMode,
