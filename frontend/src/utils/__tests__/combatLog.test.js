@@ -23,6 +23,7 @@ describe('combatLog', () => {
 
     expect(view.roleLabel).toBe('玩家')
     expect(view.tone).toBe('dmg')
+    expect(view.feedback).toEqual([{ kind: 'hit', label: '命中' }])
     expect(view.sections).toEqual([
       { kind: 'rules', label: '规则', items: ['命中 · 19 vs AC13'] },
       { kind: 'dice', label: '骰子', items: ['d20 14 +5 = 19', '伤害 6', '实际伤害 4'] },
@@ -88,6 +89,36 @@ describe('combatLog', () => {
     })).toMatchObject({
       tone: 'miss',
     })
+  })
+
+  it('builds outcome feedback for attacks, saves, death saves, and concentration breaks', () => {
+    expect(buildCombatLogView({
+      dice_result: { attack: { hit: false, attack_total: 7, target_ac: 15 } },
+    }).feedback).toEqual([{ kind: 'miss', label: '未命中' }])
+
+    expect(buildCombatLogView({
+      dice_result: { attack: { hit: true, is_crit: true, attack_total: 25, target_ac: 15 } },
+    }).feedback).toEqual([{ kind: 'crit', label: '暴击' }])
+
+    expect(buildCombatLogView({
+      dice_result: { save_success: true },
+    }).feedback).toEqual([{ kind: 'save-success', label: '豁免成功' }])
+
+    expect(buildCombatLogView({
+      dice_result: { save_result: { success: false } },
+    }).feedback).toEqual([{ kind: 'save-failure', label: '豁免失败' }])
+
+    expect(buildCombatLogView({
+      dice_result: { type: 'death_save', d20: 12, outcome: 'stable' },
+    }).feedback).toEqual([{ kind: 'death-save-success', label: '死亡豁免成功' }])
+
+    expect(buildCombatLogView({
+      dice_result: { type: 'death_save', d20: 5, outcome: 'failure' },
+    }).feedback).toEqual([{ kind: 'death-save-failure', label: '死亡豁免失败' }])
+
+    expect(buildCombatLogView({
+      state_changes: ['专注中断：祝福术'],
+    }).feedback).toEqual([{ kind: 'concentration-break', label: '专注中断' }])
   })
 
   it('summarizes reaction hp rollback from reaction effects', () => {

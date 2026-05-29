@@ -212,7 +212,7 @@ Priority:
 - [x] Keep combat log readable: separate rules result, dice, narration, and state changes. 2026-05-29: combat HUD now renders structured log sections for rules, dice, narration, and state changes; attack, spell, AI turn, death save, reaction, maneuver, class feature, potion, grapple/shove, and offhand flows attach state-change metadata, with component and utility coverage.
 - [x] Add a compact "why unavailable" tooltip to disabled skill bar actions.
 - [~] Add target validation before submit, not only backend error after click. Skill bar blocks common target-required actions before submit; spell AoE and specialized actions still need deeper validation.
-- [ ] Add animation/feedback for miss, hit, crit, save success, save failure, concentration break, death save result.
+- [x] Add animation/feedback for miss, hit, crit, save success, save failure, concentration break, death save result. 2026-05-29: combat log entries now derive visible feedback badges and pulse classes from attack, save, death-save, and concentration state metadata, with utility and HUD coverage.
 
 ### P1 Adventure UX
 

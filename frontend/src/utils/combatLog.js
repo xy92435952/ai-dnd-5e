@@ -127,6 +127,66 @@ function buildDiceSections(dice = null) {
   return [...entries, ...formatGenericDice(dice)]
 }
 
+function buildAttackFeedback(attack = {}) {
+  if (!attack || typeof attack !== 'object') return null
+  if (attack.is_crit) return { kind: 'crit', label: '暴击' }
+  if (attack.is_fumble) return { kind: 'miss', label: '大失手' }
+  if (attack.hit === false) return { kind: 'miss', label: '未命中' }
+  if (attack.hit === true) return { kind: 'hit', label: '命中' }
+  return null
+}
+
+function readSaveSuccess(dice = {}) {
+  if (!dice || typeof dice !== 'object') return null
+  if (dice.save_success !== undefined) return Boolean(dice.save_success)
+  if (dice.save_result?.success !== undefined) return Boolean(dice.save_result.success)
+  if (dice.saving_throw?.success !== undefined) return Boolean(dice.saving_throw.success)
+  if (dice.save?.success !== undefined) return Boolean(dice.save.success)
+  return null
+}
+
+function buildSaveFeedback(dice = {}) {
+  const success = readSaveSuccess(dice)
+  if (success === null) return null
+  return success
+    ? { kind: 'save-success', label: '豁免成功' }
+    : { kind: 'save-failure', label: '豁免失败' }
+}
+
+function buildDeathSaveFeedback(dice = {}) {
+  if (dice?.type !== 'death_save') return null
+  const outcome = String(dice.outcome || '').toLowerCase()
+  if (dice.revived || dice.stable || ['success', 'stable', 'revive'].includes(outcome)) {
+    return { kind: 'death-save-success', label: dice.revived || outcome === 'revive' ? '死亡豁免复苏' : '死亡豁免成功' }
+  }
+  if (dice.dead || ['failure', 'dead'].includes(outcome)) {
+    return { kind: 'death-save-failure', label: dice.dead || outcome === 'dead' ? '死亡豁免死亡' : '死亡豁免失败' }
+  }
+  return { kind: 'death-save', label: '死亡豁免' }
+}
+
+function buildConcentrationFeedback(state = []) {
+  return state.some(item => String(item || '').includes('专注中断'))
+    ? { kind: 'concentration-break', label: '专注中断' }
+    : null
+}
+
+function buildCombatFeedback({ dice, state }) {
+  const attack = dice?.attack || {}
+  const feedback = [
+    buildAttackFeedback(attack),
+    buildSaveFeedback(dice),
+    buildDeathSaveFeedback(dice),
+    buildConcentrationFeedback(state),
+  ]
+  const seen = new Set()
+  return compact(feedback).filter(item => {
+    if (seen.has(item.kind)) return false
+    seen.add(item.kind)
+    return true
+  })
+}
+
 function normalizeStateChanges(raw = null) {
   if (!raw) return []
   if (Array.isArray(raw)) {
@@ -325,6 +385,7 @@ export function buildCombatLogView(log = {}) {
   const state = normalizeStateChanges(log.state_changes)
   const narration = log.content ? [log.content] : []
   const attack = dice?.attack || {}
+  const feedback = buildCombatFeedback({ dice, state })
 
   const tone = attack.is_crit
     ? 'crit'
@@ -340,6 +401,7 @@ export function buildCombatLogView(log = {}) {
 
   return {
     tone,
+    feedback,
     roleLabel: resolveRoleLabel(log.role),
     sections: compact([
       rules.length ? { kind: 'rules', label: '规则', items: rules } : null,

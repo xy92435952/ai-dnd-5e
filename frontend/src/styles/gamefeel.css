@@ -1417,10 +1417,85 @@
 .log-section-items span {
   overflow-wrap: anywhere;
 }
+.log-feedback-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.log-feedback {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 2px 6px;
+  border: 1px solid rgba(213,184,121,.3);
+  border-radius: 4px;
+  background: rgba(213,184,121,.08);
+  color: var(--parchment-light);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.log-feedback.hit,
+.log-feedback.save-success,
+.log-feedback.death-save-success {
+  border-color: rgba(159,214,138,.55);
+  background: rgba(70,150,78,.16);
+  color: #b8f0a2;
+}
+.log-feedback.miss {
+  border-color: rgba(213,184,121,.28);
+  background: rgba(213,184,121,.08);
+  color: var(--parchment-dark);
+}
+.log-feedback.crit {
+  border-color: rgba(95,216,232,.72);
+  background: rgba(47,169,196,.18);
+  color: var(--arcane-light, #5fd8e8);
+  text-shadow: 0 0 6px rgba(95,216,232,.72);
+}
+.log-feedback.save-failure,
+.log-feedback.death-save-failure {
+  border-color: rgba(240,64,64,.65);
+  background: rgba(160,28,28,.22);
+  color: #ff9a8f;
+}
+.log-feedback.death-save {
+  border-color: rgba(240,208,96,.56);
+  background: rgba(240,208,96,.12);
+  color: var(--amber);
+}
+.log-feedback.concentration-break {
+  border-color: rgba(188,128,255,.58);
+  background: rgba(110,70,180,.2);
+  color: #d9bdff;
+}
 .log-section.rules .log-section-items { color: var(--amber); }
 .log-section.dice .log-section-items { color: var(--arcane-light, #5fd8e8); }
 .log-section.state .log-section-items { color: #9fd68a; }
 .log-section.narration .log-section-items { color: var(--parchment-light); }
+.log-entry.feedback-hit { --log-feedback-glow: rgba(159,214,138,.26); }
+.log-entry.feedback-miss { --log-feedback-glow: rgba(213,184,121,.16); }
+.log-entry.feedback-crit { --log-feedback-glow: rgba(95,216,232,.35); }
+.log-entry.feedback-save-success,
+.log-entry.feedback-death-save-success { --log-feedback-glow: rgba(159,214,138,.28); }
+.log-entry.feedback-save-failure,
+.log-entry.feedback-death-save-failure { --log-feedback-glow: rgba(240,64,64,.28); }
+.log-entry.feedback-death-save { --log-feedback-glow: rgba(240,208,96,.22); }
+.log-entry.feedback-concentration-break { --log-feedback-glow: rgba(188,128,255,.3); }
+.log-entry.feedback-hit,
+.log-entry.feedback-miss,
+.log-entry.feedback-crit,
+.log-entry.feedback-save-success,
+.log-entry.feedback-save-failure,
+.log-entry.feedback-death-save,
+.log-entry.feedback-death-save-success,
+.log-entry.feedback-death-save-failure,
+.log-entry.feedback-concentration-break {
+  animation: log-feedback-pulse .78s ease-out;
+}
 .log-entry.crit .log-entry-icon,
 .log-entry.crit .log-entry-role,
 .log-entry.crit .log-section.rules .log-section-items {
@@ -1432,6 +1507,31 @@
   color: var(--parchment-dark);
 }
 .log-entry.dmg .log-section.dice .log-section-items { color: #f04040; }
+
+@keyframes log-feedback-pulse {
+  0% {
+    background: var(--log-feedback-glow, rgba(213,184,121,.16));
+    box-shadow: inset 0 0 0 1px var(--log-feedback-glow, rgba(213,184,121,.16));
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-entry.feedback-hit,
+  .log-entry.feedback-miss,
+  .log-entry.feedback-crit,
+  .log-entry.feedback-save-success,
+  .log-entry.feedback-save-failure,
+  .log-entry.feedback-death-save,
+  .log-entry.feedback-death-save-success,
+  .log-entry.feedback-death-save-failure,
+  .log-entry.feedback-concentration-break {
+    animation: none;
+  }
+}
 
 /* 反应窗口 */
 .reaction-prompt-layer {
