@@ -42,11 +42,12 @@ export default function IsoBattlefield({
     const isThreat = threatCells.has(key) && !isWall && !ent?.is_enemy
     const isAoeCenter = aoeCells.center === key
     const isAoeRing = !isAoeCenter && aoeCells.ring.has(key) && !isWall
+    const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
 
     return (
       <IsoBattlefieldCell
         key={key}
-        className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ' aoe' : ''}${isAoeCenter ? ' aoe-center' : ''}`}
+        className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ` aoe${aoeTemplateClass}` : ''}${isAoeCenter ? ' aoe-center' : ''}`}
         onClick={() => {
           if (ent && !isWall) {
             if (helpMode && !ent.is_enemy && entId !== playerId) {

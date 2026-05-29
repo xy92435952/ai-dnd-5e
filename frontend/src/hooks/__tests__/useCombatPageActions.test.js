@@ -92,6 +92,46 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
+  it('builds shaped AoE previews from hovered spells', () => {
+    const { result, deps } = renderActions({
+      selectedTarget: 'enemy-1',
+      entityPositions: {
+        'enemy-1': { x: 7, y: 4 },
+      },
+      playerPos: { x: 2, y: 2 },
+    })
+
+    act(() => {
+      result.current.handleSpellHover({
+        name: 'Burning Hands',
+        aoe: true,
+        desc: '15尺锥形区域喷射火焰',
+      })
+    })
+
+    expect(deps.setAoePreview).toHaveBeenCalledWith({
+      radius: 3,
+      template: 'cone',
+      spellName: 'Burning Hands',
+    })
+    expect(deps.setAoeHover).toHaveBeenCalledWith('7_4')
+
+    act(() => {
+      result.current.handleSpellHover({
+        name: 'Spirit Guardians',
+        aoe: true,
+        desc: '15尺内敌人减速',
+      })
+    })
+
+    expect(deps.setAoePreview).toHaveBeenLastCalledWith({
+      radius: 3,
+      template: 'aura',
+      spellName: 'Spirit Guardians',
+    })
+    expect(deps.setAoeHover).toHaveBeenLastCalledWith('2_2')
+  })
+
   it('keeps websocket reaction prompts so non-reactors can see a non-blocking notice', () => {
     const { result, deps } = renderActions()
     const prompt = {

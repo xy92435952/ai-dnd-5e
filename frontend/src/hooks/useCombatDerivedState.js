@@ -55,12 +55,13 @@ export function useCombatDerivedState({
     buildThreatCells({ showThreat: showThreat && !!combat, entityPositions, entities }),
   [showThreat, combat, entityPositions, entities])
 
-  const aoeCells = useMemo(() =>
-    buildAoeCells({ aoePreview, aoeHover }),
-  [aoePreview, aoeHover])
-
   const effectivePlayerId = room && myCharacterId ? myCharacterId : playerId
   const playerPos = effectivePlayerId ? entityPositions[effectivePlayerId] : null
+
+  const aoeCells = useMemo(() =>
+    buildAoeCells({ aoePreview, aoeHover, origin: playerPos }),
+  [aoePreview, aoeHover, playerPos])
+
   const cam = getCameraWindow({
     playerPos,
     totalWidth: gridWidth,

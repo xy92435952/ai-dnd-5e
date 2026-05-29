@@ -6,6 +6,7 @@ import {
   applyPlayerHpUpdate,
   applyWeaponResourceToCombat,
   buildAoeCells,
+  buildSpellAoePreview,
   buildCombatPreviewRows,
   buildCombatGrid,
   buildGridTerrainSets,
@@ -16,6 +17,7 @@ import {
   canDriveAiCombatTurns,
   formatWeaponResourceLog,
   getAoePreviewCenterKey,
+  getAoeTemplateType,
   getAiCombatTurnDriverUserId,
   getCombatPredictionActionKey,
   getCombatTurnToken,
@@ -66,9 +68,76 @@ describe('combat grid helpers', () => {
     const cells = buildAoeCells({ aoePreview: { radius: 1 }, aoeHover: '5_5' })
 
     expect(cells.center).toBe('5_5')
+    expect(cells.template).toBe('sphere')
     expect(cells.ring.has('5_5')).toBe(true)
     expect(cells.ring.has('6_5')).toBe(true)
     expect(cells.ring.has('7_5')).toBe(false)
+  })
+
+  it('buildAoeCells supports cone, line, cube and aura templates', () => {
+    const cone = buildAoeCells({
+      aoePreview: { template: 'cone', radius: 3 },
+      aoeHover: '5_8',
+      origin: { x: 5, y: 5 },
+    })
+    expect(cone.center).toBe('5_8')
+    expect(cone.ring.has('5_6')).toBe(true)
+    expect(cone.ring.has('4_7')).toBe(true)
+    expect(cone.ring.has('8_5')).toBe(false)
+
+    const line = buildAoeCells({
+      aoePreview: { template: 'line', radius: 3 },
+      aoeHover: '8_5',
+      origin: { x: 5, y: 5 },
+    })
+    expect(line.ring.has('6_5')).toBe(true)
+    expect(line.ring.has('8_5')).toBe(true)
+    expect(line.ring.has('6_6')).toBe(false)
+
+    const cube = buildAoeCells({
+      aoePreview: { template: 'cube', radius: 3, size: 3 },
+      aoeHover: '5_5',
+    })
+    expect(cube.ring.has('4_4')).toBe(true)
+    expect(cube.ring.has('6_6')).toBe(true)
+    expect(cube.ring.has('7_7')).toBe(false)
+
+    const aura = buildAoeCells({
+      aoePreview: { template: 'aura', radius: 1 },
+      aoeHover: '9_9',
+      origin: { x: 5, y: 5 },
+    })
+    expect(aura.center).toBe('5_5')
+    expect(aura.ring.has('6_5')).toBe(true)
+    expect(aura.ring.has('9_9')).toBe(false)
+  })
+
+  it('buildSpellAoePreview infers common DnD area templates from spell text', () => {
+    expect(buildSpellAoePreview({
+      name: '火球术',
+      aoe: true,
+      desc: '半径20尺爆炸',
+    })).toEqual({ radius: 4, template: 'sphere', spellName: '火球术' })
+    expect(buildSpellAoePreview({
+      name: '灼热之手',
+      aoe: true,
+      desc: '15尺锥形区域喷射火焰',
+    })).toEqual({ radius: 3, template: 'cone', spellName: '灼热之手' })
+    expect(buildSpellAoePreview({
+      name: '闪电箭',
+      aoe: true,
+      desc: '100尺长直线',
+    })).toEqual({ radius: 20, template: 'line', spellName: '闪电箭' })
+    expect(buildSpellAoePreview({
+      name: '雷鸣波',
+      aoe: true,
+      desc: '15尺立方区域',
+    })).toEqual({ radius: 3, template: 'cube', spellName: '雷鸣波', size: 3 })
+    expect(getAoeTemplateType({
+      name: '神灵守护',
+      aoe: true,
+      desc: '15尺内敌人减速',
+    })).toBe('aura')
   })
 
   it('getAoePreviewCenterKey 优先以选中目标为中心，否则回退玩家位置', () => {

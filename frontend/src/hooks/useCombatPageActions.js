@@ -6,7 +6,7 @@
  */
 import { useCallback } from 'react'
 import { gameApi, roomsApi } from '../api/client'
-import { getAoePreviewCenterKey, aoeRadiusCells, getCombatTurnToken, getSkillUnavailableReason } from '../utils/combat'
+import { buildSpellAoePreview, getAoePreviewCenterKey, getCombatTurnToken, getSkillUnavailableReason } from '../utils/combat'
 import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
 import { formatCombatError } from '../utils/combatErrors'
 import { mergeRealtimeRoomEvent } from './useRoomRealtime'
@@ -171,10 +171,10 @@ export function useCombatPageActions({
 
   const handleSpellHover = useCallback((spell) => {
     if (spell && spell.aoe) {
-      const radius = aoeRadiusCells(spell)
-      setAoePreview({ radius, spellName: spell.name })
+      const preview = buildSpellAoePreview(spell)
+      setAoePreview(preview)
       const centerKey = getAoePreviewCenterKey({
-        selectedTarget,
+        selectedTarget: preview?.template === 'aura' ? null : selectedTarget,
         entityPositions,
         playerPos,
       })

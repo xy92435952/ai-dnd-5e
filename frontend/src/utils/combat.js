@@ -129,6 +129,28 @@ export function aoeRadiusCells(spell) {
   return 3
 }
 
+export function getAoeTemplateType(spell = {}) {
+  const text = `${spell.template || ''} ${spell.shape || ''} ${spell.name || ''} ${spell.name_en || ''} ${spell.desc || ''}`.toLowerCase()
+  if (/cone|锥/.test(text)) return 'cone'
+  if (/line|直线/.test(text)) return 'line'
+  if (/cube|立方/.test(text)) return 'cube'
+  if (/aura|self|自身|以你为中心|内敌人|within .* feet of you/.test(text)) return 'aura'
+  return 'sphere'
+}
+
+export function buildSpellAoePreview(spell) {
+  if (!spell?.aoe) return null
+  const template = getAoeTemplateType(spell)
+  const radius = aoeRadiusCells(spell)
+  const preview = {
+    radius,
+    template,
+    spellName: spell.name,
+  }
+  if (template === 'cube') preview.size = Math.max(1, radius)
+  return preview
+}
+
 function normalizeEntityStateUpdate(targetId, update = {}) {
   if (!targetId && !update?.target_id && !update?.entity_id) return null
   const resolvedTargetId = targetId || update.target_id || update.entity_id
@@ -367,18 +389,52 @@ export function buildThreatCells({ showThreat, entityPositions = {}, entities = 
 }
 
 /**
- * 生成 AoE 预览格：以 hover 格为中心，半径 R 内的圆形区域。
+ * 生成 AoE 预览格：支持 sphere/cone/line/cube/aura 等模板。
  *
- * @param {{ aoePreview: { radius?: number } | null, aoeHover: string | null }} args
- * @returns {{ center:string|null, ring:Set<string> }}
+ * @param {{ aoePreview: { radius?: number, template?: string, size?: number } | null, aoeHover: string | null, origin?: {x:number,y:number} | null }} args
+ * @returns {{ center:string|null, ring:Set<string>, template:string|null }}
  */
-export function buildAoeCells({ aoePreview, aoeHover }) {
-  const out = { center: null, ring: new Set() }
+export function buildAoeCells({ aoePreview, aoeHover, origin = null }) {
+  const out = { center: null, ring: new Set(), template: null }
   if (!aoePreview || !aoeHover) return out
 
-  const [cx, cy] = aoeHover.split('_').map(Number)
+  const template = aoePreview.template || 'sphere'
+  out.template = template
+  const [hx, hy] = aoeHover.split('_').map(Number)
+  const originPos = origin && Number.isFinite(origin.x) && Number.isFinite(origin.y)
+    ? { x: Number(origin.x), y: Number(origin.y) }
+    : null
+  const center = template === 'aura' && originPos ? originPos : { x: hx, y: hy }
+  const cx = center.x
+  const cy = center.y
   const radius = aoePreview.radius || 1
-  out.center = aoeHover
+
+  out.center = `${cx}_${cy}`
+  if (template === 'cube') {
+    const half = Math.max(0, Math.floor(((aoePreview.size || radius || 1) - 1) / 2))
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) out.ring.add(`${cx + dx}_${cy + dy}`)
+    }
+    return out
+  }
+
+  if ((template === 'cone' || template === 'line') && originPos) {
+    const dir = normalizeTemplateDirection({ from: originPos, to: { x: hx, y: hy } })
+    if (!dir) return out
+    for (let y = originPos.y - radius; y <= originPos.y + radius; y++) {
+      for (let x = originPos.x - radius; x <= originPos.x + radius; x++) {
+        if (x === originPos.x && y === originPos.y) continue
+        if (template === 'line' && isPointOnLineTemplate({ x, y, origin: originPos, dir, length: radius })) {
+          out.ring.add(`${x}_${y}`)
+        }
+        if (template === 'cone' && isPointInConeTemplate({ x, y, origin: originPos, dir, length: radius })) {
+          out.ring.add(`${x}_${y}`)
+        }
+      }
+    }
+    return out
+  }
+
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
       const d = Math.sqrt(dx * dx + dy * dy)
@@ -386,6 +442,34 @@ export function buildAoeCells({ aoePreview, aoeHover }) {
     }
   }
   return out
+}
+
+function normalizeTemplateDirection({ from, to }) {
+  const dx = Math.sign((to?.x ?? from.x) - from.x)
+  const dy = Math.sign((to?.y ?? from.y) - from.y)
+  if (dx === 0 && dy === 0) return null
+  return { x: dx, y: dy }
+}
+
+function templateProjection({ x, y, origin, dir }) {
+  const dx = x - origin.x
+  const dy = y - origin.y
+  const dirLength = Math.sqrt(dir.x * dir.x + dir.y * dir.y)
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  const forward = (dx * dir.x + dy * dir.y) / dirLength
+  const alignment = distance ? forward / distance : 0
+  const lateral = Math.sqrt(Math.max(0, distance * distance - forward * forward))
+  return { distance, forward, alignment, lateral }
+}
+
+function isPointOnLineTemplate({ x, y, origin, dir, length }) {
+  const { forward, lateral } = templateProjection({ x, y, origin, dir })
+  return forward > 0 && forward <= length + 0.5 && lateral <= 0.55
+}
+
+function isPointInConeTemplate({ x, y, origin, dir, length }) {
+  const { distance, forward, alignment } = templateProjection({ x, y, origin, dir })
+  return forward > 0 && distance <= length + 0.5 && alignment >= 0.55
 }
 
 /**
