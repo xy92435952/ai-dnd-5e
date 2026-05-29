@@ -7,6 +7,7 @@ describe('ReactionPrompt', () => {
     const onReact = vi.fn()
     render(
       <ReactionPrompt
+        currentCharacterId="char-2"
         prompt={{
           context: 'Incoming attack',
           attacker_id: 'enemy-1',
@@ -34,6 +35,7 @@ describe('ReactionPrompt', () => {
     const onReact = vi.fn()
     render(
       <ReactionPrompt
+        currentCharacterId="char-2"
         prompt={{
           context: 'Incoming spell',
           target_id: 'enemy-mage',
@@ -61,6 +63,7 @@ describe('ReactionPrompt', () => {
     const onReact = vi.fn()
     render(
       <ReactionPrompt
+        currentCharacterId="char-2"
         prompt={{
           context: 'Incoming fire damage',
           attacker_id: 'enemy-1',
@@ -95,6 +98,7 @@ describe('ReactionPrompt', () => {
     const onCancel = vi.fn()
     render(
       <ReactionPrompt
+        currentCharacterId="char-2"
         prompt={prompt}
         onReact={vi.fn()}
         onCancel={onCancel}
@@ -104,5 +108,68 @@ describe('ReactionPrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: /放弃|鏀惧純/ }))
 
     expect(onCancel).toHaveBeenCalledWith(prompt)
+  })
+
+  it('shows a non-blocking watcher notice for non-reactors', () => {
+    const onReact = vi.fn()
+    const onCancel = vi.fn()
+    render(
+      <ReactionPrompt
+        currentCharacterId="host-char"
+        prompt={{
+          context: 'Incoming attack',
+          attacker_id: 'enemy-1',
+          reactor_character_id: 'guest-char',
+          available_reactions: [
+            {
+              id: 'shield',
+              type: 'shield',
+              name: 'Shield',
+              effect: '+5 AC',
+            },
+          ],
+        }}
+        onReact={onReact}
+        onCancel={onCancel}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('guest-char 正在选择反应')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Shield/ })).not.toBeInTheDocument()
+    expect(onReact).not.toHaveBeenCalled()
+    expect(onCancel).not.toHaveBeenCalled()
+  })
+
+  it('renders incoming attack details and reaction costs for the eligible reactor', () => {
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          context: 'Incoming attack',
+          attacker_id: 'enemy-1',
+          reactor_character_id: 'char-2',
+          attack_roll: 18,
+          player_ac: 14,
+          incoming_damage: 9,
+          available_reactions: [
+            {
+              id: 'shield',
+              type: 'shield',
+              name: 'Shield',
+              cost: '1st-level spell slot',
+              effect: '+5 AC',
+            },
+          ],
+        }}
+        onReact={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('dialog', { name: '反应触发' })).toBeInTheDocument()
+    expect(screen.getByText('攻击 18 vs AC14')).toBeInTheDocument()
+    expect(screen.getByText('伤害 9')).toBeInTheDocument()
+    expect(screen.getByText('1st-level spell slot')).toBeInTheDocument()
   })
 })

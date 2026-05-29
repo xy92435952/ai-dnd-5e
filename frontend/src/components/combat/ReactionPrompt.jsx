@@ -1,29 +1,66 @@
-export default function ReactionPrompt({ prompt, onReact, onCancel }) {
+import {
+  getReactionPromptContext,
+  getReactionPromptMeta,
+  isReactionPromptForCharacter,
+  normalizeReactionOptions,
+} from '../../utils/combatReactionPrompt'
+
+export default function ReactionPrompt({
+  prompt,
+  currentCharacterId = null,
+  onReact,
+  onCancel,
+}) {
   if (!prompt) return null
-  const options = prompt.options || (prompt.available_reactions || []).map(reaction => ({
-    type: reaction.id || reaction.type,
-    target_id: prompt.target_id || prompt.attacker_id,
-    character_id: prompt.reactor_character_id,
-    label: `${reaction.name || reaction.id}${reaction.effect ? ` - ${reaction.effect}` : ''}`,
-  }))
+
+  const canReact = isReactionPromptForCharacter(prompt, currentCharacterId)
+  const options = normalizeReactionOptions(prompt)
+  const meta = getReactionPromptMeta(prompt)
+  const context = getReactionPromptContext(prompt)
+  const reactorLabel = prompt.reactor_name || prompt.reactor_character_name || prompt.reactor_character_id || '另一名角色'
+
+  if (!canReact) {
+    return (
+      <aside className="reaction-watch" role="status" aria-live="polite">
+        <strong>反应窗口</strong>
+        <span>{reactorLabel} 正在选择反应</span>
+      </aside>
+    )
+  }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
-      <div style={{ padding: 20, width: 360, background: 'var(--obsidian)', border: '1px solid var(--flame)' }}>
-        <p style={{ color: 'var(--flame)', fontFamily: 'var(--font-display)', fontSize: 14, marginBottom: 8 }}>⚡ 反应触发</p>
-        <p style={{ color: 'var(--parchment)', fontSize: 12, marginBottom: 12 }}>{prompt.context || '选择反应'}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="reaction-prompt-layer" role="dialog" aria-modal="true" aria-label="反应触发">
+      <section className="reaction-prompt-card">
+        <header className="reaction-prompt-head">
+          <span className="reaction-prompt-icon" aria-hidden="true">⚡</span>
+          <div>
+            <p className="reaction-prompt-title">反应触发</p>
+            <p className="reaction-prompt-context">{context}</p>
+          </div>
+        </header>
+
+        {meta.length > 0 && (
+          <div className="reaction-prompt-meta">
+            {meta.map(item => <span key={item}>{item}</span>)}
+          </div>
+        )}
+
+        <div className="reaction-prompt-actions">
           {options.map((opt, i) => (
-            <button key={i} className="btn-gold" style={{ padding: 8, fontSize: 12, textAlign: 'left' }}
-              onClick={() => onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)}>
-              {opt.label}
+            <button
+              key={`${opt.type}-${i}`}
+              className="btn-gold reaction-prompt-action"
+              onClick={() => onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)}
+            >
+              <span>{opt.label}</span>
+              {opt.cost && <small>{opt.cost}</small>}
             </button>
           ))}
-          <button className="btn-ghost" style={{ padding: 6, fontSize: 11 }} onClick={() => onCancel?.(prompt)}>
+          <button className="btn-ghost reaction-prompt-decline" onClick={() => onCancel?.(prompt)}>
             放弃反应
           </button>
         </div>
-      </div>
+      </section>
     </div>
   )
 }

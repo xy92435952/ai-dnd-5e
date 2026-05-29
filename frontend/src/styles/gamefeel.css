@@ -1433,6 +1433,116 @@
 }
 .log-entry.dmg .log-section.dice .log-section-items { color: #f04040; }
 
+/* 反应窗口 */
+.reaction-prompt-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.42);
+  pointer-events: none;
+}
+.reaction-prompt-card {
+  width: min(420px, calc(100vw - 28px));
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(25,10,8,.96), rgba(8,5,10,.96));
+  border: 1px solid var(--flame);
+  box-shadow: 0 0 0 1px rgba(255,210,96,.18), 0 18px 48px rgba(0,0,0,.55), 0 0 34px -6px rgba(240,88,40,.75);
+  pointer-events: auto;
+}
+.reaction-prompt-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.reaction-prompt-icon {
+  color: var(--flame);
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(240,88,40,.9));
+}
+.reaction-prompt-title {
+  color: var(--flame);
+  font-family: var(--font-display);
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+.reaction-prompt-context {
+  color: var(--parchment);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+.reaction-prompt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.reaction-prompt-meta span {
+  padding: 3px 7px;
+  border: 1px solid rgba(213,184,121,.34);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.reaction-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+.reaction-prompt-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  text-align: left;
+}
+.reaction-prompt-action span {
+  overflow-wrap: anywhere;
+}
+.reaction-prompt-action small {
+  flex-shrink: 0;
+  color: rgba(52,32,12,.75);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.reaction-prompt-decline {
+  padding: 7px;
+  font-size: 11px;
+}
+.reaction-watch {
+  position: fixed;
+  right: 18px;
+  bottom: 170px;
+  z-index: 55;
+  max-width: min(320px, calc(100vw - 36px));
+  padding: 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: rgba(12,8,6,.82);
+  border: 1px solid rgba(240,172,64,.55);
+  box-shadow: 0 10px 32px rgba(0,0,0,.38), 0 0 24px -8px rgba(240,172,64,.65);
+  color: var(--parchment);
+  pointer-events: none;
+}
+.reaction-watch strong {
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-size: 12px;
+}
+.reaction-watch span {
+  color: var(--parchment-dark);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 /* 选中目标信息 */
 .target-card {
   padding: 10px 12px;

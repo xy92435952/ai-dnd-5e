@@ -13,7 +13,6 @@ export function useCombatAiTurns({
   setTurnState,
   setReactionPrompt,
   setCombatOver,
-  controlledCharacterId = null,
   addLog,
   showDice,
 }) {
@@ -94,9 +93,7 @@ export function useCombatAiTurns({
           state_changes: buildCombatStateChangeSummary(result),
         })
 
-        const promptReactorId = result.reaction_prompt?.reactor_character_id
-        const promptIsForThisClient = !controlledCharacterId || promptReactorId === controlledCharacterId
-        if (result.reaction_prompt && result.player_can_react && promptIsForThisClient) {
+        if (result.reaction_prompt && result.player_can_react) {
           setReactionPrompt(result.reaction_prompt)
           processingRef.current = false
           setIsProcessing(false)
@@ -120,7 +117,6 @@ export function useCombatAiTurns({
     sessionId,
     setCombat,
     setCombatOver,
-    controlledCharacterId,
     setIsProcessing,
     setReactionPrompt,
     setTurnState,

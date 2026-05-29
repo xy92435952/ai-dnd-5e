@@ -49,24 +49,26 @@ export function useCombatPageActions({
   const onWsEvent = useCallback((event) => {
     switch (event.type) {
       case 'combat_update':
-        if (event.combat) {
-          setCombat(event.combat)
-          const entry = event.combat.turn_order?.[event.combat.current_turn_index]
-          if (entry?.character_id && event.combat.turn_states) {
-            setTurnState(event.combat.turn_states[entry.character_id] || null)
+        {
+          const hasReactionPrompt = !!(event.player_can_react && event.reaction_prompt)
+          if (event.combat) {
+            setCombat(event.combat)
+            const entry = event.combat.turn_order?.[event.combat.current_turn_index]
+            if (entry?.character_id && event.combat.turn_states) {
+              setTurnState(event.combat.turn_states[entry.character_id] || null)
+            }
           }
-        }
-        if (event.player_can_react && event.reaction_prompt) {
-          const reactorId = event.reaction_prompt.reactor_character_id
-          if (!myCharacterId || reactorId === myCharacterId) {
+          if (hasReactionPrompt) {
             setReactionPrompt?.(event.reaction_prompt)
+          } else {
+            setReactionPrompt?.(null)
           }
+          if (event.combat_over) {
+            setCombatOver?.(event.outcome)
+          }
+          if (!hasReactionPrompt) onLoadCombat()
+          break
         }
-        if (event.combat_over) {
-          setCombatOver?.(event.outcome)
-        }
-        onLoadCombat()
-        break
       case 'turn_changed':
       case 'entity_moved':
       case 'dm_responded':
@@ -86,7 +88,7 @@ export function useCombatPageActions({
       default:
         break
     }
-  }, [myCharacterId, sessionId, setRoom, setCombat, setCombatOver, setReactionPrompt, setTurnState, onLoadCombat])
+  }, [sessionId, setRoom, setCombat, setCombatOver, setReactionPrompt, setTurnState, onLoadCombat])
 
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,

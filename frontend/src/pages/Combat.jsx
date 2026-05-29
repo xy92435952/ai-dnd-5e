@@ -250,6 +250,7 @@ export default function Combat() {
         onUseManeuver={handleManeuver}
         onCloseManeuver={() => setManeuverModalOpen(false)}
         reactionPrompt={reactionPrompt}
+        currentCharacterId={effectivePlayerId || playerId}
         onReact={handleReaction}
         onCancelReaction={handleCancelReaction}
         error={error}

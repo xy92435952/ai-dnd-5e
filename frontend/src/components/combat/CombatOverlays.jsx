@@ -21,6 +21,7 @@ export default function CombatOverlays({
   onUseManeuver,
   onCloseManeuver,
   reactionPrompt,
+  currentCharacterId,
   onReact,
   onCancelReaction,
   error,
@@ -57,6 +58,7 @@ export default function CombatOverlays({
 
       <ReactionPrompt
         prompt={reactionPrompt}
+        currentCharacterId={currentCharacterId}
         onReact={onReact}
         onCancel={onCancelReaction}
       />

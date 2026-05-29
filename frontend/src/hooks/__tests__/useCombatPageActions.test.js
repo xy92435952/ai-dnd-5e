@@ -92,7 +92,7 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
-  it('opens websocket reaction prompts only for the controlled character', () => {
+  it('keeps websocket reaction prompts so non-reactors can see a non-blocking notice', () => {
     const { result, deps } = renderActions()
     const prompt = {
       trigger: 'spell_cast',
@@ -121,7 +121,26 @@ describe('useCombatPageActions websocket sync', () => {
       })
     })
 
-    expect(deps.setReactionPrompt).toHaveBeenCalledTimes(1)
+    expect(deps.setReactionPrompt).toHaveBeenLastCalledWith({
+      ...prompt,
+      reactor_character_id: 'host-char',
+    })
+    expect(deps.setReactionPrompt).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears stale reaction prompts when a combat update has no active prompt', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        player_can_react: false,
+        reaction_prompt: null,
+      })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
   it('reloads combat for turn, movement, and dm response realtime events', () => {

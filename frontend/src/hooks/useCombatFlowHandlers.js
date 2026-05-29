@@ -69,7 +69,6 @@ export function useCombatFlowHandlers({
     setTurnState,
     setReactionPrompt,
     setCombatOver,
-    controlledCharacterId: controlledPlayerId,
     addLog,
     showDice,
   })

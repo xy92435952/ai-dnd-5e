@@ -207,7 +207,7 @@ Priority:
 - [~] Show action economy state in UI: action, bonus action, reaction, movement remaining. Combat HUD already shows pips and movement; skill buttons now explain spent action/bonus/reaction/movement reasons.
 - [ ] Show hover/selection preview for hit chance, damage range, cover, advantage/disadvantage, and resource cost.
 - [ ] Show AoE templates for sphere, cone, line, cube, and aura spells.
-- [ ] Make reaction prompts visually urgent but not blocking for non-reactors.
+- [x] Make reaction prompts visually urgent but not blocking for non-reactors. 2026-05-29: eligible reactors now see an urgent reaction dialog with attack/damage/spell context and costs, while non-reactors see a non-blocking watcher notice; websocket/AI prompt handling preserves active reaction windows for all clients and clears stale notices after resolution.
 - [ ] Show clear before/after HP when Shield, Absorb Elements, Uncanny Dodge, or resistance retroactively changes damage.
 - [x] Keep combat log readable: separate rules result, dice, narration, and state changes. 2026-05-29: combat HUD now renders structured log sections for rules, dice, narration, and state changes; attack, spell, AI turn, death save, reaction, maneuver, class feature, potion, grapple/shove, and offhand flows attach state-change metadata, with component and utility coverage.
 - [x] Add a compact "why unavailable" tooltip to disabled skill bar actions.

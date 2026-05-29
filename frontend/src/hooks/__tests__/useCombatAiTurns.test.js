@@ -152,23 +152,12 @@ describe('useCombatAiTurns', () => {
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
-  it('ignores ai reaction prompts for another controlled character', async () => {
-    getCombatMock
-      .mockResolvedValueOnce({
-        round_number: 1,
-        current_turn_index: 0,
-        turn_order: [{ character_id: 'enemy-1', is_player: false }],
-      })
-      .mockResolvedValueOnce({
-        current_turn_index: 1,
-        turn_order: [
-          { character_id: 'enemy-1', is_player: false },
-          { character_id: 'host-char', is_player: true },
-        ],
-        turn_states: {
-          'host-char': { action_used: false },
-        },
-      })
+  it('pauses ai and stores reaction prompts for another controlled character as a watcher notice', async () => {
+    getCombatMock.mockResolvedValueOnce({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
     aiTurnMock.mockResolvedValue({
       actor_id: 'enemy-1',
       actor_name: 'Enemy Mage',
@@ -185,9 +174,7 @@ describe('useCombatAiTurns', () => {
       player_can_react: true,
     })
 
-    const { result, deps } = renderAiTurns({
-      controlledCharacterId: 'host-char',
-    })
+    const { result, deps } = renderAiTurns()
 
     await act(async () => {
       const promise = result.current.triggerAiTurn()
@@ -197,8 +184,11 @@ describe('useCombatAiTurns', () => {
       await promise
     })
 
-    expect(deps.setReactionPrompt).not.toHaveBeenCalled()
-    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      trigger: 'spell_cast',
+      reactor_character_id: 'guest-char',
+    })
+    expect(deps.setTurnState).not.toHaveBeenCalledWith({ action_used: false })
   })
 
   it('quietly stops when the backend rejects a stale ai turn token', async () => {
