@@ -686,6 +686,79 @@ export function getCombatSkillBar(skillBar) {
   return skillBar && skillBar.length ? skillBar : DEFAULT_SKILL_BAR
 }
 
+const TARGET_REQUIRED_SKILL_KEYS = new Set(['atk', 'sneak', 'shove', 'grapple', 'off_attack', 'firebolt', 'sacred_flame'])
+const TARGET_REQUIRED_TYPES = new Set(['ally', 'enemy', 'creature', 'character', 'object', 'entity', 'token', 'target'])
+const TARGET_NOT_REQUIRED_TYPES = new Set(['self', 'self_only', 'self-target', 'self_target', 'selftarget', 'aura', 'none'])
+
+function normalizeTargetHint(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+}
+
+function parseBooleanishTargetRequirement(value) {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+
+  const normalized = normalizeTargetHint(value)
+  if ([
+    'true',
+    'yes',
+    'required',
+    'require',
+    'needs_target',
+    'need_target',
+    'target_required',
+    'target_needed',
+    'target_selection_required',
+  ].includes(normalized)) return true
+  if ([
+    'false',
+    'no',
+    'optional',
+    'self',
+    'self_only',
+    'self_target',
+    'selftarget',
+    'aura',
+    'none',
+  ].includes(normalized)) return false
+  return null
+}
+
+function skillRequiresTarget(skill = {}) {
+  const targeting = skill.targeting && typeof skill.targeting === 'object' ? skill.targeting : {}
+  const explicit = parseBooleanishTargetRequirement(
+    skill.requires_target
+    ?? skill.requiresTarget
+    ?? skill.target_required
+    ?? skill.targetRequired
+    ?? skill.needs_target
+    ?? skill.needsTarget
+    ?? targeting.requires_target
+    ?? targeting.requiresTarget
+    ?? targeting.target_required
+    ?? targeting.targetRequired
+    ?? targeting.needs_target
+    ?? targeting.needsTarget,
+  )
+  if (explicit !== null) return explicit
+
+  const targetType = normalizeTargetHint(
+    skill.target_type
+    ?? skill.targetType
+    ?? skill.target
+    ?? targeting.target_type
+    ?? targeting.targetType
+    ?? targeting.type,
+  )
+  if (TARGET_NOT_REQUIRED_TYPES.has(targetType)) return false
+  if (TARGET_REQUIRED_TYPES.has(targetType)) return true
+  return TARGET_REQUIRED_SKILL_KEYS.has(skill.k)
+}
+
 export function getSkillUnavailableReason({
   skill,
   turnState,
@@ -702,7 +775,7 @@ export function getSkillUnavailableReason({
 
   const key = skill.k
   const kind = skill.kind
-  const needsTarget = ['atk', 'sneak', 'shove', 'grapple', 'off_attack', 'firebolt', 'sacred_flame'].includes(key)
+  const needsTarget = skillRequiresTarget(skill)
   if (needsTarget && !selectedTarget) return '需要先选择目标'
 
   if (kind === 'bonus' || key === 'off_attack') {

@@ -57,6 +57,74 @@ describe('CombatHudSkillBar', () => {
     expect(onSkillClick).not.toHaveBeenCalled()
   })
 
+  it('blocks metadata target-required skills before submit', () => {
+    const onSkillClick = vi.fn()
+
+    const { container } = render(
+      <CombatHudSkillBar
+        skillBar={[
+          {
+            k: 'acid_splash',
+            label: '强酸飞溅',
+            glyph: 'A',
+            cost: '动作',
+            key: '2',
+            kind: 'spell',
+            available: true,
+            requires_target: true,
+          },
+        ]}
+        session={{ player: { derived: {} } }}
+        entities={{}}
+        selectedTarget={null}
+        turnState={{ action_used: false }}
+        onSkillClick={onSkillClick}
+        isPlayerTurn
+      />,
+    )
+
+    const skill = container.querySelector('.slot-key.spell')
+    expect(skill).toHaveAttribute('aria-disabled', 'true')
+    expect(skill).toHaveAttribute('title', '需要先选择目标')
+    expect(screen.getAllByText('需要先选择目标').length).toBeGreaterThan(0)
+
+    fireEvent.click(skill)
+    expect(onSkillClick).not.toHaveBeenCalled()
+  })
+
+  it('allows metadata target-required skills after selecting a target', () => {
+    const onSkillClick = vi.fn()
+    const skillEntry = {
+      k: 'acid_splash',
+      label: '强酸飞溅',
+      glyph: 'A',
+      cost: '动作',
+      key: '2',
+      kind: 'spell',
+      available: true,
+      target_type: 'enemy',
+    }
+
+    const { container } = render(
+      <CombatHudSkillBar
+        skillBar={[skillEntry]}
+        session={{ player: { derived: {} } }}
+        entities={{ 'enemy-1': { id: 'enemy-1', ac: 12 } }}
+        selectedTarget="enemy-1"
+        turnState={{ action_used: false }}
+        onSkillClick={onSkillClick}
+        isPlayerTurn
+      />,
+    )
+
+    const skill = container.querySelector('.slot-key.spell')
+    expect(skill).toHaveAttribute('aria-disabled', 'false')
+    expect(skill).toHaveAttribute('title', '强酸飞溅')
+
+    fireEvent.click(skill)
+    expect(onSkillClick).toHaveBeenCalledWith(skillEntry)
+  })
+
   it('uses turn economy to explain spent actions', () => {
     const onSkillClick = vi.fn()
 
