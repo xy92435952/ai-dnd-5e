@@ -8,6 +8,65 @@ import { DEFAULT_SKILL_BAR } from '../data/combat'
  * render + state。
  */
 
+function formatPercent(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  const number = Number(value)
+  return `${Math.round((number <= 1 ? number * 100 : number))}%`
+}
+
+function formatSigned(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  const number = Number(value)
+  return number >= 0 ? `+${number}` : `${number}`
+}
+
+function formatDamagePreview(prediction = {}) {
+  const dice = prediction.damage_dice && prediction.damage_dice !== '—' ? prediction.damage_dice : ''
+  const expected = prediction.expected_damage ?? null
+  const type = prediction.damage_type || ''
+  if (dice && expected !== null) return `${dice} · 期望 ${expected}${type ? ` ${type}` : ''}`
+  if (expected !== null) return `期望 ${expected}${type ? ` ${type}` : ''}`
+  return dice || '—'
+}
+
+function normalizeModifierTags(prediction = {}) {
+  const tags = Array.isArray(prediction.modifiers) ? [...prediction.modifiers] : []
+  if (prediction.advantage && !tags.includes('优势')) tags.unshift('优势')
+  if (prediction.disadvantage && !tags.includes('劣势')) tags.unshift('劣势')
+  return tags
+}
+
+export function buildCombatPreviewRows({ prediction = null, skill = null, player = null, target = null } = {}) {
+  const rows = []
+
+  if (prediction) {
+    rows.push({ label: '命中率', value: formatPercent(prediction.hit_rate), tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : 'neutral' })
+    if (prediction.crit_rate !== undefined) rows.push({ label: '暴击率', value: formatPercent(prediction.crit_rate) })
+    rows.push({ label: '伤害', value: formatDamagePreview(prediction) })
+
+    const targetAc = prediction.target_ac ?? prediction.target?.ac ?? target?.ac
+    const effectiveAc = prediction.effective_target_ac ?? targetAc
+    if (effectiveAc !== undefined) {
+      rows.push({
+        label: '目标AC',
+        value: prediction.cover_bonus > 0 && targetAc !== effectiveAc
+          ? `${targetAc} -> ${effectiveAc}`
+          : `${effectiveAc}`,
+      })
+    }
+    if (prediction.cover_bonus > 0) rows.push({ label: '掩护', value: `+${prediction.cover_bonus} AC` })
+    if (prediction.attack_bonus !== undefined) rows.push({ label: '攻击加值', value: formatSigned(prediction.attack_bonus) })
+
+    const tags = normalizeModifierTags(prediction)
+    if (tags.length) rows.push({ label: '态势', value: tags.join(' / ') })
+  } else if (skill) {
+    rows.push(...computeSkillStats(skill, player, target))
+  }
+
+  if (skill?.cost) rows.push({ label: '资源', value: skill.cost })
+  return rows
+}
+
 /**
  * 根据玩家角色 + 目标估算某技能的命中率 / 伤害。
  * 用于技能栏 hover tooltip。

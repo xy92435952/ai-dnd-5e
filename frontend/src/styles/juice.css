@@ -257,7 +257,7 @@
   bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%) translateY(4px);
-  width: 220px;
+  width: 250px;
   padding: 10px 12px;
   background: linear-gradient(180deg, #1a1208 0%, #0a0604 100%);
   border: 1px solid rgba(212, 168, 71, .7);
@@ -306,11 +306,21 @@
 .skill-tooltip .t-row {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   font-family: var(--font-mono, monospace);
   font-size: 10px;
   padding: 2px 0;
 }
+.skill-tooltip .t-row span {
+  flex-shrink: 0;
+}
+.skill-tooltip .t-row b {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
 .skill-tooltip .t-row b { color: #7fe8f8; font-weight: 700; }
+.skill-tooltip .t-row.good b { color: #8aeaa0; }
+.skill-tooltip .t-row.bad b { color: #f09090; }
 .skill-tooltip .t-desc {
   font-style: italic;
   color: rgba(232, 200, 160, .78);

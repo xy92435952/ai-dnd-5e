@@ -40,3 +40,27 @@ def test_build_prediction_uses_ranged_bonus_and_damage_map():
     assert result["damage_type"] == "切割"
     assert result["target"]["name"] == "骷髅"
     assert "远程" in result["modifiers"]
+
+
+def test_build_prediction_surfaces_cover_and_advantage_state():
+    result = build_combat_prediction(
+        attacker_derived={
+            "attack_bonus": 6,
+            "ability_modifiers": {"str": 3},
+        },
+        attacker_conditions=[],
+        target={"name": "强盗", "hp": 8, "hp_max": 8, "ac": 13},
+        action_key="atk",
+        is_ranged=False,
+        attack_modifiers=(True, False),
+        defense_modifiers=(False, False),
+        cover_bonus=2,
+    )
+
+    assert result["target_ac"] == 13
+    assert result["effective_target_ac"] == 15
+    assert result["cover_bonus"] == 2
+    assert result["advantage"] is True
+    assert result["disadvantage"] is False
+    assert "半掩护" in result["modifiers"]
+    assert "优势" in result["modifiers"]

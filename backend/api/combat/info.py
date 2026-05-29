@@ -21,6 +21,7 @@ from api.deps import (
 from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
 from services.dnd_rules import get_effective_hp_max
+from services.combat_attack_modifier_service import calculate_cover_bonus
 
 from api.combat._shared import _build_combat_snapshot, svc
 
@@ -133,6 +134,8 @@ async def predict_action_endpoint(
     await assert_character_in_session(attacker, session, db)
 
     a_derived = attacker.derived or {}
+    combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+    combat = combat_result.scalars().first()
 
     # 解析目标（角色 or 敌人）
     state = session.game_state or {}
@@ -159,6 +162,15 @@ async def predict_action_endpoint(
             target_hp_max = (enemy.get("derived") or {}).get("hp_max", target_hp)
             target_conditions = enemy.get("conditions", [])
 
+    cover_bonus = calculate_cover_bonus(
+        grid_data=dict(combat.grid_data or {}) if combat else {},
+        positions=dict(combat.entity_positions or {}) if combat else {},
+        attacker_id=req.attacker_id,
+        target_id=req.target_id,
+        attacker_derived=a_derived,
+        is_ranged=req.is_ranged,
+    )
+
     return build_combat_prediction(
         attacker_derived=a_derived,
         attacker_conditions=attacker.conditions or [],
@@ -172,6 +184,7 @@ async def predict_action_endpoint(
         is_ranged=req.is_ranged,
         attack_modifiers=svc.get_attack_modifiers(attacker.conditions or [], attacker),
         defense_modifiers=svc.get_defense_modifiers(target_conditions),
+        cover_bonus=cover_bonus,
     )
 
 

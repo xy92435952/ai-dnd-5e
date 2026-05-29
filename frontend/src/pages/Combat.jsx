@@ -210,6 +210,7 @@ export default function Combat() {
         skillBar={skillBar}
         selectedTarget={selectedTarget}
         entities={entities}
+        prediction={prediction}
         logs={logs}
         logsEndRef={logsEndRef}
         playerSpellSlots={playerSpellSlots}

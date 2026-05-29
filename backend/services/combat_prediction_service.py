@@ -57,7 +57,10 @@ def build_combat_prediction(
     is_ranged: bool,
     attack_modifiers: tuple[bool, bool],
     defense_modifiers: tuple[bool, bool],
+    cover_bonus: int = 0,
 ) -> dict[str, Any]:
+    cover_bonus = max(0, int(cover_bonus or 0))
+    effective_target_ac = int(target["ac"] or 10) + cover_bonus
     if is_ranged:
         attack_bonus = attacker_derived.get(
             "ranged_attack_bonus",
@@ -69,7 +72,7 @@ def build_combat_prediction(
     attack_advantage, attack_disadvantage = attack_modifiers
     defense_advantage, defense_disadvantage = defense_modifiers
     hit_rate, crit_rate, final_advantage, final_disadvantage = calculate_hit_and_crit_rate(
-        target_ac=target["ac"],
+        target_ac=effective_target_ac,
         attack_bonus=attack_bonus,
         attack_advantage=attack_advantage,
         attack_disadvantage=attack_disadvantage,
@@ -92,6 +95,10 @@ def build_combat_prediction(
         modifiers.append("劣势")
     if is_ranged:
         modifiers.append("远程")
+    if cover_bonus >= 5:
+        modifiers.append("四分之三掩护")
+    elif cover_bonus >= 2:
+        modifiers.append("半掩护")
     if attack_advantage and not attack_disadvantage:
         modifiers.append("攻击者状态+")
     if defense_advantage and not defense_disadvantage:
@@ -110,5 +117,10 @@ def build_combat_prediction(
         "damage_dice": info["dice"],
         "damage_type": info["type"],
         "attack_bonus": attack_bonus,
+        "target_ac": int(target["ac"] or 10),
+        "effective_target_ac": effective_target_ac,
+        "cover_bonus": cover_bonus,
+        "advantage": final_advantage,
+        "disadvantage": final_disadvantage,
         "modifiers": modifiers,
     }

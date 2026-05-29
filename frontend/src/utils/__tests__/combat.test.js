@@ -6,6 +6,7 @@ import {
   applyPlayerHpUpdate,
   applyWeaponResourceToCombat,
   buildAoeCells,
+  buildCombatPreviewRows,
   buildCombatGrid,
   buildGridTerrainSets,
   buildInitiativeChips,
@@ -431,6 +432,35 @@ describe('combat grid helpers', () => {
       { derived: {} },
       null,
     )).toEqual([{ label: '恢复', value: '2d4+2' }])
+  })
+
+  it('buildCombatPreviewRows surfaces hit chance, damage, cover and resource cost', () => {
+    expect(buildCombatPreviewRows({
+      prediction: {
+        hit_rate: 0.64,
+        crit_rate: 0.0975,
+        expected_damage: 6.4,
+        damage_dice: '1d8+3',
+        damage_type: '切割',
+        target_ac: 13,
+        effective_target_ac: 15,
+        cover_bonus: 2,
+        attack_bonus: 5,
+        advantage: true,
+        modifiers: ['优势', '半掩护'],
+      },
+      skill: { k: 'atk', kind: 'attack', cost: '动作' },
+      target: { ac: 13 },
+    })).toEqual([
+      { label: '命中率', value: '64%', tone: 'good' },
+      { label: '暴击率', value: '10%' },
+      { label: '伤害', value: '1d8+3 · 期望 6.4 切割' },
+      { label: '目标AC', value: '13 -> 15' },
+      { label: '掩护', value: '+2 AC' },
+      { label: '攻击加值', value: '+5' },
+      { label: '态势', value: '优势 / 半掩护' },
+      { label: '资源', value: '动作' },
+    ])
   })
 
   it('getCombatPredictionActionKey 按职业推导预测动作', () => {

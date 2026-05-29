@@ -1,7 +1,7 @@
 import React from 'react'
 import { JuiceAudio } from '../../juice'
 import { SKILL_INFO } from '../../data/combat'
-import { computeSkillStats, getSkillUnavailableReason } from '../../utils/combat'
+import { buildCombatPreviewRows, getSkillUnavailableReason } from '../../utils/combat'
 
 const SKILL_KIND_LABELS = {
   attack: '攻击',
@@ -12,12 +12,15 @@ const SKILL_KIND_LABELS = {
   item: '物品',
 }
 
+const PREDICTED_ATTACK_SKILLS = new Set(['atk', 'sneak', 'smite', 'firebolt', 'sacred_flame'])
+
 export default function CombatHudSkillBar({
   skillBar,
   session,
   entities,
   selectedTarget,
   turnState,
+  prediction = null,
   onSkillClick,
   isPlayerTurn,
   isProcessing = false,
@@ -27,7 +30,14 @@ export default function CombatHudSkillBar({
     <div>
       <div className="skill-bar">
         {skillBar.map(s => {
-          const stats = computeSkillStats(s, session?.player, entities[selectedTarget])
+          const selectedTargetEntity = entities[selectedTarget]
+          const canUsePrediction = PREDICTED_ATTACK_SKILLS.has(s.k)
+          const stats = buildCombatPreviewRows({
+            prediction: canUsePrediction ? prediction : null,
+            skill: s,
+            player: session?.player,
+            target: selectedTargetEntity,
+          })
           const info = SKILL_INFO[s.k] || {}
           const unavailableReason = getSkillUnavailableReason({
             skill: s,
@@ -61,7 +71,7 @@ export default function CombatHudSkillBar({
                     {unavailableReason && <span style={{ color: '#f47070', marginLeft: 6 }}>{unavailableReason}</span>}
                   </div>
                   {stats && stats.length > 0 && stats.map((r, ri) => (
-                    <div key={ri} className="t-row">
+                    <div key={ri} className={`t-row ${r.tone || ''}`}>
                       <span>{r.label}</span>
                       <b>{r.value}</b>
                     </div>

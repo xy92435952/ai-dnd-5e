@@ -79,4 +79,46 @@ describe('CombatHudSkillBar', () => {
     fireEvent.click(dodge)
     expect(onSkillClick).not.toHaveBeenCalled()
   })
+
+  it('shows selected-target prediction rows in attack tooltips', () => {
+    render(
+      <CombatHudSkillBar
+        skillBar={[
+          { k: 'atk', label: '攻击', glyph: 'A', cost: '动作', key: '1', kind: 'attack', available: true },
+        ]}
+        session={{ player: { derived: { attack_bonus: 5 } } }}
+        entities={{ 'enemy-1': { id: 'enemy-1', ac: 13 } }}
+        selectedTarget="enemy-1"
+        prediction={{
+          hit_rate: 0.7,
+          crit_rate: 0.05,
+          expected_damage: 5.8,
+          damage_dice: '1d8+3',
+          damage_type: '穿刺',
+          target_ac: 13,
+          effective_target_ac: 18,
+          cover_bonus: 5,
+          attack_bonus: 5,
+          disadvantage: true,
+          modifiers: ['劣势', '四分之三掩护'],
+        }}
+        turnState={{ action_used: false }}
+        onSkillClick={vi.fn()}
+        isPlayerTurn
+      />,
+    )
+
+    expect(screen.getByText('命中率')).toBeInTheDocument()
+    expect(screen.getByText('70%')).toBeInTheDocument()
+    expect(screen.getByText('伤害')).toBeInTheDocument()
+    expect(screen.getByText('1d8+3 · 期望 5.8 穿刺')).toBeInTheDocument()
+    expect(screen.getByText('目标AC')).toBeInTheDocument()
+    expect(screen.getByText('13 -> 18')).toBeInTheDocument()
+    expect(screen.getByText('掩护')).toBeInTheDocument()
+    expect(screen.getByText('+5 AC')).toBeInTheDocument()
+    expect(screen.getByText('态势')).toBeInTheDocument()
+    expect(screen.getByText('劣势 / 四分之三掩护')).toBeInTheDocument()
+    expect(screen.getByText('资源')).toBeInTheDocument()
+    expect(screen.getAllByText('动作').length).toBeGreaterThan(0)
+  })
 })

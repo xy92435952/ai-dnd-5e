@@ -16,6 +16,7 @@ export default function CombatHud({
   skillBar,
   selectedTarget,
   entities,
+  prediction,
   logs,
   logsEndRef,
   playerSpellSlots,
@@ -57,6 +58,7 @@ export default function CombatHud({
           session={session}
           entities={entities}
           selectedTarget={selectedTarget}
+          prediction={prediction}
           turnState={turnState}
           onSkillClick={onSkillClick}
           isPlayerTurn={isPlayerTurn}
