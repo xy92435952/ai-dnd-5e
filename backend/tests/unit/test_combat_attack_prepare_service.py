@@ -100,6 +100,30 @@ def thrown_player():
     return player
 
 
+def two_weapon_player():
+    player = FakePlayer()
+    player.equipment = {
+        "weapons": [
+            {
+                "name": "Shortsword",
+                "damage": "1d6",
+                "type": "martial_melee",
+                "properties": ["finesse", "light"],
+                "equipped": True,
+            },
+            {
+                "name": "Dagger",
+                "damage": "1d4",
+                "type": "simple_melee",
+                "properties": ["finesse", "light", "thrown(20/60)"],
+                "equipped": True,
+            },
+        ],
+        "shield": {"name": "Shield", "equipped": False},
+    }
+    return player
+
+
 @pytest.mark.asyncio
 async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_attack():
     from services.combat_attack_prepare_service import prepare_attack_roll
@@ -257,6 +281,88 @@ async def test_prepare_ranged_attack_roll_consumes_thrown_weapon_copy():
         "weapon_removed": True,
     }
     assert prepared.pending_attack["weapon_resource"] == prepared.weapon_resource
+
+
+@pytest.mark.asyncio
+async def test_prepare_offhand_attack_roll_consumes_bonus_action_not_attack_count():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"] = {
+        "attacks_made": 1,
+        "attacks_max": 1,
+        "action_used": True,
+        "bonus_action_used": False,
+        "being_helped": False,
+    }
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=two_weapon_player(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=True,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": [],
+        }],
+        roll_attack_func=fixed_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.pending_attack["is_offhand"] is True
+    assert prepared.damage_dice == "1d6+0"
+    assert prepared.turn_state["attacks_made"] == 1
+    assert prepared.turn_state["action_used"] is True
+    assert prepared.turn_state["bonus_action_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_offhand_attack_roll_rejects_non_light_weapon_pair():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"] = {
+        "attacks_made": 1,
+        "attacks_max": 1,
+        "action_used": True,
+        "bonus_action_used": False,
+        "being_helped": False,
+    }
+    player = two_weapon_player()
+    player.equipment["weapons"][0] = {"name": "Longsword", "equipped": True}
+
+    with pytest.raises(CombatAttackRollError) as exc:
+        await prepare_attack_roll(
+            FakeDb(),
+            combat=combat,
+            session=None,
+            player=player,
+            player_id="char-1",
+            target_id="goblin-1",
+            action_type="melee",
+            is_offhand=True,
+            d20_value=None,
+            enemies=[{
+                "id": "goblin-1",
+                "name": "Goblin",
+                "hp_current": 7,
+                "derived": {"ac": 12},
+                "conditions": [],
+            }],
+            roll_attack_func=fixed_roll_attack,
+            save_turn_state_func=save_turn_state,
+        )
+
+    assert exc.value.status_code == 400
+    assert "two equipped light melee weapons" in exc.value.detail
 
 
 @pytest.mark.asyncio

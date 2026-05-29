@@ -33,6 +33,30 @@ def test_validate_attack_turn_state_rejects_offhand_before_main_attack():
     assert "副手攻击需要先完成" in exc.value.detail
 
 
+def test_validate_attack_turn_state_allows_offhand_after_main_attack_limit():
+    turn_state = validate_attack_turn_state(
+        {"attacks_made": 1, "action_used": True, "bonus_action_used": False},
+        max_attacks=1,
+        is_offhand=True,
+    )
+
+    assert turn_state["attacks_made"] == 1
+    assert turn_state["action_used"] is True
+    assert turn_state["bonus_action_used"] is False
+
+
+def test_validate_attack_turn_state_allows_offhand_before_extra_attack_spent():
+    turn_state = validate_attack_turn_state(
+        {"attacks_made": 1, "action_used": False, "bonus_action_used": False},
+        max_attacks=2,
+        is_offhand=True,
+    )
+
+    assert turn_state["attacks_made"] == 1
+    assert turn_state["action_used"] is False
+    assert turn_state["bonus_action_used"] is False
+
+
 def test_apply_d20_override_recomputes_crit_fumble_and_hit():
     result = apply_d20_override(
         {
@@ -68,6 +92,23 @@ def test_consume_attack_turn_state_sets_action_when_attack_count_reaches_max():
 
     assert updated["attacks_made"] == 1
     assert updated["action_used"] is True
+    assert updated["pending_attack"] == pending
+
+
+def test_consume_attack_turn_state_offhand_spends_bonus_without_main_attack_count():
+    ts = {"attacks_made": 1, "action_used": True, "bonus_action_used": False}
+    pending = {"pending_attack_id": "pa-off"}
+
+    updated = consume_attack_turn_state(
+        ts,
+        max_attacks=1,
+        is_offhand=True,
+        pending_attack=pending,
+    )
+
+    assert updated["attacks_made"] == 1
+    assert updated["action_used"] is True
+    assert updated["bonus_action_used"] is True
     assert updated["pending_attack"] == pending
 
 

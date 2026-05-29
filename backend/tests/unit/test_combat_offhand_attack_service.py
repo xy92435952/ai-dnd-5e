@@ -20,6 +20,7 @@ class FakeCombat:
             "char-1": {
                 "action_used": True,
                 "bonus_action_used": False,
+                "attacks_made": 1,
             }
         }
         self.entity_positions = {
@@ -31,6 +32,25 @@ class FakeCombat:
 class FakePlayer:
     derived = {"attack_bonus": 5}
     concentration = None
+    equipment = {
+        "weapons": [
+            {
+                "name": "Shortsword",
+                "damage": "1d6",
+                "type": "martial_melee",
+                "properties": ["finesse", "light"],
+                "equipped": True,
+            },
+            {
+                "name": "Dagger",
+                "damage": "1d4",
+                "type": "simple_melee",
+                "properties": ["finesse", "light", "thrown(20/60)"],
+                "equipped": True,
+            },
+        ],
+        "shield": {"name": "Shield", "equipped": False},
+    }
 
 
 class FakeCombatService:
@@ -185,6 +205,7 @@ async def test_resolve_offhand_attack_requires_main_action_first():
 
     combat = FakeCombat()
     combat.turn_states["char-1"]["action_used"] = False
+    combat.turn_states["char-1"]["attacks_made"] = 0
 
     with pytest.raises(CombatAttackRollError) as exc:
         await resolve_offhand_attack(
@@ -202,3 +223,36 @@ async def test_resolve_offhand_attack_requires_main_action_first():
         )
 
     assert "副手攻击需要先完成" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_resolve_offhand_attack_requires_two_light_melee_weapons():
+    from services.combat_offhand_attack_service import resolve_offhand_attack
+    from services.combat_attack_roll_service import CombatAttackRollError
+
+    player = FakePlayer()
+    player.equipment = {
+        "weapons": [
+            {"name": "Longsword", "equipped": True},
+            {"name": "Dagger", "equipped": True},
+        ],
+        "shield": {"name": "Shield", "equipped": False},
+    }
+
+    with pytest.raises(CombatAttackRollError) as exc:
+        await resolve_offhand_attack(
+            FakeDb(),
+            session_id="sess-1",
+            session=FakeSession(),
+            combat=FakeCombat(),
+            player=player,
+            player_id="char-1",
+            player_name="战士",
+            target_id="goblin-1",
+            state={"enemies": []},
+            enemies=[],
+            combat_service=FakeCombatService(),
+        )
+
+    assert exc.value.status_code == 400
+    assert "two equipped light melee weapons" in exc.value.detail

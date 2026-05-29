@@ -1,5 +1,6 @@
 from typing import Any
 
+from services.combat_two_weapon_service import get_two_weapon_fighting_error
 from services.dnd_rules import _normalize_class
 
 
@@ -14,6 +15,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     slots = player.spell_slots or {}
     has_slot_1 = slots.get("1st", 0) > 0
     resources = derived.get("class_resources", {}) or {}
+    offhand_error = get_two_weapon_fighting_error(player)
 
     bar: list[dict[str, Any]] = []
 
@@ -79,7 +81,8 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
         bar.append({
             "k": "off_attack", "label": "副手攻击", "glyph": "⚔",
             "cost": "附赠", "key": "2", "kind": "bonus",
-            "available": True,
+            "available": offhand_error is None,
+            "reason": offhand_error,
         })
 
     bar.append({

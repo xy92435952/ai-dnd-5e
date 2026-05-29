@@ -935,7 +935,7 @@ export function getSkillUnavailableReason({
 
   if (kind === 'bonus' || key === 'off_attack') {
     if (turnState?.bonus_action_used) return '本回合附赠动作已使用'
-    if (key === 'off_attack' && !turnState?.action_used) return '需要先完成主手攻击'
+    if (key === 'off_attack' && (turnState?.attacks_made ?? 0) <= 0) return '需要先完成主手攻击'
   }
 
   const consumesAction = ['attack', 'spell', 'action', 'item'].includes(kind) || ['dash', 'disg', 'dodge', 'help'].includes(key)

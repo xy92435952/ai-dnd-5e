@@ -14,6 +14,7 @@ from services.combat_grid_service import chebyshev_distance
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
+from services.combat_two_weapon_service import validate_two_weapon_fighting_equipment
 from services.session_access_service import assert_character_in_session
 
 svc = CombatService()
@@ -52,10 +53,11 @@ async def resolve_offhand_attack(
     save_turn_state_func: Callable[[Any, str, dict[str, Any]], None] = save_turn_state,
 ) -> OffhandAttackResult:
     turn_state = get_turn_state(combat, player_id)
-    if not turn_state.get("action_used"):
+    if turn_state.get("attacks_made", 0) <= 0:
         raise CombatAttackRollError(400, "副手攻击需要先完成本回合的主手攻击")
     if turn_state.get("bonus_action_used"):
         raise CombatAttackRollError(400, "本回合附赠行动已用尽")
+    validate_two_weapon_fighting_equipment(player)
 
     target = await _resolve_offhand_target(db, session=session, target_id=target_id, enemies=enemies)
     if not target:

@@ -29,6 +29,7 @@ import {
   getCombatLifeState,
   getCurrentTurnLabel,
   getEquippedWeaponResourceSummary,
+  getSkillUnavailableReason,
   getPlayerAvailableSpells,
   getPlayerTurnState,
   isMyCombatTurn,
@@ -608,6 +609,24 @@ describe('combat grid helpers', () => {
       { derived: {} },
       null,
     )).toEqual([{ label: '恢复', value: '2d4+2' }])
+  })
+
+  it('requires a completed main-hand attack before offhand skill use', () => {
+    const skill = { k: 'off_attack', kind: 'bonus', available: true }
+
+    expect(getSkillUnavailableReason({
+      skill,
+      turnState: { action_used: true, attacks_made: 0, bonus_action_used: false },
+      isPlayerTurn: true,
+      selectedTarget: 'enemy-1',
+    })).toBe('需要先完成主手攻击')
+
+    expect(getSkillUnavailableReason({
+      skill,
+      turnState: { action_used: false, attacks_made: 1, bonus_action_used: false },
+      isPlayerTurn: true,
+      selectedTarget: 'enemy-1',
+    })).toBe('')
   })
 
   it('buildCombatPreviewRows surfaces hit chance, damage, cover and resource cost', () => {

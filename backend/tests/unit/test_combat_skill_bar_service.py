@@ -3,12 +3,13 @@ from types import SimpleNamespace
 from services.combat_skill_bar_service import build_skill_bar
 
 
-def _character(char_class, level=1, slots=None, resources=None):
+def _character(char_class, level=1, slots=None, resources=None, equipment=None):
     return SimpleNamespace(
         char_class=char_class,
         level=level,
         spell_slots=slots or {},
         derived={"class_resources": resources or {}},
+        equipment=equipment or {},
     )
 
 
@@ -92,3 +93,33 @@ def test_wizard_shield_still_reports_missing_slots_first():
 
     assert slots["shield"]["available"] is False
     assert slots["shield"]["reason"] == "需要 1 环法术位"
+
+
+def test_offhand_skill_requires_two_equipped_light_melee_weapons():
+    equipment = {
+        "weapons": [
+            {"name": "Longsword", "equipped": True},
+            {"name": "Dagger", "equipped": True},
+        ],
+        "shield": {"name": "Shield", "equipped": False},
+    }
+    bar = build_skill_bar(_character("Bard", equipment=equipment))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["off_attack"]["available"] is False
+    assert "two equipped light melee weapons" in slots["off_attack"]["reason"]
+
+
+def test_offhand_skill_available_for_two_equipped_light_melee_weapons():
+    equipment = {
+        "weapons": [
+            {"name": "Shortsword", "equipped": True},
+            {"name": "Dagger", "equipped": True},
+        ],
+        "shield": {"name": "Shield", "equipped": False},
+    }
+    bar = build_skill_bar(_character("Bard", equipment=equipment))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["off_attack"]["available"] is True
+    assert slots["off_attack"]["reason"] is None

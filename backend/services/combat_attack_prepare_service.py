@@ -23,6 +23,7 @@ from services.combat_grid_service import check_attack_range
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
+from services.combat_two_weapon_service import validate_two_weapon_fighting_equipment
 from services.dnd_rules import _normalize_class, roll_attack, should_auto_crit_melee_target
 
 svc = CombatService()
@@ -81,6 +82,8 @@ async def prepare_attack_roll(
         max_attacks=max_attacks,
         is_offhand=is_offhand,
     )
+    if is_offhand:
+        validate_two_weapon_fighting_equipment(player)
 
     target = await resolve_attack_target(db, target_id, enemies, allow_auto_enemy=False, session=session)
     if not target:
