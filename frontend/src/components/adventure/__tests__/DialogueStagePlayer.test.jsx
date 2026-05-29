@@ -53,4 +53,29 @@ describe('DialogueStagePlayer', () => {
 
     expect(screen.queryByLabelText('队友反应')).not.toBeInTheDocument()
   })
+
+  it('keeps long stage narration inside a wrapping layout shell', () => {
+    const longWord = 'ancient-rune-'.repeat(30)
+
+    render(
+      <DialogueStagePlayer
+        dialogueQueue={[{
+          speaker: 'DM',
+          role: 'dm',
+          text: longWord,
+          companionReactions: [],
+        }]}
+        dialogueIdx={0}
+        typingText={`${longWord}\n第二段叙事继续展开。`}
+        typingDone
+        onAdvanceDialogue={vi.fn()}
+      />,
+    )
+
+    const text = screen.getByText(/ancient-rune/)
+    expect(text).toHaveClass('stage-bubble-text')
+    expect(text).toHaveStyle({ whiteSpace: 'pre-wrap' })
+    expect(text.closest('.stage-bubble')).toBeInTheDocument()
+    expect(text.closest('.dialogue-stage-player')).toBeInTheDocument()
+  })
 })

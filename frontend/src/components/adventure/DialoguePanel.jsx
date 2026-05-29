@@ -30,7 +30,10 @@ export default function DialoguePanel({
   multiplayerSyncBlocked = false,
 }) {
   return (
-    <div style={{ overflow: 'auto', maxHeight: '40vh' }}>
+    <div
+      className="adventure-dialogue-panel"
+      style={{ overflow: 'auto', maxHeight: '40vh' }}
+    >
       {dialogueMode === 'stage' && dialogueQueue[dialogueIdx] && (
         <DialogueStagePlayer
           dialogueQueue={dialogueQueue}

@@ -45,12 +45,15 @@ export default function LogLine({ entry }) {
 
   if (role === 'dm') {
     return (
-      <p style={{
-        fontFamily: 'var(--font-script)', fontStyle: 'italic',
-        color: 'var(--parchment)', fontSize: 14, lineHeight: 1.7,
-        margin: '8px 0', padding: '0 0 0 14px',
-        borderLeft: '2px solid rgba(240,208,96,.45)',
-      }}>
+      <p
+        className="dialogue-log-line dialogue-log-line-dm"
+        style={{
+          fontFamily: 'var(--font-script)', fontStyle: 'italic',
+          color: 'var(--parchment)', fontSize: 14, lineHeight: 1.7,
+          margin: '8px 0', padding: '0 0 0 14px',
+          borderLeft: '2px solid rgba(240,208,96,.45)',
+        }}
+      >
         <VisibilityBadge visibility={entry.visibility} />
         {renderLightMarkdown(txt, 'var(--amber)')}
       </p>
@@ -58,21 +61,27 @@ export default function LogLine({ entry }) {
   }
   if (role === 'player') {
     return (
-      <p style={{
-        color: '#7fe8f8', fontSize: 13, fontFamily: 'var(--font-body)',
-        margin: '6px 0', padding: '0 0 0 14px',
-        borderLeft: '2px solid rgba(127,232,248,.5)',
-      }}>► {renderLightMarkdown(txt, '#fff8dd')}</p>
+      <p
+        className="dialogue-log-line dialogue-log-line-player"
+        style={{
+          color: '#7fe8f8', fontSize: 13, fontFamily: 'var(--font-body)',
+          margin: '6px 0', padding: '0 0 0 14px',
+          borderLeft: '2px solid rgba(127,232,248,.5)',
+        }}
+      >► {renderLightMarkdown(txt, '#fff8dd')}</p>
     )
   }
   if (role === 'companion') {
     const speaker = entry.speaker || entry.companion_speaker || '队友'
     return (
-      <p style={{
-        color: 'var(--emerald-light)', fontSize: 12,
-        margin: '4px 0', padding: '0 0 0 14px', fontStyle: 'italic',
-        borderLeft: '2px solid rgba(90,168,120,.5)',
-      }}>❖ {speaker}：{renderLightMarkdown(txt, '#a8f0c0')}</p>
+      <p
+        className="dialogue-log-line dialogue-log-line-companion"
+        style={{
+          color: 'var(--emerald-light)', fontSize: 12,
+          margin: '4px 0', padding: '0 0 0 14px', fontStyle: 'italic',
+          borderLeft: '2px solid rgba(90,168,120,.5)',
+        }}
+      >❖ {speaker}：{renderLightMarkdown(txt, '#a8f0c0')}</p>
     )
   }
   if (role === 'dice') {
@@ -87,10 +96,13 @@ export default function LogLine({ entry }) {
   }
   // system / other
   return (
-    <p style={{
-      color: 'var(--parchment-dark)', fontSize: 11,
-      margin: '3px 0', fontStyle: 'italic', opacity: 0.7,
-    }}>
+    <p
+      className="dialogue-log-line dialogue-log-line-system"
+      style={{
+        color: 'var(--parchment-dark)', fontSize: 11,
+        margin: '3px 0', fontStyle: 'italic', opacity: 0.7,
+      }}
+    >
       {txt}
     </p>
   )

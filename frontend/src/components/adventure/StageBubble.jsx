@@ -35,16 +35,19 @@ export default function StageBubble({ seg, typingText, typingDone }) {
   const isDm = role === 'dm'
 
   return (
-    <div style={{
-      position: 'relative',
-      padding: '14px 18px 14px 22px',
-      border: `1px solid ${p.border}`,
-      borderLeft: `4px solid ${p.accent}`,
-      background: p.bg,
-      borderRadius: 6,
-      boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05), 0 4px 20px -6px rgba(0,0,0,.8)',
-      minHeight: 64,
-    }}>
+    <div
+      className="stage-bubble"
+      style={{
+        position: 'relative',
+        padding: '14px 18px 14px 22px',
+        border: `1px solid ${p.border}`,
+        borderLeft: `4px solid ${p.accent}`,
+        background: p.bg,
+        borderRadius: 6,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05), 0 4px 20px -6px rgba(0,0,0,.8)',
+        minHeight: 64,
+      }}
+    >
       {!isDm && (
         <div style={{
           position: 'absolute', top: -11, left: 14,
@@ -58,16 +61,19 @@ export default function StageBubble({ seg, typingText, typingDone }) {
           ❖ {seg.speaker || 'NPC'}
         </div>
       )}
-      <p style={{
-        fontFamily: isDm ? 'var(--font-script)' : 'var(--font-body)',
-        fontStyle: isDm ? 'italic' : 'normal',
-        color: p.textColor,
-        fontSize: isDm ? 15 : 14,
-        lineHeight: 1.85,
-        margin: 0,
-        letterSpacing: '.03em',
-        whiteSpace: 'pre-wrap',
-      }}>
+      <p
+        className="stage-bubble-text"
+        style={{
+          fontFamily: isDm ? 'var(--font-script)' : 'var(--font-body)',
+          fontStyle: isDm ? 'italic' : 'normal',
+          color: p.textColor,
+          fontSize: isDm ? 15 : 14,
+          lineHeight: 1.85,
+          margin: 0,
+          letterSpacing: '.03em',
+          whiteSpace: 'pre-wrap',
+        }}
+      >
         {renderLightMarkdown(typingText, p.accent)}
         {!typingDone && (
           <span style={{

@@ -46,4 +46,14 @@ describe('LogLine', () => {
     expect(screen.getByText(/艾莉/)).toBeInTheDocument()
     expect(screen.getByText(/我盯着后门/)).toBeInTheDocument()
   })
+
+  it('marks long DM log lines with the wrapping layout class', () => {
+    render(<LogLine entry={{
+      role: 'dm',
+      content: `${'obsidian-corridor-'.repeat(28)}\n第二段继续说明。`,
+    }} />)
+
+    const line = screen.getByText(/obsidian-corridor/)
+    expect(line).toHaveClass('dialogue-log-line', 'dialogue-log-line-dm')
+  })
 })

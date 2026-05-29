@@ -13,6 +13,7 @@ export default function DialogueStagePlayer({
   return (
     <div
       onClick={onAdvanceDialogue}
+      className="dialogue-stage-player"
       style={{
         padding: '20px 28px 10px', maxWidth: 900, margin: '0 auto',
         cursor: 'pointer', userSelect: 'none',
