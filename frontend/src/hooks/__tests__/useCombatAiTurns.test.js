@@ -25,6 +25,7 @@ describe('useCombatAiTurns', () => {
     const processingRef = { current: false }
     const deps = {
       sessionId: 'sess-1',
+      playerId: 'char-1',
       processingRef,
       setIsProcessing: vi.fn(),
       setCombat: vi.fn(),
@@ -149,6 +150,36 @@ describe('useCombatAiTurns', () => {
     })
 
     expect(deps.setReactionPrompt).toHaveBeenCalledWith({ context: '可用反应' })
+    expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
+  it('does not drive an ai turn when fresh combat already contains a pending player reaction', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      available_reactions: [{ type: 'shield' }],
+    }
+    getCombatMock.mockResolvedValue({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'char-1': { pending_attack_reaction: pendingReaction },
+      },
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(aiTurnMock).not.toHaveBeenCalled()
+    expect(deps.setTurnState).toHaveBeenCalledWith({ pending_attack_reaction: pendingReaction })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      ...pendingReaction,
+      reactor_character_id: 'char-1',
+    })
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 

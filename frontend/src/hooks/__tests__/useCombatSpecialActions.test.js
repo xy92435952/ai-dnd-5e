@@ -121,6 +121,14 @@ describe('useCombatSpecialActions', () => {
         hp_after_reaction: 12,
         hp_restored: 9,
       },
+      target_state: {
+        target_id: 'char-2',
+        target_name: 'Smoke Sentinel',
+        hp_current: 12,
+        conditions: ['shield_spell'],
+        life_state: 'alive',
+      },
+      remaining_slots: { '1st': 0 },
     })
     const { result, deps } = renderActions()
 
@@ -134,9 +142,23 @@ describe('useCombatSpecialActions', () => {
       role: 'player',
       content: '护盾术让攻击落空',
       log_type: 'combat',
-      state_changes: ['char-2 HP 3 -> 12（反应恢复 9）', '反应已用'],
+      state_changes: expect.arrayContaining([
+        'Smoke Sentinel HP 3 -> 12（反应恢复 9）',
+        '反应已用',
+      ]),
     })
     expect(deps.setTurnState).toHaveBeenCalledWith({ reaction_used: true })
+    expect(deps.setPlayerSpellSlots).toHaveBeenCalledWith({ '1st': 0 })
+    const hpUpdater = deps.setCombat.mock.calls[0][0]
+    expect(hpUpdater({
+      entities: {
+        'char-2': { id: 'char-2', hp_current: 3, conditions: [] },
+      },
+    }).entities['char-2']).toMatchObject({
+      hp_current: 12,
+      conditions: ['shield_spell'],
+      life_state: 'alive',
+    })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 

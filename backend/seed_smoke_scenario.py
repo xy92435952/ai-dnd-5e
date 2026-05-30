@@ -11,10 +11,10 @@ import models  # noqa: F401  ensure metadata is registered before init_db
 from services.smoke_scenario_seed import seed_smoke_scenario
 
 
-async def _run(slug: str, password: str) -> dict:
+async def _run(slug: str, password: str, variant: str) -> dict:
     await init_db()
     async with AsyncSessionLocal() as db:
-        result = await seed_smoke_scenario(db, slug=slug, password=password)
+        result = await seed_smoke_scenario(db, slug=slug, password=password, variant=variant)
         return result.as_dict()
 
 
@@ -28,9 +28,15 @@ def main() -> int:
         default="smoke-password",
         help="Password for the seeded login user.",
     )
+    parser.add_argument(
+        "--variant",
+        default="standard",
+        choices=["standard", "death-save", "reaction"],
+        help="Optional combat state variant for focused manual QA.",
+    )
     args = parser.parse_args()
 
-    result = asyncio.run(_run(args.slug, args.password))
+    result = asyncio.run(_run(args.slug, args.password, args.variant))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 

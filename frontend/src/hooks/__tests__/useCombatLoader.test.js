@@ -39,6 +39,7 @@ describe('useCombatLoader', () => {
       setPlayerSubclass: vi.fn(),
       setPlayerSubclassEffects: vi.fn(),
       setTurnState: vi.fn(),
+      setReactionPrompt: vi.fn(),
       setLogs: vi.fn(),
       setInitiativeShown: vi.fn(),
       setError: vi.fn(),
@@ -133,6 +134,39 @@ describe('useCombatLoader', () => {
       await vi.advanceTimersByTimeAsync(1000)
     })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('does not schedule ai turns while the controlled player has a pending reaction', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      available_reactions: [{ type: 'shield' }],
+    }
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'char-1': { pending_attack_reaction: pendingReaction },
+      },
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'char-1' }, logs: [] })
+
+    const { result, deps, aiTimer } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      ...pendingReaction,
+      reactor_character_id: 'char-1',
+    })
+    expect(aiTimer.current).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
   })
 
   it('replaces a pending ai timer when combat reloads on the same ai turn', async () => {

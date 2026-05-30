@@ -66,6 +66,7 @@ export function useCombatFlowHandlers({
 
   const { triggerAiTurn } = useCombatAiTurns({
     sessionId,
+    playerId: actorId,
     processingRef,
     setIsProcessing,
     setCombat,

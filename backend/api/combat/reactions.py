@@ -40,6 +40,7 @@ from services.combat_reaction_service import (
     resolve_counterspell_eligibility,
     restore_prevented_damage,
 )
+from services.combat_temporary_hp_service import build_character_target_state
 from services.combat_ai_spell_service import consume_ai_spell_slot, consume_named_spell_slot
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_reaction
 from services.character_roster import CharacterRoster
@@ -498,12 +499,17 @@ async def use_reaction(
     if req.reaction_type == "hellish_rebuke":
         reaction_dice = {"faces": 10, "result": reaction_effect.get("damage_dealt", 0), "label": "地狱斥责 2d10", "count": 2}
 
+    target_state = build_character_target_state(player)
+    target_state["target_name"] = player.name
+
     return {
         "action": "reaction",
         "reaction_type": req.reaction_type,
         "narration": narration,
         "turn_state": ts,
         "reaction_effect": reaction_effect,
+        "target_state": target_state,
+        "remaining_slots": player.spell_slots or {},
         "dice_roll": reaction_dice,
     }
 

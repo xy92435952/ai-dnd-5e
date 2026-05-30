@@ -1,12 +1,14 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { applyActionResultEntityStates, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
+import { getPendingReactionPrompt } from '../utils/combatSession'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
 const AI_TURN_LIMIT = 20
 
 export function useCombatAiTurns({
   sessionId,
+  playerId,
   processingRef,
   setIsProcessing,
   setCombat,
@@ -37,6 +39,14 @@ export function useCombatAiTurns({
 
         if (!fresh) break
         setCombat(fresh)
+
+        const playerTurnState = getPlayerTurnState(fresh, playerId)
+        const pendingReaction = getPendingReactionPrompt(playerTurnState, playerId)
+        if (pendingReaction) {
+          setTurnState(playerTurnState)
+          setReactionPrompt(pendingReaction)
+          break
+        }
 
         if (fresh.current_turn_index === lastTurnIndex) {
           console.warn('AI turn index not advancing, breaking loop')
@@ -114,6 +124,7 @@ export function useCombatAiTurns({
   }, [
     addLog,
     processingRef,
+    playerId,
     sessionId,
     setCombat,
     setCombatOver,

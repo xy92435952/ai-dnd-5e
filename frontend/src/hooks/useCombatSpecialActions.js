@@ -90,15 +90,22 @@ export function useCombatSpecialActions({
         showDice({ faces: 10, result: total, label: '地狱斥责 2d10', count: 2 })
       }
       const result = await gameApi.useReaction(sessionId, reactionType, targetId, characterId)
+      const reactionTargetName = result.target_state?.target_name || result.target_name || characterId || '反应者'
       addLog({
         role: 'player',
         content: result.narration,
         log_type: 'combat',
         state_changes: buildCombatStateChangeSummary(result, {
-          targetName: characterId || '反应者',
+          targetName: reactionTargetName,
         }),
       })
+      if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)
       if (result.turn_state) setTurnState(result.turn_state)
+      setCombat(prev => {
+        if (!prev) return prev
+        return applyActionResultEntityStates(prev, result)
+      })
+      if (result.combat_over) setCombatOver(result.outcome)
       processingRef.current = false
       setIsProcessing(false)
       triggerAiTurn()
@@ -113,8 +120,11 @@ export function useCombatSpecialActions({
     isProcessing,
     processingRef,
     sessionId,
+    setCombat,
+    setCombatOver,
     setError,
     setIsProcessing,
+    setPlayerSpellSlots,
     setReactionPrompt,
     setTurnState,
     showDice,

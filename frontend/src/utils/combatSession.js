@@ -34,10 +34,11 @@ export function applyCombatSessionSnapshot({
   if (player?.subclass) setPlayerSubclass(player.subclass)
   if (player?.derived?.subclass_effects) setPlayerSubclassEffects(player.derived.subclass_effects)
 
+  let pendingReaction = null
   if (playerId) {
     const playerTurnState = getPlayerTurnState(combatData, playerId)
     setTurnState(playerTurnState)
-    const pendingReaction = getPendingReactionPrompt(playerTurnState, playerId)
+    pendingReaction = getPendingReactionPrompt(playerTurnState, playerId)
     if (setReactionPrompt) setReactionPrompt(pendingReaction)
   }
 
@@ -49,6 +50,7 @@ export function applyCombatSessionSnapshot({
   return {
     playerId,
     playerEntry: (combatData?.turn_order || []).find(t => t.character_id === playerId),
+    pendingReaction,
   }
 }
 

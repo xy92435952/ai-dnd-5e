@@ -155,4 +155,25 @@ describe('combatLog', () => {
       '反应已用',
     ])
   })
+
+  it('does not duplicate reaction hp rollback when target_state is also present', () => {
+    const summary = buildCombatStateChangeSummary({
+      reaction_type: 'shield',
+      reaction_effect: {
+        hp_before_reaction: 3,
+        hp_after_reaction: 12,
+        hp_restored: 9,
+      },
+      target_state: {
+        target_id: 'char-2',
+        hp_current: 12,
+      },
+      turn_state: { reaction_used: true },
+    }, {
+      targetName: 'Tester',
+    })
+
+    expect(summary.some(item => item.startsWith('Tester HP 3 -> 12'))).toBe(true)
+    expect(summary).not.toContain('Tester HP 12')
+  })
 })

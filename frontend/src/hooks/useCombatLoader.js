@@ -33,7 +33,7 @@ export function useCombatLoader({
     try {
       const data = await gameApi.getCombat(sessionId)
       const sessionData = await gameApi.getSession(sessionId)
-      const { playerId: pid, playerEntry } = applyCombatSessionSnapshot({
+      const { playerId: pid, playerEntry, pendingReaction } = applyCombatSessionSnapshot({
         combatData: data,
         sessionData,
         setCombat,
@@ -66,7 +66,7 @@ export function useCombatLoader({
         aiTimer.current = null
       }
 
-      if (canDriveAiTurns && !isPlayerTurn(data)) {
+      if (canDriveAiTurns && !pendingReaction && !isPlayerTurn(data)) {
         aiTimer.current = setTimeout(() => {
           aiTimer.current = null
           triggerAiTurn()

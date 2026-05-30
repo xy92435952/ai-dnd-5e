@@ -33,6 +33,19 @@ Pass a different namespace if you want a separate stable scenario:
 python seed_smoke_scenario.py --slug qa_20260529 --password local-only-password
 ```
 
+Use `--variant` for focused combat edge-case QA:
+
+```powershell
+python seed_smoke_scenario.py --slug qa_reaction --variant reaction
+python seed_smoke_scenario.py --slug qa_death_save --variant death-save
+```
+
+- `standard`: default playable exploration + active combat seed.
+- `reaction`: starts after a construct hit has already landed, with a pending
+  Shield reaction prompt, damaged player HP, and one 1st-level slot.
+- `death-save`: starts on the player turn with the player at 0 HP and existing
+  death-save marks.
+
 ## What It Seeds
 
 The scenario is `The Clockwork Crossing`, a compact level 2-3 adventure with:

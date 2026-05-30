@@ -344,8 +344,13 @@ function summarizeWeaponResource(resource = null) {
 export function buildCombatStateChangeSummary(result = {}, options = {}) {
   if (!result || typeof result !== 'object') return []
 
+  const reactionEffect = result.reaction_effect || {}
+  const hasReactionHpRollback = (
+    reactionEffect.hp_before_reaction !== undefined
+    && reactionEffect.hp_after_reaction !== undefined
+  )
   const entries = [
-    ...summarizeTargetResult(result, options),
+    ...(hasReactionHpRollback ? [] : summarizeTargetResult(result, options)),
     ...summarizeReactionHpResult(result, options),
   ]
 

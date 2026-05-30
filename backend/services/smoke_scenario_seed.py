@@ -28,6 +28,7 @@ SMOKE_SCENARIO_VERSION = 1
 @dataclass(frozen=True)
 class SmokeScenarioResult:
     slug: str
+    variant: str
     user_id: str
     username: str
     password: str
@@ -40,6 +41,7 @@ class SmokeScenarioResult:
     def as_dict(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
+            "variant": self.variant,
             "username": self.username,
             "password": self.password,
             "user_id": self.user_id,
@@ -60,9 +62,11 @@ async def seed_smoke_scenario(
     *,
     slug: str = "codex_smoke",
     password: str = SMOKE_USER_PASSWORD,
+    variant: str = "standard",
 ) -> SmokeScenarioResult:
     """Create or replace a deterministic smoke-test module, party, session and combat."""
     clean_slug = _clean_slug(slug)
+    clean_variant = _normalize_variant(variant)
     ids = _SmokeIds(clean_slug)
 
     await _delete_existing(db, ids)
@@ -258,6 +262,7 @@ async def seed_smoke_scenario(
         "difficulty": "medium",
         "thresholds": {"easy": 150, "medium": 300, "hard": 450, "deadly": 800},
     }
+    _apply_smoke_variant(clean_variant, ids, hero, session, combat, game_state)
     session.game_state = game_state
 
     db.add_all([
@@ -284,6 +289,7 @@ async def seed_smoke_scenario(
 
     return SmokeScenarioResult(
         slug=clean_slug,
+        variant=clean_variant,
         user_id=ids.user_id,
         username=user.username,
         password=password,
@@ -563,6 +569,123 @@ def _build_character(
 def _clean_slug(slug: str) -> str:
     cleaned = "".join(ch.lower() if ch.isalnum() else "_" for ch in slug).strip("_")
     return (cleaned or "codex_smoke")[:32]
+
+
+def _normalize_variant(variant: str | None) -> str:
+    value = (variant or "standard").strip().lower().replace("-", "_")
+    aliases = {
+        "default": "standard",
+        "normal": "standard",
+        "deathsave": "death_save",
+        "death_saves": "death_save",
+    }
+    value = aliases.get(value, value)
+    allowed = {"standard", "death_save", "reaction"}
+    if value not in allowed:
+        raise ValueError(f"Unsupported smoke scenario variant: {variant}")
+    return value
+
+
+def _set_current_turn(combat: CombatState, character_id: str) -> None:
+    for index, entry in enumerate(combat.turn_order or []):
+        if str(entry.get("character_id")) == str(character_id):
+            combat.current_turn_index = index
+            return
+
+
+def _apply_smoke_variant(
+    variant: str,
+    ids: "_SmokeIds",
+    hero: Character,
+    session: Session,
+    combat: CombatState,
+    game_state: dict[str, Any],
+) -> None:
+    if variant == "standard":
+        return
+
+    game_state["scenario_seed_variant"] = variant
+    combat_log = list(combat.combat_log or [])
+    turn_states = dict(combat.turn_states or {})
+    hero_state = dict(turn_states.get(ids.character_id) or DEFAULT_TURN_STATE)
+
+    if variant == "death_save":
+        hero.hp_current = 0
+        hero.death_saves = {"successes": 1, "failures": 1, "stable": False}
+        hero_state.update({
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+        })
+        turn_states[ids.character_id] = hero_state
+        combat.turn_states = turn_states
+        _set_current_turn(combat, ids.character_id)
+        combat_log.append("Smoke variant prepared a dying player turn for death-save UI checks.")
+        combat.combat_log = combat_log
+        session.current_scene = (
+            "Smoke Sentinel is down but not dead. The next decision is a death save."
+        )
+        return
+
+    if variant == "reaction":
+        incoming_damage = 9
+        hp_before = int(hero.hp_current or 0)
+        hero.hp_current = max(0, hp_before - incoming_damage)
+        hero.known_spells = ["Shield"]
+        hero.spell_slots = {**dict(hero.spell_slots or {}), "1st": 1}
+        hero_state.update({
+            "reaction_used": False,
+            "pending_attack_reaction": {
+                "trigger": "incoming_attack",
+                "attacker_id": "enemy_smoke_construct",
+                "attacker_name": "Clockwork Training Construct",
+                "target_id": ids.character_id,
+                "reactor_character_id": ids.character_id,
+                "reactor_name": hero.name,
+                "incoming_damage": incoming_damage,
+                "target_hp_before_damage": hp_before,
+                "attack_roll": 20,
+                "player_ac": (hero.derived or {}).get("ac", 10),
+                "events": [{
+                    "attacker_id": "enemy_smoke_construct",
+                    "attacker_name": "Clockwork Training Construct",
+                    "target_id": ids.character_id,
+                    "hit": True,
+                    "attack_total": 20,
+                    "target_ac": (hero.derived or {}).get("ac", 10),
+                    "damage": incoming_damage,
+                    "damage_type": "bludgeoning",
+                }],
+                "available_reactions": [{
+                    "id": "shield",
+                    "name": "Shield",
+                    "type": "shield",
+                    "cost": "1st-level spell slot",
+                    "slot_level": "1st",
+                    "slots_remaining": 1,
+                    "effect": "+5 AC（持续到你的下个回合开始）",
+                    "resulting_ac": (hero.derived or {}).get("ac", 10) + 5,
+                    "damage_prevented": incoming_damage,
+                    "blocked_attacks": 1,
+                }],
+                "options": [{
+                    "type": "shield",
+                    "target_id": "enemy_smoke_construct",
+                    "character_id": ids.character_id,
+                    "label": "Shield - +5 AC（持续到你的下个回合开始）",
+                    "cost": "1st-level spell slot",
+                    "damage_prevented": incoming_damage,
+                }],
+            },
+        })
+        turn_states[ids.character_id] = hero_state
+        combat.turn_states = turn_states
+        _set_current_turn(combat, ids.character_id)
+        combat_log.append("Smoke variant prepared a post-attack pending Shield reaction prompt.")
+        combat.combat_log = combat_log
+        session.current_scene = (
+            "A construct strike has landed, but Smoke Sentinel can still answer with Shield."
+        )
 
 
 class _SmokeIds:

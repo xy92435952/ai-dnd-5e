@@ -61,6 +61,7 @@ describe('applyCombatSessionSnapshot', () => {
     ])
     expect(result.playerId).toBe('char-1')
     expect(result.playerEntry).toEqual({ character_id: 'char-1', name: 'Tester', is_player: true })
+    expect(result.pendingReaction).toBeNull()
   })
 
   it('returns the current controlled player entry instead of the first player in initiative', () => {
@@ -132,7 +133,7 @@ describe('applyCombatSessionSnapshot', () => {
       available_reactions: [{ type: 'shield' }],
     }
 
-    applyCombatSessionSnapshot({
+    const result = applyCombatSessionSnapshot({
       combatData: {
         turn_order: [{ character_id: 'char-1', is_player: true }],
         turn_states: {
@@ -144,6 +145,10 @@ describe('applyCombatSessionSnapshot', () => {
     })
 
     expect(setters.setReactionPrompt).toHaveBeenCalledWith({
+      ...pending,
+      reactor_character_id: 'char-1',
+    })
+    expect(result.pendingReaction).toEqual({
       ...pending,
       reactor_character_id: 'char-1',
     })
