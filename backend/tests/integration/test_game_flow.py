@@ -11,6 +11,7 @@
 LLM 层已被 conftest 全局 mock，action 端点不会出网络。
 """
 import pytest
+from sqlalchemy.orm.attributes import flag_modified
 
 pytestmark = pytest.mark.integration
 
@@ -36,6 +37,41 @@ async def test_get_session_shape(client, sample_session, sample_user):
     assert data["player"]["name"] == "测试战士"
     assert isinstance(data["companions"], list)
     assert data["combat_active"] is False
+
+
+async def test_get_session_hides_unvisited_map_and_module_rewards(
+    client,
+    db_session,
+    sample_session,
+    sample_user,
+    sample_module,
+):
+    sample_module.parsed_content = {
+        "setting": "Ancient Keep",
+        "tone": "classic",
+        "plot_summary": "A keep with a hidden vault.",
+        "scenes": [
+            {"title": "Gatehouse", "description": "Open stone gate."},
+            {"title": "Vault", "description": "A sealed inner chamber."},
+        ],
+        "key_rewards": ["25 gp", "Gate Token"],
+        "magic_items": [
+            {"name": "Gate Token", "rarity": "common"},
+        ],
+        "monsters": [
+            {"name": "Vault Guard", "cr": "1/2", "xp": 100},
+        ],
+    }
+    flag_modified(sample_module, "parsed_content")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.get(f"/game/sessions/{sample_session.id}", headers=headers)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert [node["name"] for node in data["game_state"]["location_graph"]["nodes"]] == ["Gatehouse"]
+    assert data["game_state"]["location_graph"]["edges"] == []
+    assert data["game_state"]["loot_pool"]["items"] == []
 
 
 async def test_get_session_rejects_other_single_player_user(client, sample_session):

@@ -7,7 +7,7 @@ from database import get_db
 from models import Module
 from schemas.game_requests import SelectEncounterTemplateRequest
 from services.encounter_template_service import select_encounter_template
-from services.location_graph_service import ensure_location_graph_state
+from services.location_graph_service import ensure_location_graph_state, public_location_graph
 from services.module_content import get_module_content
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -38,5 +38,5 @@ async def select_session_encounter_template(
     await db.refresh(session)
     return {
         "template": selected,
-        "location_graph": (session.game_state or {}).get("location_graph") or {},
+        "location_graph": public_location_graph((session.game_state or {}).get("location_graph")),
     }

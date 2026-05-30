@@ -22,6 +22,8 @@ describe('LootModal', () => {
   it('loads session loot and shows available versus claimed rewards', async () => {
     getLootMock.mockResolvedValue({
       items: [
+        { id: 'loot_hidden_seal_0', name: 'Ancient Seal', category: 'gear', status: 'hidden', source: 'key_rewards' },
+        { id: 'loot_old_reward_0', name: 'Old Reward', category: 'gear', status: 'available', source: 'key_rewards' },
         { id: 'loot_gold_0', name: '25 gp', category: 'gold', amount: 25, status: 'available' },
         { id: 'loot_gear_gate_token_1', name: 'Gate Token', category: 'gear', rarity: 'common', cost: 100, status: 'claimed', claimed_by_name: 'Mira' },
       ],
@@ -38,6 +40,8 @@ describe('LootModal', () => {
 
     expect(await screen.findByRole('button', { name: 'Claim 25 gp' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Split 25 gp' })).toBeEnabled()
+    expect(screen.queryByText('Ancient Seal')).not.toBeInTheDocument()
+    expect(screen.queryByText('Old Reward')).not.toBeInTheDocument()
     expect(screen.getByText('Gate Token')).toBeInTheDocument()
     expect(screen.getByText('100 gp value')).toBeInTheDocument()
     const summary = screen.getByLabelText('Loot summary')

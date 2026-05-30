@@ -1,6 +1,7 @@
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
+from services.loot_service import discover_loot_item
 
 
 async def _auth_headers(client, sample_user):
@@ -41,7 +42,20 @@ async def test_session_loot_can_be_claimed_to_character_inventory(
     )
     assert loot_response.status_code == 200, loot_response.text
     loot = loot_response.json()
-    assert [item["name"] for item in loot["items"]] == ["25 gp", "Gate Token"]
+    assert loot["items"] == []
+
+    sample_session.game_state = discover_loot_item(
+        sample_session.game_state or {},
+        sample_module.parsed_content,
+        loot_id="loot_gold_0",
+    )
+    sample_session.game_state = discover_loot_item(
+        sample_session.game_state,
+        sample_module.parsed_content,
+        loot_id="loot_gear_gate_token_1",
+    )
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
 
     gold_response = await client.post(
         f"/game/sessions/{sample_session.id}/loot/claim",
@@ -81,6 +95,12 @@ async def test_session_loot_rejects_duplicate_claim(
     sample_module.parsed_content = {"key_rewards": ["10 gp"]}
     sample_character.equipment = {"gold": 0, "gear": []}
     flag_modified(sample_module, "parsed_content")
+    sample_session.game_state = discover_loot_item(
+        sample_session.game_state or {},
+        sample_module.parsed_content,
+        loot_id="loot_gold_0",
+    )
+    flag_modified(sample_session, "game_state")
     await db_session.commit()
     headers = await _auth_headers(client, sample_user)
 
@@ -124,6 +144,11 @@ async def test_session_loot_can_split_gold_across_party(
     sample_module.parsed_content = {"key_rewards": ["11 gp"]}
     sample_character.equipment = {"gold": 1, "gear": []}
     sample_session.game_state = {"companion_ids": [companion.id]}
+    sample_session.game_state = discover_loot_item(
+        sample_session.game_state,
+        sample_module.parsed_content,
+        loot_id="loot_gold_0",
+    )
     db_session.add(companion)
     flag_modified(sample_module, "parsed_content")
     flag_modified(sample_session, "game_state")
@@ -162,6 +187,12 @@ async def test_session_loot_can_mark_item_as_party_stash(
     sample_module.parsed_content = {"key_rewards": ["Gate Token"]}
     sample_character.equipment = {"gold": 1, "gear": []}
     flag_modified(sample_module, "parsed_content")
+    sample_session.game_state = discover_loot_item(
+        sample_session.game_state or {},
+        sample_module.parsed_content,
+        loot_id="loot_gear_gate_token_0",
+    )
+    flag_modified(sample_session, "game_state")
     await db_session.commit()
     headers = await _auth_headers(client, sample_user)
 
@@ -208,6 +239,11 @@ async def test_session_loot_can_roll_item_across_party(
     sample_module.parsed_content = {"key_rewards": ["Gate Token"]}
     sample_character.equipment = {"gold": 1, "gear": []}
     sample_session.game_state = {"companion_ids": [companion.id]}
+    sample_session.game_state = discover_loot_item(
+        sample_session.game_state,
+        sample_module.parsed_content,
+        loot_id="loot_gear_gate_token_0",
+    )
     db_session.add(companion)
     flag_modified(sample_module, "parsed_content")
     flag_modified(sample_session, "game_state")

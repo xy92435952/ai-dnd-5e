@@ -2,8 +2,8 @@
 
 The first loot slice stores deterministic reward state inside
 ``Session.game_state``. Parsed module ``key_rewards`` and ``magic_items`` seed a
-claimable pool, while character inventory remains the source of truth after an
-item is claimed.
+hidden pool until the adventure explicitly discovers them, while character
+inventory remains the source of truth after an item is claimed.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from services.inventory_models import copy_equipment, shop_item_data
 
 LOOT_POOL_VERSION = 1
 SUPPORTED_CLAIM_MODES = {"claim", "split_party", "party_stash", "roll_party"}
+MODULE_LOOT_SOURCES = {"key_rewards", "magic_items"}
 
 RARITY_VALUE_HINT_GP = {
     "common": 100,
@@ -91,6 +92,52 @@ def ensure_loot_state(
     return state
 
 
+def discover_loot_item(
+    game_state: dict[str, Any] | None,
+    parsed: dict[str, Any] | None,
+    *,
+    loot_id: str,
+) -> dict[str, Any]:
+    state = ensure_loot_state(game_state, parsed)
+    pool = state.get("loot_pool") or {"items": []}
+    items = list(pool.get("items") or [])
+    for item in items:
+        if str(item.get("id")) != str(loot_id):
+            continue
+        if item.get("status") == "claimed":
+            return state
+        item["status"] = "available"
+        item["discovered"] = True
+        pool["items"] = items
+        state["loot_pool"] = pool
+        return state
+    raise LootError(404, "Loot item not found")
+
+
+def public_loot_pool(pool: dict[str, Any] | None) -> dict[str, Any]:
+    if not _is_valid_loot_pool(pool):
+        return {"version": LOOT_POOL_VERSION, "items": []}
+    return {
+        "version": pool.get("version", LOOT_POOL_VERSION),
+        "items": [
+            deepcopy(item)
+            for item in list(pool.get("items") or [])
+            if isinstance(item, dict) and is_public_loot_item(item)
+        ],
+    }
+
+
+def is_public_loot_item(item: dict[str, Any]) -> bool:
+    status = str(item.get("status") or "hidden")
+    if status == "claimed":
+        return True
+    if status != "available":
+        return False
+    if item.get("discovered") or item.get("revealed") or item.get("public"):
+        return True
+    return str(item.get("source") or "") not in MODULE_LOOT_SOURCES
+
+
 def claim_loot_item(
     game_state: dict[str, Any] | None,
     parsed: dict[str, Any] | None,
@@ -111,6 +158,8 @@ def claim_loot_item(
         raise LootError(404, "Loot item not found")
     if item.get("status") == "claimed":
         raise LootError(409, "Loot item already claimed")
+    if not is_public_loot_item(item):
+        raise LootError(404, "Loot item not found")
 
     if claim_mode not in SUPPORTED_CLAIM_MODES:
         raise LootError(400, "Unsupported loot claim mode")
@@ -298,7 +347,8 @@ def _loot_item_from_reward(
             "name": f"{gold_amount} gp",
             "category": "gold",
             "amount": gold_amount,
-            "status": "available",
+            "status": "hidden",
+            "discovered": False,
             "source": "key_rewards",
         }
 
@@ -333,7 +383,8 @@ def _build_item_loot(
         "id": f"loot_{_slug(category)}_{_slug(name)}_{index}",
         "name": name,
         "category": category,
-        "status": "available",
+        "status": "hidden",
+        "discovered": False,
         "source": source,
         "rarity": raw.get("rarity"),
         "description": raw.get("description") or item_data.get("description"),
@@ -400,8 +451,16 @@ def _preserve_claims(existing: dict[str, Any], generated: dict[str, Any]) -> dic
         previous = existing_by_id.get(str(item.get("id")))
         if not previous:
             continue
+        if previous.get("status") == "claimed":
+            item["status"] = "claimed"
+        elif is_public_loot_item(previous):
+            item["status"] = "available"
+            item["discovered"] = True
         for key in (
-            "status",
+            "discovered",
+            "discovered_at",
+            "revealed",
+            "public",
             "claimed_by_character_id",
             "claimed_by_name",
             "claim_mode",

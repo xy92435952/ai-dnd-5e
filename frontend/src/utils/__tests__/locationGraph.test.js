@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getLocationGraphMap, getLocationGraphSummary } from '../locationGraph'
 
 describe('locationGraph', () => {
-  it('summarizes the current location and linked nodes', () => {
+  it('summarizes only discovered locations and public routes', () => {
     expect(getLocationGraphSummary({
       current_location_id: 'yard',
       nodes: [
@@ -26,12 +26,12 @@ describe('locationGraph', () => {
       currentName: 'Training Yard',
       currentDescription: 'Low walls.',
       visitedCount: 2,
-      totalCount: 3,
-      linkedNames: ['Gatehouse', 'Vault'],
-      encounterCount: 1,
-      nextEncounterName: 'Construct Patrol',
-      nextEncounterDifficulty: 'moderate',
-      nextEncounterEnemies: ['Clockwork Construct'],
+      totalCount: 2,
+      linkedNames: ['Gatehouse'],
+      encounterCount: 0,
+      nextEncounterName: '',
+      nextEncounterDifficulty: '',
+      nextEncounterEnemies: [],
     })
   })
 
@@ -40,60 +40,46 @@ describe('locationGraph', () => {
     expect(getLocationGraphSummary({ nodes: [] })).toBe(null)
   })
 
-  it('builds a map model with route state and encounter markers', () => {
+  it('builds a map model without hidden future nodes or hidden encounter markers', () => {
     const map = getLocationGraphMap({
-      current_location_id: 'vault',
-      selected_encounter_template_id: 'enc_vault',
+      current_location_id: 'yard',
+      selected_encounter_template_id: 'enc_yard',
       nodes: [
         { id: 'gate', name: 'Gatehouse', visited: true },
-        { id: 'yard', name: 'Training Yard', visited: true },
-        { id: 'vault', name: 'Vault', visited: true, encounter_template_ids: ['enc_vault'] },
+        { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
+        { id: 'vault', name: 'Vault', visited: false },
       ],
       edges: [
         { from: 'gate', to: 'yard', type: 'sequence' },
         { from: 'yard', to: 'vault', type: 'locked', locked: true },
-        { from: 'vault', to: 'gate', type: 'hidden', hidden: true, one_way: true },
+        { from: 'yard', to: 'secret', type: 'hidden', hidden: true, one_way: true },
       ],
       encounter_templates: [
         {
-          id: 'enc_vault',
-          location_id: 'vault',
+          id: 'enc_yard',
+          location_id: 'yard',
           status: 'available',
-          name: 'Vault Guard',
+          name: 'Yard Patrol',
           xp_budget: 300,
           terrain: ['balcony'],
           objectives: ['Hold the door'],
           hazards: ['falling stone'],
-          enemy_roles: [{ name: 'Vault Guard', role: 'defender' }],
+          enemy_roles: [{ name: 'Yard Guard', role: 'defender' }],
         },
-        { id: 'enc_done', location_id: 'yard', status: 'resolved', name: 'Old Patrol' },
       ],
     })
 
-    expect(map.currentNode.name).toBe('Vault')
-    expect(map.visitedCount).toBe(3)
-    expect(map.encounterCount).toBe(1)
-    expect(map.nodes.find(node => node.id === 'vault')).toEqual(expect.objectContaining({
+    expect(map.currentNode.name).toBe('Training Yard')
+    expect(map.visitedCount).toBe(2)
+    expect(map.totalCount).toBe(2)
+    expect(map.encounterCount).toBe(0)
+    expect(map.nodes.map(node => node.id)).toEqual(['gate', 'yard'])
+    expect(map.nodes.find(node => node.id === 'yard')).toEqual(expect.objectContaining({
       current: true,
-      encounterCount: 1,
-      encounterNames: ['Vault Guard'],
+      encounterCount: 0,
+      encounterNames: [],
     }))
-    expect(map.nodes.find(node => node.id === 'vault').encounters[0]).toEqual(expect.objectContaining({
-      name: 'Vault Guard',
-      xpBudget: 300,
-      terrain: ['balcony'],
-      objectives: ['Hold the door'],
-      hazards: ['falling stone'],
-      enemyRoles: [{ name: 'Vault Guard', role: 'defender' }],
-      selected: true,
-    }))
-    expect(map.edges.find(edge => edge.to === 'vault')).toEqual(expect.objectContaining({
-      locked: true,
-      label: 'locked',
-    }))
-    expect(map.edges.find(edge => edge.from === 'vault')).toEqual(expect.objectContaining({
-      hidden: true,
-      oneWay: true,
-    }))
+    expect(map.edges.map(edge => [edge.from, edge.to])).toEqual([['gate', 'yard']])
+    expect(map.edges.find(edge => edge.to === 'vault')).toBeUndefined()
   })
 })

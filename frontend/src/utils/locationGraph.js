@@ -1,12 +1,15 @@
 export function getLocationGraphSummary(graph) {
-  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : []
+  const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : []
+  if (!rawNodes.length) return null
+
+  const currentId = graph.current_location_id || rawNodes.find(node => node.visited)?.id || rawNodes[0].id
+  const nodes = getVisibleNodes(rawNodes, currentId)
   if (!nodes.length) return null
 
-  const currentId = graph.current_location_id || nodes.find(node => node.visited)?.id || nodes[0].id
   const current = nodes.find(node => String(node.id) === String(currentId)) || nodes[0]
   const visited = nodes.filter(node => node.visited)
-  const edges = Array.isArray(graph?.edges) ? graph.edges : []
-  const templates = Array.isArray(graph?.encounter_templates) ? graph.encounter_templates : []
+  const edges = getVisibleEdges(graph, nodes)
+  const templates = getVisibleEncounterTemplates(graph, current.id)
   const currentTemplateIds = new Set(
     Array.isArray(current.encounter_template_ids)
       ? current.encounter_template_ids.map(id => String(id))
@@ -26,7 +29,7 @@ export function getLocationGraphSummary(graph) {
   const encounterTemplates = templates.filter(template => {
     const idMatches = currentTemplateIds.has(String(template.id))
     const locationMatches = String(template.location_id) === String(current.id)
-    return (idMatches || locationMatches) && template.status !== 'resolved'
+    return idMatches || locationMatches
   })
   const nextEncounter = encounterTemplates.find(template => template.status === 'available') || encounterTemplates[0] || null
 
@@ -59,6 +62,47 @@ function getCurrentLocationId(graph, nodes) {
   )
 }
 
+function isVisibleNode(node, currentId) {
+  return Boolean(
+    node?.visited
+    || node?.discovered
+    || node?.revealed
+    || node?.public
+    || String(node?.id) === String(currentId),
+  )
+}
+
+function getVisibleNodes(nodes, currentId) {
+  const visible = nodes.filter(node => isVisibleNode(node, currentId))
+  if (visible.length > 0) return visible
+  const current = nodes.find(node => String(node?.id) === String(currentId)) || nodes[0]
+  return current ? [{ ...current, visited: true }] : []
+}
+
+function isPublicEncounter(template) {
+  const status = String(template?.status || 'hidden')
+  if (status === 'claimed' || status === 'resolved' || status === 'triggered') return true
+  if (status !== 'available') return false
+  return Boolean(template?.discovered || template?.revealed || template?.public)
+}
+
+function getVisibleEncounterTemplates(graph, currentId) {
+  const currentNode = asArray(graph?.nodes).find(node => String(node?.id) === String(currentId))
+  const currentTemplateIds = new Set(
+    Array.isArray(currentNode?.encounter_template_ids)
+      ? currentNode.encounter_template_ids.map(id => String(id))
+      : [],
+  )
+
+  return asArray(graph?.encounter_templates)
+    .filter(template => template && template.status !== 'resolved' && isPublicEncounter(template))
+    .filter(template => {
+      const locationId = cleanId(template?.location_id, '')
+      const templateId = String(template?.id || '')
+      return String(locationId) === String(currentId) || currentTemplateIds.has(templateId)
+    })
+}
+
 function edgeLabel(edge) {
   if (edge?.label) return String(edge.label)
   if (edge?.name) return String(edge.name)
@@ -72,6 +116,22 @@ function isEdgeLocked(edge) {
 
 function isEdgeHidden(edge) {
   return Boolean(edge?.hidden || edge?.secret || edge?.status === 'hidden' || edge?.type === 'hidden')
+}
+
+function getVisibleEdges(graph, nodes) {
+  const nodeIds = new Set(nodes.map(node => String(node.id)))
+  return asArray(graph?.edges)
+    .map((edge, index) => ({
+      id: cleanId(edge?.id, `edge_${index}`),
+      from: cleanId(edge?.from, ''),
+      to: cleanId(edge?.to, ''),
+      type: String(edge?.type || 'route'),
+      label: edgeLabel(edge),
+      locked: isEdgeLocked(edge),
+      hidden: isEdgeHidden(edge),
+      oneWay: Boolean(edge?.one_way || edge?.oneWay),
+    }))
+    .filter(edge => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)) && !edge.hidden)
 }
 
 function mapNodePosition(index, total) {
@@ -108,12 +168,13 @@ function encounterView(template, selectedTemplateId = '') {
 }
 
 export function getLocationGraphMap(graph) {
-  const rawNodes = asArray(graph?.nodes)
+  const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : []
   if (!rawNodes.length) return null
 
   const currentId = getCurrentLocationId(graph, rawNodes)
+  const nodesSource = getVisibleNodes(rawNodes, currentId)
   const selectedTemplateId = String(graph?.selected_encounter_template_id || '')
-  const templates = asArray(graph?.encounter_templates).filter(template => template?.status !== 'resolved')
+  const templates = getVisibleEncounterTemplates(graph, currentId)
   const templateIdsByNode = new Map()
   templates.forEach(template => {
     const locationId = cleanId(template?.location_id, '')
@@ -123,7 +184,7 @@ export function getLocationGraphMap(graph) {
     templateIdsByNode.set(locationId, bucket)
   })
 
-  const nodes = rawNodes.map((node, index) => {
+  const nodes = nodesSource.map((node, index) => {
     const id = cleanId(node?.id, `location_${index}`)
     const directTemplates = templateIdsByNode.get(id) || []
     const nodeTemplateIds = asArray(node?.encounter_template_ids).map(String)
@@ -134,7 +195,7 @@ export function getLocationGraphMap(graph) {
           .map((template, templateIndex) => [String(template?.id || template?.name || templateIndex), template]),
       ).values(),
     ]
-    const position = mapNodePosition(index, rawNodes.length)
+    const position = mapNodePosition(index, nodesSource.length)
     return {
       id,
       name: String(node?.name || `Location ${index + 1}`),
@@ -150,19 +211,7 @@ export function getLocationGraphMap(graph) {
     }
   })
 
-  const nodeIds = new Set(nodes.map(node => String(node.id)))
-  const edges = asArray(graph?.edges)
-    .map((edge, index) => ({
-      id: cleanId(edge?.id, `edge_${index}`),
-      from: cleanId(edge?.from, ''),
-      to: cleanId(edge?.to, ''),
-      type: String(edge?.type || 'route'),
-      label: edgeLabel(edge),
-      locked: isEdgeLocked(edge),
-      hidden: isEdgeHidden(edge),
-      oneWay: Boolean(edge?.one_way || edge?.oneWay),
-    }))
-    .filter(edge => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)))
+  const edges = getVisibleEdges(graph, nodes)
 
   const currentNode = nodes.find(node => node.current) || nodes[0]
   return {

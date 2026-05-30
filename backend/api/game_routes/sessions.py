@@ -10,8 +10,12 @@ from schemas.game_responses import CreateSessionResponse, SessionDetail, Session
 from services.character_roster import CharacterRoster
 from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
-from services.location_graph_service import build_location_graph_from_module, ensure_location_graph_state
-from services.loot_service import build_loot_pool_from_module, ensure_loot_state
+from services.location_graph_service import (
+    build_location_graph_from_module,
+    ensure_location_graph_state,
+    public_location_graph,
+)
+from services.loot_service import build_loot_pool_from_module, ensure_loot_state, public_loot_pool
 from services.module_content import get_first_scene_description, get_module_content
 from services.room_group_service import ensure_multiplayer_state
 
@@ -141,6 +145,9 @@ async def get_session(
         game_state,
         parsed,
     )
+    public_state = dict(game_state or {})
+    public_state["location_graph"] = public_location_graph(public_state.get("location_graph"))
+    public_state["loot_pool"] = public_loot_pool(public_state.get("loot_pool"))
     return {
         "session_id": session.id,
         "save_name": session.save_name,
@@ -148,7 +155,7 @@ async def get_session(
         "module_name": module.name if module else None,
         "current_scene": session.current_scene,
         "combat_active": session.combat_active,
-        "game_state": game_state,
+        "game_state": public_state,
         "player": char_brief(controlled_player) if controlled_player else None,
         "companions": companions,
         "logs": [serialize_log(log) for log in logs if can_user_see_log(log, user_id)],

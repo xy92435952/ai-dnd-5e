@@ -2,6 +2,7 @@ from services.location_graph_service import (
     apply_location_update,
     build_location_graph_from_module,
     ensure_location_graph_state,
+    public_location_graph,
 )
 
 
@@ -59,3 +60,21 @@ def test_apply_location_update_adds_discovered_runtime_location():
         "to": "hidden_shrine",
         "type": "discovered",
     }
+
+
+def test_public_location_graph_hides_future_nodes_and_encounters():
+    graph = build_location_graph_from_module({
+        "scenes": [
+            {"title": "Gatehouse", "description": "Stone entry."},
+            {"title": "Training Yard", "description": "Low walls."},
+            {"title": "Vault", "description": "Sealed door."},
+        ],
+        "monsters": [{"name": "Vault Guard", "cr": "1/2", "xp": 100}],
+    })
+
+    public = public_location_graph(graph)
+
+    assert [node["name"] for node in public["nodes"]] == ["Gatehouse"]
+    assert public["current_location_id"] == "scene_0"
+    assert public["edges"] == []
+    assert "encounter_templates" not in public

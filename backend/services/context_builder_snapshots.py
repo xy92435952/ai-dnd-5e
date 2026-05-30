@@ -6,6 +6,7 @@ from services.dnd_rules import get_effective_derived, get_effective_hp_base, get
 from services.dm_styles import get_dm_style
 from services.exploration_rules_service import build_exploration_context
 from services.location_graph_service import build_location_graph_context
+from services.loot_service import public_loot_pool
 
 ENEMY_FIELDS = [
     "id", "name", "hp_current", "hp_max", "ac", "conditions",
@@ -70,8 +71,8 @@ def build_character_snapshot(char) -> dict:
 
 def build_reward_context(game_state: dict) -> dict:
     loot_pool = game_state.get("loot_pool") if isinstance(game_state.get("loot_pool"), dict) else {}
-    items = loot_pool.get("items") if isinstance(loot_pool.get("items"), list) else []
-    available = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") != "claimed"]
+    items = public_loot_pool(loot_pool).get("items", [])
+    available = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") == "available"]
     claimed = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") == "claimed"]
     return {
         "available_count": len(available),

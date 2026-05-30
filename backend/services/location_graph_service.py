@@ -205,6 +205,77 @@ def build_location_graph_context(game_state: dict[str, Any] | None) -> dict[str,
     }
 
 
+def public_location_graph(graph: dict[str, Any] | None) -> dict[str, Any]:
+    if not _is_valid_graph(graph):
+        return {}
+
+    raw_nodes = [
+        node for node in list(graph.get("nodes") or [])
+        if isinstance(node, dict)
+    ]
+    if not raw_nodes:
+        return {}
+
+    current_id = str(
+        graph.get("current_location_id")
+        or next((node.get("id") for node in raw_nodes if node.get("visited")), raw_nodes[0].get("id"))
+    )
+    visible_nodes = []
+    for index, node in enumerate(raw_nodes):
+        node_id = str(node.get("id") or f"location_{index}")
+        if not _is_public_node(node, node_id, current_id):
+            continue
+        visible_nodes.append({
+            "id": node_id,
+            "name": str(node.get("name") or f"Location {len(visible_nodes) + 1}"),
+            "description": str(node.get("description") or "")[:500],
+            "order": node.get("order", index),
+            "source": str(node.get("source") or ""),
+            "visited": bool(node.get("visited") or node_id == current_id),
+        })
+
+    if not visible_nodes:
+        node = next(
+            (item for item in raw_nodes if str(item.get("id") or "") == current_id),
+            raw_nodes[0],
+        )
+        visible_nodes.append({
+            "id": str(node.get("id") or current_id or "location_0"),
+            "name": str(node.get("name") or "Current Location"),
+            "description": str(node.get("description") or "")[:500],
+            "order": node.get("order", 0),
+            "source": str(node.get("source") or ""),
+            "visited": True,
+        })
+
+    visible_ids = {str(node["id"]) for node in visible_nodes}
+    public_edges = []
+    for index, edge in enumerate(list(graph.get("edges") or [])):
+        if not isinstance(edge, dict) or _is_hidden_edge(edge):
+            continue
+        source = str(edge.get("from") or "")
+        target = str(edge.get("to") or "")
+        if source not in visible_ids or target not in visible_ids:
+            continue
+        public_edges.append({
+            key: edge[key]
+            for key in ("id", "from", "to", "type", "label", "name", "locked", "requires_key", "status", "one_way", "oneWay")
+            if key in edge
+        })
+        public_edges[-1].setdefault("id", f"edge_{index}")
+        public_edges[-1].setdefault("from", source)
+        public_edges[-1].setdefault("to", target)
+        public_edges[-1].setdefault("type", "route")
+
+    public_current_id = current_id if current_id in visible_ids else visible_nodes[0]["id"]
+    return {
+        "version": graph.get("version", LOCATION_GRAPH_VERSION),
+        "current_location_id": public_current_id,
+        "nodes": visible_nodes,
+        "edges": public_edges,
+    }
+
+
 def _is_valid_graph(graph: Any) -> bool:
     return (
         isinstance(graph, dict)
@@ -227,4 +298,23 @@ def _has_edge(edges: list[dict[str, Any]], source: str, target: str) -> bool:
     return any(
         edge.get("from") == source and edge.get("to") == target
         for edge in edges
+    )
+
+
+def _is_public_node(node: dict[str, Any], node_id: str, current_id: str) -> bool:
+    return bool(
+        node.get("visited")
+        or node.get("discovered")
+        or node.get("revealed")
+        or node.get("public")
+        or str(node_id) == str(current_id)
+    )
+
+
+def _is_hidden_edge(edge: dict[str, Any]) -> bool:
+    return bool(
+        edge.get("hidden")
+        or edge.get("secret")
+        or edge.get("status") == "hidden"
+        or edge.get("type") == "hidden"
     )

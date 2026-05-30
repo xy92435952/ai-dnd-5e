@@ -1,8 +1,13 @@
+import pytest
+
 from services.loot_service import (
     build_loot_pool_from_module,
     claim_loot_item,
+    discover_loot_item,
     ensure_loot_state,
     grant_loot_to_equipment,
+    public_loot_pool,
+    LootError,
 )
 
 
@@ -26,6 +31,8 @@ def test_build_loot_pool_from_module_rewards_and_magic_items():
     assert [item["name"] for item in pool["items"]] == ["25 gp", "Gate Token", "Moonblade"]
     assert pool["items"][0]["category"] == "gold"
     assert pool["items"][0]["amount"] == 25
+    assert pool["items"][0]["status"] == "hidden"
+    assert pool["items"][0]["discovered"] is False
     assert pool["items"][1]["category"] == "gear"
     assert pool["items"][1]["description"] == "A brass token."
     assert pool["items"][1]["cost"] == 100
@@ -33,9 +40,17 @@ def test_build_loot_pool_from_module_rewards_and_magic_items():
     assert pool["items"][2]["cost"] == 5000
 
 
+def test_public_loot_pool_hides_module_seeded_rewards_until_discovered():
+    pool = build_loot_pool_from_module({
+        "key_rewards": ["25 gp", "Gate Token"],
+    })
+
+    assert public_loot_pool(pool)["items"] == []
+
+
 def test_ensure_loot_state_preserves_claims():
     parsed = {"key_rewards": ["10 gp"]}
-    state = ensure_loot_state({}, parsed)
+    state = discover_loot_item({}, parsed, loot_id="loot_gold_0")
     claimed = claim_loot_item(
         state,
         parsed,
@@ -51,6 +66,21 @@ def test_ensure_loot_state_preserves_claims():
     assert item["status"] == "claimed"
     assert item["claimed_by_character_id"] == "char-1"
     assert claimed["equipment"]["gold"] == 12
+
+
+def test_claim_hidden_module_loot_is_not_public():
+    parsed = {"key_rewards": ["10 gp"]}
+
+    with pytest.raises(LootError) as exc:
+        claim_loot_item(
+            {},
+            parsed,
+            loot_id="loot_gold_0",
+            character_id="char-1",
+            character_name="Tester",
+            equipment={"gold": 2},
+        )
+    assert exc.value.status_code == 404
 
 
 def test_grant_loot_to_equipment_adds_item_to_correct_bucket():
@@ -70,8 +100,9 @@ def test_grant_loot_to_equipment_adds_item_to_correct_bucket():
 
 def test_claim_gold_can_split_across_party():
     parsed = {"key_rewards": ["11 gp"]}
+    state = discover_loot_item({}, parsed, loot_id="loot_gold_0")
     result = claim_loot_item(
-        {},
+        state,
         parsed,
         loot_id="loot_gold_0",
         character_id="char-1",
@@ -98,8 +129,9 @@ def test_claim_gold_can_split_across_party():
 
 def test_claim_item_can_be_marked_as_party_stash():
     parsed = {"key_rewards": ["Gate Token"]}
+    state = discover_loot_item({}, parsed, loot_id="loot_gear_gate_token_0")
     result = claim_loot_item(
-        {},
+        state,
         parsed,
         loot_id="loot_gear_gate_token_0",
         character_id="char-1",
@@ -123,8 +155,9 @@ def test_roll_party_item_awards_highest_roll_and_records_results():
         return {"rolls": [next(rolls)], "total": 0}
 
     parsed = {"key_rewards": ["Gate Token"]}
+    state = discover_loot_item({}, parsed, loot_id="loot_gear_gate_token_0")
     result = claim_loot_item(
-        {},
+        state,
         parsed,
         loot_id="loot_gear_gate_token_0",
         character_id="char-1",

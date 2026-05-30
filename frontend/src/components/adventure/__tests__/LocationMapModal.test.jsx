@@ -32,33 +32,32 @@ const GRAPH = {
 }
 
 describe('LocationMapModal', () => {
-  it('renders the current map, route states, and encounter markers', () => {
+  it('renders the current map without exposing hidden future locations or encounter details', () => {
     render(<LocationMapModal graph={GRAPH} onClose={() => {}} />)
 
     expect(screen.getByRole('heading', { name: 'Map' })).toBeInTheDocument()
     expect(screen.getAllByText('Training Yard').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Location map')).toBeInTheDocument()
     expect(screen.getByLabelText('Training Yard current visited')).toBeInTheDocument()
-    expect(screen.getByLabelText('Vault unvisited')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Vault unvisited')).not.toBeInTheDocument()
 
     const summary = screen.getByLabelText('Map summary')
-    expect(within(summary).getByText('2')).toBeInTheDocument()
-    expect(within(summary).getByText('3')).toBeInTheDocument()
-    expect(within(summary).getByText('1')).toBeInTheDocument()
+    expect(within(summary).getAllByText('2').length).toBeGreaterThanOrEqual(2)
+    expect(screen.queryByText('encounters')).not.toBeInTheDocument()
 
-    expect(screen.getByText(/Training Yard - Vault/)).toBeInTheDocument()
-    expect(screen.getByText('locked')).toBeInTheDocument()
-    expect(screen.getAllByText('Construct Patrol').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('Selected encounter templates')).toBeInTheDocument()
-    expect(screen.getByText('moderate')).toBeInTheDocument()
-    expect(screen.getByText('300 XP')).toBeInTheDocument()
-    expect(screen.getByText('low walls')).toBeInTheDocument()
-    expect(screen.getByText('sparking conduit')).toBeInTheDocument()
-    expect(screen.getByText('Gate Token')).toBeInTheDocument()
-    expect(screen.getByText('Force intruders into the open.')).toBeInTheDocument()
+    expect(screen.getByText(/Gatehouse - Training Yard/)).toBeInTheDocument()
+    expect(screen.queryByText('locked')).not.toBeInTheDocument()
+    expect(screen.queryByText('Construct Patrol')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Selected encounter templates')).not.toBeInTheDocument()
+    expect(screen.queryByText('moderate')).not.toBeInTheDocument()
+    expect(screen.queryByText('300 XP')).not.toBeInTheDocument()
+    expect(screen.queryByText('low walls')).not.toBeInTheDocument()
+    expect(screen.queryByText('sparking conduit')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gate Token')).not.toBeInTheDocument()
+    expect(screen.queryByText('Force intruders into the open.')).not.toBeInTheDocument()
   })
 
-  it('selects a different location without changing the current marker', () => {
+  it('selects a different discovered location without changing the current marker', () => {
     render(<LocationMapModal graph={GRAPH} onClose={() => {}} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Gatehouse visited' }))
@@ -66,29 +65,14 @@ describe('LocationMapModal', () => {
     expect(screen.getByRole('button', { name: 'Gatehouse visited' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Selected')).toBeInTheDocument()
     expect(screen.getByText('Stone entry.')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Selected encounter templates')).not.toBeInTheDocument()
   })
 
-  it('can request an active encounter template selection', () => {
+  it('does not surface hidden encounter selection controls', () => {
     const onSelectEncounter = vi.fn()
     render(<LocationMapModal graph={GRAPH} onSelectEncounter={onSelectEncounter} onClose={() => {}} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Set active' }))
-
-    expect(onSelectEncounter).toHaveBeenCalledWith('enc_yard')
-  })
-
-  it('shows the selected encounter as active', () => {
-    render(
-      <LocationMapModal
-        graph={{ ...GRAPH, selected_encounter_template_id: 'enc_yard' }}
-        onSelectEncounter={() => {}}
-        onClose={() => {}}
-      />,
-    )
-
-    expect(screen.getByRole('button', { name: 'Active' })).toBeDisabled()
-    expect(screen.getByText('active')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Set active' })).not.toBeInTheDocument()
+    expect(onSelectEncounter).not.toHaveBeenCalled()
   })
 
   it('closes through the header button', () => {

@@ -129,7 +129,7 @@ export default function LocationMapModal({ graph, selectingTemplateId = '', onSe
           <div className="location-map-summary" aria-label="Map summary">
             <span><b>{map.visitedCount}</b> visited</span>
             <span><b>{map.totalCount}</b> locations</span>
-            <span><b>{map.encounterCount}</b> encounters</span>
+            {map.encounterCount > 0 && <span><b>{map.encounterCount}</b> encounters</span>}
           </div>
 
           <div className="location-map-canvas" aria-label="Location map">

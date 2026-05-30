@@ -4,7 +4,17 @@ import { ScrollIcon } from '../Icons'
 import { gameApi } from '../../api/client'
 
 function lootItems(pool) {
-  return Array.isArray(pool?.items) ? pool.items : []
+  return Array.isArray(pool?.items)
+    ? pool.items.filter(item => {
+        if (!item) return false
+        if (item.status === 'claimed') return true
+        if (item.status !== 'available') return false
+        const source = String(item.source || '')
+        if (!source) return true
+        if (item.discovered || item.revealed || item.public) return true
+        return !['key_rewards', 'magic_items'].includes(source)
+      })
+    : []
 }
 
 function lootMeta(item) {

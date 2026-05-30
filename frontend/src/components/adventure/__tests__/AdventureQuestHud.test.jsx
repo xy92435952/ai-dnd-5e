@@ -38,7 +38,7 @@ describe('AdventureQuestHud', () => {
     expect(screen.getByText(/地图/)).toBeInTheDocument()
     expect(screen.getByText('矿村井口')).toBeInTheDocument()
     expect(screen.getByText((_, element) => element?.textContent === '2/2')).toBeInTheDocument()
-    expect(screen.getByText('ENC 1')).toBeInTheDocument()
+    expect(screen.queryByText('ENC 1')).not.toBeInTheDocument()
     expect(screen.getByText('最近')).toBeInTheDocument()
 
     const recent = screen.getByText('最近').parentElement
