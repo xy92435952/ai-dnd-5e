@@ -29,3 +29,13 @@ class SkillCheckRequest(BaseModel):
 
 class AITakeoverRequest(BaseModel):
     session_id: str
+
+
+class ClaimLootRequest(BaseModel):
+    character_id: str
+    loot_id: str
+    claim_mode: Literal["claim", "split_party", "party_stash", "roll_party"] = "claim"
+
+
+class SelectEncounterTemplateRequest(BaseModel):
+    template_id: str

@@ -34,6 +34,8 @@ import { useDialogueWsSync } from '../hooks/useDialogueWsSync'
 import RestModal from '../components/adventure/RestModal'
 import JournalModal from '../components/adventure/JournalModal'
 import CheckpointModal from '../components/adventure/CheckpointModal'
+import LootModal from '../components/adventure/LootModal'
+import LocationMapModal from '../components/adventure/LocationMapModal'
 import PrepareSpellsModal from '../components/adventure/PrepareSpellsModal'
 import MultiplayerSpeakBar from '../components/adventure/MultiplayerSpeakBar'
 import AdventureTopBar from '../components/adventure/AdventureTopBar'
@@ -74,6 +76,9 @@ export default function Adventure() {
   const syncNoticeTimerRef = useRef(null)
   const [syncNotice, setSyncNotice] = useState('')
   const [checkpointOpen, setCheckpointOpen] = useState(false)
+  const [lootOpen, setLootOpen] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
+  const [encounterSelectingId, setEncounterSelectingId] = useState('')
 
   const { userId: myUserId } = useUser()
   const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId)
@@ -239,9 +244,31 @@ export default function Adventure() {
     npcUpdates,
     keyDecisions,
     recentConsequences,
+    locationGraph,
     allMembers,
     latestDmLine,
   } = useAdventureDerivedState({ session, player, companions, logs })
+
+  const handleSelectEncounterTemplate = async (templateId) => {
+    if (!templateId) return
+    setEncounterSelectingId(templateId)
+    setError('')
+    try {
+      const result = await gameApi.selectEncounterTemplate(sessionId, templateId)
+      setSession(prev => prev ? {
+        ...prev,
+        game_state: {
+          ...(prev.game_state || {}),
+          location_graph: result?.location_graph || prev.game_state?.location_graph,
+        },
+      } : prev)
+      addLog('system', `Encounter active: ${result?.template?.name || templateId}`, 'system')
+    } catch (e) {
+      setError(e.message || 'Failed to select encounter')
+    } finally {
+      setEncounterSelectingId('')
+    }
+  }
 
   // 早期 loading 状态
   if (!session) return (
@@ -284,6 +311,26 @@ export default function Adventure() {
           loading={journalLoading}
           onGenerate={handleGenerateJournal}
           onClose={() => setJournalOpen(false)}
+        />
+      )}
+      {lootOpen && (
+        <LootModal
+          sessionId={sessionId}
+          player={player}
+          onClaimed={async (result) => {
+            const name = result?.claimed?.name || 'reward'
+            addLog('system', `Loot claimed: ${name}`, 'system')
+            await loadSession()
+          }}
+          onClose={() => setLootOpen(false)}
+        />
+      )}
+      {mapOpen && (
+        <LocationMapModal
+          graph={locationGraph}
+          selectingTemplateId={encounterSelectingId}
+          onSelectEncounter={handleSelectEncounterTemplate}
+          onClose={() => setMapOpen(false)}
         />
       )}
       {restOpen && (
@@ -418,8 +465,11 @@ export default function Adventure() {
           npcUpdates={npcUpdates}
           keyDecisions={keyDecisions}
           recentConsequences={recentConsequences}
+          locationGraph={locationGraph}
           onOpenCharacter={(id) => navigate(`/character/${id}?sessionId=${sessionId}`)}
           onOpenJournal={() => setJournalOpen(true)}
+          onOpenMap={() => setMapOpen(true)}
+          onOpenLoot={() => setLootOpen(true)}
         />
       </div>
 

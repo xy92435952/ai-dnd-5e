@@ -112,6 +112,7 @@ export default function Combat() {
     onSkillClick,
     handleMoveTo,
     handleHelpTarget,
+    handleInspectTarget,
     handleSpellHover,
     handleEndTurn,
     handleCastSpell,
@@ -199,9 +200,12 @@ export default function Combat() {
         aoeLockedCenter={aoeLockedCenter}
         playerId={effectivePlayerId || playerId}
         prediction={prediction}
+        canInspectTarget={canActThisTurn && !combatSyncBlocked}
+        inspectBusy={isProcessing}
         floats={floats}
         combatOver={combatOver}
         onSelectTarget={setSelectedTarget}
+        onInspectTarget={handleInspectTarget}
         onHelpTarget={handleHelpTarget}
         onMoveTo={handleMoveTo}
         onAoeHover={setAoeHover}

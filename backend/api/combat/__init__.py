@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from . import (
     info, attacks, attack_rolls, turns, reactions, ai_turn, ai_end,
     movement, spell_catalog, spell_rolls, spellcasting, conditions, deathsaves,
-    grapples, smites, class_features, maneuvers,
+    grapples, smites, class_features, maneuvers, inspect,
 )
 from ._shared import (
     _get_ts, _save_ts, _check_attack_range, _ai_move_toward,
@@ -19,5 +19,5 @@ from ._shared import (
 router = APIRouter()
 for _mod in (info, attacks, attack_rolls, turns, reactions, ai_turn, ai_end,
              movement, spell_catalog, spell_rolls, spellcasting, conditions, deathsaves,
-             grapples, smites, class_features, maneuvers):
+             grapples, smites, class_features, maneuvers, inspect):
     router.include_router(_mod.router)

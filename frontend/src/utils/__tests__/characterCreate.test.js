@@ -7,7 +7,9 @@ import {
   applyRacialBonuses,
   buildCharacterCreateModel,
   buildStandardScores,
+  formatHitDieLabel,
   getClassEnKey,
+  getHitDieValue,
   getRaceEnKey,
   normalizeCharacterOptions,
 } from '../characterCreate'
@@ -112,6 +114,14 @@ describe('characterCreate helpers', () => {
   it('resolves zh/en class and race keys', () => {
     expect(getClassEnKey('战士')).toBe('Fighter')
     expect(getRaceEnKey('人类')).toBe('Human')
+  })
+
+  it('parses and formats hit dice from SRD class metadata', () => {
+    expect(getHitDieValue('d10')).toBe(10)
+    expect(getHitDieValue(12)).toBe(12)
+    expect(getHitDieValue('bad', 8)).toBe(8)
+    expect(formatHitDieLabel('d10')).toBe('d10')
+    expect(formatHitDieLabel(6)).toBe('d6')
   })
 
   it('builds the expected derived state for a level 4 fighter', () => {

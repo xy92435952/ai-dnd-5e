@@ -74,3 +74,100 @@ async def test_init_combat_stores_encounter_balance(db_session, sample_session, 
     assert balance["monster_count"] == 1
     assert balance["base_xp"] == 50
     assert balance["difficulty"] in {"easy", "medium", "hard", "deadly"}
+
+
+async def test_init_combat_uses_current_location_encounter_template(
+    db_session,
+    sample_session,
+    sample_module,
+    sample_character,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from services.game_combat_setup_service import init_combat
+    from services.location_graph_service import build_location_graph_from_module
+
+    parsed = {
+        "scenes": [
+            {"title": "Gatehouse", "description": "A tense welcome."},
+            {
+                "title": "Training Yard",
+                "description": "A clockwork construct patrols low walls.",
+            },
+        ],
+        "monsters": [
+            {"name": "Clockwork Construct", "cr": "1", "xp": 200, "hp": 22, "ac": 14},
+        ],
+    }
+    graph = build_location_graph_from_module(parsed)
+    graph["current_location_id"] = "scene_1"
+    sample_module.parsed_content = parsed
+    sample_session.game_state = {"location_graph": graph}
+    flag_modified(sample_session, "game_state")
+
+    await init_combat(
+        session=sample_session,
+        initial_enemies=[],
+        characters=[sample_character],
+        module=sample_module,
+        db=db_session,
+    )
+
+    assert sample_session.game_state["enemies"][0]["name"] == "Clockwork Construct"
+    assert sample_session.game_state["last_encounter_template_id"] == "encounter_scene_1_0"
+    assert sample_session.game_state["location_graph"]["encounter_templates"][0]["status"] == "triggered"
+
+
+async def test_init_combat_prefers_selected_encounter_template(
+    db_session,
+    sample_session,
+    sample_module,
+    sample_character,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from services.game_combat_setup_service import init_combat
+
+    sample_module.parsed_content = {
+        "monsters": [
+            {"name": "Bandit", "cr": "1/8", "xp": 25, "hp": 11, "ac": 12},
+            {"name": "Guard", "cr": "1/8", "xp": 25, "hp": 11, "ac": 16},
+        ],
+    }
+    sample_session.game_state = {
+        "location_graph": {
+            "current_location_id": "yard",
+            "selected_encounter_template_id": "encounter_yard_1",
+            "nodes": [{"id": "yard", "name": "Yard"}],
+            "encounter_templates": [
+                {
+                    "id": "encounter_yard_0",
+                    "location_id": "yard",
+                    "status": "available",
+                    "initial_enemies": [{"name": "Bandit"}],
+                },
+                {
+                    "id": "encounter_yard_1",
+                    "location_id": "yard",
+                    "status": "available",
+                    "selected": True,
+                    "initial_enemies": [{"name": "Guard"}],
+                },
+            ],
+        }
+    }
+    flag_modified(sample_module, "parsed_content")
+    flag_modified(sample_session, "game_state")
+
+    await init_combat(
+        session=sample_session,
+        initial_enemies=[],
+        characters=[sample_character],
+        module=sample_module,
+        db=db_session,
+    )
+
+    assert sample_session.game_state["enemies"][0]["name"] == "Guard"
+    assert sample_session.game_state["last_encounter_template_id"] == "encounter_yard_1"
+    assert sample_session.game_state["location_graph"].get("selected_encounter_template_id") is None
+    assert sample_session.game_state["location_graph"]["encounter_templates"][1]["status"] == "triggered"

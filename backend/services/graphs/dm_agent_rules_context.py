@@ -54,11 +54,31 @@ def extract_exploration_context(game_state: str) -> dict:
     return context if isinstance(context, dict) else {}
 
 
+def extract_location_graph_context(game_state: str) -> dict:
+    try:
+        gs = json.loads(game_state or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    context = gs.get("location_graph_context") or {}
+    return context if isinstance(context, dict) else {}
+
+
+def extract_reward_context(game_state: str) -> dict:
+    try:
+        gs = json.loads(game_state or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    context = gs.get("reward_context") or {}
+    return context if isinstance(context, dict) else {}
+
+
 def build_rules_context(state: dict[str, Any]) -> str:
     meta = state.get("input_meta") or build_input_meta(state)
     actor = extract_current_actor(state.get("game_state", ""))
     combat_flags = extract_combat_state_flags(state.get("game_state", ""))
     exploration_context = extract_exploration_context(state.get("game_state", ""))
+    location_graph_context = extract_location_graph_context(state.get("game_state", ""))
+    reward_context = extract_reward_context(state.get("game_state", ""))
     source = meta.get("source", "human_input")
     trusted_note = (
         "此行动来自系统/AI生成选项，视为已由系统提供给玩家的可选行动；"
@@ -93,6 +113,10 @@ def build_rules_context(state: dict[str, Any]) -> str:
 
 {_format_exploration_rules_note(exploration_context)}
 
+{_format_location_graph_note(location_graph_context)}
+
+{_format_reward_note(reward_context)}
+
 ## 优势 / 劣势 / 激励骰裁定规则
 - “优势骰/优势/advantage”本身不是作弊词；只要来自帮助动作、环境优势、隐藏、职业能力、系统选项或 DM 已给出的上下文，就应作为合法机械修正处理。
 - “激励骰/吟游激励/Bardic Inspiration/鼓舞”本身不是作弊词；若角色或队友资源支持，允许声明使用或给予，并在叙事中说明资源消耗或等待后续检定。
@@ -115,3 +139,37 @@ def _format_exploration_rules_note(exploration_context: dict[str, Any]) -> str:
 - Light, hidden, and noise rules: {json.dumps(exploration_context.get("light_and_hidden") or {}, ensure_ascii=False)}
 - Passive discovery: {json.dumps(exploration_context.get("passive_discovery") or {}, ensure_ascii=False)}
 - Use these passive perception/investigation/stealth values when deciding whether traps, hidden doors, clues, ambush signs, or sneaking creatures are noticed without an active roll."""
+
+
+def _format_location_graph_note(location_graph_context: dict[str, Any]) -> str:
+    if not location_graph_context:
+        return """## Location Graph Snapshot
+- No backend location graph was provided. Do not invent stable map topology; treat movement as scene-local unless the module context clearly says otherwise."""
+
+    current = location_graph_context.get("current") or {}
+    exits = location_graph_context.get("exits") or []
+    encounters = location_graph_context.get("current_encounters") or []
+    return f"""## Location Graph Snapshot
+- Treat `game_state.location_graph_context` as backend-authored topology for exploration choices.
+- Current location: {json.dumps(current, ensure_ascii=False)}
+- Known exits from current location: {json.dumps(exits, ensure_ascii=False)}
+- Encounter hooks at current location: {json.dumps(encounters, ensure_ascii=False)}
+- When returning `player_choices`, include a movement/navigation option that names one known exit when it fits the player's action and scene pacing.
+- Locked exits should become skill checks, key requirements, or blocked choices rather than free movement.
+- Hidden exits should not be exposed as obvious movement choices unless the current action or passive discovery justifies noticing them."""
+
+
+def _format_reward_note(reward_context: dict[str, Any]) -> str:
+    if not reward_context:
+        return """## Reward Snapshot
+- No backend reward_context was provided. Use `state_delta.gold_changes` only for ordinary coin changes and avoid inventing permanent magic-item ownership."""
+
+    return f"""## Reward Snapshot
+- Treat `game_state.reward_context` as the backend-authored reward ledger for discovered session loot.
+- Available loot count: {reward_context.get("available_count", 0)}
+- Claimed loot count: {reward_context.get("claimed_count", 0)}
+- Available loot: {json.dumps(reward_context.get("available_loot") or [], ensure_ascii=False)}
+- Claimed loot: {json.dumps(reward_context.get("claimed_loot") or [], ensure_ascii=False)}
+- When players search, loot a room, finish an encounter, or collect a quest reward, narrate discovered rewards clearly.
+- Ordinary coin rewards may use `state_delta.gold_changes` when the amount is immediately granted.
+- Non-gold, magic, or party-contested rewards should be narrated as discovered loot and left for the Loot UI / `/loot/claim` flow to claim, split, share, or roll; do not silently add those items to a character's equipment in narration."""

@@ -62,6 +62,8 @@ async def test_state_applicator_merges_campaign_delta_into_session_memory():
         "time_of_day": "深夜",
         "tension": "紧张",
     }
+    assert session.game_state["location_graph"]["current_location_id"] == "矿村井口"
+    assert session.game_state["location_graph"]["nodes"][-1]["name"] == "矿村井口"
     assert session.campaign_state["quest_log"] == [
         {"quest": "寻找矿工", "status": "completed", "outcome": "矿工获救"},
         {"quest": "调查暗门", "status": "active", "outcome": ""},
@@ -187,5 +189,11 @@ async def test_state_applicator_preserves_scenario_memory_across_several_turns()
         "time_of_day": "dawn",
         "tension": "focused",
     }
+    assert session.game_state["location_graph"]["current_location_id"] == "eclipse_gate"
+    assert [node["name"] for node in session.game_state["location_graph"]["nodes"][-3:]] == [
+        "Lantern Archive",
+        "Old Observatory",
+        "Eclipse Gate",
+    ]
     assert "Captain Mira admits" in session.session_history
     assert "moon-sigil opens the stair" in session.session_history

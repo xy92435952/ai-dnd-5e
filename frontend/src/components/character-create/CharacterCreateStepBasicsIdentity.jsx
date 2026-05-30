@@ -1,5 +1,6 @@
 import React from 'react'
 import { RACE_INFO, CLASS_INFO, ABILITY_ZH, CLASS_ZH_TO_EN } from '../../data/dnd5e.js'
+import { formatHitDieLabel } from '../../utils/characterCreate'
 import Portrait from '../Portrait'
 import { classKey } from '../Crests'
 
@@ -84,7 +85,7 @@ export default function CharacterCreateStepBasicsIdentity({ ctx }) {
               >
                 <Portrait cls={classKey(c)} size="sm" style={{ margin: '0 auto 6px' }} />
                 <div className="class-name">{c}</div>
-                <div className="class-prim">{info?.hit_die ? `d${info.hit_die}` : ''}</div>
+                <div className="class-prim">{formatHitDieLabel(info?.hit_die)}</div>
               </div>
             )
           })}
@@ -92,7 +93,7 @@ export default function CharacterCreateStepBasicsIdentity({ ctx }) {
         {classInfo && (
           <div className="class-details">
             <div className="row">
-              <span className="tag tag-gold">生命骰 d{classInfo.hit_die}</span>
+              <span className="tag tag-gold">生命骰 {formatHitDieLabel(classInfo.hit_die)}</span>
               <span className="tag">主属性 {classInfo.primary_ability}</span>
               {saveProfs.length > 0 && (
                 <span className="tag">豁免 {saveProfs.map(k => ABILITY_ZH[k] || k).join('/')}</span>

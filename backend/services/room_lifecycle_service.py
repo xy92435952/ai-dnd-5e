@@ -14,6 +14,8 @@ from models import Character, Module, Session, SessionMember
 from services import room_group_service
 from services import room_group_state_utils
 from services.dm_styles import normalize_dm_style
+from services.location_graph_service import build_location_graph_from_module
+from services.loot_service import build_loot_pool_from_module
 from services.room_audit_service import add_room_audit_log
 from services.room_member_service import count_members, get_member
 
@@ -52,6 +54,9 @@ async def create_room(
 
     code = await generate_unique_room_code(db)
     style_key = normalize_dm_style(dm_style)
+    parsed = module.parsed_content or {}
+    location_graph = build_location_graph_from_module(parsed)
+    loot_pool = build_loot_pool_from_module(parsed)
     session = Session(
         user_id=user_id,
         module_id=module_id,
@@ -60,20 +65,26 @@ async def create_room(
         room_code=code,
         host_user_id=user_id,
         max_players=max_players,
-        game_state={"dm_style": style_key,
-                    "multiplayer": {"current_speaker_user_id": None,
-                                     "speak_round": 0,
-                                     "pending_actions": [],
-                                     "online_user_ids": [user_id],
-                                     "active_group_id": room_group_service.DEFAULT_GROUP_ID,
-                                     "party_groups": [{
-                                         "id": room_group_service.DEFAULT_GROUP_ID,
-                                         "name": room_group_service.DEFAULT_GROUP_NAME,
-                                         "location": room_group_service.DEFAULT_GROUP_LOCATION,
-                                         "member_user_ids": [user_id],
-                                     }],
-                                     "pending_actions_by_group": {room_group_service.DEFAULT_GROUP_ID: []},
-                                     "group_readiness": {room_group_service.DEFAULT_GROUP_ID: {}}}},
+        game_state={
+            "dm_style": style_key,
+            "location_graph": location_graph,
+            "loot_pool": loot_pool,
+            "multiplayer": {
+                "current_speaker_user_id": None,
+                "speak_round": 0,
+                "pending_actions": [],
+                "online_user_ids": [user_id],
+                "active_group_id": room_group_service.DEFAULT_GROUP_ID,
+                "party_groups": [{
+                    "id": room_group_service.DEFAULT_GROUP_ID,
+                    "name": room_group_service.DEFAULT_GROUP_NAME,
+                    "location": room_group_service.DEFAULT_GROUP_LOCATION,
+                    "member_user_ids": [user_id],
+                }],
+                "pending_actions_by_group": {room_group_service.DEFAULT_GROUP_ID: []},
+                "group_readiness": {room_group_service.DEFAULT_GROUP_ID: {}},
+            },
+        },
     )
     db.add(session)
     await db.flush()

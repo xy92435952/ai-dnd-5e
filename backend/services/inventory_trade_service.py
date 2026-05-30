@@ -2,6 +2,7 @@ import math
 
 from services.dnd_rules import ARMOR, SHOP_GEAR, WEAPONS
 from services.inventory_models import InventoryError, copy_equipment, find_named_item, shop_item_data
+from services.shop_pricing_service import normalize_pricing, priced_buy_cost, priced_sell_value
 
 
 AMMO_BUNDLES = {
@@ -16,7 +17,14 @@ AMMO_BUNDLES = {
 }
 
 
-def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quantity: int = 1) -> dict:
+def buy_item(
+    equipment: dict | None,
+    *,
+    item_name: str,
+    item_category: str,
+    quantity: int = 1,
+    price_context: dict | None = None,
+) -> dict:
     if quantity <= 0:
         raise InventoryError(400, "购买数量必须大于 0")
 
@@ -25,7 +33,9 @@ def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quan
         raise InventoryError(404, f"商店中未找到物品：{item_name}")
 
     updated = copy_equipment(equipment)
-    cost = item_data.get("cost", 0) * quantity
+    pricing = normalize_pricing(price_context)
+    base_cost = item_data.get("cost", 0)
+    cost = priced_buy_cost(base_cost, quantity, pricing)
     current_gold = updated.get("gold", 0)
     if current_gold < cost:
         raise InventoryError(400, f"金币不足：当前 {current_gold} gp，需要 {cost} gp")
@@ -61,6 +71,9 @@ def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quan
         "bought": item_name,
         "quantity": quantity,
         "cost": cost,
+        "base_cost": base_cost,
+        "price_modifier": pricing["buy_multiplier"],
+        "pricing": pricing,
         "gold_remaining": updated["gold"],
         "equipment": updated,
     }
@@ -69,8 +82,16 @@ def buy_item(equipment: dict | None, *, item_name: str, item_category: str, quan
     return result
 
 
-def sell_item(equipment: dict | None, *, item_name: str, item_category: str, item_index: int = 0) -> dict:
+def sell_item(
+    equipment: dict | None,
+    *,
+    item_name: str,
+    item_category: str,
+    item_index: int = 0,
+    price_context: dict | None = None,
+) -> dict:
     updated = copy_equipment(equipment)
+    pricing = normalize_pricing(price_context)
     sell_price = 0
     removed_name = item_name
 
@@ -82,7 +103,7 @@ def sell_item(equipment: dict | None, *, item_name: str, item_category: str, ite
         actual_idx, item = found
         if isinstance(item, dict) and item.get("equipped"):
             raise InventoryError(400, "不能出售装备中的武器，请先卸下")
-        sell_price = item.get("cost", WEAPONS.get(item_name, {}).get("cost", 0)) / 2
+        sell_price = priced_sell_value(item.get("cost", WEAPONS.get(item_name, {}).get("cost", 0)), pricing)
         weapons.pop(actual_idx)
         updated["weapons"] = weapons
 
@@ -93,7 +114,7 @@ def sell_item(equipment: dict | None, *, item_name: str, item_category: str, ite
                 raise InventoryError(404, "背包中没有盾牌")
             if isinstance(shield, dict) and shield.get("equipped"):
                 raise InventoryError(400, "不能出售装备中的盾牌，请先卸下")
-            sell_price = ARMOR.get("Shield", {}).get("cost", 10) / 2
+            sell_price = priced_sell_value(ARMOR.get("Shield", {}).get("cost", 10), pricing)
             updated["shield"] = None
         else:
             armor_list = list(updated.get("armor", []))
@@ -103,7 +124,7 @@ def sell_item(equipment: dict | None, *, item_name: str, item_category: str, ite
             actual_idx, item = found
             if isinstance(item, dict) and item.get("equipped"):
                 raise InventoryError(400, "不能出售装备中的护甲，请先卸下")
-            sell_price = item.get("cost", ARMOR.get(item_name, {}).get("cost", 0)) / 2
+            sell_price = priced_sell_value(item.get("cost", ARMOR.get(item_name, {}).get("cost", 0)), pricing)
             armor_list.pop(actual_idx)
             updated["armor"] = armor_list
 
@@ -118,7 +139,7 @@ def sell_item(equipment: dict | None, *, item_name: str, item_category: str, ite
             if isinstance(item, dict)
             else SHOP_GEAR.get(item_name, {}).get("cost", 0)
         )
-        sell_price = item_cost / 2
+        sell_price = priced_sell_value(item_cost, pricing)
         gear.pop(actual_idx)
         updated["gear"] = gear
 
@@ -129,6 +150,8 @@ def sell_item(equipment: dict | None, *, item_name: str, item_category: str, ite
     return {
         "sold": removed_name,
         "sell_price": math.floor(sell_price),
+        "sell_rate": pricing["sell_rate"],
+        "pricing": pricing,
         "gold_remaining": updated["gold"],
         "equipment": updated,
     }

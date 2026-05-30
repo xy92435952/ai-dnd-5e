@@ -5,6 +5,7 @@ from services.context_builder_multiplayer import build_multiplayer_context
 from services.dnd_rules import get_effective_derived, get_effective_hp_base, get_life_state
 from services.dm_styles import get_dm_style
 from services.exploration_rules_service import build_exploration_context
+from services.location_graph_service import build_location_graph_context
 
 ENEMY_FIELDS = [
     "id", "name", "hp_current", "hp_max", "ac", "conditions",
@@ -67,6 +68,37 @@ def build_character_snapshot(char) -> dict:
     }
 
 
+def build_reward_context(game_state: dict) -> dict:
+    loot_pool = game_state.get("loot_pool") if isinstance(game_state.get("loot_pool"), dict) else {}
+    items = loot_pool.get("items") if isinstance(loot_pool.get("items"), list) else []
+    available = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") != "claimed"]
+    claimed = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") == "claimed"]
+    return {
+        "available_count": len(available),
+        "claimed_count": len(claimed),
+        "available_loot": available[:8],
+        "claimed_loot": claimed[:8],
+    }
+
+
+def _reward_item_summary(item: dict) -> dict:
+    return {
+        key: item.get(key)
+        for key in (
+            "id",
+            "name",
+            "category",
+            "amount",
+            "rarity",
+            "cost",
+            "source",
+            "claim_mode",
+            "claimed_by_name",
+        )
+        if item.get(key) is not None
+    }
+
+
 def build_game_state_payload(
     *,
     session,
@@ -113,6 +145,8 @@ def build_game_state_payload(
 
     state["characters"] = [build_character_snapshot(char) for char in characters]
     state["exploration_context"] = build_exploration_context(state["characters"])
+    state["location_graph_context"] = build_location_graph_context(session.game_state or {})
+    state["reward_context"] = build_reward_context(session.game_state or {})
 
     if session.combat_active and combat_state:
         state["round_number"] = combat_state.round_number

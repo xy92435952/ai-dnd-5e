@@ -39,6 +39,15 @@ async def combat_state(db_session, sample_session, sample_character):
             "id": enemy_id,
             "name": "哥布林",
             "hp_current": 7, "max_hp": 7,
+            "cr": "1",
+            "speed": 30,
+            "resistances": ["poison"],
+            "immunities": [],
+            "vulnerabilities": ["radiant"],
+            "condition_immunities": ["poisoned"],
+            "actions": [{"name": "Scimitar"}],
+            "special_abilities": [{"name": "Nimble Escape"}],
+            "tactics": "Hide after striking.",
             "conditions": [],
             "derived": {"hp_max": 7, "ac": 15, "ability_modifiers": {"dex": 2}},
         }],
@@ -104,6 +113,69 @@ async def test_get_combat_state_includes_enemy_condition_durations(
     enemy = r.json()["entities"]["goblin-1"]
     assert enemy["conditions"] == ["restrained"]
     assert enemy["condition_durations"] == {"restrained": 2}
+
+
+async def test_get_combat_state_hides_unrevealed_enemy_details(
+    client, sample_session, combat_state, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+    r = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+
+    assert r.status_code == 200, r.text
+    enemy = r.json()["entities"]["goblin-1"]
+    assert "actions" not in enemy
+    assert "resistances" not in enemy
+    assert "revealed_stats" not in enemy
+
+
+async def test_inspect_enemy_reveals_stats_and_spends_action(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    from api.combat._shared import _build_combat_snapshot
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(
+        f"/game/combat/{sample_session.id}/inspect",
+        headers=headers,
+        json={
+            "character_id": sample_character.id,
+            "target_id": "goblin-1",
+            "skill": "investigation",
+            "d20_value": 13,
+            "expected_turn_token": f"1:0:{sample_character.id}",
+        },
+    )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["success"] is True
+    assert data["turn_state"]["action_used"] is True
+    assert "actions" in data["revealed_stats"]
+    assert data["enemy"]["actions"] == [{"name": "Scimitar"}]
+    assert data["enemy"]["resistances"] == ["poison"]
+    assert "tactics" not in data["enemy"]
+
+    await db_session.refresh(sample_session)
+    enemy = sample_session.game_state["enemies"][0]
+    assert "revealed_stats" not in enemy
+    assert "actions" in enemy["knowledge_state"]["by_character"][sample_character.id]["revealed_stats"]
+    assert enemy["knowledge_state"]["by_character"][sample_character.id]["last_inspect"]["character_id"] == sample_character.id
+
+    public_snapshot = await _build_combat_snapshot(db_session, sample_session, combat_state)
+    assert "actions" not in public_snapshot["entities"]["goblin-1"]
+    private_snapshot = await _build_combat_snapshot(
+        db_session,
+        sample_session,
+        combat_state,
+        viewer_character_id=sample_character.id,
+    )
+    assert private_snapshot["entities"]["goblin-1"]["actions"] == [{"name": "Scimitar"}]
+
+    followup = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert followup.status_code == 200, followup.text
+    entity = followup.json()["entities"]["goblin-1"]
+    assert entity["actions"] == [{"name": "Scimitar"}]
+    assert entity["condition_immunities"] == ["poisoned"]
 
 
 async def test_get_skill_bar(client, sample_session, combat_state, sample_user, sample_character):

@@ -652,6 +652,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/combat/{session_id}/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inspect Enemy */
+        post: operations["inspect_enemy_game_combat__session_id__inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/combat/{session_id}/maneuver": {
         parameters: {
             query?: never;
@@ -1212,6 +1229,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/sessions/{session_id}/encounter-template/select": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Select Session Encounter Template */
+        post: operations["select_session_encounter_template_game_sessions__session_id__encounter_template_select_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/sessions/{session_id}/journal": {
         parameters: {
             query?: never;
@@ -1226,6 +1260,40 @@ export interface paths {
          * @description 生成本次冒险的叙事日志摘要（调用 DM Agent Chatflow，独立新对话）
          */
         post: operations["generate_journal_game_sessions__session_id__journal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/sessions/{session_id}/loot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session Loot */
+        get: operations["get_session_loot_game_sessions__session_id__loot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/sessions/{session_id}/loot/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Session Loot */
+        post: operations["claim_session_loot_game_sessions__session_id__loot_claim_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1874,6 +1942,19 @@ export interface components {
             /** Character Id */
             character_id: string;
         };
+        /** ClaimLootRequest */
+        ClaimLootRequest: {
+            /** Character Id */
+            character_id: string;
+            /**
+             * Claim Mode
+             * @default claim
+             * @enum {string}
+             */
+            claim_mode: "claim" | "split_party" | "party_stash" | "roll_party";
+            /** Loot Id */
+            loot_id: string;
+        };
         /** ClassFeatureRequest */
         ClassFeatureRequest: {
             /** Feature Name */
@@ -1947,6 +2028,26 @@ export interface components {
             target_hp_current?: number | null;
         } & {
             [key: string]: unknown;
+        };
+        /** CombatInspectRequest */
+        CombatInspectRequest: {
+            /** Character Id */
+            character_id: string;
+            /** D20 Value */
+            d20_value?: number | null;
+            /** Dc */
+            dc?: number | null;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
+            /** Second D20 Value */
+            second_d20_value?: number | null;
+            /**
+             * Skill
+             * @default investigation
+             */
+            skill: string;
+            /** Target Id */
+            target_id: string;
         };
         /**
          * CombatStateResponse
@@ -2933,6 +3034,11 @@ export interface components {
              */
             start_ready_user_ids: string[];
         };
+        /** SelectEncounterTemplateRequest */
+        SelectEncounterTemplateRequest: {
+            /** Template Id */
+            template_id: string;
+        };
         /** SellItemRequest */
         SellItemRequest: {
             /** Item Category */
@@ -3471,7 +3577,9 @@ export interface operations {
     };
     get_shop_inventory_characters_shop_inventory_get: {
         parameters: {
-            query?: never;
+            query?: {
+                character_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3485,6 +3593,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4337,6 +4454,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inspect_enemy_game_combat__session_id__inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CombatInspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -5407,6 +5559,41 @@ export interface operations {
             };
         };
     };
+    select_session_encounter_template_game_sessions__session_id__encounter_template_select_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectEncounterTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     generate_journal_game_sessions__session_id__journal_post: {
         parameters: {
             query?: never;
@@ -5417,6 +5604,72 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_loot_game_sessions__session_id__loot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_session_loot_game_sessions__session_id__loot_claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimLootRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

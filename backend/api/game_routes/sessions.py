@@ -10,6 +10,8 @@ from schemas.game_responses import CreateSessionResponse, SessionDetail, Session
 from services.character_roster import CharacterRoster
 from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
+from services.location_graph_service import build_location_graph_from_module, ensure_location_graph_state
+from services.loot_service import build_loot_pool_from_module, ensure_loot_state
 from services.room_group_service import ensure_multiplayer_state
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -36,13 +38,22 @@ async def create_session(
     dm_style = normalize_dm_style(req.dm_style)
     first_scene = await _generate_opening_with_legacy_patch(parsed, raw_scene, dm_style)
 
+    location_graph = build_location_graph_from_module(parsed)
+    loot_pool = build_loot_pool_from_module(parsed)
     session = Session(
         user_id=user_id,
         module_id=req.module_id,
         player_character_id=req.player_character_id,
         current_scene=first_scene,
         session_history="",
-        game_state={"companion_ids": req.companion_ids, "scene_index": 0, "flags": {}, "dm_style": dm_style},
+        game_state={
+            "companion_ids": req.companion_ids,
+            "scene_index": 0,
+            "flags": {},
+            "dm_style": dm_style,
+            "location_graph": location_graph,
+            "loot_pool": loot_pool,
+        },
         save_name=req.save_name or f"冒险-{module.name}",
     )
     db.add(session)
@@ -121,6 +132,14 @@ async def get_session(
         .limit(50)
     )
     logs = list(reversed(log_result.scalars().all()))
+    game_state = ensure_location_graph_state(
+        session.game_state or {},
+        module.parsed_content if module else {},
+    )
+    game_state = ensure_loot_state(
+        game_state,
+        module.parsed_content if module else {},
+    )
     return {
         "session_id": session.id,
         "save_name": session.save_name,
@@ -128,7 +147,7 @@ async def get_session(
         "module_name": module.name if module else None,
         "current_scene": session.current_scene,
         "combat_active": session.combat_active,
-        "game_state": session.game_state or {},
+        "game_state": game_state,
         "player": char_brief(controlled_player) if controlled_player else None,
         "companions": companions,
         "logs": [serialize_log(log) for log in logs if can_user_see_log(log, user_id)],

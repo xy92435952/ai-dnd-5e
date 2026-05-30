@@ -18,6 +18,18 @@ export function modStr(n) {
   return n >= 0 ? `+${n}` : `${n}`
 }
 
+export function getHitDieValue(hitDie, fallback = 8) {
+  const parsed = typeof hitDie === 'number'
+    ? hitDie
+    : Number(String(hitDie || '').replace(/^d/i, ''))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+export function formatHitDieLabel(hitDie, fallback = '') {
+  const value = getHitDieValue(hitDie, null)
+  return value ? `d${value}` : fallback
+}
+
 export function getClassEnKey(charClass) {
   return CLASS_ZH_TO_EN[charClass] || charClass || ''
 }

@@ -2,15 +2,21 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps import assert_character_access
-from models import Character
+from models import Character, Session
 from services.inventory_service import (
     InventoryError,
     buy_item as buy_inventory_item,
     sell_item as sell_inventory_item,
     transfer_item as transfer_inventory_item,
 )
+from services.shop_pricing_service import build_shop_pricing_context, is_item_in_stock
 
 from api.character_inventory_equipment import load_character_or_404, recalculate_character_derived
+
+
+async def shop_pricing_for_character(db: AsyncSession, char: Character) -> dict:
+    session = await db.get(Session, char.session_id) if char.session_id else None
+    return build_shop_pricing_context(session.game_state if session else {})
 
 
 async def buy_character_item(
@@ -23,12 +29,16 @@ async def buy_character_item(
     user_id: str | None = None,
 ) -> dict:
     char = await load_character_or_404(db, character_id, user_id=user_id)
+    price_context = await shop_pricing_for_character(db, char)
+    if not is_item_in_stock(item_name, item_category, price_context):
+        raise HTTPException(404, "当前地点商人不出售该物品")
     try:
         result = buy_inventory_item(
             char.equipment,
             item_name=item_name,
             item_category=item_category,
             quantity=quantity,
+            price_context=price_context,
         )
     except InventoryError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
@@ -48,12 +58,14 @@ async def sell_character_item(
     user_id: str | None = None,
 ) -> dict:
     char = await load_character_or_404(db, character_id, user_id=user_id)
+    price_context = await shop_pricing_for_character(db, char)
     try:
         result = sell_inventory_item(
             char.equipment,
             item_name=item_name,
             item_category=item_category,
             item_index=item_index,
+            price_context=price_context,
         )
     except InventoryError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc

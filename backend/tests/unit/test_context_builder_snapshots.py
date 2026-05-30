@@ -47,7 +47,36 @@ def _character(
 def test_game_state_payload_includes_exploration_context_for_dm_input():
     session = SimpleNamespace(
         id="session-1",
-        game_state={"dm_style": "classic"},
+        game_state={
+            "dm_style": "classic",
+            "location_graph": {
+                "current_location_id": "yard",
+                "nodes": [
+                    {"id": "gate", "name": "Gatehouse", "visited": True},
+                    {"id": "yard", "name": "Training Yard", "visited": True, "encounter_template_ids": ["enc_yard"]},
+                    {"id": "vault", "name": "Vault", "visited": False},
+                ],
+                "edges": [
+                    {"from": "gate", "to": "yard", "type": "sequence"},
+                    {"from": "yard", "to": "vault", "type": "locked", "locked": True},
+                ],
+                "encounter_templates": [
+                    {"id": "enc_yard", "location_id": "yard", "status": "available", "name": "Construct Patrol"},
+                ],
+            },
+            "loot_pool": {
+                "items": [
+                    {"id": "loot_gold_0", "name": "25 gp", "category": "gold", "amount": 25, "status": "available"},
+                    {
+                        "id": "loot_gear_gate_token_1",
+                        "name": "Gate Token",
+                        "category": "gear",
+                        "status": "claimed",
+                        "claimed_by_name": "Scout",
+                    },
+                ],
+            },
+        },
         combat_active=False,
         current_scene="Entry",
         is_multiplayer=False,
@@ -97,3 +126,29 @@ def test_game_state_payload_includes_exploration_context_for_dm_input():
         "skill": "stealth",
         "success_rule": "at_least_half_members_meet_or_exceed_dc",
     }
+    assert state["location_graph_context"]["current"]["name"] == "Training Yard"
+    assert state["location_graph_context"]["exits"] == [
+        {
+            "location_id": "gate",
+            "name": "Gatehouse",
+            "description": "",
+            "route_type": "sequence",
+            "locked": False,
+            "hidden": False,
+            "one_way": False,
+        },
+        {
+            "location_id": "vault",
+            "name": "Vault",
+            "description": "",
+            "route_type": "locked",
+            "locked": True,
+            "hidden": False,
+            "one_way": False,
+        },
+    ]
+    assert state["location_graph_context"]["current_encounters"][0]["name"] == "Construct Patrol"
+    assert state["reward_context"]["available_count"] == 1
+    assert state["reward_context"]["claimed_count"] == 1
+    assert state["reward_context"]["available_loot"][0]["name"] == "25 gp"
+    assert state["reward_context"]["claimed_loot"][0]["claimed_by_name"] == "Scout"

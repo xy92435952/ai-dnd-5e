@@ -1,8 +1,8 @@
 # AGENTS.md — AI 跑团平台项目档案
 
-> 最后更新：2026-05-05
-> 当前代码状态：Phase 12 完成后持续演进
-> 本次更新：同步多人联机、WS、combat 子模块拆分，以及 DM/队友反应内部解耦
+> 最后更新：2026-05-30
+> 当前代码状态：Phase 12 完成后持续演进，P2 探索与经济体验推进中
+> 本次更新：同步多人联机、WS、combat 子模块拆分、DM/队友反应内部解耦，以及地图/遭遇模板/敌人检视/战利品分配切片
 > 项目路径：`C:\Users\Denny\Desktop\dnd\ai-dnd-5e`
 
 ---
@@ -345,6 +345,16 @@ ai-dnd-5e/
    - Router 7
    - Axios
 4. `dm_agent` 已经开始做内部职责解耦，避免队友反应抢占主叙事
+5. P2 探索体验已经开始落地：
+   - `location_graph` 会随会话初始化和场景推进维护当前地点、已访问地点与出口上下文
+   - encounter template 会从模组场景与怪物中生成，可在当前地点预览和选择，并被战斗初始化优先消费
+   - 敌人检视已支持按角色私有揭示，避免一个玩家的成功检视直接泄漏给全队客户端
+6. 战利品循环已有第一批可用能力：
+   - `backend/services/loot_service.py` 从 `key_rewards` / `magic_items` 生成 `game_state.loot_pool`
+   - `/game/sessions/{session_id}/loot` 和 `/game/sessions/{session_id}/loot/claim` 支持查看、领取、金币队伍均分、非金币共享入队伍池、非金币队伍掷骰分配
+   - `frontend/src/components/adventure/LootModal.jsx` 已提供 Claim / Split / Share / Roll 入口
+   - 商店价格和可售库存会根据角色所在 session 的地点上下文浮动；`/characters/shop/inventory?character_id=...` 会返回当前 pricing，实际 buy/sell 也使用同一套后端定价与库存校验
+   - DM 输入会包含 `reward_context`，提示 DM 把金币即时变化写入 `state_delta.gold_changes`，把非金币或有争议奖励交给 Loot UI / `/loot/claim` 流程
 
 ---
 
@@ -399,7 +409,12 @@ npm run dev
 
 ## 12. TODO / 已知问题
 
-1. **探索模式下，带技能检定的选项在前端可见但点击无反应**
-   - 现象：模型返回了带 `skill_check` / `dc` 信息的结构化选项，前端能正常渲染，但用户点击后没有进入掷骰流程。
-   - 初步判断：问题更可能在前端点击处理链路，而不是模型未生成检定标签。已定位到 `frontend/src/pages/Adventure.jsx` 的技能检定选项点击分支依赖 `KIND_TO_SKILL_ZH`，需要核对其导入与运行时报错情况。
-   - 修复方向：优先检查 `Adventure.jsx` 中 `KIND_TO_SKILL_ZH` 的 import 是否缺失，并补一轮带 `skill_check=true` 选项的前端交互回归验证。
+当前没有已确认的 P0 点击路径遗留问题。
+
+已清理的旧问题：
+
+1. **探索模式下，带技能检定的选项点击无反应**
+   - 状态：已修复。
+   - 当前代码已经将 `KIND_TO_SKILL_ZH`、`computeChoicePreview` 等技能检定元数据逻辑收敛到 `frontend/src/utils/skillCheck.js`，并由 Adventure 点击路径复用。
+   - 回归覆盖：`frontend/src/pages/__tests__/Adventure.smoke.test.jsx` 已覆盖点击 `skill_check=true` 选项、进入掷骰流程、成功/失败结算、调用 `/game/skill-check`，以及将结果作为 `system_action` 回传 `/game/action`。
+   - 后续 TODO 以 `docs/rules-coverage-and-experience-todo.md` 为准。

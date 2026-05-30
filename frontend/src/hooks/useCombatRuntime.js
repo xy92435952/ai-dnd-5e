@@ -158,7 +158,7 @@ export function useCombatRuntime({
     onCombatEnded: handleCombatEnded,
   })
 
-  const { onWsEvent, onSkillClick, handleMoveTo, handleHelpTarget, handleSpellHover } = useCombatPageActions({
+  const { onWsEvent, onSkillClick, handleMoveTo, handleHelpTarget, handleInspectTarget, handleSpellHover } = useCombatPageActions({
     sessionId,
     setRoom,
     myCharacterId,
@@ -166,6 +166,7 @@ export function useCombatRuntime({
     moveMode,
     helpMode,
     isProcessing,
+    setIsProcessing,
     canActThisTurn: derived.canActThisTurn,
     selectedTarget,
     entities: derived.entities,
@@ -247,6 +248,7 @@ export function useCombatRuntime({
       onSkillClick: guardCombatAction(onSkillClick),
       handleMoveTo: guardCombatAction(handleMoveTo),
       handleHelpTarget: guardCombatAction(handleHelpTarget),
+      handleInspectTarget: guardCombatAction(handleInspectTarget),
       handleSpellHover,
       handleEndTurn: guardCombatAction(flow.handleEndTurn),
       handleCastSpell: guardCombatAction(flow.handleCastSpell),

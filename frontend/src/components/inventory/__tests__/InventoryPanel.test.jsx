@@ -432,7 +432,7 @@ describe('InventoryPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: '购买' }))
 
     await waitFor(() => {
-      expect(charactersApi.getShopInventory).toHaveBeenCalled()
+      expect(charactersApi.getShopInventory).toHaveBeenCalledWith('char-1')
       expect(charactersApi.buyItem).toHaveBeenCalledWith('char-1', 'Torch', 'gear', 1)
       expect(onCharacterChange).toHaveBeenCalledWith(expect.objectContaining({
         equipment: {
@@ -442,6 +442,44 @@ describe('InventoryPanel', () => {
       }))
     })
     expect(await screen.findByText('购买 火把')).toBeInTheDocument()
+  })
+
+  it('shows location shop pricing and modified item costs', async () => {
+    charactersApi.getShopInventory.mockResolvedValue({
+      pricing: {
+        profile: 'market',
+        label: '市集价格',
+        buy_multiplier: 0.9,
+        sell_rate: 0.55,
+      },
+      weapons: {},
+      armor: {},
+      gear: {
+        'Healing Potion': { zh: '治疗药水', cost: 45, base_cost: 50, description: '恢复2d4+2 HP' },
+      },
+    })
+
+    render(
+      <InventoryPanel
+        character={{
+          id: 'char-1',
+          name: '测试战士',
+          hp_current: 8,
+          equipment: {
+            gold: 45,
+            gear: [],
+          },
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '打开商店' }))
+
+    expect(await screen.findByLabelText('Shop pricing')).toHaveTextContent('市集价格')
+    expect(screen.getByLabelText('Shop pricing')).toHaveTextContent('买入 x0.9')
+    expect(screen.getByLabelText('Shop pricing')).toHaveTextContent('卖出 55%')
+    expect(screen.getByText('45 gp')).toBeInTheDocument()
+    expect(screen.getByText('原价 50 gp')).toBeInTheDocument()
   })
 
   it('adjusts ammunition without replacing the rest of the equipment', async () => {

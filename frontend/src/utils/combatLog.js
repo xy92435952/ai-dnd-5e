@@ -43,13 +43,17 @@ function formatAttackRule(attack = {}) {
   if (!attack || typeof attack !== 'object') return null
   const total = asNumber(attack.attack_total ?? attack.total)
   const targetAc = asNumber(attack.target_ac ?? attack.ac)
+  const hasOutcome = attack.is_crit || attack.is_fumble || attack.hit === true || attack.hit === false
+  if (!hasOutcome && total === null && targetAc === null) return null
   const outcome = attack.is_crit
     ? '暴击命中'
     : attack.is_fumble
       ? '大失手'
-      : attack.hit
+      : attack.hit === true
         ? '命中'
-        : '未命中'
+        : attack.hit === false
+          ? '未命中'
+          : null
   const compare = total !== null && targetAc !== null ? `${total} vs AC${targetAc}` : ''
   return compact([outcome, compare]).join(' · ')
 }

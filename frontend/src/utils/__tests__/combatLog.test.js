@@ -121,6 +121,24 @@ describe('combatLog', () => {
     }).feedback).toEqual([{ kind: 'concentration-break', label: '专注中断' }])
   })
 
+  it('does not infer a miss from spell damage logs without attack outcome', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Fire Bolt scorches Voltaic Spark.',
+      dice_result: {
+        attack: {},
+        damage: 6,
+        total_damage: 6,
+      },
+      state_changes: ['Voltaic Spark HP 15 -> 9'],
+    })
+
+    expect(view.tone).toBe('dmg')
+    expect(view.feedback).toEqual([])
+    expect(view.sections.find(section => section.kind === 'rules')).toBeUndefined()
+  })
+
   it('summarizes reaction hp rollback from reaction effects', () => {
     expect(buildCombatStateChangeSummary({
       reaction_type: 'shield',

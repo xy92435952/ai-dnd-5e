@@ -11,8 +11,11 @@ export default function AdventureBottomHud({
   npcUpdates,
   keyDecisions,
   recentConsequences,
+  locationGraph,
   onOpenCharacter,
   onOpenJournal,
+  onOpenMap,
+  onOpenLoot,
 }) {
   return (
     <div style={{
@@ -32,9 +35,12 @@ export default function AdventureBottomHud({
         npcUpdates={npcUpdates}
         keyDecisions={keyDecisions}
         recentConsequences={recentConsequences}
+        locationGraph={locationGraph}
       />
 
       <div style={{ display: 'flex', gap: 4 }}>
+        <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenMap} disabled={!locationGraph}>Map</button>
+        <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenLoot}>Loot</button>
         <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenJournal}>☰ 卷宗</button>
       </div>
     </div>

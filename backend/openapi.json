@@ -1034,6 +1034,35 @@
         "title": "ClaimCharacterRequest",
         "type": "object"
       },
+      "ClaimLootRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "claim_mode": {
+            "default": "claim",
+            "enum": [
+              "claim",
+              "split_party",
+              "party_stash",
+              "roll_party"
+            ],
+            "title": "Claim Mode",
+            "type": "string"
+          },
+          "loot_id": {
+            "title": "Loot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "character_id",
+          "loot_id"
+        ],
+        "title": "ClaimLootRequest",
+        "type": "object"
+      },
       "ClassFeatureRequest": {
         "properties": {
           "feature_name": {
@@ -1236,6 +1265,73 @@
           }
         },
         "title": "CombatActionResult",
+        "type": "object"
+      },
+      "CombatInspectRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20 Value"
+          },
+          "dc": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dc"
+          },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          },
+          "second_d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Second D20 Value"
+          },
+          "skill": {
+            "default": "investigation",
+            "title": "Skill",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "character_id",
+          "target_id"
+        ],
+        "title": "CombatInspectRequest",
         "type": "object"
       },
       "CombatStateResponse": {
@@ -3408,6 +3504,19 @@
         "title": "RoomInfo",
         "type": "object"
       },
+      "SelectEncounterTemplateRequest": {
+        "properties": {
+          "template_id": {
+            "title": "Template Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id"
+        ],
+        "title": "SelectEncounterTemplateRequest",
+        "type": "object"
+      },
       "SellItemRequest": {
         "properties": {
           "item_category": {
@@ -4508,6 +4617,24 @@
       "get": {
         "description": "Return all available items for purchase (weapons, armor, gear).",
         "operationId": "get_shop_inventory_characters_shop_inventory_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "character_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Character Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4516,6 +4643,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Shop Inventory",
@@ -5787,6 +5924,56 @@
           }
         },
         "summary": "Grapple Shove",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/inspect": {
+      "post": {
+        "operationId": "inspect_enemy_game_combat__session_id__inspect_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CombatInspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect Enemy",
         "tags": [
           "combat"
         ]
@@ -7297,6 +7484,56 @@
         ]
       }
     },
+    "/game/sessions/{session_id}/encounter-template/select": {
+      "post": {
+        "operationId": "select_session_encounter_template_game_sessions__session_id__encounter_template_select_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectEncounterTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Session Encounter Template",
+        "tags": [
+          "game"
+        ]
+      }
+    },
     "/game/sessions/{session_id}/journal": {
       "post": {
         "description": "生成本次冒险的叙事日志摘要（调用 DM Agent Chatflow，独立新对话）",
@@ -7333,6 +7570,96 @@
           }
         },
         "summary": "Generate Journal",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}/loot": {
+      "get": {
+        "operationId": "get_session_loot_game_sessions__session_id__loot_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session Loot",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}/loot/claim": {
+      "post": {
+        "operationId": "claim_session_loot_game_sessions__session_id__loot_claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimLootRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Session Loot",
         "tags": [
           "game"
         ]

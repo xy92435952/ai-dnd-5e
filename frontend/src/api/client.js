@@ -117,6 +117,17 @@ export const gameApi = {
 
   // 战役日志
   generateJournal: (sessionId) => api.post(`/game/sessions/${sessionId}/journal`),
+  getLoot: (sessionId) => api.get(`/game/sessions/${sessionId}/loot`),
+  claimLoot: (sessionId, characterId, lootId, claimMode = 'claim') =>
+    api.post(`/game/sessions/${sessionId}/loot/claim`, {
+      character_id: characterId,
+      loot_id: lootId,
+      ...(claimMode && claimMode !== 'claim' ? { claim_mode: claimMode } : {}),
+    }),
+  selectEncounterTemplate: (sessionId, templateId) =>
+    api.post(`/game/sessions/${sessionId}/encounter-template/select`, {
+      template_id: templateId,
+    }),
 
   /**
    * 多人模式：让 AI 替断线的当前发言者出招（仅 last_seen > 30s 的离线玩家）
@@ -268,6 +279,8 @@ export const gameApi = {
       action_key: actionKey,
       is_ranged: isRanged,
     }),
+  inspectEnemy: (sessionId, payload) =>
+    api.post(`/game/combat/${sessionId}/inspect`, payload),
 }
 
 // ── 多人联机房间 ─────────────────────────────────────────
@@ -318,7 +331,8 @@ Object.assign(charactersApi, {
       item_category: itemCategory,
       equip,
     }),
-  getShopInventory: () => api.get('/characters/shop/inventory'),
+  getShopInventory: (characterId = null) =>
+    api.get('/characters/shop/inventory', characterId ? { params: { character_id: characterId } } : undefined),
   buyItem: (charId, itemName, itemCategory, quantity = 1) =>
     api.post(`/characters/${charId}/shop/buy`, {
       item_name: itemName,

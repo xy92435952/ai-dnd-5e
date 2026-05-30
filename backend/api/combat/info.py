@@ -10,7 +10,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 
 from database import get_db
-from models import Character, CombatState
+from models import Character, CombatState, SessionMember
 from api.deps import (
     assert_character_access,
     assert_character_in_session,
@@ -48,7 +48,25 @@ async def get_combat_state(
     session = await get_session_or_404(session_id, db)
     await assert_session_access(session, user_id, db)
     await db.refresh(session)  # 确保读取最新的 game_state
-    return await _build_combat_snapshot(db, session, combat)
+    return await _build_combat_snapshot(
+        db,
+        session,
+        combat,
+        viewer_character_id=await _viewer_character_id(db, session, user_id),
+    )
+
+
+async def _viewer_character_id(db: AsyncSession, session, user_id: str) -> str | None:
+    if session.is_multiplayer:
+        result = await db.execute(
+            select(SessionMember).where(
+                SessionMember.session_id == session.id,
+                SessionMember.user_id == user_id,
+            )
+        )
+        member = result.scalar_one_or_none()
+        return member.character_id if member and member.character_id else None
+    return session.player_character_id
 
 
 # ═══════════════════════════════════════════════════════════

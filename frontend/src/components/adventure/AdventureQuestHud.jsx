@@ -1,3 +1,5 @@
+import { getLocationGraphSummary } from '../../utils/locationGraph'
+
 const RECENT_TYPE_LABELS = {
   quest: '任务',
   clue: '线索',
@@ -12,7 +14,9 @@ export default function AdventureQuestHud({
   npcUpdates = [],
   keyDecisions = [],
   recentConsequences = [],
+  locationGraph = null,
 }) {
+  const locationSummary = getLocationGraphSummary(locationGraph)
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -26,6 +30,49 @@ export default function AdventureQuestHud({
       <span style={{ color: questLine ? 'var(--blood-light)' : 'var(--parchment-dark)', fontSize: 12, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {questLine?.quest || '继续冒险'}
       </span>
+      {locationSummary && (
+        <>
+          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--emerald-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>◇ 地图</span>
+          <span
+            title={[
+              locationSummary.currentDescription,
+              locationSummary.linkedNames.length ? `相邻：${locationSummary.linkedNames.join(' / ')}` : '',
+            ].filter(Boolean).join('\n')}
+            style={{
+              color: 'var(--parchment-light)',
+              fontSize: 11,
+              fontFamily: 'var(--font-body)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: 180,
+            }}
+          >
+            {locationSummary.currentName}
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', whiteSpace: 'nowrap' }}>
+            {locationSummary.visitedCount}/{locationSummary.totalCount}
+          </span>
+          {locationSummary.encounterCount > 0 && (
+            <span
+              title={[
+                locationSummary.nextEncounterName,
+                locationSummary.nextEncounterDifficulty,
+                locationSummary.nextEncounterEnemies.join(' / '),
+              ].filter(Boolean).join('\n')}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                color: 'var(--blood-light)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ENC {locationSummary.encounterCount}
+            </span>
+          )}
+        </>
+      )}
       <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>❖ 线索 {clues.length}</span>
       <div style={{ display: 'flex', gap: 6, overflow: 'hidden', minWidth: 0 }}>

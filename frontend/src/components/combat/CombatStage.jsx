@@ -22,9 +22,12 @@ export default function CombatStage({
   aoeLockedCenter,
   playerId,
   prediction,
+  canInspectTarget,
+  inspectBusy,
   floats,
   combatOver,
   onSelectTarget,
+  onInspectTarget,
   onHelpTarget,
   onMoveTo,
   onAoeHover,
@@ -61,7 +64,13 @@ export default function CombatStage({
         onAoeLockCenter={onAoeLockCenter}
       />
 
-      <TargetCard entity={selectedTargetEntity} prediction={prediction} />
+      <TargetCard
+        entity={selectedTargetEntity}
+        prediction={prediction}
+        canInspect={canInspectTarget}
+        inspectBusy={inspectBusy}
+        onInspect={onInspectTarget}
+      />
 
       {floats.map(f => (
         <span key={f.id} className={`float-text ${f.kind}`} style={{ left: `${f.x}%`, top: `${f.y}%` }}>{f.val}</span>

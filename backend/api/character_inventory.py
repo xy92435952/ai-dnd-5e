@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import get_user_id
+from api.deps import get_optional_user_id, get_user_id
 from api.character_inventory_equipment import (
+    load_character_or_404 as _load_character_or_404,
     recalculate_character_derived as _recalculate_character_derived,
     update_character_ammo as _update_character_ammo,
     update_character_equipment as _update_character_equipment,
@@ -12,6 +13,7 @@ from api.character_inventory_equipment import (
 from api.character_inventory_shop import (
     buy_character_item as _buy_character_item,
     sell_character_item as _sell_character_item,
+    shop_pricing_for_character as _shop_pricing_for_character,
     transfer_character_item as _transfer_character_item,
 )
 from api.character_inventory_use_item import use_character_item as _use_character_item
@@ -27,19 +29,25 @@ from schemas.character_requests import (
     UseItemRequest,
 )
 from schemas.game_responses import AmmoUpdateResult, GoldUpdateResult
-from services.dnd_rules import ARMOR, SHOP_GEAR, WEAPONS
+from services.shop_pricing_service import build_shop_inventory
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
 
 @router.get("/shop/inventory")
-async def get_shop_inventory():
+async def get_shop_inventory(
+    character_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id),
+):
     """Return all available items for purchase (weapons, armor, gear)."""
-    return {
-        "weapons": {name: {**data, "category": "weapon"} for name, data in WEAPONS.items()},
-        "armor": {name: {**data, "category": "armor"} for name, data in ARMOR.items()},
-        "gear": {name: {**data, "category": "gear"} for name, data in SHOP_GEAR.items()},
-    }
+    if not character_id:
+        return build_shop_inventory()
+    if user_id is None:
+        raise HTTPException(401, "未登录，请先登录")
+    char = await _load_character_or_404(db, character_id, user_id=user_id)
+    pricing = await _shop_pricing_for_character(db, char)
+    return build_shop_inventory(pricing)
 
 
 @router.patch("/{character_id}/gold", response_model=GoldUpdateResult)

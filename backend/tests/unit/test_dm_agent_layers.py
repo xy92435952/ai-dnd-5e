@@ -109,6 +109,69 @@ def test_rules_layer_includes_backend_exploration_context():
     assert "at_least_half_members_meet_or_exceed_dc" in context
 
 
+def test_rules_layer_includes_location_graph_exits_for_choices():
+    game_state = {
+        "combat_active": False,
+        "current_actor_id": "c1",
+        "current_actor_name": "Scout",
+        "characters": [{"id": "c1", "name": "Scout", "char_class": "Rogue", "level": 1}],
+        "location_graph_context": {
+            "current": {"location_id": "yard", "name": "Training Yard"},
+            "exits": [
+                {"location_id": "gate", "name": "Gatehouse", "route_type": "sequence", "locked": False, "hidden": False},
+                {"location_id": "vault", "name": "Vault", "route_type": "locked", "locked": True, "hidden": False},
+            ],
+            "current_encounters": [{"id": "enc_yard", "name": "Construct Patrol", "status": "available"}],
+        },
+    }
+
+    context = dm_agent._build_rules_context({
+        "action_source": "human_input",
+        "player_action": "I look for a way forward.",
+        "game_state": json.dumps(game_state),
+        "input_meta": {"source": "human_input"},
+    })
+
+    assert "Location Graph Snapshot" in context
+    assert "Training Yard" in context
+    assert "Gatehouse" in context
+    assert "Vault" in context
+    assert "player_choices" in context
+    assert "Locked exits" in context
+
+
+def test_rules_layer_includes_reward_context_for_loot_prompts():
+    game_state = {
+        "combat_active": False,
+        "current_actor_id": "c1",
+        "current_actor_name": "Scout",
+        "characters": [{"id": "c1", "name": "Scout", "char_class": "Rogue", "level": 1}],
+        "reward_context": {
+            "available_count": 1,
+            "claimed_count": 1,
+            "available_loot": [
+                {"id": "loot_gear_gate_token_0", "name": "Gate Token", "category": "gear", "rarity": "common"}
+            ],
+            "claimed_loot": [
+                {"id": "loot_gold_1", "name": "25 gp", "category": "gold", "claim_mode": "split_party"}
+            ],
+        },
+    }
+
+    context = dm_agent._build_rules_context({
+        "action_source": "human_input",
+        "player_action": "I search the fallen construct.",
+        "game_state": json.dumps(game_state),
+        "input_meta": {"source": "human_input"},
+    })
+
+    assert "Reward Snapshot" in context
+    assert "Gate Token" in context
+    assert "state_delta.gold_changes" in context
+    assert "/loot/claim" in context
+    assert "do not silently add" in context
+
+
 def test_memory_context_marks_retrieval_as_reference_only():
     context = dm_agent._build_memory_context({
         "campaign_memory": "旧日志说队伍曾遇到灰狼。",

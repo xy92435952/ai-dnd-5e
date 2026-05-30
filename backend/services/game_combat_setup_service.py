@@ -9,6 +9,10 @@ from services.dnd_rules import roll_initiative
 from services.combat_legendary_action_service import initialize_legendary_actions
 from services.combat_legendary_resistance_service import initialize_legendary_resistances
 from services.combat_recharge_service import normalize_recharge_abilities
+from services.encounter_template_service import (
+    mark_encounter_template_triggered,
+    select_current_encounter_template,
+)
 from services.encounter_balance_service import estimate_encounter_difficulty
 
 
@@ -104,7 +108,11 @@ async def init_combat(
     db: AsyncSession,
 ) -> None:
     """Initialize combat state using DM-specified enemies, module monsters, or a fallback enemy."""
-    enemies = _resolve_initial_enemies(initial_enemies=initial_enemies, module=module)
+    enemies, encounter_template = _resolve_initial_enemies(
+        initial_enemies=initial_enemies,
+        module=module,
+        game_state=session.game_state,
+    )
     for enemy in enemies:
         enemy["is_enemy"] = True
         enemy.setdefault("is_player", False)
@@ -141,6 +149,9 @@ async def init_combat(
     ))
     session.combat_active = True
     state = dict(session.game_state or {})
+    if encounter_template:
+        state = mark_encounter_template_triggered(state, encounter_template.get("id"))
+        state["last_encounter_template_id"] = encounter_template.get("id")
     state["enemies"] = enemies
     state["encounter_balance"] = estimate_encounter_difficulty(
         [
@@ -154,33 +165,68 @@ async def init_combat(
     await db.flush()
 
 
-def _resolve_initial_enemies(*, initial_enemies: list, module: Module) -> list[dict]:
-    enemies: list[dict] = []
-    if initial_enemies:
-        parsed_monsters = {
-            monster["name"]: monster
-            for monster in (module.parsed_content or {}).get("monsters", [])
-        }
-        for item in initial_enemies:
-            if isinstance(item, str):
-                item = {"name": item}
-            name = item.get("name", "未知怪物") if isinstance(item, dict) else str(item)
-            base = parsed_monsters.get(name)
-            if base:
-                enemy = build_enemy_from_module(base)
-                if isinstance(item, dict) and item.get("hp_current"):
-                    enemy["hp_current"] = item["hp_current"]
-            else:
-                enemy = _fallback_enemy_from_dm(item, name)
-            enemies.append(enemy)
+def _resolve_initial_enemies(
+    *,
+    initial_enemies: list,
+    module: Module,
+    game_state: dict | None = None,
+) -> tuple[list[dict], dict | None]:
+    return _resolve_initial_enemies_from_sources(
+        initial_enemies=initial_enemies,
+        module=module,
+        game_state=game_state,
+    )
 
-    if not enemies:
-        module_monsters = (module.parsed_content or {}).get("monsters", [])
-        for monster in module_monsters[:3]:
-            enemies.append(build_enemy_from_module(monster))
+
+def _resolve_initial_enemies_from_sources(
+    *,
+    initial_enemies: list,
+    module: Module,
+    game_state: dict | None = None,
+) -> tuple[list[dict], dict | None]:
+    enemies = _build_enemies_from_initial_items(initial_enemies or [], module)
+    if enemies:
+        return enemies, None
+
+    encounter_template = select_current_encounter_template(
+        game_state or {},
+        module.parsed_content or {},
+    )
+    if encounter_template:
+        enemies = _build_enemies_from_initial_items(
+            encounter_template.get("initial_enemies") or [],
+            module,
+        )
+        if enemies:
+            return enemies, encounter_template
+
+    module_monsters = (module.parsed_content or {}).get("monsters", [])
+    for monster in module_monsters[:3]:
+        enemies.append(build_enemy_from_module(monster))
 
     if not enemies:
         enemies.append(_generic_fallback_enemy())
+    return enemies, None
+
+def _build_enemies_from_initial_items(items: list, module: Module) -> list[dict]:
+    enemies: list[dict] = []
+    parsed_monsters = {
+        monster["name"]: monster
+        for monster in (module.parsed_content or {}).get("monsters", [])
+        if isinstance(monster, dict) and monster.get("name")
+    }
+    for item in items:
+        if isinstance(item, str):
+            item = {"name": item}
+        name = item.get("name", "Unknown Creature") if isinstance(item, dict) else str(item)
+        base = parsed_monsters.get(name)
+        if base:
+            enemy = build_enemy_from_module(base)
+            if isinstance(item, dict) and item.get("hp_current"):
+                enemy["hp_current"] = item["hp_current"]
+        else:
+            enemy = _fallback_enemy_from_dm(item, name)
+        enemies.append(enemy)
     return enemies
 
 

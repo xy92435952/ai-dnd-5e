@@ -4,6 +4,7 @@ import {
   POINT_BUY_TOTAL,
   SCORE_COSTS,
   STANDARD_ARRAY,
+  getHitDieValue,
   modifier,
   modStr,
 } from '../../utils/characterCreate'
@@ -127,7 +128,7 @@ export default function CharacterCreateStepAbilities({ ctx }) {
         const conMod = modifier(finalScores.con || 10)
         const dexMod = modifier(finalScores.dex || 10)
         const strMod = modifier(finalScores.str || 10)
-        const hitDie = CLASS_INFO[ctx.classEnKey]?.hit_die || 8
+        const hitDie = getHitDieValue(CLASS_INFO[ctx.classEnKey]?.hit_die, 8)
         const hp = hitDie + conMod + Math.max(0, form.level - 1) * (Math.floor(hitDie / 2) + 1 + conMod)
         return (
           <div className="derived-row">

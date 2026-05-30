@@ -19,6 +19,7 @@ export function useCombatPageActions({
   moveMode,
   helpMode = false,
   isProcessing,
+  setIsProcessing,
   canActThisTurn,
   selectedTarget,
   entities = {},
@@ -179,6 +180,53 @@ export function useCombatPageActions({
     setTurnState,
   ])
 
+  const handleInspectTarget = useCallback(async (skill = 'investigation') => {
+    if (!selectedTarget || !playerId) return false
+    const target = entities?.[selectedTarget]
+    if (!target?.is_enemy) {
+      setError('Select an enemy to inspect.')
+      return false
+    }
+    if (!canActThisTurn || isProcessing) {
+      setError('Inspect requires your available action.')
+      return false
+    }
+    try {
+      setIsProcessing?.(true)
+      const result = await gameApi.inspectEnemy(sessionId, {
+        character_id: playerId,
+        target_id: selectedTarget,
+        skill,
+        expected_turn_token: getCombatTurnToken(combat),
+      })
+      if (result?.combat) setCombat(result.combat)
+      if (result?.turn_state) setTurnState(result.turn_state)
+      const total = result?.check?.total
+      const dc = result?.dc
+      const outcome = result?.success ? 'success' : 'failed'
+      addLog?.('system', `Inspect ${target.name}: ${total} vs DC ${dc} (${outcome})`, 'dice')
+      return true
+    } catch (e) {
+      setError(formatCombatError(e))
+      return false
+    } finally {
+      setIsProcessing?.(false)
+    }
+  }, [
+    addLog,
+    canActThisTurn,
+    combat,
+    entities,
+    isProcessing,
+    playerId,
+    selectedTarget,
+    sessionId,
+    setCombat,
+    setError,
+    setIsProcessing,
+    setTurnState,
+  ])
+
   const handleSpellHover = useCallback((spell) => {
     if (spell && spell.aoe) {
       const preview = buildSpellAoePreview(spell)
@@ -200,6 +248,7 @@ export function useCombatPageActions({
     onSkillClick,
     handleMoveTo,
     handleHelpTarget,
+    handleInspectTarget,
     handleSpellHover,
   }
 }

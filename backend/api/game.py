@@ -11,11 +11,13 @@
 """
 from fastapi import APIRouter
 
-from api.game_routes import actions, campaign, checks, sessions
+from api.game_routes import actions, campaign, checks, encounters, loot, sessions
 from schemas.game_requests import (
     AITakeoverRequest,
+    ClaimLootRequest,
     CreateSessionRequest,
     PlayerActionRequest,
+    SelectEncounterTemplateRequest,
     SkillCheckRequest,
 )
 from services.game_action_source_service import (
@@ -40,6 +42,8 @@ router.include_router(sessions.router)
 router.include_router(actions.router)
 router.include_router(checks.router)
 router.include_router(campaign.router)
+router.include_router(loot.router)
+router.include_router(encounters.router)
 
 create_session = sessions.create_session
 list_sessions = sessions.list_sessions
@@ -52,6 +56,9 @@ generate_journal = campaign.generate_journal
 save_checkpoint = campaign.save_checkpoint
 get_checkpoint = campaign.get_checkpoint
 take_rest = campaign.take_rest
+get_session_loot = loot.get_session_loot
+claim_session_loot = loot.claim_session_loot
+select_session_encounter_template = encounters.select_session_encounter_template
 
 __all__ = [
     "router",
@@ -59,6 +66,8 @@ __all__ = [
     "PlayerActionRequest",
     "SkillCheckRequest",
     "AITakeoverRequest",
+    "ClaimLootRequest",
+    "SelectEncounterTemplateRequest",
     "_choice_text",
     "_normalize_action_source",
     "_apply_multiplayer_room_decision",
@@ -80,4 +89,7 @@ __all__ = [
     "save_checkpoint",
     "get_checkpoint",
     "take_rest",
+    "get_session_loot",
+    "claim_session_loot",
+    "select_session_encounter_template",
 ]

@@ -36,6 +36,127 @@ async def test_buy_item_deducts_gold_and_adds_gear(client, db_session, sample_us
 
 
 @pytest.mark.asyncio
+async def test_shop_inventory_and_buy_use_location_price_modifier(
+    client, db_session, sample_user, sample_session, sample_character,
+):
+    sample_session.game_state = {
+        "location_graph": {
+            "current_location_id": "town_market",
+            "nodes": [{"id": "town_market", "name": "Town Market"}],
+        }
+    }
+    sample_character.session_id = sample_session.id
+    sample_character.equipment = {"gold": 45, "gear": []}
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    inventory_response = await client.get(
+        f"/characters/shop/inventory?character_id={sample_character.id}",
+        headers=headers,
+    )
+
+    assert inventory_response.status_code == 200, inventory_response.text
+    inventory = inventory_response.json()
+    assert inventory["pricing"]["profile"] == "market"
+    assert inventory["gear"]["Healing Potion"]["base_cost"] == 50
+    assert inventory["gear"]["Healing Potion"]["cost"] == 45
+
+    buy_response = await client.post(
+        f"/characters/{sample_character.id}/shop/buy",
+        headers=headers,
+        json={
+            "item_name": "Healing Potion",
+            "item_category": "gear",
+            "quantity": 1,
+        },
+    )
+
+    assert buy_response.status_code == 200, buy_response.text
+    data = buy_response.json()
+    assert data["cost"] == 45
+    assert data["price_modifier"] == 0.9
+    assert data["gold_remaining"] == 0
+    assert [item["name"] for item in data["equipment"]["gear"]] == ["Healing Potion"]
+
+
+@pytest.mark.asyncio
+async def test_sell_item_uses_scarce_location_sell_rate(
+    client, db_session, sample_user, sample_session, sample_character,
+):
+    sample_session.game_state = {
+        "location_graph": {
+            "current_location_id": "old_mine",
+            "nodes": [{"id": "old_mine", "name": "Old Mine"}],
+        }
+    }
+    sample_character.session_id = sample_session.id
+    sample_character.equipment = {
+        "gold": 0,
+        "gear": [{"name": "Rope", "zh": "绳索", "cost": 10}],
+    }
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post(
+        f"/characters/{sample_character.id}/shop/sell",
+        headers=headers,
+        json={
+            "item_name": "Rope",
+            "item_category": "gear",
+            "item_index": 0,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["sell_rate"] == 0.4
+    assert data["sell_price"] == 4
+    assert data["gold_remaining"] == 4
+    assert data["equipment"]["gear"] == []
+
+
+@pytest.mark.asyncio
+async def test_scarce_location_shop_inventory_limits_stock_and_buy(
+    client, db_session, sample_user, sample_session, sample_character,
+):
+    sample_session.game_state = {
+        "location_graph": {
+            "current_location_id": "old_mine",
+            "nodes": [{"id": "old_mine", "name": "Old Mine"}],
+        }
+    }
+    sample_character.session_id = sample_session.id
+    sample_character.equipment = {"gold": 2000, "gear": [], "armor": []}
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    inventory_response = await client.get(
+        f"/characters/shop/inventory?character_id={sample_character.id}",
+        headers=headers,
+    )
+
+    assert inventory_response.status_code == 200, inventory_response.text
+    inventory = inventory_response.json()
+    assert inventory["pricing"]["stock_profile"] == "field"
+    assert "Healing Potion" in inventory["gear"]
+    assert "Torch" in inventory["gear"]
+    assert "Plate" not in inventory["armor"]
+
+    buy_response = await client.post(
+        f"/characters/{sample_character.id}/shop/buy",
+        headers=headers,
+        json={
+            "item_name": "Plate",
+            "item_category": "armor",
+            "quantity": 1,
+        },
+    )
+
+    assert buy_response.status_code == 404
+    assert "不出售" in buy_response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_buy_ammo_bundle_updates_matching_weapon_ammo(client, db_session, sample_user, sample_character):
     sample_character.equipment = {
         "gold": 5,

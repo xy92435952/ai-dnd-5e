@@ -102,3 +102,12 @@ class ManeuverRequest(BaseModel):
     maneuver_name: str
     target_id: str
 
+
+class CombatInspectRequest(BaseModel):
+    character_id: str
+    target_id: str
+    skill: str = "investigation"
+    dc: Optional[int] = None
+    d20_value: Optional[int] = None
+    second_d20_value: Optional[int] = None
+    expected_turn_token: Optional[str] = None

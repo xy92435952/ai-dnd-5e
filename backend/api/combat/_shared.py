@@ -36,6 +36,7 @@ from services.combat_turn_state_service import (
 from services.combat_turn_limits_service import (
     calculate_entity_turn_limits as _calc_entity_turn_limits,
 )
+from services.enemy_inspect_service import build_enemy_inspect_snapshot
 from services.character_roster import CharacterRoster
 
 svc = CombatService()
@@ -84,6 +85,8 @@ async def _build_combat_snapshot(
     db: AsyncSession,
     session: Session,
     combat: CombatState,
+    *,
+    viewer_character_id: str | None = None,
 ) -> dict:
     """Return the full combat payload consumed by HTTP and realtime clients."""
     state = session.game_state or {}
@@ -118,7 +121,7 @@ async def _build_combat_snapshot(
         derived = enemy.get("derived") or {}
         hp_max = derived.get("hp_max", enemy.get("hp_max", 10))
         ac = derived.get("ac", enemy.get("ac", 10))
-        entities[str(enemy_id)] = {
+        enemy_snapshot = {
             "id": str(enemy_id),
             "name": enemy.get("name", "Enemy"),
             "is_player": False,
@@ -130,6 +133,11 @@ async def _build_combat_snapshot(
             "condition_durations": enemy.get("condition_durations", {}),
             "derived": {**derived, "hp_max": hp_max, "ac": ac},
         }
+        enemy_snapshot.update(build_enemy_inspect_snapshot(
+            enemy,
+            viewer_character_id=viewer_character_id,
+        ))
+        entities[str(enemy_id)] = enemy_snapshot
 
     return {
         **serialize_combat(combat),

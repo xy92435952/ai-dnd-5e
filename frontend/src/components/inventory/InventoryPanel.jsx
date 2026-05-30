@@ -96,10 +96,14 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
 
   useEffect(() => {
     if (!shopOpen || shopInventory) return
-    charactersApi.getShopInventory()
+    charactersApi.getShopInventory(character?.id)
       .then(setShopInventory)
       .catch(e => onError?.(e.message))
-  }, [onError, shopInventory, shopOpen])
+  }, [character?.id, onError, shopInventory, shopOpen])
+
+  useEffect(() => {
+    setShopInventory(null)
+  }, [character?.id])
 
   const applyResult = (payload) => {
     onCharacterChange?.(mergeCharacterInventory(character, payload))
@@ -245,6 +249,7 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
           shop={shop}
           tab={shopTab}
           onTab={setShopTab}
+          pricing={shopInventory?.pricing}
           gold={equipment.gold ?? 0}
           busyKey={busyKey}
           onBuy={buyItem}
@@ -402,15 +407,34 @@ function InventoryRow({
   )
 }
 
-function ShopPanel({ shop, tab, onTab, gold, busyKey, onBuy }) {
+function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
   const tabItems = [
     ['gear', '消耗品/工具'],
     ['weapons', '武器'],
     ['armor', '护甲'],
   ]
   const items = shop[tab] || []
+  const hasDynamicPricing = pricing && pricing.profile && pricing.profile !== 'standard'
   return (
     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--wood)' }}>
+      {pricing && (
+        <div
+          aria-label="Shop pricing"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginBottom: 10,
+            color: hasDynamicPricing ? 'var(--gold)' : 'var(--text-dim)',
+            fontSize: 10,
+          }}
+        >
+          <span>{pricing.label || '标准价格'}</span>
+          <span>买入 x{pricing.buy_multiplier ?? 1}</span>
+          <span>卖出 {Math.round((pricing.sell_rate ?? 0.5) * 100)}%</span>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
         {tabItems.map(([key, label]) => (
           <button
@@ -438,7 +462,12 @@ function ShopPanel({ shop, tab, onTab, gold, busyKey, onBuy }) {
                 {item.description || item.damage || (item.ac != null ? `AC ${item.ac}` : CATEGORY_LABEL[item.category])}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                <span style={{ color: affordable ? 'var(--gold)' : 'var(--red-light)', fontSize: 11 }}>{item.cost || 0} gp</span>
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+                  <span style={{ color: affordable ? 'var(--gold)' : 'var(--red-light)', fontSize: 11 }}>{item.cost || 0} gp</span>
+                  {item.base_cost != null && item.base_cost !== item.cost && (
+                    <span style={{ color: 'var(--text-dim)', fontSize: 9 }}>原价 {item.base_cost} gp</span>
+                  )}
+                </span>
                 <button
                   type="button"
                   className="btn-ghost"

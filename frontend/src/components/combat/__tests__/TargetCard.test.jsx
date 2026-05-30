@@ -1,53 +1,88 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import TargetCard from '../TargetCard'
 
 describe('TargetCard', () => {
-  it('shows target vitals and detailed selection preview', () => {
+  it('renders enemy inspect details with unknown gated stats', () => {
     render(
       <TargetCard
         entity={{
           id: 'enemy-1',
-          name: '训练假人',
-          hp_current: 7,
-          hp_max: 12,
-          ac: 13,
+          name: 'Veiled Stalker',
+          is_enemy: true,
+          hp_current: 11,
+          hp_max: 20,
+          ac: 14,
+          cr: '2',
+          speed: 40,
+          actions: [{ name: 'Shadow Strike' }],
         }}
-        prediction={{
-          hit_rate: 0.65,
-          crit_rate: 0.05,
-          expected_damage: 4.9,
-          damage_min: 4,
-          damage_max: 11,
-          damage_dice: '1d8+3',
-          damage_type: '钝击',
-          target_ac: 13,
-          effective_target_ac: 15,
-          cover_bonus: 2,
-          attack_bonus: 6,
-          advantage: true,
-          modifiers: ['优势', '半掩护'],
-        }}
+        prediction={null}
       />,
     )
 
-    expect(screen.getByText(/训练假人/)).toBeInTheDocument()
-    expect(screen.getByText(/HP/)).toHaveTextContent('HP 7/12 · AC 13')
-    expect(screen.getByText('命中率')).toBeInTheDocument()
-    expect(screen.getByText('65%')).toBeInTheDocument()
-    expect(screen.getByText('暴击率')).toBeInTheDocument()
-    expect(screen.getByText('5%')).toBeInTheDocument()
-    expect(screen.getByText('1d8+3 · 期望 4.9 钝击')).toBeInTheDocument()
-    expect(screen.getByText('伤害范围')).toBeInTheDocument()
-    expect(screen.getByText('4-11 钝击')).toBeInTheDocument()
-    expect(screen.getByText('13 -> 15')).toBeInTheDocument()
-    expect(screen.getByText('+2 AC')).toBeInTheDocument()
-    expect(screen.getByText('+6')).toBeInTheDocument()
-    expect(screen.getByText('优势 / 半掩护')).toBeInTheDocument()
+    const sheet = screen.getByLabelText('Enemy inspect Veiled Stalker')
+    expect(sheet).toHaveTextContent('INSPECT')
+    expect(sheet).toHaveTextContent('PARTIAL')
+    expect(within(sheet).getAllByText('Unknown').length).toBeGreaterThan(0)
+    expect(sheet).not.toHaveTextContent('Shadow Strike')
   })
 
-  it('renders nothing without a selected entity', () => {
-    const { container } = render(<TargetCard entity={null} prediction={null} />)
-    expect(container).toBeEmptyDOMElement()
+  it('renders revealed enemy stats and actions', () => {
+    render(
+      <TargetCard
+        entity={{
+          id: 'enemy-2',
+          name: 'Clockwork Sentry',
+          is_enemy: true,
+          hp_current: 22,
+          hp_max: 22,
+          ac: 14,
+          cr: '1',
+          speed: 30,
+          resistances: ['poison'],
+          condition_immunities: ['poisoned'],
+          actions: [{ name: 'Slam' }],
+          special_abilities: [{ name: 'Immutable Form' }],
+          tactics: 'Hold the gate line.',
+          identified: true,
+        }}
+        prediction={null}
+      />,
+    )
+
+    const sheet = screen.getByLabelText('Enemy inspect Clockwork Sentry')
+    expect(sheet).toHaveTextContent('IDENTIFIED')
+    expect(sheet).toHaveTextContent('poison')
+    expect(sheet).toHaveTextContent('poisoned')
+    expect(sheet).toHaveTextContent('Slam')
+    expect(sheet).toHaveTextContent('Immutable Form')
+    expect(sheet).toHaveTextContent('Hold the gate line.')
+  })
+
+  it('offers perception and investigation inspect actions when provided', () => {
+    const onInspect = vi.fn()
+    render(
+      <TargetCard
+        entity={{
+          id: 'enemy-3',
+          name: 'Masked Cultist',
+          is_enemy: true,
+          hp_current: 9,
+          hp_max: 9,
+          ac: 12,
+        }}
+        prediction={null}
+        canInspect
+        onInspect={onInspect}
+      />,
+    )
+
+    const actions = screen.getByLabelText('Inspect actions Masked Cultist')
+    fireEvent.click(within(actions).getByRole('button', { name: 'PER' }))
+    fireEvent.click(within(actions).getByRole('button', { name: 'INV' }))
+
+    expect(onInspect).toHaveBeenCalledWith('perception')
+    expect(onInspect).toHaveBeenCalledWith('investigation')
   })
 })

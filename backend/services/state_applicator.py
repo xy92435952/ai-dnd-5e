@@ -21,6 +21,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
+from models import Module
 from models.character import Character
 from models.session import Session, CombatState
 from services.campaign_delta import apply_campaign_delta, normalize_campaign_delta
@@ -31,6 +32,7 @@ from services.exploration_rules_service import (
     resolve_trap_disarm,
 )
 from services.state_apply_result import ApplyResult
+from services.location_graph_service import apply_location_update
 from services.state_log_service import append_session_history, write_game_logs
 
 logger = logging.getLogger(__name__)
@@ -169,6 +171,13 @@ class StateApplicator:
         if scene_vibe:
             gs = dict(session.game_state or {})
             gs["scene_vibe"] = scene_vibe
+            module = await self.db.get(Module, session.module_id) if session.module_id and hasattr(self.db, "get") else None
+            gs = apply_location_update(
+                gs,
+                module.parsed_content if module else {},
+                location_name=scene_vibe.get("location"),
+                location_id=scene_vibe.get("location_id"),
+            )
             session.game_state = gs
             flag_modified(session, "game_state")
 

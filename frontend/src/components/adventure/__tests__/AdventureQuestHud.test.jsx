@@ -8,6 +8,22 @@ describe('AdventureQuestHud', () => {
       <AdventureQuestHud
         questLine={{ quest: '调查暗门', status: 'active' }}
         clues={[{ text: '暗门在井底', category: 'location', is_new: true }]}
+        locationGraph={{
+          current_location_id: 'well',
+          nodes: [
+            { id: 'town', name: '矿村广场', visited: true },
+            { id: 'well', name: '矿村井口', visited: true },
+          ],
+          edges: [{ from: 'town', to: 'well', type: 'discovered' }],
+          encounter_templates: [{
+            id: 'enc_well',
+            location_id: 'well',
+            status: 'available',
+            name: 'Well Ambush',
+            difficulty_hint: 'moderate',
+            enemy_names: ['Cave Guard'],
+          }],
+        }}
         npcUpdates={[]}
         keyDecisions={[]}
         recentConsequences={[
@@ -19,6 +35,10 @@ describe('AdventureQuestHud', () => {
     )
 
     expect(screen.getByText('调查暗门')).toBeInTheDocument()
+    expect(screen.getByText(/地图/)).toBeInTheDocument()
+    expect(screen.getByText('矿村井口')).toBeInTheDocument()
+    expect(screen.getByText((_, element) => element?.textContent === '2/2')).toBeInTheDocument()
+    expect(screen.getByText('ENC 1')).toBeInTheDocument()
     expect(screen.getByText('最近')).toBeInTheDocument()
 
     const recent = screen.getByText('最近').parentElement
