@@ -12,7 +12,7 @@ from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
 from services.location_graph_service import build_location_graph_from_module, ensure_location_graph_state
 from services.loot_service import build_loot_pool_from_module, ensure_loot_state
-from services.module_content import get_module_content
+from services.module_content import get_first_scene_description, get_module_content
 from services.room_group_service import ensure_multiplayer_state
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -34,8 +34,7 @@ async def create_session(
     await _assert_session_roster_access(db, req, user_id)
 
     parsed = get_module_content(module)
-    scenes = parsed.get("scenes", [])
-    raw_scene = scenes[0]["description"] if scenes else ""
+    raw_scene = get_first_scene_description(parsed)
     dm_style = normalize_dm_style(req.dm_style)
     first_scene = await _generate_opening_with_legacy_patch(parsed, raw_scene, dm_style)
 

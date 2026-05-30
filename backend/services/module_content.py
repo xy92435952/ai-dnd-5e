@@ -29,3 +29,19 @@ def get_module_content(module: Any | None) -> dict[str, Any]:
     if module is None:
         return {}
     return normalize_module_content(getattr(module, "parsed_content", None))
+
+
+def get_first_scene_description(parsed: dict[str, Any] | None) -> str:
+    parsed = parsed or {}
+    scenes = parsed.get("scenes") if isinstance(parsed.get("scenes"), list) else []
+    if not scenes:
+        return ""
+
+    first = scenes[0]
+    if isinstance(first, dict):
+        for key in ("description", "summary", "text", "name", "title"):
+            value = first.get(key)
+            if value:
+                return str(value)
+        return ""
+    return str(first) if first is not None else ""
