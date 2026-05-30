@@ -19,6 +19,7 @@ from services.dnd_rules import (
     roll_dice,
 )
 from services.langgraph_client import langgraph_client
+from services.module_content import get_module_content
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -72,7 +73,7 @@ async def generate_journal(
         return {"journal": "还没有冒险记录可以生成日志。"}
 
     log_text = "\n".join(f"[{log.role}] {log.content}" for log in logs if log.content)
-    module_summary = (module.parsed_content or {}).get("plot_summary", "") if module else ""
+    module_summary = get_module_content(module).get("plot_summary", "")
     try:
         from langchain_core.messages import HumanMessage as _HM, SystemMessage as _SM
         from services.llm import get_llm
@@ -125,7 +126,7 @@ async def save_checkpoint(
         return {"ok": False, "message": "没有可以存档的内容"}
 
     log_text = "\n".join(f"[{log.role}] {log.content}" for log in logs if log.content)
-    module_summary = (module.parsed_content or {}).get("plot_summary", "") if module else ""
+    module_summary = get_module_content(module).get("plot_summary", "")
     try:
         new_campaign_state = await langgraph_client.generate_campaign_state(
             log_text=log_text[-4000:],

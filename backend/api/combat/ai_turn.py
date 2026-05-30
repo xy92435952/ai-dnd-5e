@@ -31,6 +31,7 @@ from schemas.ws_events import CombatUpdate
 from services.combat_legendary_action_service import refresh_legendary_actions_for_turn_start
 from services.combat_recharge_service import refresh_recharge_abilities_at_turn_start
 from services.dnd_rules import get_incapacitating_reasons, is_incapacitated
+from services.module_content import get_module_content
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -205,7 +206,7 @@ async def _ai_combat_turn_locked(
 
     # 获取模组难度
     _module = await db.get(Module, session.module_id) if session.module_id else None
-    _parsed = (_module.parsed_content or {}) if _module else {}
+    _parsed = get_module_content(_module)
     _difficulty = calc_difficulty(_parsed)
 
     # 获取战术/性格

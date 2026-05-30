@@ -10,6 +10,9 @@
   - checkpoint → campaign_state 写库
   - delete session → AI 队友被清掉、玩家保留、关联 GameLog 清掉
 """
+import json
+import uuid
+
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -217,6 +220,83 @@ async def test_session_create_writes_opening_log_and_binds_player(
     logs = res.scalars().all()
     opening_logs = [l for l in logs if l.content.startswith("[开场]")]
     assert len(opening_logs) == 1
+
+
+async def test_session_create_accepts_legacy_json_string_module_content(
+    client, db_session, sample_user, sample_module, sample_character,
+):
+    """老数据里 parsed_content 可能是 JSON 字符串，开始冒险仍应成功。"""
+    sample_module.parsed_content = json.dumps({
+        "setting": "Legacy Mine",
+        "tone": "标准冒险",
+        "plot_summary": "A compact legacy-format module.",
+        "scenes": [
+            {
+                "id": "old_mine",
+                "name": "Old Mine",
+                "description": "A scarce mine outpost waits in uneasy silence.",
+            },
+        ],
+        "key_rewards": ["25 gp"],
+        "magic_items": [],
+        "monsters": [],
+    })
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post("/game/sessions", headers=headers, json={
+        "module_id": sample_module.id,
+        "player_character_id": sample_character.id,
+        "companion_ids": [],
+        "dm_style": "classic",
+    })
+    assert r.status_code == 200, r.text
+    data = r.json()
+
+    from models import Session
+    session = await db_session.get(Session, data["session_id"])
+    assert session.game_state["dm_style"] == "classic"
+    assert session.game_state["location_graph"]["nodes"][0]["name"] == "Old Mine"
+    assert session.game_state["loot_pool"]["items"][0]["name"] == "25 gp"
+
+
+async def test_session_create_binds_ai_companions(
+    client, db_session, sample_user, sample_module, sample_character,
+):
+    """单人开始冒险时，选择的 AI 队友应绑定到新 session。"""
+    from models import Character, Session
+
+    companion = Character(
+        id=str(uuid.uuid4()),
+        is_player=False,
+        user_id=None,
+        name="AI 法师",
+        race="Elf",
+        char_class="Wizard",
+        level=1,
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 12, "cha": 10},
+        derived={"hp_max": 7, "ac": 12, "proficiency_bonus": 2},
+        hp_current=7,
+        proficient_skills=["奥秘", "调查"],
+        personality="谨慎而好奇。",
+    )
+    db_session.add(companion)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post("/game/sessions", headers=headers, json={
+        "module_id": sample_module.id,
+        "player_character_id": sample_character.id,
+        "companion_ids": [companion.id],
+        "dm_style": "classic",
+    })
+    assert r.status_code == 200, r.text
+    data = r.json()
+
+    session = await db_session.get(Session, data["session_id"])
+    await db_session.refresh(companion)
+    assert session.game_state["companion_ids"] == [companion.id]
+    assert companion.session_id == data["session_id"]
 
 
 async def test_player_action_writes_logs_and_returns_narrative(

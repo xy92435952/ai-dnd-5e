@@ -1,10 +1,12 @@
 import logging
 
+from services.module_content import get_module_content
+
 logger = logging.getLogger(__name__)
 
 
 def build_module_context(*, module, session) -> dict:
-    parsed = module.parsed_content or {}
+    parsed = get_module_content(module)
     return {
         "module_name": module.name,
         "setting": parsed.get("setting", ""),

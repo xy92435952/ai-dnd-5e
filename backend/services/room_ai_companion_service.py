@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Character, Module, Session
 from services.dnd_rules import get_effective_hp_base, get_effective_hp_max
+from services.module_content import get_module_content
 from services.room_lifecycle_service import is_game_started
 from services.room_member_service import list_members_raw
 
@@ -84,7 +85,7 @@ async def fill_with_ai_companions(
         player_race=ref_char.race,
         player_level=ref_char.level,
         party_size=need,
-        module_data=module.parsed_content or {},
+        module_data=get_module_content(module),
     )
 
     new_ids = []

@@ -11,6 +11,7 @@ from config import settings
 from services.module_parser import extract_text, get_file_type, is_allowed_file, truncate_text
 from services.langgraph_client import langgraph_client as dify_client
 from services.local_rag_uploader import rag_uploader
+from services.module_content import get_module_content, normalize_module_content
 from api.deps import assert_module_access, get_user_id
 from schemas.module_responses import ModuleListItem, ModuleDetail, ModuleUploadResponse
 
@@ -78,6 +79,7 @@ async def _parse_module_bg(module_id: str, file_path: str, file_type: str):
 
             # WF1 返回 (module_data_dict, rag_chunks_list)
             parsed, rag_chunks = await dify_client.parse_module(text)
+            parsed = normalize_module_content(parsed)
             print(f"[BG] 模组 {module_id}: parsed keys={list(parsed.keys())[:5]}, monsters={len(parsed.get('monsters',[]))}, chunks={len(rag_chunks)}", flush=True)
             logger.info(f"模组 {module_id}: AI 解析完成, parsed keys={list(parsed.keys())[:5]}, chunks={len(rag_chunks)}")
 
@@ -121,8 +123,10 @@ async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depend
     """获取当前用户的模组列表"""
     result = await db.execute(select(Module).where(Module.user_id == user_id).order_by(Module.created_at.desc()))
     modules = result.scalars().all()
-    return [
-        {
+    out = []
+    for m in modules:
+        parsed = get_module_content(m)
+        out.append({
             "id": m.id,
             "name": m.name,
             "file_type": m.file_type,
@@ -130,12 +134,11 @@ async def list_modules(db: AsyncSession = Depends(get_db), user_id: str = Depend
             "level_min": m.level_min,
             "level_max": m.level_max,
             "recommended_party_size": m.recommended_party_size,
-            "setting": (m.parsed_content or {}).get("setting", ""),
-            "tone": (m.parsed_content or {}).get("tone", ""),
+            "setting": parsed.get("setting", ""),
+            "tone": parsed.get("tone", ""),
             "created_at": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in modules
-    ]
+        })
+    return out
 
 
 @router.get("/{module_id}", response_model=ModuleDetail)
@@ -150,6 +153,7 @@ async def get_module(
     if not module:
         raise HTTPException(404, "模组不存在")
     assert_module_access(module, user_id)
+    parsed = get_module_content(module)
     return {
         "id": module.id,
         "name": module.name,
@@ -159,7 +163,7 @@ async def get_module(
         "level_min": module.level_min,
         "level_max": module.level_max,
         "recommended_party_size": module.recommended_party_size,
-        "parsed_content": module.parsed_content,
+        "parsed_content": parsed,
         "created_at": module.created_at.isoformat() if module.created_at else None,
     }
 

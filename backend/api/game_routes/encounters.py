@@ -8,6 +8,7 @@ from models import Module
 from schemas.game_requests import SelectEncounterTemplateRequest
 from services.encounter_template_service import select_encounter_template
 from services.location_graph_service import ensure_location_graph_state
+from services.module_content import get_module_content
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -24,7 +25,7 @@ async def select_session_encounter_template(
     module = await db.get(Module, session.module_id) if session.module_id else None
     game_state = ensure_location_graph_state(
         session.game_state or {},
-        module.parsed_content if module else {},
+        get_module_content(module),
     )
     try:
         updated_state, selected = select_encounter_template(game_state, req.template_id)

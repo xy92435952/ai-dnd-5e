@@ -14,6 +14,7 @@ from services.encounter_template_service import (
     select_current_encounter_template,
 )
 from services.encounter_balance_service import estimate_encounter_difficulty
+from services.module_content import get_module_content
 
 
 def build_enemy_from_module(monster: dict) -> dict:
@@ -190,7 +191,7 @@ def _resolve_initial_enemies_from_sources(
 
     encounter_template = select_current_encounter_template(
         game_state or {},
-        module.parsed_content or {},
+        get_module_content(module),
     )
     if encounter_template:
         enemies = _build_enemies_from_initial_items(
@@ -200,7 +201,7 @@ def _resolve_initial_enemies_from_sources(
         if enemies:
             return enemies, encounter_template
 
-    module_monsters = (module.parsed_content or {}).get("monsters", [])
+    module_monsters = get_module_content(module).get("monsters", [])
     for monster in module_monsters[:3]:
         enemies.append(build_enemy_from_module(monster))
 
@@ -210,9 +211,10 @@ def _resolve_initial_enemies_from_sources(
 
 def _build_enemies_from_initial_items(items: list, module: Module) -> list[dict]:
     enemies: list[dict] = []
+    parsed = get_module_content(module)
     parsed_monsters = {
         monster["name"]: monster
-        for monster in (module.parsed_content or {}).get("monsters", [])
+        for monster in parsed.get("monsters", [])
         if isinstance(monster, dict) and monster.get("name")
     }
     for item in items:

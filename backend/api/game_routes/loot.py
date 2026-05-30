@@ -13,6 +13,7 @@ from models import Character, GameLog, Module
 from schemas.game_requests import ClaimLootRequest
 from services.loot_service import LootError, claim_loot_item, ensure_loot_state
 from services.character_roster import CharacterRoster
+from services.module_content import get_module_content
 from services.session_access_service import assert_character_in_session
 
 
@@ -28,7 +29,7 @@ async def get_session_loot(
     session = await get_session_or_404(session_id, db)
     await assert_session_access(session, user_id, db)
     module = await db.get(Module, session.module_id) if session.module_id else None
-    state = ensure_loot_state(session.game_state or {}, module.parsed_content if module else {})
+    state = ensure_loot_state(session.game_state or {}, get_module_content(module))
     return state.get("loot_pool") or {"items": []}
 
 
@@ -57,7 +58,7 @@ async def claim_session_loot(
     try:
         result = claim_loot_item(
             session.game_state or {},
-            module.parsed_content if module else {},
+            get_module_content(module),
             loot_id=req.loot_id,
             character_id=character.id,
             character_name=character.name,

@@ -33,6 +33,7 @@ from services.exploration_rules_service import (
 )
 from services.state_apply_result import ApplyResult
 from services.location_graph_service import apply_location_update
+from services.module_content import get_module_content
 from services.state_log_service import append_session_history, write_game_logs
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ class StateApplicator:
             module = await self.db.get(Module, session.module_id) if session.module_id and hasattr(self.db, "get") else None
             gs = apply_location_update(
                 gs,
-                module.parsed_content if module else {},
+                get_module_content(module),
                 location_name=scene_vibe.get("location"),
                 location_id=scene_vibe.get("location_id"),
             )

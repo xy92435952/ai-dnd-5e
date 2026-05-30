@@ -8,6 +8,7 @@ from schemas.character_requests import GeneratePartyRequest
 from services.character_companion_service import build_companion_character
 from services.character_serializer import serialize_character
 from services.langgraph_client import langgraph_client
+from services.module_content import get_module_content
 
 
 async def generate_ai_party(
@@ -37,7 +38,7 @@ async def generate_ai_party(
         player_race=player.race,
         player_level=player.level,
         party_size=req.party_size,
-        module_data=module.parsed_content or {},
+        module_data=get_module_content(module),
     )
 
     companions = []

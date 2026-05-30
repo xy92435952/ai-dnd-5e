@@ -12,6 +12,7 @@ from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
 from services.location_graph_service import build_location_graph_from_module, ensure_location_graph_state
 from services.loot_service import build_loot_pool_from_module, ensure_loot_state
+from services.module_content import get_module_content
 from services.room_group_service import ensure_multiplayer_state
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -32,7 +33,7 @@ async def create_session(
     assert_module_access(module, user_id)
     await _assert_session_roster_access(db, req, user_id)
 
-    parsed = module.parsed_content or {}
+    parsed = get_module_content(module)
     scenes = parsed.get("scenes", [])
     raw_scene = scenes[0]["description"] if scenes else ""
     dm_style = normalize_dm_style(req.dm_style)
@@ -124,6 +125,7 @@ async def get_session(
             controlled_player = await db.get(Character, member.character_id) or player
     module = await db.get(Module, session.module_id) if session.module_id else None
     companions = [char_brief(character) for character in await roster.companions()]
+    parsed = get_module_content(module)
 
     log_result = await db.execute(
         select(GameLog)
@@ -134,11 +136,11 @@ async def get_session(
     logs = list(reversed(log_result.scalars().all()))
     game_state = ensure_location_graph_state(
         session.game_state or {},
-        module.parsed_content if module else {},
+        parsed,
     )
     game_state = ensure_loot_state(
         game_state,
-        module.parsed_content if module else {},
+        parsed,
     )
     return {
         "session_id": session.id,

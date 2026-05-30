@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import GameLog, Module, Session
+from services.module_content import get_module_content
 from services.room_lifecycle_service import is_game_started
 from services.room_member_service import list_members_raw
 
@@ -85,7 +86,7 @@ async def start_game(
             session.player_character_id = claimed[0].character_id
 
         module = await db.get(Module, session.module_id)
-        parsed = (module.parsed_content or {}) if module else {}
+        parsed = get_module_content(module)
         scenes = parsed.get("scenes", []) or []
         raw_scene = scenes[0]["description"] if scenes and isinstance(scenes[0], dict) else ""
         try:

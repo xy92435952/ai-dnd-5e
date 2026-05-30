@@ -16,6 +16,7 @@ from services import room_group_state_utils
 from services.dm_styles import normalize_dm_style
 from services.location_graph_service import build_location_graph_from_module
 from services.loot_service import build_loot_pool_from_module
+from services.module_content import get_module_content
 from services.room_audit_service import add_room_audit_log
 from services.room_member_service import count_members, get_member
 
@@ -54,7 +55,7 @@ async def create_room(
 
     code = await generate_unique_room_code(db)
     style_key = normalize_dm_style(dm_style)
-    parsed = module.parsed_content or {}
+    parsed = get_module_content(module)
     location_graph = build_location_graph_from_module(parsed)
     loot_pool = build_loot_pool_from_module(parsed)
     session = Session(
