@@ -340,10 +340,11 @@ Priority:
 1. P0 recovery and idempotency: duplicate submit, refresh during pending reaction, stale pending state cleanup. First slice complete for pending combat reactions and stale combat turn-token protection on high-frequency combat actions.
 2. P0/P1 multiplayer pressure: repeat the 50-user load smoke and add missing assertions from real failures.
 3. P1 combat UX: action economy display, unavailable reasons, reaction before/after HP clarity.
-4. P1 spell system: unify spell target/area/slot/upcast/condition application before adding many more spells. First slice complete for action economy: action cantrips consume action, bonus-action spells consume bonus action, and reaction spells are rejected from ordinary cast flows.
-5. P1 monster traits: multiattack, resistances, immunities, condition immunity, recharge. First slices complete for condition immunity, multiattack turn limits, Pack Tactics, damage-type Recharge action execution, cone/line/radius Recharge template targeting, breath-style Recharge multi-target damage, failed-save Recharge condition riders, Legendary Resistance against failed enemy spell/control/reaction saves, and Legendary Action resource initialization/refresh; non-condition Recharge rider effects and full legendary/lair action resolution remain.
-6. P1 exploration rules: stealth, perception, traps, rest consequences, travel/exhaustion.
-7. P2 CRPG depth: encounter templates, companion approval, branching quest state, loot economy.
+4. Combat renderer milestone: after demo-quality combat UX stabilization, evaluate the 2D-to-3D/2.5D battlefield direction captured in `docs/combat-3d-renderer-milestone.md`; keep backend rules authoritative and prototype a renderer-neutral scene model before any Unity-style rewrite.
+5. P1 spell system: unify spell target/area/slot/upcast/condition application before adding many more spells. First slice complete for action economy: action cantrips consume action, bonus-action spells consume bonus action, and reaction spells are rejected from ordinary cast flows.
+6. P1 monster traits: multiattack, resistances, immunities, condition immunity, recharge. First slices complete for condition immunity, multiattack turn limits, Pack Tactics, damage-type Recharge action execution, cone/line/radius Recharge template targeting, breath-style Recharge multi-target damage, failed-save Recharge condition riders, Legendary Resistance against failed enemy spell/control/reaction saves, and Legendary Action resource initialization/refresh; non-condition Recharge rider effects and full legendary/lair action resolution remain.
+7. P1 exploration rules: stealth, perception, traps, rest consequences, travel/exhaustion.
+8. P2 CRPG depth: encounter templates, companion approval, branching quest state, loot economy.
 
 ## Update Rules
 
