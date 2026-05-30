@@ -109,6 +109,9 @@ export default function Combat() {
   const currentTurnControllerName = room && currentTurnEntry
     ? (room.members || []).find(member => member.character_id === currentTurnEntry.character_id)?.display_name
     : ''
+  const currentTurnEntity = currentTurnEntry?.character_id
+    ? entities?.[currentTurnEntry.character_id]
+    : null
   const {
     onSkillClick,
     handleMoveTo,
@@ -171,7 +174,15 @@ export default function Combat() {
       <TurnBanner
         roundNumber={combat?.round_number || 1}
         currentTurnName={currentTurnEntry?.name}
+        currentTurnEntry={currentTurnEntry}
+        currentTurnEntity={currentTurnEntity}
+        controlledCharacter={controlledCharacter}
         combatOver={combatOver}
+        isPlayerTurn={canActThisTurn && !combatSyncBlocked}
+        isProcessing={isProcessing}
+        syncBlocked={combatSyncBlocked}
+        room={room}
+        controllerName={currentTurnControllerName}
         showThreat={showThreat}
         onToggleThreat={() => { setShowThreat(v => !v); ignoreOptionalEffect(() => JuiceAudio.click()) }}
       />

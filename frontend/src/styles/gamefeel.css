@@ -1619,10 +1619,21 @@
   width: 40%;
   background: linear-gradient(90deg, transparent, rgba(127,232,248,.25), transparent);
   animation: sweep 4s ease-in-out infinite;
+  pointer-events: none;
 }
 @keyframes sweep {
   0%,100% { transform: translateX(0); }
   50%     { transform: translateX(350%); }
+}
+.turn-banner-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 32px;
+  min-width: 0;
 }
 .turn-banner .round-tag {
   display: inline-block;
@@ -1632,8 +1643,16 @@
   color: var(--arcane-light, #5fd8e8);
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: .25em;
-  margin-right: 14px;
+  letter-spacing: 0;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.turn-banner-kicker {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 .turn-banner .active-name {
   font-family: var(--font-display);
@@ -1641,8 +1660,117 @@
   font-weight: 700;
   background: linear-gradient(180deg, #7fe8f8, #2ea8b8);
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  letter-spacing: .1em;
+  letter-spacing: 0;
   filter: drop-shadow(0 2px 4px rgba(47,168,184,.6));
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.turn-banner .combat-result {
+  margin-left: 6px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.turn-banner .combat-result.victory { color: var(--emerald-light); }
+.turn-banner .combat-result.defeat { color: var(--blood-light); }
+.turn-banner-spacer {
+  flex: 1;
+  min-width: 12px;
+}
+.turn-threat-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 76px;
+  min-height: 28px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid rgba(138,90,24,.5);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, transform .15s;
+}
+.turn-threat-toggle:hover {
+  border-color: rgba(240,200,100,.75);
+  color: var(--gold);
+  transform: translateY(-1px);
+}
+.turn-threat-toggle.active {
+  background: rgba(240,64,64,.2);
+  border-color: rgba(240,80,80,.75);
+  color: #ff9090;
+}
+.turn-threat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 9px;
+  line-height: 1;
+}
+.turn-coach {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  max-width: min(920px, calc(100vw - 32px));
+  min-height: 28px;
+  margin: 8px auto 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(127,232,248,.22);
+  background: rgba(2,8,12,.45);
+  color: rgba(231,221,199,.82);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.turn-coach-label {
+  flex: 0 0 auto;
+  color: var(--arcane-light, #5fd8e8);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+.turn-coach-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.turn-coach.active {
+  border-color: rgba(106,196,132,.45);
+  background: rgba(18,58,36,.35);
+}
+.turn-coach.active .turn-coach-label { color: var(--emerald-light); }
+.turn-coach.danger {
+  border-color: rgba(240,80,80,.45);
+  background: rgba(74,16,16,.35);
+}
+.turn-coach.danger .turn-coach-label { color: #ff9090; }
+.turn-coach.blocked,
+.turn-coach.processing {
+  border-color: rgba(240,200,100,.5);
+  background: rgba(82,58,16,.35);
+}
+.turn-coach.blocked .turn-coach-label,
+.turn-coach.processing .turn-coach-label { color: var(--gold); }
+.turn-coach.watching {
+  border-color: rgba(160,130,220,.35);
+  background: rgba(32,24,56,.32);
+}
+.turn-coach.watching .turn-coach-label { color: #b9a6ff; }
+.turn-coach.waiting {
+  border-color: rgba(138,90,24,.4);
+  background: rgba(16,12,8,.4);
 }
 
 /* 横向先攻条 */

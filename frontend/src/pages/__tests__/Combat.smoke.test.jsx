@@ -579,7 +579,7 @@ describe('Combat render smoke', () => {
     )
 
     await screen.findByText(/当前回合：Guest（Guest Hero）/)
-    expect(screen.getByText('你的回合')).toBeInTheDocument()
+    expect(screen.getAllByText('你的回合').length).toBeGreaterThan(0)
     expect(screen.getByText('R 4')).toBeInTheDocument()
     expect(screen.getByText('上一轮命中，等待反应。')).toBeInTheDocument()
 
@@ -700,7 +700,7 @@ describe('Combat render smoke', () => {
     await act(async () => {
       wsEvents.current?.({ type: 'combat_update', combat: guestTurnCombat })
     })
-    await waitFor(() => expect(screen.getByText(/你的回合/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText(/你的回合/).length).toBeGreaterThan(0))
     await waitFor(() => expect(screen.getByRole('button', { name: /结束回合/ })).not.toBeDisabled())
 
     const enemyChip = container.querySelector('.unit-chip.enemy')
