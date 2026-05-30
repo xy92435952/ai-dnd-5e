@@ -1019,12 +1019,19 @@
 }
 .companion-card {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: center;
+  align-items: stretch;
   padding: 12px;
   background: linear-gradient(180deg, rgba(40,26,14,.6), rgba(20,12,6,.8));
   border: 1px solid rgba(138,90,24,.5);
   border-radius: 6px;
+}
+.companion-card-main {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
 }
 .cc-info { min-width: 0; }
 .cc-name {
@@ -1046,6 +1053,56 @@
   font-size: 11px;
   color: var(--amber);
   margin-top: 3px;
+}
+
+.companion-details {
+  width: 100%;
+  border-top: 1px solid rgba(138,90,24,.35);
+  padding-top: 8px;
+}
+.companion-details summary {
+  cursor: pointer;
+  user-select: none;
+  list-style-position: inside;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--amber);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.companion-details summary:hover {
+  color: var(--gold);
+}
+.companion-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.companion-detail-block {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(201,168,76,.22);
+  border-radius: 5px;
+  background: rgba(8,5,3,.28);
+}
+.companion-detail-block.wide {
+  grid-column: 1 / -1;
+}
+.companion-detail-block span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--parchment-dark);
+  letter-spacing: .16em;
+  margin-bottom: 3px;
+}
+.companion-detail-block p {
+  margin: 0;
+  color: var(--parchment);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 /* ── 底部导航 ─────────────────────────── */
