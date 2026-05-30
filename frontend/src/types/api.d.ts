@@ -3205,6 +3205,8 @@ export interface components {
         SpellRollRequest: {
             /** Caster Id */
             caster_id: string;
+            /** D20 Value */
+            d20_value?: number | null;
             /** Expected Turn Token */
             expected_turn_token?: string | null;
             /**

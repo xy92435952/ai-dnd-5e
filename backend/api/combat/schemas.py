@@ -89,6 +89,7 @@ class SpellRollRequest(BaseModel):
     spell_level: int = 1
     target_id:   Optional[str]       = None
     target_ids:  Optional[list[str]] = None
+    d20_value: Optional[int] = None  # Frontend 3D dice result for spell attacks
     expected_turn_token: Optional[str] = None
 
 

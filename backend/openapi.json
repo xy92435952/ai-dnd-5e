@@ -4048,6 +4048,17 @@
             "title": "Caster Id",
             "type": "string"
           },
+          "d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "D20 Value"
+          },
           "expected_turn_token": {
             "anyOf": [
               {

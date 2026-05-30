@@ -79,6 +79,9 @@ async def confirm_pending_spell(
     is_aoe = pending["is_aoe"]
     spell_type = pending["spell_type"]
     action_cost = pending.get("action_cost", "action")
+    attack_roll = pending.get("attack_roll")
+    attack_hit = attack_roll.get("hit") if isinstance(attack_roll, dict) else None
+    is_crit = bool(attack_roll.get("is_crit")) if isinstance(attack_roll, dict) else False
 
     await collect_spell_target_names(db, target_ids, enemies, session=session)
     if spell_type == "heal":
@@ -117,6 +120,9 @@ async def confirm_pending_spell(
         spell=spell,
         damage_values=damage_values,
         spell_save_dc=spell_context["spell_save_dc"],
+        is_crit=is_crit,
+        attack_hit=attack_hit,
+        attack_roll=attack_roll,
         resolve_damage=spell_service_obj.resolve_damage,
         resolve_heal=spell_service_obj.resolve_heal,
     )
@@ -222,6 +228,7 @@ async def confirm_pending_spell(
             "heal": spell_application.result_heal,
             "aoe": spell_application.aoe_results,
             "resurrection": spell_application.resurrection_results,
+            "attack": attack_roll,
         },
         concentration_logs=spell_application.concentration_logs,
         wild_magic_logs=wild_magic_logs,

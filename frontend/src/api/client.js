@@ -176,13 +176,14 @@ export const gameApi = {
       target_ids: Array.isArray(targetIds) ? targetIds : (targetIds ? [targetIds] : []),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds, expectedTurnToken = null) =>
+  spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds, expectedTurnToken = null, d20Value = null) =>
     api.post(`/game/combat/${sessionId}/spell-roll`, {
       caster_id: casterId,
       spell_name: spellName,
       spell_level: spellLevel,
       target_id: targetId || null,
       target_ids: targetIds || [],
+      ...(d20Value != null ? { d20_value: d20Value } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   spellConfirm: (sessionId, pendingSpellId, damageValues = null) =>

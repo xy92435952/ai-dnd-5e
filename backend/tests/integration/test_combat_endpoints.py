@@ -1965,6 +1965,124 @@ async def test_spell_roll_then_confirm_applies_damage_and_consumes_slot(
     assert "pending_spell" not in confirm_data["turn_state"]
 
 
+async def test_spell_attack_roll_critical_hit_doubles_damage_dice(
+    client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    state = dict(sample_session.game_state or {})
+    state["enemies"][0]["hp_current"] = 30
+    state["enemies"][0]["derived"] = {"hp_max": 30, "ac": 15}
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    sample_character.char_class = "Wizard"
+    sample_character.cantrips = ["火焰射线"]
+    sample_character.known_spells = []
+    sample_character.spell_slots = {}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "int",
+        "spell_attack_bonus": 5,
+        "spell_save_dc": 13,
+        "ability_modifiers": {"int": 3},
+    }
+    await db_session.commit()
+
+    base_rolls = iter([{"notation": "1d10", "rolls": [8], "total": 8}])
+    crit_rolls = iter([{"notation": "1d10", "rolls": [6], "total": 6}])
+    monkeypatch.setattr(
+        "services.spell_service.roll_dice",
+        lambda _expr: next(base_rolls),
+    )
+    monkeypatch.setattr(
+        "services.dnd_rules.roll_dice",
+        lambda _expr: next(crit_rolls),
+    )
+
+    headers = await _auth_headers(client, sample_user)
+    spell_roll = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "火焰射线",
+            "spell_level": 0,
+            "target_id": "goblin-1",
+            "d20_value": 20,
+        },
+    )
+    assert spell_roll.status_code == 200, spell_roll.text
+    roll_data = spell_roll.json()
+    assert roll_data["spell_attack_required"] is True
+    assert roll_data["hit"] is True
+    assert roll_data["is_crit"] is True
+
+    confirm = await client.post(
+        f"/game/combat/{sample_session.id}/spell-confirm",
+        headers=headers,
+        json={
+            "pending_spell_id": roll_data["pending_spell_id"],
+        },
+    )
+    assert confirm.status_code == 200, confirm.text
+    data = confirm.json()
+    assert data["damage"] == 14
+    assert data["dice_detail"]["crit_extra"] == 6
+    assert data["target_new_hp"] == 16
+
+
+async def test_spell_attack_roll_miss_consumes_action_without_damage(
+    client, db_session, sample_session, sample_character, combat_state, sample_user,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    state = dict(sample_session.game_state or {})
+    state["enemies"][0]["hp_current"] = 30
+    state["enemies"][0]["derived"] = {"hp_max": 30, "ac": 25}
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    sample_character.char_class = "Wizard"
+    sample_character.cantrips = ["火焰射线"]
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "int",
+        "spell_attack_bonus": 5,
+        "ability_modifiers": {"int": 3},
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    spell_roll = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "火焰射线",
+            "spell_level": 0,
+            "target_id": "goblin-1",
+            "d20_value": 2,
+        },
+    )
+    assert spell_roll.status_code == 200, spell_roll.text
+    roll_data = spell_roll.json()
+    assert roll_data["spell_attack_required"] is True
+    assert roll_data["hit"] is False
+
+    confirm = await client.post(
+        f"/game/combat/{sample_session.id}/spell-confirm",
+        headers=headers,
+        json={"pending_spell_id": roll_data["pending_spell_id"], "damage_values": [8]},
+    )
+    assert confirm.status_code == 200, confirm.text
+    data = confirm.json()
+    assert data["damage"] == 0
+    assert data["target_new_hp"] is None
+    assert data["turn_state"]["action_used"] is True
+
+    await db_session.refresh(sample_session)
+    assert sample_session.game_state["enemies"][0]["hp_current"] == 30
+
+
 async def test_spell_roll_then_confirm_aoe_control_applies_condition_durations(
     client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):

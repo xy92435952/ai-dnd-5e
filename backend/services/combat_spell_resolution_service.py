@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable
+import re
 
 
 @dataclass
@@ -64,6 +65,85 @@ def apply_frontend_dice_override(
     return total, updated
 
 
+def _flat_damage_bonus_from_roll(roll: dict | None) -> int:
+    if not isinstance(roll, dict):
+        return 0
+    if isinstance(roll.get("bonus"), int):
+        return roll["bonus"]
+    total = 0
+    for part in roll.get("parts") or []:
+        if isinstance(part, dict) and not part.get("rolls"):
+            total += int(part.get("total", 0) or 0)
+    return total
+
+
+def spell_damage_frontend_override_bonus(dice_detail: dict | None) -> int:
+    """Return flat damage already present in the spell dice expression."""
+    if not isinstance(dice_detail, dict):
+        return 0
+    total = _flat_damage_bonus_from_roll(dice_detail.get("base_roll"))
+    for extra_roll in dice_detail.get("extra_rolls") or []:
+        total += _flat_damage_bonus_from_roll(extra_roll)
+    return total
+
+
+def _critical_dice_notation(notation: str | None) -> str | None:
+    if not notation:
+        return notation
+
+    parts = []
+    for match in re.finditer(r"([+-]?)(\d*)d(\d+)", str(notation).replace(" ", "")):
+        if match.group(1) == "-":
+            continue
+        count = int(match.group(2) or "1")
+        parts.append(f"{count}d{match.group(3)}")
+    return "+".join(parts) if parts else None
+
+
+def apply_spell_critical_damage(
+    amount: int,
+    dice_detail: dict,
+    *,
+    is_crit: bool = False,
+    roll_dice: Callable[[str], dict] | None = None,
+) -> tuple[int, dict]:
+    if not is_crit:
+        return amount, dice_detail
+    roller = roll_dice
+    if roller is None:
+        from services.dnd_rules import roll_dice as roller
+
+    updated = dict(dice_detail or {})
+    crit_rolls: list[dict] = []
+    crit_extra = 0
+
+    base_roll = updated.get("base_roll")
+    if isinstance(base_roll, dict):
+        notation = _critical_dice_notation(base_roll.get("notation"))
+        if notation:
+            crit_roll = roller(notation)
+            crit_rolls.append(crit_roll)
+            crit_extra += int(crit_roll.get("total", 0) or 0)
+
+    for extra_roll in updated.get("extra_rolls") or []:
+        if not isinstance(extra_roll, dict):
+            continue
+        notation = _critical_dice_notation(extra_roll.get("notation"))
+        if notation:
+            crit_roll = roller(notation)
+            crit_rolls.append(crit_roll)
+            crit_extra += int(crit_roll.get("total", 0) or 0)
+
+    if crit_extra <= 0:
+        return amount, updated
+
+    updated["crit_extra"] = crit_extra
+    updated["crit_rolls"] = crit_rolls
+    updated["is_crit"] = True
+    updated["total"] = amount + crit_extra
+    return amount + crit_extra, updated
+
+
 def resolve_spell_roll_amount(
     *,
     spell_type: str,
@@ -72,6 +152,8 @@ def resolve_spell_roll_amount(
     spell_mod: int,
     bonus_healing: bool,
     damage_values: list[int] | None,
+    is_crit: bool = False,
+    roll_dice: Callable[[str], dict] | None = None,
     resolve_damage: Callable[[str, int, int], tuple[int, dict]],
     resolve_heal: Callable[[str, int, int, bool], tuple[int, dict]],
 ) -> tuple[int, dict]:
@@ -82,12 +164,25 @@ def resolve_spell_roll_amount(
     else:
         return 0, {}
 
-    return apply_frontend_dice_override(
+    override_modifier = (
+        spell_damage_frontend_override_bonus(dice_detail)
+        if spell_type == "damage"
+        else spell_mod
+    )
+    amount, dice_detail = apply_frontend_dice_override(
         value=amount,
         dice_detail=dice_detail,
         damage_values=damage_values,
-        modifier=spell_mod,
+        modifier=override_modifier,
     )
+    if spell_type == "damage":
+        amount, dice_detail = apply_spell_critical_damage(
+            amount,
+            dice_detail,
+            is_crit=is_crit,
+            roll_dice=roll_dice,
+        )
+    return amount, dice_detail
 
 
 def build_spell_mechanical_narration(

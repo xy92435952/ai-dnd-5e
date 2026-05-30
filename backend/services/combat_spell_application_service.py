@@ -54,6 +54,9 @@ async def apply_confirmed_spell_effects(
     spell: dict[str, Any],
     damage_values: list[int] | None,
     spell_save_dc: int,
+    is_crit: bool = False,
+    attack_hit: bool | None = None,
+    attack_roll: dict[str, Any] | None = None,
     session=None,
     resolve_damage: Callable[[str, int, int], tuple[int, dict]],
     resolve_heal: Callable[[str, int, int, bool], tuple[int, dict]],
@@ -178,6 +181,14 @@ async def apply_confirmed_spell_effects(
 
     target_id = target_ids[0] if target_ids else None
     if spell_type == "damage" and target_id:
+        if attack_hit is False:
+            result.dice_detail = {
+                "attack_roll": attack_roll or {},
+                "hit": False,
+                "is_crit": False,
+                "total": 0,
+            }
+            return result
         result.result_damage, result.dice_detail = resolve_spell_roll_amount(
             spell_type=spell_type,
             spell_name=spell_name,
@@ -185,9 +196,13 @@ async def apply_confirmed_spell_effects(
             spell_mod=spell_mod,
             bonus_healing=bonus_healing,
             damage_values=damage_values,
+            is_crit=is_crit,
             resolve_damage=resolve_damage,
             resolve_heal=resolve_heal,
         )
+        if attack_roll is not None:
+            result.dice_detail["attack_roll"] = attack_roll
+            result.dice_detail["is_crit"] = bool(is_crit)
         save_ability = spell.get("save")
         save_result = await roll_spell_save(
             db,

@@ -7,6 +7,7 @@ import {
   getCombatTurnToken,
   getSpellCastDisabledReason,
   parseDiceNotation,
+  spellRequiresAttackRoll,
 } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
@@ -60,14 +61,39 @@ export function useCombatSpellFlow({
     setError('')
 
     try {
+      const needsSpellAttackRoll = spellRequiresAttackRoll(spell) && targetIds.length === 1
+      let spellAttackD20 = null
+      if (needsSpellAttackRoll) {
+        const attackRoll = await rollDice3D(20)
+        spellAttackD20 = attackRoll.total
+        showDice({ faces: 20, result: spellAttackD20, label: 'Spell attack' })
+      }
+
       const rollResult = await gameApi.spellRoll(
         sessionId, playerId, spell.name, level,
-        targetIds[0] || null, targetIds, getCombatTurnToken(combat),
+        targetIds[0] || null, targetIds, getCombatTurnToken(combat), spellAttackD20,
       )
 
       if (rollResult.turn_state) setTurnState(rollResult.turn_state)
 
       const targetDesc = (rollResult.targets || []).map(t => t.name).join('、') || ''
+      if (rollResult.spell_attack_required && rollResult.hit === false) {
+        const attack = rollResult.attack_roll || {}
+        addLog({
+          role: 'player',
+          content: `${spell.name}${targetDesc ? ` -> ${targetDesc}` : ''} spell attack missed (${attack.attack_total ?? '-'} vs AC${attack.target_ac ?? '-'})`,
+          log_type: 'combat',
+          dice_result: { attack: { ...attack, hit: false } },
+          rule_result: 'spell attack missed',
+        })
+        const confirmResult = await gameApi.spellConfirm(sessionId, rollResult.pending_spell_id, null)
+        if (confirmResult.turn_state) setTurnState(confirmResult.turn_state)
+        setPlayerSpellSlots(confirmResult.remaining_slots || {})
+        setSelectedTarget(null)
+        processingRef.current = false
+        setIsProcessing(false)
+        return
+      }
       const diceInfo = rollResult.damage_dice || rollResult.heal_dice || ''
       if (diceInfo) {
         addLog({

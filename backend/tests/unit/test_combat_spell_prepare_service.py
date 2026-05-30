@@ -18,7 +18,12 @@ class FakeCaster:
     conditions = []
     death_saves = {}
     spell_slots = {"1st": 1}
-    derived = {"spell_save_dc": 14}
+    derived = {
+        "spell_save_dc": 14,
+        "spell_ability": "int",
+        "spell_attack_bonus": 5,
+        "ability_modifiers": {"int": 3},
+    }
 
 
 class FakeCombat:
@@ -57,6 +62,41 @@ async def test_prepare_spell_roll_builds_cantrip_preview_without_consuming_slot(
     assert prepared.targets == [{"id": "goblin-1", "name": "哥布林"}]
     assert prepared.pending_spell["spell_name"] == "Fire Bolt"
     assert prepared.pending_spell["action_cost"] == "action"
+    assert prepared.spell_attack_required is True
+    assert prepared.attack_roll_result["d20"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_prepare_spell_roll_uses_frontend_d20_for_spell_attack_crit():
+    prepared = await prepare_spell_roll(
+        FakeDb(),
+        combat_obj=None,
+        session=None,
+        caster=FakeCaster(),
+        caster_id="caster-1",
+        spell_name="Fire Bolt",
+        spell_level=0,
+        spell={
+            "level": 0,
+            "type": "damage",
+            "damage_dice": "1d10",
+            "aoe": False,
+            "range": 0,
+            "save": None,
+        },
+        target_id="goblin-1",
+        target_ids=None,
+        enemies=[{"id": "goblin-1", "name": "Goblin", "hp_current": 7, "derived": {"ac": 15}}],
+        d20_value=20,
+        default_turn_state=DEFAULT_TURN_STATE,
+        get_turn_state=lambda *_args: DEFAULT_TURN_STATE,
+        consume_slot=lambda *_args: (_ for _ in ()).throw(AssertionError("cantrip should not consume")),
+        calc_upcast_dice=lambda *_args: None,
+    )
+
+    assert prepared.attack_roll_result["hit"] is True
+    assert prepared.attack_roll_result["is_crit"] is True
+    assert prepared.pending_spell["attack_roll"]["is_crit"] is True
 
 
 @pytest.mark.asyncio

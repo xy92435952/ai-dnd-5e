@@ -1,6 +1,12 @@
 from dataclasses import dataclass
 from typing import Callable
 
+AUTO_HIT_DAMAGE_SPELLS = frozenset({
+    "magic missile",
+    "榄旀硶椋炲脊",
+    "魔法飞弹",
+})
+
 
 @dataclass
 class CombatSpellRollError(Exception):
@@ -46,10 +52,47 @@ def build_spell_ability_context(derived: dict | None) -> dict:
         if spell_ability
         else 0
     )
-    return {
+    context = {
         "spell_mod": spell_mod,
         "spell_save_dc": derived_data.get("spell_save_dc", 13),
     }
+    if "spell_attack_bonus" in derived_data or spell_ability:
+        context["spell_attack_bonus"] = derived_data.get(
+            "spell_attack_bonus",
+            derived_data.get("proficiency_bonus", 0) + spell_mod,
+        )
+    return context
+
+
+def _spell_names(spell_name: str, spell: dict | None) -> set[str]:
+    names = {str(spell_name or "").strip().lower()}
+    for key in ("name", "name_en"):
+        value = (spell or {}).get(key)
+        if value:
+            names.add(str(value).strip().lower())
+    return names
+
+
+def spell_requires_attack_roll(spell_name: str, spell: dict | None) -> bool:
+    """Return True for damage spells resolved with a spell attack roll."""
+    spell = spell or {}
+    if spell.get("type") != "damage":
+        return False
+    if spell.get("save"):
+        return False
+    return not bool(_spell_names(spell_name, spell) & AUTO_HIT_DAMAGE_SPELLS)
+
+
+def spell_attack_is_ranged(spell: dict | None) -> bool:
+    """Treat explicit melee spell attacks as close attacks; everything else is ranged."""
+    spell = spell or {}
+    text = " ".join(str(spell.get(key) or "") for key in ("name", "name_en", "desc")).lower()
+    if "melee spell attack" in text or "近战法术攻击" in text or "杩戞垬娉曟湳鏀诲嚮" in text:
+        return False
+    try:
+        return int(spell.get("range", 0) or 0) > 1
+    except (TypeError, ValueError):
+        return True
 
 
 def build_spell_roll_preview(

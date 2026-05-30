@@ -14,8 +14,9 @@ def build_pending_spell(
     is_aoe: bool,
     spell_type: str,
     action_cost: str = "action",
+    attack_roll: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    pending = {
         "pending_spell_id": str(uuid.uuid4()),
         "caster_id": caster_id,
         "spell_name": spell_name,
@@ -26,6 +27,11 @@ def build_pending_spell(
         "spell_type": spell_type,
         "action_cost": action_cost,
     }
+    if attack_roll is not None:
+        pending["attack_roll"] = attack_roll
+        pending["hit"] = bool(attack_roll.get("hit"))
+        pending["is_crit"] = bool(attack_roll.get("is_crit"))
+    return pending
 
 
 def find_pending_spell(turn_states: dict[str, Any], pending_spell_id: str):

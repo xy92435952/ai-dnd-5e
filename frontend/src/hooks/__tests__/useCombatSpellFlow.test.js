@@ -89,6 +89,7 @@ describe('useCombatSpellFlow', () => {
       'enemy-1',
       ['enemy-1'],
       '1:0:char-1',
+      null,
     )
     expect(addLog).toHaveBeenCalledWith({
       role: 'system',
@@ -128,6 +129,75 @@ describe('useCombatSpellFlow', () => {
     expect(setSelectedTarget).toHaveBeenCalledWith(null)
     expect(processingRef.current).toBe(false)
     expect(setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
+  it('rolls a d20 before confirming a spell attack and passes the crit context through the backend flow', async () => {
+    spellRollMock.mockResolvedValueOnce({
+      pending_spell_id: 'pending-fire-bolt',
+      damage_dice: '1d10',
+      spell_attack_required: true,
+      hit: true,
+      is_crit: true,
+      attack_roll: {
+        d20: 20,
+        attack_total: 25,
+        target_ac: 15,
+        hit: true,
+        is_crit: true,
+      },
+      targets: [{ id: 'enemy-1', name: 'Training Dummy' }],
+      turn_state: { action_used: false },
+    })
+    rollDice3DMock
+      .mockResolvedValueOnce({ total: 20, rolls: [20] })
+      .mockResolvedValueOnce({ total: 8, rolls: [8] })
+
+    const processingRef = { current: false }
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'char-1',
+      selectedTarget: 'enemy-1',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice: vi.fn(),
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'char-1', id: 'char-1' }],
+      },
+    }))
+
+    await act(async () => {
+      await result.current({ name: 'Fire Bolt', name_en: 'Fire Bolt', type: 'damage' }, 0)
+    })
+
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20)
+    expect(spellRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'Fire Bolt',
+      0,
+      'enemy-1',
+      ['enemy-1'],
+      '1:0:char-1',
+      20,
+    )
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200)
+    })
+
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(2, 10, 1)
+    expect(spellConfirmMock).toHaveBeenCalledWith('sess-1', 'pending-fire-bolt', [8])
   })
 
   it('merges resurrection result state from spell confirmation', async () => {
@@ -276,6 +346,7 @@ describe('useCombatSpellFlow', () => {
       'wizard-1',
       ['wizard-1', 'goblin-1', 'goblin-2'],
       '2:0:wizard-1',
+      null,
     )
   })
 

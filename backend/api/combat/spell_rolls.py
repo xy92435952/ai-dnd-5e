@@ -84,6 +84,7 @@ async def spell_roll(
             target_id=req.target_id,
             target_ids=req.target_ids,
             enemies=list((session.game_state or {}).get("enemies", [])),
+            d20_value=req.d20_value,
             default_turn_state=_DEFAULT_TS,
             get_turn_state=_get_ts,
             consume_slot=spell_service.consume_slot,
@@ -119,6 +120,10 @@ async def spell_roll(
         "targets": prepared.targets,
         "pending_spell_id": prepared.pending_spell["pending_spell_id"],
         "turn_state": prepared.turn_state,
+        "spell_attack_required": prepared.spell_attack_required,
+        "attack_roll": prepared.attack_roll_result,
+        "hit": prepared.attack_roll_result.get("hit") if prepared.attack_roll_result else None,
+        "is_crit": prepared.attack_roll_result.get("is_crit") if prepared.attack_roll_result else None,
     }
 
 

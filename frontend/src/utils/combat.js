@@ -834,6 +834,19 @@ export function spellNameMatches(spell, targetName) {
   return !!target && [spell?.name, spell?.name_en].some(name => normalizeSpellKey(name) === target)
 }
 
+const AUTO_HIT_DAMAGE_SPELL_KEYS = new Set([
+  normalizeSpellKey('Magic Missile'),
+  normalizeSpellKey('魔法飞弹'),
+  normalizeSpellKey('榄旀硶椋炲脊'),
+])
+
+export function spellRequiresAttackRoll(spell = {}) {
+  if (String(spell?.type || '').toLowerCase() !== 'damage') return false
+  if (spell?.save) return false
+  const keys = [spell?.name, spell?.name_en].map(normalizeSpellKey).filter(Boolean)
+  return !keys.some(key => AUTO_HIT_DAMAGE_SPELL_KEYS.has(key))
+}
+
 /**
  * 后端技能栏为空时使用本地兜底。
  */

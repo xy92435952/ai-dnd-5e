@@ -5,6 +5,7 @@ from services.combat_spell_roll_service import (
     build_spell_ability_context,
     build_spell_roll_preview,
     spell_action_cost,
+    spell_requires_attack_roll,
     validate_spell_turn_state,
 )
 
@@ -73,4 +74,21 @@ def test_build_spell_ability_context_uses_spell_ability_modifier():
         "spell_save_dc": 16,
     })
 
-    assert context == {"spell_mod": 4, "spell_save_dc": 16}
+    assert context == {"spell_mod": 4, "spell_save_dc": 16, "spell_attack_bonus": 4}
+
+
+def test_build_spell_ability_context_includes_spell_attack_bonus_when_available():
+    context = build_spell_ability_context({
+        "spell_ability": "int",
+        "ability_modifiers": {"int": 3},
+        "proficiency_bonus": 2,
+        "spell_save_dc": 13,
+    })
+
+    assert context["spell_attack_bonus"] == 5
+
+
+def test_spell_requires_attack_roll_for_non_save_damage_spells_except_auto_hit():
+    assert spell_requires_attack_roll("Fire Bolt", {"type": "damage", "save": None}) is True
+    assert spell_requires_attack_roll("Sacred Flame", {"type": "damage", "save": "dex"}) is False
+    assert spell_requires_attack_roll("Magic Missile", {"type": "damage", "save": None}) is False
