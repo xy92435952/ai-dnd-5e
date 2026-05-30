@@ -12,6 +12,7 @@ from scripts.multiplayer_ws_loadtest import (
     LoadTestError,
     RoomRecord,
     UserRecord,
+    build_hold_observer,
     cleanup_rooms,
     verify_cleanup_effects,
     verify_room_access_isolation,
@@ -125,6 +126,28 @@ class FakeCleanupClient:
 
 def _user(name):
     return UserRecord(username=name, token=f"{name}-token", user_id=f"{name}-id")
+
+
+def test_build_hold_observer_exposes_browser_login_context():
+    host = _user("host")
+    room = RoomRecord(
+        session_id="session-1",
+        room_code="ABCD12",
+        host=host,
+        users=[host],
+        dm_style="classic",
+    )
+
+    observer = build_hold_observer("http://127.0.0.1:8002", room)
+
+    assert observer == {
+        "base_url": "http://127.0.0.1:8002",
+        "frontend_url": "http://127.0.0.1:3000",
+        "session_id": "session-1",
+        "room_code": "ABCD12",
+        "username": "host",
+        "password": "password",
+    }
 
 
 @pytest.mark.asyncio

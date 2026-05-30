@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.orm.exc import StaleDataError
 
 from models import Character, Session, SessionMember, User
 from services import room_group_state_utils
@@ -337,11 +338,16 @@ async def update_heartbeat(
     """更新成员的 last_seen_at（由 WebSocket 心跳调用）"""
     member = await get_member(db, session_id, user_id)
     if member:
-        member.last_seen_at = datetime.utcnow()
-        session = await db.get(Session, session_id)
-        if session:
-            _clear_offline_for_user(session, user_id)
-        await db.commit()
+        try:
+            session = await db.get(Session, session_id)
+            member.last_seen_at = datetime.utcnow()
+            if session:
+                _clear_offline_for_user(session, user_id)
+            await db.commit()
+        except StaleDataError:
+            # Room leave/cleanup can delete the member while a WS heartbeat is
+            # committing its final presence update.
+            await db.rollback()
 
 
 async def mark_offline(
@@ -352,11 +358,16 @@ async def mark_offline(
     """显式断开连接时立即把成员标记为离线。"""
     member = await get_member(db, session_id, user_id)
     if member:
-        member.last_seen_at = None
-        session = await db.get(Session, session_id)
-        if session:
-            _record_offline_for_user(session, user_id)
-        await db.commit()
+        try:
+            session = await db.get(Session, session_id)
+            member.last_seen_at = None
+            if session:
+                _record_offline_for_user(session, user_id)
+            await db.commit()
+        except StaleDataError:
+            # Room leave/cleanup can delete the member while a WS disconnect is
+            # committing its final presence update.
+            await db.rollback()
 
 
 async def list_stale_members(

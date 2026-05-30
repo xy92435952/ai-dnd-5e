@@ -25,6 +25,21 @@ python scripts/multiplayer_ws_loadtest.py `
   --prefix codex_load_YYYYMMDD_HHMM
 ```
 
+For a live browser check while the 50 WebSocket clients remain connected, add a
+short hold window:
+
+```powershell
+python scripts/multiplayer_ws_loadtest.py `
+  --base-url http://127.0.0.1:8002 `
+  --seed-sqlite-module backend/ai_trpg.db `
+  --prefix codex_load_YYYYMMDD_HHMM `
+  --hold-seconds 90
+```
+
+When the scripted checks have passed, the script prints a `phase: holding` JSON
+line with an observer username, password, room code, and session id. Log in with
+that observer account and open `/room/<session_id>` before the hold window ends.
+
 If you want to reuse an existing parsed module instead:
 
 ```powershell
@@ -61,6 +76,8 @@ The script checks that:
 - non-members cannot restore another room's game session snapshot
 - typing events broadcast only inside the sender's room
 - typing events do not echo back to the sender
+- optional `--hold-seconds` keeps rooms and sockets open for a manual browser
+  responsiveness check before cleanup
 - created test room members leave, and the rooms are dissolved at the end
 - dissolved rooms reject former-member room/session reads with 403
 - dissolved room codes reject new joins with 404

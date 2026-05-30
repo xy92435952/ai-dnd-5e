@@ -78,6 +78,19 @@ class LoadTestError(RuntimeError):
     pass
 
 
+def build_hold_observer(base_url: str, room: RoomRecord | None) -> dict[str, Any] | None:
+    if room is None:
+        return None
+    return {
+        "base_url": base_url,
+        "frontend_url": "http://127.0.0.1:3000",
+        "session_id": room.session_id,
+        "room_code": room.room_code,
+        "username": room.host.username,
+        "password": "password",
+    }
+
+
 def percentile(values: list[float], pct: float) -> float:
     if not values:
         return 0.0
@@ -1010,6 +1023,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     created_module_id: str | None = None
     seeded_module_id: str | None = None
     seed_module_cleanup: dict[str, Any] | None = None
+    hold_observer: dict[str, Any] | None = None
     started = time.perf_counter()
 
     async with httpx.AsyncClient(timeout=args.http_timeout, trust_env=args.trust_env) as client:
@@ -1075,6 +1089,18 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                 timings,
             )
             await verify_typing_isolation(ws_records, timings)
+            if args.hold_seconds > 0:
+                hold_observer = build_hold_observer(args.base_url, rooms[0] if rooms else None)
+                print(json.dumps({
+                    "phase": "holding",
+                    "hold_seconds": args.hold_seconds,
+                    "observer": hold_observer,
+                }, ensure_ascii=False), flush=True)
+                hold_started = time.perf_counter()
+                await asyncio.sleep(args.hold_seconds)
+                timings.setdefault("manual_observation_hold_ms", []).append(
+                    (time.perf_counter() - hold_started) * 1000
+                )
             ok = True
             error = None
         except Exception as exc:
@@ -1128,6 +1154,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         "module_id": module_id,
         "created_module_id": created_module_id,
         "seeded_module_id": seeded_module_id,
+        "hold_observer": hold_observer,
         "users": args.users,
         "rooms": len(rooms),
         "websockets": len(ws_records),
@@ -1166,6 +1193,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--module-poll-interval", type=float, default=1.0)
     parser.add_argument("--ws-concurrency", type=int, default=25)
     parser.add_argument("--http-timeout", type=float, default=30)
+    parser.add_argument(
+        "--hold-seconds",
+        type=float,
+        default=0,
+        help=(
+            "After the automated WS checks pass, keep rooms and sockets open for "
+            "manual/browser observation before cleanup."
+        ),
+    )
     parser.add_argument(
         "--trust-env",
         action="store_true",

@@ -2,9 +2,11 @@ from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm.exc import StaleDataError
 
 from models import Character, GameLog, SessionMember, User
 from services import room_service
+from services import room_member_service
 from services.ws_cleanup_service import cleanup_abandoned_waiting_rooms
 from services.ws_manager import ws_manager
 
@@ -26,6 +28,30 @@ class FakeWebSocket:
 
     async def close(self, code=1000, reason=None):
         self.closed.append({"code": code, "reason": reason})
+
+
+class FakePresenceDb:
+    def __init__(self):
+        self.rolled_back = False
+
+    async def get(self, *_args):
+        return None
+
+    async def commit(self):
+        raise StaleDataError("member already removed")
+
+    async def rollback(self):
+        self.rolled_back = True
+
+
+class FakeAutoflushPresenceDb(FakePresenceDb):
+    async def get(self, *_args):
+        raise StaleDataError("member already removed during autoflush")
+
+
+class FakePresenceMember:
+    def __init__(self):
+        self.last_seen_at = object()
 
 
 @pytest.mark.asyncio
@@ -233,3 +259,45 @@ async def test_mark_offline_cooldown_prevents_immediate_waiting_room_cleanup(
     await room_service.update_heartbeat(db_session, session.id, sample_user.id)
     await db_session.refresh(session)
     assert "last_offline_at_by_user_id" not in session.game_state["multiplayer"]
+
+
+@pytest.mark.asyncio
+async def test_presence_update_rolls_back_when_room_cleanup_removed_member(monkeypatch):
+    fake_member = FakePresenceMember()
+    fake_db = FakePresenceDb()
+
+    async def fake_get_member(_db, _session_id, _user_id):
+        return fake_member
+
+    monkeypatch.setattr(room_member_service, "get_member", fake_get_member)
+
+    await room_service.mark_offline(fake_db, "session-1", "user-1")
+
+    assert fake_member.last_seen_at is None
+    assert fake_db.rolled_back is True
+
+    reconnecting_member = FakePresenceMember()
+    reconnecting_db = FakePresenceDb()
+
+    async def fake_get_reconnecting_member(_db, _session_id, _user_id):
+        return reconnecting_member
+
+    monkeypatch.setattr(room_member_service, "get_member", fake_get_reconnecting_member)
+
+    await room_service.update_heartbeat(reconnecting_db, "session-1", "user-1")
+
+    assert reconnecting_member.last_seen_at is not None
+    assert reconnecting_db.rolled_back is True
+
+    autoflush_member = FakePresenceMember()
+    autoflush_db = FakeAutoflushPresenceDb()
+
+    async def fake_get_autoflush_member(_db, _session_id, _user_id):
+        return autoflush_member
+
+    monkeypatch.setattr(room_member_service, "get_member", fake_get_autoflush_member)
+
+    await room_service.mark_offline(autoflush_db, "session-1", "user-1")
+
+    assert autoflush_member.last_seen_at is not None
+    assert autoflush_db.rolled_back is True
