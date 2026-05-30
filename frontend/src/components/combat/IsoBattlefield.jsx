@@ -102,8 +102,8 @@ export default function IsoBattlefield({
   return (
     <div className="iso-battlefield">
       <div className="iso-grid" style={{
-        gridTemplateColumns: `repeat(${viewWidth}, 54px)`,
-        gridTemplateRows: `repeat(${viewHeight}, 54px)`,
+        gridTemplateColumns: `repeat(${viewWidth}, var(--combat-cell-size, 54px))`,
+        gridTemplateRows: `repeat(${viewHeight}, var(--combat-cell-size, 54px))`,
       }}>
         {Array.from({ length: viewHeight }).flatMap((_, dy) =>
           Array.from({ length: viewWidth }).map((_, dx) => renderCell(cam.x0 + dx, cam.y0 + dy))

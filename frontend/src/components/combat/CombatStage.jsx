@@ -35,7 +35,7 @@ export default function CombatStage({
   onReturn,
 }) {
   return (
-    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'grid', placeItems: 'center', padding: '20px 20px 0', minHeight: 0 }}>
+    <div className="combat-stage">
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at 30% 40%, rgba(47,168,184,.08), transparent 60%), radial-gradient(ellipse at 80% 60%, rgba(196,40,40,.1), transparent 55%)' }} />
 

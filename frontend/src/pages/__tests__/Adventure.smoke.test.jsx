@@ -138,6 +138,23 @@ describe('Adventure render smoke', () => {
     cleanup()
   })
 
+  it('单人 Adventure 不探测多人 room 接口', async () => {
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(getSessionMock).toHaveBeenCalledWith('sess-1')
+    })
+    expect(roomsGetMock).not.toHaveBeenCalled()
+
+    cleanup()
+  })
+
   it('点击带 skill_check 的选项时进入前端检定流程', async () => {
     getSessionMock.mockResolvedValue({
       ...sessionFixture,

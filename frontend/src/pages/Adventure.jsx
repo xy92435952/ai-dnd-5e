@@ -81,7 +81,6 @@ export default function Adventure() {
   const [encounterSelectingId, setEncounterSelectingId] = useState('')
 
   const { userId: myUserId } = useUser()
-  const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId)
 
   // ════════════════════════════════════════════════════════
   // hooks 顺序约定（必须严格按依赖链声明，否则 useCallback / useEffect
@@ -90,10 +89,11 @@ export default function Adventure() {
   //   2. useDialogueFlow               对话流（依赖 addLog）
   //   3. handleSessionLoaded 函数      闭包内引用下面的 hook 返回值，函数本身定义无副作用
   //   4. useAdventureSession           暴露 session / player / companions / loadSession
-  //   5. useSkillCheck                 依赖 player.id（player 来自步骤 4）
-  //   6. buildDialogueQueue            依赖 splitDmNarrative / splitCompanionReactions（纯函数）
-  //   7. onWsEvent + useWebSocket      依赖 companions / buildDialogueQueue / loadSession 等
-  //   8. 各种 useEffect                依赖 pendingCheck / dialogue 等
+  //   5. useAdventureRoom              依赖 session.is_multiplayer，避免单人局误打 room 接口
+  //   6. useSkillCheck                 依赖 player.id（player 来自步骤 4）
+  //   7. buildDialogueQueue            依赖 splitDmNarrative / splitCompanionReactions（纯函数）
+  //   8. onWsEvent + useWebSocket      依赖 companions / buildDialogueQueue / loadSession 等
+  //   9. 各种 useEffect                依赖 pendingCheck / dialogue 等
   // ════════════════════════════════════════════════════════
 
   // 2. 剧场模式
@@ -144,7 +144,12 @@ export default function Adventure() {
     onError: (e) => setError(e.message),
   })
 
-  // 5. 技能检定（依赖 player.id）
+  // 5. 多人 room 状态（只在 session 明确为多人时加载，单人 Demo 不产生 403 噪音）
+  const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId, {
+    enabled: session?.is_multiplayer === true,
+  })
+
+  // 6. 技能检定（依赖 player.id）
   const { pendingCheck, setPendingCheck, checkRolling, rollPending } = useSkillCheck({
     sessionId,
     playerId: player?.id,
@@ -152,7 +157,7 @@ export default function Adventure() {
     addLog,
   })
 
-  // 6. 把 DM 响应拼成剧场队列（HTTP 响应和 WS dm_responded 都用这个）
+  // 7. 把 DM 响应拼成剧场队列（HTTP 响应和 WS dm_responded 都用这个）
   const buildDialogueQueue = useCallback((text, options) => (
     buildDialogueQueueFromText(text, options)
   ), [])

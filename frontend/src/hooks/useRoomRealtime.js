@@ -26,12 +26,17 @@ export function mergeRealtimeRoomEvent(prev, event) {
   return prev
 }
 
-export function useRoomRealtime(sessionId, myUserId = null) {
+export function useRoomRealtime(sessionId, myUserId = null, options = {}) {
+  const { enabled = true } = options
   const [room, setRoom] = useState(null)
   const [error, setError] = useState('')
 
   const refreshRoom = useCallback(async ({ preserveOnError = false } = {}) => {
-    if (!sessionId) return null
+    if (!sessionId || !enabled) {
+      if (!preserveOnError) setRoom(null)
+      setError('')
+      return null
+    }
     try {
       const data = await roomsApi.get(sessionId)
       const normalized = normalizeRealtimeRoom(data)
@@ -45,9 +50,14 @@ export function useRoomRealtime(sessionId, myUserId = null) {
       setError(e.message || '')
       return null
     }
-  }, [sessionId])
+  }, [enabled, sessionId])
 
   useEffect(() => {
+    if (!enabled) {
+      setRoom(null)
+      setError('')
+      return undefined
+    }
     let mounted = true
     ;(async () => {
       const data = await refreshRoom()
@@ -55,7 +65,7 @@ export function useRoomRealtime(sessionId, myUserId = null) {
       setRoom(data)
     })()
     return () => { mounted = false }
-  }, [refreshRoom])
+  }, [enabled, refreshRoom])
 
   const myMember = useMemo(() => (
     (room?.members || []).find(member => member.user_id === myUserId) || null

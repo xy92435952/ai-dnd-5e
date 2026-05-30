@@ -24,9 +24,10 @@ export default function Combat() {
 
   // ── 多人联机相关 ──
   const { userId: myUserId } = useUser()
-  const { room, setRoom, refreshRoom, myCharacterId } = useCombatRoom(sessionId, myUserId)
-
   const page = useCombatPageState()
+  const { room, setRoom, refreshRoom, myCharacterId } = useCombatRoom(sessionId, myUserId, {
+    enabled: page.session?.is_multiplayer === true,
+  })
   const {
     error,
     playerId,

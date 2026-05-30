@@ -240,6 +240,7 @@ describe('Combat render smoke', () => {
     )
 
     await screen.findByText(/结束回合/)
+    expect(roomsGetMock).not.toHaveBeenCalled()
 
     const errors = errSpy.mock.calls
       .map(c => c.join(' '))
@@ -332,6 +333,7 @@ describe('Combat render smoke', () => {
     }
     const ownerSession = {
       ...sessionFixture,
+      is_multiplayer: true,
       player: {
         ...sessionFixture.player,
         id: 'guest-char',
@@ -398,6 +400,7 @@ describe('Combat render smoke', () => {
     }
     const ownerSession = {
       ...sessionFixture,
+      is_multiplayer: true,
       player: {
         ...sessionFixture.player,
         id: 'guest-char',
@@ -528,6 +531,7 @@ describe('Combat render smoke', () => {
     }
     const restoredSession = {
       ...sessionFixture,
+      is_multiplayer: true,
       player: {
         ...sessionFixture.player,
         id: 'guest-char',
@@ -641,6 +645,7 @@ describe('Combat render smoke', () => {
     }
     const guestSession = {
       ...sessionFixture,
+      is_multiplayer: true,
       player: {
         ...sessionFixture.player,
         id: 'guest-char',
@@ -683,8 +688,8 @@ describe('Combat render smoke', () => {
     }
 
     const endTurnButton = await screen.findByRole('button', { name: /结束回合/ })
-    expect(endTurnButton).toBeDisabled()
-    expect(screen.getByText(/Host 在线 · 等待其完成回合/)).toBeInTheDocument()
+    await waitFor(() => expect(endTurnButton).toBeDisabled())
+    expect(await screen.findByText(/Host 在线 · 等待其完成回合/)).toBeInTheDocument()
 
     fireEvent.click(getAttackSlot())
     expect(attackRollMock).not.toHaveBeenCalled()
@@ -762,6 +767,7 @@ describe('Combat render smoke', () => {
     }
     const guestSession = {
       ...sessionFixture,
+      is_multiplayer: true,
       player: {
         ...sessionFixture.player,
         id: 'guest-char',

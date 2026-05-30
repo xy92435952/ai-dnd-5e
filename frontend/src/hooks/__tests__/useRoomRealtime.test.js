@@ -125,6 +125,18 @@ describe('useRoomRealtime', () => {
     await waitFor(() => expect(result.current.error).toBe('not found'))
   })
 
+  it('does not probe room endpoint while realtime room loading is disabled', async () => {
+    const { result } = renderHook(() => useRoomRealtime('solo-1', 'u1', { enabled: false }))
+
+    await act(async () => {
+      await result.current.refreshRoom()
+    })
+
+    expect(roomsGetMock).not.toHaveBeenCalled()
+    expect(result.current.room).toBeNull()
+    expect(result.current.error).toBe('')
+  })
+
   it('can preserve the previous room snapshot on transient refresh errors', async () => {
     roomsGetMock.mockResolvedValueOnce({
       is_multiplayer: true,
