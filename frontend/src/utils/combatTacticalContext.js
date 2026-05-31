@@ -17,6 +17,7 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
   const terrain = featureLabels(template.terrain)
   const cover = featureLabels(template.cover)
   const hazards = featureLabels(template.hazards)
+  const detailGroups = buildDetailGroups({ objectives, terrain, cover, hazards, counts })
 
   const title = String(template.name || session?.module_name || 'Encounter')
   const difficulty = String(encounterBalance.difficulty || templateBalance.estimated_difficulty || '')
@@ -50,6 +51,7 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
     terrain,
     cover,
     hazards,
+    detailGroups,
     counts,
   }
 }
@@ -72,6 +74,33 @@ function featureLabels(values) {
     .map(featureLabel)
     .filter(Boolean)
     .slice(0, 4)
+}
+
+function buildDetailGroups({ objectives, terrain, cover, hazards, counts }) {
+  return [
+    detailGroup('objective', 'OBJ', objectives, counts.objective, 'Mapped objective'),
+    detailGroup('cover', 'COV', cover, counts.cover, 'Mapped cover'),
+    detailGroup('terrain', 'TER', terrain, counts.difficult, 'Difficult terrain'),
+    detailGroup('hazard', 'HZD', hazards, counts.hazard, 'Mapped hazard'),
+  ].filter(Boolean)
+}
+
+function detailGroup(key, label, items = [], count = 0, fallback = '') {
+  const visibleItems = items.slice(0, 3)
+  const valueParts = visibleItems.length ? visibleItems : (count ? [fallback] : [])
+  if (!valueParts.length) return null
+
+  const extraItems = Math.max(items.length - visibleItems.length, 0)
+  const meta = []
+  if (extraItems > 0) meta.push(`+${extraItems}`)
+  if (count > 0) meta.push(`${count} ${count === 1 ? 'cell' : 'cells'}`)
+
+  return {
+    key,
+    label,
+    value: [valueParts.join(' / '), ...meta].join(' · '),
+    title: items.length ? items.join(' / ') : fallback,
+  }
 }
 
 function featureLabel(value) {

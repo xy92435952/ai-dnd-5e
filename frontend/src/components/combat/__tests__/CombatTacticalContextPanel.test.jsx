@@ -16,6 +16,12 @@ describe('CombatTacticalContextPanel', () => {
           terrain: ['oil slick'],
           cover: ['altar'],
           hazards: ['fire jet'],
+          detailGroups: [
+            { key: 'objective', label: 'OBJ', value: 'Seal the rift · 1 cell', title: 'Seal the rift' },
+            { key: 'cover', label: 'COV', value: 'altar · 1 cell', title: 'altar' },
+            { key: 'terrain', label: 'TER', value: 'oil slick · 1 cell', title: 'oil slick' },
+            { key: 'hazard', label: 'HZD', value: 'fire jet · 1 cell', title: 'fire jet' },
+          ],
           counts: { cover: 1, difficult: 1, hazard: 1, objective: 1 },
         }}
       />,
@@ -27,6 +33,10 @@ describe('CombatTacticalContextPanel', () => {
     expect(screen.getByText('altar / oil slick')).toBeTruthy()
     expect(screen.getByText('fire jet')).toBeTruthy()
     expect(screen.getByText('HARD / target medium')).toBeTruthy()
+    expect(screen.getByLabelText('Tactical feature details')).toBeTruthy()
+    expect(screen.getByText('altar · 1 cell')).toBeTruthy()
+    expect(screen.getByText('oil slick · 1 cell')).toBeTruthy()
+    expect(screen.getByText('fire jet · 1 cell')).toBeTruthy()
     expect(screen.getByText('Difficult 1')).toBeTruthy()
     expect(screen.getByText('Staged 2')).toBeTruthy()
   })

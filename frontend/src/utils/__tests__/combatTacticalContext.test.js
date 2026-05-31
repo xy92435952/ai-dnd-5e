@@ -36,6 +36,12 @@ describe('combat tactical context', () => {
     expect(context.terrain).toEqual(['oil slick'])
     expect(context.cover).toEqual(['altar'])
     expect(context.hazards).toEqual(['fire jet'])
+    expect(context.detailGroups).toEqual([
+      { key: 'objective', label: 'OBJ', value: 'Seal the rift · 1 cell', title: 'Seal the rift' },
+      { key: 'cover', label: 'COV', value: 'altar · 1 cell', title: 'altar' },
+      { key: 'terrain', label: 'TER', value: 'oil slick · 1 cell', title: 'oil slick' },
+      { key: 'hazard', label: 'HZD', value: 'fire jet · 1 cell', title: 'fire jet' },
+    ])
     expect(context.difficulty).toBe('hard')
     expect(context.targetDifficulty).toBe('medium')
     expect(context.stagedCount).toBe(2)

@@ -24,6 +24,16 @@ export default function CombatTacticalContextPanel({ context }) {
         <ContextMetric label="HZD" value={hazard} />
         <ContextMetric label="BAL" value={balance || 'Unknown'} />
       </div>
+      {context.detailGroups?.length > 0 && (
+        <div className="tactical-context-details" aria-label="Tactical feature details">
+          {context.detailGroups.map(group => (
+            <div key={group.key} title={group.title}>
+              <span>{group.label}</span>
+              <b>{group.value}</b>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="tactical-context-pills" aria-label="Tactical counts">
         <span>Cover {context.counts?.cover || 0}</span>
         <span>Difficult {context.counts?.difficult || 0}</span>
