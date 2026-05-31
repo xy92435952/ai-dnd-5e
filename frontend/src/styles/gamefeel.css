@@ -1593,6 +1593,76 @@
 .party-slot.low .hp-micro .fill { background: linear-gradient(90deg, #f04838, #7a1010); }
 .party-slot.mid .hp-micro .fill { background: linear-gradient(90deg, #f0c864, #8a5a10); }
 
+.spell-cast-plan {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(138,90,24,.45);
+  border-radius: 6px;
+  background: rgba(10,8,6,.46);
+  color: var(--parchment-dark);
+}
+.spell-cast-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+.spell-cast-plan-head span {
+  color: var(--gold);
+}
+.spell-cast-plan-head b {
+  color: var(--parchment);
+  font-weight: 700;
+}
+.spell-cast-plan.ready {
+  border-color: rgba(106,196,132,.46);
+  background: rgba(12,34,22,.42);
+}
+.spell-cast-plan.ready .spell-cast-plan-head b { color: var(--emerald-light); }
+.spell-cast-plan.blocked {
+  border-color: rgba(240,80,80,.42);
+  background: rgba(50,14,14,.38);
+}
+.spell-cast-plan.blocked .spell-cast-plan-head b { color: #ff9090; }
+.spell-cast-plan-grid {
+  display: grid;
+  grid-template-columns: minmax(72px, max-content) minmax(0, 1fr);
+  gap: 5px 10px;
+}
+.spell-cast-plan-row {
+  display: contents;
+}
+.spell-cast-plan-row span {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.spell-cast-plan-row b {
+  min-width: 0;
+  color: var(--parchment);
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.spell-cast-plan-row.ready b { color: var(--emerald-light); }
+.spell-cast-plan-row.warning b { color: var(--gold); }
+.spell-cast-plan-row.blocked b { color: #ff9090; }
+
+@media (max-width: 520px) {
+  .spell-cast-plan-grid {
+    grid-template-columns: 1fr;
+  }
+  .spell-cast-plan-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
 /* ══════════════════════ 战斗 · 游戏化 HUD ══════════════════════ */
 
 /* 回合横幅 */

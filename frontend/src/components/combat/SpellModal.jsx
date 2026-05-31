@@ -12,12 +12,14 @@
  *   onClose      - () => void
  *   onSpellHover - (spell|null) => void  可选，用于地图上预览 AoE 半径
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SpellIcon } from '../Icons'
 import SpellModalTabs from './SpellModalTabs'
 import SpellModalList from './SpellModalList'
 import SpellModalActions from './SpellModalActions'
+import SpellCastPlan from './SpellCastPlan'
 import { getSpellCastDisabledReason, spellNameMatches } from '../../utils/combat'
+import { buildSpellCastPlan } from '../../utils/spellCastPlan'
 
 function isCantripSpell(spell, cantripNames) {
   return spell.level === 0 || (cantripNames || []).some(name => spellNameMatches(spell, name))
@@ -66,6 +68,17 @@ export default function SpellModal({
     aoeHover,
   })
   const canCast = !castDisabledReason
+  const castPlan = useMemo(() => buildSpellCastPlan({
+    spell: selectedSpell,
+    level,
+    cantrips,
+    slots,
+    selectedTarget,
+    playerId,
+    combat,
+    aoeHover,
+    disabledReason: castDisabledReason,
+  }), [aoeHover, cantrips, castDisabledReason, combat, level, playerId, selectedSpell, selectedTarget, slots])
 
   return (
     <div onClick={onClose} style={{
@@ -102,6 +115,8 @@ export default function SpellModal({
           setSelectedSpell={setSelectedSpell}
           onSpellHover={onSpellHover}
         />
+
+        <SpellCastPlan plan={castPlan} />
 
         <SpellModalActions
           canCast={canCast}

@@ -21,6 +21,7 @@ describe('SpellModal', () => {
         slots={{}}
         quickPick="火焰射线"
         selectedTarget="enemy-1"
+        combat={{ entities: { 'enemy-1': { id: 'enemy-1', name: '训练假人', hp_current: 7 } } }}
         onCast={onCast}
         onClose={vi.fn()}
         onSpellHover={onSpellHover}
@@ -30,6 +31,9 @@ describe('SpellModal', () => {
     await waitFor(() => {
       expect(onSpellHover).toHaveBeenCalledWith(fireBolt)
     })
+    expect(screen.getByRole('region', { name: '施法计划' })).toBeInTheDocument()
+    expect(screen.getByText('戏法，无需法术位')).toBeInTheDocument()
+    expect(screen.getByText('训练假人')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /施放/ }))
 
     expect(onCast).toHaveBeenCalledWith(fireBolt, 1)
@@ -144,7 +148,7 @@ describe('SpellModal', () => {
     const cast = screen.getByRole('button', { name: /^施放/ })
     expect(cast).toBeDisabled()
     expect(cast).toHaveAttribute('title', '请先选择一个目标再施法')
-    expect(screen.getByText('请先选择一个目标再施法')).toBeInTheDocument()
+    expect(screen.getAllByText('请先选择一个目标再施法').length).toBeGreaterThan(0)
 
     fireEvent.click(cast)
     expect(onCast).not.toHaveBeenCalled()
@@ -178,7 +182,7 @@ describe('SpellModal', () => {
     const cast = screen.getByRole('button', { name: /^施放/ })
     expect(cast).toBeDisabled()
     expect(cast).toHaveAttribute('title', '请先在战场上确认法术中心点')
-    expect(screen.getByText('请先在战场上确认法术中心点')).toBeInTheDocument()
+    expect(screen.getAllByText('请先在战场上确认法术中心点').length).toBeGreaterThan(0)
 
     fireEvent.click(cast)
     expect(onCast).not.toHaveBeenCalled()
@@ -218,7 +222,7 @@ describe('SpellModal', () => {
     const cast = screen.getByTitle('请选择队友或自己作为法术目标')
     expect(cast).toBeDisabled()
     expect(cast).toHaveAttribute('title', '请选择队友或自己作为法术目标')
-    expect(screen.getByText('请选择队友或自己作为法术目标')).toBeInTheDocument()
+    expect(screen.getAllByText('请选择队友或自己作为法术目标').length).toBeGreaterThan(0)
     fireEvent.click(cast)
     expect(onCast).not.toHaveBeenCalled()
   })
