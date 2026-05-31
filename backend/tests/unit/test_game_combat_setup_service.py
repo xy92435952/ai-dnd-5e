@@ -173,6 +173,55 @@ async def test_init_combat_uses_current_location_encounter_template(
     assert combat.grid_data["11_6"] == "difficult"
 
 
+async def test_init_combat_uses_tuned_encounter_template_roster(
+    db_session,
+    sample_session,
+    sample_module,
+    sample_character,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from services.game_combat_setup_service import init_combat
+    from services.location_graph_service import build_location_graph_from_module
+
+    parsed = {
+        "scenes": [{
+            "title": "Goblin Yard",
+            "description": "Three goblins guard the narrow yard.",
+            "monsters": ["Goblin Scout", "Goblin Cutter", "Goblin Lookout"],
+        }],
+        "monsters": [
+            {"name": "Goblin Scout", "cr": "1/4", "xp": 50, "hp": 7, "ac": 13},
+            {"name": "Goblin Cutter", "cr": "1/4", "xp": 50, "hp": 7, "ac": 13},
+            {"name": "Goblin Lookout", "cr": "1/4", "xp": 50, "hp": 7, "ac": 13},
+        ],
+    }
+    graph = build_location_graph_from_module(parsed)
+    graph["current_location_id"] = "scene_0"
+    sample_module.parsed_content = parsed
+    sample_session.game_state = {"location_graph": graph}
+    flag_modified(sample_module, "parsed_content")
+    flag_modified(sample_session, "game_state")
+
+    await init_combat(
+        session=sample_session,
+        initial_enemies=[],
+        characters=[sample_character],
+        module=sample_module,
+        db=db_session,
+    )
+
+    assert [enemy["name"] for enemy in sample_session.game_state["enemies"]] == ["Goblin Scout"]
+    assert [item["name"] for item in sample_session.game_state["last_encounter_template_staged_enemies"]] == [
+        "Goblin Cutter",
+        "Goblin Lookout",
+    ]
+    tuning = sample_session.game_state["last_encounter_template_balance"]["roster_tuning"]
+    assert tuning["strategy"] == "stage_extra_enemies"
+    assert tuning["estimated_difficulty_after_tuning"] == "hard"
+    assert sample_session.game_state["encounter_balance"]["difficulty"] == "hard"
+
+
 async def test_init_combat_prefers_selected_encounter_template(
     db_session,
     sample_session,

@@ -164,6 +164,41 @@ def test_attach_party_balance_to_template_estimates_party_fit():
     assert balanced["party_balance"]["estimate"]["party_size"] == 1
 
 
+def test_attach_party_balance_to_template_stages_extra_enemies_for_small_party():
+    template = {
+        "id": "encounter_yard_0",
+        "location_id": "yard",
+        "difficulty_hint": "moderate",
+        "initial_enemies": [
+            {"name": "Goblin Scout"},
+            {"name": "Goblin Cutter"},
+            {"name": "Goblin Lookout"},
+        ],
+    }
+    parsed = {
+        "monsters": [
+            {"name": "Goblin Scout", "cr": "1/4", "xp": 50},
+            {"name": "Goblin Cutter", "cr": "1/4", "xp": 50},
+            {"name": "Goblin Lookout", "cr": "1/4", "xp": 50},
+        ],
+    }
+
+    balanced = attach_party_balance_to_template(
+        template,
+        party=[{"id": "pc-1", "level": 1}],
+        parsed=parsed,
+    )
+
+    assert [item["name"] for item in balanced["balanced_initial_enemies"]] == ["Goblin Scout"]
+    assert [item["name"] for item in balanced["staged_initial_enemies"]] == [
+        "Goblin Cutter",
+        "Goblin Lookout",
+    ]
+    tuning = balanced["party_balance"]["roster_tuning"]
+    assert tuning["strategy"] == "stage_extra_enemies"
+    assert tuning["estimated_difficulty_after_tuning"] == "hard"
+
+
 def test_select_encounter_template_prefers_selected_available_template():
     state = {
         "location_graph": {

@@ -164,12 +164,23 @@ def attach_party_balance_to_template(
     )
     target = _target_difficulty(template)
     recommendation = _balance_recommendation(estimate.get("difficulty"), target)
+    roster_tuning = _tune_initial_enemy_roster(template, party, parsed or {}, target)
     template["party_balance"] = {
         "target_difficulty": target,
         "estimated_difficulty": estimate.get("difficulty"),
         "recommended_adjustment": recommendation,
         "estimate": estimate,
     }
+    if roster_tuning:
+        template["balanced_initial_enemies"] = roster_tuning["active_initial_enemies"]
+        template["staged_initial_enemies"] = roster_tuning["staged_initial_enemies"]
+        template["party_balance"]["roster_tuning"] = {
+            "strategy": roster_tuning["strategy"],
+            "active_count": len(roster_tuning["active_initial_enemies"]),
+            "staged_count": len(roster_tuning["staged_initial_enemies"]),
+            "estimated_difficulty_after_tuning": roster_tuning["estimate"].get("difficulty"),
+            "estimate_after_tuning": roster_tuning["estimate"],
+        }
     return template
 
 
@@ -254,6 +265,55 @@ def _template_monsters_for_balance(
     except (TypeError, ValueError):
         xp = 0
     return [{"xp": xp}] if xp > 0 else []
+
+
+def _tune_initial_enemy_roster(
+    template: dict[str, Any],
+    party: list[dict[str, Any]],
+    parsed: dict[str, Any],
+    target: str,
+) -> dict[str, Any] | None:
+    initial_items = list(template.get("initial_enemies") or [])
+    if len(initial_items) <= 1:
+        return None
+
+    target_rank = DIFFICULTY_RANK.get(target, DIFFICULTY_RANK["medium"])
+    max_rank = min(DIFFICULTY_RANK["deadly"] - 1, target_rank + 1)
+    active: list[Any] = []
+    staged: list[Any] = []
+
+    for item in initial_items:
+        candidate = [*active, item]
+        estimate = estimate_encounter_difficulty(
+            party,
+            _template_monsters_for_items(candidate, parsed),
+        )
+        candidate_rank = DIFFICULTY_RANK.get(str(estimate.get("difficulty") or "none"), 0)
+        if not active or candidate_rank <= max_rank:
+            active.append(item)
+        else:
+            staged.append(item)
+
+    if not staged:
+        return None
+
+    tuned_estimate = estimate_encounter_difficulty(
+        party,
+        _template_monsters_for_items(active, parsed),
+    )
+    return {
+        "strategy": "stage_extra_enemies",
+        "active_initial_enemies": active,
+        "staged_initial_enemies": staged,
+        "estimate": tuned_estimate,
+    }
+
+
+def _template_monsters_for_items(
+    items: list[Any],
+    parsed: dict[str, Any],
+) -> list[dict[str, Any]]:
+    return _template_monsters_for_balance({"initial_enemies": items}, parsed)
 
 
 def _target_difficulty(template: dict[str, Any]) -> str:
