@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSpellRuleBadges } from '../spellRuleBadges'
+import { buildSpellRuleBadges, buildSpellRulePreview } from '../spellRuleBadges'
 
 describe('buildSpellRuleBadges', () => {
   it('summarizes aoe save concentration spells', () => {
@@ -29,5 +29,22 @@ describe('buildSpellRuleBadges', () => {
       target_type: 'enemy',
       desc: 'Make a ranged spell attack.',
     }, { isCantrip: true })).toContainEqual({ key: 'attack', label: 'Attack roll' })
+  })
+
+  it('previews spell effect, resolution, and timing before selection', () => {
+    expect(buildSpellRulePreview({
+      name: 'Fireball',
+      level: 3,
+      type: 'damage',
+      damage: '8d6',
+      save: 'dex',
+      half_on_save: true,
+      casting_time: '1 action',
+      range: '150 ft',
+    })).toEqual([
+      { key: 'effect', label: 'Effect', value: 'Damage 8d6' },
+      { key: 'resolve', label: 'Resolve', value: 'DEX save · half on save' },
+      { key: 'timing', label: 'Timing', value: '1 action · Range 150 ft' },
+    ])
   })
 })

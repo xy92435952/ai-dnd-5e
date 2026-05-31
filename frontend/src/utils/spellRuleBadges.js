@@ -26,6 +26,22 @@ export function buildSpellRuleBadges(spell = {}, { isCantrip = false } = {}) {
   return dedupeBadges(badges).slice(0, 6)
 }
 
+export function buildSpellRulePreview(spell = {}) {
+  if (!spell) return []
+
+  const rows = []
+  const effect = effectPreview(spell)
+  if (effect) rows.push({ key: 'effect', label: 'Effect', value: effect })
+
+  const resolve = resolvePreview(spell)
+  if (resolve) rows.push({ key: 'resolve', label: 'Resolve', value: resolve })
+
+  const timing = timingPreview(spell)
+  if (timing) rows.push({ key: 'timing', label: 'Timing', value: timing })
+
+  return rows.slice(0, 3)
+}
+
 function targetLabel(spell = {}) {
   const raw = String(spell.target_type || spell.targetType || spell.target || spell.targets || '').toLowerCase()
   if (!raw) return ''
@@ -41,6 +57,42 @@ function requiresAttackRoll(spell = {}) {
   const text = `${spell.name || ''} ${spell.name_en || ''} ${spell.desc || ''} ${spell.description || ''}`.toLowerCase()
   if (/spell attack|ranged attack|melee attack|法术攻击|远程攻击|近战攻击/.test(text)) return true
   return String(spell.type || '').toLowerCase() === 'damage' && !spell.aoe
+}
+
+function effectPreview(spell = {}) {
+  if (spell.damage) return `Damage ${spell.damage}`
+  if (spell.heal) return `Heal ${spell.heal}`
+  const conditions = Array.isArray(spell.conditions) ? spell.conditions.join('/') : spell.condition || spell.conditions
+  if (conditions) return `Condition ${conditions}`
+  const type = String(spell.type || '').trim()
+  return type ? capitalize(type) : ''
+}
+
+function resolvePreview(spell = {}) {
+  const save = spell.save || spell.saving_throw || spell.save_ability
+  if (save) {
+    return `${String(save).toUpperCase()} save${spell.half_on_save ? ' · half on save' : ''}`
+  }
+  if (requiresAttackRoll(spell)) return 'Spell attack roll'
+  if (spell.aoe) return 'Confirm area before cast'
+  return ''
+}
+
+function timingPreview(spell = {}) {
+  const parts = [
+    spell.casting_time || spell.action_type || '',
+    spell.range ? `Range ${spell.range}` : '',
+    spell.duration ? `Duration ${spell.duration}` : '',
+  ].filter(Boolean)
+  if (spell.concentration && !parts.some(part => /concentration/i.test(String(part)))) {
+    parts.push('Concentration')
+  }
+  return parts.slice(0, 2).join(' · ')
+}
+
+function capitalize(value) {
+  const text = String(value || '')
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : ''
 }
 
 function dedupeBadges(badges) {

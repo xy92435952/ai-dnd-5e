@@ -1738,6 +1738,26 @@
   font-weight: 800;
   line-height: 1.2;
 }
+.spell-rule-preview {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+}
+.spell-rule-preview span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.spell-rule-preview b {
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 900;
+}
 
 @media (max-width: 520px) {
   .spell-cast-plan-grid {

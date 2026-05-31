@@ -1,6 +1,6 @@
 import React from 'react'
 import { SpellIcon, HeartIcon } from '../Icons'
-import { buildSpellRuleBadges } from '../../utils/spellRuleBadges'
+import { buildSpellRuleBadges, buildSpellRulePreview } from '../../utils/spellRuleBadges'
 
 export default function SpellModalList({
   level,
@@ -20,6 +20,7 @@ export default function SpellModalList({
         const isSel = selectedSpell?.name === spell.name
         const isCantrip = spell.level === 0 || cantrips?.includes(spell.name)
         const badges = buildSpellRuleBadges(spell, { isCantrip })
+        const previewRows = buildSpellRulePreview(spell)
         return (
           <div key={spell.name}
             onClick={() => setSelectedSpell(isSel ? null : spell)}
@@ -48,6 +49,16 @@ export default function SpellModalList({
             <div className="spell-rule-badges" aria-label={`${spell.name} rule tags`}>
               {badges.map(badge => <span key={`${badge.key}-${badge.label}`}>{badge.label}</span>)}
             </div>
+            {previewRows.length > 0 && (
+              <div className="spell-rule-preview" aria-label={`${spell.name} preview`}>
+                {previewRows.map(row => (
+                  <span key={row.key}>
+                    <b>{row.label}</b>
+                    {row.value}
+                  </span>
+                ))}
+              </div>
+            )}
             {spell.desc && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-dim)' }}>{spell.desc}</p>}
           </div>
         )
