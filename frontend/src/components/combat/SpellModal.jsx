@@ -49,6 +49,7 @@ export default function SpellModal({
   const cantripList = spells.filter(spell => isCantripSpell(spell, cantrips))
   const spellList   = spells.filter(s => s.level > 0 && !isCantripSpell(s, cantrips))
   const shownSpells = level === 0 ? cantripList : spellList.filter(s => s.level <= level)
+  const caster = (playerId ? combat?.entities?.[playerId] : combat?.player) || null
 
   useEffect(() => {
     if (!quickPick) return
@@ -114,6 +115,7 @@ export default function SpellModal({
           level={level}
           shownSpells={shownSpells}
           cantrips={cantrips}
+          caster={caster}
           selectedSpell={selectedSpell}
           setSelectedSpell={setSelectedSpell}
           onSpellHover={onSpellHover}

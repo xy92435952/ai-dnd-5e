@@ -230,6 +230,7 @@ describe('SpellModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^3\u73af/ }))
     fireEvent.click(screen.getByText('Fireball'))
 
+    expect(screen.getByText('DEX save · DC 15 · half on save')).toBeInTheDocument()
     expect(screen.getByText('DEX save · DC 15 · success halves damage')).toBeInTheDocument()
     expect(screen.getByText('已锁定 · 中心 5, 5')).toBeInTheDocument()
     const plan = screen.getByLabelText('施法计划')

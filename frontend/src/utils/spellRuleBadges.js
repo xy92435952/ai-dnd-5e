@@ -26,14 +26,14 @@ export function buildSpellRuleBadges(spell = {}, { isCantrip = false } = {}) {
   return dedupeBadges(badges).slice(0, 6)
 }
 
-export function buildSpellRulePreview(spell = {}) {
+export function buildSpellRulePreview(spell = {}, context = {}) {
   if (!spell) return []
 
   const rows = []
   const effect = effectPreview(spell)
   if (effect) rows.push({ key: 'effect', label: 'Effect', value: effect })
 
-  const resolve = resolvePreview(spell)
+  const resolve = resolvePreview(spell, context)
   if (resolve) rows.push({ key: 'resolve', label: 'Resolve', value: resolve })
 
   const timing = timingPreview(spell)
@@ -68,12 +68,21 @@ function effectPreview(spell = {}) {
   return type ? capitalize(type) : ''
 }
 
-function resolvePreview(spell = {}) {
+function resolvePreview(spell = {}, { caster = null } = {}) {
   const save = spell.save || spell.saving_throw || spell.save_ability
+  const derived = caster?.derived || caster || {}
   if (save) {
-    return `${String(save).toUpperCase()} save${spell.half_on_save ? ' · half on save' : ''}`
+    const dc = readFiniteNumber(spell.save_dc ?? spell.dc ?? derived.spell_save_dc)
+    return [
+      `${String(save).toUpperCase()} save`,
+      dc !== null ? `DC ${dc}` : '',
+      spell.half_on_save ? 'half on save' : '',
+    ].filter(Boolean).join(' · ')
   }
-  if (requiresAttackRoll(spell)) return 'Spell attack roll'
+  if (requiresAttackRoll(spell)) {
+    const attackBonus = readFiniteNumber(spell.spell_attack_bonus ?? spell.attack_bonus ?? derived.spell_attack_bonus)
+    return attackBonus !== null ? `Spell attack roll · ${formatSignedNumber(attackBonus)}` : 'Spell attack roll'
+  }
   if (spell.aoe) return 'Confirm area before cast'
   return ''
 }
@@ -93,6 +102,16 @@ function timingPreview(spell = {}) {
 function capitalize(value) {
   const text = String(value || '')
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : ''
+}
+
+function readFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function formatSignedNumber(value) {
+  return value >= 0 ? `+${value}` : String(value)
 }
 
 function dedupeBadges(badges) {

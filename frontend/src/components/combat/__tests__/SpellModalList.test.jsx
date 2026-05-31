@@ -41,4 +41,36 @@ describe('SpellModalList', () => {
     expect(within(preview).getByText('Timing')).toBeInTheDocument()
     expect(within(preview).getByText('1 action · Range 150 ft')).toBeInTheDocument()
   })
+
+  it('shows caster DC and spell attack bonus in pre-selection previews', () => {
+    render(
+      <SpellModalList
+        level={1}
+        shownSpells={[
+          {
+            name: 'Hold Person',
+            level: 2,
+            type: 'control',
+            save: 'wis',
+            casting_time: '1 action',
+          },
+          {
+            name: 'Guiding Bolt',
+            level: 1,
+            type: 'damage',
+            desc: 'Make a ranged spell attack.',
+            casting_time: '1 action',
+          },
+        ]}
+        cantrips={[]}
+        caster={{ derived: { spell_save_dc: 15, spell_attack_bonus: 6 } }}
+        selectedSpell={null}
+        setSelectedSpell={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    expect(within(screen.getByLabelText('Hold Person preview')).getByText('WIS save · DC 15')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('Guiding Bolt preview')).getByText('Spell attack roll · +6')).toBeInTheDocument()
+  })
 })

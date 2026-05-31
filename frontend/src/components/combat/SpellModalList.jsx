@@ -6,6 +6,7 @@ export default function SpellModalList({
   level,
   shownSpells,
   cantrips,
+  caster = null,
   selectedSpell,
   setSelectedSpell,
   onSpellHover,
@@ -20,7 +21,7 @@ export default function SpellModalList({
         const isSel = selectedSpell?.name === spell.name
         const isCantrip = spell.level === 0 || cantrips?.includes(spell.name)
         const badges = buildSpellRuleBadges(spell, { isCantrip })
-        const previewRows = buildSpellRulePreview(spell)
+        const previewRows = buildSpellRulePreview(spell, { caster })
         return (
           <div key={spell.name}
             onClick={() => setSelectedSpell(isSel ? null : spell)}

@@ -47,4 +47,25 @@ describe('buildSpellRuleBadges', () => {
       { key: 'timing', label: 'Timing', value: '1 action · Range 150 ft' },
     ])
   })
+
+  it('includes caster DC and spell attack bonus when available', () => {
+    expect(buildSpellRulePreview({
+      name: 'Hold Person',
+      level: 2,
+      type: 'control',
+      save: 'wis',
+      casting_time: '1 action',
+    }, {
+      caster: { derived: { spell_save_dc: 15 } },
+    })).toContainEqual({ key: 'resolve', label: 'Resolve', value: 'WIS save · DC 15' })
+
+    expect(buildSpellRulePreview({
+      name: 'Guiding Bolt',
+      level: 1,
+      type: 'damage',
+      desc: 'Make a ranged spell attack.',
+    }, {
+      caster: { derived: { spell_attack_bonus: 6 } },
+    })).toContainEqual({ key: 'resolve', label: 'Resolve', value: 'Spell attack roll · +6' })
+  })
 })
