@@ -197,3 +197,40 @@ async def test_state_applicator_preserves_scenario_memory_across_several_turns()
     ]
     assert "Captain Mira admits" in session.session_history
     assert "moon-sigil opens the stair" in session.session_history
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_tags_location_exit_choices_after_apply():
+    session = Session(
+        id="session-location-choice",
+        module_id="module-1",
+        game_state={
+            "location_graph": {
+                "version": 1,
+                "current_location_id": "gate",
+                "nodes": [
+                    {"id": "gate", "name": "Gatehouse", "visited": True},
+                    {"id": "yard", "name": "Training Yard", "visited": False},
+                ],
+                "edges": [{"from": "gate", "to": "yard", "type": "sequence"}],
+            },
+        },
+        campaign_state={},
+    )
+    applicator = StateApplicator(FakeDb())
+
+    applied = await applicator.apply(
+        session,
+        json.dumps({
+            "action_type": "movement",
+            "narrative": "The gate opens toward the practice yard.",
+            "needs_check": {"required": False},
+            "state_delta": {},
+            "player_choices": ["Go to the Training Yard"],
+        }),
+        characters=[],
+    )
+
+    assert applied.player_choices[0]["text"] == "Go to the Training Yard"
+    assert applied.player_choices[0]["choice_type"] == "movement"
+    assert applied.player_choices[0]["location_exit"]["target_location_id"] == "yard"

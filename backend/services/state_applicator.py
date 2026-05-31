@@ -32,7 +32,10 @@ from services.exploration_rules_service import (
     resolve_trap_disarm,
 )
 from services.state_apply_result import ApplyResult
-from services.location_graph_service import apply_location_update
+from services.location_graph_service import (
+    apply_location_update,
+    tag_player_choices_with_location_exits,
+)
 from services.module_content import get_module_content
 from services.state_log_service import append_session_history, write_game_logs
 
@@ -194,6 +197,11 @@ class StateApplicator:
                 normalized_campaign_delta,
             )
             flag_modified(session, "campaign_state")
+
+        ar.player_choices = tag_player_choices_with_location_exits(
+            ar.player_choices,
+            session.game_state or {},
+        )
 
         # ── 写入会话历史 ──
         self._append_session_history(session, ar)

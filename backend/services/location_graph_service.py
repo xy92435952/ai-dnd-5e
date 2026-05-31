@@ -16,6 +16,12 @@ from services.encounter_template_service import attach_encounter_templates_to_gr
 
 
 LOCATION_GRAPH_VERSION = 1
+EXIT_ACTION_RE = re.compile(
+    r"(go to|head to|enter|leave|travel|move|cross|follow|approach|return|"
+    r"open|force|unlock|climb|前往|进入|离开|穿过|走向|返回|通过|推开|打开|"
+    r"撬开|强行|翻越|沿着)",
+    re.IGNORECASE,
+)
 
 
 def normalize_location_id(value: str | None, *, fallback: str = "location") -> str:
@@ -205,6 +211,35 @@ def build_location_graph_context(game_state: dict[str, Any] | None) -> dict[str,
     }
 
 
+def tag_player_choices_with_location_exits(
+    player_choices: Any,
+    game_state: dict[str, Any] | None,
+) -> list[Any]:
+    if not isinstance(player_choices, list):
+        return []
+
+    context = build_location_graph_context(game_state)
+    exits = [
+        item for item in list(context.get("exits") or [])
+        if isinstance(item, dict) and not item.get("hidden")
+    ]
+    if not exits:
+        return list(player_choices)
+
+    tagged_choices = []
+    for choice in player_choices:
+        text = _choice_text(choice)
+        if not _choice_can_be_location_exit(choice, text):
+            tagged_choices.append(choice)
+            continue
+        exit_data = _match_choice_to_exit(text, exits)
+        if not exit_data:
+            tagged_choices.append(choice)
+            continue
+        tagged_choices.append(_tag_choice_with_exit(choice, text, exit_data))
+    return tagged_choices
+
+
 def public_location_graph(graph: dict[str, Any] | None) -> dict[str, Any]:
     if not _is_valid_graph(graph):
         return {}
@@ -299,6 +334,93 @@ def _has_edge(edges: list[dict[str, Any]], source: str, target: str) -> bool:
         edge.get("from") == source and edge.get("to") == target
         for edge in edges
     )
+
+
+def _choice_text(choice: Any) -> str:
+    if isinstance(choice, str):
+        return choice.strip()
+    if isinstance(choice, dict):
+        return str(choice.get("text") or "").strip()
+    return ""
+
+
+def _choice_can_be_location_exit(choice: Any, text: str) -> bool:
+    if isinstance(choice, dict) and isinstance(choice.get("location_exit"), dict):
+        return True
+    if isinstance(choice, dict):
+        explicit = str(
+            choice.get("choice_type")
+            or choice.get("action_type")
+            or choice.get("type")
+            or choice.get("intent")
+            or ""
+        ).strip().lower()
+        if explicit in {"movement", "move", "travel", "navigation", "route"}:
+            return True
+    return bool(EXIT_ACTION_RE.search(text or ""))
+
+
+def _match_choice_to_exit(
+    choice_text: str,
+    exits: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    normalized_text = _normalize_choice_match(choice_text)
+    if not normalized_text:
+        return None
+
+    best_exit = None
+    best_score = 0
+    for exit_data in exits:
+        target_name = _normalize_choice_match(exit_data.get("name"))
+        target_id = _normalize_choice_match(exit_data.get("location_id"))
+        score = 0
+        if _usable_exit_match_token(target_name) and target_name in normalized_text:
+            score = 100 + len(target_name)
+        elif _usable_exit_match_token(target_id) and target_id in normalized_text:
+            score = 20 + len(target_id)
+        if score > best_score:
+            best_exit = exit_data
+            best_score = score
+    return best_exit
+
+
+def _tag_choice_with_exit(
+    choice: Any,
+    text: str,
+    exit_data: dict[str, Any],
+) -> dict[str, Any]:
+    tagged = dict(choice) if isinstance(choice, dict) else {"text": text}
+    tagged["text"] = str(tagged.get("text") or text)
+    if not any(tagged.get(key) for key in ("choice_type", "action_type", "type", "intent")):
+        tagged["choice_type"] = "movement"
+    tagged["location_exit"] = {
+        "target_location_id": str(exit_data.get("location_id") or ""),
+        "target_location_name": str(exit_data.get("name") or ""),
+        "route_type": str(exit_data.get("route_type") or "route"),
+        "locked": bool(exit_data.get("locked")),
+        "hidden": bool(exit_data.get("hidden")),
+        "one_way": bool(exit_data.get("one_way")),
+    }
+    tagged["tags"] = _append_location_exit_tag(tagged.get("tags"))
+    return tagged
+
+
+def _append_location_exit_tag(tags: Any) -> list[Any]:
+    normalized = list(tags) if isinstance(tags, list) else []
+    if any(
+        isinstance(tag, dict) and str(tag.get("kind") or "") == "location_exit"
+        for tag in normalized
+    ):
+        return normalized
+    return [*normalized, {"label": "Exit", "kind": "location_exit"}]
+
+
+def _normalize_choice_match(value: Any) -> str:
+    return re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff]+", "", str(value or "").lower())
+
+
+def _usable_exit_match_token(value: str) -> bool:
+    return len(value) >= 2
 
 
 def _is_public_node(node: dict[str, Any], node_id: str, current_id: str) -> bool:

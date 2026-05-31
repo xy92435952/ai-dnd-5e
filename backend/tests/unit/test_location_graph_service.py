@@ -3,6 +3,7 @@ from services.location_graph_service import (
     build_location_graph_from_module,
     ensure_location_graph_state,
     public_location_graph,
+    tag_player_choices_with_location_exits,
 )
 
 
@@ -78,3 +79,102 @@ def test_public_location_graph_hides_future_nodes_and_encounters():
     assert public["current_location_id"] == "scene_0"
     assert public["edges"] == []
     assert "encounter_templates" not in public
+
+
+def test_tag_player_choices_with_location_exits_converts_matching_strings():
+    state = {
+        "location_graph": {
+            "version": 1,
+            "current_location_id": "gate",
+            "nodes": [
+                {"id": "gate", "name": "Gatehouse", "visited": True},
+                {"id": "yard", "name": "Training Yard", "visited": False},
+            ],
+            "edges": [{"from": "gate", "to": "yard", "type": "sequence"}],
+        },
+    }
+
+    tagged = tag_player_choices_with_location_exits(
+        [
+            "Ask the guard",
+            "Ask the guard about the Training Yard",
+            "Go to the Training Yard",
+        ],
+        state,
+    )
+
+    assert tagged[0] == "Ask the guard"
+    assert tagged[1] == "Ask the guard about the Training Yard"
+    assert tagged[2]["text"] == "Go to the Training Yard"
+    assert tagged[2]["choice_type"] == "movement"
+    assert tagged[2]["location_exit"] == {
+        "target_location_id": "yard",
+        "target_location_name": "Training Yard",
+        "route_type": "sequence",
+        "locked": False,
+        "hidden": False,
+        "one_way": False,
+    }
+    assert tagged[2]["tags"] == [{"label": "Exit", "kind": "location_exit"}]
+
+
+def test_tag_player_choices_with_location_exits_preserves_existing_choice_fields():
+    state = {
+        "location_graph": {
+            "version": 1,
+            "current_location_id": "gate",
+            "nodes": [
+                {"id": "gate", "name": "Gatehouse", "visited": True},
+                {"id": "vault", "name": "Sealed Vault", "visited": False},
+            ],
+            "edges": [
+                {
+                    "from": "gate",
+                    "to": "vault",
+                    "type": "locked",
+                    "locked": True,
+                    "one_way": True,
+                },
+            ],
+        },
+    }
+
+    tagged = tag_player_choices_with_location_exits(
+        [
+            {
+                "text": "Force the Sealed Vault door",
+                "choice_type": "danger",
+                "skill_check": True,
+                "tags": [{"label": "Athletics", "kind": "athletic", "dc": 15}],
+            }
+        ],
+        state,
+    )
+
+    assert tagged[0]["choice_type"] == "danger"
+    assert tagged[0]["skill_check"] is True
+    assert tagged[0]["tags"] == [
+        {"label": "Athletics", "kind": "athletic", "dc": 15},
+        {"label": "Exit", "kind": "location_exit"},
+    ]
+    assert tagged[0]["location_exit"]["target_location_id"] == "vault"
+    assert tagged[0]["location_exit"]["locked"] is True
+    assert tagged[0]["location_exit"]["one_way"] is True
+
+
+def test_tag_player_choices_with_location_exits_does_not_expose_hidden_exits():
+    state = {
+        "location_graph": {
+            "version": 1,
+            "current_location_id": "gate",
+            "nodes": [
+                {"id": "gate", "name": "Gatehouse", "visited": True},
+                {"id": "vault", "name": "Secret Vault", "visited": False},
+            ],
+            "edges": [{"from": "gate", "to": "vault", "type": "hidden", "hidden": True}],
+        },
+    }
+
+    tagged = tag_player_choices_with_location_exits(["Go to the Secret Vault"], state)
+
+    assert tagged == ["Go to the Secret Vault"]
