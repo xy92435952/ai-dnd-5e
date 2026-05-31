@@ -8,6 +8,34 @@ const RECENT_TYPE_LABELS = {
   world: '后果',
 }
 
+const QUEST_STATUS_META = {
+  active: { label: '进行中', tone: 'active' },
+  completed: { label: '完成', tone: 'good' },
+  failed: { label: '失败', tone: 'danger' },
+  blocked: { label: '受阻', tone: 'danger' },
+  paused: { label: '暂停', tone: 'default' },
+}
+
+function cleanText(value) {
+  return String(value || '').trim()
+}
+
+function getQuestStatusMeta(questLine) {
+  const status = cleanText(questLine?.status || 'active').toLowerCase()
+  return QUEST_STATUS_META[status] || { label: questLine?.status || '记录', tone: 'default' }
+}
+
+function getQuestDetail(questLine) {
+  return [
+    questLine?.outcome,
+    questLine?.next_step,
+    questLine?.consequence,
+    questLine?.failure_consequence,
+    questLine?.fail_forward,
+    questLine?.detail,
+  ].map(cleanText).find(Boolean) || ''
+}
+
 export default function AdventureQuestHud({
   questLine,
   clues,
@@ -17,6 +45,15 @@ export default function AdventureQuestHud({
   locationGraph = null,
 }) {
   const locationSummary = getLocationGraphSummary(locationGraph)
+  const questStatus = getQuestStatusMeta(questLine)
+  const questDetail = getQuestDetail(questLine)
+  const questTitle = questLine
+    ? [
+        questLine.quest,
+        `状态：${questStatus.label}`,
+        questDetail ? `进展：${questDetail}` : '',
+      ].filter(Boolean).join('\n')
+    : ''
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
@@ -27,9 +64,22 @@ export default function AdventureQuestHud({
       overflow: 'hidden',
     }}>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>◆ 目标</span>
-      <span style={{ color: questLine ? 'var(--blood-light)' : 'var(--parchment-dark)', fontSize: 12, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span
+        title={questTitle}
+        style={{ color: questLine ? 'var(--blood-light)' : 'var(--parchment-dark)', fontSize: 12, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      >
         {questLine?.quest || '继续冒险'}
       </span>
+      {questLine && (
+        <span className={`quest-status-pill ${questStatus.tone}`} title={questTitle}>
+          {questStatus.label}
+        </span>
+      )}
+      {questDetail && (
+        <span className={`quest-outcome-snippet ${questStatus.tone}`} title={questTitle}>
+          {questDetail}
+        </span>
+      )}
       {locationSummary && (
         <>
           <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />

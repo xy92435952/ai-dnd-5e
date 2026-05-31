@@ -668,6 +668,52 @@
   min-width: 0;
   overflow: hidden;
 }
+.quest-status-pill {
+  flex: 0 0 auto;
+  max-width: 56px;
+  padding: 1px 6px;
+  border: 1px solid rgba(213,184,121,.36);
+  border-radius: 3px;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quest-status-pill.active {
+  border-color: rgba(240,208,96,.48);
+  color: var(--amber);
+}
+.quest-status-pill.good {
+  border-color: rgba(106,196,132,.5);
+  color: var(--emerald-light);
+}
+.quest-status-pill.danger {
+  border-color: rgba(240,64,64,.55);
+  color: var(--blood-light);
+}
+.quest-outcome-snippet {
+  min-width: 64px;
+  max-width: 190px;
+  color: var(--parchment-dark);
+  font-size: 11px;
+  font-family: var(--font-body);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quest-outcome-snippet.active {
+  color: var(--amber);
+}
+.quest-outcome-snippet.good {
+  color: var(--emerald-light);
+}
+.quest-outcome-snippet.danger {
+  color: var(--blood-light);
+}
 .quest-recent-item {
   display: inline-flex;
   align-items: center;

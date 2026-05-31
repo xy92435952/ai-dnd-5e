@@ -6,7 +6,7 @@ describe('AdventureQuestHud', () => {
   it('renders recent consequences and quest updates after campaign state changes', () => {
     render(
       <AdventureQuestHud
-        questLine={{ quest: '调查暗门', status: 'active' }}
+        questLine={{ quest: '调查暗门', status: 'active', next_step: '确认井底暗门是否会在月光下开启' }}
         clues={[{ text: '暗门在井底', category: 'location', is_new: true }]}
         locationGraph={{
           current_location_id: 'well',
@@ -35,6 +35,8 @@ describe('AdventureQuestHud', () => {
     )
 
     expect(screen.getByText('调查暗门')).toBeInTheDocument()
+    expect(screen.getByText('进行中')).toHaveClass('quest-status-pill', 'active')
+    expect(screen.getByText('确认井底暗门是否会在月光下开启')).toHaveClass('quest-outcome-snippet', 'active')
     expect(screen.getByText(/地图/)).toBeInTheDocument()
     expect(screen.getByText('矿村井口')).toBeInTheDocument()
     expect(screen.getByText((_, element) => element?.textContent === '2/2')).toBeInTheDocument()
@@ -48,5 +50,18 @@ describe('AdventureQuestHud', () => {
     expect(within(recent).getByText(/暗门在井底：location/)).toHaveClass('quest-recent-item', 'clue')
     expect(within(recent).getByText('决定')).toBeInTheDocument()
     expect(within(recent).getByText(/信任铁匠：关键决定/)).toHaveClass('quest-recent-item', 'decision')
+  })
+
+  it('surfaces failed quest outcomes as immediate fail-forward context', () => {
+    render(
+      <AdventureQuestHud
+        questLine={{ quest: '守住营地', status: 'failed', outcome: '狼群冲破外圈，幸存者退入旧矿道。' }}
+        clues={[]}
+      />,
+    )
+
+    expect(screen.getByText('守住营地')).toBeInTheDocument()
+    expect(screen.getByText('失败')).toHaveClass('quest-status-pill', 'danger')
+    expect(screen.getByText('狼群冲破外圈，幸存者退入旧矿道。')).toHaveClass('quest-outcome-snippet', 'danger')
   })
 })

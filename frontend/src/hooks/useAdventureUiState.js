@@ -80,12 +80,19 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
       : []
   ), [session])
 
+  const questLine = useMemo(() => {
+    const quests = Array.isArray(session?.campaign_state?.quest_log)
+      ? session.campaign_state.quest_log.filter(q => q?.quest)
+      : []
+    return quests.find(q => String(q.status || '').toLowerCase() === 'active') || quests[quests.length - 1]
+  }, [session])
+
   return {
     canPrepareSpells,
     sceneVibe: session?.game_state?.scene_vibe || {},
     locationGraph: session?.game_state?.location_graph || null,
     clues: (session?.campaign_state?.clues || []).slice(-4),
-    questLine: session?.campaign_state?.quest_log?.find(q => q.status === 'active'),
+    questLine,
     npcUpdates,
     keyDecisions,
     recentConsequences,

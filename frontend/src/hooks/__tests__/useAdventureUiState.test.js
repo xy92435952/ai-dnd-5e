@@ -83,4 +83,25 @@ describe('useAdventureDerivedState', () => {
     ])
     expect(result.current.latestDmLine.content).toBe('第二段')
   })
+
+  it('keeps the latest resolved quest visible when no active quest remains', () => {
+    const { result } = renderHook(() => useAdventureDerivedState({
+      session: {
+        campaign_state: {
+          quest_log: [
+            { quest: '守住营地', status: 'failed', outcome: '幸存者撤入旧矿道' },
+          ],
+        },
+      },
+      player: null,
+      companions: [],
+      logs: [],
+    }))
+
+    expect(result.current.questLine).toEqual({
+      quest: '守住营地',
+      status: 'failed',
+      outcome: '幸存者撤入旧矿道',
+    })
+  })
 })
