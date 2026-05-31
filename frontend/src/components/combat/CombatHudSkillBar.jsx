@@ -2,6 +2,7 @@ import React from 'react'
 import { JuiceAudio } from '../../juice'
 import { SKILL_INFO } from '../../data/combat'
 import { buildCombatPreviewRows, getSkillUnavailableReason } from '../../utils/combat'
+import { buildCombatRuleTags } from '../../utils/combatRuleTags'
 
 const SKILL_KIND_LABELS = {
   attack: '攻击',
@@ -38,6 +39,9 @@ export default function CombatHudSkillBar({
             player: session?.player,
             target: selectedTargetEntity,
           })
+          const ruleTags = canUsePrediction
+            ? buildCombatRuleTags(prediction, selectedTargetEntity)
+            : []
           const info = SKILL_INFO[s.k] || {}
           const unavailableReason = getSkillUnavailableReason({
             skill: s,
@@ -70,6 +74,13 @@ export default function CombatHudSkillBar({
                     {' · '}{s.cost || '—'}
                     {unavailableReason && <span style={{ color: '#f47070', marginLeft: 6 }}>{unavailableReason}</span>}
                   </div>
+                  {ruleTags.length > 0 && (
+                    <div className="skill-rule-tags" aria-label={`${s.label} attack rule tags`}>
+                      {ruleTags.map(tag => (
+                        <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
+                      ))}
+                    </div>
+                  )}
                   {stats && stats.length > 0 && stats.map((r, ri) => (
                     <div key={ri} className={`t-row ${r.tone || ''}`}>
                       <span>{r.label}</span>

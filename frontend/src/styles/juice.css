@@ -321,6 +321,42 @@
 .skill-tooltip .t-row b { color: #7fe8f8; font-weight: 700; }
 .skill-tooltip .t-row.good b { color: #8aeaa0; }
 .skill-tooltip .t-row.bad b { color: #f09090; }
+.skill-rule-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+.skill-rule-tags span {
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: rgba(232, 200, 160, .72);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-rule-tags span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}
+.skill-rule-tags span.warning {
+  border-color: rgba(240,208,96,.32);
+  background: rgba(240,208,96,.08);
+  color: var(--gold, #f0d060);
+}
+.skill-rule-tags span.bad {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(240,64,64,.1);
+  color: #f09090;
+}
 .skill-tooltip .t-desc {
   font-style: italic;
   color: rgba(232, 200, 160, .78);
