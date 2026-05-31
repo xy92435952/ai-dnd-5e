@@ -178,9 +178,54 @@ def test_attach_party_balance_to_template_estimates_party_fit():
     assert balanced["party_balance"]["target_difficulty"] == "medium"
     assert balanced["party_balance"]["estimated_difficulty"] == "deadly"
     assert balanced["party_balance"]["action_adjusted_difficulty"] == "deadly"
+    assert balanced["party_balance"]["environment_adjusted_difficulty"] == "deadly"
+    assert balanced["party_balance"]["environment_pressure"]["pressure"] == "none"
     assert balanced["party_balance"]["recommended_adjustment"] == "reduce_or_stage_enemies"
     assert balanced["party_balance"]["estimate"]["party_size"] == 1
     assert balanced["party_balance"]["estimate"]["action_economy"]["pressure"] == "even"
+
+
+def test_attach_party_balance_to_template_records_environment_pressure():
+    template = {
+        "id": "encounter_rune_hall_0",
+        "location_id": "rune_hall",
+        "difficulty_hint": "light",
+        "initial_enemies": [{"name": "Bandit"}],
+        "terrain": [{"name": "oil slick", "terrain": "difficult", "cells": ["12_5"]}],
+        "cover": [{"name": "altar", "cover_level": "half", "cells": ["10_5"]}],
+        "objectives": [{"name": "seal the rift", "cells": ["14_5"]}],
+        "hazards": [{
+            "name": "fire jet",
+            "damage_dice": "2d6",
+            "save_dc": 13,
+            "cells": ["13_5", {"x": 13, "y": 6}],
+        }],
+    }
+    parsed = {
+        "monsters": [
+            {"name": "Bandit", "cr": "1/8", "xp": 25},
+        ],
+    }
+
+    balanced = attach_party_balance_to_template(
+        template,
+        party=[{"id": "pc-1", "level": 1}],
+        parsed=parsed,
+    )
+
+    pressure = balanced["party_balance"]["environment_pressure"]
+    assert pressure == {
+        "pressure": "heavy",
+        "score": 7,
+        "hazards": 1,
+        "damaging_hazards": 1,
+        "objectives": 1,
+        "cover": 1,
+        "terrain": 1,
+        "authored_cells": 5,
+    }
+    assert balanced["party_balance"]["estimated_difficulty"] == "easy"
+    assert balanced["party_balance"]["environment_adjusted_difficulty"] == "medium"
 
 
 def test_attach_party_balance_to_template_stages_extra_enemies_for_small_party():

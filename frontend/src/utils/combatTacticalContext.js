@@ -21,6 +21,8 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
 
   const title = String(template.name || session?.module_name || 'Encounter')
   const difficulty = String(encounterBalance.difficulty || templateBalance.estimated_difficulty || '')
+  const environmentPressure = String(templateBalance.environment_pressure?.pressure || '')
+  const environmentAdjustedDifficulty = String(templateBalance.environment_adjusted_difficulty || '')
   const targetDifficulty = String(templateBalance.target_difficulty || '')
   const stagedCount = Number(
     rosterTuning?.staged_count
@@ -36,6 +38,7 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
       || cover.length
       || hazards.length
       || difficulty
+      || environmentPressure
       || stagedCount
       || counts.cover
       || counts.hazard
@@ -44,6 +47,8 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
     ),
     title,
     difficulty,
+    environmentPressure,
+    environmentAdjustedDifficulty,
     targetDifficulty,
     adjustedXp: encounterBalance.adjusted_xp ?? templateBalance.estimate?.adjusted_xp ?? null,
     stagedCount,

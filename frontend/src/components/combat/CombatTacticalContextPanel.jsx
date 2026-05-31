@@ -10,6 +10,7 @@ export default function CombatTacticalContextPanel({ context }) {
   const balance = compactLabel([
     context.difficulty && context.difficulty.toUpperCase(),
     context.targetDifficulty && `target ${context.targetDifficulty}`,
+    context.environmentAdjustedDifficulty && `env ${context.environmentAdjustedDifficulty}`,
   ])
 
   return (
@@ -39,6 +40,7 @@ export default function CombatTacticalContextPanel({ context }) {
         <span>Difficult {context.counts?.difficult || 0}</span>
         <span>Hazard {context.counts?.hazard || 0}</span>
         <span>Objective {context.counts?.objective || 0}</span>
+        {context.environmentPressure && <span>Env {context.environmentPressure}</span>}
         {context.stagedCount > 0 && <span>Staged {context.stagedCount}</span>}
       </div>
     </aside>

@@ -15,6 +15,7 @@ from services.encounter_balance_service import estimate_encounter_difficulty, mo
 
 
 ENCOUNTER_TEMPLATE_VERSION = 1
+DIFFICULTY_ORDER = ["none", "easy", "medium", "hard", "deadly"]
 DIFFICULTY_RANK = {"none": 0, "easy": 1, "medium": 2, "hard": 3, "deadly": 4}
 COMBAT_HINTS = {
     "ambush",
@@ -162,6 +163,7 @@ def attach_party_balance_to_template(
         party,
         _template_monsters_for_balance(template, parsed or {}),
     )
+    environment_pressure = _environment_pressure(template)
     target = _target_difficulty(template)
     recommendation = _balance_recommendation(estimate.get("difficulty"), target)
     roster_tuning = _tune_initial_enemy_roster(template, party, parsed or {}, target)
@@ -169,6 +171,11 @@ def attach_party_balance_to_template(
         "target_difficulty": target,
         "estimated_difficulty": estimate.get("difficulty"),
         "action_adjusted_difficulty": estimate.get("difficulty_with_action_economy"),
+        "environment_adjusted_difficulty": _environment_adjusted_difficulty(
+            estimate.get("difficulty_with_action_economy"),
+            environment_pressure,
+        ),
+        "environment_pressure": environment_pressure,
         "recommended_adjustment": recommendation,
         "estimate": estimate,
     }
@@ -453,6 +460,110 @@ def _balance_recommendation(estimated: Any, target: str) -> str:
     if estimated_rank < target_rank - 1:
         return "add_minion_or_objective_pressure"
     return "ok"
+
+
+def _environment_pressure(template: dict[str, Any]) -> dict[str, Any]:
+    hazards = _feature_values(template.get("hazards"))
+    objectives = _feature_values(template.get("objectives"))
+    cover = _feature_values(template.get("cover"))
+    terrain = [
+        item for item in _feature_values(template.get("terrain"))
+        if _normalize(_feature_name(item)) not in {"open ground", "open"}
+    ]
+    authored_cells = sum(_feature_cell_count(item) for item in [*hazards, *objectives, *cover, *terrain])
+    damaging_hazards = sum(1 for item in hazards if _is_damaging_hazard(item))
+
+    score = (
+        len(hazards) * 2
+        + damaging_hazards
+        + len(objectives)
+        + min(len(cover) + len(terrain), 3)
+        + min(authored_cells // 3, 2)
+    )
+    if score <= 0:
+        pressure = "none"
+    elif score <= 2:
+        pressure = "light"
+    elif score <= 5:
+        pressure = "moderate"
+    else:
+        pressure = "heavy"
+
+    return {
+        "pressure": pressure,
+        "score": score,
+        "hazards": len(hazards),
+        "damaging_hazards": damaging_hazards,
+        "objectives": len(objectives),
+        "cover": len(cover),
+        "terrain": len(terrain),
+        "authored_cells": authored_cells,
+    }
+
+
+def _environment_adjusted_difficulty(difficulty: Any, environment_pressure: dict[str, Any]) -> str:
+    pressure = str(environment_pressure.get("pressure") or "none")
+    shift = 1 if pressure in {"moderate", "heavy"} else 0
+    return _shift_difficulty(str(difficulty or "none"), shift)
+
+
+def _shift_difficulty(difficulty: str, shift: int) -> str:
+    try:
+        index = DIFFICULTY_ORDER.index(str(difficulty or "none"))
+    except ValueError:
+        index = 0
+    index = max(0, min(len(DIFFICULTY_ORDER) - 1, index + shift))
+    return DIFFICULTY_ORDER[index]
+
+
+def _feature_values(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    return list(value) if isinstance(value, list) else [value]
+
+
+def _feature_name(item: Any) -> str:
+    if isinstance(item, dict):
+        return str(
+            item.get("label")
+            or item.get("name")
+            or item.get("description")
+            or item.get("terrain")
+            or item.get("type")
+            or item.get("kind")
+            or ""
+        )
+    return str(item or "")
+
+
+def _feature_cell_count(item: Any) -> int:
+    if not isinstance(item, dict):
+        return 0
+    total = 0
+    for key in ("cells", "cell", "positions", "position"):
+        value = item.get(key)
+        if not value:
+            continue
+        if isinstance(value, list):
+            total += len(value)
+        else:
+            total += 1
+    return total
+
+
+def _is_damaging_hazard(item: Any) -> bool:
+    if not isinstance(item, dict):
+        return False
+    return any(
+        item.get(key)
+        for key in (
+            "damage_dice",
+            "damage_type",
+            "save_dc",
+            "dc",
+            "saving_throw_dc",
+        )
+    )
 
 
 def _valid_monsters(parsed: dict[str, Any]) -> list[dict[str, Any]]:

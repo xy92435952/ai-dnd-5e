@@ -11,6 +11,8 @@ describe('CombatTacticalContextPanel', () => {
           title: 'Rune Hall Encounter',
           difficulty: 'hard',
           targetDifficulty: 'medium',
+          environmentPressure: 'heavy',
+          environmentAdjustedDifficulty: 'deadly',
           stagedCount: 2,
           objectives: ['Seal the rift'],
           terrain: ['oil slick'],
@@ -32,12 +34,13 @@ describe('CombatTacticalContextPanel', () => {
     expect(screen.getByText('Seal the rift')).toBeTruthy()
     expect(screen.getByText('altar / oil slick')).toBeTruthy()
     expect(screen.getByText('fire jet')).toBeTruthy()
-    expect(screen.getByText('HARD / target medium')).toBeTruthy()
+    expect(screen.getByText('HARD / target medium / env deadly')).toBeTruthy()
     expect(screen.getByLabelText('Tactical feature details')).toBeTruthy()
     expect(screen.getByText('altar · 1 cell')).toBeTruthy()
     expect(screen.getByText('oil slick · 1 cell')).toBeTruthy()
     expect(screen.getByText('fire jet · 1 cell')).toBeTruthy()
     expect(screen.getByText('Difficult 1')).toBeTruthy()
+    expect(screen.getByText('Env heavy')).toBeTruthy()
     expect(screen.getByText('Staged 2')).toBeTruthy()
   })
 

@@ -24,6 +24,8 @@ describe('combat tactical context', () => {
           encounter_balance: { difficulty: 'hard', adjusted_xp: 75 },
           last_encounter_template_balance: {
             target_difficulty: 'medium',
+            environment_adjusted_difficulty: 'deadly',
+            environment_pressure: { pressure: 'heavy' },
             roster_tuning: { staged_count: 2 },
           },
         },
@@ -44,6 +46,8 @@ describe('combat tactical context', () => {
     ])
     expect(context.difficulty).toBe('hard')
     expect(context.targetDifficulty).toBe('medium')
+    expect(context.environmentPressure).toBe('heavy')
+    expect(context.environmentAdjustedDifficulty).toBe('deadly')
     expect(context.stagedCount).toBe(2)
     expect(context.counts).toMatchObject({ cover: 1, difficult: 1, hazard: 1, objective: 1 })
   })
