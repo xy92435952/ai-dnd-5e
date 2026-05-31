@@ -195,7 +195,7 @@ describe('combat grid helpers', () => {
       max_targets: 2,
     })).toBe(2)
 
-    expect(collectSpellCastTargetIds({
+    const cappedArgs = {
       spell: {
         name: 'Mass Healing Word',
         type: 'heal',
@@ -221,7 +221,10 @@ describe('combat grid helpers', () => {
           enemy1: { id: 'enemy1', is_enemy: true, hp_current: 7 },
         },
       },
-    })).toEqual(['player', 'ally1'])
+    }
+
+    expect(collectSpellCastTargetIds(cappedArgs)).toEqual(['player', 'ally1'])
+    expect(collectSpellCastTargetIds({ ...cappedArgs, ignoreTargetCap: true })).toEqual(['player', 'ally1', 'ally2', 'ally3'])
   })
 
   it('getSpellCastDisabledReason blocks invalid target types and empty AoE cells before submit', () => {

@@ -271,6 +271,7 @@ export function collectSpellCastTargetIds({
   combat = null,
   aoeHover = null,
   level = spell?.level ?? 0,
+  ignoreTargetCap = false,
 } = {}) {
   if (!spell) return []
   if (!spell.aoe) {
@@ -303,7 +304,7 @@ export function collectSpellCastTargetIds({
     })
     .map(([entityId]) => entityId)
   const maxTargets = getSpellMaxTargets(spell, level)
-  return maxTargets ? targetIds.slice(0, maxTargets) : targetIds
+  return maxTargets && !ignoreTargetCap ? targetIds.slice(0, maxTargets) : targetIds
 }
 
 function normalizeEntityStateUpdate(targetId, update = {}) {

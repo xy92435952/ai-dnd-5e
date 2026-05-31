@@ -144,6 +144,48 @@ describe('buildSpellCastPlan', () => {
     ])
   })
 
+  it('shows AoE target caps and excluded candidates', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Mass Healing Word',
+        level: 3,
+        type: 'heal',
+        aoe: true,
+        heal: '1d4',
+        max_targets: 2,
+        desc: '30 尺范围内最多 2 个队友恢复生命值',
+      },
+      level: 3,
+      slots: { '3rd': 1 },
+      playerId: 'hero-1',
+      aoeHover: '5_5',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', name: 'Cleric', is_enemy: false, hp_current: 12 },
+          'ally-1': { id: 'ally-1', name: 'Rogue', is_enemy: false, hp_current: 8 },
+          'ally-2': { id: 'ally-2', name: 'Wizard', is_enemy: false, hp_current: 6 },
+          'ally-3': { id: 'ally-3', name: 'Fighter', is_enemy: false, hp_current: 4 },
+          'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true, hp_current: 7 },
+        },
+        entity_positions: {
+          'hero-1': { x: 5, y: 5 },
+          'ally-1': { x: 6, y: 5 },
+          'ally-2': { x: 4, y: 5 },
+          'ally-3': { x: 5, y: 6 },
+          'enemy-1': { x: 5, y: 4 },
+        },
+      },
+    })
+
+    expect(row(plan, '命中单位').value).toBe('2/2 个：Cleric、Rogue')
+    expect(row(plan, '目标上限').value).toBe('最多 2 个；排除 Wizard、Fighter')
+    expect(plan.aoeBreakdown).toMatchObject({
+      limit: 2,
+      excluded: 2,
+    })
+    expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toContain('Limit 2/2')
+  })
+
   it('marks blocked casts with the player-facing reason', () => {
     const plan = buildSpellCastPlan({
       spell: { name: 'Cure Wounds', level: 1, type: 'heal', heal: '1d8', target_type: 'ally' },

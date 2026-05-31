@@ -244,9 +244,32 @@ export function buildSpellCastPlan({
       aoeHover,
       level: castLevel || baseLevel,
     })
+    const uncappedTargetIds = collectSpellCastTargetIds({
+      spell,
+      selectedTarget,
+      playerId,
+      combat,
+      aoeHover,
+      level: castLevel || baseLevel,
+      ignoreTargetCap: true,
+    })
     const maxTargets = getSpellMaxTargets(spell, castLevel || baseLevel)
     const names = targetIds.map(id => entityName(combat, id))
+    const excludedTargetIds = uncappedTargetIds.slice(targetIds.length)
+    const excludedNames = excludedTargetIds.map(id => entityName(combat, id))
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
+    if (maxTargets) {
+      aoeBreakdown.limit = maxTargets
+      aoeBreakdown.excluded = excludedTargetIds.length
+      aoeBreakdown.chips.push({
+        key: 'target-limit',
+        label: `Limit ${targetIds.length}/${maxTargets}`,
+        tone: excludedTargetIds.length ? 'warning' : 'good',
+        title: excludedTargetIds.length
+          ? `Targets beyond the cap are excluded: ${namesTitle(excludedNames)}`
+          : 'Current targets fit within the spell target cap.',
+      })
+    }
     rows.push({
       label: '区域',
       value: `${templateLabel(template)} · ${aoeRadiusCells(spell) * 5} 尺 · 中心 ${centerLabel(aoeHover, template)}`,
@@ -258,6 +281,15 @@ export function buildSpellCastPlan({
         : (aoeHover ? '0 个' : '待确认'),
       tone: targetIds.length ? 'ready' : 'warning',
     })
+    if (maxTargets) {
+      rows.push({
+        label: '目标上限',
+        value: excludedTargetIds.length
+          ? `最多 ${maxTargets} 个；排除 ${excludedNames.join('、')}`
+          : `最多 ${maxTargets} 个；当前 ${targetIds.length}`,
+        tone: excludedTargetIds.length ? 'warning' : 'ready',
+      })
+    }
   } else {
     const targetId = nonAoeTargetId(spell, selectedTarget, playerId)
     rows.push({
