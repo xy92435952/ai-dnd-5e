@@ -83,7 +83,9 @@ async def test_init_combat_uses_current_location_encounter_template(
     sample_character,
 ):
     from sqlalchemy.orm.attributes import flag_modified
+    from sqlalchemy import select
 
+    from models import CombatState
     from services.game_combat_setup_service import init_combat
     from services.location_graph_service import build_location_graph_from_module
 
@@ -92,7 +94,7 @@ async def test_init_combat_uses_current_location_encounter_template(
             {"title": "Gatehouse", "description": "A tense welcome."},
             {
                 "title": "Training Yard",
-                "description": "A clockwork construct patrols low walls.",
+                "description": "A clockwork construct patrols low walls and sparking difficult terrain.",
             },
         ],
         "monsters": [
@@ -118,6 +120,15 @@ async def test_init_combat_uses_current_location_encounter_template(
     assert sample_session.game_state["last_encounter_template_balance"]["estimate"]["party_size"] == 1
     assert sample_session.game_state["last_encounter_template_balance"]["estimated_difficulty"] == "deadly"
     assert sample_session.game_state["location_graph"]["encounter_templates"][0]["status"] == "triggered"
+
+    combat = (
+        await db_session.execute(select(CombatState).where(CombatState.session_id == sample_session.id))
+    ).scalar_one()
+    enemy_id = sample_session.game_state["enemies"][0]["id"]
+    assert combat.entity_positions[enemy_id] == {"x": 15, "y": 6}
+    assert combat.grid_data["_encounter_template"]["id"] == "encounter_scene_1_0"
+    assert combat.grid_data["10_4"] == "wall"
+    assert combat.grid_data["11_6"] == "difficult"
 
 
 async def test_init_combat_prefers_selected_encounter_template(

@@ -131,11 +131,8 @@ async def init_combat(
     ] + enemies
     initiative_order = roll_initiative(combatants)
 
-    positions = {}
-    for index, character in enumerate(characters):
-        positions[str(character.id)] = {"x": 2, "y": 3 + index}
-    for index, enemy in enumerate(enemies):
-        positions[enemy["id"]] = {"x": 17, "y": 8 + index}
+    positions = _initial_combat_positions(characters, enemies, encounter_template)
+    grid_data = _grid_data_from_encounter_template(encounter_template)
 
     old_combats = await db.execute(select(CombatState).where(CombatState.session_id == session.id))
     for old_combat in old_combats.scalars().all():
@@ -143,7 +140,7 @@ async def init_combat(
 
     db.add(CombatState(
         session_id=session.id,
-        grid_data={},
+        grid_data=grid_data,
         entity_positions=positions,
         turn_order=initiative_order,
         current_turn_index=0,
@@ -218,6 +215,83 @@ def _resolve_initial_enemies_from_sources(
     if not enemies:
         enemies.append(_generic_fallback_enemy())
     return enemies, None
+
+
+def _grid_data_from_encounter_template(template: dict | None) -> dict:
+    if not template:
+        return {}
+
+    grid: dict = {
+        "_encounter_template": {
+            "id": template.get("id"),
+            "name": template.get("name"),
+            "objectives": list(template.get("objectives") or [])[:4],
+            "terrain": list(template.get("terrain") or [])[:6],
+            "cover": list(template.get("cover") or [])[:6],
+            "hazards": list(template.get("hazards") or [])[:6],
+        }
+    }
+
+    cover_text = " ".join(str(item).lower() for item in template.get("cover") or [])
+    terrain_text = " ".join(str(item).lower() for item in template.get("terrain") or [])
+    hazard_text = " ".join(str(item).lower() for item in template.get("hazards") or [])
+
+    if cover_text:
+        for cell in ("10_4", "10_5", "10_7", "10_8"):
+            grid[cell] = "wall"
+    if "difficult" in terrain_text or "sparking" in terrain_text:
+        for cell in ("11_6", "12_6", "11_7", "12_7"):
+            grid.setdefault(cell, "difficult")
+    if hazard_text:
+        for cell in ("13_5", "13_6"):
+            grid.setdefault(cell, "hazard")
+    return grid
+
+
+def _initial_combat_positions(
+    characters: list,
+    enemies: list[dict],
+    encounter_template: dict | None,
+) -> dict:
+    positions = {}
+    occupied: set[tuple[int, int]] = set()
+    for index, character in enumerate(characters):
+        pos = {"x": 2, "y": 3 + index}
+        positions[str(character.id)] = pos
+        occupied.add((pos["x"], pos["y"]))
+
+    roles = _enemy_roles_by_name(encounter_template)
+    for index, enemy in enumerate(enemies):
+        role = roles.get(str(enemy.get("name") or "").lower(), "frontliner")
+        pos = _enemy_position_for_role(role, index, occupied) if encounter_template else {"x": 17, "y": 8 + index}
+        positions[enemy["id"]] = pos
+        occupied.add((pos["x"], pos["y"]))
+    return positions
+
+
+def _enemy_roles_by_name(encounter_template: dict | None) -> dict[str, str]:
+    roles = {}
+    for item in (encounter_template or {}).get("enemy_roles") or []:
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        roles[str(item.get("name")).lower()] = str(item.get("role") or "frontliner").lower()
+    return roles
+
+
+def _enemy_position_for_role(role: str, index: int, occupied: set[tuple[int, int]]) -> dict:
+    if role in {"caster", "artillery", "controller"}:
+        candidates = [(18, 4), (18, 7), (17, 5), (17, 8)]
+    elif role in {"skirmisher", "lurker"}:
+        candidates = [(16, 3), (16, 9), (15, 2), (15, 10)]
+    elif role in {"defender", "brute"}:
+        candidates = [(15, 5), (15, 7), (14, 6), (16, 6)]
+    else:
+        candidates = [(15, 6), (15, 5), (15, 7), (16, 6)]
+
+    for x, y in [*candidates, (17, 8 + index)]:
+        if 0 <= x < 20 and 0 <= y < 12 and (x, y) not in occupied:
+            return {"x": x, "y": y}
+    return {"x": 17, "y": max(0, min(11, 8 + index))}
 
 def _build_enemies_from_initial_items(items: list, module: Module) -> list[dict]:
     enemies: list[dict] = []
