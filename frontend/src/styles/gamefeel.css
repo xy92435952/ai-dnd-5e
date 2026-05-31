@@ -3535,12 +3535,25 @@
   margin-top: 6px;
 }
 .cond-icon {
-  width: 20px; height: 20px;
-  display: grid; place-items: center;
+  min-height: 20px;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
   background: linear-gradient(180deg, rgba(138,26,26,.4), rgba(58,10,10,.6));
   border: 1px solid rgba(196,40,40,.6);
-  font-size: 11px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
   color: #f4a0a0;
   cursor: help;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cond-icon b {
+  color: var(--parchment);
+  font-size: 9px;
 }
 .cond-icon.buff { background: linear-gradient(180deg, rgba(47,168,184,.3), rgba(20,68,78,.5)); border-color: rgba(127,232,248,.6); color: var(--arcane-light, #5fd8e8); }

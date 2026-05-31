@@ -83,4 +83,30 @@ describe('CombatHudPortrait', () => {
     expect(screen.getByText('Longbow', { exact: false })).toBeTruthy()
     expect(screen.getByText('弹药 19', { exact: false })).toBeTruthy()
   })
+
+  it('explains active condition rules in the HUD', () => {
+    render(
+      <CombatHudPortrait
+        session={{
+          player: {
+            name: 'Poisoned Hero',
+            hp_current: 8,
+            hp_max: 10,
+            derived: { ac: 14, initiative: 1 },
+            conditions: ['poisoned', 'fire_resistance'],
+            condition_durations: { poisoned: 2 },
+          },
+        }}
+        playerClass="Fighter"
+        playerLevel={1}
+        turnState={{ movement_max: 6, movement_used: 0 }}
+      />,
+    )
+
+    const rules = screen.getByLabelText('Active condition rules')
+    expect(rules).toHaveTextContent('Poisoned')
+    expect(rules).toHaveTextContent('Fire Resistance')
+    expect(screen.getByTitle(/Disadvantage on attack rolls/)).toBeInTheDocument()
+    expect(screen.getByTitle(/Fire damage is reduced/)).toHaveClass('buff')
+  })
 })
