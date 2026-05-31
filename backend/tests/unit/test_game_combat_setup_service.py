@@ -115,6 +115,8 @@ async def test_init_combat_uses_current_location_encounter_template(
 
     assert sample_session.game_state["enemies"][0]["name"] == "Clockwork Construct"
     assert sample_session.game_state["last_encounter_template_id"] == "encounter_scene_1_0"
+    assert sample_session.game_state["last_encounter_template_balance"]["estimate"]["party_size"] == 1
+    assert sample_session.game_state["last_encounter_template_balance"]["estimated_difficulty"] == "deadly"
     assert sample_session.game_state["location_graph"]["encounter_templates"][0]["status"] == "triggered"
 
 

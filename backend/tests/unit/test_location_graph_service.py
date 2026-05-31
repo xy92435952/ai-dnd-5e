@@ -150,6 +150,31 @@ def test_public_location_graph_hides_future_nodes_and_encounters():
     assert "encounter_templates" not in public
 
 
+def test_public_location_graph_preserves_selected_encounter_template_id():
+    public = public_location_graph({
+        "current_location_id": "yard",
+        "selected_encounter_template_id": "encounter_yard_0",
+        "nodes": [{"id": "yard", "name": "Yard", "visited": True}],
+        "edges": [],
+        "encounter_templates": [{
+            "id": "encounter_yard_0",
+            "location_id": "yard",
+            "status": "available",
+            "selected": True,
+            "enemy_names": ["Hidden Guard"],
+            "tactics": "Hidden plan",
+        }],
+    })
+
+    assert public["selected_encounter_template_id"] == "encounter_yard_0"
+    assert public["encounter_templates"] == [{
+        "id": "encounter_yard_0",
+        "location_id": "yard",
+        "status": "available",
+        "selected": True,
+    }]
+
+
 def test_tag_player_choices_with_location_exits_converts_matching_strings():
     state = {
         "location_graph": {

@@ -1,4 +1,5 @@
 from services.encounter_template_service import (
+    attach_party_balance_to_template,
     attach_encounter_templates_to_graph,
     build_encounter_templates_from_module,
     mark_encounter_template_triggered,
@@ -85,6 +86,32 @@ def test_select_and_mark_current_encounter_template():
     assert updated["location_graph"]["encounter_templates"][0]["status"] == "triggered"
     assert updated["location_graph"].get("selected_encounter_template_id") is None
     assert state["location_graph"]["encounter_templates"][0]["status"] == "available"
+
+
+def test_attach_party_balance_to_template_estimates_party_fit():
+    template = {
+        "id": "encounter_yard_0",
+        "location_id": "yard",
+        "difficulty_hint": "moderate",
+        "initial_enemies": [{"name": "Clockwork Construct"}],
+    }
+    parsed = {
+        "monsters": [
+            {"name": "Clockwork Construct", "cr": "1", "xp": 200},
+        ],
+    }
+
+    balanced = attach_party_balance_to_template(
+        template,
+        party=[{"id": "pc-1", "level": 1}],
+        parsed=parsed,
+    )
+
+    assert "party_balance" not in template
+    assert balanced["party_balance"]["target_difficulty"] == "medium"
+    assert balanced["party_balance"]["estimated_difficulty"] == "deadly"
+    assert balanced["party_balance"]["recommended_adjustment"] == "reduce_or_stage_enemies"
+    assert balanced["party_balance"]["estimate"]["party_size"] == 1
 
 
 def test_select_encounter_template_prefers_selected_available_template():

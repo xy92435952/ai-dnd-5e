@@ -11,10 +11,11 @@ import re
 from copy import deepcopy
 from typing import Any
 
-from services.encounter_balance_service import monster_xp
+from services.encounter_balance_service import estimate_encounter_difficulty, monster_xp
 
 
 ENCOUNTER_TEMPLATE_VERSION = 1
+DIFFICULTY_RANK = {"none": 0, "easy": 1, "medium": 2, "hard": 3, "deadly": 4}
 COMBAT_HINTS = {
     "ambush",
     "attack",
@@ -117,6 +118,7 @@ def attach_encounter_templates_to_graph(
 def select_current_encounter_template(
     game_state: dict[str, Any] | None,
     parsed: dict[str, Any] | None = None,
+    party: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     state = game_state or {}
     graph = state.get("location_graph") if isinstance(state.get("location_graph"), dict) else {}
@@ -136,15 +138,39 @@ def select_current_encounter_template(
                 and str(template.get("location_id")) == current_id
                 and template.get("status", "available") == "available"
             ):
-                return deepcopy(template)
+                return attach_party_balance_to_template(template, party, parsed)
 
     for template in templates:
         if (
             str(template.get("location_id")) == current_id
             and template.get("status", "available") == "available"
         ):
-            return deepcopy(template)
+            return attach_party_balance_to_template(template, party, parsed)
     return None
+
+
+def attach_party_balance_to_template(
+    template: dict[str, Any],
+    party: list[dict[str, Any]] | None,
+    parsed: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    template = deepcopy(template)
+    if not party:
+        return template
+
+    estimate = estimate_encounter_difficulty(
+        party,
+        _template_monsters_for_balance(template, parsed or {}),
+    )
+    target = _target_difficulty(template)
+    recommendation = _balance_recommendation(estimate.get("difficulty"), target)
+    template["party_balance"] = {
+        "target_difficulty": target,
+        "estimated_difficulty": estimate.get("difficulty"),
+        "recommended_adjustment": recommendation,
+        "estimate": estimate,
+    }
+    return template
 
 
 def select_encounter_template(
@@ -201,6 +227,59 @@ def mark_encounter_template_triggered(
         graph.pop("selected_encounter_template_id", None)
     state["location_graph"] = graph
     return state
+
+
+def _template_monsters_for_balance(
+    template: dict[str, Any],
+    parsed: dict[str, Any],
+) -> list[dict[str, Any]]:
+    parsed_monsters = {
+        str(monster.get("name")): monster
+        for monster in _valid_monsters(parsed)
+    }
+    monsters = []
+    for item in template.get("initial_enemies") or []:
+        item = {"name": item} if isinstance(item, str) else item
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "")
+        monsters.append(parsed_monsters.get(name, item))
+
+    if monsters:
+        return monsters
+
+    xp_budget = template.get("xp_budget")
+    try:
+        xp = int(xp_budget)
+    except (TypeError, ValueError):
+        xp = 0
+    return [{"xp": xp}] if xp > 0 else []
+
+
+def _target_difficulty(template: dict[str, Any]) -> str:
+    explicit = str(template.get("target_difficulty") or "").strip().lower()
+    if explicit in DIFFICULTY_RANK:
+        return explicit
+    hint = str(template.get("difficulty_hint") or "").strip().lower()
+    if hint == "light":
+        return "easy"
+    if hint == "dangerous":
+        return "hard"
+    return "medium"
+
+
+def _balance_recommendation(estimated: Any, target: str) -> str:
+    estimated_rank = DIFFICULTY_RANK.get(str(estimated or "none"), 0)
+    target_rank = DIFFICULTY_RANK.get(target, DIFFICULTY_RANK["medium"])
+    if estimated_rank == 0:
+        return "needs_monster_xp"
+    if estimated_rank >= DIFFICULTY_RANK["deadly"] and target_rank < DIFFICULTY_RANK["deadly"]:
+        return "reduce_or_stage_enemies"
+    if estimated_rank > target_rank + 1:
+        return "reduce_enemy_count_or_xp"
+    if estimated_rank < target_rank - 1:
+        return "add_minion_or_objective_pressure"
+    return "ok"
 
 
 def _valid_monsters(parsed: dict[str, Any]) -> list[dict[str, Any]]:

@@ -113,6 +113,7 @@ async def init_combat(
         initial_enemies=initial_enemies,
         module=module,
         game_state=session.game_state,
+        characters=characters,
     )
     for enemy in enemies:
         enemy["is_enemy"] = True
@@ -153,6 +154,8 @@ async def init_combat(
     if encounter_template:
         state = mark_encounter_template_triggered(state, encounter_template.get("id"))
         state["last_encounter_template_id"] = encounter_template.get("id")
+        if encounter_template.get("party_balance"):
+            state["last_encounter_template_balance"] = encounter_template.get("party_balance")
     state["enemies"] = enemies
     state["encounter_balance"] = estimate_encounter_difficulty(
         [
@@ -171,11 +174,13 @@ def _resolve_initial_enemies(
     initial_enemies: list,
     module: Module,
     game_state: dict | None = None,
+    characters: list | None = None,
 ) -> tuple[list[dict], dict | None]:
     return _resolve_initial_enemies_from_sources(
         initial_enemies=initial_enemies,
         module=module,
         game_state=game_state,
+        characters=characters,
     )
 
 
@@ -184,6 +189,7 @@ def _resolve_initial_enemies_from_sources(
     initial_enemies: list,
     module: Module,
     game_state: dict | None = None,
+    characters: list | None = None,
 ) -> tuple[list[dict], dict | None]:
     enemies = _build_enemies_from_initial_items(initial_enemies or [], module)
     if enemies:
@@ -192,6 +198,10 @@ def _resolve_initial_enemies_from_sources(
     encounter_template = select_current_encounter_template(
         game_state or {},
         get_module_content(module),
+        party=[
+            {"id": str(character.id), "level": character.level or 1}
+            for character in characters or []
+        ],
     )
     if encounter_template:
         enemies = _build_enemies_from_initial_items(

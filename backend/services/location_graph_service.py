@@ -521,12 +521,18 @@ def public_location_graph(graph: dict[str, Any] | None) -> dict[str, Any]:
         public_edges[-1].setdefault("type", "route")
 
     public_current_id = current_id if current_id in visible_ids else visible_nodes[0]["id"]
-    return {
+    public_graph = {
         "version": graph.get("version", LOCATION_GRAPH_VERSION),
         "current_location_id": public_current_id,
         "nodes": visible_nodes,
         "edges": public_edges,
     }
+    if graph.get("selected_encounter_template_id"):
+        public_graph["selected_encounter_template_id"] = str(graph.get("selected_encounter_template_id"))
+    public_templates = _public_encounter_templates(graph, visible_ids)
+    if public_templates:
+        public_graph["encounter_templates"] = public_templates
+    return public_graph
 
 
 def _is_valid_graph(graph: Any) -> bool:
@@ -574,6 +580,37 @@ def _find_edge(edges: list[dict[str, Any]], source: str, target: str) -> dict[st
 
 def _has_edge_between(edges: list[dict[str, Any]], source: str, target: str) -> bool:
     return bool(_find_edge(edges, source, target) or _find_edge(edges, target, source))
+
+
+def _public_encounter_templates(
+    graph: dict[str, Any],
+    visible_location_ids: set[str],
+) -> list[dict[str, Any]]:
+    templates = graph.get("encounter_templates") if isinstance(graph.get("encounter_templates"), list) else []
+    public_templates = []
+    for template in templates:
+        if not isinstance(template, dict) or not _is_public_template(template):
+            continue
+        location_id = str(template.get("location_id") or "")
+        if location_id and location_id not in visible_location_ids:
+            continue
+        public_templates.append({
+            key: template[key]
+            for key in ("id", "location_id", "status", "selected", "name", "difficulty_hint", "xp_budget")
+            if key in template
+        })
+    return public_templates
+
+
+def _is_public_template(template: dict[str, Any]) -> bool:
+    status = str(template.get("status") or "hidden")
+    return bool(
+        template.get("selected")
+        or template.get("discovered")
+        or template.get("revealed")
+        or template.get("public")
+        or status in {"triggered", "claimed", "resolved"}
+    )
 
 
 def _choice_text(choice: Any) -> str:
