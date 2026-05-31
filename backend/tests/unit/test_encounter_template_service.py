@@ -44,6 +44,39 @@ def test_build_encounter_templates_links_monsters_to_combat_scene():
     assert template["reward_hints"] == ["Gate Token"]
 
 
+def test_build_encounter_templates_preserves_structured_hazard_metadata():
+    parsed = {
+        "scenes": [{
+            "title": "Rune Hall",
+            "description": "A cult guardian waits beside a fire jet trap.",
+            "monsters": ["Cult Guardian"],
+            "hazards": [{
+                "name": "fire jet",
+                "damage_dice": "2d6",
+                "damage_type": "fire",
+                "save_dc": 13,
+                "save_ability": "dexterity",
+                "half_on_save": True,
+                "cells": ["13_5", {"x": 13, "y": 6}],
+            }],
+        }],
+        "monsters": [
+            {"name": "Cult Guardian", "cr": "1/2", "xp": 100},
+        ],
+    }
+
+    templates = build_encounter_templates_from_module(parsed, [{"id": "rune_hall"}])
+
+    hazard = templates[0]["hazards"][0]
+    assert hazard["name"] == "fire jet"
+    assert hazard["damage_dice"] == "2d6"
+    assert hazard["damage_type"] == "fire"
+    assert hazard["save_dc"] == 13
+    assert hazard["save_ability"] == "dexterity"
+    assert hazard["half_on_save"] is True
+    assert hazard["cells"] == ["13_5", {"x": 13, "y": 6}]
+
+
 def test_attach_encounter_templates_to_graph_preserves_runtime_status():
     parsed = {
         "scenes": [{"title": "Cave", "description": "A goblin guard waits."}],

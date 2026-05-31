@@ -58,6 +58,30 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["derived"]["ability_modifiers"]["int"] == 3
 
 
+def test_grid_data_from_encounter_template_places_authored_hazard_cells():
+    from services.game_combat_setup_service import _grid_data_from_encounter_template
+
+    grid = _grid_data_from_encounter_template({
+        "id": "encounter_rune_hall_0",
+        "name": "Rune Hall Encounter",
+        "hazards": [{
+            "name": "fire jet",
+            "damage_dice": "2d6",
+            "damage_type": "fire",
+            "save_dc": 13,
+            "save_ability": "dexterity",
+            "half_on_save": True,
+            "cells": ["13_5", {"x": 13, "y": 6}],
+        }],
+    })
+
+    assert grid["_encounter_template"]["hazards"][0]["name"] == "fire jet"
+    assert grid["13_5"]["terrain"] == "hazard"
+    assert grid["13_5"]["damage_dice"] == "2d6"
+    assert grid["13_5"]["save_dc"] == 13
+    assert grid["13_6"]["save_ability"] == "dexterity"
+
+
 async def test_init_combat_stores_encounter_balance(db_session, sample_session, sample_module, sample_character):
     from services.game_combat_setup_service import init_combat
 

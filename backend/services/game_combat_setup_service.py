@@ -232,9 +232,10 @@ def _grid_data_from_encounter_template(template: dict | None) -> dict:
         }
     }
 
-    cover_text = " ".join(str(item).lower() for item in template.get("cover") or [])
-    terrain_text = " ".join(str(item).lower() for item in template.get("terrain") or [])
-    hazard_text = " ".join(str(item).lower() for item in template.get("hazards") or [])
+    cover_text = _feature_text(template.get("cover") or [])
+    terrain_text = _feature_text(template.get("terrain") or [])
+    hazards = list(template.get("hazards") or [])
+    hazard_text = _feature_text(hazards)
 
     if cover_text:
         for cell in ("10_4", "10_5", "10_7", "10_8"):
@@ -242,10 +243,81 @@ def _grid_data_from_encounter_template(template: dict | None) -> dict:
     if "difficult" in terrain_text or "sparking" in terrain_text:
         for cell in ("11_6", "12_6", "11_7", "12_7"):
             grid.setdefault(cell, "difficult")
-    if hazard_text:
+    authored_hazard_cells = _apply_authored_hazard_cells(grid, hazards)
+    if hazard_text and not authored_hazard_cells:
         for cell in ("13_5", "13_6"):
             grid.setdefault(cell, "hazard")
     return grid
+
+
+def _feature_text(items: list) -> str:
+    parts = []
+    for item in items:
+        if isinstance(item, dict):
+            parts.extend(str(value) for value in item.values() if value not in (None, ""))
+        else:
+            parts.append(str(item))
+    return " ".join(parts).lower()
+
+
+def _apply_authored_hazard_cells(grid: dict, hazards: list) -> bool:
+    placed = False
+    for hazard in hazards:
+        if not isinstance(hazard, dict):
+            continue
+        hazard_cells = _hazard_cells(hazard)
+        if not hazard_cells:
+            continue
+        cell_metadata = {
+            key: value
+            for key, value in hazard.items()
+            if key not in {"cell", "cells", "position", "positions"}
+        }
+        cell_metadata.setdefault("terrain", "hazard")
+        for cell in hazard_cells:
+            grid[cell] = dict(cell_metadata)
+            placed = True
+    return placed
+
+
+def _hazard_cells(hazard: dict) -> list[str]:
+    raw_values = []
+    for key in ("cells", "cell", "positions", "position"):
+        value = hazard.get(key)
+        if value in (None, ""):
+            continue
+        if isinstance(value, (list, tuple)):
+            raw_values.extend(value)
+        else:
+            raw_values.append(value)
+
+    cells: list[str] = []
+    for value in raw_values:
+        cell = _coerce_grid_cell(value)
+        if cell and cell not in cells:
+            cells.append(cell)
+    return cells
+
+
+def _coerce_grid_cell(value) -> str | None:
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        if "_" in raw:
+            x, y = raw.split("_", 1)
+        elif "," in raw:
+            x, y = raw.split(",", 1)
+        else:
+            return raw
+    elif isinstance(value, dict):
+        x, y = value.get("x"), value.get("y")
+    else:
+        return None
+    try:
+        return f"{int(x)}_{int(y)}"
+    except (TypeError, ValueError):
+        return None
 
 
 def _initial_combat_positions(

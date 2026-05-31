@@ -486,15 +486,15 @@ def _objectives(scene: dict[str, Any]) -> list[str]:
     return ["Secure the area and survive the threat"]
 
 
-def _hazards(scene: dict[str, Any]) -> list[str]:
-    explicit = _as_list(scene.get("hazards"))
+def _hazards(scene: dict[str, Any]) -> list[Any]:
+    explicit = _hazard_list(scene.get("hazards"))
     text = _scene_text(scene)
-    inferred = []
+    inferred: list[Any] = []
     if "trap" in text or "tripwire" in text or "陷阱" in text:
         inferred.append("triggered trap")
     if "sparking" in text or "lightning" in text:
         inferred.append("unstable energy")
-    return _dedupe_strings([*explicit, *inferred])
+    return _dedupe_hazards([*explicit, *inferred])
 
 
 def _reward_hints(parsed: dict[str, Any]) -> list[str]:
@@ -554,6 +554,59 @@ def _as_list(value: Any) -> list[str]:
     return [text] if text else []
 
 
+def _hazard_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple)) else [value]
+    hazards: list[Any] = []
+    for item in items:
+        if isinstance(item, dict):
+            hazard = _hazard_dict(item)
+            if hazard:
+                hazards.append(hazard)
+            continue
+        text = str(item).strip()
+        if text:
+            hazards.append(text)
+    return hazards
+
+
+def _hazard_dict(item: dict[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "label",
+        "name",
+        "description",
+        "damage_dice",
+        "damage_type",
+        "save_dc",
+        "dc",
+        "saving_throw_dc",
+        "save_ability",
+        "saving_throw",
+        "saving_throw_ability",
+        "save",
+        "half_on_save",
+        "save_half",
+        "half_damage_on_save",
+        "no_damage_on_save",
+        "negates_on_save",
+        "cells",
+        "cell",
+        "positions",
+        "position",
+    }
+    hazard = {
+        key: value
+        for key, value in item.items()
+        if key in allowed and value not in (None, "")
+    }
+    if not hazard:
+        return {}
+    if not any(hazard.get(key) for key in ("label", "name", "description")):
+        hazard["name"] = "Environmental hazard"
+    return hazard
+
+
 def _dedupe_monsters(monsters: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: set[str] = set()
     out: list[dict[str, Any]] = []
@@ -571,6 +624,26 @@ def _dedupe_strings(values: list[str]) -> list[str]:
     out: list[str] = []
     for value in values:
         key = value.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(value)
+    return out
+
+
+def _dedupe_hazards(values: list[Any]) -> list[Any]:
+    seen: set[str] = set()
+    out: list[Any] = []
+    for value in values:
+        if isinstance(value, dict):
+            key = _normalize(
+                value.get("label")
+                or value.get("name")
+                or value.get("description")
+                or value
+            )
+        else:
+            key = _normalize(value)
         if not key or key in seen:
             continue
         seen.add(key)

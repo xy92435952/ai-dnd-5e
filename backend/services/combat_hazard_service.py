@@ -7,7 +7,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from models import Character, CombatState, Session
 from services.combat_resistance_service import apply_character_damage_resistance
 from services.combat_service import CombatService
-from services.dnd_rules import apply_character_damage, roll_dice
+from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
 
 
 DEFAULT_HAZARD_DAMAGE_DICE = "1d6"
@@ -46,6 +46,7 @@ def resolve_movement_hazard(
         "label": label[:120],
         "damage_dice": damage_dice,
         "damage_type": damage_type,
+        **_hazard_save_metadata(metadata),
         "damage_roll": damage_roll,
         "rolled_damage": rolled_damage,
         "damage": rolled_damage,
@@ -148,8 +149,14 @@ def apply_hazard_damage_to_enemy(
     hp_before = max(0, int(enemy.get("hp_current", 0) or 0))
     rolled_damage = max(0, int(hazard.get("rolled_damage", hazard.get("damage", 0)) or 0))
     damage_type = str(hazard.get("damage_type") or DEFAULT_HAZARD_DAMAGE_TYPE)
-    final_damage = service.apply_damage_with_resistance(
+    saving_throw = _resolve_hazard_saving_throw(enemy, hazard)
+    damage_after_save = _damage_after_hazard_save(
         rolled_damage,
+        hazard,
+        saving_throw,
+    )
+    final_damage = service.apply_damage_with_resistance(
+        damage_after_save,
         damage_type,
         enemy.get("resistances", []),
         enemy.get("immunities", []),
@@ -170,8 +177,11 @@ def apply_hazard_damage_to_enemy(
         "hp_before": hp_before,
         "hp_after": hp_after,
         "damage": final_damage,
+        "damage_after_save": damage_after_save,
         "final_damage": final_damage,
-        "resistance_applied": final_damage != rolled_damage,
+        "saving_throw": saving_throw,
+        "save_success": saving_throw.get("success") if saving_throw else None,
+        "resistance_applied": final_damage != damage_after_save,
         "dead": bool(enemy.get("dead")),
     }
 
@@ -182,9 +192,18 @@ def apply_hazard_damage_to_character(
 ) -> dict[str, Any]:
     rolled_damage = max(0, int(hazard.get("rolled_damage", hazard.get("damage", 0)) or 0))
     damage_type = str(hazard.get("damage_type") or DEFAULT_HAZARD_DAMAGE_TYPE)
+    saving_throw = _resolve_hazard_saving_throw(
+        _character_rule_snapshot(character),
+        hazard,
+    )
+    damage_after_save = _damage_after_hazard_save(
+        rolled_damage,
+        hazard,
+        saving_throw,
+    )
     final_damage, resisted = apply_character_damage_resistance(
         character,
-        rolled_damage,
+        damage_after_save,
         damage_type,
     )
     damage_result = apply_character_damage(character, final_damage)
@@ -204,7 +223,10 @@ def apply_hazard_damage_to_character(
         "death_saves": damage_result.get("death_saves"),
         "conditions": damage_result.get("conditions"),
         "damage": final_damage,
+        "damage_after_save": damage_after_save,
         "final_damage": final_damage,
+        "saving_throw": saving_throw,
+        "save_success": saving_throw.get("success") if saving_throw else None,
         "resistance_applied": resisted,
         "dead": bool(damage_result.get("dead")),
     }
@@ -232,10 +254,85 @@ def hazard_result_to_log_text(hazard: dict[str, Any] | None) -> str:
     label = hazard.get("label") or "hazard"
     damage = hazard.get("final_damage", hazard.get("damage", 0))
     damage_type = hazard.get("damage_type") or DEFAULT_HAZARD_DAMAGE_TYPE
+    save_text = _hazard_save_log_text(hazard)
     hp_before = hazard.get("hp_before")
     hp_after = hazard.get("hp_after")
     hp_text = f" HP {hp_before}->{hp_after}" if hp_before is not None and hp_after is not None else ""
-    return f"{target} triggers {label}, taking {damage} {damage_type} damage.{hp_text}"
+    return f"{target} triggers {label}, taking {damage} {damage_type} damage.{save_text}{hp_text}"
+
+
+def _hazard_save_log_text(hazard: dict[str, Any]) -> str:
+    save = hazard.get("saving_throw") if isinstance(hazard.get("saving_throw"), dict) else None
+    if not save:
+        return ""
+    ability = str(save.get("ability") or "").upper()
+    total = save.get("total")
+    dc = save.get("dc")
+    outcome = "success" if save.get("success") else "failure"
+    if total is None or dc is None:
+        return f" ({ability} save {outcome})"
+    return f" ({ability} save {total} vs DC {dc}: {outcome})"
+
+
+def _hazard_save_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    save_dc = _first_present(metadata, "save_dc", "dc", "saving_throw_dc")
+    save_ability = _first_present(
+        metadata,
+        "save_ability",
+        "saving_throw",
+        "saving_throw_ability",
+        "save",
+    )
+    half_on_save = _first_present(metadata, "half_on_save", "save_half", "half_damage_on_save")
+    no_damage_on_save = _first_present(metadata, "no_damage_on_save", "negates_on_save")
+
+    result: dict[str, Any] = {}
+    if save_dc is not None:
+        try:
+            result["save_dc"] = int(save_dc)
+        except (TypeError, ValueError):
+            pass
+    if save_ability:
+        result["save_ability"] = _normalize_save_ability(save_ability)
+    if half_on_save is not None:
+        result["half_on_save"] = _coerce_bool(half_on_save)
+    if no_damage_on_save is not None:
+        result["no_damage_on_save"] = _coerce_bool(no_damage_on_save)
+    return result
+
+
+def _resolve_hazard_saving_throw(target: dict[str, Any], hazard: dict[str, Any]) -> dict[str, Any] | None:
+    dc = hazard.get("save_dc")
+    ability = _normalize_save_ability(hazard.get("save_ability"))
+    if not dc or not ability:
+        return None
+    try:
+        save_dc = int(dc)
+    except (TypeError, ValueError):
+        return None
+    return roll_saving_throw(target, ability, save_dc)
+
+
+def _damage_after_hazard_save(
+    rolled_damage: int,
+    hazard: dict[str, Any],
+    saving_throw: dict[str, Any] | None,
+) -> int:
+    if not saving_throw or not saving_throw.get("success"):
+        return rolled_damage
+    if hazard.get("no_damage_on_save") is True:
+        return 0
+    if hazard.get("half_on_save") is False:
+        return rolled_damage
+    return rolled_damage // 2
+
+
+def _character_rule_snapshot(character: Character) -> dict[str, Any]:
+    return {
+        "ability_scores": getattr(character, "ability_scores", None) or {},
+        "derived": getattr(character, "derived", None) or {},
+        "conditions": getattr(character, "conditions", None) or [],
+    }
 
 
 def _cell_key(position: dict | None) -> str | None:
@@ -292,7 +389,25 @@ def _template_hazard_metadata(grid_data: dict) -> dict[str, Any]:
         return {
             key: value
             for key, value in first.items()
-            if key in {"label", "name", "description", "damage_dice", "damage_type"}
+            if key in {
+                "label",
+                "name",
+                "description",
+                "damage_dice",
+                "damage_type",
+                "save_dc",
+                "dc",
+                "saving_throw_dc",
+                "save_ability",
+                "saving_throw",
+                "saving_throw_ability",
+                "save",
+                "half_on_save",
+                "save_half",
+                "half_damage_on_save",
+                "no_damage_on_save",
+                "negates_on_save",
+            }
         }
     text = str(first)
     return {
@@ -314,6 +429,40 @@ def _infer_damage_type(*texts: Any) -> str:
     if any(token in text for token in ("ice", "cold", "frost", "冰", "寒")):
         return "cold"
     return ""
+
+
+def _first_present(values: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in values and values[key] not in (None, ""):
+            return values[key]
+    return None
+
+
+def _normalize_save_ability(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    aliases = {
+        "strength": "str",
+        "str": "str",
+        "dexterity": "dex",
+        "dex": "dex",
+        "constitution": "con",
+        "con": "con",
+        "intelligence": "int",
+        "int": "int",
+        "wisdom": "wis",
+        "wis": "wis",
+        "charisma": "cha",
+        "cha": "cha",
+    }
+    return aliases.get(raw, "")
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() not in {"0", "false", "no", "off", "none"}
 
 
 def _find_enemy(enemies: list[dict[str, Any]], entity_id: str) -> dict[str, Any] | None:
