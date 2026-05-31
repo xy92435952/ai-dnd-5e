@@ -47,6 +47,7 @@ export default function IsoBattlefield({
     const isThreat = threatCells.has(key) && !isWall && !ent?.is_enemy
     const isAoeCenter = aoeCells.center === key
     const isAoeRing = !isAoeCenter && aoeCells.ring.has(key) && !isWall
+    const aoeTemplate = aoeCells?.template || aoePreview?.template || ''
     const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
     const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
@@ -59,7 +60,7 @@ export default function IsoBattlefield({
         ? `协助 ${ent.name || entId}`
         : `选择 ${ent.name || entId}`
       : aoePreview && !isWall
-        ? (aoeLockedCenter === key ? `已确认法术中心 ${x}, ${y}` : `确认法术中心 ${x}, ${y}`)
+        ? buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y })
       : moveMode && !isWall
         ? `移动到 ${x}, ${y}`
         : ''
@@ -114,4 +115,13 @@ export default function IsoBattlefield({
       </div>
     </div>
   )
+}
+
+function buildAoeCellTitle({ template, locked, x, y }) {
+  const prefix = locked ? '已确认' : '确认'
+  if (template === 'cone') return `${prefix}锥形方向 ${x}, ${y}`
+  if (template === 'line') return `${prefix}直线方向 ${x}, ${y}`
+  if (template === 'cube') return `${prefix}立方区域中心 ${x}, ${y}`
+  if (template === 'aura') return `${prefix}自身光环 ${x}, ${y}`
+  return `${prefix}法术中心 ${x}, ${y}`
 }

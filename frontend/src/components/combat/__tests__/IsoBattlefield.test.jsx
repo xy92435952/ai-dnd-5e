@@ -356,4 +356,40 @@ describe('IsoBattlefield', () => {
     expect(onMoveTo).not.toHaveBeenCalled()
     expect(onSelectTarget).not.toHaveBeenCalled()
   })
+
+  it('labels directional AoE cells by template before locking', () => {
+    const onAoeHover = vi.fn()
+
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 4, y0: 7 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{}}
+        entities={{}}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set(), template: 'cone' }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={{ radius: 3, template: 'cone' }}
+        aoeHover={null}
+        aoeLockedCenter={null}
+        playerId="player"
+        onSelectTarget={vi.fn()}
+        onMoveTo={vi.fn()}
+        onAoeHover={onAoeHover}
+        onAoeLockCenter={vi.fn()}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell).toHaveAttribute('title', '确认锥形方向 4, 7')
+
+    fireEvent.mouseEnter(cell)
+    expect(onAoeHover).toHaveBeenCalledWith('4_7')
+  })
 })
