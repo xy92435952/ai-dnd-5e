@@ -57,6 +57,8 @@ def test_build_prediction_surfaces_cover_and_advantage_state():
         is_ranged=False,
         attack_modifiers=(True, False),
         defense_modifiers=(False, False),
+        attack_modifier_sources=(["attacker hidden"], []),
+        defense_modifier_sources=([], []),
         cover_bonus=2,
     )
 
@@ -65,8 +67,32 @@ def test_build_prediction_surfaces_cover_and_advantage_state():
     assert result["cover_bonus"] == 2
     assert result["advantage"] is True
     assert result["disadvantage"] is False
+    assert result["advantage_sources"] == ["attacker hidden"]
+    assert result["disadvantage_sources"] == []
     assert "半掩护" in result["modifiers"]
     assert "优势" in result["modifiers"]
+
+
+def test_build_prediction_surfaces_cancelled_advantage_sources():
+    result = build_combat_prediction(
+        attacker_derived={
+            "attack_bonus": 5,
+            "ability_modifiers": {"str": 3},
+        },
+        attacker_conditions=[],
+        target={"name": "影卫", "hp": 8, "hp_max": 8, "ac": 13},
+        action_key="atk",
+        is_ranged=False,
+        attack_modifiers=(True, True),
+        defense_modifiers=(True, False),
+        attack_modifier_sources=(["attacker invisible"], ["attacker poisoned"]),
+        defense_modifier_sources=(["target restrained"], []),
+    )
+
+    assert result["advantage"] is False
+    assert result["disadvantage"] is False
+    assert result["advantage_sources"] == ["attacker invisible", "target restrained"]
+    assert result["disadvantage_sources"] == ["attacker poisoned"]
 
 
 def test_get_damage_range_handles_flat_and_multi_term_dice():

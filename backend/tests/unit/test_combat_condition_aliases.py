@@ -1,4 +1,9 @@
-from services.combat_condition_service import get_attack_modifiers, get_defense_modifiers
+from services.combat_condition_service import (
+    get_attack_modifier_sources,
+    get_attack_modifiers,
+    get_defense_modifier_sources,
+    get_defense_modifiers,
+)
 from services.dnd_rules import (
     get_ability_check_disadvantage_reasons,
     get_saving_throw_auto_fail_reasons,
@@ -26,6 +31,17 @@ def test_chinese_conditions_apply_attack_and_defense_modifiers():
     assert get_attack_modifiers(["隐形"])[0] is True
     assert get_defense_modifiers(["束缚"]) == (True, False)
     assert get_defense_modifiers(["闪避"]) == (False, True)
+
+
+def test_condition_modifier_sources_explain_advantage_and_disadvantage():
+    assert get_attack_modifier_sources(["隐形", "中毒"]) == (
+        ["attacker invisible"],
+        ["attacker poisoned"],
+    )
+    assert get_defense_modifier_sources(["束缚", "闪避"]) == (
+        ["target restrained"],
+        ["target dodging"],
+    )
 
 
 def test_chinese_conditions_affect_checks_saves_and_movement():

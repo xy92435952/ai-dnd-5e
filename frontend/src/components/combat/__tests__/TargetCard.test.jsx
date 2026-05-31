@@ -138,6 +138,7 @@ describe('TargetCard', () => {
           target_ac: 14,
           effective_target_ac: 19,
           cover_bonus: 5,
+          disadvantage_sources: ['attacker poisoned', 'target invisible'],
           modifiers: ['Three-quarters cover'],
         }}
       />,
@@ -145,9 +146,11 @@ describe('TargetCard', () => {
 
     const tags = screen.getByLabelText('Attack rule tags Guard Behind Pillar')
     expect(tags).toHaveTextContent('Disadvantage')
+    expect(tags).toHaveTextContent('Dis: attacker poisoned +1')
     expect(tags).toHaveTextContent('3/4 cover +5 AC')
     expect(tags).toHaveTextContent('Eff AC 19')
-    expect(within(tags).getByTitle('Roll two d20 and use the lower result.')).toBeInTheDocument()
+    expect(within(tags).getByTitle(/Roll two d20 and use the lower result/)).toBeInTheDocument()
+    expect(within(tags).getByTitle('Disadvantage sources: attacker poisoned / target invisible.')).toBeInTheDocument()
     expect(within(tags).getByTitle('Cover raises AC from 14 to 19 for this attack.')).toBeInTheDocument()
   })
 })

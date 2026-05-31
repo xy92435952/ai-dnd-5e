@@ -22,6 +22,10 @@ from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
 from services.dnd_rules import get_effective_hp_max
 from services.combat_attack_modifier_service import calculate_cover_bonus
+from services.combat_condition_service import (
+    get_attack_modifier_sources,
+    get_defense_modifier_sources,
+)
 
 from api.combat._shared import _build_combat_snapshot, svc
 
@@ -189,9 +193,13 @@ async def predict_action_endpoint(
         is_ranged=req.is_ranged,
     )
 
+    attacker_conditions = attacker.conditions or []
+    attack_modifiers = svc.get_attack_modifiers(attacker_conditions, attacker)
+    defense_modifiers = svc.get_defense_modifiers(target_conditions)
+
     return build_combat_prediction(
         attacker_derived=a_derived,
-        attacker_conditions=attacker.conditions or [],
+        attacker_conditions=attacker_conditions,
         target={
             "name": target_name,
             "hp": target_hp,
@@ -200,8 +208,10 @@ async def predict_action_endpoint(
         },
         action_key=req.action_key,
         is_ranged=req.is_ranged,
-        attack_modifiers=svc.get_attack_modifiers(attacker.conditions or [], attacker),
-        defense_modifiers=svc.get_defense_modifiers(target_conditions),
+        attack_modifiers=attack_modifiers,
+        defense_modifiers=defense_modifiers,
+        attack_modifier_sources=get_attack_modifier_sources(attacker_conditions, attacker),
+        defense_modifier_sources=get_defense_modifier_sources(target_conditions),
         cover_bonus=cover_bonus,
     )
 

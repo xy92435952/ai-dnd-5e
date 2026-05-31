@@ -21,6 +21,7 @@ const COVER_NAMES = new Set([
 
 const ADVANTAGE_NAMES = new Set(['advantage', '优势'])
 const DISADVANTAGE_NAMES = new Set(['disadvantage', '劣势'])
+const SOURCE_MARKER_NAMES = new Set(['攻击者状态+', '目标状态+', 'attacker state', 'target state'].map(normalizeLookup))
 
 function asNumber(value) {
   if (value === null || value === undefined || value === '') return null
@@ -56,11 +57,13 @@ function coverTitle({ coverBonus, targetAc, effectiveAc }) {
   return 'Cover raises the target AC for this attack.'
 }
 
-function modifierIsAlreadyExplained(modifier) {
+function modifierIsAlreadyExplained(modifier, explainedSources = []) {
   const text = normalizeLookup(modifier)
   if (!text) return true
   if (ADVANTAGE_NAMES.has(text) || DISADVANTAGE_NAMES.has(text)) return true
   if (COVER_NAMES.has(text)) return true
+  if (SOURCE_MARKER_NAMES.has(text)) return true
+  if (explainedSources.some(source => normalizeLookup(source) === text)) return true
   if (text.includes('cover') || text.includes('掩护')) return true
   return false
 }
@@ -71,31 +74,45 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   const tags = []
   const hasAdvantage = Boolean(prediction.advantage)
   const hasDisadvantage = Boolean(prediction.disadvantage)
+  const advantageSources = sourceList(prediction.advantage_sources ?? prediction.advantageSources)
+  const disadvantageSources = sourceList(prediction.disadvantage_sources ?? prediction.disadvantageSources)
+  const hasCancelledSources = !hasAdvantage && !hasDisadvantage && advantageSources.length > 0 && disadvantageSources.length > 0
   const targetAc = asNumber(prediction.target_ac ?? prediction.target?.ac ?? target?.ac)
   const effectiveAc = asNumber(prediction.effective_target_ac ?? targetAc)
   const coverBonus = asNumber(prediction.cover_bonus)
 
-  if (hasAdvantage && hasDisadvantage) {
+  if ((hasAdvantage && hasDisadvantage) || hasCancelledSources) {
     pushUnique(tags, {
       key: 'flat-roll',
       label: 'Flat roll',
       tone: 'neutral',
-      title: 'Advantage and disadvantage cancel, so the attack rolls one d20.',
+      title: rollStateTitle(
+        'Advantage and disadvantage cancel, so the attack rolls one d20.',
+        advantageSources,
+        disadvantageSources,
+      ),
     })
   } else if (hasAdvantage) {
     pushUnique(tags, {
       key: 'advantage',
       label: 'Advantage',
       tone: 'good',
-      title: 'Roll two d20 and use the higher result.',
+      title: rollStateTitle('Roll two d20 and use the higher result.', advantageSources, []),
     })
   } else if (hasDisadvantage) {
     pushUnique(tags, {
       key: 'disadvantage',
       label: 'Disadvantage',
       tone: 'bad',
-      title: 'Roll two d20 and use the lower result.',
+      title: rollStateTitle('Roll two d20 and use the lower result.', [], disadvantageSources),
     })
+  }
+
+  if (advantageSources.length > 0) {
+    pushUnique(tags, sourceTag('advantage-source', 'Adv', advantageSources, 'good'))
+  }
+  if (disadvantageSources.length > 0) {
+    pushUnique(tags, sourceTag('disadvantage-source', 'Dis', disadvantageSources, 'bad'))
   }
 
   if (coverBonus > 0) {
@@ -119,9 +136,10 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   }
 
   const modifiers = Array.isArray(prediction.modifiers) ? prediction.modifiers : []
+  const explainedSources = [...advantageSources, ...disadvantageSources]
   for (const modifier of modifiers) {
     const label = normalizeText(modifier)
-    if (!label || modifierIsAlreadyExplained(label)) continue
+    if (!label || modifierIsAlreadyExplained(label, explainedSources)) continue
     pushUnique(tags, {
       key: `modifier-${normalizeLookup(label).replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')}`,
       label,
@@ -132,4 +150,38 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   }
 
   return tags.slice(0, 6)
+}
+
+function sourceList(value) {
+  const values = Array.isArray(value) ? value : value ? [value] : []
+  return values
+    .map(sourceLabel)
+    .filter(Boolean)
+}
+
+function sourceLabel(value) {
+  if (typeof value === 'string') return normalizeText(value)
+  if (!value || typeof value !== 'object') return ''
+  return normalizeText(value.label || value.name || value.source || value.reason || value.condition)
+}
+
+function rollStateTitle(base, advantageSources = [], disadvantageSources = []) {
+  const parts = [base]
+  if (advantageSources.length > 0) parts.push(`Advantage sources: ${advantageSources.join(' / ')}.`)
+  if (disadvantageSources.length > 0) parts.push(`Disadvantage sources: ${disadvantageSources.join(' / ')}.`)
+  return parts.join(' ')
+}
+
+function sourceTag(key, prefix, sources, tone) {
+  return {
+    key,
+    label: `${prefix}: ${compactSourceSummary(sources)}`,
+    tone,
+    title: `${prefix === 'Adv' ? 'Advantage' : 'Disadvantage'} sources: ${sources.join(' / ')}.`,
+  }
+}
+
+function compactSourceSummary(sources) {
+  if (sources.length <= 1) return sources[0]
+  return `${sources[0]} +${sources.length - 1}`
 }

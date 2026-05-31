@@ -93,6 +93,8 @@ def build_combat_prediction(
     is_ranged: bool,
     attack_modifiers: tuple[bool, bool],
     defense_modifiers: tuple[bool, bool],
+    attack_modifier_sources: tuple[list[str], list[str]] | None = None,
+    defense_modifier_sources: tuple[list[str], list[str]] | None = None,
     cover_bonus: int = 0,
 ) -> dict[str, Any]:
     cover_bonus = max(0, int(cover_bonus or 0))
@@ -107,6 +109,20 @@ def build_combat_prediction(
 
     attack_advantage, attack_disadvantage = attack_modifiers
     defense_advantage, defense_disadvantage = defense_modifiers
+    attack_advantage_sources, attack_disadvantage_sources = _resolve_modifier_sources(
+        attack_modifier_sources,
+        attack_modifiers,
+        "attacker state",
+        "attacker state",
+    )
+    defense_advantage_sources, defense_disadvantage_sources = _resolve_modifier_sources(
+        defense_modifier_sources,
+        defense_modifiers,
+        "target state",
+        "target state",
+    )
+    advantage_sources = [*attack_advantage_sources, *defense_advantage_sources]
+    disadvantage_sources = [*attack_disadvantage_sources, *defense_disadvantage_sources]
     hit_rate, crit_rate, final_advantage, final_disadvantage = calculate_hit_and_crit_rate(
         target_ac=effective_target_ac,
         attack_bonus=attack_bonus,
@@ -161,5 +177,22 @@ def build_combat_prediction(
         "cover_bonus": cover_bonus,
         "advantage": final_advantage,
         "disadvantage": final_disadvantage,
+        "advantage_sources": advantage_sources,
+        "disadvantage_sources": disadvantage_sources,
         "modifiers": modifiers,
     }
+
+
+def _resolve_modifier_sources(
+    sources: tuple[list[str], list[str]] | None,
+    flags: tuple[bool, bool],
+    advantage_fallback: str,
+    disadvantage_fallback: str,
+) -> tuple[list[str], list[str]]:
+    advantage_sources = list(sources[0] if sources else [])
+    disadvantage_sources = list(sources[1] if sources else [])
+    if flags[0] and not advantage_sources:
+        advantage_sources.append(advantage_fallback)
+    if flags[1] and not disadvantage_sources:
+        disadvantage_sources.append(disadvantage_fallback)
+    return advantage_sources, disadvantage_sources
