@@ -113,6 +113,21 @@ EXPLORE_OUTPUT_SECTION = """
         "promises": ["NPC或玩家做出的新承诺"]
       }
     ],
+    "companion_updates": [
+      {
+        "name": "AI队友名字",
+        "character_id": "可选；知道确切角色ID时填写，否则空字符串",
+        "relationship": "信任/认可/中立/动摇/疏离/复杂/未知",
+        "approval_delta": 0,
+        "reason": "本轮好感变化原因，没有明确变化则空字符串",
+        "personal_quest": {
+          "title": "个人任务或羁绊线名称",
+          "status": "rumor/active/completed/failed/blocked",
+          "detail": "个人任务当前状态摘要",
+          "next_step": "玩家下一步可推进的方向"
+        }
+      }
+    ],
     "key_decisions_add": ["玩家本轮做出的关键决定，每条一句话"],
     "world_flags_set": {"简短事件标签": true},
     "clues_add": [{"text": "新线索", "category": "visual/dialogue/item/location/npc/general"}],
@@ -126,6 +141,7 @@ EXPLORE_OUTPUT_SECTION = """
 - 只记录本轮新增或变化的结构化事实；没有变化时各数组返回 []，world_flags_set 返回 {}，scene_vibe 可为 null。
 - quest_updates 用于任务状态变化，status 只用 active/completed/failed。
 - npc_updates 用于 NPC 关系、事实和承诺变化；不要重复已有事实。
+- companion_updates 只在 AI 队友关系、好感或个人任务线发生清晰变化时填写；普通队友闲聊不要写入。approval_delta 建议 -5 到 +5，重大选择最多到 +/-10。
 - key_decisions_add 只记录会影响后续剧情或关系的决定，不记录普通移动或闲聊。
 - clues_add 只记录玩家实际发现的新线索，不记录尚未揭示的信息。
 - scene_vibe 用于当前地点、时间和紧张度，场景未变化时可为 null；location_id 和 route 可选，仅在本轮确实移动到新地点或发现/更新路线时填写。

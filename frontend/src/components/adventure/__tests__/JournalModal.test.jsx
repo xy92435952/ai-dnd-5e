@@ -34,6 +34,22 @@ function makeSession() {
       world_flags: {
         mine_alarm_raised: true,
       },
+      companion_bonds: {
+        'ally-1': {
+          name: '艾琳',
+          character_id: 'ally-1',
+          relationship: '信任',
+          approval: 18,
+          last_approval_delta: 6,
+          last_approval_reason: '尊重了她的侦察判断',
+          personal_quest: {
+            title: '月下旧誓',
+            status: 'active',
+            detail: '她愿意谈起银叶徽记的来源。',
+            next_step: '在安全营地单独交谈。',
+          },
+        },
+      },
       recent_updates: [
         { type: 'quest', label: '寻找失踪矿工', detail: '发现井底拖拽痕迹', status: 'active', at: '1' },
         { type: 'quest', label: '守住营地', detail: '营地被攻破', status: 'failed', at: '2' },
@@ -110,6 +126,14 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText(/说话风格：短句、实用/)).toBeInTheDocument()
     expect(within(dossier).getByText(/战斗偏好：远程压制并保护后排/)).toBeInTheDocument()
     expect(within(dossier).getByText(/口头禅：先看脚印，再拔剑。/)).toBeInTheDocument()
+    expect(within(dossier).getByText('关系：信任')).toBeInTheDocument()
+    expect(within(dossier).getByText('好感 +18 · 认可')).toBeInTheDocument()
+    expect(within(dossier).getByLabelText('艾琳 好感 +18')).toBeInTheDocument()
+    expect(within(dossier).getByText(/最近影响：尊重了她的侦察判断/)).toBeInTheDocument()
+    expect(within(dossier).getByText('个人任务：月下旧誓')).toBeInTheDocument()
+    expect(within(dossier).getAllByText('进行中').length).toBeGreaterThanOrEqual(2)
+    expect(within(dossier).getByText('她愿意谈起银叶徽记的来源。')).toBeInTheDocument()
+    expect(within(dossier).getByText(/下一步：在安全营地单独交谈。/)).toBeInTheDocument()
     expect(within(dossier).getByText('最近反应')).toBeInTheDocument()
     expect(within(dossier).getByText('我盯着后门，别让他们绕过来。')).toBeInTheDocument()
     expect(within(dossier).getByText('NPC')).toBeInTheDocument()

@@ -13,6 +13,22 @@ def test_normalize_campaign_delta_repairs_bad_shapes():
             },
             {"relationship": "缺少名字"},
         ],
+        "companion_updates": [
+            {
+                "name": "艾琳",
+                "character_id": "ally-1",
+                "relationship": "信任",
+                "approval_delta": "8",
+                "reason": "玩家保护了平民",
+                "personal_quest": {
+                    "title": "月下旧誓",
+                    "status": "active",
+                    "detail": "她提到旧誓约仍未完成",
+                    "next_step": "询问银叶徽记",
+                },
+            },
+            {"relationship": "缺少名字"},
+        ],
         "key_decisions_add": "玩家选择信任铁匠",
         "world_flags_set": ["bad"],
         "clues_add": [{"text": "暗门在井底"}, {"category": "missing text"}],
@@ -27,6 +43,22 @@ def test_normalize_campaign_delta_repairs_bad_shapes():
                 "relationship": "友好",
                 "key_facts": ["知道暗门"],
                 "promises": ["明早带路"],
+            }
+        ],
+        "companion_updates": [
+            {
+                "name": "艾琳",
+                "character_id": "ally-1",
+                "relationship": "信任",
+                "approval": None,
+                "approval_delta": 8,
+                "reason": "玩家保护了平民",
+                "personal_quest": {
+                    "title": "月下旧誓",
+                    "status": "active",
+                    "detail": "她提到旧誓约仍未完成",
+                    "next_step": "询问银叶徽记",
+                },
             }
         ],
         "key_decisions_add": [],
@@ -166,5 +198,76 @@ def test_apply_campaign_delta_merges_quests_npcs_flags_decisions_and_clues():
             "label": "暗门在井底",
             "detail": "location",
             "at": "2026-05-08T00:00:00Z",
+        },
+    ]
+
+
+def test_apply_campaign_delta_merges_companion_bonds_and_personal_quest_hooks():
+    existing = {
+        "companion_bonds": {
+            "ally-1": {
+                "name": "艾琳",
+                "character_id": "ally-1",
+                "approval": 12,
+                "relationship": "谨慎盟友",
+                "personal_quest": {"title": "月下旧誓", "status": "rumor"},
+            },
+        },
+    }
+
+    merged = apply_campaign_delta(existing, {
+        "companion_updates": [
+            {
+                "name": "艾琳",
+                "character_id": "ally-1",
+                "relationship": "信任",
+                "approval_delta": 6,
+                "reason": "玩家尊重了她的侦察判断",
+                "personal_quest": {
+                    "title": "月下旧誓",
+                    "status": "active",
+                    "detail": "她愿意解释银叶徽记的来源",
+                    "next_step": "在安全营地单独交谈",
+                },
+            },
+            {
+                "name": "博恩",
+                "approval": -4,
+                "reason": "玩家拒绝救援俘虏",
+            },
+        ],
+    }, now_iso="2026-06-01T00:00:00Z")
+
+    assert merged["companion_bonds"]["ally-1"] == {
+        "name": "艾琳",
+        "character_id": "ally-1",
+        "approval": 18,
+        "relationship": "信任",
+        "last_approval_delta": 6,
+        "last_approval_reason": "玩家尊重了她的侦察判断",
+        "personal_quest": {
+            "title": "月下旧誓",
+            "status": "active",
+            "detail": "她愿意解释银叶徽记的来源",
+            "next_step": "在安全营地单独交谈",
+        },
+    }
+    assert merged["companion_bonds"]["博恩"] == {
+        "name": "博恩",
+        "approval": -4,
+        "last_approval_reason": "玩家拒绝救援俘虏",
+    }
+    assert merged["recent_updates"] == [
+        {
+            "type": "companion",
+            "label": "艾琳",
+            "detail": "信任 / 好感+6 / 玩家尊重了她的侦察判断",
+            "at": "2026-06-01T00:00:00Z",
+        },
+        {
+            "type": "companion",
+            "label": "博恩",
+            "detail": "玩家拒绝救援俘虏",
+            "at": "2026-06-01T00:00:00Z",
         },
     ]

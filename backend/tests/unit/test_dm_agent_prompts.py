@@ -24,6 +24,7 @@ def test_explore_prompt_contains_all_maintenance_sections():
         "严格输出格式",
         "campaign_delta",
         "活战役状态",
+        "companion_updates",
         "player_choices 结构化格式",
         "enemy.sprite",
     ]

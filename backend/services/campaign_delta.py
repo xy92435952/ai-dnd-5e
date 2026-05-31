@@ -42,6 +42,16 @@ def _clean_bool(value: Any) -> bool:
     return text in {"1", "true", "yes", "y"}
 
 
+def _clean_int(value: Any, *, minimum: int, maximum: int) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return max(minimum, min(maximum, number))
+
+
 def _unique_append(items: list, value: Any, limit: int | None = None) -> list:
     if value not in items:
         items.append(value)
@@ -141,6 +151,33 @@ def normalize_campaign_delta(delta: Any) -> dict:
         }
         npc_updates.append(entry)
 
+    companion_updates = []
+    for item in delta.get("companion_updates", []):
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        personal_quest = item.get("personal_quest") if isinstance(item.get("personal_quest"), dict) else {}
+        quest = {
+            "title": _clean_text(personal_quest.get("title"), 80),
+            "status": _clean_text(personal_quest.get("status"), 20),
+            "detail": _clean_text(personal_quest.get("detail"), 160),
+            "next_step": _clean_text(personal_quest.get("next_step"), 160),
+        }
+        if (quest["title"] or quest["detail"] or quest["next_step"]) and not quest["status"]:
+            quest["status"] = "active"
+        companion_updates.append({
+            "name": _clean_text(item.get("name"), 40),
+            "character_id": _clean_text(item.get("character_id") or item.get("id"), 80),
+            "relationship": _clean_text(item.get("relationship"), 24),
+            "approval": _clean_int(item.get("approval"), minimum=-100, maximum=100),
+            "approval_delta": _clean_int(
+                item.get("approval_delta", item.get("approval_change")),
+                minimum=-25,
+                maximum=25,
+            ),
+            "reason": _clean_text(item.get("reason") or item.get("approval_reason"), 140),
+            "personal_quest": {k: v for k, v in quest.items() if v},
+        })
+
     clues_add = []
     for item in delta.get("clues_add", []):
         if not isinstance(item, dict) or not item.get("text"):
@@ -174,6 +211,7 @@ def normalize_campaign_delta(delta: Any) -> dict:
     return {
         "quest_updates": quest_updates,
         "npc_updates": npc_updates,
+        "companion_updates": companion_updates,
         "key_decisions_add": [_clean_text(v, 120) for v in _strict_list(delta.get("key_decisions_add")) if _clean_text(v)],
         "world_flags_set": dict(world_flags),
         "clues_add": clues_add,
@@ -238,6 +276,54 @@ def apply_campaign_delta(existing_state: dict | None, delta: Any, now_iso: str |
             recent_updates.append(recent)
     if npc_registry:
         merged["npc_registry"] = npc_registry
+
+    companion_bonds = deepcopy(merged.get("companion_bonds", {}))
+    if not isinstance(companion_bonds, dict):
+        companion_bonds = {}
+    for update in delta["companion_updates"]:
+        key = update["character_id"] or update["name"]
+        current = companion_bonds.get(key, {}) if isinstance(companion_bonds.get(key, {}), dict) else {}
+        entry = {
+            **current,
+            "name": update["name"] or current.get("name") or key,
+        }
+        if update["character_id"]:
+            entry["character_id"] = update["character_id"]
+        if update["relationship"]:
+            entry["relationship"] = update["relationship"]
+        approval_delta = update["approval_delta"]
+        if update["approval"] is not None:
+            entry["approval"] = update["approval"]
+        elif approval_delta is not None:
+            current_approval = _clean_int(current.get("approval", 0), minimum=-100, maximum=100) or 0
+            entry["approval"] = max(-100, min(100, current_approval + approval_delta))
+        if approval_delta is not None:
+            entry["last_approval_delta"] = approval_delta
+        if update["reason"]:
+            entry["last_approval_reason"] = update["reason"]
+        if update["personal_quest"]:
+            current_quest = current.get("personal_quest", {}) if isinstance(current.get("personal_quest"), dict) else {}
+            entry["personal_quest"] = {
+                **current_quest,
+                **update["personal_quest"],
+            }
+        companion_bonds[key] = entry
+
+        detail_parts = []
+        if update["relationship"]:
+            detail_parts.append(update["relationship"])
+        if approval_delta:
+            sign = "+" if approval_delta > 0 else ""
+            detail_parts.append(f"好感{sign}{approval_delta}")
+        if update["reason"]:
+            detail_parts.append(update["reason"])
+        elif update["personal_quest"].get("title"):
+            detail_parts.append(update["personal_quest"]["title"])
+        recent = _recent_update("companion", update["name"], " / ".join(detail_parts), now_iso)
+        if recent:
+            recent_updates.append(recent)
+    if companion_bonds:
+        merged["companion_bonds"] = companion_bonds
 
     decisions = list(merged.get("key_decisions", []) or [])
     for decision in delta["key_decisions_add"]:

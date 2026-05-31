@@ -22,6 +22,20 @@ CAMPAIGN_STATE_PROMPT = """
       "outcome": "结果描述，仅completed/failed时填写，active时为空字符串"
     }
   ],
+  "companion_bonds": {
+    "AI队友名字或角色ID": {
+      "name": "AI队友名字",
+      "relationship": "信任/认可/中立/动摇/疏离/复杂/未知",
+      "approval": 0,
+      "last_approval_reason": "最近一次好感变化原因，没有则为空字符串",
+      "personal_quest": {
+        "title": "个人任务或羁绊线名称",
+        "status": "rumor/active/completed/failed/blocked",
+        "detail": "当前状态摘要",
+        "next_step": "下一步推进方向"
+      }
+    }
+  },
   "world_flags": {
     "简短事件标签": true
   },

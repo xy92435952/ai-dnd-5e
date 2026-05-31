@@ -42,6 +42,12 @@ function joinParts(parts) {
   return parts.map(cleanText).filter(Boolean).join(' · ')
 }
 
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
 const QUEST_STATUS_META = {
   active: { label: '进行中', tone: 'active' },
   completed: { label: '完成', tone: 'good' },
@@ -53,6 +59,7 @@ const QUEST_STATUS_META = {
 const RECENT_TYPE_META = {
   quest: { label: '任务', tone: 'active' },
   clue: { label: '线索', tone: 'active' },
+  companion: { label: '队友', tone: 'good' },
   decision: { label: '决定', tone: 'default' },
   npc: { label: 'NPC', tone: 'good' },
   world: { label: '后果', tone: 'danger' },
@@ -62,6 +69,28 @@ const RECENT_TYPE_META = {
 function getQuestStatusMeta(status) {
   const key = cleanText(status || 'active').toLowerCase()
   return QUEST_STATUS_META[key] || { label: status || '记录', tone: 'default' }
+}
+
+function getApprovalMeta(value) {
+  const score = toFiniteNumber(value)
+  if (score === null) return null
+  const clamped = Math.max(-100, Math.min(100, Math.round(score)))
+  const label = clamped >= 50
+    ? '信赖'
+    : clamped >= 10
+      ? '认可'
+      : clamped <= -50
+        ? '疏离'
+        : clamped < 0
+          ? '动摇'
+          : '中立'
+  return {
+    score: clamped,
+    label,
+    tone: clamped > 0 ? 'good' : clamped < 0 ? 'danger' : 'default',
+    text: `${clamped > 0 ? '+' : ''}${clamped}`,
+    fill: `${(clamped + 100) / 2}%`,
+  }
 }
 
 function getRecentTypeMeta(type) {
@@ -127,6 +156,21 @@ function matchCompanionByName(speaker, companions) {
   }) || null
 }
 
+function matchCompanionByIdentity(key, data, companions) {
+  const candidates = [
+    key,
+    data?.id,
+    data?.character_id,
+    data?.characterId,
+  ].map(cleanText).filter(Boolean)
+  const byId = companions.find(companion => {
+    const ids = [companion?.id, companion?.character_id, companion?.characterId].map(cleanText)
+    return ids.some(id => id && candidates.includes(id))
+  })
+  if (byId) return byId
+  return matchCompanionByName(data?.name || key, companions)
+}
+
 function buildCompanionReactionMap(session, companions) {
   const map = new Map()
   asArray(session?.logs).forEach(log => {
@@ -154,7 +198,43 @@ function buildCompanionReactionMap(session, companions) {
   return map
 }
 
-function buildCompanionSummary(companion, reactionsByCompanion) {
+function normalizeCompanionBond(rawBond) {
+  const bond = asObject(rawBond)
+  const personalQuest = asObject(bond.personal_quest || bond.personalQuest || bond.quest)
+  const approval = getApprovalMeta(bond.approval ?? bond.approval_score ?? bond.affinity)
+  const delta = toFiniteNumber(bond.last_approval_delta ?? bond.approval_delta ?? bond.approval_change)
+  return {
+    relationship: cleanText(bond.relationship || bond.status),
+    approval,
+    delta: delta === null ? null : Math.round(delta),
+    reason: cleanText(bond.last_approval_reason || bond.reason || bond.approval_reason),
+    personalQuest: {
+      title: cleanText(personalQuest.title || personalQuest.quest || personalQuest.name),
+      status: getQuestStatusMeta(personalQuest.status || 'active'),
+      detail: cleanText(personalQuest.detail || personalQuest.outcome || personalQuest.summary),
+      nextStep: cleanText(personalQuest.next_step || personalQuest.nextStep),
+    },
+  }
+}
+
+function buildCompanionBondMap(campaign, companions) {
+  const map = new Map()
+  const source = campaign?.companion_bonds || campaign?.companion_relationships || campaign?.companion_states
+  const entries = Array.isArray(source)
+    ? source.map((item, index) => [item?.id || item?.character_id || item?.name || index, item])
+    : Object.entries(asObject(source))
+  entries.forEach(([key, rawBond]) => {
+    const companion = matchCompanionByIdentity(key, rawBond, companions)
+    if (!companion) return
+    const normalized = normalizeCompanionBond(rawBond)
+    const hasQuest = normalized.personalQuest.title || normalized.personalQuest.detail || normalized.personalQuest.nextStep
+    if (!normalized.relationship && !normalized.approval && !normalized.reason && !hasQuest) return
+    map.set(companion.id || companion.name, normalized)
+  })
+  return map
+}
+
+function buildCompanionSummary(companion, reactionsByCompanion, bondsByCompanion) {
   const className = companion?.char_class || companion?.class || companion?.class_name
   const level = companion?.level ? `Lv ${companion.level}` : ''
   const role = joinParts([companion?.race, className, level]) || '队友'
@@ -174,6 +254,7 @@ function buildCompanionSummary(companion, reactionsByCompanion) {
     role,
     stats,
     recentReaction: reactionsByCompanion.get(key) || null,
+    bond: bondsByCompanion.get(key) || null,
     personality: cleanText(companion?.personality || companion?.personality_traits),
     speechStyle: cleanText(companion?.speech_style),
     combatPreference: cleanText(companion?.combat_preference),
@@ -199,7 +280,8 @@ function buildJournalSections(session, room) {
   const companions = asArray(session?.companions)
     .filter(companion => companion && cleanText(companion.name))
   const reactionsByCompanion = buildCompanionReactionMap(session, companions)
-  const companionSummaries = companions.map(companion => buildCompanionSummary(companion, reactionsByCompanion))
+  const bondsByCompanion = buildCompanionBondMap(campaign, companions)
+  const companionSummaries = companions.map(companion => buildCompanionSummary(companion, reactionsByCompanion, bondsByCompanion))
   const decisions = asArray(campaign.key_decisions).filter(Boolean)
   const completedScenes = asArray(campaign.completed_scenes).filter(Boolean)
 
@@ -336,6 +418,30 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
               {companion.speechStyle && <p className="journal-muted">说话风格：{companion.speechStyle}</p>}
               {companion.combatPreference && <p className="journal-muted">战斗偏好：{companion.combatPreference}</p>}
               {companion.catchphrase && <p className="journal-muted">口头禅：{companion.catchphrase}</p>}
+              {companion.bond && (
+                <div className="journal-companion-bond">
+                  <div className="journal-companion-bond-row">
+                    {companion.bond.relationship && <Pill tone="good">关系：{companion.bond.relationship}</Pill>}
+                    {companion.bond.approval && <Pill tone={companion.bond.approval.tone}>好感 {companion.bond.approval.text} · {companion.bond.approval.label}</Pill>}
+                  </div>
+                  {companion.bond.approval && (
+                    <div className={`journal-approval-meter ${companion.bond.approval.tone}`} aria-label={`${companion.name} 好感 ${companion.bond.approval.text}`}>
+                      <span style={{ width: companion.bond.approval.fill }} />
+                    </div>
+                  )}
+                  {companion.bond.reason && <p className="journal-muted">最近影响：{companion.bond.reason}</p>}
+                  {(companion.bond.personalQuest.title || companion.bond.personalQuest.detail || companion.bond.personalQuest.nextStep) && (
+                    <div className="journal-personal-quest">
+                      <div className="journal-card-head">
+                        <strong>个人任务：{companion.bond.personalQuest.title || '未命名羁绊'}</strong>
+                        <Pill tone={companion.bond.personalQuest.status.tone}>{companion.bond.personalQuest.status.label}</Pill>
+                      </div>
+                      {companion.bond.personalQuest.detail && <p>{companion.bond.personalQuest.detail}</p>}
+                      {companion.bond.personalQuest.nextStep && <p className="journal-muted">下一步：{companion.bond.personalQuest.nextStep}</p>}
+                    </div>
+                  )}
+                </div>
+              )}
               {companion.recentReaction && (
                 <p className="journal-companion-reaction" title={companion.recentReaction.at || ''}>
                   <span>最近反应</span>{companion.recentReaction.text}

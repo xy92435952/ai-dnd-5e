@@ -157,6 +157,15 @@ def test_normalize_dm_output_repairs_campaign_delta_contract():
                 },
                 {"relationship": "缺少名字"},
             ],
+            "companion_updates": [
+                {
+                    "name": "艾琳",
+                    "relationship": "信任",
+                    "approval_change": "5",
+                    "approval_reason": "玩家让她先检查后门",
+                    "personal_quest": {"title": "银叶徽记", "next_step": "询问徽记来源"},
+                },
+            ],
             "key_decisions_add": "玩家选择信任铁匠",
             "world_flags_set": ["bad"],
             "clues_add": [
@@ -179,6 +188,21 @@ def test_normalize_dm_output_repairs_campaign_delta_contract():
                 "key_facts": ["知道暗门"],
                 "promises": ["明早带路"],
             },
+        ],
+        "companion_updates": [
+            {
+                "name": "艾琳",
+                "character_id": "",
+                "relationship": "信任",
+                "approval": None,
+                "approval_delta": 5,
+                "reason": "玩家让她先检查后门",
+                "personal_quest": {
+                    "title": "银叶徽记",
+                    "status": "active",
+                    "next_step": "询问徽记来源",
+                },
+            }
         ],
         "key_decisions_add": [],
         "world_flags_set": {},
