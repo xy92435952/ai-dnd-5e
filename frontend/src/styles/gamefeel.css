@@ -3555,6 +3555,12 @@
   background: rgba(240,64,64,.1);
   color: #f09090;
 }
+.target-condition-impacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
 .target-hp-bar {
   height: 8px;
   background: #0a0604;
@@ -3690,6 +3696,12 @@
   display: flex; gap: 4px; flex-wrap: wrap;
   margin-top: 6px;
 }
+.condition-impact-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
 .cond-icon {
   min-height: 20px;
   max-width: 100%;
@@ -3713,3 +3725,37 @@
   font-size: 9px;
 }
 .cond-icon.buff { background: linear-gradient(180deg, rgba(47,168,184,.3), rgba(20,68,78,.5)); border-color: rgba(127,232,248,.6); color: var(--arcane-light, #5fd8e8); }
+.condition-impact-tags span,
+.target-condition-impacts span {
+  max-width: 100%;
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid rgba(240,64,64,.28);
+  border-radius: 999px;
+  background: rgba(240,64,64,.08);
+  color: #f09090;
+  cursor: help;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.condition-impact-tags span.warning,
+.target-condition-impacts span.warning {
+  border-color: rgba(240,208,96,.34);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.condition-impact-tags span.good,
+.target-condition-impacts span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}

@@ -1,6 +1,6 @@
 import { buildCombatPreviewRows } from '../../utils/combat'
 import { buildCombatRuleTags } from '../../utils/combatRuleTags'
-import { buildConditionSummaries } from '../../utils/conditionRules'
+import { buildConditionImpactTags, buildConditionSummaries } from '../../utils/conditionRules'
 import { buildEnemyInspectModel } from '../../utils/enemyInspect'
 
 export default function TargetCard({
@@ -16,6 +16,7 @@ export default function TargetCard({
   const ruleTags = buildCombatRuleTags(prediction, entity)
   const inspect = buildEnemyInspectModel(entity)
   const badges = buildTargetBadges(entity, prediction)
+  const conditionImpactTags = buildConditionImpactTags(entity.conditions || [], entity.condition_durations || {})
 
   return (
     <div className="target-card-wrap">
@@ -41,6 +42,14 @@ export default function TargetCard({
         {ruleTags.length > 0 && (
           <div className="target-rule-tags" aria-label={`Attack rule tags ${entity.name}`}>
             {ruleTags.map(tag => (
+              <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
+            ))}
+          </div>
+        )}
+
+        {conditionImpactTags.length > 0 && (
+          <div className="target-condition-impacts" aria-label={`Condition impacts ${entity.name}`}>
+            {conditionImpactTags.map(tag => (
               <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
             ))}
           </div>

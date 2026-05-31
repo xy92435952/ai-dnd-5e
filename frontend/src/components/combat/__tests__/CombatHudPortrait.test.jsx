@@ -108,5 +108,10 @@ describe('CombatHudPortrait', () => {
     expect(rules).toHaveTextContent('Fire Resistance')
     expect(screen.getByTitle(/Disadvantage on attack rolls/)).toBeInTheDocument()
     expect(screen.getByTitle(/Fire damage is reduced/)).toHaveClass('buff')
+
+    const impacts = screen.getByLabelText('Active condition impacts')
+    expect(impacts).toHaveTextContent('Atk disadv')
+    expect(impacts).toHaveTextContent('Resist')
+    expect(screen.getByTitle(/Damage resistance is active/)).toHaveClass('good')
   })
 })

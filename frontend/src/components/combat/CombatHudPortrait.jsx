@@ -1,12 +1,13 @@
 import React from 'react'
 import { getEquippedWeaponResourceSummary } from '../../utils/combat'
-import { buildConditionSummaries } from '../../utils/conditionRules'
+import { buildConditionImpactTags, buildConditionSummaries } from '../../utils/conditionRules'
 
 export default function CombatHudPortrait({ session, character = null, playerClass, playerSubclass, playerLevel, turnState }) {
   const player = character || session?.player
   const hpMax = player?.hp_max ?? player?.derived?.hp_max ?? 1
   const weaponResource = getEquippedWeaponResourceSummary(player)
   const conditionSummaries = buildConditionSummaries(player?.conditions || [], player?.condition_durations || {})
+  const conditionImpactTags = buildConditionImpactTags(player?.conditions || [], player?.condition_durations || {})
 
   return (
     <div className="hud-portrait">
@@ -64,6 +65,15 @@ export default function CombatHudPortrait({ session, character = null, playerCla
               <span key={condition.key} className={`cond-icon ${condition.tone}`} title={condition.title}>
                 {condition.label}
                 {condition.duration ? <b>{condition.duration}</b> : null}
+              </span>
+            ))}
+          </div>
+        )}
+        {conditionImpactTags.length > 0 && (
+          <div className="condition-impact-tags" aria-label="Active condition impacts">
+            {conditionImpactTags.map(tag => (
+              <span key={tag.key} className={tag.tone || ''} title={tag.title}>
+                {tag.label}
               </span>
             ))}
           </div>

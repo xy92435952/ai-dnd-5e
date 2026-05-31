@@ -112,7 +112,13 @@ describe('TargetCard', () => {
     expect(summary).toHaveTextContent('Marked')
     expect(summary).toHaveTextContent('+1 cond')
     expect(within(summary).getByTitle('Frightened: Disadvantage while source is visible; cannot willingly move closer. Duration: 2 rounds.')).toBeInTheDocument()
-    expect(within(summary).getByTitle('Slowed: Condition is active; check logs for exact source and duration.')).toBeInTheDocument()
+    expect(within(summary).getByTitle('Slowed: Speed and action options are reduced; Dex saves may be penalized.')).toBeInTheDocument()
+
+    const impacts = screen.getByLabelText('Condition impacts Wounded Hobgoblin')
+    expect(impacts).toHaveTextContent('Atk disadv')
+    expect(impacts).toHaveTextContent('Move block')
+    expect(impacts).toHaveTextContent('Focus fire')
+    expect(impacts).toHaveTextContent('Action limit')
   })
 
   it('renders readable attack rule tags for cover and roll state', () => {
