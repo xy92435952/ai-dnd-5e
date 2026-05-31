@@ -16,7 +16,8 @@ function makeSession() {
     campaign_state: {
       completed_scenes: ['矿洞入口'],
       quest_log: [
-        { quest: '寻找失踪矿工', status: 'active', outcome: '矿工可能被带往井底。' },
+        { quest: '寻找失踪矿工', status: 'active', next_step: '确认矿工是否被带往井底。' },
+        { quest: '守住营地', status: 'failed', outcome: '狼群冲破外圈，幸存者退入旧矿道。' },
       ],
       npc_registry: {
         铁匠格雷: {
@@ -34,6 +35,8 @@ function makeSession() {
         mine_alarm_raised: true,
       },
       recent_updates: [
+        { type: 'quest', label: '寻找失踪矿工', detail: '发现井底拖拽痕迹', status: 'active', at: '1' },
+        { type: 'quest', label: '守住营地', detail: '营地被攻破', status: 'failed', at: '2' },
         { type: 'world', label: '守卫开始巡逻', detail: '矿村警戒提高' },
       ],
     },
@@ -76,6 +79,13 @@ describe('JournalModal', () => {
     const dossier = screen.getByLabelText('冒险卷宗')
     expect(within(dossier).getByText('任务')).toBeInTheDocument()
     expect(within(dossier).getByText('寻找失踪矿工')).toBeInTheDocument()
+    expect(within(dossier).getAllByText('进行中').length).toBeGreaterThanOrEqual(1)
+    expect(within(dossier).getByText('确认矿工是否被带往井底。')).toBeInTheDocument()
+    expect(within(dossier).getByText('发现井底拖拽痕迹')).toBeInTheDocument()
+    expect(within(dossier).getByText('守住营地')).toBeInTheDocument()
+    expect(within(dossier).getAllByText('失败').length).toBeGreaterThanOrEqual(1)
+    expect(within(dossier).getByText('狼群冲破外圈，幸存者退入旧矿道。')).toBeInTheDocument()
+    expect(within(dossier).getByText('营地被攻破')).toBeInTheDocument()
     expect(within(dossier).getByText('队友')).toBeInTheDocument()
     expect(within(dossier).getByText('艾琳')).toBeInTheDocument()
     expect(within(dossier).getByText('半精灵 · Ranger · Lv 2')).toBeInTheDocument()

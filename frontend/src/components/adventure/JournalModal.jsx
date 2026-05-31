@@ -41,6 +41,54 @@ function joinParts(parts) {
   return parts.map(cleanText).filter(Boolean).join(' · ')
 }
 
+const QUEST_STATUS_META = {
+  active: { label: '进行中', tone: 'active' },
+  completed: { label: '完成', tone: 'good' },
+  failed: { label: '失败', tone: 'danger' },
+  blocked: { label: '受阻', tone: 'danger' },
+  paused: { label: '暂停', tone: 'default' },
+}
+
+function getQuestStatusMeta(status) {
+  const key = cleanText(status || 'active').toLowerCase()
+  return QUEST_STATUS_META[key] || { label: status || '记录', tone: 'default' }
+}
+
+function getQuestDetail(quest) {
+  return [
+    quest?.outcome,
+    quest?.next_step,
+    quest?.consequence,
+    quest?.failure_consequence,
+    quest?.fail_forward,
+    quest?.detail,
+  ].map(cleanText).find(Boolean) || ''
+}
+
+function buildQuestSummary(quest, recentUpdates) {
+  const status = getQuestStatusMeta(quest?.status)
+  const timeline = recentUpdates
+    .filter(item => item?.type === 'quest' && cleanText(item.label) === cleanText(quest?.quest))
+    .slice(-3)
+    .map((item, index) => {
+      const itemStatus = getQuestStatusMeta(item.status || quest?.status)
+      return {
+        id: `${item.label}-${item.at || index}`,
+        status: itemStatus.label,
+        tone: itemStatus.tone,
+        detail: cleanText(item.detail || item.status || quest?.outcome),
+      }
+    })
+
+  return {
+    quest: quest?.quest,
+    statusLabel: status.label,
+    statusTone: status.tone,
+    detail: getQuestDetail(quest),
+    timeline,
+  }
+}
+
 function buildCompanionSummary(companion) {
   const className = companion?.char_class || companion?.class || companion?.class_name
   const level = companion?.level ? `Lv ${companion.level}` : ''
@@ -71,14 +119,16 @@ function buildJournalSections(session, room) {
   const campaign = asObject(session?.campaign_state)
   const gameState = asObject(session?.game_state)
   const sceneVibe = asObject(gameState.scene_vibe)
-  const quests = asArray(campaign.quest_log).filter(q => q?.quest)
+  const recentUpdates = asArray(campaign.recent_updates).filter(Boolean)
+  const quests = asArray(campaign.quest_log)
+    .filter(q => q?.quest)
+    .map(q => buildQuestSummary(q, recentUpdates))
   const clues = asArray(campaign.clues).filter(c => c?.text)
   const companions = asArray(session?.companions)
     .filter(companion => companion && cleanText(companion.name))
     .map(buildCompanionSummary)
   const decisions = asArray(campaign.key_decisions).filter(Boolean)
   const completedScenes = asArray(campaign.completed_scenes).filter(Boolean)
-  const recentUpdates = asArray(campaign.recent_updates).filter(Boolean)
 
   const npcs = Object.entries(asObject(campaign.npc_registry))
     .filter(([name]) => cleanText(name))
@@ -167,12 +217,22 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
       <div className="journal-dossier" aria-label="冒险卷宗">
         <Section title="任务" count={journal.quests.length}>
           {journal.quests.length === 0 ? <EmptyLine>暂无任务记录</EmptyLine> : journal.quests.map((quest, index) => (
-            <article key={`${quest.quest}-${index}`} className="journal-card">
+            <article key={`${quest.quest}-${index}`} className={`journal-card quest ${quest.statusTone}`}>
               <div className="journal-card-head">
                 <strong>{quest.quest}</strong>
-                <Pill tone={quest.status === 'completed' ? 'good' : quest.status === 'failed' ? 'danger' : 'active'}>{quest.status || 'active'}</Pill>
+                <Pill tone={quest.statusTone}>{quest.statusLabel}</Pill>
               </div>
-              {quest.outcome && <p>{quest.outcome}</p>}
+              {quest.detail && <p>{quest.detail}</p>}
+              {quest.timeline.length > 0 && (
+                <ol className="journal-quest-timeline" aria-label={`${quest.quest} 任务进展`}>
+                  {quest.timeline.map(step => (
+                    <li key={step.id} className={step.tone}>
+                      <b>{step.status}</b>
+                      <span>{step.detail}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </article>
           ))}
         </Section>

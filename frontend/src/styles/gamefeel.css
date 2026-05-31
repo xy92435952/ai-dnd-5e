@@ -810,6 +810,15 @@
 .journal-card.threat {
   border-left-color: rgba(240,64,64,.58);
 }
+.journal-card.quest.active {
+  border-left-color: rgba(240,208,96,.58);
+}
+.journal-card.quest.good {
+  border-left-color: rgba(106,196,132,.58);
+}
+.journal-card.quest.danger {
+  border-left-color: rgba(240,64,64,.58);
+}
 .journal-card.companion {
   border-left-color: rgba(106,196,132,.58);
 }
@@ -835,6 +844,46 @@
 .journal-card .journal-muted {
   color: var(--parchment-dark);
   font-size: 11px;
+}
+.journal-quest-timeline {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.journal-quest-timeline li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid rgba(213,184,121,.2);
+  border-radius: 4px;
+  background: rgba(0,0,0,.18);
+  color: var(--parchment-light);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.journal-quest-timeline li b {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.journal-quest-timeline li.active b {
+  color: var(--amber);
+}
+.journal-quest-timeline li.good b {
+  color: var(--emerald-light);
+}
+.journal-quest-timeline li.danger b {
+  color: var(--blood-light);
+}
+.journal-quest-timeline li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .journal-pill {
   flex: 0 0 auto;
