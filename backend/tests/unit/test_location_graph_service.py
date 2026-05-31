@@ -28,6 +28,44 @@ def test_build_location_graph_from_module_scenes():
     assert graph["nodes"][1]["encounter_template_ids"] == ["encounter_scene_1_0"]
 
 
+def test_build_location_graph_from_module_preserves_authored_route_metadata():
+    graph = build_location_graph_from_module({
+        "scenes": [
+            {
+                "id": "gate",
+                "title": "Gatehouse",
+                "exits": [
+                    {
+                        "to": "vault",
+                        "type": "locked",
+                        "label": "Ironbound Door",
+                        "requires_key": "Gate Token",
+                        "one_way": True,
+                        "dc": 14,
+                        "check_type": "athletics",
+                    }
+                ],
+            },
+            {"id": "vault", "title": "Vault"},
+        ],
+    })
+
+    assert graph["edges"] == [
+        {
+            "id": "edge_gate_vault_0",
+            "from": "gate",
+            "to": "vault",
+            "type": "locked",
+            "label": "Ironbound Door",
+            "requires_key": "Gate Token",
+            "check_type": "athletics",
+            "dc": 14,
+            "locked": True,
+            "one_way": True,
+        }
+    ]
+
+
 def test_apply_location_update_moves_to_existing_scene_and_marks_visited():
     state = ensure_location_graph_state({}, {
         "scenes": [
@@ -60,6 +98,37 @@ def test_apply_location_update_adds_discovered_runtime_location():
         "from": "scene_0",
         "to": "hidden_shrine",
         "type": "discovered",
+    }
+
+
+def test_apply_location_update_persists_runtime_route_metadata():
+    updated = apply_location_update(
+        {"location_graph": build_location_graph_from_module({"setting": "Road"})},
+        {},
+        location_name="Hidden Shrine",
+        route={
+            "type": "hidden",
+            "label": "Cracked stair",
+            "hidden": True,
+            "one_way": True,
+            "requires_key": "Moon Sigil",
+            "dc": 16,
+            "check_type": "investigation",
+        },
+    )
+
+    graph = updated["location_graph"]
+    assert graph["edges"][-1] == {
+        "from": "scene_0",
+        "to": "hidden_shrine",
+        "type": "hidden",
+        "label": "Cracked stair",
+        "requires_key": "Moon Sigil",
+        "check_type": "investigation",
+        "dc": 16,
+        "locked": True,
+        "hidden": True,
+        "one_way": True,
     }
 
 

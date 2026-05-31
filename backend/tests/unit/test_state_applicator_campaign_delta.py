@@ -234,3 +234,60 @@ async def test_state_applicator_tags_location_exit_choices_after_apply():
     assert applied.player_choices[0]["text"] == "Go to the Training Yard"
     assert applied.player_choices[0]["choice_type"] == "movement"
     assert applied.player_choices[0]["location_exit"]["target_location_id"] == "yard"
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_persists_scene_vibe_route_metadata():
+    session = Session(
+        id="session-runtime-route",
+        module_id="module-1",
+        game_state={
+            "location_graph": {
+                "version": 1,
+                "current_location_id": "gate",
+                "nodes": [{"id": "gate", "name": "Gatehouse", "visited": True}],
+                "edges": [],
+            },
+        },
+        campaign_state={},
+    )
+    applicator = StateApplicator(FakeDb())
+
+    await applicator.apply(
+        session,
+        json.dumps({
+            "narrative": "The ironbound door opens into a sealed vault.",
+            "campaign_delta": {
+                "scene_vibe": {
+                    "location": "Sealed Vault",
+                    "location_id": "vault",
+                    "time_of_day": "midnight",
+                    "tension": "danger",
+                    "route": {
+                        "type": "locked",
+                        "label": "Ironbound Door",
+                        "requires_key": "Gate Token",
+                        "locked": True,
+                        "one_way": True,
+                    },
+                },
+            },
+            "state_delta": {},
+            "player_choices": [],
+        }),
+        characters=[],
+    )
+
+    graph = session.game_state["location_graph"]
+    assert graph["current_location_id"] == "vault"
+    assert graph["nodes"][-1]["id"] == "vault"
+    assert graph["nodes"][-1]["name"] == "Sealed Vault"
+    assert graph["edges"][-1] == {
+        "from": "gate",
+        "to": "vault",
+        "type": "locked",
+        "label": "Ironbound Door",
+        "requires_key": "Gate Token",
+        "locked": True,
+        "one_way": True,
+    }

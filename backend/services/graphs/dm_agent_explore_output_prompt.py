@@ -116,7 +116,7 @@ EXPLORE_OUTPUT_SECTION = """
     "key_decisions_add": ["玩家本轮做出的关键决定，每条一句话"],
     "world_flags_set": {"简短事件标签": true},
     "clues_add": [{"text": "新线索", "category": "visual/dialogue/item/location/npc/general"}],
-    "scene_vibe": {"location": "地点", "time_of_day": "时间", "tension": "平静/关注/紧张/危险/致命"}
+    "scene_vibe": {"location": "地点", "location_id": "可选稳定地点ID", "time_of_day": "时间", "tension": "平静/关注/紧张/危险/致命", "route": {"type": "discovered|locked|hidden|route", "label": "可选路线名", "locked": false, "hidden": false, "one_way": false, "requires_key": "可选钥匙或条件"}}
   },
   "companion_reactions": "队友反应（按上方 companion_reactions 三层规则决定数量和长度）。格式：[名字]: 台词或动作描述，多条用换行分隔",
   "player_choices": ["可能的后续行动1", "可能的后续行动2", "可能的后续行动3"]
@@ -128,7 +128,7 @@ EXPLORE_OUTPUT_SECTION = """
 - npc_updates 用于 NPC 关系、事实和承诺变化；不要重复已有事实。
 - key_decisions_add 只记录会影响后续剧情或关系的决定，不记录普通移动或闲聊。
 - clues_add 只记录玩家实际发现的新线索，不记录尚未揭示的信息。
-- scene_vibe 用于当前地点、时间和紧张度，场景未变化时可为 null。
+- scene_vibe 用于当前地点、时间和紧张度，场景未变化时可为 null；location_id 和 route 可选，仅在本轮确实移动到新地点或发现/更新路线时填写。
 
 ## needs_check 示例
 玩家说"我悄悄靠近守卫" → needs_check: {required:true, check_type:"隐匿", ability:"dex", dc:14, ...}

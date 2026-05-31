@@ -181,6 +181,7 @@ class StateApplicator:
                 get_module_content(module),
                 location_name=scene_vibe.get("location"),
                 location_id=scene_vibe.get("location_id"),
+                route=scene_vibe.get("route") if isinstance(scene_vibe.get("route"), dict) else None,
             )
             session.game_state = gs
             flag_modified(session, "game_state")

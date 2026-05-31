@@ -65,10 +65,7 @@ def build_location_graph_from_module(parsed: dict[str, Any] | None) -> dict[str,
             "visited": True,
         })
 
-    edges = [
-        {"from": nodes[index]["id"], "to": nodes[index + 1]["id"], "type": "sequence"}
-        for index in range(len(nodes) - 1)
-    ]
+    edges = _build_location_edges(parsed, scenes, nodes)
     graph = {
         "version": LOCATION_GRAPH_VERSION,
         "current_location_id": nodes[0]["id"],
@@ -97,6 +94,7 @@ def apply_location_update(
     *,
     location_name: str | None = None,
     location_id: str | None = None,
+    route: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     state = ensure_location_graph_state(game_state, parsed)
     if not location_name and not location_id:
@@ -127,14 +125,230 @@ def apply_location_update(
         if location_name and not node.get("name"):
             node["name"] = str(location_name)
 
-    if previous_id and previous_id != target_id and not _has_edge(edges, previous_id, target_id):
-        edges.append({"from": previous_id, "to": target_id, "type": "discovered"})
+    if previous_id and previous_id != target_id:
+        route_metadata = _normalize_route_metadata(route)
+        edge = _find_edge(edges, previous_id, target_id)
+        if edge:
+            edge.update(route_metadata)
+        else:
+            edges.append({
+                "from": previous_id,
+                "to": target_id,
+                "type": route_metadata.pop("type", "discovered"),
+                **route_metadata,
+            })
 
     graph["current_location_id"] = target_id
     graph["nodes"] = nodes
     graph["edges"] = edges
     state["location_graph"] = graph
     return state
+
+
+def _build_location_edges(
+    parsed: dict[str, Any],
+    scenes: list[Any],
+    nodes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    edges: list[dict[str, Any]] = []
+    node_lookup = _node_lookup(nodes)
+
+    for index, route in enumerate(_top_level_routes(parsed)):
+        _append_edge(edges, _edge_from_route(route, node_lookup, index=index))
+
+    for scene_index, scene in enumerate(scenes):
+        if not isinstance(scene, dict) or scene_index >= len(nodes):
+            continue
+        source_id = str(nodes[scene_index].get("id") or "")
+        for exit_index, route in enumerate(_scene_routes(scene)):
+            _append_edge(
+                edges,
+                _edge_from_route(
+                    route,
+                    node_lookup,
+                    source_id=source_id,
+                    index=exit_index,
+                ),
+            )
+
+    for index in range(len(nodes) - 1):
+        source = str(nodes[index]["id"])
+        target = str(nodes[index + 1]["id"])
+        if _has_edge_between(edges, source, target):
+            continue
+        edges.append({"from": source, "to": target, "type": "sequence"})
+    return edges
+
+
+def _top_level_routes(parsed: dict[str, Any]) -> list[Any]:
+    routes: list[Any] = []
+    for key in ("edges", "routes", "connections", "exits"):
+        value = parsed.get(key)
+        if isinstance(value, list):
+            routes.extend(value)
+        elif isinstance(value, dict):
+            routes.extend(_dict_route_entries(value))
+    return routes
+
+
+def _scene_routes(scene: dict[str, Any]) -> list[Any]:
+    routes: list[Any] = []
+    for key in ("exits", "routes", "connections"):
+        value = scene.get(key)
+        if isinstance(value, list):
+            routes.extend(value)
+        elif isinstance(value, dict):
+            routes.extend(_dict_route_entries(value))
+    return routes
+
+
+def _dict_route_entries(value: dict[str, Any]) -> list[dict[str, Any]]:
+    entries = []
+    for target, metadata in value.items():
+        entry = dict(metadata) if isinstance(metadata, dict) else {}
+        entry.setdefault("to", target)
+        entries.append(entry)
+    return entries
+
+
+def _edge_from_route(
+    route: Any,
+    node_lookup: dict[str, str],
+    *,
+    source_id: str | None = None,
+    index: int = 0,
+) -> dict[str, Any] | None:
+    route_data = route if isinstance(route, dict) else {"to": route}
+    source = source_id or _resolve_location_ref(
+        _first_route_value(route_data, ("from", "source", "source_id", "from_scene", "from_location", "origin")),
+        node_lookup,
+    )
+    target = _resolve_location_ref(
+        _first_route_value(
+            route_data,
+            (
+                "to",
+                "target",
+                "target_id",
+                "to_scene",
+                "target_scene",
+                "destination",
+                "destination_id",
+                "target_name",
+                "destination_name",
+                "location",
+                "location_id",
+            ),
+        ),
+        node_lookup,
+    )
+    if not source or not target or source == target:
+        return None
+
+    metadata = _normalize_route_metadata(route_data)
+    return {
+        "id": str(route_data.get("id") or f"edge_{source}_{target}_{index}"),
+        "from": source,
+        "to": target,
+        "type": metadata.pop("type", "route"),
+        **metadata,
+    }
+
+
+def _node_lookup(nodes: list[dict[str, Any]]) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for index, node in enumerate(nodes):
+        node_id = str(node.get("id") or f"scene_{index}")
+        for value in (node_id, node.get("name"), node.get("title"), node.get("location")):
+            key = _route_lookup_key(value)
+            if key:
+                lookup.setdefault(key, node_id)
+    return lookup
+
+
+def _resolve_location_ref(value: Any, node_lookup: dict[str, str]) -> str | None:
+    key = _route_lookup_key(value)
+    if not key:
+        return None
+    return node_lookup.get(key)
+
+
+def _route_lookup_key(value: Any) -> str:
+    if value is None:
+        return ""
+    return normalize_location_id(str(value), fallback="")
+
+
+def _first_route_value(route: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = route.get(key)
+        if value is not None and str(value).strip():
+            return value
+    return None
+
+
+def _normalize_route_metadata(route: dict[str, Any] | None) -> dict[str, Any]:
+    route = route if isinstance(route, dict) else {}
+    if not route:
+        return {}
+    metadata: dict[str, Any] = {}
+    route_type = str(
+        route.get("route_type")
+        or route.get("type")
+        or route.get("kind")
+        or "route"
+    ).strip()
+    status = str(route.get("status") or "").strip()
+    metadata["type"] = route_type or "route"
+
+    for key, aliases in {
+        "label": ("label", "title"),
+        "name": ("name",),
+        "status": ("status",),
+        "requires_key": ("requires_key", "key", "key_item", "requires"),
+        "check_type": ("check_type", "skill", "skill_check"),
+    }.items():
+        value = _first_route_value(route, aliases)
+        if value is not None:
+            metadata[key] = str(value)
+
+    dc = _first_route_value(route, ("dc", "check_dc", "difficulty"))
+    if dc is not None:
+        try:
+            metadata["dc"] = int(dc)
+        except (TypeError, ValueError):
+            metadata["dc"] = str(dc)
+
+    locked = (
+        _as_bool(route.get("locked"))
+        or bool(metadata.get("requires_key"))
+        or status.lower() == "locked"
+        or route_type.lower() == "locked"
+    )
+    hidden = (
+        _as_bool(route.get("hidden"))
+        or _as_bool(route.get("secret"))
+        or status.lower() == "hidden"
+        or route_type.lower() == "hidden"
+    )
+    one_way = _as_bool(route.get("one_way")) or _as_bool(route.get("oneWay")) or _as_bool(route.get("oneway"))
+
+    if locked or "locked" in route:
+        metadata["locked"] = locked
+    if hidden or "hidden" in route or "secret" in route:
+        metadata["hidden"] = hidden
+    if one_way or "one_way" in route or "oneWay" in route or "oneway" in route:
+        metadata["one_way"] = one_way
+    return metadata
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    text = str(value).strip().lower()
+    return text in {"1", "true", "yes", "y", "locked", "hidden", "secret", "one_way", "one-way"}
 
 
 def build_location_graph_context(game_state: dict[str, Any] | None) -> dict[str, Any]:
@@ -172,7 +386,7 @@ def build_location_graph_context(game_state: dict[str, Any] | None) -> dict[str,
         node = node_by_id.get(next_id)
         if not node:
             continue
-        exits.append({
+        exit_data = {
             "location_id": next_id,
             "name": str(node.get("name") or next_id),
             "description": str(node.get("description") or "")[:180],
@@ -180,7 +394,11 @@ def build_location_graph_context(game_state: dict[str, Any] | None) -> dict[str,
             "locked": bool(edge.get("locked") or edge.get("requires_key") or edge.get("status") == "locked" or edge.get("type") == "locked"),
             "hidden": bool(edge.get("hidden") or edge.get("secret") or edge.get("status") == "hidden" or edge.get("type") == "hidden"),
             "one_way": one_way,
-        })
+        }
+        for key in ("id", "label", "requires_key", "status", "dc", "check_type"):
+            if edge.get(key) is not None:
+                exit_data[key] = edge.get(key)
+        exits.append(exit_data)
 
     current_template_ids = {
         str(item) for item in current.get("encounter_template_ids") or []
@@ -294,7 +512,7 @@ def public_location_graph(graph: dict[str, Any] | None) -> dict[str, Any]:
             continue
         public_edges.append({
             key: edge[key]
-            for key in ("id", "from", "to", "type", "label", "name", "locked", "requires_key", "status", "one_way", "oneWay")
+            for key in ("id", "from", "to", "type", "label", "name", "locked", "requires_key", "status", "one_way", "oneWay", "dc", "check_type")
             if key in edge
         })
         public_edges[-1].setdefault("id", f"edge_{index}")
@@ -329,11 +547,33 @@ def _find_node_id_by_name(nodes: list[dict[str, Any]], location_name: str | None
     return None
 
 
-def _has_edge(edges: list[dict[str, Any]], source: str, target: str) -> bool:
-    return any(
-        edge.get("from") == source and edge.get("to") == target
-        for edge in edges
+def _append_edge(edges: list[dict[str, Any]], edge: dict[str, Any] | None) -> None:
+    if not edge:
+        return
+    existing = _find_edge(edges, str(edge.get("from") or ""), str(edge.get("to") or ""))
+    if existing:
+        existing.update({
+            key: value
+            for key, value in edge.items()
+            if key not in {"from", "to"} and value is not None
+        })
+        return
+    edges.append(edge)
+
+
+def _find_edge(edges: list[dict[str, Any]], source: str, target: str) -> dict[str, Any] | None:
+    return next(
+        (
+            edge for edge in edges
+            if str(edge.get("from") or "") == str(source)
+            and str(edge.get("to") or "") == str(target)
+        ),
+        None,
     )
+
+
+def _has_edge_between(edges: list[dict[str, Any]], source: str, target: str) -> bool:
+    return bool(_find_edge(edges, source, target) or _find_edge(edges, target, source))
 
 
 def _choice_text(choice: Any) -> str:

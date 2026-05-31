@@ -35,6 +35,13 @@ def _clean_text(value: Any, limit: int = 120) -> str:
     return str(value or "").strip()[:limit]
 
 
+def _clean_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    return text in {"1", "true", "yes", "y"}
+
+
 def _unique_append(items: list, value: Any, limit: int | None = None) -> list:
     if value not in items:
         items.append(value)
@@ -60,6 +67,53 @@ def _recent_update(
     if extra:
         entry.update({k: v for k, v in extra.items() if v is not None})
     return entry
+
+
+def _normalize_scene_route(scene_vibe: dict[str, Any]) -> dict[str, Any]:
+    route = scene_vibe.get("route") if isinstance(scene_vibe.get("route"), dict) else {}
+    normalized: dict[str, Any] = {}
+    for key, aliases, limit in (
+        ("type", ("type", "route_type", "kind"), 32),
+        ("label", ("label", "route_label", "name"), 80),
+        ("status", ("status", "route_status"), 32),
+        ("requires_key", ("requires_key", "key", "key_item"), 80),
+        ("check_type", ("check_type", "skill", "skill_check"), 40),
+    ):
+        value = None
+        for alias in aliases:
+            if route.get(alias) is not None:
+                value = route.get(alias)
+                break
+            if scene_vibe.get(alias) is not None:
+                value = scene_vibe.get(alias)
+                break
+        text = _clean_text(value, limit)
+        if text:
+            normalized[key] = text
+
+    dc = route.get("dc", route.get("check_dc", scene_vibe.get("dc", scene_vibe.get("check_dc"))))
+    if dc is not None:
+        try:
+            normalized["dc"] = int(dc)
+        except (TypeError, ValueError):
+            text = _clean_text(dc, 20)
+            if text:
+                normalized["dc"] = text
+
+    for key, aliases in (
+        ("locked", ("locked", "route_locked")),
+        ("hidden", ("hidden", "secret", "route_hidden")),
+        ("one_way", ("one_way", "oneWay", "oneway", "route_one_way")),
+    ):
+        for alias in aliases:
+            if route.get(alias) is not None:
+                normalized[key] = _clean_bool(route.get(alias))
+                break
+            if scene_vibe.get(alias) is not None:
+                normalized[key] = _clean_bool(scene_vibe.get(alias))
+                break
+
+    return normalized
 
 
 def normalize_campaign_delta(delta: Any) -> dict:
@@ -98,11 +152,18 @@ def normalize_campaign_delta(delta: Any) -> dict:
 
     scene_vibe = delta.get("scene_vibe")
     if isinstance(scene_vibe, dict):
+        raw_scene_vibe = scene_vibe
         scene_vibe = {
             "location": _clean_text(scene_vibe.get("location"), 40) or None,
             "time_of_day": _clean_text(scene_vibe.get("time_of_day"), 20) or None,
             "tension": _clean_text(scene_vibe.get("tension"), 20) or None,
         }
+        location_id = _clean_text(raw_scene_vibe.get("location_id"), 80)
+        if location_id:
+            scene_vibe["location_id"] = location_id
+        route = _normalize_scene_route(raw_scene_vibe)
+        if route:
+            scene_vibe["route"] = route
     else:
         scene_vibe = None
 

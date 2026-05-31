@@ -36,6 +36,42 @@ def test_normalize_campaign_delta_repairs_bad_shapes():
     }
 
 
+def test_normalize_campaign_delta_preserves_scene_route_metadata():
+    delta = normalize_campaign_delta({
+        "scene_vibe": {
+            "location": "Sealed Vault",
+            "location_id": "vault",
+            "time_of_day": "midnight",
+            "tension": "danger",
+            "route": {
+                "type": "locked",
+                "label": "Ironbound Door",
+                "requires_key": "Gate Token",
+                "locked": True,
+                "one_way": True,
+                "dc": "14",
+                "check_type": "athletics",
+            },
+        },
+    })
+
+    assert delta["scene_vibe"] == {
+        "location": "Sealed Vault",
+        "time_of_day": "midnight",
+        "tension": "danger",
+        "location_id": "vault",
+        "route": {
+            "type": "locked",
+            "label": "Ironbound Door",
+            "requires_key": "Gate Token",
+            "check_type": "athletics",
+            "dc": 14,
+            "locked": True,
+            "one_way": True,
+        },
+    }
+
+
 def test_apply_campaign_delta_merges_quests_npcs_flags_decisions_and_clues():
     existing = {
         "quest_log": [{"quest": "寻找矿工", "status": "active", "outcome": ""}],
