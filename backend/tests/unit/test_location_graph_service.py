@@ -175,6 +175,47 @@ def test_public_location_graph_preserves_selected_encounter_template_id():
     }]
 
 
+def test_public_location_graph_exposes_safe_environment_pressure_only():
+    public = public_location_graph({
+        "current_location_id": "yard",
+        "nodes": [{"id": "yard", "name": "Yard", "visited": True}],
+        "edges": [],
+        "encounter_templates": [{
+            "id": "encounter_yard_0",
+            "location_id": "yard",
+            "status": "available",
+            "selected": True,
+            "name": "Yard Patrol",
+            "enemy_names": ["Hidden Guard"],
+            "tactics": "Hidden plan",
+            "terrain": [{"name": "oil slick", "cells": ["1_1"]}],
+            "cover": [{"name": "barricade", "cells": ["2_1"]}],
+            "objectives": [{"name": "hold the gate", "cells": ["3_1"]}],
+            "hazards": [{
+                "name": "fire jet",
+                "damage_dice": "2d6",
+                "save_dc": 13,
+                "cells": ["4_1", "4_2"],
+            }],
+        }],
+    })
+
+    template = public["encounter_templates"][0]
+    assert template["environment_pressure"] == {
+        "pressure": "heavy",
+        "score": 7,
+        "hazards": 1,
+        "damaging_hazards": 1,
+        "objectives": 1,
+        "cover": 1,
+        "terrain": 1,
+        "authored_cells": 5,
+    }
+    assert "enemy_names" not in template
+    assert "tactics" not in template
+    assert "hazards" not in template
+
+
 def test_tag_player_choices_with_location_exits_converts_matching_strings():
     state = {
         "location_graph": {

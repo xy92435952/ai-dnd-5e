@@ -181,6 +181,7 @@ function mapNodePosition(index, total) {
 }
 
 function encounterView(template, selectedTemplateId = '') {
+  const environmentPressure = template?.environment_pressure || template?.party_balance?.environment_pressure || {}
   return {
     id: String(template?.id || template?.name || ''),
     name: String(template?.name || 'Encounter'),
@@ -199,7 +200,22 @@ function encounterView(template, selectedTemplateId = '') {
     hazards: asArray(template?.hazards).map(String),
     rewardHints: asArray(template?.reward_hints).map(String),
     tactics: String(template?.tactics || ''),
+    environmentPressure: String(environmentPressure?.pressure || ''),
+    environmentPressureTags: environmentPressureTags(environmentPressure),
   }
+}
+
+function environmentPressureTags(pressure = {}) {
+  const level = String(pressure?.pressure || '')
+  if (!level || level === 'none') return []
+  const tags = [`Env ${level}`]
+  if (pressure.hazards) tags.push(`hazards ${pressure.hazards}`)
+  if (pressure.objectives) tags.push(`objectives ${pressure.objectives}`)
+  if (pressure.cover || pressure.terrain) {
+    tags.push(`terrain ${Number(pressure.cover || 0) + Number(pressure.terrain || 0)}`)
+  }
+  if (pressure.authored_cells) tags.push(`cells ${pressure.authored_cells}`)
+  return tags
 }
 
 export function getLocationGraphMap(graph) {

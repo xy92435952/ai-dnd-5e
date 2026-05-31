@@ -12,7 +12,7 @@ import re
 from copy import deepcopy
 from typing import Any
 
-from services.encounter_template_service import attach_encounter_templates_to_graph
+from services.encounter_template_service import attach_encounter_templates_to_graph, template_environment_pressure
 
 
 LOCATION_GRAPH_VERSION = 1
@@ -594,11 +594,15 @@ def _public_encounter_templates(
         location_id = str(template.get("location_id") or "")
         if location_id and location_id not in visible_location_ids:
             continue
-        public_templates.append({
+        public_template = {
             key: template[key]
             for key in ("id", "location_id", "status", "selected", "name", "difficulty_hint", "xp_budget")
             if key in template
-        })
+        }
+        pressure = template_environment_pressure(template)
+        if pressure.get("pressure") != "none":
+            public_template["environment_pressure"] = pressure
+        public_templates.append(public_template)
     return public_templates
 
 

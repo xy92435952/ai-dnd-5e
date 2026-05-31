@@ -138,4 +138,33 @@ describe('locationGraph', () => {
       oneWay: true,
     })])
   })
+
+  it('surfaces public encounter environment pressure as aggregate tags', () => {
+    const map = getLocationGraphMap({
+      current_location_id: 'yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
+      ],
+      encounter_templates: [{
+        id: 'enc_yard',
+        location_id: 'yard',
+        status: 'available',
+        public: true,
+        name: 'Yard Patrol',
+        environment_pressure: {
+          pressure: 'heavy',
+          hazards: 1,
+          objectives: 1,
+          cover: 1,
+          terrain: 1,
+          authored_cells: 5,
+        },
+      }],
+    })
+
+    expect(map.currentNode.encounters[0]).toMatchObject({
+      environmentPressure: 'heavy',
+      environmentPressureTags: ['Env heavy', 'hazards 1', 'objectives 1', 'terrain 2', 'cells 5'],
+    })
+  })
 })

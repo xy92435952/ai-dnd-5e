@@ -65,6 +65,7 @@ function EncounterCard({ encounter, selecting, onSelectEncounter }) {
       <div className="location-encounter-meta">
         {encounter.difficulty && <span>{encounter.difficulty}</span>}
         {encounter.xpBudget != null && <span>{encounter.xpBudget} XP</span>}
+        {encounter.environmentPressureTags.map(tag => <span key={tag}>{tag}</span>)}
       </div>
       <DetailPills values={encounter.enemyNames} empty="No enemies listed." />
       {encounter.enemyRoles.length > 0 && (

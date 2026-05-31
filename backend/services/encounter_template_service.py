@@ -193,6 +193,11 @@ def attach_party_balance_to_template(
     return template
 
 
+def template_environment_pressure(template: dict[str, Any] | None) -> dict[str, Any]:
+    """Return a public-safe aggregate of encounter environmental pressure."""
+    return _environment_pressure(template or {})
+
+
 def select_encounter_template(
     game_state: dict[str, Any] | None,
     template_id: str | None,

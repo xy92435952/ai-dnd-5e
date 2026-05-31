@@ -109,6 +109,42 @@ describe('LocationMapModal', () => {
     expect(onSelectEncounter).not.toHaveBeenCalled()
   })
 
+  it('shows public encounter environment pressure without private details', () => {
+    render(<LocationMapModal graph={{
+      current_location_id: 'yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
+      ],
+      encounter_templates: [{
+        id: 'enc_yard',
+        location_id: 'yard',
+        status: 'available',
+        public: true,
+        name: 'Construct Patrol',
+        difficulty_hint: 'moderate',
+        xp_budget: 300,
+        environment_pressure: {
+          pressure: 'heavy',
+          hazards: 1,
+          objectives: 1,
+          cover: 1,
+          terrain: 1,
+          authored_cells: 5,
+        },
+      }],
+    }} onClose={() => {}} />)
+
+    const encounters = screen.getByLabelText('Selected encounter templates')
+    expect(within(encounters).getByText('Construct Patrol')).toBeInTheDocument()
+    expect(within(encounters).getByText('Env heavy')).toBeInTheDocument()
+    expect(within(encounters).getByText('hazards 1')).toBeInTheDocument()
+    expect(within(encounters).getByText('objectives 1')).toBeInTheDocument()
+    expect(within(encounters).getByText('terrain 2')).toBeInTheDocument()
+    expect(within(encounters).getByText('cells 5')).toBeInTheDocument()
+    expect(screen.queryByText('sparking conduit')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hidden plan')).not.toBeInTheDocument()
+  })
+
   it('closes through the header button', () => {
     const onClose = vi.fn()
     render(<LocationMapModal graph={GRAPH} onClose={onClose} />)
