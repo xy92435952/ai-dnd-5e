@@ -111,4 +111,34 @@ describe('TargetCard', () => {
     expect(summary).toHaveTextContent('marked')
     expect(summary).toHaveTextContent('+1 cond')
   })
+
+  it('renders readable attack rule tags for cover and roll state', () => {
+    render(
+      <TargetCard
+        entity={{
+          id: 'enemy-5',
+          name: 'Guard Behind Pillar',
+          is_enemy: true,
+          hp_current: 18,
+          hp_max: 18,
+          ac: 14,
+        }}
+        prediction={{
+          hit_rate: 0.55,
+          disadvantage: true,
+          target_ac: 14,
+          effective_target_ac: 19,
+          cover_bonus: 5,
+          modifiers: ['Three-quarters cover'],
+        }}
+      />,
+    )
+
+    const tags = screen.getByLabelText('Attack rule tags Guard Behind Pillar')
+    expect(tags).toHaveTextContent('Disadvantage')
+    expect(tags).toHaveTextContent('3/4 cover +5 AC')
+    expect(tags).toHaveTextContent('Eff AC 19')
+    expect(within(tags).getByTitle('Roll two d20 and use the lower result.')).toBeInTheDocument()
+    expect(within(tags).getByTitle('Cover raises AC from 14 to 19 for this attack.')).toBeInTheDocument()
+  })
 })

@@ -1,4 +1,5 @@
 import { buildCombatPreviewRows } from '../../utils/combat'
+import { buildCombatRuleTags } from '../../utils/combatRuleTags'
 import { buildEnemyInspectModel } from '../../utils/enemyInspect'
 
 export default function TargetCard({
@@ -11,6 +12,7 @@ export default function TargetCard({
   if (!entity) return null
 
   const rows = buildCombatPreviewRows({ prediction, target: entity })
+  const ruleTags = buildCombatRuleTags(prediction, entity)
   const inspect = buildEnemyInspectModel(entity)
   const badges = buildTargetBadges(entity, prediction)
 
@@ -32,6 +34,14 @@ export default function TargetCard({
         <div className="hit-pred">
           <span>HP <b>{entity.hp_current}/{entity.hp_max}</b> / AC <b>{entity.ac}</b></span>
         </div>
+
+        {ruleTags.length > 0 && (
+          <div className="target-rule-tags" aria-label={`Attack rule tags ${entity.name}`}>
+            {ruleTags.map(tag => (
+              <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
+            ))}
+          </div>
+        )}
 
         {rows.length > 0 && (
           <div className="target-preview">
