@@ -221,6 +221,43 @@ describe('MultiplayerPartyPanel', () => {
     })
   })
 
+  it('blocks room mutation controls while multiplayer sync is reconnecting', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'alley',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me'] },
+          { id: 'tavern', name: '酒馆组', location: '酒馆大厅', member_user_ids: ['u2'] },
+        ],
+        pending_actions_by_group: { alley: [] },
+        group_readiness: { alley: { me: 'drafting' }, tavern: { u2: 'ready' } },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+      syncBlocked
+      syncBlockedReason="房间正在重新同步，请恢复连接后再发言。"
+    />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('同步暂停')
+    expect(screen.getByText('房间正在重新同步，请恢复连接后再发言。')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/先提交你的分队行动/)).toBeDisabled()
+    expect(screen.getByPlaceholderText('新分队名')).toBeDisabled()
+    expect(screen.getByPlaceholderText('位置')).toBeDisabled()
+    expect(screen.getByRole('button', { name: /切焦点 · 酒馆组/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '我已确认' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '提交意图' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '切换/创建分队' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '我已确认' }))
+    expect(roomsApi.setGroupReadiness).not.toHaveBeenCalled()
+  })
+
   it('stays hidden for single-player sessions', () => {
     const { container } = render(<MultiplayerPartyPanel
       room={{

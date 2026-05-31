@@ -662,6 +662,29 @@
 .choice.action .idx { color: #f04040; border-color: rgba(196,40,40,.5); background: rgba(196,40,40,.1); }
 .choice.action:hover .idx { background: #f04040; color: #1a0604; box-shadow: 0 0 10px #f04040; }
 
+.multiplayer-sync-guard {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid rgba(240,208,96,.34);
+  border-radius: 4px;
+  background: rgba(138,90,24,.14);
+  color: var(--parchment-dark);
+}
+.multiplayer-sync-guard strong {
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.multiplayer-sync-guard span {
+  min-width: 0;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .quest-recent-list {
   display: flex;
   gap: 5px;

@@ -451,6 +451,8 @@ export default function Adventure() {
           myUserId={myUserId}
           isMySpeakTurn={isMySpeakTurn}
           isLoading={isLoading}
+          syncBlocked={multiplayerSyncBlocked}
+          syncBlockedReason={actionBlockedReason}
           onRoomUpdated={(updated) => {
             setRoom(updated?.is_multiplayer ? { ...updated, _currentSpeaker: updated.current_speaker_user_id } : updated)
           }}
