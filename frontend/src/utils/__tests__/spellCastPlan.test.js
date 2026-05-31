@@ -76,6 +76,19 @@ describe('buildSpellCastPlan', () => {
 
     expect(row(plan, '区域').value).toBe('球形区域 · 20 尺 · 中心 5, 5')
     expect(row(plan, '命中单位').value).toBe('3 个：施法者、训练假人、同伴')
+    expect(plan.aoeBreakdown).toMatchObject({
+      total: 3,
+      enemies: 1,
+      allies: 1,
+      self: 1,
+      risk: 'friendly_fire',
+    })
+    expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toEqual([
+      'Enemies 1',
+      'Allies 1',
+      'Self',
+      'Friendly fire',
+    ])
   })
 
   it('marks blocked casts with the player-facing reason', () => {

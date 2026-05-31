@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import SpellModal from '../SpellModal'
 
 describe('SpellModal', () => {
@@ -186,6 +186,50 @@ describe('SpellModal', () => {
 
     fireEvent.click(cast)
     expect(onCast).not.toHaveBeenCalled()
+  })
+
+  it('shows an AoE target breakdown and friendly-fire risk before casting', () => {
+    render(
+      <SpellModal
+        spells={[{
+          name: 'Fireball',
+          level: 3,
+          type: 'damage',
+          aoe: true,
+          damage: '8d6',
+          desc: '20ft radius sphere',
+        }]}
+        cantrips={[]}
+        slots={{ '3rd': 1 }}
+        playerId="hero-1"
+        selectedTarget="enemy-1"
+        aoeHover="5_5"
+        combat={{
+          entities: {
+            'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20 },
+            'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true, hp_current: 7 },
+            'ally-1': { id: 'ally-1', name: 'Companion', is_enemy: false, hp_current: 10 },
+          },
+          entity_positions: {
+            'hero-1': { x: 5, y: 5 },
+            'enemy-1': { x: 6, y: 5 },
+            'ally-1': { x: 4, y: 5 },
+          },
+        }}
+        onCast={vi.fn()}
+        onClose={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^3\u73af/ }))
+    fireEvent.click(screen.getByText('Fireball'))
+
+    const breakdown = screen.getByLabelText('AoE target breakdown')
+    expect(within(breakdown).getByText('Enemies 1')).toBeInTheDocument()
+    expect(within(breakdown).getByText('Allies 1')).toBeInTheDocument()
+    expect(within(breakdown).getByText('Self')).toBeInTheDocument()
+    expect(within(breakdown).getByText('Friendly fire')).toBeInTheDocument()
   })
 
   it('blocks healing spells when an enemy is selected', () => {

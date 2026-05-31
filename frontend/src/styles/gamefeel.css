@@ -1666,6 +1666,42 @@
 .spell-cast-plan-row.ready b { color: var(--emerald-light); }
 .spell-cast-plan-row.warning b { color: var(--gold); }
 .spell-cast-plan-row.blocked b { color: #ff9090; }
+.spell-aoe-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.spell-aoe-breakdown span {
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spell-aoe-breakdown span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}
+.spell-aoe-breakdown span.warning {
+  border-color: rgba(240,208,96,.34);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.spell-aoe-breakdown span.danger {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(240,64,64,.1);
+  color: #f09090;
+}
 .spell-rule-badges {
   display: flex;
   flex-wrap: wrap;

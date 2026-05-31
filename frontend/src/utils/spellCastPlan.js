@@ -26,6 +26,47 @@ function entityName(combat, entityId) {
   return entity?.name || entityId || '未选择'
 }
 
+function entityGroup(combat, entityId, playerId) {
+  if (String(entityId) === String(playerId)) return 'self'
+  const entity = combat?.entities?.[entityId]
+  return entity?.is_enemy ? 'enemy' : 'ally'
+}
+
+function namesTitle(names) {
+  return names.length ? names.join(' / ') : ''
+}
+
+function buildAoeBreakdown({ spell, combat, targetIds, playerId }) {
+  const groups = { enemy: [], ally: [], self: [] }
+  for (const id of targetIds) {
+    const group = entityGroup(combat, id, playerId)
+    groups[group].push(entityName(combat, id))
+  }
+  const isDamage = String(spell?.type || '').toLowerCase() === 'damage'
+  const friendlyRisk = isDamage && (groups.ally.length > 0 || groups.self.length > 0)
+  const chips = []
+  if (groups.enemy.length) {
+    chips.push({ key: 'enemy', label: `Enemies ${groups.enemy.length}`, tone: 'danger', title: namesTitle(groups.enemy) })
+  }
+  if (groups.ally.length) {
+    chips.push({ key: 'ally', label: `Allies ${groups.ally.length}`, tone: friendlyRisk ? 'warning' : 'good', title: namesTitle(groups.ally) })
+  }
+  if (groups.self.length) {
+    chips.push({ key: 'self', label: 'Self', tone: friendlyRisk ? 'warning' : 'good', title: namesTitle(groups.self) })
+  }
+  if (friendlyRisk) {
+    chips.push({ key: 'friendly-fire', label: 'Friendly fire', tone: 'warning', title: 'A damage AoE includes allies or the caster.' })
+  }
+  return {
+    total: targetIds.length,
+    enemies: groups.enemy.length,
+    allies: groups.ally.length,
+    self: groups.self.length,
+    risk: friendlyRisk ? 'friendly_fire' : '',
+    chips,
+  }
+}
+
 function targetKindLabel(spell = {}) {
   const target = String(spell.target_type || spell.targetType || spell.target || spell.targets || '').toLowerCase()
   if (/self|自身/.test(target)) return '自身'
@@ -109,6 +150,8 @@ export function buildSpellCastPlan({
     { label: '效果', value: effectLabel(spell) },
   ]
 
+  let aoeBreakdown = null
+
   if (spell.aoe) {
     const template = getAoeTemplateType(spell)
     const targetIds = collectSpellCastTargetIds({
@@ -121,6 +164,7 @@ export function buildSpellCastPlan({
     })
     const maxTargets = getSpellMaxTargets(spell, castLevel || baseLevel)
     const names = targetIds.map(id => entityName(combat, id))
+    aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
     rows.push({
       label: '区域',
       value: `${templateLabel(template)} · ${aoeRadiusCells(spell) * 5} 尺 · 中心 ${centerLabel(aoeHover, template)}`,
@@ -151,5 +195,6 @@ export function buildSpellCastPlan({
     tone: disabledReason ? 'blocked' : 'ready',
     status: disabledReason ? '无法施放' : '可施放',
     rows,
+    aoeBreakdown,
   }
 }

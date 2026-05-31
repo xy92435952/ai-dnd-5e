@@ -17,6 +17,13 @@ export default function SpellCastPlan({ plan }) {
           </div>
         ))}
       </div>
+      {plan.aoeBreakdown?.chips?.length > 0 && (
+        <div className="spell-aoe-breakdown" aria-label="AoE target breakdown">
+          {plan.aoeBreakdown.chips.map(chip => (
+            <span key={chip.key} className={chip.tone || ''} title={chip.title}>{chip.label}</span>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
