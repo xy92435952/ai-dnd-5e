@@ -50,6 +50,20 @@ def test_build_encounter_templates_preserves_structured_hazard_metadata():
             "title": "Rune Hall",
             "description": "A cult guardian waits beside a fire jet trap.",
             "monsters": ["Cult Guardian"],
+            "terrain": [{
+                "name": "oil slick",
+                "terrain": "difficult",
+                "cells": ["12_5"],
+            }],
+            "cover": [{
+                "name": "altar",
+                "cover_level": "half",
+                "cells": ["10_5"],
+            }],
+            "objectives": [{
+                "name": "seal the rift",
+                "cells": ["14_5"],
+            }],
             "hazards": [{
                 "name": "fire jet",
                 "damage_dice": "2d6",
@@ -68,6 +82,9 @@ def test_build_encounter_templates_preserves_structured_hazard_metadata():
     templates = build_encounter_templates_from_module(parsed, [{"id": "rune_hall"}])
 
     hazard = templates[0]["hazards"][0]
+    assert templates[0]["terrain"][0]["name"] == "oil slick"
+    assert templates[0]["cover"][0]["cover_level"] == "half"
+    assert templates[0]["objectives"][0]["cells"] == ["14_5"]
     assert hazard["name"] == "fire jet"
     assert hazard["damage_dice"] == "2d6"
     assert hazard["damage_type"] == "fire"

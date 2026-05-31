@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy.orm.attributes import flag_modified
 
 from services.combat_damage_service import normalize_damage_type
+from services.combat_tactical_service import terrain_kind
 from services.dnd_rules import (
     get_effective_hp_max,
     get_temporary_hp,
@@ -348,7 +349,7 @@ def resolve_counterspell_eligibility(
 
     grid_data = dict(getattr(combat, "grid_data", None) or {})
     for cell in _line_cells_between(reactor_pos, caster_pos):
-        if str(grid_data.get(cell, "")).lower() in SIGHT_BLOCKING_TERRAIN:
+        if terrain_kind(grid_data.get(cell, "")) in SIGHT_BLOCKING_TERRAIN:
             result.update({
                 "can_counterspell": False,
                 "reason": "caster_not_visible",

@@ -454,8 +454,8 @@ def _has_combat_hint(text: str) -> bool:
     return any(hint in text for hint in COMBAT_HINTS)
 
 
-def _terrain_features(scene: dict[str, Any]) -> list[str]:
-    explicit = _as_list(scene.get("terrain"))
+def _terrain_features(scene: dict[str, Any]) -> list[Any]:
+    explicit = _feature_list(scene.get("terrain"), default_name="Terrain feature")
     if explicit:
         return explicit
     text = _scene_text(scene)
@@ -467,8 +467,8 @@ def _terrain_features(scene: dict[str, Any]) -> list[str]:
     return features or ["open ground"]
 
 
-def _cover_features(scene: dict[str, Any]) -> list[str]:
-    explicit = _as_list(scene.get("cover"))
+def _cover_features(scene: dict[str, Any]) -> list[Any]:
+    explicit = _feature_list(scene.get("cover"), default_name="Cover")
     if explicit:
         return explicit
     text = _scene_text(scene)
@@ -479,8 +479,8 @@ def _cover_features(scene: dict[str, Any]) -> list[str]:
     return []
 
 
-def _objectives(scene: dict[str, Any]) -> list[str]:
-    explicit = _as_list(scene.get("objectives") or scene.get("goals"))
+def _objectives(scene: dict[str, Any]) -> list[Any]:
+    explicit = _feature_list(scene.get("objectives") or scene.get("goals"), default_name="Objective")
     if explicit:
         return explicit
     return ["Secure the area and survive the threat"]
@@ -552,6 +552,55 @@ def _as_list(value: Any) -> list[str]:
         return [str(item) for item in value if str(item).strip()]
     text = str(value).strip()
     return [text] if text else []
+
+
+def _feature_list(value: Any, *, default_name: str) -> list[Any]:
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple)) else [value]
+    features: list[Any] = []
+    for item in items:
+        if isinstance(item, dict):
+            feature = _placed_feature_dict(item, default_name=default_name)
+            if feature:
+                features.append(feature)
+            continue
+        text = str(item).strip()
+        if text:
+            features.append(text)
+    return _dedupe_hazards(features)
+
+
+def _placed_feature_dict(item: dict[str, Any], *, default_name: str) -> dict[str, Any]:
+    allowed = {
+        "label",
+        "name",
+        "description",
+        "terrain",
+        "type",
+        "kind",
+        "category",
+        "cover",
+        "cover_level",
+        "cover_bonus",
+        "blocks_movement",
+        "blocks_sight",
+        "objective",
+        "cells",
+        "cell",
+        "positions",
+        "position",
+    }
+    feature = {
+        key: value
+        for key, value in item.items()
+        if key in allowed and value not in (None, "")
+    }
+    if not feature:
+        return {}
+    if not any(feature.get(key) for key in ("label", "name", "description")):
+        feature["name"] = default_name
+    return feature
 
 
 def _hazard_list(value: Any) -> list[Any]:

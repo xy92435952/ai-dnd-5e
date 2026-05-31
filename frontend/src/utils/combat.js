@@ -665,11 +665,33 @@ export function getCameraWindow({
 export function buildGridTerrainSets(gridData = {}) {
   const walls = new Set()
   const hazards = new Set()
+  const objectives = new Set()
   for (const [key, value] of Object.entries(gridData)) {
-    if (value === 'wall') walls.add(key)
-    else if (value === 'hazard' || value === 'difficult') hazards.add(key)
+    const terrain = getGridTerrainKind(value)
+    if (['wall', 'cover', 'half_cover', 'three_quarters_cover', 'total_cover', 'blocking', 'blocker', 'opaque'].includes(terrain)) {
+      walls.add(key)
+    } else if (['hazard', 'difficult', 'difficult_terrain'].includes(terrain)) {
+      hazards.add(key)
+    } else if (terrain === 'objective') {
+      objectives.add(key)
+    }
   }
-  return { walls, hazards }
+  return { walls, hazards, objectives }
+}
+
+export function getGridTerrainKind(value) {
+  if (typeof value === 'string') return normalizeGridTerrainKind(value)
+  if (!value || typeof value !== 'object') return ''
+  if (value.hazard === true) return 'hazard'
+  if (value.objective === true) return 'objective'
+  const raw = value.terrain || value.type || value.kind || value.category || ''
+  if (raw) return normalizeGridTerrainKind(raw)
+  if (value.cover || value.cover_bonus || value.cover_level) return 'cover'
+  return ''
+}
+
+function normalizeGridTerrainKind(value) {
+  return String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_')
 }
 
 /**

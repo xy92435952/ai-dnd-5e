@@ -64,6 +64,20 @@ def test_grid_data_from_encounter_template_places_authored_hazard_cells():
     grid = _grid_data_from_encounter_template({
         "id": "encounter_rune_hall_0",
         "name": "Rune Hall Encounter",
+        "cover": [{
+            "name": "altar",
+            "cover_level": "half",
+            "cells": ["10_5"],
+        }],
+        "terrain": [{
+            "name": "oil slick",
+            "terrain": "difficult",
+            "cells": ["12_5"],
+        }],
+        "objectives": [{
+            "name": "seal the rift",
+            "cells": ["14_5"],
+        }],
         "hazards": [{
             "name": "fire jet",
             "damage_dice": "2d6",
@@ -75,6 +89,10 @@ def test_grid_data_from_encounter_template_places_authored_hazard_cells():
         }],
     })
 
+    assert grid["10_5"]["terrain"] == "wall"
+    assert grid["10_5"]["cover_level"] == "half"
+    assert grid["12_5"]["terrain"] == "difficult"
+    assert grid["14_5"]["terrain"] == "objective"
     assert grid["_encounter_template"]["hazards"][0]["name"] == "fire jet"
     assert grid["13_5"]["terrain"] == "hazard"
     assert grid["13_5"]["damage_dice"] == "2d6"

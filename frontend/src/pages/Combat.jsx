@@ -98,6 +98,7 @@ export default function Combat() {
     currentTurnLabel,
     walls,
     hazards,
+    objectives,
     selectedTargetEntity,
     controlledCharacter,
     initiativeChips,
@@ -198,6 +199,7 @@ export default function Combat() {
         cam={cam}
         walls={walls}
         hazards={hazards}
+        objectives={objectives}
         entityPositions={entityPositions}
         entities={entities}
         selectedTarget={selectedTarget}

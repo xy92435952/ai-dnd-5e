@@ -1,6 +1,31 @@
 from typing import Optional
 
 
+WALL_TERRAIN = {"wall", "cover", "half_cover", "three_quarters_cover", "blocking", "blocker", "opaque"}
+TOTAL_COVER_TERRAIN = {"total_cover"}
+DIFFICULT_TERRAIN = {"difficult", "difficult_terrain"}
+
+
+def terrain_kind(value) -> str:
+    if isinstance(value, dict):
+        if value.get("hazard") is True:
+            return "hazard"
+        if value.get("objective") is True:
+            return "objective"
+        raw = (
+            value.get("terrain")
+            or value.get("type")
+            or value.get("kind")
+            or value.get("category")
+            or ""
+        )
+        if not raw and any(key in value for key in ("cover", "cover_bonus", "cover_level")):
+            raw = "cover"
+    else:
+        raw = value
+    return str(raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
 def get_cover_bonus(grid_data: dict, attacker_pos: dict, target_pos: dict) -> int:
     if not grid_data or not attacker_pos or not target_pos:
         return 0
@@ -18,10 +43,12 @@ def get_cover_bonus(grid_data: dict, attacker_pos: dict, target_pos: dict) -> in
     for i in range(1, steps):
         cx = ax + round(dx * i / steps)
         cy = ay + round(dy * i / steps)
-        terrain = grid_data.get(f"{cx}_{cy}", "")
-        if terrain == "wall":
+        terrain = terrain_kind(grid_data.get(f"{cx}_{cy}", ""))
+        if terrain in TOTAL_COVER_TERRAIN:
+            obstacles += 2
+        elif terrain in WALL_TERRAIN:
             obstacles += 1
-        elif terrain == "difficult":
+        elif terrain in DIFFICULT_TERRAIN:
             obstacles += 0.5
 
     if obstacles >= 2:

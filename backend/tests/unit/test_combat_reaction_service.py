@@ -466,6 +466,26 @@ def test_counterspell_eligibility_blocks_wall_line_of_sight():
     assert result["visible"] is False
 
 
+def test_counterspell_eligibility_blocks_object_wall_line_of_sight():
+    reactor = SimpleNamespace(id="wizard-1", conditions=[])
+    combat = SimpleNamespace(
+        entity_positions={
+            "wizard-1": {"x": 0, "y": 0},
+            "enemy-mage": {"x": 6, "y": 0},
+        },
+        grid_data={"3_0": {"terrain": "total_cover", "name": "sealed pillar"}},
+    )
+
+    result = resolve_counterspell_eligibility(
+        reactor=reactor,
+        caster_id="enemy-mage",
+        combat=combat,
+    )
+
+    assert result["can_counterspell"] is False
+    assert result["reason"] == "caster_not_visible"
+
+
 def test_counterspell_eligibility_blocks_blinded_reactor_or_invisible_caster():
     blinded = resolve_counterspell_eligibility(
         reactor=SimpleNamespace(id="wizard-1", conditions=["blinded"]),

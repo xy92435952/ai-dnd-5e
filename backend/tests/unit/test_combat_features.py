@@ -214,6 +214,14 @@ class TestCover:
         bonus = svc.get_cover_bonus(grid, {"x": 0, "y": 0}, {"x": 5, "y": 0})
         assert bonus == 5
 
+    def test_object_grid_cells_count_for_cover(self):
+        grid = {
+            "2_0": {"terrain": "cover", "cover_level": "half"},
+            "3_0": {"terrain": "difficult"},
+        }
+        bonus = svc.get_cover_bonus(grid, {"x": 0, "y": 0}, {"x": 5, "y": 0})
+        assert bonus == 2
+
     def test_attacker_on_target_no_cover(self):
         """同格 → 不计算掩体。"""
         assert svc.get_cover_bonus({"3_3": "wall"}, {"x": 5, "y": 5}, {"x": 5, "y": 5}) == 0

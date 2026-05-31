@@ -8,6 +8,7 @@ export default function CombatStage({
   cam,
   walls,
   hazards,
+  objectives,
   entityPositions,
   entities,
   selectedTarget,
@@ -45,6 +46,7 @@ export default function CombatStage({
         cam={cam}
         walls={walls}
         hazards={hazards}
+        objectives={objectives}
         entityPositions={entityPositions}
         entities={entities}
         selectedTarget={selectedTarget}

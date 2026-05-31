@@ -242,6 +242,40 @@ describe('IsoBattlefield', () => {
     expect(onMoveTo).not.toHaveBeenCalled()
   })
 
+  it('marks authored objective cells without blocking movement', () => {
+    const onMoveTo = vi.fn()
+
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        objectives={new Set(['0_0'])}
+        entityPositions={{}}
+        entities={{}}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set() }}
+        moveMode
+        helpMode={false}
+        aoePreview={null}
+        aoeHover={null}
+        playerId="player"
+        onSelectTarget={vi.fn()}
+        onMoveTo={onMoveTo}
+        onAoeHover={vi.fn()}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell.className).toContain('objective')
+    fireEvent.click(cell)
+    expect(onMoveTo).toHaveBeenCalledWith(0, 0)
+  })
+
   it('labels legal empty movement cells while move mode is active', () => {
     const onMoveTo = vi.fn()
 

@@ -232,18 +232,25 @@ def _grid_data_from_encounter_template(template: dict | None) -> dict:
         }
     }
 
-    cover_text = _feature_text(template.get("cover") or [])
-    terrain_text = _feature_text(template.get("terrain") or [])
+    cover = list(template.get("cover") or [])
+    terrain = list(template.get("terrain") or [])
+    objectives = list(template.get("objectives") or [])
     hazards = list(template.get("hazards") or [])
+    cover_text = _feature_text(cover)
+    terrain_text = _feature_text(terrain)
     hazard_text = _feature_text(hazards)
 
-    if cover_text:
+    authored_cover_cells = _apply_authored_cell_features(grid, cover, default_terrain="wall")
+    authored_terrain_cells = _apply_authored_cell_features(grid, terrain, default_terrain="terrain")
+    _apply_authored_cell_features(grid, objectives, default_terrain="objective")
+    authored_hazard_cells = _apply_authored_cell_features(grid, hazards, default_terrain="hazard")
+
+    if cover_text and not authored_cover_cells:
         for cell in ("10_4", "10_5", "10_7", "10_8"):
-            grid[cell] = "wall"
-    if "difficult" in terrain_text or "sparking" in terrain_text:
+            grid.setdefault(cell, "wall")
+    if ("difficult" in terrain_text or "sparking" in terrain_text) and not authored_terrain_cells:
         for cell in ("11_6", "12_6", "11_7", "12_7"):
             grid.setdefault(cell, "difficult")
-    authored_hazard_cells = _apply_authored_hazard_cells(grid, hazards)
     if hazard_text and not authored_hazard_cells:
         for cell in ("13_5", "13_6"):
             grid.setdefault(cell, "hazard")
@@ -260,30 +267,30 @@ def _feature_text(items: list) -> str:
     return " ".join(parts).lower()
 
 
-def _apply_authored_hazard_cells(grid: dict, hazards: list) -> bool:
+def _apply_authored_cell_features(grid: dict, features: list, *, default_terrain: str) -> bool:
     placed = False
-    for hazard in hazards:
-        if not isinstance(hazard, dict):
+    for feature in features:
+        if not isinstance(feature, dict):
             continue
-        hazard_cells = _hazard_cells(hazard)
-        if not hazard_cells:
+        feature_cells = _feature_cells(feature)
+        if not feature_cells:
             continue
         cell_metadata = {
             key: value
-            for key, value in hazard.items()
+            for key, value in feature.items()
             if key not in {"cell", "cells", "position", "positions"}
         }
-        cell_metadata.setdefault("terrain", "hazard")
-        for cell in hazard_cells:
+        cell_metadata.setdefault("terrain", _default_feature_terrain(feature, default_terrain))
+        for cell in feature_cells:
             grid[cell] = dict(cell_metadata)
             placed = True
     return placed
 
 
-def _hazard_cells(hazard: dict) -> list[str]:
+def _feature_cells(feature: dict) -> list[str]:
     raw_values = []
     for key in ("cells", "cell", "positions", "position"):
-        value = hazard.get(key)
+        value = feature.get(key)
         if value in (None, ""):
             continue
         if isinstance(value, (list, tuple)):
@@ -297,6 +304,26 @@ def _hazard_cells(hazard: dict) -> list[str]:
         if cell and cell not in cells:
             cells.append(cell)
     return cells
+
+
+def _default_feature_terrain(feature: dict, fallback: str) -> str:
+    existing = str(
+        feature.get("terrain")
+        or feature.get("type")
+        or feature.get("kind")
+        or feature.get("category")
+        or ""
+    ).strip().lower()
+    if existing:
+        return existing.replace("-", "_").replace(" ", "_")
+
+    text = _feature_text([feature])
+    if fallback == "terrain":
+        if "difficult" in text or "sparking" in text:
+            return "difficult"
+        if "wall" in text or "cover" in text:
+            return "wall"
+    return fallback
 
 
 def _coerce_grid_cell(value) -> str | None:

@@ -280,17 +280,23 @@ describe('combat grid helpers', () => {
   })
 
   it('buildGridTerrainSets 分出墙和危险地形', () => {
-    const { walls, hazards } = buildGridTerrainSets({
+    const { walls, hazards, objectives } = buildGridTerrainSets({
       '1_1': 'wall',
       '2_2': 'hazard',
       '3_3': 'difficult',
-      '4_4': 'floor',
+      '4_4': { terrain: 'hazard', damage_dice: '1d6' },
+      '5_5': { terrain: 'total_cover' },
+      '6_6': { objective: true, name: 'Seal the rift' },
+      '7_7': 'floor',
     })
 
     expect(walls.has('1_1')).toBe(true)
+    expect(walls.has('5_5')).toBe(true)
     expect(hazards.has('2_2')).toBe(true)
     expect(hazards.has('3_3')).toBe(true)
-    expect(hazards.has('4_4')).toBe(false)
+    expect(hazards.has('4_4')).toBe(true)
+    expect(objectives.has('6_6')).toBe(true)
+    expect(hazards.has('7_7')).toBe(false)
   })
 
   it('getSpriteKind 优先使用 sprite 字段，其次敌人和职业兜底', () => {

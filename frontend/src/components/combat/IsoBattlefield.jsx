@@ -7,6 +7,7 @@ export default function IsoBattlefield({
   cam,
   walls,
   hazards,
+  objectives = new Set(),
   entityPositions,
   entities,
   selectedTarget,
@@ -29,6 +30,7 @@ export default function IsoBattlefield({
     const key = `${x}_${y}`
     const isWall = walls.has(key)
     const isHazard = hazards.has(key)
+    const isObjective = objectives.has(key)
     const entryEntry = Object.entries(entityPositions || {})
       .find(([, pos]) => pos?.x === x && pos?.y === y)
     const [entId] = entryEntry || []
@@ -40,6 +42,7 @@ export default function IsoBattlefield({
     if (isWall) klass = 'wall'
     else if (isTarget) klass = 'target'
     else if (isHazard) klass = 'hazard'
+    else if (isObjective) klass = 'objective'
 
     const isThreat = threatCells.has(key) && !isWall && !ent?.is_enemy
     const isAoeCenter = aoeCells.center === key

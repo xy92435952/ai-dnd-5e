@@ -21,6 +21,7 @@ describe('useCombatDerivedState', () => {
     grid_data: {
       '1_1': 'wall',
       '2_2': 'hazard',
+      '3_3': { objective: true, name: 'Seal the gate' },
     },
   }
 
@@ -57,6 +58,7 @@ describe('useCombatDerivedState', () => {
     expect(result.current.cam).toEqual({ x0: 0, y0: 1 })
     expect(result.current.walls.has('1_1')).toBe(true)
     expect(result.current.hazards.has('2_2')).toBe(true)
+    expect(result.current.objectives.has('3_3')).toBe(true)
     expect(result.current.selectedTargetEntity.name).toBe('Goblin')
     expect(result.current.initiativeChips).toHaveLength(2)
     expect(result.current.isPlayerTurn).toBe(true)

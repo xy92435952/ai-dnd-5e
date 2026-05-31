@@ -2092,6 +2092,11 @@
   border: 1px solid rgba(240,80,40,.6);
   animation: hazardPulse 1.4s ease-in-out infinite;
 }
+.iso-cell.objective {
+  background: radial-gradient(circle, rgba(127,232,248,.32), rgba(127,232,248,.08) 70%);
+  border: 1px solid rgba(127,232,248,.58);
+  box-shadow: inset 0 0 16px rgba(127,232,248,.24);
+}
 @keyframes reachPulse {
   0%,100% { opacity: .6; }
   50%     { opacity: 1; }
