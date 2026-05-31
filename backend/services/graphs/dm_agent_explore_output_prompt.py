@@ -103,7 +103,16 @@ EXPLORE_OUTPUT_SECTION = """
   },
   "campaign_delta": {
     "quest_updates": [
-      {"quest": "任务名称", "status": "active/completed/failed", "outcome": "结果描述，没有则为空字符串"}
+      {
+        "quest": "任务名称",
+        "status": "active/completed/failed/blocked/paused",
+        "outcome": "结果描述，没有则为空字符串",
+        "branch": "当前分支/路线名，如谈判线、潜入线、失败后撤退线，没有则空字符串",
+        "next_step": "玩家下一步可推进的明确方向",
+        "consequence": "本轮选择造成的已发生后果",
+        "failure_consequence": "失败或放弃会带来的风险/代价",
+        "fail_forward": "失败后仍能继续推进的替代方向或新局面"
+      }
     ],
     "npc_updates": [
       {
@@ -139,7 +148,8 @@ EXPLORE_OUTPUT_SECTION = """
 
 ## campaign_delta（活战役状态）
 - 只记录本轮新增或变化的结构化事实；没有变化时各数组返回 []，world_flags_set 返回 {}，scene_vibe 可为 null。
-- quest_updates 用于任务状态变化，status 只用 active/completed/failed。
+- quest_updates 用于任务状态变化与分支推进；status 优先用 active/completed/failed，确有阻塞或暂停时可用 blocked/paused。
+- branch/next_step/consequence/failure_consequence/fail_forward 只写玩家已经知道或本轮刚产生的信息；不要泄露隐藏路线、未揭示背叛或未来剧情答案。
 - npc_updates 用于 NPC 关系、事实和承诺变化；不要重复已有事实。
 - companion_updates 只在 AI 队友关系、好感或个人任务线发生清晰变化时填写；普通队友闲聊不要写入。approval_delta 建议 -5 到 +5，重大选择最多到 +/-10。
 - key_decisions_add 只记录会影响后续剧情或关系的决定，不记录普通移动或闲聊。

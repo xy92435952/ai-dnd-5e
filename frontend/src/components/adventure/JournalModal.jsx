@@ -109,8 +109,21 @@ function getQuestDetail(quest) {
   ].map(cleanText).find(Boolean) || ''
 }
 
+function buildQuestHooks(quest, primaryDetail) {
+  return [
+    ['路线', quest?.branch, 'active'],
+    ['下一步', quest?.next_step, 'active'],
+    ['后果', quest?.consequence, 'default'],
+    ['失败代价', quest?.failure_consequence, 'danger'],
+    ['失败推进', quest?.fail_forward, 'danger'],
+  ]
+    .map(([label, value, tone]) => ({ label, text: cleanText(value), tone }))
+    .filter(item => item.text && item.text !== primaryDetail)
+}
+
 function buildQuestSummary(quest, recentUpdates) {
   const status = getQuestStatusMeta(quest?.status)
+  const detail = getQuestDetail(quest)
   const timeline = recentUpdates
     .filter(item => item?.type === 'quest' && cleanText(item.label) === cleanText(quest?.quest))
     .slice(-3)
@@ -128,7 +141,8 @@ function buildQuestSummary(quest, recentUpdates) {
     quest: quest?.quest,
     statusLabel: status.label,
     statusTone: status.tone,
-    detail: getQuestDetail(quest),
+    detail,
+    hooks: buildQuestHooks(quest, detail),
     timeline,
   }
 }
@@ -379,6 +393,16 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
                 <Pill tone={quest.statusTone}>{quest.statusLabel}</Pill>
               </div>
               {quest.detail && <p>{quest.detail}</p>}
+              {quest.hooks.length > 0 && (
+                <dl className="journal-quest-hooks">
+                  {quest.hooks.map(item => (
+                    <div key={`${quest.quest}-${item.label}`} className={item.tone}>
+                      <dt>{item.label}</dt>
+                      <dd>{item.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
               {quest.timeline.length > 0 && (
                 <ol className="journal-quest-timeline" aria-label={`${quest.quest} 任务进展`}>
                   {quest.timeline.map(step => (

@@ -19,7 +19,12 @@ CAMPAIGN_STATE_PROMPT = """
     {
       "quest": "任务名称",
       "status": "active/completed/failed",
-      "outcome": "结果描述，仅completed/failed时填写，active时为空字符串"
+      "outcome": "结果描述，仅completed/failed时填写，active时为空字符串",
+      "branch": "当前分支/路线名，没有则为空字符串",
+      "next_step": "玩家下一步可推进的方向",
+      "consequence": "已发生后果",
+      "failure_consequence": "失败或放弃会造成的风险",
+      "fail_forward": "失败后仍可继续推进的新局面"
     }
   ],
   "companion_bonds": {

@@ -126,6 +126,16 @@ def _normalize_scene_route(scene_vibe: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+QUEST_DETAIL_FIELDS = (
+    ("branch", 80),
+    ("next_step", 160),
+    ("consequence", 160),
+    ("failure_consequence", 160),
+    ("fail_forward", 180),
+    ("detail", 160),
+)
+
+
 def normalize_campaign_delta(delta: Any) -> dict:
     delta = delta if isinstance(delta, dict) else {}
 
@@ -133,11 +143,16 @@ def normalize_campaign_delta(delta: Any) -> dict:
     for item in delta.get("quest_updates", []):
         if not isinstance(item, dict) or not item.get("quest"):
             continue
-        quest_updates.append({
+        entry = {
             "quest": _clean_text(item.get("quest"), 80),
             "status": _clean_text(item.get("status") or "active", 20),
             "outcome": _clean_text(item.get("outcome"), 160),
-        })
+        }
+        for field, limit in QUEST_DETAIL_FIELDS:
+            text = _clean_text(item.get(field), limit)
+            if text:
+                entry[field] = text
+        quest_updates.append(entry)
 
     npc_updates = []
     for item in delta.get("npc_updates", []):
@@ -235,13 +250,21 @@ def apply_campaign_delta(existing_state: dict | None, delta: Any, now_iso: str |
         if isinstance(q, dict) and q.get("quest")
     }
     for update in delta["quest_updates"]:
-        quest_map[update["quest"]] = update
+        current = quest_map.get(update["quest"], {})
+        quest_map[update["quest"]] = {**current, **update}
+        recent_detail = (
+            update.get("outcome")
+            or update.get("next_step")
+            or update.get("fail_forward")
+            or update.get("consequence")
+            or update.get("status")
+        )
         recent = _recent_update(
             "quest",
             update["quest"],
-            update.get("outcome") or update.get("status"),
+            recent_detail,
             now_iso,
-            {"status": update.get("status")},
+            {"status": update.get("status"), "branch": update.get("branch")},
         )
         if recent:
             recent_updates.append(recent)

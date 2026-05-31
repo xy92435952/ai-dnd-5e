@@ -35,7 +35,15 @@ async def test_state_applicator_merges_campaign_delta_into_session_memory():
         "campaign_delta": {
             "quest_updates": [
                 {"quest": "寻找矿工", "status": "completed", "outcome": "矿工获救"},
-                {"quest": "调查暗门", "status": "active", "outcome": ""},
+                {
+                    "quest": "调查暗门",
+                    "status": "active",
+                    "outcome": "",
+                    "branch": "井底调查线",
+                    "next_step": "确认暗门是否会在月光下开启",
+                    "failure_consequence": "守卫巡逻会提前封锁井口",
+                    "fail_forward": "错过月光窗口后仍可通过铁匠的旧钥匙寻找侧门",
+                },
             ],
             "npc_updates": [
                 {
@@ -66,7 +74,15 @@ async def test_state_applicator_merges_campaign_delta_into_session_memory():
     assert session.game_state["location_graph"]["nodes"][-1]["name"] == "矿村井口"
     assert session.campaign_state["quest_log"] == [
         {"quest": "寻找矿工", "status": "completed", "outcome": "矿工获救"},
-        {"quest": "调查暗门", "status": "active", "outcome": ""},
+        {
+            "quest": "调查暗门",
+            "status": "active",
+            "outcome": "",
+            "branch": "井底调查线",
+            "next_step": "确认暗门是否会在月光下开启",
+            "failure_consequence": "守卫巡逻会提前封锁井口",
+            "fail_forward": "错过月光窗口后仍可通过铁匠的旧钥匙寻找侧门",
+        },
     ]
     assert session.campaign_state["npc_registry"]["铁匠"] == {
         "relationship": "友好",

@@ -17,7 +17,15 @@ function makeSession() {
       completed_scenes: ['矿洞入口'],
       quest_log: [
         { quest: '寻找失踪矿工', status: 'active', next_step: '确认矿工是否被带往井底。' },
-        { quest: '守住营地', status: 'failed', outcome: '狼群冲破外圈，幸存者退入旧矿道。' },
+        {
+          quest: '守住营地',
+          status: 'failed',
+          outcome: '狼群冲破外圈，幸存者退入旧矿道。',
+          branch: '失败后撤退线',
+          next_step: '护送幸存者穿过矿道岔路。',
+          failure_consequence: '伤员会拖慢队伍并吸引追踪。',
+          fail_forward: '旧矿道成为新的防线和线索入口。',
+        },
       ],
       npc_registry: {
         铁匠格雷: {
@@ -110,6 +118,14 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('守住营地')).toBeInTheDocument()
     expect(within(dossier).getAllByText('失败').length).toBeGreaterThanOrEqual(1)
     expect(within(dossier).getByText('狼群冲破外圈，幸存者退入旧矿道。')).toBeInTheDocument()
+    expect(within(dossier).getByText('路线')).toBeInTheDocument()
+    expect(within(dossier).getByText('失败后撤退线')).toBeInTheDocument()
+    expect(within(dossier).getByText('下一步')).toBeInTheDocument()
+    expect(within(dossier).getByText('护送幸存者穿过矿道岔路。')).toBeInTheDocument()
+    expect(within(dossier).getByText('失败代价')).toBeInTheDocument()
+    expect(within(dossier).getByText('伤员会拖慢队伍并吸引追踪。')).toBeInTheDocument()
+    expect(within(dossier).getByText('失败推进')).toBeInTheDocument()
+    expect(within(dossier).getByText('旧矿道成为新的防线和线索入口。')).toBeInTheDocument()
     expect(within(dossier).getByText('营地被攻破')).toBeInTheDocument()
     expect(within(dossier).getByText('近期')).toBeInTheDocument()
     const timeline = within(dossier).getByLabelText('近期时间线')

@@ -25,6 +25,7 @@ def test_explore_prompt_contains_all_maintenance_sections():
         "campaign_delta",
         "活战役状态",
         "companion_updates",
+        "fail_forward",
         "player_choices 结构化格式",
         "enemy.sprite",
     ]

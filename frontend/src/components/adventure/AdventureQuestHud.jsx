@@ -3,6 +3,7 @@ import { getLocationGraphSummary } from '../../utils/locationGraph'
 const RECENT_TYPE_LABELS = {
   quest: '任务',
   clue: '线索',
+  companion: '队友',
   decision: '决定',
   npc: 'NPC',
   world: '后果',
@@ -51,7 +52,11 @@ export default function AdventureQuestHud({
     ? [
         questLine.quest,
         `状态：${questStatus.label}`,
+        questLine.branch ? `分支：${questLine.branch}` : '',
         questDetail ? `进展：${questDetail}` : '',
+        questLine.consequence ? `后果：${questLine.consequence}` : '',
+        questLine.failure_consequence ? `失败代价：${questLine.failure_consequence}` : '',
+        questLine.fail_forward ? `失败推进：${questLine.fail_forward}` : '',
       ].filter(Boolean).join('\n')
     : ''
   return (
@@ -73,6 +78,11 @@ export default function AdventureQuestHud({
       {questLine && (
         <span className={`quest-status-pill ${questStatus.tone}`} title={questTitle}>
           {questStatus.label}
+        </span>
+      )}
+      {questLine?.branch && (
+        <span className="quest-branch-pill" title={questTitle}>
+          {questLine.branch}
         </span>
       )}
       {questDetail && (

@@ -6,7 +6,14 @@ describe('AdventureQuestHud', () => {
   it('renders recent consequences and quest updates after campaign state changes', () => {
     render(
       <AdventureQuestHud
-        questLine={{ quest: '调查暗门', status: 'active', next_step: '确认井底暗门是否会在月光下开启' }}
+        questLine={{
+          quest: '调查暗门',
+          status: 'active',
+          branch: '井底调查线',
+          next_step: '确认井底暗门是否会在月光下开启',
+          failure_consequence: '守卫巡逻会提前封锁井口',
+          fail_forward: '错过月光窗口后仍可寻找铁匠旧钥匙',
+        }}
         clues={[{ text: '暗门在井底', category: 'location', is_new: true }]}
         locationGraph={{
           current_location_id: 'well',
@@ -28,6 +35,7 @@ describe('AdventureQuestHud', () => {
         keyDecisions={[]}
         recentConsequences={[
           { type: 'quest', label: '寻找矿工', detail: '矿工获救' },
+          { type: 'companion', label: '艾琳', detail: '好感+6' },
           { type: 'clue', label: '暗门在井底', detail: 'location' },
           { type: 'decision', label: '信任铁匠', detail: '关键决定' },
         ]}
@@ -36,6 +44,7 @@ describe('AdventureQuestHud', () => {
 
     expect(screen.getByText('调查暗门')).toBeInTheDocument()
     expect(screen.getByText('进行中')).toHaveClass('quest-status-pill', 'active')
+    expect(screen.getByText('井底调查线')).toHaveClass('quest-branch-pill')
     expect(screen.getByText('确认井底暗门是否会在月光下开启')).toHaveClass('quest-outcome-snippet', 'active')
     expect(screen.getByText(/地图/)).toBeInTheDocument()
     expect(screen.getByText('矿村井口')).toBeInTheDocument()
@@ -46,6 +55,8 @@ describe('AdventureQuestHud', () => {
     const recent = screen.getByText('最近').parentElement
     expect(within(recent).getByText('任务')).toBeInTheDocument()
     expect(within(recent).getByText(/寻找矿工/)).toHaveClass('quest-recent-item', 'quest')
+    expect(within(recent).getByText('队友')).toBeInTheDocument()
+    expect(within(recent).getByText(/艾琳：好感\+6/)).toHaveClass('quest-recent-item', 'companion')
     expect(within(recent).getByText('线索')).toBeInTheDocument()
     expect(within(recent).getByText(/暗门在井底：location/)).toHaveClass('quest-recent-item', 'clue')
     expect(within(recent).getByText('决定')).toBeInTheDocument()

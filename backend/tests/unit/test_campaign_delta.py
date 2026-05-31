@@ -104,6 +104,38 @@ def test_normalize_campaign_delta_preserves_scene_route_metadata():
     }
 
 
+def test_normalize_campaign_delta_preserves_branching_quest_metadata():
+    delta = normalize_campaign_delta({
+        "quest_updates": [
+            {
+                "quest": "守住营地",
+                "status": "blocked",
+                "outcome": "",
+                "branch": "后撤线",
+                "next_step": "护送幸存者进入旧矿道",
+                "consequence": "营地外圈已经失守",
+                "failure_consequence": "拖延会让狼群追上伤员",
+                "fail_forward": "即使营地失守，幸存者仍能在旧矿道重组防线",
+                "detail": "防守目标转为撤退目标",
+            }
+        ],
+    })
+
+    assert delta["quest_updates"] == [
+        {
+            "quest": "守住营地",
+            "status": "blocked",
+            "outcome": "",
+            "branch": "后撤线",
+            "next_step": "护送幸存者进入旧矿道",
+            "consequence": "营地外圈已经失守",
+            "failure_consequence": "拖延会让狼群追上伤员",
+            "fail_forward": "即使营地失守，幸存者仍能在旧矿道重组防线",
+            "detail": "防守目标转为撤退目标",
+        }
+    ]
+
+
 def test_apply_campaign_delta_merges_quests_npcs_flags_decisions_and_clues():
     existing = {
         "quest_log": [{"quest": "寻找矿工", "status": "active", "outcome": ""}],
@@ -199,6 +231,56 @@ def test_apply_campaign_delta_merges_quests_npcs_flags_decisions_and_clues():
             "detail": "location",
             "at": "2026-05-08T00:00:00Z",
         },
+    ]
+
+
+def test_apply_campaign_delta_merges_branching_quest_hooks():
+    existing = {
+        "quest_log": [
+            {
+                "quest": "守住营地",
+                "status": "active",
+                "outcome": "",
+                "branch": "正面防守",
+                "next_step": "守住东侧木门",
+            }
+        ],
+    }
+
+    merged = apply_campaign_delta(existing, {
+        "quest_updates": [
+            {
+                "quest": "守住营地",
+                "status": "failed",
+                "outcome": "狼群冲破外圈，幸存者退入旧矿道。",
+                "branch": "失败后撤退线",
+                "next_step": "护送幸存者穿过矿道岔路。",
+                "failure_consequence": "伤员会拖慢队伍并吸引追踪。",
+                "fail_forward": "营地失守后，旧矿道成为新的防线和线索入口。",
+            }
+        ],
+    }, now_iso="2026-06-01T01:00:00Z")
+
+    assert merged["quest_log"] == [
+        {
+            "quest": "守住营地",
+            "status": "failed",
+            "outcome": "狼群冲破外圈，幸存者退入旧矿道。",
+            "branch": "失败后撤退线",
+            "next_step": "护送幸存者穿过矿道岔路。",
+            "failure_consequence": "伤员会拖慢队伍并吸引追踪。",
+            "fail_forward": "营地失守后，旧矿道成为新的防线和线索入口。",
+        }
+    ]
+    assert merged["recent_updates"] == [
+        {
+            "type": "quest",
+            "label": "守住营地",
+            "detail": "狼群冲破外圈，幸存者退入旧矿道。",
+            "at": "2026-06-01T01:00:00Z",
+            "status": "failed",
+            "branch": "失败后撤退线",
+        }
     ]
 
 
