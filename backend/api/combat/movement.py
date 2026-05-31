@@ -23,6 +23,10 @@ from services.spell_service import spell_service
 from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.character_roster import CharacterRoster
+from services.combat_hazard_service import (
+    apply_movement_hazard,
+    hazard_result_to_log_text,
+)
 from services.combat_movement_rules_service import (
     MovementRuleError,
     apply_stand_up_from_prone,
@@ -38,6 +42,7 @@ from api.combat._shared import (
     _has_adjacent_enemy, _has_ally_adjacent_to,
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
     _chebyshev, _resolve_opportunity_attacks,
+    _build_combat_snapshot,
 )
 from api.combat.schemas import (
     MoveRequest, ConditionRequest, CombatActionRequest, DeathSaveRequest,
@@ -83,6 +88,7 @@ async def combat_move(
     ts = stand_result.turn_state
     cur = positions.get(str(req.entity_id))
     opp_results = []
+    moved_distance = 0
     if cur:
         # Chebyshev 距离（对角移动和直线移动同等消耗，符合 5e 标准规则）
         dist      = max(abs(cur["x"] - req.to_x), abs(cur["y"] - req.to_y))
@@ -111,6 +117,7 @@ async def combat_move(
                 db.add(opp["log"])
 
         ts["movement_used"] += dist
+        moved_distance = dist
         _save_ts(combat, req.entity_id, ts)
     elif stand_result.stood_up:
         _save_ts(combat, req.entity_id, ts)
@@ -118,9 +125,29 @@ async def combat_move(
     positions[str(req.entity_id)] = {"x": req.to_x, "y": req.to_y}
     combat.entity_positions        = positions
 
+    hazard_result = None
+    if moved_distance > 0:
+        hazard_result = await apply_movement_hazard(
+            db=db,
+            session=session,
+            combat_state=combat,
+            entity_id=str(req.entity_id),
+            position=positions[str(req.entity_id)],
+            combat_service=svc,
+        )
+        hazard_log = hazard_result_to_log_text(hazard_result)
+        if hazard_log:
+            db.add(GameLog(
+                session_id=session_id,
+                role="system",
+                content=hazard_log,
+                log_type="combat",
+                dice_result={"hazard": hazard_result},
+            ))
+
     # 借机攻击后检查战斗是否结束
     opp_combat_over, opp_outcome = False, None
-    if opp_results:
+    if opp_results or hazard_result:
         opp_state   = session.game_state or {}
         opp_enemies = list(opp_state.get("enemies", []))
         player_opp  = await db.get(Character, session.player_character_id)
@@ -131,17 +158,27 @@ async def combat_move(
             session.combat_active = False
 
     await db.commit()
+    combat_snapshot = await _build_combat_snapshot(
+        db,
+        session,
+        combat,
+        viewer_character_id=str(req.entity_id),
+    )
     # 多人联机：广播位置变更
     from schemas.ws_events import EntityMoved
     await _broadcast_combat(session, combat, EntityMoved(
         entity_id=req.entity_id,
         position={"x": req.to_x, "y": req.to_y},
+        hazard_result=hazard_result,
     ), db=db)
     return {
         "entity_id":               req.entity_id,
         "x":                       req.to_x,
         "y":                       req.to_y,
         "positions":               positions,
+        "entity_positions":        positions,
+        "combat":                  combat_snapshot,
+        "hazard_result":           hazard_result,
         "turn_state":              ts,
         "movement_used":           ts["movement_used"],
         "movement_max":            ts["movement_max"],

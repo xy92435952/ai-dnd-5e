@@ -60,6 +60,67 @@ def test_execute_move_action_blocks_speed_zero_condition():
     assert executed_action_types == ["move_blocked"]
 
 
+def test_execute_move_action_applies_hazard_damage(monkeypatch):
+    from services import combat_hazard_service
+    from services.game_combat_action_steps import execute_move_action
+
+    monkeypatch.setattr(
+        combat_hazard_service,
+        "roll_dice",
+        lambda expr: {"notation": expr, "rolls": [3], "bonus": 0, "total": 3},
+    )
+
+    actor = SimpleNamespace(
+        id="hero-1",
+        name="Hero",
+        hp_current=10,
+        derived={},
+        conditions=[],
+        class_resources={},
+        death_saves=None,
+        char_class="Fighter",
+    )
+    positions = {
+        "hero-1": {"x": 0, "y": 0},
+        "goblin-1": {"x": 5, "y": 0},
+    }
+    combat_state = SimpleNamespace(entity_positions=positions, grid_data={"2_0": "hazard"})
+    turn_state = {"movement_used": 0, "movement_max": 6}
+    action_results = []
+    executed_action_types = []
+    dice_display = []
+    hazard_results = []
+
+    move_remaining = execute_move_action(
+        combat_state=combat_state,
+        positions=positions,
+        player_id="hero-1",
+        turn_state=turn_state,
+        move_remaining=6,
+        action={"type": "move", "target_pos": {"x": 2, "y": 0}},
+        actor_conditions=[],
+        action_results=action_results,
+        executed_action_types=executed_action_types,
+        move_toward=lambda *_args: {"x": 2, "y": 0, "steps": 2},
+        save_turn_state=lambda *_args: None,
+        session=SimpleNamespace(game_state={}),
+        actor=actor,
+        combat_service=FakeCombatService(),
+        dice_display=dice_display,
+        hazard_results=hazard_results,
+    )
+
+    assert move_remaining == 4
+    assert actor.hp_current == 7
+    assert hazard_results[0]["hp_after"] == 7
+    assert dice_display[0]["total"] == 3
+    assert action_results == [
+        "移动了 10ft",
+        "Hero triggers Hazard, taking 3 environmental damage. HP 10->7",
+    ]
+    assert executed_action_types == ["move"]
+
+
 def test_execute_attack_action_consumes_guiding_bolt_and_applies_hex(monkeypatch):
     from services import combat_damage_bonus_service
     from services.game_combat_action_steps import execute_attack_action

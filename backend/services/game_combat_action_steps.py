@@ -7,6 +7,11 @@ from services.combat_damage_bonus_service import (
     apply_absorb_elements_damage_rider,
     apply_sustained_damage_effects,
 )
+from services.combat_hazard_service import (
+    apply_movement_hazard_to_known_entity,
+    hazard_result_to_dice_display,
+    hazard_result_to_log_text,
+)
 from services.combat_movement_rules_service import MovementRuleError, validate_displacement_allowed
 
 
@@ -23,6 +28,11 @@ def execute_move_action(
     executed_action_types: list[str],
     move_toward,
     save_turn_state,
+    session: Session | None = None,
+    actor: Any | None = None,
+    combat_service=None,
+    dice_display: list[dict[str, Any]] | None = None,
+    hazard_results: list[dict[str, Any]] | None = None,
 ) -> int:
     move_target_id = action.get("target_id")
     move_target_pos = action.get("target_pos")
@@ -55,6 +65,23 @@ def execute_move_action(
     move_remaining -= result["steps"]
     save_turn_state(combat_state, player_id, turn_state)
     action_results.append(f"移动了 {result['steps'] * 5}ft")
+    hazard = apply_movement_hazard_to_known_entity(
+        session=session,
+        combat_state=combat_state,
+        entity_id=player_id,
+        position=positions[player_id],
+        character=actor,
+        combat_service=combat_service,
+    )
+    if hazard:
+        if hazard_results is not None:
+            hazard_results.append(hazard)
+        dice = hazard_result_to_dice_display(hazard)
+        if dice_display is not None and dice:
+            dice_display.append(dice)
+        hazard_text = hazard_result_to_log_text(hazard)
+        if hazard_text:
+            action_results.append(hazard_text)
     executed_action_types.append("move")
     return move_remaining
 

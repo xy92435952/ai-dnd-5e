@@ -134,6 +134,49 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.setAoeHover).toHaveBeenLastCalledWith('2_2')
   })
 
+  it('uses returned combat snapshot and logs hazard damage after movement', async () => {
+    const addLog = vi.fn()
+    const combatSnapshot = {
+      entity_positions: {
+        'guest-char': { x: 4, y: 5 },
+      },
+      entities: {
+        'guest-char': { id: 'guest-char', hp_current: 6 },
+      },
+    }
+    gameApi.move.mockResolvedValue({
+      combat: combatSnapshot,
+      turn_state: { movement_used: 1, movement_max: 6 },
+      hazard_result: {
+        triggered: true,
+        target_name: 'Hero',
+        label: 'sparking conduit',
+        final_damage: 4,
+        damage_type: 'lightning',
+        hp_before: 10,
+        hp_after: 6,
+      },
+    })
+    const { result, deps } = renderActions({
+      moveMode: true,
+      addLog,
+    })
+
+    await act(async () => {
+      await result.current.handleMoveTo(4, 5)
+    })
+
+    expect(gameApi.move).toHaveBeenCalledWith('sess-1', 'guest-char', 4, 5, '1:0:guest-char')
+    expect(deps.setCombat).toHaveBeenCalledWith(combatSnapshot)
+    expect(deps.setTurnState).toHaveBeenCalledWith({ movement_used: 1, movement_max: 6 })
+    expect(addLog).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'system',
+      log_type: 'combat',
+      content: expect.stringContaining('4 lightning'),
+    }))
+    expect(deps.setMoveMode).toHaveBeenCalledWith(false)
+  })
+
   it('keeps websocket reaction prompts so non-reactors can see a non-blocking notice', () => {
     const { result, deps } = renderActions()
     const prompt = {

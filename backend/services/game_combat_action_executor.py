@@ -21,6 +21,7 @@ class ParsedCombatExecutionResult:
     total_damage: int
     executed_action_types: list[str]
     errors: list[str]
+    hazard_results: list[dict[str, Any]]
 
 
 ACTION_ALREADY_USED_MESSAGE = "本回合行动已用尽，请使用「结束回合」"
@@ -63,6 +64,7 @@ def execute_parsed_combat_actions(
     standard_action_used = bool(turn_state.get("action_used"))
     executed_action_types: list[str] = []
     errors: list[str] = []
+    hazard_results: list[dict[str, Any]] = []
 
     for action in parsed_actions:
         action_type = action.get("type", "")
@@ -80,6 +82,11 @@ def execute_parsed_combat_actions(
                 executed_action_types=executed_action_types,
                 move_toward=move_toward,
                 save_turn_state=save_turn_state,
+                session=session,
+                actor=player,
+                combat_service=combat_service,
+                dice_display=dice_display,
+                hazard_results=hazard_results,
             )
 
         elif action_type == "attack":
@@ -195,6 +202,7 @@ def execute_parsed_combat_actions(
         total_damage=total_damage,
         executed_action_types=executed_action_types,
         errors=errors,
+        hazard_results=hazard_results,
     )
 
 

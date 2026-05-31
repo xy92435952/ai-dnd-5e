@@ -115,6 +115,7 @@ async def execute_natural_language_combat_action(
         "combat_update": combat_update,
         "action_results": execution.action_results,
         "errors": execution.errors,
+        "hazard_results": execution.hazard_results,
     }
 
 

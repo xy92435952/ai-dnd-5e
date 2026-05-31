@@ -11,6 +11,17 @@ import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
 import { formatCombatError } from '../utils/combatErrors'
 import { mergeRealtimeRoomEvent } from './useRoomRealtime'
 
+function formatHazardMoveLog(hazard = {}) {
+  const target = hazard.target_name || hazard.target_id || '目标'
+  const label = hazard.label || '危险地形'
+  const damage = hazard.final_damage ?? hazard.damage ?? 0
+  const damageType = hazard.damage_type ? ` ${hazard.damage_type}` : ''
+  const hpBefore = hazard.hp_before
+  const hpAfter = hazard.hp_after
+  const hpText = hpBefore != null && hpAfter != null ? `（HP ${hpBefore}→${hpAfter}）` : ''
+  return `${target} 触发 ${label}，受到 ${damage}${damageType} 伤害${hpText}`
+}
+
 export function useCombatPageActions({
   sessionId,
   setRoom,
@@ -138,14 +149,29 @@ export function useCombatPageActions({
       if (!entityId) return
       const result = await gameApi.move(sessionId, entityId, x, y, getCombatTurnToken(combat))
       if (result) {
-        setCombat(prev => prev ? { ...prev, entity_positions: result.entity_positions || prev.entity_positions } : prev)
+        if (result.combat) {
+          setCombat(result.combat)
+        } else {
+          setCombat(prev => prev ? { ...prev, entity_positions: result.entity_positions || prev.entity_positions } : prev)
+        }
         if (result.turn_state) setTurnState(result.turn_state)
+        if (result.hazard_result?.triggered) {
+          addLog?.({
+            role: 'system',
+            content: formatHazardMoveLog(result.hazard_result),
+            log_type: 'combat',
+            dice_result: {
+              damage: result.hazard_result.final_damage ?? result.hazard_result.damage ?? 0,
+              hazard: result.hazard_result,
+            },
+          })
+        }
       }
       setMoveMode(false)
     } catch (e) {
       setError(formatCombatError(e))
     }
-  }, [canActThisTurn, combat, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
+  }, [addLog, canActThisTurn, combat, isProcessing, myCharacterId, moveMode, playerId, sessionId, setCombat, setError, setMoveMode, setTurnState])
 
   const handleHelpTarget = useCallback(async (entityId) => {
     if (!helpMode || !canActThisTurn || isProcessing) return false

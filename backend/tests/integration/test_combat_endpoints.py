@@ -385,6 +385,44 @@ async def test_combat_move_allows_no_op_for_speed_zero_character(
     assert data["positions"][sample_character.id] == {"x": 5, "y": 5}
 
 
+async def test_combat_move_triggers_hazard_damage(
+    client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
+):
+    from services import combat_hazard_service
+
+    monkeypatch.setattr(
+        combat_hazard_service,
+        "roll_dice",
+        lambda expr: {"notation": expr, "rolls": [4], "bonus": 0, "total": 4},
+    )
+    hp_before = sample_character.hp_current
+    combat_state.grid_data = {
+        "_encounter_template": {"hazards": ["sparking conduit"]},
+        "4_5": "hazard",
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 4, "to_y": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    hazard = data["hazard_result"]
+    assert hazard["triggered"] is True
+    assert hazard["cell"] == "4_5"
+    assert hazard["damage"] == 4
+    assert hazard["damage_type"] == "lightning"
+    assert data["combat"]["entities"][sample_character.id]["hp_current"] == hp_before - 4
+    assert data["entity_positions"][sample_character.id] == {"x": 4, "y": 5}
+
+    await db_session.refresh(sample_character)
+    assert sample_character.hp_current == hp_before - 4
+
+
 async def test_combat_move_rejects_stale_expected_turn_token(
     client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):
