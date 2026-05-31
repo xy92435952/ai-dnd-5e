@@ -189,6 +189,7 @@ describe('SpellModal', () => {
   })
 
   it('shows an AoE target breakdown and friendly-fire risk before casting', () => {
+    const onResetAoeCenter = vi.fn()
     render(
       <SpellModal
         spells={[{
@@ -222,6 +223,7 @@ describe('SpellModal', () => {
         onCast={vi.fn()}
         onClose={vi.fn()}
         onSpellHover={vi.fn()}
+        onResetAoeCenter={onResetAoeCenter}
       />,
     )
 
@@ -235,6 +237,10 @@ describe('SpellModal', () => {
     expect(within(breakdown).getByText('Allies 1')).toBeInTheDocument()
     expect(within(breakdown).getByText('Self')).toBeInTheDocument()
     expect(within(breakdown).getByText('Friendly fire')).toBeInTheDocument()
+
+    const placementActions = screen.getByLabelText('AoE placement actions')
+    fireEvent.click(within(placementActions).getByRole('button', { name: '重新选择落点' }))
+    expect(onResetAoeCenter).toHaveBeenCalled()
   })
 
   it('blocks healing spells when an enemy is selected', () => {

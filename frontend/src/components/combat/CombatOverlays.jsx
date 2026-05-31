@@ -17,6 +17,7 @@ export default function CombatOverlays({
   combat,
   aoeHover,
   aoeLockedCenter,
+  onResetAoeCenter,
   onCastSpell,
   onCloseSpell,
   onSpellHover,
@@ -54,6 +55,7 @@ export default function CombatOverlays({
           onCast={onCastSpell}
           onClose={onCloseSpell}
           onSpellHover={onSpellHover}
+          onResetAoeCenter={onResetAoeCenter}
         />
       )}
 

@@ -276,6 +276,7 @@ export function buildSpellCastPlan({
   rows.push(...buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }))
 
   let aoeBreakdown = null
+  let aoePlacement = null
 
   if (spell.aoe) {
     const template = getAoeTemplateType(spell)
@@ -301,6 +302,11 @@ export function buildSpellCastPlan({
     const excludedTargetIds = uncappedTargetIds.slice(targetIds.length)
     const excludedNames = excludedTargetIds.map(id => entityName(combat, id))
     const direction = areaDirectionLabel({ template, aoeHover, combat, playerId })
+    aoePlacement = {
+      locked: Boolean(aoeLockedCenter),
+      canReset: Boolean(aoeLockedCenter),
+      label: placementLabel({ template, aoeHover, aoeLockedCenter }),
+    }
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
     if (maxTargets) {
       aoeBreakdown.limit = maxTargets
@@ -365,5 +371,6 @@ export function buildSpellCastPlan({
     status: disabledReason ? '无法施放' : '可施放',
     rows,
     aoeBreakdown,
+    aoePlacement,
   }
 }

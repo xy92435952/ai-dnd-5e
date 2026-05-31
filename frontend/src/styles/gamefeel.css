@@ -1702,6 +1702,26 @@
   background: rgba(240,64,64,.1);
   color: #f09090;
 }
+.spell-placement-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.spell-placement-actions button {
+  padding: 4px 8px;
+  border: 1px solid rgba(240,208,96,.28);
+  border-radius: 4px;
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.spell-placement-actions button:hover {
+  border-color: rgba(240,208,96,.55);
+  background: rgba(240,208,96,.14);
+}
 .spell-rule-badges {
   display: flex;
   flex-wrap: wrap;

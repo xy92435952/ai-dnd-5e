@@ -285,6 +285,10 @@ export default function Combat() {
         combat={combat}
         aoeHover={aoeHover}
         aoeLockedCenter={aoeLockedCenter}
+        onResetAoeCenter={() => {
+          setAoeLockedCenter(null)
+          setAoeHover(null)
+        }}
         onCastSpell={handleCastSpell}
         onCloseSpell={() => { setSpellModalOpen(false); setSpellQuickPick(null); clearAoePreview() }}
         onSpellHover={handleSpellHover}

@@ -38,6 +38,7 @@ export default function SpellModal({
   onCast,
   onClose,
   onSpellHover,
+  onResetAoeCenter,
 }) {
   const [selectedSpell, setSelectedSpell] = useState(null)
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
@@ -118,7 +119,7 @@ export default function SpellModal({
           onSpellHover={onSpellHover}
         />
 
-        <SpellCastPlan plan={castPlan} />
+        <SpellCastPlan plan={castPlan} onResetAoeCenter={onResetAoeCenter} />
 
         <SpellModalActions
           canCast={canCast}

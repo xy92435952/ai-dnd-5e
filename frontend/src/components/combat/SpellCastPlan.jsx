@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function SpellCastPlan({ plan }) {
+export default function SpellCastPlan({ plan, onResetAoeCenter = null }) {
   if (!plan) return null
 
   return (
@@ -22,6 +22,13 @@ export default function SpellCastPlan({ plan }) {
           {plan.aoeBreakdown.chips.map(chip => (
             <span key={chip.key} className={chip.tone || ''} title={chip.title}>{chip.label}</span>
           ))}
+        </div>
+      )}
+      {plan.aoePlacement?.canReset && onResetAoeCenter && (
+        <div className="spell-placement-actions" aria-label="AoE placement actions">
+          <button type="button" onClick={onResetAoeCenter} title="清除当前 AoE 落点，重新在战场选择">
+            重新选择落点
+          </button>
         </div>
       )}
     </section>

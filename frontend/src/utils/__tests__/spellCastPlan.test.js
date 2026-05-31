@@ -129,6 +129,11 @@ describe('buildSpellCastPlan', () => {
 
     expect(row(plan, '区域').value).toBe('球形区域 · 20 尺 · 中心 5, 5')
     expect(row(plan, '放置').value).toBe('预览中 · 中心 5, 5；点击格子可锁定')
+    expect(plan.aoePlacement).toMatchObject({
+      locked: false,
+      canReset: false,
+      label: '预览中 · 中心 5, 5；点击格子可锁定',
+    })
     expect(row(plan, '命中单位').value).toBe('3 个：施法者、训练假人、同伴')
     expect(plan.aoeBreakdown).toMatchObject({
       total: 3,
