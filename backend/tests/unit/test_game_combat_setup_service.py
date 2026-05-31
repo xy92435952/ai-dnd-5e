@@ -116,6 +116,8 @@ async def test_init_combat_stores_encounter_balance(db_session, sample_session, 
     assert balance["monster_count"] == 1
     assert balance["base_xp"] == 50
     assert balance["difficulty"] in {"easy", "medium", "hard", "deadly"}
+    assert balance["action_economy"]["party_actions"] == 1
+    assert balance["action_economy"]["monster_actions"] == 1
 
 
 async def test_init_combat_uses_current_location_encounter_template(

@@ -21,6 +21,13 @@ def test_estimate_encounter_difficulty_for_four_level_one_characters():
     assert result["adjusted_xp"] == 150
     assert result["thresholds"] == {"easy": 100, "medium": 200, "hard": 300, "deadly": 400}
     assert result["difficulty"] == "easy"
+    assert result["action_economy"] == {
+        "party_actions": 4,
+        "monster_actions": 2,
+        "ratio": 0.5,
+        "pressure": "party_advantage",
+    }
+    assert result["difficulty_with_action_economy"] == "easy"
 
 
 def test_estimate_encounter_difficulty_marks_deadly_when_adjusted_xp_exceeds_threshold():
@@ -47,3 +54,19 @@ def test_estimate_encounter_difficulty_adjusts_multiplier_for_tiny_and_large_par
 def test_estimate_encounter_difficulty_returns_none_without_party_or_monsters():
     assert estimate_encounter_difficulty([], [{"cr": 1}])["difficulty"] == "none"
     assert estimate_encounter_difficulty([{"level": 1}], [])["difficulty"] == "none"
+
+
+def test_estimate_encounter_difficulty_surfaces_action_economy_pressure():
+    result = estimate_encounter_difficulty(
+        [{"level": 1}],
+        [{"cr": "1/4", "multiattack": 3, "legendary_actions_per_round": 1}],
+    )
+
+    assert result["difficulty"] == "hard"
+    assert result["action_economy"] == {
+        "party_actions": 1,
+        "monster_actions": 4,
+        "ratio": 4.0,
+        "pressure": "overwhelming",
+    }
+    assert result["difficulty_with_action_economy"] == "deadly"

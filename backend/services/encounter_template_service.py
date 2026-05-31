@@ -168,6 +168,7 @@ def attach_party_balance_to_template(
     template["party_balance"] = {
         "target_difficulty": target,
         "estimated_difficulty": estimate.get("difficulty"),
+        "action_adjusted_difficulty": estimate.get("difficulty_with_action_economy"),
         "recommended_adjustment": recommendation,
         "estimate": estimate,
     }

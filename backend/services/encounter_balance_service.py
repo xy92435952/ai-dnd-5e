@@ -71,6 +71,8 @@ XP_THRESHOLDS_BY_LEVEL = {
     20: {"easy": 2800, "medium": 5700, "hard": 8500, "deadly": 12700},
 }
 
+DIFFICULTY_ORDER = ["none", "easy", "medium", "hard", "deadly"]
+
 
 def estimate_encounter_difficulty(
     party: list[dict[str, Any]] | None,
@@ -78,15 +80,18 @@ def estimate_encounter_difficulty(
 ) -> dict[str, Any]:
     """Estimate encounter difficulty using 5e XP thresholds and count multipliers."""
     party_levels = [_party_member_level(member) for member in party or [] if _party_member_level(member) > 0]
-    monster_xps = [_monster_xp(monster) for monster in monsters or [] if _monster_xp(monster) > 0]
+    valid_monsters = [monster for monster in monsters or [] if _monster_xp(monster) > 0]
+    monster_xps = [_monster_xp(monster) for monster in valid_monsters]
     thresholds = _party_thresholds(party_levels)
     base_xp = sum(monster_xps)
     multiplier = _encounter_multiplier(len(monster_xps), len(party_levels))
     adjusted_xp = int(base_xp * multiplier)
     difficulty = _difficulty_for_adjusted_xp(adjusted_xp, thresholds)
+    action_economy = _action_economy_signal(len(party_levels), valid_monsters)
 
     return {
         "difficulty": difficulty,
+        "difficulty_with_action_economy": _action_adjusted_difficulty(difficulty, action_economy),
         "party_size": len(party_levels),
         "average_party_level": _average_level(party_levels),
         "monster_count": len(monster_xps),
@@ -94,6 +99,7 @@ def estimate_encounter_difficulty(
         "adjusted_xp": adjusted_xp,
         "multiplier": multiplier,
         "thresholds": thresholds,
+        "action_economy": action_economy,
     }
 
 
@@ -146,6 +152,70 @@ def _encounter_multiplier(monster_count: int, party_size: int) -> float:
     return multiplier
 
 
+def _action_economy_signal(party_size: int, monsters: list[dict[str, Any]]) -> dict[str, Any]:
+    party_actions = max(0, party_size)
+    monster_actions = sum(_monster_action_count(monster) for monster in monsters)
+    ratio = round(monster_actions / party_actions, 2) if party_actions else 0
+    if party_actions <= 0 or monster_actions <= 0:
+        pressure = "none"
+    elif ratio < 0.5:
+        pressure = "party_dominant"
+    elif ratio < 0.8:
+        pressure = "party_advantage"
+    elif ratio <= 1.25:
+        pressure = "even"
+    elif ratio <= 1.75:
+        pressure = "monster_advantage"
+    else:
+        pressure = "overwhelming"
+    return {
+        "party_actions": party_actions,
+        "monster_actions": monster_actions,
+        "ratio": ratio,
+        "pressure": pressure,
+    }
+
+
+def _monster_action_count(monster: dict[str, Any]) -> int:
+    main_actions = _positive_int(
+        monster.get("attacks_max")
+        or monster.get("multiattack")
+        or monster.get("attack_count")
+        or 1,
+        default=1,
+    )
+    legendary_actions = _positive_int(
+        monster.get("legendary_actions_per_round")
+        or monster.get("legendary_action_uses")
+        or monster.get("legendary_action_uses_remaining")
+        or 0,
+        default=0,
+    )
+    return max(1, main_actions) + max(0, legendary_actions)
+
+
+def _action_adjusted_difficulty(difficulty: str, action_economy: dict[str, Any]) -> str:
+    pressure = str(action_economy.get("pressure") or "none")
+    if pressure in {"none", "even"}:
+        return difficulty
+    shift = {
+        "party_dominant": -1,
+        "party_advantage": 0,
+        "monster_advantage": 1,
+        "overwhelming": 2,
+    }.get(pressure, 0)
+    return _shift_difficulty(difficulty, shift)
+
+
+def _shift_difficulty(difficulty: str, shift: int) -> str:
+    try:
+        index = DIFFICULTY_ORDER.index(str(difficulty or "none"))
+    except ValueError:
+        index = 0
+    index = max(0, min(len(DIFFICULTY_ORDER) - 1, index + shift))
+    return DIFFICULTY_ORDER[index]
+
+
 def _monster_xp(monster: dict[str, Any]) -> int:
     explicit = monster.get("xp")
     if explicit is not None:
@@ -155,6 +225,13 @@ def _monster_xp(monster: dict[str, Any]) -> int:
             pass
     cr = _normalize_cr(monster.get("cr", monster.get("challenge_rating", monster.get("challenge"))))
     return XP_BY_CR.get(cr, 0)
+
+
+def _positive_int(value: Any, *, default: int) -> int:
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _party_member_level(member: dict[str, Any]) -> int:

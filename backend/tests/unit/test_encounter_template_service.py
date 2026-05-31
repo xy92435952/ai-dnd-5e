@@ -177,8 +177,10 @@ def test_attach_party_balance_to_template_estimates_party_fit():
     assert "party_balance" not in template
     assert balanced["party_balance"]["target_difficulty"] == "medium"
     assert balanced["party_balance"]["estimated_difficulty"] == "deadly"
+    assert balanced["party_balance"]["action_adjusted_difficulty"] == "deadly"
     assert balanced["party_balance"]["recommended_adjustment"] == "reduce_or_stage_enemies"
     assert balanced["party_balance"]["estimate"]["party_size"] == 1
+    assert balanced["party_balance"]["estimate"]["action_economy"]["pressure"] == "even"
 
 
 def test_attach_party_balance_to_template_stages_extra_enemies_for_small_party():
