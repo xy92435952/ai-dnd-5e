@@ -37,12 +37,45 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
+function joinParts(parts) {
+  return parts.map(cleanText).filter(Boolean).join(' · ')
+}
+
+function buildCompanionSummary(companion) {
+  const className = companion?.char_class || companion?.class || companion?.class_name
+  const level = companion?.level ? `Lv ${companion.level}` : ''
+  const role = joinParts([companion?.race, className, level]) || '队友'
+  const derived = asObject(companion?.derived)
+  const stats = joinParts([
+    companion?.hp_max || derived.hp_max
+      ? `HP ${companion?.hp_current ?? companion?.hp_max ?? derived.hp_max}/${companion?.hp_max ?? derived.hp_max}`
+      : '',
+    companion?.ac || derived.ac ? `AC ${companion?.ac ?? derived.ac}` : '',
+    derived.speed ? `速度 ${derived.speed}` : '',
+  ])
+
+  return {
+    id: companion?.id || companion?.name || role,
+    name: companion?.name || '未命名队友',
+    role,
+    stats,
+    personality: cleanText(companion?.personality || companion?.personality_traits),
+    speechStyle: cleanText(companion?.speech_style),
+    combatPreference: cleanText(companion?.combat_preference),
+    catchphrase: cleanText(companion?.catchphrase),
+    backstory: cleanText(companion?.backstory),
+  }
+}
+
 function buildJournalSections(session, room) {
   const campaign = asObject(session?.campaign_state)
   const gameState = asObject(session?.game_state)
   const sceneVibe = asObject(gameState.scene_vibe)
   const quests = asArray(campaign.quest_log).filter(q => q?.quest)
   const clues = asArray(campaign.clues).filter(c => c?.text)
+  const companions = asArray(session?.companions)
+    .filter(companion => companion && cleanText(companion.name))
+    .map(buildCompanionSummary)
   const decisions = asArray(campaign.key_decisions).filter(Boolean)
   const completedScenes = asArray(campaign.completed_scenes).filter(Boolean)
   const recentUpdates = asArray(campaign.recent_updates).filter(Boolean)
@@ -90,6 +123,7 @@ function buildJournalSections(session, room) {
 
   return {
     quests,
+    companions,
     clues,
     npcs,
     locations,
@@ -139,6 +173,23 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
                 <Pill tone={quest.status === 'completed' ? 'good' : quest.status === 'failed' ? 'danger' : 'active'}>{quest.status || 'active'}</Pill>
               </div>
               {quest.outcome && <p>{quest.outcome}</p>}
+            </article>
+          ))}
+        </Section>
+
+        <Section title="队友" count={journal.companions.length}>
+          {journal.companions.length === 0 ? <EmptyLine>暂无队友档案</EmptyLine> : journal.companions.map(companion => (
+            <article key={companion.id} className="journal-card companion">
+              <div className="journal-card-head">
+                <strong>{companion.name}</strong>
+                <Pill tone="good">{companion.role}</Pill>
+              </div>
+              {companion.stats && <p className="journal-muted">{companion.stats}</p>}
+              {companion.personality && <p>{companion.personality}</p>}
+              {companion.speechStyle && <p className="journal-muted">说话风格：{companion.speechStyle}</p>}
+              {companion.combatPreference && <p className="journal-muted">战斗偏好：{companion.combatPreference}</p>}
+              {companion.catchphrase && <p className="journal-muted">口头禅：{companion.catchphrase}</p>}
+              {companion.backstory && <p>{companion.backstory}</p>}
             </article>
           ))}
         </Section>

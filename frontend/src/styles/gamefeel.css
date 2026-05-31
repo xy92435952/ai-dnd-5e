@@ -764,6 +764,9 @@
 .journal-card.threat {
   border-left-color: rgba(240,64,64,.58);
 }
+.journal-card.companion {
+  border-left-color: rgba(106,196,132,.58);
+}
 .journal-card-head {
   display: flex;
   align-items: flex-start;

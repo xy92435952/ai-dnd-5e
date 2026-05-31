@@ -37,11 +37,27 @@ function makeSession() {
         { type: 'world', label: '守卫开始巡逻', detail: '矿村警戒提高' },
       ],
     },
+    companions: [
+      {
+        id: 'ally-1',
+        name: '艾琳',
+        race: '半精灵',
+        char_class: 'Ranger',
+        level: 2,
+        hp_current: 15,
+        hp_max: 18,
+        derived: { ac: 14, speed: 30 },
+        personality: '冷静的斥候，遇到危险会先确认撤退路线。',
+        speech_style: '短句、实用',
+        combat_preference: '远程压制并保护后排',
+        catchphrase: '先看脚印，再拔剑。',
+      },
+    ],
   }
 }
 
 describe('JournalModal', () => {
-  it('renders a structured dossier for quests, NPCs, clues, locations, threats, and decisions', () => {
+  it('renders a structured dossier for quests, companions, NPCs, clues, locations, threats, and decisions', () => {
     render(
       <JournalModal
         session={makeSession()}
@@ -60,6 +76,14 @@ describe('JournalModal', () => {
     const dossier = screen.getByLabelText('冒险卷宗')
     expect(within(dossier).getByText('任务')).toBeInTheDocument()
     expect(within(dossier).getByText('寻找失踪矿工')).toBeInTheDocument()
+    expect(within(dossier).getByText('队友')).toBeInTheDocument()
+    expect(within(dossier).getByText('艾琳')).toBeInTheDocument()
+    expect(within(dossier).getByText('半精灵 · Ranger · Lv 2')).toBeInTheDocument()
+    expect(within(dossier).getByText(/冷静的斥候/)).toBeInTheDocument()
+    expect(within(dossier).getByText(/HP 15\/18/)).toBeInTheDocument()
+    expect(within(dossier).getByText(/说话风格：短句、实用/)).toBeInTheDocument()
+    expect(within(dossier).getByText(/战斗偏好：远程压制并保护后排/)).toBeInTheDocument()
+    expect(within(dossier).getByText(/口头禅：先看脚印，再拔剑。/)).toBeInTheDocument()
     expect(within(dossier).getByText('NPC')).toBeInTheDocument()
     expect(within(dossier).getByText('铁匠格雷')).toBeInTheDocument()
     expect(within(dossier).getByText(/知道旧井的位置/)).toBeInTheDocument()
