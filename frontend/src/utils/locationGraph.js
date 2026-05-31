@@ -130,8 +130,43 @@ function getVisibleEdges(graph, nodes) {
       locked: isEdgeLocked(edge),
       hidden: isEdgeHidden(edge),
       oneWay: Boolean(edge?.one_way || edge?.oneWay),
+      requiresKey: edge?.requires_key ? String(edge.requires_key) : '',
+      dc: edge?.dc ?? null,
+      checkType: edge?.check_type ? String(edge.check_type) : '',
     }))
     .filter(edge => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)) && !edge.hidden)
+}
+
+function getNodeRoutes(nodeId, nodes, edges) {
+  const nodeById = new Map(nodes.map(node => [String(node.id), node]))
+  return edges
+    .map(edge => {
+      let destinationId = ''
+      let oneWayOut = false
+      if (String(edge.from) === String(nodeId)) {
+        destinationId = String(edge.to)
+        oneWayOut = Boolean(edge.oneWay)
+      } else if (String(edge.to) === String(nodeId) && !edge.oneWay) {
+        destinationId = String(edge.from)
+      }
+      if (!destinationId) return null
+      const destination = nodeById.get(destinationId)
+      if (!destination) return null
+      return {
+        id: edge.id,
+        destinationId,
+        destinationName: destination.name,
+        destinationVisited: Boolean(destination.visited),
+        label: edge.label,
+        type: edge.type,
+        locked: Boolean(edge.locked),
+        oneWay: oneWayOut,
+        requiresKey: edge.requiresKey,
+        dc: edge.dc,
+        checkType: edge.checkType,
+      }
+    })
+    .filter(Boolean)
 }
 
 function mapNodePosition(index, total) {
@@ -212,15 +247,19 @@ export function getLocationGraphMap(graph) {
   })
 
   const edges = getVisibleEdges(graph, nodes)
+  const nodesWithRoutes = nodes.map(node => ({
+    ...node,
+    routes: getNodeRoutes(node.id, nodes, edges),
+  }))
 
-  const currentNode = nodes.find(node => node.current) || nodes[0]
+  const currentNode = nodesWithRoutes.find(node => node.current) || nodesWithRoutes[0]
   return {
     currentId,
     currentNode,
-    nodes,
+    nodes: nodesWithRoutes,
     edges,
-    visitedCount: nodes.filter(node => node.visited).length || 1,
-    totalCount: nodes.length,
+    visitedCount: nodesWithRoutes.filter(node => node.visited).length || 1,
+    totalCount: nodesWithRoutes.length,
     encounterCount: templates.length,
   }
 }

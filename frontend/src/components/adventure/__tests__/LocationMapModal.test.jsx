@@ -45,7 +45,10 @@ describe('LocationMapModal', () => {
     expect(within(summary).getAllByText('2').length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByText('encounters')).not.toBeInTheDocument()
 
-    expect(screen.getByText(/Gatehouse - Training Yard/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Exits' })).toBeInTheDocument()
+    const routeList = screen.getByRole('list')
+    expect(within(routeList).getByText('Gatehouse')).toBeInTheDocument()
+    expect(within(routeList).getByText('sequence')).toBeInTheDocument()
     expect(screen.queryByText('locked')).not.toBeInTheDocument()
     expect(screen.queryByText('Construct Patrol')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Selected encounter templates')).not.toBeInTheDocument()
@@ -65,6 +68,37 @@ describe('LocationMapModal', () => {
     expect(screen.getByRole('button', { name: 'Gatehouse visited' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Selected')).toBeInTheDocument()
     expect(screen.getByText('Stone entry.')).toBeInTheDocument()
+  })
+
+  it('shows selected-location exit gates without revealing hidden routes', () => {
+    render(<LocationMapModal graph={{
+      current_location_id: 'yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true },
+        { id: 'armory', name: 'Armory', discovered: true },
+        { id: 'secret', name: 'Secret Vault', visited: false },
+      ],
+      edges: [
+        {
+          id: 'yard-armory',
+          from: 'yard',
+          to: 'armory',
+          type: 'locked',
+          locked: true,
+          requires_key: 'Bronze Key',
+          check_type: 'thieves_tools',
+          dc: 15,
+        },
+        { id: 'yard-secret', from: 'yard', to: 'secret', type: 'hidden', hidden: true },
+      ],
+    }} onClose={() => {}} />)
+
+    const routeList = screen.getByRole('list')
+    expect(within(routeList).getByText('Armory')).toBeInTheDocument()
+    expect(within(routeList).getByText('locked')).toBeInTheDocument()
+    expect(within(routeList).getByText('key: Bronze Key')).toBeInTheDocument()
+    expect(within(routeList).getByText('thieves_tools DC 15')).toBeInTheDocument()
+    expect(screen.queryByText('Secret Vault')).not.toBeInTheDocument()
   })
 
   it('does not surface hidden encounter selection controls', () => {

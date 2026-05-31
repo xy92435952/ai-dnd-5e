@@ -82,4 +82,60 @@ describe('locationGraph', () => {
     expect(map.edges.map(edge => [edge.from, edge.to])).toEqual([['gate', 'yard']])
     expect(map.edges.find(edge => edge.to === 'vault')).toBeUndefined()
   })
+
+  it('builds selected-location route summaries with gates and checks', () => {
+    const map = getLocationGraphMap({
+      current_location_id: 'yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true },
+        { id: 'armory', name: 'Armory', discovered: true },
+        { id: 'tower', name: 'Watchtower', visited: true },
+        { id: 'secret', name: 'Secret Vault', discovered: true },
+      ],
+      edges: [
+        {
+          id: 'yard-armory',
+          from: 'yard',
+          to: 'armory',
+          type: 'locked',
+          locked: true,
+          requires_key: 'Bronze Key',
+          check_type: 'thieves_tools',
+          dc: 15,
+        },
+        {
+          id: 'tower-yard',
+          from: 'tower',
+          to: 'yard',
+          type: 'stairs',
+          one_way: true,
+        },
+        {
+          id: 'yard-secret',
+          from: 'yard',
+          to: 'secret',
+          type: 'hidden',
+          hidden: true,
+        },
+      ],
+    })
+
+    expect(map.currentNode.routes).toEqual([{
+      id: 'yard-armory',
+      destinationId: 'armory',
+      destinationName: 'Armory',
+      destinationVisited: false,
+      label: 'locked',
+      type: 'locked',
+      locked: true,
+      oneWay: false,
+      requiresKey: 'Bronze Key',
+      dc: 15,
+      checkType: 'thieves_tools',
+    }])
+    expect(map.nodes.find(node => node.id === 'tower').routes).toEqual([expect.objectContaining({
+      destinationId: 'yard',
+      oneWay: true,
+    })])
+  })
 })

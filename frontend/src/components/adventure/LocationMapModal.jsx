@@ -28,6 +28,32 @@ function DetailPills({ values, empty = 'None' }) {
   )
 }
 
+function routeBadges(route) {
+  const badges = []
+  if (route.locked) badges.push('locked')
+  if (route.oneWay) badges.push('one-way')
+  if (route.requiresKey) badges.push(`key: ${route.requiresKey}`)
+  if (route.dc != null) badges.push(`${route.checkType || 'check'} DC ${route.dc}`)
+  if (!badges.length && route.label) badges.push(route.label)
+  return badges
+}
+
+function RouteList({ routes }) {
+  if (!routes?.length) return <p className="location-map-muted">No exits recorded.</p>
+  return (
+    <ul className="location-map-route-list">
+      {routes.map(route => (
+        <li key={`${route.id}-${route.destinationId}`} className={route.locked ? 'locked' : ''}>
+          <span>{route.destinationName}</span>
+          <div className="location-map-route-meta">
+            {routeBadges(route).map(badge => <b key={badge}>{badge}</b>)}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function EncounterCard({ encounter, selecting, onSelectEncounter }) {
   const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter
   return (
@@ -170,23 +196,8 @@ export default function LocationMapModal({ graph, selectingTemplateId = '', onSe
               )}
             </section>
             <section>
-              <h4>Routes</h4>
-              {map.edges.length === 0 ? (
-                <p className="location-map-muted">No routes recorded.</p>
-              ) : (
-                <ul className="location-map-route-list">
-                  {map.edges.map(edge => {
-                    const from = findNode(map.nodes, edge.from)
-                    const to = findNode(map.nodes, edge.to)
-                    return (
-                      <li key={edge.id}>
-                        <span>{from?.name || edge.from} {edge.oneWay ? '>' : '-'} {to?.name || edge.to}</span>
-                        <b>{edge.locked ? 'locked' : edge.hidden ? 'hidden' : edge.label}</b>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
+              <h4>Exits</h4>
+              <RouteList routes={selectedNode?.routes || []} />
             </section>
           </div>
 

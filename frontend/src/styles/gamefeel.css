@@ -1211,9 +1211,20 @@
   font-size: 11px;
   line-height: 1.35;
 }
+.location-map-route-list li.locked {
+  color: #f4b0a8;
+}
 .location-map-route-list span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.location-map-route-meta {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 58%;
 }
 .location-map-route-list b {
   flex: 0 0 auto;
@@ -1221,6 +1232,10 @@
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.location-map-route-list li.locked b {
+  color: #f09090;
 }
 .location-map-encounters {
   display: flex;
