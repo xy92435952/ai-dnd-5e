@@ -49,9 +49,23 @@ const QUEST_STATUS_META = {
   paused: { label: '暂停', tone: 'default' },
 }
 
+const RECENT_TYPE_META = {
+  quest: { label: '任务', tone: 'active' },
+  clue: { label: '线索', tone: 'active' },
+  decision: { label: '决定', tone: 'default' },
+  npc: { label: 'NPC', tone: 'good' },
+  world: { label: '后果', tone: 'danger' },
+  threat: { label: '威胁', tone: 'danger' },
+}
+
 function getQuestStatusMeta(status) {
   const key = cleanText(status || 'active').toLowerCase()
   return QUEST_STATUS_META[key] || { label: status || '记录', tone: 'default' }
+}
+
+function getRecentTypeMeta(type) {
+  const key = cleanText(type || 'note').toLowerCase()
+  return RECENT_TYPE_META[key] || { label: '记录', tone: 'default' }
 }
 
 function getQuestDetail(quest) {
@@ -89,6 +103,20 @@ function buildQuestSummary(quest, recentUpdates) {
   }
 }
 
+function buildTimelineEntry(item, index) {
+  const type = cleanText(item?.type || 'note').toLowerCase()
+  const typeMeta = getRecentTypeMeta(type)
+  const questStatus = type === 'quest' ? getQuestStatusMeta(item?.status) : null
+  return {
+    id: `${type}-${item?.label || 'entry'}-${item?.at || index}`,
+    type,
+    typeLabel: typeMeta.label,
+    tone: questStatus?.tone || typeMeta.tone,
+    label: cleanText(item?.label),
+    detail: cleanText(item?.detail || item?.status),
+  }
+}
+
 function buildCompanionSummary(companion) {
   const className = companion?.char_class || companion?.class || companion?.class_name
   const level = companion?.level ? `Lv ${companion.level}` : ''
@@ -120,6 +148,11 @@ function buildJournalSections(session, room) {
   const gameState = asObject(session?.game_state)
   const sceneVibe = asObject(gameState.scene_vibe)
   const recentUpdates = asArray(campaign.recent_updates).filter(Boolean)
+  const timeline = recentUpdates
+    .slice(-8)
+    .reverse()
+    .map(buildTimelineEntry)
+    .filter(item => item.label)
   const quests = asArray(campaign.quest_log)
     .filter(q => q?.quest)
     .map(q => buildQuestSummary(q, recentUpdates))
@@ -179,6 +212,7 @@ function buildJournalSections(session, room) {
     locations,
     threats,
     decisions,
+    timeline,
   }
 }
 
@@ -235,6 +269,19 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
               )}
             </article>
           ))}
+        </Section>
+
+        <Section title="近期" count={journal.timeline.length}>
+          {journal.timeline.length === 0 ? <EmptyLine>暂无近期变化</EmptyLine> : (
+            <ol className="journal-campaign-timeline" aria-label="近期时间线">
+              {journal.timeline.map(item => (
+                <li key={item.id} className={`${item.tone} ${item.type}`}>
+                  <b>{item.typeLabel}</b>
+                  <span>{item.label}{item.detail ? `：${item.detail}` : ''}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </Section>
 
         <Section title="队友" count={journal.companions.length}>

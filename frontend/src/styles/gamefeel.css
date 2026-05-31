@@ -885,6 +885,45 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.journal-campaign-timeline {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.journal-campaign-timeline li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: baseline;
+  padding: 6px 7px;
+  border: 1px solid rgba(213,184,121,.2);
+  border-radius: 4px;
+  background: rgba(0,0,0,.18);
+  color: var(--parchment-light);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.journal-campaign-timeline li b {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.journal-campaign-timeline li.active b {
+  color: var(--amber);
+}
+.journal-campaign-timeline li.good b {
+  color: var(--emerald-light);
+}
+.journal-campaign-timeline li.danger b {
+  color: var(--blood-light);
+}
+.journal-campaign-timeline li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .journal-pill {
   flex: 0 0 auto;
   max-width: 120px;
