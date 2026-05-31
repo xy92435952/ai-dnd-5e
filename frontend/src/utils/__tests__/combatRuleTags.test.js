@@ -6,6 +6,11 @@ describe('combatRuleTags', () => {
     expect(buildCombatRuleTags({
       advantage: true,
       cover_bonus: 2,
+      cover_detail: {
+        bonus: 2,
+        raw_bonus: 2,
+        cells: [{ cell: '2_0', terrain: 'cover', weight: 1 }],
+      },
       target_ac: 14,
       effective_target_ac: 16,
       advantage_sources: ['Pack Tactics'],
@@ -27,7 +32,7 @@ describe('combatRuleTags', () => {
         key: 'cover-2',
         label: 'Half cover +2 AC',
         tone: 'bad',
-        title: 'Cover raises AC from 14 to 16 for this attack.',
+        title: 'Cover raises AC from 14 to 16 for this attack. Path crosses 2_0 cover.',
       },
       {
         key: 'effective-ac',
@@ -82,6 +87,23 @@ describe('combatRuleTags', () => {
       'Dis: attacker poisoned +1',
     ])
     expect(tags[0].title).toContain('attacker poisoned / target invisible')
+  })
+
+  it('shows when cover is bypassed by a feature', () => {
+    const tags = buildCombatRuleTags({
+      cover_bonus: 0,
+      target_ac: 14,
+      effective_target_ac: 14,
+      cover_detail: {
+        bonus: 0,
+        raw_bonus: 2,
+        ignored_by: 'Sharpshooter',
+        cells: [{ cell: '2_0', terrain: 'wall', weight: 1 }],
+      },
+    })
+
+    expect(tags.map(tag => tag.label)).toEqual(['Cover ignored', 'Eff AC 14'])
+    expect(tags[0].title).toBe('Cover would add +2 AC, but Sharpshooter ignores it. Path crosses 2_0 wall.')
   })
 
   it('returns no tags without prediction metadata', () => {

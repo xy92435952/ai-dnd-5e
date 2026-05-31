@@ -21,7 +21,7 @@ from api.deps import (
 from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
 from services.dnd_rules import get_effective_hp_max
-from services.combat_attack_modifier_service import calculate_cover_bonus
+from services.combat_attack_modifier_service import calculate_cover_info
 from services.combat_condition_service import (
     get_attack_modifier_sources,
     get_defense_modifier_sources,
@@ -184,7 +184,7 @@ async def predict_action_endpoint(
             target_hp_max = (enemy.get("derived") or {}).get("hp_max", target_hp)
             target_conditions = enemy.get("conditions", [])
 
-    cover_bonus = calculate_cover_bonus(
+    cover_info = calculate_cover_info(
         grid_data=dict(combat.grid_data or {}) if combat else {},
         positions=dict(combat.entity_positions or {}) if combat else {},
         attacker_id=req.attacker_id,
@@ -212,7 +212,8 @@ async def predict_action_endpoint(
         defense_modifiers=defense_modifiers,
         attack_modifier_sources=get_attack_modifier_sources(attacker_conditions, attacker),
         defense_modifier_sources=get_defense_modifier_sources(target_conditions),
-        cover_bonus=cover_bonus,
+        cover_bonus=cover_info.bonus,
+        cover_detail=cover_info.to_prediction_detail(),
     )
 
 

@@ -60,11 +60,18 @@ def test_build_prediction_surfaces_cover_and_advantage_state():
         attack_modifier_sources=(["attacker hidden"], []),
         defense_modifier_sources=([], []),
         cover_bonus=2,
+        cover_detail={
+            "bonus": 2,
+            "raw_bonus": 2,
+            "ignored_by": None,
+            "cells": [{"cell": "2_0", "terrain": "cover", "weight": 1}],
+        },
     )
 
     assert result["target_ac"] == 13
     assert result["effective_target_ac"] == 15
     assert result["cover_bonus"] == 2
+    assert result["cover_detail"]["cells"][0]["cell"] == "2_0"
     assert result["advantage"] is True
     assert result["disadvantage"] is False
     assert result["advantage_sources"] == ["attacker hidden"]

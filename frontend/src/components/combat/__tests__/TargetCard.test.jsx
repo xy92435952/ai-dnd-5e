@@ -138,6 +138,11 @@ describe('TargetCard', () => {
           target_ac: 14,
           effective_target_ac: 19,
           cover_bonus: 5,
+          cover_detail: {
+            bonus: 5,
+            raw_bonus: 5,
+            cells: [{ cell: '3_0', terrain: 'total_cover', weight: 2 }],
+          },
           disadvantage_sources: ['attacker poisoned', 'target invisible'],
           modifiers: ['Three-quarters cover'],
         }}
@@ -151,6 +156,6 @@ describe('TargetCard', () => {
     expect(tags).toHaveTextContent('Eff AC 19')
     expect(within(tags).getByTitle(/Roll two d20 and use the lower result/)).toBeInTheDocument()
     expect(within(tags).getByTitle('Disadvantage sources: attacker poisoned / target invisible.')).toBeInTheDocument()
-    expect(within(tags).getByTitle('Cover raises AC from 14 to 19 for this attack.')).toBeInTheDocument()
+    expect(within(tags).getByTitle('Cover raises AC from 14 to 19 for this attack. Path crosses 3_0 total_cover.')).toBeInTheDocument()
   })
 })

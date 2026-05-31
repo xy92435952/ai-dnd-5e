@@ -27,8 +27,12 @@ def terrain_kind(value) -> str:
 
 
 def get_cover_bonus(grid_data: dict, attacker_pos: dict, target_pos: dict) -> int:
+    return get_cover_analysis(grid_data, attacker_pos, target_pos)["bonus"]
+
+
+def get_cover_analysis(grid_data: dict, attacker_pos: dict, target_pos: dict) -> dict:
     if not grid_data or not attacker_pos or not target_pos:
-        return 0
+        return {"bonus": 0, "obstacle_weight": 0, "cells": []}
 
     ax, ay = attacker_pos.get("x", 0), attacker_pos.get("y", 0)
     tx, ty = target_pos.get("x", 0), target_pos.get("y", 0)
@@ -37,25 +41,37 @@ def get_cover_bonus(grid_data: dict, attacker_pos: dict, target_pos: dict) -> in
     dy = ty - ay
     steps = max(abs(dx), abs(dy))
     if steps == 0:
-        return 0
+        return {"bonus": 0, "obstacle_weight": 0, "cells": []}
 
     obstacles = 0
+    cells = []
     for i in range(1, steps):
         cx = ax + round(dx * i / steps)
         cy = ay + round(dy * i / steps)
+        cell = f"{cx}_{cy}"
         terrain = terrain_kind(grid_data.get(f"{cx}_{cy}", ""))
         if terrain in TOTAL_COVER_TERRAIN:
             obstacles += 2
+            cells.append({"cell": cell, "terrain": terrain, "weight": 2})
         elif terrain in WALL_TERRAIN:
             obstacles += 1
+            cells.append({"cell": cell, "terrain": terrain, "weight": 1})
         elif terrain in DIFFICULT_TERRAIN:
             obstacles += 0.5
+            cells.append({"cell": cell, "terrain": terrain, "weight": 0.5})
 
     if obstacles >= 2:
-        return 5
-    if obstacles >= 1:
-        return 2
-    return 0
+        bonus = 5
+    elif obstacles >= 1:
+        bonus = 2
+    else:
+        bonus = 0
+
+    return {
+        "bonus": bonus,
+        "obstacle_weight": obstacles,
+        "cells": cells,
+    }
 
 
 def resolve_grapple(

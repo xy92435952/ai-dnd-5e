@@ -27,6 +27,7 @@ from services.combat_feature_rules import (
 )
 from services.combat_tactical_service import (
     choose_ai_target,
+    get_cover_analysis,
     get_cover_bonus,
     resolve_grapple,
     resolve_shove,
@@ -51,6 +52,7 @@ class CombatService:
     get_rage_bonus = staticmethod(get_rage_bonus)
     get_rage_uses = staticmethod(get_rage_uses)
     apply_damage_with_resistance = staticmethod(apply_damage_with_resistance)
+    get_cover_analysis = staticmethod(get_cover_analysis)
     get_cover_bonus = staticmethod(get_cover_bonus)
     resolve_grapple = staticmethod(resolve_grapple)
     resolve_shove = staticmethod(resolve_shove)

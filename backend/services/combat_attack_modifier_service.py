@@ -22,6 +22,24 @@ class WeaponDamageDice:
     dmg_mod: int
 
 
+@dataclass(frozen=True)
+class CoverInfo:
+    bonus: int = 0
+    raw_bonus: int = 0
+    ignored_by: str | None = None
+    cells: tuple[dict[str, Any], ...] = ()
+
+    def to_prediction_detail(self) -> dict[str, Any] | None:
+        if self.raw_bonus <= 0 and not self.cells:
+            return None
+        return {
+            "bonus": self.bonus,
+            "raw_bonus": self.raw_bonus,
+            "ignored_by": self.ignored_by,
+            "cells": list(self.cells),
+        }
+
+
 def apply_ranged_close_penalty(
     *,
     atk_dis: bool,
@@ -57,17 +75,39 @@ def calculate_cover_bonus(
     is_ranged: bool,
 ) -> int:
     """Calculate cover bonus and apply Sharpshooter cover bypass for ranged attacks."""
+    return calculate_cover_info(
+        grid_data=grid_data,
+        positions=positions,
+        attacker_id=attacker_id,
+        target_id=target_id,
+        attacker_derived=attacker_derived,
+        is_ranged=is_ranged,
+    ).bonus
+
+
+def calculate_cover_info(
+    *,
+    grid_data: dict[str, Any],
+    positions: dict[str, Any],
+    attacker_id: str,
+    target_id: str,
+    attacker_derived: dict[str, Any],
+    is_ranged: bool,
+) -> CoverInfo:
+    """Calculate applied cover and keep the path cells that explain it."""
     attacker_position = positions.get(str(attacker_id))
     target_position = positions.get(str(target_id))
     if not attacker_position or not target_position:
-        return 0
+        return CoverInfo()
 
-    cover_bonus = svc.get_cover_bonus(grid_data, attacker_position, target_position)
+    analysis = svc.get_cover_analysis(grid_data, attacker_position, target_position)
+    raw_bonus = int(analysis.get("bonus") or 0)
+    cells = tuple(analysis.get("cells") or ())
     has_sharpshooter = bool(attacker_derived.get("feat_effects", {}).get("Sharpshooter"))
-    if has_sharpshooter and is_ranged:
-        return 0
+    if has_sharpshooter and is_ranged and raw_bonus > 0:
+        return CoverInfo(bonus=0, raw_bonus=raw_bonus, ignored_by="Sharpshooter", cells=cells)
 
-    return cover_bonus
+    return CoverInfo(bonus=raw_bonus, raw_bonus=raw_bonus, cells=cells)
 
 
 def choose_feat_power_attack(

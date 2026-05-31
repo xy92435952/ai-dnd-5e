@@ -222,6 +222,20 @@ class TestCover:
         bonus = svc.get_cover_bonus(grid, {"x": 0, "y": 0}, {"x": 5, "y": 0})
         assert bonus == 2
 
+    def test_cover_analysis_keeps_path_cells(self):
+        grid = {
+            "2_0": {"terrain": "cover", "cover_level": "half"},
+            "3_0": {"terrain": "difficult"},
+        }
+        analysis = svc.get_cover_analysis(grid, {"x": 0, "y": 0}, {"x": 5, "y": 0})
+
+        assert analysis["bonus"] == 2
+        assert analysis["obstacle_weight"] == 1.5
+        assert analysis["cells"] == [
+            {"cell": "2_0", "terrain": "cover", "weight": 1},
+            {"cell": "3_0", "terrain": "difficult", "weight": 0.5},
+        ]
+
     def test_attacker_on_target_no_cover(self):
         """同格 → 不计算掩体。"""
         assert svc.get_cover_bonus({"3_3": "wall"}, {"x": 5, "y": 5}, {"x": 5, "y": 5}) == 0

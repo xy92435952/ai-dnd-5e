@@ -102,6 +102,29 @@ def test_choose_feat_power_attack_and_build_deriveds_for_sharpshooter():
     assert target["ac"] == 14
 
 
+def test_calculate_cover_info_explains_sharpshooter_bypass():
+    from api.combat.attack_modifiers import calculate_cover_info
+
+    info = calculate_cover_info(
+        grid_data={"2_0": "wall"},
+        positions={"hero": {"x": 0, "y": 0}, "goblin": {"x": 5, "y": 0}},
+        attacker_id="hero",
+        target_id="goblin",
+        attacker_derived={"feat_effects": {"Sharpshooter": True}},
+        is_ranged=True,
+    )
+
+    assert info.bonus == 0
+    assert info.raw_bonus == 2
+    assert info.ignored_by == "Sharpshooter"
+    assert info.to_prediction_detail() == {
+        "bonus": 0,
+        "raw_bonus": 2,
+        "ignored_by": "Sharpshooter",
+        "cells": [{"cell": "2_0", "terrain": "wall", "weight": 1}],
+    }
+
+
 def test_build_weapon_damage_dice_uses_equipped_weapon_and_offhand_rules(sample_character):
     from api.combat.attack_modifiers import build_weapon_damage_dice
 

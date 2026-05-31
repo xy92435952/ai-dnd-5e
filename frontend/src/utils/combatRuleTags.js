@@ -49,12 +49,19 @@ function coverLabel(coverBonus) {
   return `Cover +${coverBonus} AC`
 }
 
-function coverTitle({ coverBonus, targetAc, effectiveAc }) {
+function coverTitle({ coverBonus, targetAc, effectiveAc, coverDetail = null }) {
+  const rawBonus = asNumber(coverDetail?.raw_bonus ?? coverDetail?.rawBonus)
+  const cells = coverCells(coverDetail)
+  const path = cells.length > 0 ? ` Path crosses ${cells.join(' / ')}.` : ''
+  if (coverDetail?.ignored_by || coverDetail?.ignoredBy) {
+    const ignoredBy = coverDetail.ignored_by || coverDetail.ignoredBy
+    return `Cover would add +${rawBonus ?? coverBonus} AC, but ${ignoredBy} ignores it.${path}`
+  }
   if (coverBonus >= 99) return 'Total cover blocks ordinary ranged attacks unless a rule says otherwise.'
   if (targetAc !== null && effectiveAc !== null && targetAc !== effectiveAc) {
-    return `Cover raises AC from ${targetAc} to ${effectiveAc} for this attack.`
+    return `Cover raises AC from ${targetAc} to ${effectiveAc} for this attack.${path}`
   }
-  return 'Cover raises the target AC for this attack.'
+  return `Cover raises the target AC for this attack.${path}`
 }
 
 function modifierIsAlreadyExplained(modifier, explainedSources = []) {
@@ -80,6 +87,9 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   const targetAc = asNumber(prediction.target_ac ?? prediction.target?.ac ?? target?.ac)
   const effectiveAc = asNumber(prediction.effective_target_ac ?? targetAc)
   const coverBonus = asNumber(prediction.cover_bonus)
+  const coverDetail = prediction.cover_detail ?? prediction.coverDetail ?? null
+  const rawCoverBonus = asNumber(coverDetail?.raw_bonus ?? coverDetail?.rawBonus)
+  const ignoredCover = coverDetail && (coverDetail.ignored_by || coverDetail.ignoredBy) && rawCoverBonus > 0
 
   if ((hasAdvantage && hasDisadvantage) || hasCancelledSources) {
     pushUnique(tags, {
@@ -120,7 +130,14 @@ export function buildCombatRuleTags(prediction = null, target = null) {
       key: `cover-${coverBonus}`,
       label: coverLabel(coverBonus),
       tone: 'bad',
-      title: coverTitle({ coverBonus, targetAc, effectiveAc }),
+      title: coverTitle({ coverBonus, targetAc, effectiveAc, coverDetail }),
+    })
+  } else if (ignoredCover) {
+    pushUnique(tags, {
+      key: 'cover-ignored',
+      label: 'Cover ignored',
+      tone: 'good',
+      title: coverTitle({ coverBonus: rawCoverBonus, targetAc, effectiveAc, coverDetail }),
     })
   }
 
@@ -184,4 +201,15 @@ function sourceTag(key, prefix, sources, tone) {
 function compactSourceSummary(sources) {
   if (sources.length <= 1) return sources[0]
   return `${sources[0]} +${sources.length - 1}`
+}
+
+function coverCells(coverDetail = null) {
+  const cells = Array.isArray(coverDetail?.cells) ? coverDetail.cells : []
+  return cells.slice(0, 4).map(cell => {
+    if (typeof cell === 'string') return cell
+    if (!cell || typeof cell !== 'object') return ''
+    const name = normalizeText(cell.label || cell.name || cell.cell || '')
+    const terrain = normalizeText(cell.terrain || cell.type || cell.kind || '')
+    return terrain && name ? `${name} ${terrain}` : name || terrain
+  }).filter(Boolean)
 }

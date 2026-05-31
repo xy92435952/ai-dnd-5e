@@ -96,6 +96,7 @@ def build_combat_prediction(
     attack_modifier_sources: tuple[list[str], list[str]] | None = None,
     defense_modifier_sources: tuple[list[str], list[str]] | None = None,
     cover_bonus: int = 0,
+    cover_detail: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cover_bonus = max(0, int(cover_bonus or 0))
     effective_target_ac = int(target["ac"] or 10) + cover_bonus
@@ -175,6 +176,7 @@ def build_combat_prediction(
         "target_ac": int(target["ac"] or 10),
         "effective_target_ac": effective_target_ac,
         "cover_bonus": cover_bonus,
+        "cover_detail": cover_detail,
         "advantage": final_advantage,
         "disadvantage": final_disadvantage,
         "advantage_sources": advantage_sources,
