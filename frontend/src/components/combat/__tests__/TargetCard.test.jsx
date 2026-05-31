@@ -85,4 +85,30 @@ describe('TargetCard', () => {
     expect(onInspect).toHaveBeenCalledWith('perception')
     expect(onInspect).toHaveBeenCalledWith('investigation')
   })
+
+  it('renders a compact target summary strip', () => {
+    render(
+      <TargetCard
+        entity={{
+          id: 'enemy-4',
+          name: 'Wounded Hobgoblin',
+          is_enemy: true,
+          hp_current: 6,
+          hp_max: 24,
+          ac: 16,
+          conditions: ['frightened', 'marked', 'slowed'],
+        }}
+        prediction={{ hit_rate: 0.7, advantage: true }}
+      />,
+    )
+
+    const summary = screen.getByLabelText('Target summary Wounded Hobgoblin')
+    expect(summary).toHaveTextContent('Enemy')
+    expect(summary).toHaveTextContent('Critical')
+    expect(summary).toHaveTextContent('AC 16')
+    expect(summary).toHaveTextContent('Hit 70%')
+    expect(summary).toHaveTextContent('frightened')
+    expect(summary).toHaveTextContent('marked')
+    expect(summary).toHaveTextContent('+1 cond')
+  })
 })

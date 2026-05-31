@@ -3171,6 +3171,47 @@
   color: var(--parchment-dark);
   letter-spacing: .15em;
 }
+.target-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+.target-summary-strip span {
+  max-width: 100%;
+  padding: 3px 6px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.target-summary-strip span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}
+.target-summary-strip span.warning {
+  border-color: rgba(240,208,96,.32);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.target-summary-strip span.bad,
+.target-summary-strip span.danger {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(240,64,64,.1);
+  color: #f09090;
+}
+.target-summary-strip span.dead {
+  border-color: rgba(160,160,160,.28);
+  background: rgba(0,0,0,.18);
+  color: var(--muted);
+}
 .target-hp-bar {
   height: 8px;
   background: #0a0604;

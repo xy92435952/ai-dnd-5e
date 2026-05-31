@@ -12,19 +12,25 @@ export default function TargetCard({
 
   const rows = buildCombatPreviewRows({ prediction, target: entity })
   const inspect = buildEnemyInspectModel(entity)
+  const badges = buildTargetBadges(entity, prediction)
 
   return (
     <div className="target-card-wrap">
       <div className="target-card">
         <div className="target-head">
-          <span className="name">◈ {entity.name}</span>
+          <span className="name">{entity.name}</span>
           <span className="tag">TARGET</span>
+        </div>
+        <div className="target-summary-strip" aria-label={`Target summary ${entity.name}`}>
+          {badges.map(badge => (
+            <span key={`${badge.tone}-${badge.label}`} className={badge.tone || ''}>{badge.label}</span>
+          ))}
         </div>
         <div className="target-hp-bar">
           <div style={{ width: `${Math.max(0, Math.min(100, (entity.hp_current / (entity.hp_max || 1)) * 100))}%` }} />
         </div>
         <div className="hit-pred">
-          <span>HP <b>{entity.hp_current}/{entity.hp_max}</b> · AC <b>{entity.ac}</b></span>
+          <span>HP <b>{entity.hp_current}/{entity.hp_max}</b> / AC <b>{entity.ac}</b></span>
         </div>
 
         {rows.length > 0 && (
@@ -89,4 +95,61 @@ export default function TargetCard({
       </div>
     </div>
   )
+}
+
+function buildTargetBadges(entity = {}, prediction = null) {
+  const badges = [
+    { label: entity.is_enemy ? 'Enemy' : entity.is_companion ? 'Companion' : 'Ally', tone: entity.is_enemy ? 'danger' : 'good' },
+    { label: targetHealthLabel(entity), tone: targetHealthTone(entity) },
+  ]
+
+  if (entity.ac !== null && entity.ac !== undefined) badges.push({ label: `AC ${entity.ac}` })
+  if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
+    badges.push({ label: `Hit ${formatHitRate(prediction.hit_rate)}`, tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : '' })
+  }
+
+  const conditions = Array.isArray(entity.conditions)
+    ? entity.conditions.map(formatCondition).filter(Boolean)
+    : []
+  for (const condition of conditions.slice(0, 2)) {
+    badges.push({ label: condition, tone: 'bad' })
+  }
+
+  if (conditions.length > 2) badges.push({ label: `+${conditions.length - 2} cond`, tone: 'bad' })
+  return badges
+}
+
+function targetHealthLabel(entity = {}) {
+  const current = Number(entity.hp_current ?? 0)
+  const max = Number(entity.hp_max || 0)
+  if (current <= 0) return entity.is_enemy ? 'Defeated' : 'Down'
+  if (!max) return 'Unknown HP'
+  const pct = current / max
+  if (pct <= 0.25) return 'Critical'
+  if (pct <= 0.5) return 'Bloodied'
+  if (pct < 1) return 'Wounded'
+  return 'Fresh'
+}
+
+function targetHealthTone(entity = {}) {
+  const current = Number(entity.hp_current ?? 0)
+  const max = Number(entity.hp_max || 0)
+  if (current <= 0) return 'dead'
+  if (!max) return ''
+  const pct = current / max
+  if (pct <= 0.25) return 'bad'
+  if (pct <= 0.5) return 'warning'
+  return 'good'
+}
+
+function formatHitRate(value) {
+  const number = Number(value)
+  if (Number.isNaN(number)) return '--'
+  return `${Math.round((number <= 1 ? number * 100 : number))}%`
+}
+
+function formatCondition(value) {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+  return String(value.name || value.condition || value.type || value.id || '')
 }
