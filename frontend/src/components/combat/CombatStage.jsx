@@ -2,6 +2,7 @@ import IsoBattlefield from './IsoBattlefield'
 import TargetCard from './TargetCard'
 import CombatOutcomeOverlay from './CombatOutcomeOverlay'
 import CombatTacticalContextPanel from './CombatTacticalContextPanel'
+import BattlefieldLegend from './BattlefieldLegend'
 
 export default function CombatStage({
   viewWidth,
@@ -71,6 +72,17 @@ export default function CombatStage({
       />
 
       <CombatTacticalContextPanel context={tacticalContext} />
+
+      <BattlefieldLegend
+        walls={walls}
+        hazards={hazards}
+        objectives={objectives}
+        threatCells={threatCells}
+        aoeCells={aoeCells}
+        moveMode={moveMode}
+        helpMode={helpMode}
+        aoePreview={aoePreview}
+      />
 
       <TargetCard
         entity={selectedTargetEntity}
