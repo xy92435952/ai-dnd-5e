@@ -197,6 +197,8 @@ describe('SpellModal', () => {
           type: 'damage',
           aoe: true,
           damage: '8d6',
+          save: 'dex',
+          half_on_save: true,
           desc: '20ft radius sphere',
         }]}
         cantrips={[]}
@@ -206,7 +208,7 @@ describe('SpellModal', () => {
         aoeHover="5_5"
         combat={{
           entities: {
-            'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20 },
+            'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20, derived: { spell_save_dc: 15 } },
             'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true, hp_current: 7 },
             'ally-1': { id: 'ally-1', name: 'Companion', is_enemy: false, hp_current: 10 },
           },
@@ -225,6 +227,7 @@ describe('SpellModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /^3\u73af/ }))
     fireEvent.click(screen.getByText('Fireball'))
 
+    expect(screen.getByText('DEX save · DC 15 · success halves damage')).toBeInTheDocument()
     const breakdown = screen.getByLabelText('AoE target breakdown')
     expect(within(breakdown).getByText('Enemies 1')).toBeInTheDocument()
     expect(within(breakdown).getByText('Allies 1')).toBeInTheDocument()

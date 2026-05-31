@@ -67,6 +67,87 @@ function buildAoeBreakdown({ spell, combat, targetIds, playerId }) {
   }
 }
 
+function casterDerived(combat, playerId) {
+  const caster = combat?.entities?.[playerId] || combat?.player || combat?.actor || {}
+  return caster?.derived || caster || {}
+}
+
+function readFiniteNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function formatSignedNumber(value) {
+  const number = readFiniteNumber(value)
+  if (number === null) return ''
+  return number >= 0 ? `+${number}` : `${number}`
+}
+
+function spellSaveAbility(spell = {}) {
+  return spell.save || spell.saving_throw || spell.save_ability || ''
+}
+
+function spellHasHalfOnSave(spell = {}) {
+  if (spell.half_on_save || spell.halfOnSave) return true
+  return /half on save|success.*half|\u8c41\u514d\u6210\u529f.*\u51cf\u534a|\u6210\u529f.*\u51cf\u534a/i.test(`${spell.desc || ''} ${spell.description || ''}`)
+}
+
+function spellRequiresAttackRoll(spell = {}) {
+  if (spell.attack_roll || spell.requires_attack_roll || spell.spell_attack) return true
+  return /spell attack|ranged spell attack|melee spell attack|\u6cd5\u672f\u653b\u51fb|\u6cd5\u672f\u653b\u51fb\u68c0\u5b9a/i.test(`${spell.name || ''} ${spell.name_en || ''} ${spell.desc || ''} ${spell.description || ''}`)
+}
+
+function spellRequiresConcentration(spell = {}) {
+  return !!spell.concentration || /concentration|\u4e13\u6ce8/i.test(`${spell.desc || ''} ${spell.description || ''}`)
+}
+
+function upcastDiceLabel(spell = {}) {
+  return spell.upcast_dice || spell.upcastDice || spell.upcast || spell.higher_level || ''
+}
+
+function buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }) {
+  const rows = []
+  const derived = casterDerived(combat, playerId)
+  const save = spellSaveAbility(spell)
+  if (save) {
+    const dc = readFiniteNumber(spell.save_dc ?? spell.dc ?? derived.spell_save_dc)
+    rows.push({
+      label: '判定',
+      value: [
+        `${String(save).toUpperCase()} save`,
+        dc !== null ? `DC ${dc}` : '',
+        spellHasHalfOnSave(spell) ? 'success halves damage' : 'success negates/reduces effect',
+      ].filter(Boolean).join(' · '),
+    })
+  } else if (spellRequiresAttackRoll(spell)) {
+    const attackBonus = formatSignedNumber(spell.spell_attack_bonus ?? spell.attack_bonus ?? derived.spell_attack_bonus)
+    rows.push({
+      label: '判定',
+      value: `Spell attack${attackBonus ? ` ${attackBonus}` : ''}`,
+    })
+  }
+
+  if (spellRequiresConcentration(spell)) {
+    rows.push({
+      label: '维持',
+      value: 'Concentration; taking damage may force a check',
+    })
+  }
+
+  const levelsUp = Math.max(0, asLevel(castLevel, 0) - asLevel(baseLevel, 0))
+  if (levelsUp > 0) {
+    const upcast = upcastDiceLabel(spell)
+    rows.push({
+      label: '升环',
+      value: upcast
+        ? `+${levelsUp} slot level${levelsUp === 1 ? '' : 's'} · ${upcast} per level`
+        : `+${levelsUp} slot level${levelsUp === 1 ? '' : 's'} · no extra scaling recorded`,
+    })
+  }
+
+  return rows
+}
+
 function targetKindLabel(spell = {}) {
   const target = String(spell.target_type || spell.targetType || spell.target || spell.targets || '').toLowerCase()
   if (/self|自身/.test(target)) return '自身'
@@ -149,6 +230,7 @@ export function buildSpellCastPlan({
     },
     { label: '效果', value: effectLabel(spell) },
   ]
+  rows.push(...buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }))
 
   let aoeBreakdown = null
 

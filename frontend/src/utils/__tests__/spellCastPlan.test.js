@@ -44,6 +44,59 @@ describe('buildSpellCastPlan', () => {
     expect(row(plan, '消耗').value).toBe('戏法，无需法术位')
   })
 
+  it('surfaces save DC and half-on-save resolution before casting', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Burning Hands',
+        level: 1,
+        type: 'damage',
+        damage: '3d6',
+        save: 'dex',
+        half_on_save: true,
+        upcast_dice: '1d6',
+      },
+      level: 2,
+      slots: { '2nd': 1 },
+      playerId: 'hero-1',
+      selectedTarget: 'enemy-1',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', derived: { spell_save_dc: 14 } },
+          'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true },
+        },
+      },
+    })
+
+    expect(row(plan, '判定').value).toBe('DEX save · DC 14 · success halves damage')
+    expect(row(plan, '升环').value).toBe('+1 slot level · 1d6 per level')
+  })
+
+  it('surfaces spell attack bonus and concentration before casting', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Guiding Bolt',
+        level: 1,
+        type: 'damage',
+        damage: '4d6',
+        concentration: true,
+        desc: 'Make a ranged spell attack.',
+      },
+      level: 1,
+      slots: { '1st': 1 },
+      playerId: 'cleric-1',
+      selectedTarget: 'enemy-1',
+      combat: {
+        entities: {
+          'cleric-1': { id: 'cleric-1', derived: { spell_attack_bonus: 6 } },
+          'enemy-1': { id: 'enemy-1', name: 'Skeleton', is_enemy: true },
+        },
+      },
+    })
+
+    expect(row(plan, '判定').value).toBe('Spell attack +6')
+    expect(row(plan, '维持').value).toBe('Concentration; taking damage may force a check')
+  })
+
   it('summarizes AoE center and affected living units', () => {
     const plan = buildSpellCastPlan({
       spell: {
