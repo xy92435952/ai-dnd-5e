@@ -10,7 +10,8 @@ describe('BattlefieldLegend', () => {
         hazards={new Set(['2_2'])}
         objectives={new Set(['3_3'])}
         threatCells={new Set(['4_4', '4_5'])}
-        aoeCells={{ center: '5_5', ring: new Set(['5_5', '5_6']) }}
+        aoeCells={{ center: '5_5', ring: new Set(['5_5', '5_6']), template: 'cone' }}
+        aoeLockedCenter="5_5"
         moveMode
       />,
     )
@@ -21,7 +22,7 @@ describe('BattlefieldLegend', () => {
     expect(legend).toHaveTextContent('Hazard')
     expect(legend).toHaveTextContent('Objective')
     expect(legend).toHaveTextContent('Threat')
-    expect(legend).toHaveTextContent('AoE')
+    expect(legend).toHaveTextContent('AoE Cone locked')
     expect(legend).toHaveTextContent('Move')
     expect(legend).not.toHaveTextContent('Help')
   })

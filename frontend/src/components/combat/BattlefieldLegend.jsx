@@ -7,6 +7,7 @@ export default function BattlefieldLegend({
   moveMode = false,
   helpMode = false,
   aoePreview = null,
+  aoeLockedCenter = null,
 }) {
   const items = [
     walls.size > 0 && { key: 'cover', label: 'Cover', count: walls.size },
@@ -15,7 +16,7 @@ export default function BattlefieldLegend({
     threatCells.size > 0 && { key: 'threat', label: 'Threat', count: threatCells.size },
     (aoePreview || aoeCells?.ring?.size > 0 || aoeCells?.center) && {
       key: 'aoe',
-      label: 'AoE',
+      label: buildAoeLegendLabel({ aoePreview, aoeCells, aoeLockedCenter }),
       count: aoeCells?.ring?.size || null,
     },
     moveMode && { key: 'move', label: 'Move' },
@@ -35,4 +36,19 @@ export default function BattlefieldLegend({
       ))}
     </aside>
   )
+}
+
+function buildAoeLegendLabel({ aoePreview, aoeCells, aoeLockedCenter }) {
+  const template = aoeCells?.template || aoePreview?.template || ''
+  const templateLabel = ({
+    sphere: 'Sphere',
+    cone: 'Cone',
+    line: 'Line',
+    cube: 'Cube',
+    aura: 'Aura',
+  })[template] || ''
+  const parts = ['AoE']
+  if (templateLabel) parts.push(templateLabel)
+  if (aoeLockedCenter) parts.push('locked')
+  return parts.join(' ')
 }

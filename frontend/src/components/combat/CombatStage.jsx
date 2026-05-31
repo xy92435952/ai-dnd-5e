@@ -82,6 +82,7 @@ export default function CombatStage({
         moveMode={moveMode}
         helpMode={helpMode}
         aoePreview={aoePreview}
+        aoeLockedCenter={aoeLockedCenter}
       />
 
       <TargetCard
