@@ -135,6 +135,9 @@ describe('buildSpellCastPlan', () => {
       label: '预览中 · 中心 5, 5；点击格子可锁定',
     })
     expect(row(plan, '命中单位').value).toBe('3 个：施法者、训练假人、同伴')
+    expect(row(plan, '敌方')).toMatchObject({ value: '训练假人', tone: 'ready' })
+    expect(row(plan, '友方')).toMatchObject({ value: '同伴', tone: 'warning' })
+    expect(row(plan, '自身')).toMatchObject({ value: '施法者', tone: 'warning' })
     expect(plan.aoeBreakdown).toMatchObject({
       total: 3,
       enemies: 1,
@@ -215,6 +218,8 @@ describe('buildSpellCastPlan', () => {
     })
 
     expect(row(plan, '命中单位').value).toBe('2/2 个：Cleric、Rogue')
+    expect(row(plan, '友方')).toMatchObject({ value: 'Rogue', tone: 'ready' })
+    expect(row(plan, '自身')).toMatchObject({ value: 'Cleric', tone: 'ready' })
     expect(row(plan, '目标上限').value).toBe('最多 2 个；排除 Wizard、Fighter')
     expect(plan.aoeBreakdown).toMatchObject({
       limit: 2,

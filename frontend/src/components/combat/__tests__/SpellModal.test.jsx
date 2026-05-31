@@ -232,6 +232,13 @@ describe('SpellModal', () => {
 
     expect(screen.getByText('DEX save · DC 15 · success halves damage')).toBeInTheDocument()
     expect(screen.getByText('已锁定 · 中心 5, 5')).toBeInTheDocument()
+    const plan = screen.getByLabelText('施法计划')
+    expect(within(plan).getByText('敌方')).toBeInTheDocument()
+    expect(within(plan).getByText('Goblin')).toBeInTheDocument()
+    expect(within(plan).getByText('友方')).toBeInTheDocument()
+    expect(within(plan).getByText('Companion')).toBeInTheDocument()
+    expect(within(plan).getByText('自身')).toBeInTheDocument()
+    expect(within(plan).getByText('Wizard')).toBeInTheDocument()
     const breakdown = screen.getByLabelText('AoE target breakdown')
     expect(within(breakdown).getByText('Enemies 1')).toBeInTheDocument()
     expect(within(breakdown).getByText('Allies 1')).toBeInTheDocument()

@@ -62,6 +62,7 @@ function buildAoeBreakdown({ spell, combat, targetIds, playerId }) {
     enemies: groups.enemy.length,
     allies: groups.ally.length,
     self: groups.self.length,
+    groups,
     risk: friendlyRisk ? 'friendly_fire' : '',
     chips,
   }
@@ -342,6 +343,27 @@ export function buildSpellCastPlan({
         : (aoeHover ? '0 个' : '待确认'),
       tone: targetIds.length ? 'ready' : 'warning',
     })
+    if (aoeBreakdown.groups.enemy.length) {
+      rows.push({
+        label: '敌方',
+        value: aoeBreakdown.groups.enemy.join('、'),
+        tone: 'ready',
+      })
+    }
+    if (aoeBreakdown.groups.ally.length) {
+      rows.push({
+        label: '友方',
+        value: aoeBreakdown.groups.ally.join('、'),
+        tone: String(spell.type || '').toLowerCase() === 'damage' ? 'warning' : 'ready',
+      })
+    }
+    if (aoeBreakdown.groups.self.length) {
+      rows.push({
+        label: '自身',
+        value: aoeBreakdown.groups.self.join('、'),
+        tone: String(spell.type || '').toLowerCase() === 'damage' ? 'warning' : 'ready',
+      })
+    }
     if (maxTargets) {
       rows.push({
         label: '目标上限',
