@@ -1651,6 +1651,22 @@
 .spell-cast-plan-row.ready b { color: var(--emerald-light); }
 .spell-cast-plan-row.warning b { color: var(--gold); }
 .spell-cast-plan-row.blocked b { color: #ff9090; }
+.spell-rule-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.spell-rule-badges span {
+  padding: 2px 5px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+}
 
 @media (max-width: 520px) {
   .spell-cast-plan-grid {
