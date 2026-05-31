@@ -1940,6 +1940,98 @@
   min-height: 0;
   isolation: isolate;
 }
+.tactical-context-panel {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  z-index: 4;
+  width: min(360px, calc(100% - 32px));
+  padding: 10px 12px;
+  border: 1px solid rgba(127,232,248,.24);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(9,20,24,.86), rgba(9,10,16,.74));
+  box-shadow: 0 14px 32px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.06);
+  color: var(--text);
+  pointer-events: none;
+}
+.tactical-context-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.tactical-context-head span {
+  color: var(--aqua);
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.tactical-context-head b {
+  min-width: 0;
+  color: var(--gold);
+  font-size: .82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tactical-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.tactical-context-grid div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+}
+.tactical-context-grid span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: .64rem;
+  font-weight: 900;
+}
+.tactical-context-grid b {
+  min-width: 0;
+  color: var(--text);
+  font-size: .72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tactical-context-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.tactical-context-pills span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(127,232,248,.09);
+  border: 1px solid rgba(127,232,248,.18);
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 800;
+}
+@media (max-width: 680px) {
+  .tactical-context-panel {
+    left: 12px;
+    top: 8px;
+    width: calc(100% - 24px);
+  }
+
+  .combat-stage.has-tactical-context .target-card-wrap {
+    top: 140px;
+    right: 12px;
+    width: calc(100% - 24px);
+  }
+}
 .iso-battlefield {
   --combat-cell-size: 54px;
   --combat-field-padding: 20px;

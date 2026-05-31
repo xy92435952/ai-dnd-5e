@@ -1,6 +1,7 @@
 import IsoBattlefield from './IsoBattlefield'
 import TargetCard from './TargetCard'
 import CombatOutcomeOverlay from './CombatOutcomeOverlay'
+import CombatTacticalContextPanel from './CombatTacticalContextPanel'
 
 export default function CombatStage({
   viewWidth,
@@ -9,6 +10,7 @@ export default function CombatStage({
   walls,
   hazards,
   objectives,
+  tacticalContext,
   entityPositions,
   entities,
   selectedTarget,
@@ -35,8 +37,10 @@ export default function CombatStage({
   onAoeLockCenter,
   onReturn,
 }) {
+  const stageClassName = tacticalContext?.hasContext ? 'combat-stage has-tactical-context' : 'combat-stage'
+
   return (
-    <div className="combat-stage">
+    <div className={stageClassName}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
         background: 'radial-gradient(ellipse at 30% 40%, rgba(47,168,184,.08), transparent 60%), radial-gradient(ellipse at 80% 60%, rgba(196,40,40,.1), transparent 55%)' }} />
 
@@ -65,6 +69,8 @@ export default function CombatStage({
         onAoeHover={onAoeHover}
         onAoeLockCenter={onAoeLockCenter}
       />
+
+      <CombatTacticalContextPanel context={tacticalContext} />
 
       <TargetCard
         entity={selectedTargetEntity}

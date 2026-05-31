@@ -16,6 +16,7 @@ import CombatStage from '../components/combat/CombatStage'
 import CombatHud from '../components/combat/CombatHud'
 import CombatOverlays from '../components/combat/CombatOverlays'
 import { COMBAT_GRID, ignoreOptionalEffect } from '../utils/combatPage'
+import { buildCombatTacticalContext } from '../utils/combatTacticalContext'
 
 export default function Combat() {
   const { sessionId } = useParams()
@@ -139,6 +140,7 @@ export default function Combat() {
     sessionId,
     navigate,
   })
+  const tacticalContext = buildCombatTacticalContext({ combat, session })
 
   // v0.10 — 伤害飘字（保留 floats 占位，目前未使用）
   const floats = []
@@ -200,6 +202,7 @@ export default function Combat() {
         walls={walls}
         hazards={hazards}
         objectives={objectives}
+        tacticalContext={tacticalContext}
         entityPositions={entityPositions}
         entities={entities}
         selectedTarget={selectedTarget}
