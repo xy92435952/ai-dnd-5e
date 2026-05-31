@@ -36,6 +36,19 @@ export function useCombatTurnControls({
       if (result.expired_conditions?.length) {
         result.expired_conditions.forEach(msg => addLog({ role: 'system', content: msg, log_type: 'system' }))
       }
+      if (result.turn_start_hazard_log) {
+        addLog({
+          role: 'system',
+          content: result.turn_start_hazard_log,
+          log_type: 'combat',
+          dice_result: result.turn_start_hazard
+            ? {
+                damage: result.turn_start_hazard.final_damage ?? result.turn_start_hazard.damage ?? 0,
+                hazard: result.turn_start_hazard,
+              }
+            : null,
+        })
+      }
 
       if (result.combat_over) {
         setCombatOver(result.outcome)

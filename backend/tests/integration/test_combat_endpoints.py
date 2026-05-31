@@ -400,6 +400,10 @@ async def test_combat_move_triggers_hazard_damage(
         "_encounter_template": {"hazards": ["sparking conduit"]},
         "4_5": "hazard",
     }
+    combat_state.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 10, "y": 10},
+    }
     await db_session.commit()
 
     headers = await _auth_headers(client, sample_user)
@@ -421,6 +425,37 @@ async def test_combat_move_triggers_hazard_damage(
 
     await db_session.refresh(sample_character)
     assert sample_character.hp_current == hp_before - 4
+
+
+async def test_end_turn_triggers_hazard_for_next_actor(
+    client, db_session, sample_session, combat_state, sample_user, monkeypatch,
+):
+    from services import combat_hazard_service
+
+    monkeypatch.setattr(
+        combat_hazard_service,
+        "roll_dice",
+        lambda expr: {"notation": expr, "rolls": [3], "bonus": 0, "total": 3},
+    )
+    combat_state.grid_data = {
+        "_encounter_template": {"hazards": ["sparking conduit"]},
+        "6_5": "hazard",
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/end-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["next_turn_index"] == 1
+    assert data["turn_start_hazard"]["trigger"] == "turn_start"
+    assert data["turn_start_hazard"]["target_id"] == "goblin-1"
+    assert data["turn_start_hazard"]["damage"] == 3
+    assert "taking 3 lightning damage" in data["turn_start_hazard_log"]
+
+    await db_session.refresh(sample_session)
+    assert sample_session.game_state["enemies"][0]["hp_current"] == 4
 
 
 async def test_combat_move_rejects_stale_expected_turn_token(

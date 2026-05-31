@@ -22,17 +22,38 @@ from services.combat_reaction_service import (
     calculate_uncanny_dodge_prevention,
 )
 from services.dnd_rules import _normalize_class
+from services.combat_hazard_service import (
+    apply_turn_start_hazard,
+    hazard_result_to_log_text,
+)
 
 
-async def advance_ai_turn(combat, session, db, turn_order, next_index: int) -> None:
+async def advance_ai_turn(combat, session, db, turn_order, next_index: int):
     """Advance combat state to the next turn and reset the next actor's turn state."""
     combat.current_turn_index = next_index
     if next_index == 0:
         combat.round_number += 1
+    turn_start_hazard = None
     if turn_order:
         next_entity_id = turn_order[next_index]["character_id"]
         next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
+        turn_start_hazard = await apply_turn_start_hazard(
+            db=db,
+            session=session,
+            combat_state=combat,
+            entity_id=str(next_entity_id),
+        )
+        hazard_log = hazard_result_to_log_text(turn_start_hazard)
+        if hazard_log:
+            db.add(GameLog(
+                session_id=session.id,
+                role="system",
+                content=hazard_log,
+                log_type="combat",
+                dice_result={"hazard": turn_start_hazard},
+            ))
+    return turn_start_hazard
 
 
 def tick_ai_actor_conditions(

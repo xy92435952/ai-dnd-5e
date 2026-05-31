@@ -116,6 +116,28 @@ async def apply_movement_hazard(
     )
 
 
+async def apply_turn_start_hazard(
+    *,
+    db,
+    session: Session,
+    combat_state: CombatState,
+    entity_id: str,
+    combat_service: CombatService | None = None,
+) -> dict[str, Any] | None:
+    positions = combat_state.entity_positions or {}
+    hazard = await apply_movement_hazard(
+        db=db,
+        session=session,
+        combat_state=combat_state,
+        entity_id=str(entity_id),
+        position=positions.get(str(entity_id)),
+        combat_service=combat_service,
+    )
+    if hazard:
+        hazard["trigger"] = "turn_start"
+    return hazard
+
+
 def apply_hazard_damage_to_enemy(
     enemy: dict[str, Any],
     hazard: dict[str, Any],

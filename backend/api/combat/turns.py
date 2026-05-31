@@ -24,6 +24,10 @@ from services.dnd_rules import roll_dice, _normalize_class
 from services.combat_narrator import narrate_action, narrate_batch
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.character_roster import CharacterRoster
+from services.combat_hazard_service import (
+    apply_turn_start_hazard,
+    hazard_result_to_log_text,
+)
 
 from api.combat._shared import (
     _DEFAULT_TS, svc,
@@ -132,10 +136,32 @@ async def _end_player_turn_locked(
         combat.round_number += 1
 
     # ── 重置下一实体的回合状态（根据角色实际数据）────────
+    next_entity_id = None
     if turn_order:
         next_entity_id = turn_order[next_index]["character_id"]
         next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
+
+    turn_start_logs = []
+    turn_start_hazard = None
+    turn_start_hazard_log = ""
+    if next_entity_id:
+        turn_start_hazard = await apply_turn_start_hazard(
+            db=db,
+            session=session,
+            combat_state=combat,
+            entity_id=str(next_entity_id),
+            combat_service=svc,
+        )
+        turn_start_hazard_log = hazard_result_to_log_text(turn_start_hazard)
+        if turn_start_hazard_log:
+            turn_start_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=turn_start_hazard_log,
+                log_type="combat",
+                dice_result={"hazard": turn_start_hazard},
+            ))
 
     # ── 检查战斗结束 ──────────────────────────────────────
     state   = session.game_state or {}
@@ -148,7 +174,7 @@ async def _end_player_turn_locked(
         check_combat_over=svc.check_combat_over,
     )
 
-    for tl in tick_logs:
+    for tl in [*tick_logs, *turn_start_logs]:
         db.add(tl)
     await db.commit()
     # 多人联机：广播回合切换 + 最新战斗状态
@@ -162,6 +188,8 @@ async def _end_player_turn_locked(
         "next_turn_index":    next_index,
         "round_number":       combat.round_number,
         "expired_conditions": [tl.content for tl in tick_logs],
+        "turn_start_hazard":  turn_start_hazard,
+        "turn_start_hazard_log": turn_start_hazard_log,
         "combat_over":        combat_over,
         "outcome":            outcome,
     }
