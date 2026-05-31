@@ -34,6 +34,7 @@ export default function SpellModal({
   playerId = null,
   combat = null,
   aoeHover = null,
+  aoeLockedCenter = null,
   onCast,
   onClose,
   onSpellHover,
@@ -77,8 +78,9 @@ export default function SpellModal({
     playerId,
     combat,
     aoeHover,
+    aoeLockedCenter,
     disabledReason: castDisabledReason,
-  }), [aoeHover, cantrips, castDisabledReason, combat, level, playerId, selectedSpell, selectedTarget, slots])
+  }), [aoeHover, aoeLockedCenter, cantrips, castDisabledReason, combat, level, playerId, selectedSpell, selectedTarget, slots])
 
   return (
     <div onClick={onClose} style={{

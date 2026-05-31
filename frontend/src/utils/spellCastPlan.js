@@ -209,6 +209,13 @@ function areaDirectionLabel({ template, aoeHover, combat, playerId }) {
   return `${direction} · 从 ${entityName(combat, playerId) || '施法者'} 指向 ${to.x}, ${to.y}`
 }
 
+function placementLabel({ template, aoeHover, aoeLockedCenter }) {
+  if (template === 'aura') return '自身光环'
+  if (aoeLockedCenter) return `已锁定 · ${areaAnchorLabel(aoeLockedCenter, template)}`
+  if (aoeHover) return `预览中 · ${areaAnchorLabel(aoeHover, template)}；点击格子可锁定`
+  return '待确认'
+}
+
 function effectLabel(spell = {}) {
   const parts = []
   if (spell.damage) parts.push(`伤害 ${spell.damage}`)
@@ -240,6 +247,7 @@ export function buildSpellCastPlan({
   playerId = null,
   combat = null,
   aoeHover = null,
+  aoeLockedCenter = null,
   disabledReason = '',
 } = {}) {
   if (!spell) {
@@ -309,6 +317,11 @@ export function buildSpellCastPlan({
     rows.push({
       label: '区域',
       value: `${templateLabel(template)} · ${aoeRadiusCells(spell) * 5} 尺 · ${areaAnchorLabel(aoeHover, template)}`,
+    })
+    rows.push({
+      label: '放置',
+      value: placementLabel({ template, aoeHover, aoeLockedCenter }),
+      tone: aoeHover || template === 'aura' ? 'ready' : 'warning',
     })
     if (direction) {
       rows.push({

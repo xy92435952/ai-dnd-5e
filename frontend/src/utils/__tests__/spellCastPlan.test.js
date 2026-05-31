@@ -128,6 +128,7 @@ describe('buildSpellCastPlan', () => {
     })
 
     expect(row(plan, '区域').value).toBe('球形区域 · 20 尺 · 中心 5, 5')
+    expect(row(plan, '放置').value).toBe('预览中 · 中心 5, 5；点击格子可锁定')
     expect(row(plan, '命中单位').value).toBe('3 个：施法者、训练假人、同伴')
     expect(plan.aoeBreakdown).toMatchObject({
       total: 3,
@@ -171,6 +172,7 @@ describe('buildSpellCastPlan', () => {
     })
 
     expect(row(plan, '区域').value).toBe('锥形区域 · 15 尺 · 方向点 5, 8')
+    expect(row(plan, '放置').value).toBe('预览中 · 方向点 5, 8；点击格子可锁定')
     expect(row(plan, '方向').value).toBe('南 · 从 Wizard 指向 5, 8')
   })
 

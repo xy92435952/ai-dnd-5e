@@ -206,6 +206,7 @@ describe('SpellModal', () => {
         playerId="hero-1"
         selectedTarget="enemy-1"
         aoeHover="5_5"
+        aoeLockedCenter="5_5"
         combat={{
           entities: {
             'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20, derived: { spell_save_dc: 15 } },
@@ -228,6 +229,7 @@ describe('SpellModal', () => {
     fireEvent.click(screen.getByText('Fireball'))
 
     expect(screen.getByText('DEX save · DC 15 · success halves damage')).toBeInTheDocument()
+    expect(screen.getByText('已锁定 · 中心 5, 5')).toBeInTheDocument()
     const breakdown = screen.getByLabelText('AoE target breakdown')
     expect(within(breakdown).getByText('Enemies 1')).toBeInTheDocument()
     expect(within(breakdown).getByText('Allies 1')).toBeInTheDocument()

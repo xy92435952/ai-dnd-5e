@@ -50,6 +50,7 @@ export default function CombatOverlays({
           playerId={playerId}
           combat={combat}
           aoeHover={aoeLockedCenter || aoeHover}
+          aoeLockedCenter={aoeLockedCenter}
           onCast={onCastSpell}
           onClose={onCloseSpell}
           onSpellHover={onSpellHover}
