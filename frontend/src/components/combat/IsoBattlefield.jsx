@@ -51,6 +51,9 @@ export default function IsoBattlefield({
     const isAoeRing = !isAoeCenter && aoeCells.ring.has(key) && !isWall
     const aoeTemplate = aoeCells?.template || aoePreview?.template || ''
     const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
+    const aoeImpact = aoePreview
+      ? buildAoeImpactSummary({ aoeCells, entityPositions, entities, playerId })
+      : ''
     const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
       ? wallDisabledReason(terrainDetail)
@@ -62,7 +65,7 @@ export default function IsoBattlefield({
         ? withTerrainHint(`协助 ${ent.name || entId}`, terrainDetail)
         : withTerrainHint(`选择 ${ent.name || entId}`, terrainDetail)
       : aoePreview && !isWall
-        ? withTerrainHint(buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y }), terrainDetail)
+        ? withTerrainHint(buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y, impact: aoeImpact }), terrainDetail)
       : moveMode && !isWall
         ? withTerrainHint(`移动到 ${x}, ${y}`, terrainDetail)
         : ''
@@ -119,13 +122,37 @@ export default function IsoBattlefield({
   )
 }
 
-function buildAoeCellTitle({ template, locked, x, y }) {
+function buildAoeCellTitle({ template, locked, x, y, impact = '' }) {
   const prefix = locked ? '已确认' : '确认'
-  if (template === 'cone') return `${prefix}锥形方向 ${x}, ${y}`
-  if (template === 'line') return `${prefix}直线方向 ${x}, ${y}`
-  if (template === 'cube') return `${prefix}立方区域中心 ${x}, ${y}`
-  if (template === 'aura') return `${prefix}自身光环 ${x}, ${y}`
-  return `${prefix}法术中心 ${x}, ${y}`
+  const suffix = impact ? ` · ${impact}` : ''
+  if (template === 'cone') return `${prefix}锥形方向 ${x}, ${y}${suffix}`
+  if (template === 'line') return `${prefix}直线方向 ${x}, ${y}${suffix}`
+  if (template === 'cube') return `${prefix}立方区域中心 ${x}, ${y}${suffix}`
+  if (template === 'aura') return `${prefix}自身光环 ${x}, ${y}${suffix}`
+  return `${prefix}法术中心 ${x}, ${y}${suffix}`
+}
+
+function buildAoeImpactSummary({ aoeCells, entityPositions = {}, entities = {}, playerId = '' }) {
+  const affectedCells = new Set([...(aoeCells?.ring || []), aoeCells?.center].filter(Boolean))
+  if (affectedCells.size === 0) return ''
+
+  const counts = { enemy: 0, ally: 0, self: 0 }
+  for (const [entityId, pos] of Object.entries(entityPositions || {})) {
+    if (!pos || !affectedCells.has(`${pos.x}_${pos.y}`)) continue
+    const ent = entities?.[entityId]
+    if (!ent) continue
+    if (entityId === playerId) counts.self += 1
+    else if (ent.is_enemy) counts.enemy += 1
+    else counts.ally += 1
+  }
+
+  const parts = []
+  if (counts.enemy) parts.push(`敌方${counts.enemy}`)
+  if (counts.ally) parts.push(`友方${counts.ally}`)
+  if (counts.self) parts.push('自身')
+  if (parts.length === 0) return ''
+  const friendlyRisk = counts.ally || counts.self ? ' · 友伤风险' : ''
+  return `影响 ${parts.join(' / ')}${friendlyRisk}`
 }
 
 function wallDisabledReason(detail) {

@@ -401,6 +401,45 @@ describe('IsoBattlefield', () => {
     expect(onSelectTarget).not.toHaveBeenCalled()
   })
 
+  it('summarizes affected units in AoE placement titles', () => {
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{
+          player: { x: 5, y: 5 },
+          enemy: { x: 1, y: 0 },
+          ally: { x: 2, y: 0 },
+        }}
+        entities={{
+          player: { id: 'player', name: 'Wizard', is_enemy: false, hp_current: 10 },
+          enemy: { id: 'enemy', name: 'Goblin', is_enemy: true, hp_current: 7 },
+          ally: { id: 'ally', name: 'Companion', is_enemy: false, hp_current: 8 },
+        }}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: '0_0', ring: new Set(['0_0', '1_0', '2_0', '5_5']) }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={{ radius: 2, template: 'sphere' }}
+        aoeHover="0_0"
+        aoeLockedCenter="0_0"
+        playerId="player"
+        onSelectTarget={vi.fn()}
+        onMoveTo={vi.fn()}
+        onAoeHover={vi.fn()}
+        onAoeLockCenter={vi.fn()}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell).toHaveAttribute('title', '已确认法术中心 0, 0 · 影响 敌方1 / 友方1 / 自身 · 友伤风险')
+  })
+
   it('labels directional AoE cells by template before locking', () => {
     const onAoeHover = vi.fn()
 
