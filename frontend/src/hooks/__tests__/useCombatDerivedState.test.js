@@ -59,6 +59,10 @@ describe('useCombatDerivedState', () => {
     expect(result.current.walls.has('1_1')).toBe(true)
     expect(result.current.hazards.has('2_2')).toBe(true)
     expect(result.current.objectives.has('3_3')).toBe(true)
+    expect(result.current.terrainDetails['3_3']).toMatchObject({
+      terrain: 'objective',
+      label: 'Seal the gate',
+    })
     expect(result.current.selectedTargetEntity.name).toBe('Goblin')
     expect(result.current.initiativeChips).toHaveLength(2)
     expect(result.current.isPlayerTurn).toBe(true)

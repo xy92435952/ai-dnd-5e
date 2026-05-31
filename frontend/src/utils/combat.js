@@ -667,6 +667,7 @@ export function buildGridTerrainSets(gridData = {}) {
   const walls = new Set()
   const hazards = new Set()
   const objectives = new Set()
+  const terrainDetails = {}
   for (const [key, value] of Object.entries(gridData)) {
     const terrain = getGridTerrainKind(value)
     if (['wall', 'cover', 'half_cover', 'three_quarters_cover', 'total_cover', 'blocking', 'blocker', 'opaque'].includes(terrain)) {
@@ -676,8 +677,23 @@ export function buildGridTerrainSets(gridData = {}) {
     } else if (terrain === 'objective') {
       objectives.add(key)
     }
+    if (terrain) terrainDetails[key] = buildGridTerrainDetail(key, value, terrain)
   }
-  return { walls, hazards, objectives }
+  return { walls, hazards, objectives, terrainDetails }
+}
+
+export function buildGridTerrainDetail(key, value, terrain = getGridTerrainKind(value)) {
+  const data = value && typeof value === 'object' ? value : {}
+  const label = data.name || data.label || data.title || terrainLabel(terrain)
+  return {
+    key,
+    terrain,
+    label,
+    damageDice: data.damage_dice || data.damage || '',
+    saveDc: data.save_dc || data.dc || '',
+    saveAbility: data.save_ability || data.ability || '',
+    coverLevel: data.cover_level || data.cover || '',
+  }
 }
 
 export function getGridTerrainKind(value) {
@@ -693,6 +709,16 @@ export function getGridTerrainKind(value) {
 
 function normalizeGridTerrainKind(value) {
   return String(value || '').trim().toLowerCase().replace(/[-\s]+/g, '_')
+}
+
+function terrainLabel(terrain) {
+  if (terrain === 'total_cover') return 'Total cover'
+  if (['wall', 'blocking', 'blocker', 'opaque'].includes(terrain)) return 'Wall'
+  if (['cover', 'half_cover', 'three_quarters_cover'].includes(terrain)) return 'Cover'
+  if (['difficult', 'difficult_terrain'].includes(terrain)) return 'Difficult terrain'
+  if (terrain === 'hazard') return 'Hazard'
+  if (terrain === 'objective') return 'Objective'
+  return terrain || 'Terrain'
 }
 
 /**

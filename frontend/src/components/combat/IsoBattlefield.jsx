@@ -8,6 +8,7 @@ export default function IsoBattlefield({
   walls,
   hazards,
   objectives = new Set(),
+  terrainDetails = {},
   entityPositions,
   entities,
   selectedTarget,
@@ -31,6 +32,7 @@ export default function IsoBattlefield({
     const isWall = walls.has(key)
     const isHazard = hazards.has(key)
     const isObjective = objectives.has(key)
+    const terrainDetail = terrainDetails?.[key] || null
     const entryEntry = Object.entries(entityPositions || {})
       .find(([, pos]) => pos?.x === x && pos?.y === y)
     const [entId] = entryEntry || []
@@ -51,18 +53,18 @@ export default function IsoBattlefield({
     const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
     const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
-      ? '墙体阻挡，无法选择或移动'
+      ? wallDisabledReason(terrainDetail)
       : !ent && !moveMode && !aoePreview
-        ? '开启移动模式后可选择空格移动'
+        ? emptyCellReason(terrainDetail)
         : ''
     const title = ent
       ? helpMode && !ent.is_enemy && entId !== playerId
-        ? `协助 ${ent.name || entId}`
-        : `选择 ${ent.name || entId}`
+        ? withTerrainHint(`协助 ${ent.name || entId}`, terrainDetail)
+        : withTerrainHint(`选择 ${ent.name || entId}`, terrainDetail)
       : aoePreview && !isWall
-        ? buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y })
+        ? withTerrainHint(buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y }), terrainDetail)
       : moveMode && !isWall
-        ? `移动到 ${x}, ${y}`
+        ? withTerrainHint(`移动到 ${x}, ${y}`, terrainDetail)
         : ''
 
     return (
@@ -124,4 +126,48 @@ function buildAoeCellTitle({ template, locked, x, y }) {
   if (template === 'cube') return `${prefix}立方区域中心 ${x}, ${y}`
   if (template === 'aura') return `${prefix}自身光环 ${x}, ${y}`
   return `${prefix}法术中心 ${x}, ${y}`
+}
+
+function wallDisabledReason(detail) {
+  if (!detail) return '墙体阻挡，无法选择或移动'
+  return `${terrainSummary(detail)}阻挡，无法选择或移动`
+}
+
+function emptyCellReason(detail) {
+  return withTerrainHint('开启移动模式后可选择空格移动', detail)
+}
+
+function withTerrainHint(base, detail) {
+  const hint = terrainHint(detail)
+  return hint ? `${base} · ${hint}` : base
+}
+
+function terrainHint(detail) {
+  if (!detail) return ''
+  const terrain = detail.terrain || ''
+  if (terrain === 'hazard') {
+    const save = detail.saveDc ? ` DC ${detail.saveDc}${detail.saveAbility ? ` ${String(detail.saveAbility).toUpperCase()}` : ''}` : ''
+    const damage = detail.damageDice ? ` ${detail.damageDice}` : ''
+    return `危险地形${labelSuffix(detail)}${damage}${save}`
+  }
+  if (terrain === 'difficult' || terrain === 'difficult_terrain') return `困难地形${labelSuffix(detail)}，移动消耗更高`
+  if (terrain === 'objective') return `目标点${labelSuffix(detail)}`
+  if (terrain === 'cover' || terrain === 'half_cover' || terrain === 'three_quarters_cover') return `掩体${labelSuffix(detail)}`
+  if (terrain === 'total_cover') return `全掩体${labelSuffix(detail)}`
+  return ''
+}
+
+function terrainSummary(detail) {
+  if (!detail) return '墙体'
+  const terrain = detail.terrain || ''
+  if (terrain === 'total_cover') return `全掩体${labelSuffix(detail)}`
+  if (terrain === 'cover' || terrain === 'half_cover' || terrain === 'three_quarters_cover') return `掩体${labelSuffix(detail)}`
+  return `${detail.label || '墙体'}`
+}
+
+function labelSuffix(detail) {
+  const label = detail?.label
+  if (!label) return ''
+  if (['Hazard', 'Difficult terrain', 'Objective', 'Cover', 'Wall', 'Total cover'].includes(label)) return ''
+  return `: ${label}`
 }

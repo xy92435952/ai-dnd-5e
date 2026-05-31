@@ -312,6 +312,50 @@ describe('IsoBattlefield', () => {
     expect(onMoveTo).toHaveBeenCalledWith(4, 7)
   })
 
+  it('adds terrain consequences to movement cell titles', () => {
+    const onMoveTo = vi.fn()
+
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 1, y0: 2 }}
+        walls={new Set()}
+        hazards={new Set(['1_2'])}
+        terrainDetails={{
+          '1_2': {
+            terrain: 'hazard',
+            label: 'Fire jet',
+            damageDice: '2d6',
+            saveDc: 13,
+            saveAbility: 'dex',
+          },
+        }}
+        entityPositions={{}}
+        entities={{}}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set() }}
+        moveMode
+        helpMode={false}
+        aoePreview={null}
+        aoeHover={null}
+        playerId="player"
+        onSelectTarget={vi.fn()}
+        onMoveTo={onMoveTo}
+        onAoeHover={vi.fn()}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell.className).toContain('hazard')
+    expect(cell).toHaveAttribute('title', '移动到 1, 2 · 危险地形: Fire jet 2d6 DC 13 DEX')
+
+    fireEvent.click(cell)
+    expect(onMoveTo).toHaveBeenCalledWith(1, 2)
+  })
+
   it('locks an AoE center by clicking an empty battlefield cell', () => {
     const onAoeHover = vi.fn()
     const onAoeLockCenter = vi.fn()

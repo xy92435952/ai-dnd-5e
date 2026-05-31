@@ -11,6 +11,7 @@ export default function CombatStage({
   walls,
   hazards,
   objectives,
+  terrainDetails,
   tacticalContext,
   entityPositions,
   entities,
@@ -52,6 +53,7 @@ export default function CombatStage({
         walls={walls}
         hazards={hazards}
         objectives={objectives}
+        terrainDetails={terrainDetails}
         entityPositions={entityPositions}
         entities={entities}
         selectedTarget={selectedTarget}

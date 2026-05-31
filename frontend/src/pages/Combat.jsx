@@ -100,6 +100,7 @@ export default function Combat() {
     walls,
     hazards,
     objectives,
+    terrainDetails,
     selectedTargetEntity,
     controlledCharacter,
     initiativeChips,
@@ -206,6 +207,7 @@ export default function Combat() {
         walls={walls}
         hazards={hazards}
         objectives={objectives}
+        terrainDetails={terrainDetails}
         tacticalContext={tacticalContext}
         entityPositions={entityPositions}
         entities={entities}
