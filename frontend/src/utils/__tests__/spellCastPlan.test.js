@@ -144,6 +144,36 @@ describe('buildSpellCastPlan', () => {
     ])
   })
 
+  it('shows directional anchors for cone and line style AoE spells', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Burning Hands',
+        level: 1,
+        type: 'damage',
+        aoe: true,
+        damage: '3d6',
+        desc: '15 尺锥形区域',
+      },
+      level: 1,
+      slots: { '1st': 1 },
+      playerId: 'hero-1',
+      aoeHover: '5_8',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20 },
+          'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true, hp_current: 7 },
+        },
+        entity_positions: {
+          'hero-1': { x: 5, y: 5 },
+          'enemy-1': { x: 5, y: 6 },
+        },
+      },
+    })
+
+    expect(row(plan, '区域').value).toBe('锥形区域 · 15 尺 · 方向点 5, 8')
+    expect(row(plan, '方向').value).toBe('南 · 从 Wizard 指向 5, 8')
+  })
+
   it('shows AoE target caps and excluded candidates', () => {
     const plan = buildSpellCastPlan({
       spell: {

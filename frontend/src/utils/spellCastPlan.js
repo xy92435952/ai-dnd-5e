@@ -174,6 +174,41 @@ function centerLabel(aoeHover, template) {
   return x !== undefined && y !== undefined ? `${x}, ${y}` : String(aoeHover)
 }
 
+function areaAnchorLabel(aoeHover, template) {
+  const label = centerLabel(aoeHover, template)
+  if (template === 'aura') return label
+  if (template === 'cone' || template === 'line') return `方向点 ${label}`
+  return `中心 ${label}`
+}
+
+function readGridPoint(keyOrPoint) {
+  if (!keyOrPoint) return null
+  if (typeof keyOrPoint === 'object' && Number.isFinite(Number(keyOrPoint.x)) && Number.isFinite(Number(keyOrPoint.y))) {
+    return { x: Number(keyOrPoint.x), y: Number(keyOrPoint.y) }
+  }
+  const [x, y] = String(keyOrPoint).split('_').map(Number)
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null
+}
+
+function directionName(from, to) {
+  const dx = Math.sign((to?.x ?? from?.x) - from.x)
+  const dy = Math.sign((to?.y ?? from?.y) - from.y)
+  if (!dx && !dy) return ''
+  const vertical = dy < 0 ? '北' : dy > 0 ? '南' : ''
+  const horizontal = dx < 0 ? '西' : dx > 0 ? '东' : ''
+  return `${vertical}${horizontal}` || ''
+}
+
+function areaDirectionLabel({ template, aoeHover, combat, playerId }) {
+  if (template !== 'cone' && template !== 'line') return ''
+  const from = readGridPoint(combat?.entity_positions?.[playerId])
+  const to = readGridPoint(aoeHover)
+  if (!from || !to) return ''
+  const direction = directionName(from, to)
+  if (!direction) return ''
+  return `${direction} · 从 ${entityName(combat, playerId) || '施法者'} 指向 ${to.x}, ${to.y}`
+}
+
 function effectLabel(spell = {}) {
   const parts = []
   if (spell.damage) parts.push(`伤害 ${spell.damage}`)
@@ -257,6 +292,7 @@ export function buildSpellCastPlan({
     const names = targetIds.map(id => entityName(combat, id))
     const excludedTargetIds = uncappedTargetIds.slice(targetIds.length)
     const excludedNames = excludedTargetIds.map(id => entityName(combat, id))
+    const direction = areaDirectionLabel({ template, aoeHover, combat, playerId })
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
     if (maxTargets) {
       aoeBreakdown.limit = maxTargets
@@ -272,8 +308,14 @@ export function buildSpellCastPlan({
     }
     rows.push({
       label: '区域',
-      value: `${templateLabel(template)} · ${aoeRadiusCells(spell) * 5} 尺 · 中心 ${centerLabel(aoeHover, template)}`,
+      value: `${templateLabel(template)} · ${aoeRadiusCells(spell) * 5} 尺 · ${areaAnchorLabel(aoeHover, template)}`,
     })
+    if (direction) {
+      rows.push({
+        label: '方向',
+        value: direction,
+      })
+    }
     rows.push({
       label: '命中单位',
       value: targetIds.length
