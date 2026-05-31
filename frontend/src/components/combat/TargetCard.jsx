@@ -1,5 +1,6 @@
 import { buildCombatPreviewRows } from '../../utils/combat'
 import { buildCombatRuleTags } from '../../utils/combatRuleTags'
+import { buildConditionSummaries } from '../../utils/conditionRules'
 import { buildEnemyInspectModel } from '../../utils/enemyInspect'
 
 export default function TargetCard({
@@ -25,7 +26,9 @@ export default function TargetCard({
         </div>
         <div className="target-summary-strip" aria-label={`Target summary ${entity.name}`}>
           {badges.map(badge => (
-            <span key={`${badge.tone}-${badge.label}`} className={badge.tone || ''}>{badge.label}</span>
+            <span key={`${badge.tone}-${badge.label}`} className={badge.tone || ''} title={badge.title || ''}>
+              {badge.label}
+            </span>
           ))}
         </div>
         <div className="target-hp-bar">
@@ -118,14 +121,22 @@ function buildTargetBadges(entity = {}, prediction = null) {
     badges.push({ label: `Hit ${formatHitRate(prediction.hit_rate)}`, tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : '' })
   }
 
-  const conditions = Array.isArray(entity.conditions)
-    ? entity.conditions.map(formatCondition).filter(Boolean)
-    : []
+  const conditions = buildConditionSummaries(entity.conditions || [], entity.condition_durations || {})
   for (const condition of conditions.slice(0, 2)) {
-    badges.push({ label: condition, tone: 'bad' })
+    badges.push({
+      label: condition.label,
+      tone: condition.tone === 'buff' ? 'good' : 'bad',
+      title: condition.title,
+    })
   }
 
-  if (conditions.length > 2) badges.push({ label: `+${conditions.length - 2} cond`, tone: 'bad' })
+  if (conditions.length > 2) {
+    badges.push({
+      label: `+${conditions.length - 2} cond`,
+      tone: 'bad',
+      title: conditions.slice(2).map(condition => condition.title).join(' / '),
+    })
+  }
   return badges
 }
 
@@ -156,10 +167,4 @@ function formatHitRate(value) {
   const number = Number(value)
   if (Number.isNaN(number)) return '--'
   return `${Math.round((number <= 1 ? number * 100 : number))}%`
-}
-
-function formatCondition(value) {
-  if (typeof value === 'string') return value
-  if (!value || typeof value !== 'object') return ''
-  return String(value.name || value.condition || value.type || value.id || '')
 }

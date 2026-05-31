@@ -97,6 +97,7 @@ describe('TargetCard', () => {
           hp_max: 24,
           ac: 16,
           conditions: ['frightened', 'marked', 'slowed'],
+          condition_durations: { frightened: 2 },
         }}
         prediction={{ hit_rate: 0.7, advantage: true }}
       />,
@@ -107,9 +108,11 @@ describe('TargetCard', () => {
     expect(summary).toHaveTextContent('Critical')
     expect(summary).toHaveTextContent('AC 16')
     expect(summary).toHaveTextContent('Hit 70%')
-    expect(summary).toHaveTextContent('frightened')
-    expect(summary).toHaveTextContent('marked')
+    expect(summary).toHaveTextContent('Frightened')
+    expect(summary).toHaveTextContent('Marked')
     expect(summary).toHaveTextContent('+1 cond')
+    expect(within(summary).getByTitle('Frightened: Disadvantage while source is visible; cannot willingly move closer. Duration: 2 rounds.')).toBeInTheDocument()
+    expect(within(summary).getByTitle('Slowed: Condition is active; check logs for exact source and duration.')).toBeInTheDocument()
   })
 
   it('renders readable attack rule tags for cover and roll state', () => {
