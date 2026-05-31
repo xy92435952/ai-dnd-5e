@@ -1856,6 +1856,7 @@
 }
 .init-ribbon::-webkit-scrollbar { display: none; }
 .init-ribbon .unit-chip {
+  appearance: none;
   position: relative;
   flex-shrink: 0;
   width: 64px;
@@ -1866,6 +1867,8 @@
   text-align: center;
   cursor: pointer;
   transition: all .18s;
+  color: inherit;
+  font: inherit;
 }
 .init-ribbon .unit-chip:hover { transform: translateY(-2px); border-color: var(--amber); }
 .init-ribbon .unit-chip.active {
@@ -1877,6 +1880,10 @@
   background: linear-gradient(180deg, #0e2228, #0a0604);
   transform: translateY(-6px);
 }
+.init-ribbon .unit-chip.next {
+  border-color: rgba(127,232,248,.65);
+  box-shadow: 0 0 0 1px rgba(127,232,248,.18);
+}
 .init-ribbon .unit-chip.active::after {
   content: '▼';
   position: absolute;
@@ -1887,8 +1894,15 @@
   filter: drop-shadow(0 0 6px var(--arcane-light, #5fd8e8));
 }
 .init-ribbon .unit-chip.enemy { border-color: rgba(196,40,40,.5); }
-.init-ribbon .unit-chip.dead { opacity: .35; filter: grayscale(1); }
+.init-ribbon .unit-chip.dead {
+  opacity: .35;
+  filter: grayscale(1);
+}
+.init-ribbon .unit-chip:disabled {
+  cursor: default;
+}
 .init-ribbon .unit-chip .avatar {
+  position: relative;
   width: 40px; height: 40px;
   margin: 0 auto 3px;
   border-radius: 50%;
@@ -1903,6 +1917,16 @@
 .init-ribbon .unit-chip.enemy .avatar {
   background: radial-gradient(circle at 35% 30%, #c43838, #3a0a0a 70%);
   box-shadow: 0 0 0 1px rgba(196,40,40,.6);
+}
+.init-ribbon .unit-chip .unit-name {
+  margin-bottom: 2px;
+  color: var(--parchment);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .init-ribbon .unit-chip .hp-tick {
   height: 3px; margin: 0 2px;
@@ -1927,6 +1951,48 @@
   font-weight: 700;
   display: grid; place-items: center;
   box-shadow: 0 0 0 1px rgba(240,208,96,.6);
+}
+.turn-order-meta {
+  display: flex;
+  justify-content: flex-start;
+  min-height: 12px;
+  margin: -1px 0 2px;
+}
+.turn-order-badge {
+  padding: 1px 4px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.turn-order-badge.now {
+  border-color: rgba(240,208,96,.42);
+  background: rgba(240,208,96,.12);
+  color: var(--gold);
+}
+.turn-order-badge.next {
+  border-color: rgba(127,232,248,.36);
+  background: rgba(127,232,248,.1);
+  color: var(--aqua);
+}
+.condition-dots {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 3px;
+}
+.condition-dots span {
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(244,160,160,.45);
+  border-radius: 50%;
+  color: #f4a0a0;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 9px;
 }
 
 /* 战场 2D 俯视网格 —— HD-2D 氛围（八方旅人致敬） */
