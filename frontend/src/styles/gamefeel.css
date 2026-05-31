@@ -924,6 +924,25 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.journal-card .journal-companion-reaction {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+  padding: 6px 7px;
+  border: 1px solid rgba(106,196,132,.24);
+  border-radius: 4px;
+  background: rgba(42,106,58,.14);
+  color: var(--emerald-light);
+  font-style: italic;
+}
+.journal-card .journal-companion-reaction span {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-style: normal;
+  white-space: nowrap;
+}
 .journal-pill {
   flex: 0 0 auto;
   max-width: 120px;

@@ -11,6 +11,7 @@
  */
 import Overlay from './Overlay'
 import { JournalIcon } from '../Icons'
+import { extractNarrative, splitCompanionReactions } from '../../utils/dialogue'
 
 function cleanText(value) {
   return String(value || '').trim()
@@ -117,11 +118,48 @@ function buildTimelineEntry(item, index) {
   }
 }
 
-function buildCompanionSummary(companion) {
+function matchCompanionByName(speaker, companions) {
+  const cleanSpeaker = cleanText(speaker)
+  if (!cleanSpeaker) return null
+  return companions.find(companion => {
+    const name = cleanText(companion?.name)
+    return name && (name === cleanSpeaker || name.includes(cleanSpeaker) || cleanSpeaker.includes(name))
+  }) || null
+}
+
+function buildCompanionReactionMap(session, companions) {
+  const map = new Map()
+  asArray(session?.logs).forEach(log => {
+    const role = cleanText(log?.role)
+    const isCompanionLog = role === 'companion' || role.startsWith('companion_') || log?.log_type === 'companion'
+    if (!isCompanionLog) return
+
+    if (role.startsWith('companion_')) {
+      const companion = matchCompanionByName(role.slice('companion_'.length), companions)
+      const text = cleanText(extractNarrative(log?.content))
+      if (companion && text) {
+        map.set(companion.id || companion.name, { text, at: log?.created_at })
+      }
+      return
+    }
+
+    splitCompanionReactions(log?.content, companions).forEach(reaction => {
+      const companion = matchCompanionByName(reaction.speaker, companions)
+      const text = cleanText(reaction.text)
+      if (companion && text) {
+        map.set(companion.id || companion.name, { text, at: log?.created_at })
+      }
+    })
+  })
+  return map
+}
+
+function buildCompanionSummary(companion, reactionsByCompanion) {
   const className = companion?.char_class || companion?.class || companion?.class_name
   const level = companion?.level ? `Lv ${companion.level}` : ''
   const role = joinParts([companion?.race, className, level]) || '队友'
   const derived = asObject(companion?.derived)
+  const key = companion?.id || companion?.name || role
   const stats = joinParts([
     companion?.hp_max || derived.hp_max
       ? `HP ${companion?.hp_current ?? companion?.hp_max ?? derived.hp_max}/${companion?.hp_max ?? derived.hp_max}`
@@ -131,10 +169,11 @@ function buildCompanionSummary(companion) {
   ])
 
   return {
-    id: companion?.id || companion?.name || role,
+    id: key,
     name: companion?.name || '未命名队友',
     role,
     stats,
+    recentReaction: reactionsByCompanion.get(key) || null,
     personality: cleanText(companion?.personality || companion?.personality_traits),
     speechStyle: cleanText(companion?.speech_style),
     combatPreference: cleanText(companion?.combat_preference),
@@ -159,7 +198,8 @@ function buildJournalSections(session, room) {
   const clues = asArray(campaign.clues).filter(c => c?.text)
   const companions = asArray(session?.companions)
     .filter(companion => companion && cleanText(companion.name))
-    .map(buildCompanionSummary)
+  const reactionsByCompanion = buildCompanionReactionMap(session, companions)
+  const companionSummaries = companions.map(companion => buildCompanionSummary(companion, reactionsByCompanion))
   const decisions = asArray(campaign.key_decisions).filter(Boolean)
   const completedScenes = asArray(campaign.completed_scenes).filter(Boolean)
 
@@ -206,7 +246,7 @@ function buildJournalSections(session, room) {
 
   return {
     quests,
-    companions,
+    companions: companionSummaries,
     clues,
     npcs,
     locations,
@@ -296,6 +336,11 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
               {companion.speechStyle && <p className="journal-muted">说话风格：{companion.speechStyle}</p>}
               {companion.combatPreference && <p className="journal-muted">战斗偏好：{companion.combatPreference}</p>}
               {companion.catchphrase && <p className="journal-muted">口头禅：{companion.catchphrase}</p>}
+              {companion.recentReaction && (
+                <p className="journal-companion-reaction" title={companion.recentReaction.at || ''}>
+                  <span>最近反应</span>{companion.recentReaction.text}
+                </p>
+              )}
               {companion.backstory && <p>{companion.backstory}</p>}
             </article>
           ))}

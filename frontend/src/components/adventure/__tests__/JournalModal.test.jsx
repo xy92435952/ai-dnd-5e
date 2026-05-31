@@ -56,6 +56,15 @@ function makeSession() {
         catchphrase: '先看脚印，再拔剑。',
       },
     ],
+    logs: [
+      {
+        id: 'log-companion-1',
+        role: 'companion',
+        log_type: 'companion',
+        content: '[艾琳]: 我盯着后门，别让他们绕过来。',
+        created_at: '2026-06-01T10:00:00Z',
+      },
+    ],
   }
 }
 
@@ -101,6 +110,8 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText(/说话风格：短句、实用/)).toBeInTheDocument()
     expect(within(dossier).getByText(/战斗偏好：远程压制并保护后排/)).toBeInTheDocument()
     expect(within(dossier).getByText(/口头禅：先看脚印，再拔剑。/)).toBeInTheDocument()
+    expect(within(dossier).getByText('最近反应')).toBeInTheDocument()
+    expect(within(dossier).getByText('我盯着后门，别让他们绕过来。')).toBeInTheDocument()
     expect(within(dossier).getByText('NPC')).toBeInTheDocument()
     expect(within(dossier).getByText('铁匠格雷')).toBeInTheDocument()
     expect(within(dossier).getByText(/知道旧井的位置/)).toBeInTheDocument()
@@ -116,6 +127,35 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('关键决定')).toBeInTheDocument()
     expect(within(dossier).getByText('信任铁匠格雷')).toBeInTheDocument()
     expect(screen.getByText('上一幕日志')).toBeInTheDocument()
+  })
+
+  it('uses the latest role-scoped companion combat log as the dossier reaction', () => {
+    const session = makeSession()
+    session.logs = [
+      ...session.logs,
+      {
+        id: 'log-companion-2',
+        role: 'companion_艾琳',
+        log_type: 'combat',
+        content: '{"narrative":"我压住左侧通道，先别追太深。"}',
+        created_at: '2026-06-01T10:05:00Z',
+      },
+    ]
+
+    render(
+      <JournalModal
+        session={session}
+        text=""
+        loading={false}
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const dossier = screen.getByLabelText('冒险卷宗')
+    expect(within(dossier).getByText('最近反应')).toBeInTheDocument()
+    expect(within(dossier).getByText('我压住左侧通道，先别追太深。')).toBeInTheDocument()
+    expect(within(dossier).queryByText('我盯着后门，别让他们绕过来。')).not.toBeInTheDocument()
   })
 
   it('keeps generated journal controls available', () => {
