@@ -222,6 +222,63 @@ async def test_init_combat_uses_tuned_encounter_template_roster(
     assert sample_session.game_state["encounter_balance"]["difficulty"] == "hard"
 
 
+async def test_init_combat_adds_minions_for_underbudget_encounter_template(
+    db_session,
+    sample_session,
+    sample_module,
+    sample_character,
+):
+    from types import SimpleNamespace
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from services.game_combat_setup_service import init_combat
+    from services.location_graph_service import build_location_graph_from_module
+
+    parsed = {
+        "scenes": [{
+            "title": "Bandit Yard",
+            "description": "A lone bandit blocks the gate.",
+            "monsters": ["Bandit"],
+            "target_difficulty": "medium",
+        }],
+        "monsters": [
+            {"name": "Bandit", "cr": "1/8", "xp": 25, "hp": 11, "ac": 12},
+        ],
+    }
+    graph = build_location_graph_from_module(parsed)
+    graph["current_location_id"] = "scene_0"
+    sample_module.parsed_content = parsed
+    sample_session.game_state = {"location_graph": graph}
+    flag_modified(sample_module, "parsed_content")
+    flag_modified(sample_session, "game_state")
+    party = [
+        sample_character,
+        SimpleNamespace(id="pc-2", name="Ally 2", derived={"initiative": 1}, is_player=True, level=1),
+        SimpleNamespace(id="pc-3", name="Ally 3", derived={"initiative": 1}, is_player=True, level=1),
+        SimpleNamespace(id="pc-4", name="Ally 4", derived={"initiative": 1}, is_player=True, level=1),
+    ]
+
+    await init_combat(
+        session=sample_session,
+        initial_enemies=[],
+        characters=party,
+        module=sample_module,
+        db=db_session,
+    )
+
+    assert [enemy["name"] for enemy in sample_session.game_state["enemies"]] == [
+        "Bandit",
+        "Bandit",
+        "Bandit",
+        "Bandit",
+    ]
+    tuning = sample_session.game_state["last_encounter_template_balance"]["roster_tuning"]
+    assert tuning["strategy"] == "add_minions"
+    assert tuning["added_count"] == 3
+    assert sample_session.game_state["encounter_balance"]["difficulty"] == "medium"
+
+
 async def test_init_combat_prefers_selected_encounter_template(
     db_session,
     sample_session,

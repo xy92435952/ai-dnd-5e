@@ -94,6 +94,23 @@ def test_build_encounter_templates_preserves_structured_hazard_metadata():
     assert hazard["cells"] == ["13_5", {"x": 13, "y": 6}]
 
 
+def test_build_encounter_templates_preserves_authored_target_difficulty():
+    templates = build_encounter_templates_from_module({
+        "scenes": [{
+            "title": "Bandit Yard",
+            "description": "A lone bandit blocks the gate.",
+            "monsters": ["Bandit"],
+            "target_difficulty": "moderate",
+        }],
+        "monsters": [
+            {"name": "Bandit", "cr": "1/8", "xp": 25},
+        ],
+    }, [{"id": "yard"}])
+
+    assert templates[0]["difficulty_hint"] == "light"
+    assert templates[0]["target_difficulty"] == "medium"
+
+
 def test_attach_encounter_templates_to_graph_preserves_runtime_status():
     parsed = {
         "scenes": [{"title": "Cave", "description": "A goblin guard waits."}],
@@ -197,6 +214,44 @@ def test_attach_party_balance_to_template_stages_extra_enemies_for_small_party()
     tuning = balanced["party_balance"]["roster_tuning"]
     assert tuning["strategy"] == "stage_extra_enemies"
     assert tuning["estimated_difficulty_after_tuning"] == "hard"
+
+
+def test_attach_party_balance_to_template_adds_minions_for_underbudget_party():
+    template = {
+        "id": "encounter_yard_0",
+        "location_id": "yard",
+        "difficulty_hint": "moderate",
+        "initial_enemies": [{"name": "Bandit"}],
+    }
+    parsed = {
+        "monsters": [
+            {"name": "Bandit", "cr": "1/8", "xp": 25},
+        ],
+    }
+
+    balanced = attach_party_balance_to_template(
+        template,
+        party=[
+            {"id": "pc-1", "level": 1},
+            {"id": "pc-2", "level": 1},
+            {"id": "pc-3", "level": 1},
+            {"id": "pc-4", "level": 1},
+        ],
+        parsed=parsed,
+    )
+
+    assert [item["name"] for item in balanced["balanced_initial_enemies"]] == [
+        "Bandit",
+        "Bandit",
+        "Bandit",
+        "Bandit",
+    ]
+    assert balanced["staged_initial_enemies"] == []
+    tuning = balanced["party_balance"]["roster_tuning"]
+    assert tuning["strategy"] == "add_minions"
+    assert tuning["active_count"] == 4
+    assert tuning["added_count"] == 3
+    assert tuning["estimated_difficulty_after_tuning"] == "medium"
 
 
 def test_select_encounter_template_prefers_selected_available_template():

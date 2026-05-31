@@ -178,6 +178,7 @@ def attach_party_balance_to_template(
             "strategy": roster_tuning["strategy"],
             "active_count": len(roster_tuning["active_initial_enemies"]),
             "staged_count": len(roster_tuning["staged_initial_enemies"]),
+            "added_count": len(roster_tuning.get("added_initial_enemies") or []),
             "estimated_difficulty_after_tuning": roster_tuning["estimate"].get("difficulty"),
             "estimate_after_tuning": roster_tuning["estimate"],
         }
@@ -274,6 +275,21 @@ def _tune_initial_enemy_roster(
     target: str,
 ) -> dict[str, Any] | None:
     initial_items = list(template.get("initial_enemies") or [])
+    if not initial_items:
+        return None
+
+    staged = _stage_extra_enemies_for_overbudget(initial_items, party, parsed, target)
+    if staged:
+        return staged
+    return _add_minions_for_underbudget(initial_items, party, parsed, target)
+
+
+def _stage_extra_enemies_for_overbudget(
+    initial_items: list[Any],
+    party: list[dict[str, Any]],
+    parsed: dict[str, Any],
+    target: str,
+) -> dict[str, Any] | None:
     if len(initial_items) <= 1:
         return None
 
@@ -309,6 +325,86 @@ def _tune_initial_enemy_roster(
     }
 
 
+def _add_minions_for_underbudget(
+    initial_items: list[Any],
+    party: list[dict[str, Any]],
+    parsed: dict[str, Any],
+    target: str,
+) -> dict[str, Any] | None:
+    target_rank = DIFFICULTY_RANK.get(target, DIFFICULTY_RANK["medium"])
+    max_rank = min(DIFFICULTY_RANK["deadly"] - 1, target_rank + 1)
+    active: list[Any] = list(initial_items)
+    estimate = estimate_encounter_difficulty(
+        party,
+        _template_monsters_for_items(active, parsed),
+    )
+    current_rank = DIFFICULTY_RANK.get(str(estimate.get("difficulty") or "none"), 0)
+    if current_rank <= 0 or current_rank >= target_rank:
+        return None
+
+    added: list[Any] = []
+    for candidate in _underbudget_minion_candidates(initial_items, parsed):
+        trial = [*active, candidate]
+        trial_estimate = estimate_encounter_difficulty(
+            party,
+            _template_monsters_for_items(trial, parsed),
+        )
+        trial_rank = DIFFICULTY_RANK.get(str(trial_estimate.get("difficulty") or "none"), 0)
+        if trial_rank < current_rank or trial_rank > max_rank:
+            continue
+        if trial_estimate.get("adjusted_xp", 0) <= estimate.get("adjusted_xp", 0):
+            continue
+        active.append(candidate)
+        added.append(candidate)
+        estimate = trial_estimate
+        current_rank = trial_rank
+        if current_rank >= target_rank:
+            break
+
+    if not added:
+        return None
+    return {
+        "strategy": "add_minions",
+        "active_initial_enemies": active,
+        "staged_initial_enemies": [],
+        "added_initial_enemies": added,
+        "estimate": estimate,
+    }
+
+
+def _underbudget_minion_candidates(
+    initial_items: list[Any],
+    parsed: dict[str, Any],
+) -> list[Any]:
+    initial_monsters = _template_monsters_for_items(initial_items, parsed)
+    initial_xps = [monster_xp(monster) for monster in initial_monsters if monster_xp(monster) > 0]
+    if not initial_xps:
+        return []
+
+    max_candidate_xp = max(initial_xps)
+    initial_names = {
+        _normalize((item if isinstance(item, str) else item.get("name")))
+        for item in initial_items
+        if (item if isinstance(item, str) else item.get("name"))
+    }
+    candidates: list[Any] = []
+    for monster in _valid_monsters(parsed):
+        name = str(monster.get("name") or "")
+        if not name or _normalize(name) in initial_names:
+            continue
+        if monster_xp(monster) <= max_candidate_xp:
+            candidates.append({"name": name})
+
+    cheapest_index = min(
+        range(len(initial_monsters)),
+        key=lambda index: monster_xp(initial_monsters[index]),
+    )
+    cheapest_item = deepcopy(initial_items[cheapest_index])
+    while len(candidates) < 6:
+        candidates.append(deepcopy(cheapest_item))
+    return candidates
+
+
 def _template_monsters_for_items(
     items: list[Any],
     parsed: dict[str, Any],
@@ -326,6 +422,22 @@ def _target_difficulty(template: dict[str, Any]) -> str:
     if hint == "dangerous":
         return "hard"
     return "medium"
+
+
+def _scene_target_difficulty(scene: dict[str, Any]) -> str:
+    value = str(
+        scene.get("target_difficulty")
+        or scene.get("difficulty")
+        or scene.get("difficulty_target")
+        or ""
+    ).strip().lower()
+    aliases = {
+        "light": "easy",
+        "moderate": "medium",
+        "dangerous": "hard",
+    }
+    value = aliases.get(value, value)
+    return value if value in DIFFICULTY_RANK and value != "none" else ""
 
 
 def _balance_recommendation(estimated: Any, target: str) -> str:
@@ -364,7 +476,8 @@ def _build_template(
     enemy_names = [str(monster.get("name")) for monster in monsters if monster.get("name")]
     location_name = str(scene.get("title") or scene.get("name") or scene.get("location") or "Encounter")
     xp_total = sum(monster_xp(monster) for monster in monsters)
-    return {
+    target_difficulty = _scene_target_difficulty(scene)
+    template = {
         "version": ENCOUNTER_TEMPLATE_VERSION,
         "id": f"encounter_{_slug(location_id)}_{template_index}",
         "name": str(scene.get("encounter_name") or f"{location_name} Encounter"),
@@ -388,6 +501,9 @@ def _build_template(
         "reward_hints": _reward_hints(parsed),
         "scene_index": scene_index,
     }
+    if target_difficulty:
+        template["target_difficulty"] = target_difficulty
+    return template
 
 
 def _node_id_for_scene(nodes: list[dict[str, Any]] | None, scene: dict[str, Any], scene_index: int) -> str:
