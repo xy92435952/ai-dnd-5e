@@ -1,4 +1,5 @@
 import { buildCombatTurnCoach } from '../../utils/combatTurnCoach'
+import { buildCombatActionCoach } from '../../utils/combatActionCoach'
 
 export default function TurnBanner({
   roundNumber,
@@ -12,6 +13,10 @@ export default function TurnBanner({
   syncBlocked,
   room,
   controllerName,
+  turnState,
+  skillBar,
+  selectedTarget,
+  moveMode,
   showThreat,
   onToggleThreat,
 }) {
@@ -24,6 +29,15 @@ export default function TurnBanner({
     syncBlocked,
     room,
     controllerName,
+  })
+  const actionCoach = buildCombatActionCoach({
+    isPlayerTurn,
+    isProcessing,
+    syncBlocked,
+    turnState,
+    skillBar,
+    selectedTarget,
+    moveMode,
   })
 
   return (
@@ -52,6 +66,17 @@ export default function TurnBanner({
         <strong className="turn-coach-label">{coach.label}</strong>
         <span className="turn-coach-detail">{coach.detail}</span>
       </div>
+
+      {actionCoach.visible && (
+        <div className="turn-action-coach" aria-label="Turn action coach">
+          {actionCoach.items.map(item => (
+            <span key={item.key} className={`turn-action-step ${item.tone || ''}`}>
+              <b>{item.label}</b>
+              <em>{item.value}</em>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

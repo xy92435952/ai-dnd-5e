@@ -1842,6 +1842,51 @@
   border-color: rgba(138,90,24,.4);
   background: rgba(16,12,8,.4);
 }
+.turn-action-coach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+.turn-action-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.turn-action-step b {
+  color: var(--parchment);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.turn-action-step em {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: normal;
+}
+.turn-action-step.ready {
+  border-color: rgba(138,234,160,.25);
+  background: rgba(138,234,160,.07);
+}
+.turn-action-step.ready em { color: #8aeaa0; }
+.turn-action-step.warn {
+  border-color: rgba(240,208,96,.32);
+  background: rgba(240,208,96,.08);
+}
+.turn-action-step.warn em { color: var(--gold); }
+.turn-action-step.spent {
+  opacity: .68;
+}
+.turn-action-step.spent em { color: var(--muted); }
 
 /* 横向先攻条 */
 .init-ribbon {

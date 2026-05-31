@@ -64,4 +64,30 @@ describe('TurnBanner', () => {
     fireEvent.click(button)
     expect(onToggleThreat).toHaveBeenCalledTimes(1)
   })
+
+  it('renders the player turn action coach when the player can act', () => {
+    render(
+      <TurnBanner
+        roundNumber={2}
+        currentTurnName="Hero"
+        currentTurnEntry={{ character_id: 'hero-1', name: 'Hero', is_player: true }}
+        currentTurnEntity={{ id: 'hero-1', name: 'Hero', is_player: true }}
+        controlledCharacter={{ id: 'hero-1', name: 'Hero' }}
+        isPlayerTurn={true}
+        turnState={{ action_used: false, movement_max: 6, movement_used: 2, reaction_used: false }}
+        skillBar={[{ k: 'atk', kind: 'attack', available: true }]}
+        selectedTarget={null}
+        showThreat={false}
+        onToggleThreat={vi.fn()}
+      />
+    )
+
+    const coach = screen.getByLabelText('Turn action coach')
+    expect(coach).toHaveTextContent('Action')
+    expect(coach).toHaveTextContent('Pick target')
+    expect(coach).toHaveTextContent('Move')
+    expect(coach).toHaveTextContent('4 sq')
+    expect(coach).toHaveTextContent('Reaction')
+    expect(coach).toHaveTextContent('Held')
+  })
 })

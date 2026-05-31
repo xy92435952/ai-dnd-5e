@@ -186,6 +186,10 @@ export default function Combat() {
         syncBlocked={combatSyncBlocked}
         room={room}
         controllerName={currentTurnControllerName}
+        turnState={turnState}
+        skillBar={skillBar}
+        selectedTarget={selectedTarget}
+        moveMode={moveMode}
         showThreat={showThreat}
         onToggleThreat={() => { setShowThreat(v => !v); ignoreOptionalEffect(() => JuiceAudio.click()) }}
       />
