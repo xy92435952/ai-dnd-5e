@@ -35,6 +35,7 @@ function makeCtx(overrides = {}) {
         ],
       },
       background_features: {},
+      background_equipment: {},
       racial_languages: {},
       all_languages: [],
       weapons: {
@@ -80,5 +81,37 @@ describe('CharacterCreateStepEquipment', () => {
     fireEvent.click(screen.getByText('轻装弓手').closest('.equip-card'))
 
     expect(ctx.setEquipChoice).toHaveBeenCalledWith(1)
+  })
+
+  it('previews background starting gear and gold when a background is selected', () => {
+    render(<CharacterCreateStepEquipment ctx={makeCtx({
+      form: { background: '士兵', race: '' },
+      options: {
+        ...makeCtx().options,
+        background_features: {
+          士兵: {
+            feature: '军衔',
+            feature_desc: '军事组织承认你的军衔。',
+            skills: ['运动', '威吓'],
+            tools: ['赌具'],
+            languages: 0,
+          },
+        },
+        background_equipment: {
+          士兵: {
+            gold: 10,
+            items: [
+              { name: 'Insignia of Rank', zh: '军衔徽记', quantity: 1 },
+              { name: 'Gaming Set', zh: '赌具', quantity: 1 },
+            ],
+          },
+        },
+      },
+    })} />)
+
+    const backgroundGear = screen.getByLabelText('背景起始物品')
+    expect(backgroundGear).toHaveTextContent('金币 +10 gp')
+    expect(backgroundGear).toHaveTextContent('军衔徽记')
+    expect(backgroundGear).toHaveTextContent('赌具')
   })
 })

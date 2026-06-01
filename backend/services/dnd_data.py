@@ -448,6 +448,36 @@ BACKGROUND_FEATURES = {
     "Hermit":       {"skills": ["医药", "宗教"],   "languages": 1, "tools": ["草药工具"],                           "feature": "发现", "feature_desc": "你在隐居中发现了一个重大秘密或真理"},
 }
 
+BACKGROUND_EQUIPMENT = {
+    "侍从":       {"gold": 15, "items": [("Holy Symbol", 1), ("Prayer Book", 1), ("Stick of Incense", 5), ("Vestments", 1), ("Common Clothes", 1), ("Pouch", 1)]},
+    "罪犯":       {"gold": 15, "items": [("Crowbar", 1), ("Dark Common Clothes", 1), ("Pouch", 1)]},
+    "民间英雄":   {"gold": 10, "items": [("Artisan's Tools", 1), ("Shovel", 1), ("Iron Pot", 1), ("Common Clothes", 1), ("Pouch", 1)]},
+    "贵族":       {"gold": 25, "items": [("Fine Clothes", 1), ("Signet Ring", 1), ("Scroll of Pedigree", 1), ("Purse", 1)]},
+    "学者":       {"gold": 10, "items": [("Ink Bottle", 1), ("Quill", 1), ("Small Knife", 1), ("Letter from a Dead Colleague", 1), ("Common Clothes", 1), ("Pouch", 1)]},
+    "士兵":       {"gold": 10, "items": [("Insignia of Rank", 1), ("Trophy from Fallen Enemy", 1), ("Gaming Set", 1), ("Common Clothes", 1), ("Pouch", 1)]},
+    "娱乐表演者": {"gold": 15, "items": [("Musical Instrument", 1), ("Admirer's Favor", 1), ("Costume", 1), ("Pouch", 1)]},
+    "隐士":       {"gold": 5,  "items": [("Scroll Case", 1), ("Winter Blanket", 1), ("Common Clothes", 1), ("Herbalism Kit", 1), ("Pouch", 1)]},
+    "骗子":       {"gold": 15, "items": [("Fine Clothes", 1), ("Disguise Kit", 1), ("Tools of the Con", 1), ("Pouch", 1)]},
+    "异乡人":     {"gold": 10, "items": [("Staff", 1), ("Hunting Trap", 1), ("Trophy from Hunted Animal", 1), ("Traveler's Clothes", 1), ("Pouch", 1)]},
+    "公会工匠":   {"gold": 15, "items": [("Artisan's Tools", 1), ("Letter of Introduction", 1), ("Traveler's Clothes", 1), ("Pouch", 1)]},
+    "流浪儿":     {"gold": 10, "items": [("Small Knife", 1), ("City Map", 1), ("Pet Mouse", 1), ("Token from Parents", 1), ("Common Clothes", 1), ("Pouch", 1)]},
+}
+
+BACKGROUND_EQUIPMENT.update({
+    "Acolyte": BACKGROUND_EQUIPMENT["侍从"],
+    "Criminal": BACKGROUND_EQUIPMENT["罪犯"],
+    "Folk Hero": BACKGROUND_EQUIPMENT["民间英雄"],
+    "Noble": BACKGROUND_EQUIPMENT["贵族"],
+    "Sage": BACKGROUND_EQUIPMENT["学者"],
+    "Soldier": BACKGROUND_EQUIPMENT["士兵"],
+    "Entertainer": BACKGROUND_EQUIPMENT["娱乐表演者"],
+    "Hermit": BACKGROUND_EQUIPMENT["隐士"],
+    "Charlatan": BACKGROUND_EQUIPMENT["骗子"],
+    "Outlander": BACKGROUND_EQUIPMENT["异乡人"],
+    "Guild Artisan": BACKGROUND_EQUIPMENT["公会工匠"],
+    "Urchin": BACKGROUND_EQUIPMENT["流浪儿"],
+})
+
 # ── 种族语言 ─────────────────────────────────────────────────
 
 RACIAL_LANGUAGES = {
@@ -626,6 +656,36 @@ GEAR_PACK_ZH = {
     "Parchment":         "羊皮纸",
     "Little Bag of Sand": "小袋沙子",
     "Small Knife":       "小刀",
+    "Prayer Book":       "祈祷书",
+    "Stick of Incense":  "熏香",
+    "Common Clothes":    "普通衣物",
+    "Dark Common Clothes": "深色普通衣物",
+    "Pouch":             "钱袋",
+    "Purse":             "钱包",
+    "Artisan's Tools":   "工匠工具",
+    "Shovel":            "铲子",
+    "Iron Pot":          "铁锅",
+    "Signet Ring":       "图章戒指",
+    "Scroll of Pedigree": "血统卷轴",
+    "Quill":             "羽毛笔",
+    "Letter from a Dead Colleague": "已故同僚来信",
+    "Insignia of Rank":  "军衔徽记",
+    "Trophy from Fallen Enemy": "战利纪念物",
+    "Gaming Set":        "赌具",
+    "Musical Instrument": "乐器",
+    "Admirer's Favor":   "仰慕者信物",
+    "Scroll Case":       "卷轴匣",
+    "Winter Blanket":    "冬毯",
+    "Herbalism Kit":     "草药工具",
+    "Tools of the Con":  "骗术道具",
+    "Staff":             "手杖",
+    "Hunting Trap":      "捕兽夹",
+    "Trophy from Hunted Animal": "猎物纪念物",
+    "Traveler's Clothes": "旅行者衣物",
+    "Letter of Introduction": "介绍信",
+    "City Map":          "城市地图",
+    "Pet Mouse":         "宠物鼠",
+    "Token from Parents": "父母遗物",
 }
 
 # ── 护甲/武器熟练度 ──────────────────────────────────────────

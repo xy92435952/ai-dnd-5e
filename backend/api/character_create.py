@@ -55,7 +55,11 @@ async def create_player_character(
     except CharacterCreationError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
 
-    equipment_data = build_starting_equipment(cls_key, req.equipment_choice)
+    equipment_data = build_starting_equipment(
+        cls_key,
+        req.equipment_choice,
+        background=req.background,
+    )
     bg_features = BACKGROUND_FEATURES.get(req.background or "", {})
     bg_skills = bg_features.get("skills", [])
     bg_tools = bg_features.get("tools", [])

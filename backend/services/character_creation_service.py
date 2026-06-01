@@ -4,6 +4,7 @@ from services.dnd_rules import (
     ALL_LANGUAGES,
     ALL_SKILLS,
     ARMOR,
+    BACKGROUND_EQUIPMENT,
     CLASS_SKILL_CHOICES,
     FIGHTING_STYLE_CLASSES,
     RACIAL_LANGUAGES,
@@ -30,7 +31,12 @@ class CharacterCreationError(Exception):
         return self.detail
 
 
-def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict:
+def build_starting_equipment(
+    cls_key: str,
+    equipment_choice: int | None,
+    *,
+    background: str | None = None,
+) -> dict:
     if equipment_choice is None:
         return {}
 
@@ -70,7 +76,25 @@ def build_starting_equipment(cls_key: str, equipment_choice: int | None) -> dict
         else:
             _append_gear_items(gear, name)
 
-    return {"weapons": weapons, "armor": armor_list, "shield": shield, "gear": gear, "gold": 10}
+    equipment = {"weapons": weapons, "armor": armor_list, "shield": shield, "gear": gear, "gold": 10}
+    return apply_background_equipment(equipment, background)
+
+
+def apply_background_equipment(equipment: dict | None, background: str | None) -> dict:
+    background_loadout = BACKGROUND_EQUIPMENT.get(background or "")
+    if not background_loadout:
+        return equipment or {}
+
+    updated = {
+        **(equipment or {}),
+        "gear": list((equipment or {}).get("gear") or []),
+    }
+    for item_name, quantity in background_loadout.get("items", []):
+        for _ in range(max(0, int(quantity))):
+            updated["gear"].append(_build_gear_entry(item_name, source_background=background))
+
+    updated["gold"] = int(updated.get("gold", 0) or 0) + int(background_loadout.get("gold", 0) or 0)
+    return updated
 
 
 def _append_gear_items(gear: list[dict], name: str) -> None:
@@ -84,10 +108,17 @@ def _append_gear_items(gear: list[dict], name: str) -> None:
     gear.append(_build_gear_entry(name))
 
 
-def _build_gear_entry(name: str, *, source_pack: str | None = None) -> dict:
+def _build_gear_entry(
+    name: str,
+    *,
+    source_pack: str | None = None,
+    source_background: str | None = None,
+) -> dict:
     entry = {**SHOP_GEAR.get(name, {}), "name": name, "zh": get_item_zh(name)}
     if source_pack:
         entry["source_pack"] = source_pack
+    if source_background:
+        entry["source_background"] = source_background
     return entry
 
 

@@ -1,25 +1,43 @@
 import React from 'react'
 
 export default function CharacterCreateStepEquipmentBackground({ form, options }) {
-  if (!form.background || !options.background_features?.[form.background]) return null
+  const backgroundFeature = options.background_features?.[form.background]
+  const backgroundEquipment = options.background_equipment?.[form.background]
+
+  if (!form.background || !backgroundFeature) return null
 
   return (
     <div className="bg-feat">
-      <div className="bf-title">◈ 背景特性 · {options.background_features[form.background].feature} ◈</div>
+      <div className="bf-title">◈ 背景特性 · {backgroundFeature.feature} ◈</div>
       <div className="bf-desc">
-        {options.background_features[form.background].feature_desc}
+        {backgroundFeature.feature_desc}
       </div>
       <div className="bf-tags">
-        {(options.background_features[form.background].skills || []).map(s => (
+        {(backgroundFeature.skills || []).map(s => (
           <span key={s} className="tag tag-gold">⚔ {s}</span>
         ))}
-        {(options.background_features[form.background].tools || []).map(t => (
+        {(backgroundFeature.tools || []).map(t => (
           <span key={t} className="tag">◈ {t}</span>
         ))}
-        {options.background_features[form.background].languages > 0 && (
-          <span className="tag">◈ 额外语言 × {options.background_features[form.background].languages}</span>
+        {backgroundFeature.languages > 0 && (
+          <span className="tag">◈ 额外语言 × {backgroundFeature.languages}</span>
         )}
       </div>
+      {backgroundEquipment && (
+        <>
+          <div className="bf-desc">背景起始物品</div>
+          <div className="bf-tags" aria-label="背景起始物品">
+            {backgroundEquipment.gold > 0 && (
+              <span className="tag tag-gold">金币 +{backgroundEquipment.gold} gp</span>
+            )}
+            {(backgroundEquipment.items || []).map((item, index) => (
+              <span key={`${item.name}-${index}`} className="tag">
+                {item.zh || item.name}{item.quantity > 1 ? ` ×${item.quantity}` : ''}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

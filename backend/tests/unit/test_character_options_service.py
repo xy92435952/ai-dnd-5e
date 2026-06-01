@@ -1,4 +1,5 @@
 from services.character_options_service import (
+    build_background_equipment_options,
     build_character_options,
     build_starting_gear_pack_options,
 )
@@ -28,6 +29,8 @@ def test_build_character_options_includes_spell_metadata_for_spellcasters():
         "quantity": 1,
     }
     assert {"name": "Torch", "zh": "火把", "quantity": 10} in options["starting_gear_packs"]["Explorer's Pack"]
+    assert options["background_equipment"]["士兵"]["gold"] == 10
+    assert {"name": "Insignia of Rank", "zh": "军衔徽记", "quantity": 1} in options["background_equipment"]["士兵"]["items"]
 
 
 def test_build_starting_gear_pack_options_labels_pack_contents():
@@ -38,3 +41,11 @@ def test_build_starting_gear_pack_options_labels_pack_contents():
         "zh": "小刀",
         "quantity": 1,
     }
+
+
+def test_build_background_equipment_options_labels_items_and_gold():
+    backgrounds = build_background_equipment_options()
+
+    assert backgrounds["学者"]["gold"] == 10
+    assert {"name": "Quill", "zh": "羽毛笔", "quantity": 1} in backgrounds["学者"]["items"]
+    assert backgrounds["Sage"]["items"] == backgrounds["学者"]["items"]

@@ -63,6 +63,36 @@ def test_build_starting_equipment_expands_thrown_weapon_bundle():
     assert all(item["name"] != "Two Handaxes" for item in equipment["gear"])
 
 
+def test_build_starting_equipment_adds_background_gear_and_gold():
+    equipment = character_creation_service.build_starting_equipment(
+        "Fighter",
+        0,
+        background="士兵",
+    )
+
+    assert equipment["gold"] == 20
+    assert equipment["gear"][-5:] == [
+        {"name": "Insignia of Rank", "zh": "军衔徽记", "source_background": "士兵"},
+        {"name": "Trophy from Fallen Enemy", "zh": "战利纪念物", "source_background": "士兵"},
+        {"name": "Gaming Set", "zh": "赌具", "source_background": "士兵"},
+        {"name": "Common Clothes", "zh": "普通衣物", "source_background": "士兵"},
+        {"name": "Pouch", "zh": "钱袋", "source_background": "士兵"},
+    ]
+    assert equipment["gear"][0]["source_pack"] == "Explorer's Pack"
+
+
+def test_build_starting_equipment_supports_english_background_alias():
+    equipment = character_creation_service.build_starting_equipment(
+        "Wizard",
+        0,
+        background="Sage",
+    )
+
+    assert equipment["gold"] == 20
+    assert any(item["name"] == "Letter from a Dead Colleague" for item in equipment["gear"])
+    assert equipment["gear"][-1]["source_background"] == "Sage"
+
+
 def test_build_starting_equipment_expands_spellcasting_focus_as_gear():
     equipment = character_creation_service.build_starting_equipment("Wizard", 0)
 

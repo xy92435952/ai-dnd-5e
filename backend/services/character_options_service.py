@@ -7,6 +7,7 @@ from services.dnd_rules import (
     ASI_LEVELS_FIGHTER,
     ASI_LEVELS_ROGUE,
     BACKGROUNDS,
+    BACKGROUND_EQUIPMENT,
     BACKGROUND_FEATURES,
     CLASSES,
     CLASS_ARMOR_PROFICIENCY,
@@ -65,6 +66,7 @@ def build_character_options(spell_service) -> dict:
         "armor": ARMOR,
         "starting_equipment": STARTING_EQUIPMENT,
         "starting_gear_packs": build_starting_gear_pack_options(),
+        "background_equipment": build_background_equipment_options(),
         "background_features": BACKGROUND_FEATURES,
         "racial_languages": RACIAL_LANGUAGES,
         "all_languages": ALL_LANGUAGES,
@@ -86,4 +88,17 @@ def build_starting_gear_pack_options() -> dict:
             for item_name, quantity in items
         ]
         for pack_name, items in STARTING_GEAR_PACKS.items()
+    }
+
+
+def build_background_equipment_options() -> dict:
+    return {
+        background: {
+            "gold": config.get("gold", 0),
+            "items": [
+                {"name": item_name, "zh": get_item_zh(item_name), "quantity": quantity}
+                for item_name, quantity in config.get("items", [])
+            ],
+        }
+        for background, config in BACKGROUND_EQUIPMENT.items()
     }

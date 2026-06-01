@@ -517,7 +517,7 @@ def _build_character(
     catchphrase: str | None = None,
     backstory: str | None = None,
 ) -> Character:
-    equipment = build_starting_equipment(char_class, equipment_choice)
+    equipment = build_starting_equipment(char_class, equipment_choice, background=background)
     derived = calc_derived(
         char_class,
         level,
