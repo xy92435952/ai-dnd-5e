@@ -1123,6 +1123,98 @@ async def test_declined_counterspell_resumes_pending_ai_spell(
     assert "resume_spell_reaction" not in ai_turn_combat.turn_states[sample_character.id]
 
 
+async def test_companion_ai_spell_victory_ends_combat(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_spell as ai_turn_spell
+    from models import Character
+
+    companion = Character(
+        id=str(_uuid.uuid4()),
+        session_id=sample_session.id,
+        user_id=None,
+        is_player=False,
+        name="Party Mage",
+        race="Elf",
+        char_class="Wizard",
+        level=3,
+        background="Sage",
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 8,
+            "ac": 12,
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3, "dex": 2},
+            "spell_save_dc": 13,
+            "spell_attack_bonus": 5,
+        },
+        hp_current=8,
+        known_spells=["魔法飞弹"],
+        spell_slots={"1st": 1},
+        conditions=[],
+        condition_durations={},
+    )
+    db_session.add(companion)
+
+    state = sample_session.game_state or {}
+    state["companion_ids"] = [companion.id]
+    state["enemies"][0]["hp_current"] = 1
+    state["enemies"][0]["derived"] = {
+        **state["enemies"][0].get("derived", {}),
+        "hp_max": 9,
+        "ac": 13,
+    }
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    ai_turn_combat.turn_order = [
+        {"character_id": companion.id, "name": companion.name, "initiative": 18, "is_player": False, "is_enemy": False},
+        {"character_id": sample_character.id, "name": sample_character.name, "initiative": 12, "is_player": True, "is_enemy": False},
+    ]
+    ai_turn_combat.entity_positions = {
+        companion.id: {"x": 1, "y": 1},
+        "orc-1": {"x": 2, "y": 1},
+    }
+    flag_modified(ai_turn_combat, "turn_order")
+    flag_modified(ai_turn_combat, "entity_positions")
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "spell",
+            "target_id": "orc-1",
+            "action_name": "魔法飞弹",
+            "spell_level": 1,
+            "reason": "finish the fight",
+        }
+
+    async def fake_narrate_action(**_kwargs):
+        return ""
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_spell, "narrate_action", fake_narrate_action)
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["combat_over"] is True
+    assert body["outcome"] == "victory"
+    assert body["target_new_hp"] == 0
+
+    await db_session.refresh(sample_session)
+    await db_session.refresh(companion)
+    assert sample_session.combat_active is False
+    assert companion.spell_slots["1st"] == 0
+    deleted = await db_session.execute(
+        select(CombatState).where(CombatState.id == ai_turn_combat.id)
+    )
+    assert deleted.scalar_one_or_none() is None
+
+
 async def test_counterspell_prompt_falls_back_to_party_caster_when_target_cannot_react(
     client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):

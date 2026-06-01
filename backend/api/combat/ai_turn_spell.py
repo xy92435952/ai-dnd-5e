@@ -1,16 +1,20 @@
 """
 api.combat.ai_turn_spell — AI spell-casting branch for combat turns.
 """
+from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from api.combat._shared import _get_ts, _save_ts
 from api.combat.ai_turn_utils import advance_ai_turn, build_counterspell_prompt, tick_ai_actor_conditions
-from models import GameLog
+from models import Character, CombatState, GameLog
 from services.character_roster import CharacterRoster
 from services.combat_ai_spell_service import resolve_ai_spell_action, resolve_ai_spell_level
 from services.combat_narrator import narrate_action
+from services.combat_service import CombatService
 from services.dnd_rules import _normalize_class
 from services.spell_service import spell_service
+
+svc = CombatService()
 
 
 async def _counterspell_reactor_candidates(db, session, target_id: str | None):
@@ -46,6 +50,21 @@ def find_resumable_spell_reaction(combat, actor_id: str):
         ):
             return str(reactor_id), dict(state or {}), pending
     return None, None, None
+
+
+async def _check_ai_spell_combat_outcome(db, session, enemies: list, all_characters: list):
+    party_hps = []
+    for character in all_characters:
+        character_id = character.get("id")
+        if not character_id:
+            continue
+        db_character = await db.get(Character, str(character_id))
+        party_hps.append(
+            db_character.hp_current
+            if db_character
+            else int(character.get("hp_current") or 0)
+        )
+    return svc.check_combat_over(enemies, max(party_hps, default=0))
 
 
 async def handle_ai_spell_action(
@@ -238,6 +257,20 @@ async def handle_ai_spell_action(
         db.add(log)
 
     await advance_ai_turn(combat, session, db, turn_order, next_index)
+    combat_over, outcome = await _check_ai_spell_combat_outcome(
+        db,
+        session,
+        enemies,
+        all_characters,
+    )
+    if combat_over:
+        session.combat_active = False
+        old_combat = (
+            await db.execute(select(CombatState).where(CombatState.session_id == session_id))
+        ).scalars().first()
+        if old_combat:
+            await db.delete(old_combat)
+
     flag_modified(session, "game_state")
     await db.commit()
     return {
@@ -251,7 +284,7 @@ async def handle_ai_spell_action(
         "target_state": spell_resolution.target_state,
         "next_turn_index": next_index,
         "round_number": combat.round_number,
-        "combat_over": False,
-        "outcome": None,
+        "combat_over": combat_over,
+        "outcome": outcome,
         "entity_positions": dict(combat.entity_positions or {}),
     }
