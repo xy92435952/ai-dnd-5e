@@ -22,6 +22,7 @@ from services.combat_ai_attack_service import (
 )
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
+from services.combat_defender_reaction_service import apply_defender_interception
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_movement_rules_service import (
     MovementRuleError,
@@ -241,13 +242,24 @@ async def handle_ai_attack_action(
             has_ally_adjacent_to=_has_ally_adjacent_to,
         ):
             extra_adv = True
+        defender_interception = None
+        if target_is_enemy and not target_dodging:
+            defender_interception = apply_defender_interception(
+                combat=combat,
+                attacker_id=actor_id,
+                target_id=target_id,
+                enemies=enemies,
+                positions=positions,
+                get_turn_state_func=_get_ts,
+                save_turn_state_func=_save_ts,
+            )
 
         for atk_idx in range(num_attacks):
             result_obj = svc.resolve_melee_attack(
                 attacker_derived=actor_derived,
                 target_derived=ai_target_derived,
                 advantage=extra_adv if atk_idx == 0 else False,
-                disadvantage=target_dodging,
+                disadvantage=target_dodging or (bool(defender_interception) and atk_idx == 0),
                 is_ranged=ai_is_ranged,
                 attacker_conditions=(
                     list(e.get("conditions", []))
@@ -270,6 +282,11 @@ async def handle_ai_attack_action(
                     if condition != "guiding_bolt"
                 ]
             if first_attack_roll is None:
+                if defender_interception:
+                    result_obj.attack_roll = {
+                        **result_obj.attack_roll,
+                        "defender_interception": defender_interception,
+                    }
                 first_attack_roll = result_obj
 
             atk_damage = result_obj.damage
@@ -415,6 +432,8 @@ async def handle_ai_attack_action(
             attack_narration = svc._build_narration(actor_name, target_name or target_data.get("name", "?"), result_obj.attack_roll, applied_damage)
             if extra_damage_notes:
                 attack_narration += f" ({', '.join(extra_damage_notes)})"
+            if defender_interception and atk_idx == 0:
+                attack_narration += f"（{defender_interception['defender_name']} 护卫干扰）"
             all_narrations.append(attack_narration)
 
             if target_new_hp is not None and target_new_hp <= 0 and not is_enemy and achar:

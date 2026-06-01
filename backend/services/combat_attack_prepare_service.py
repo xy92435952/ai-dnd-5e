@@ -19,6 +19,7 @@ from services.combat_attack_roll_service import (
     validate_attack_turn_state,
 )
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
+from services.combat_defender_reaction_service import apply_defender_interception
 from services.combat_grid_service import check_attack_range
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
@@ -44,6 +45,7 @@ class PreparedAttackRoll:
     weapon_resource: dict[str, Any] | None
     turn_state: dict[str, Any]
     attacks_max: int
+    defender_interception: dict[str, Any] | None
 
 
 async def prepare_attack_roll(
@@ -153,6 +155,19 @@ async def prepare_attack_roll(
         cover_bonus=cover_bonus,
         is_ranged=is_ranged,
     )
+    defender_interception = None
+    if target.is_enemy and not (attacker_disadvantage or defense_disadvantage):
+        defender_interception = apply_defender_interception(
+            combat=combat,
+            attacker_id=player_id,
+            target_id=resolved_target_id,
+            enemies=enemies,
+            positions=positions,
+            get_turn_state_func=get_turn_state_func,
+            save_turn_state_func=save_turn_state_func,
+        )
+        if defender_interception:
+            defense_disadvantage = True
 
     attack_attacker_derived, attack_target_derived = build_attack_deriveds(
         attacker_derived=player_derived,
@@ -180,6 +195,8 @@ async def prepare_attack_roll(
         d20_value=d20_value,
         crit_threshold=crit_threshold,
     )
+    if defender_interception:
+        attack_roll_result = {**attack_roll_result, "defender_interception": defender_interception}
     if (
         should_auto_crit_melee_target(target_conditions, distance=distance, is_ranged=is_ranged)
         and attack_roll_result.get("hit")
@@ -226,6 +243,8 @@ async def prepare_attack_roll(
         dmg_mod=weapon_damage.dmg_mod,
         weapon_resource=weapon_resource,
     )
+    if defender_interception:
+        pending_attack["defender_interception"] = defender_interception
     turn_state = consume_attack_turn_state(
         turn_state,
         max_attacks=max_attacks,
@@ -248,4 +267,5 @@ async def prepare_attack_roll(
         weapon_resource=weapon_resource,
         turn_state=turn_state,
         attacks_max=max_attacks,
+        defender_interception=defender_interception,
     )

@@ -108,6 +108,9 @@ async def resolve_pending_attack_damage(
         is_ranged=is_ranged,
         get_rage_bonus=svc.get_rage_bonus,
     )
+    defender_interception = pending.get("defender_interception")
+    if defender_interception:
+        extra_damage_notes.append(f"{defender_interception['defender_name']}护卫干扰")
 
     subclass_effects = player_derived.get("subclass_effects", {})
     turn_state = get_turn_state(combat, attacker_entity_id)

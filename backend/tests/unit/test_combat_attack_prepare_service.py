@@ -514,6 +514,59 @@ async def test_prepare_attack_roll_applies_disadvantage_against_dodging_target()
 
 
 @pytest.mark.asyncio
+async def test_prepare_attack_roll_uses_enemy_defender_interception():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["guard-1"] = {"x": 1, "y": 1}
+    captured = {}
+
+    def capture_roll_attack(**kwargs):
+        captured.update(kwargs)
+        return fixed_roll_attack(**kwargs)
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=FakePlayer(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[
+            {
+                "id": "goblin-1",
+                "name": "哥布林",
+                "hp_current": 7,
+                "derived": {"ac": 12},
+                "conditions": [],
+                "tactical_role": "striker",
+            },
+            {
+                "id": "guard-1",
+                "name": "盾卫",
+                "hp_current": 18,
+                "derived": {"ac": 16},
+                "conditions": [],
+                "tactical_role": "defender",
+            },
+        ],
+        roll_attack_func=capture_roll_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.disadvantage is True
+    assert captured["disadvantage"] is True
+    assert prepared.defender_interception["defender_id"] == "guard-1"
+    assert prepared.attack_roll_result["defender_interception"]["defender_name"] == "盾卫"
+    assert prepared.pending_attack["defender_interception"]["effect"] == "disadvantage"
+    assert combat.turn_states["guard-1"]["reaction_used"] is True
+
+
+@pytest.mark.asyncio
 async def test_prepare_attack_roll_passes_attacker_conditions_to_roll_attack():
     from services.combat_attack_prepare_service import prepare_attack_roll
 

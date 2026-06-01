@@ -17,6 +17,7 @@ from services.combat_damage_bonus_service import (
     apply_sustained_damage_effects,
     roll_extra_damage_dice,
 )
+from services.combat_defender_reaction_service import apply_defender_interception
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
 from services.combat_temporary_hp_service import apply_generic_temporary_hp_to_character
@@ -49,6 +50,7 @@ class PreparedDirectAttack:
     weapon_resource: dict[str, Any] | None
     turn_state: dict[str, Any]
     attacks_max: int
+    defender_interception: dict[str, Any] | None
 
 
 async def prepare_direct_attack(
@@ -144,6 +146,19 @@ async def prepare_direct_attack(
         cover_bonus=cover_bonus,
         is_ranged=is_ranged,
     )
+    defender_interception = None
+    if target.is_enemy and not (attack_disadvantage or defense_disadvantage):
+        defender_interception = apply_defender_interception(
+            combat=combat,
+            attacker_id=player_id,
+            target_id=resolved_target_id,
+            enemies=enemies,
+            positions=positions,
+            get_turn_state_func=get_turn_state_func,
+            save_turn_state_func=save_turn_state_func,
+        )
+        if defender_interception:
+            defense_disadvantage = True
 
     attack_attacker_derived, attack_target_derived = build_attack_deriveds(
         attacker_derived=player_derived,
@@ -186,6 +201,9 @@ async def prepare_direct_attack(
     damage = attack_result_obj.damage
     damage_roll = attack_result_obj.damage_roll
     extra_damage_notes: list[str] = []
+    if defender_interception:
+        attack_result = {**attack_result, "defender_interception": defender_interception}
+        extra_damage_notes.append(f"{defender_interception['defender_name']}护卫干扰")
     sneak_attack_applied = False
     sneak_attack_damage = 0
 
@@ -312,6 +330,7 @@ async def prepare_direct_attack(
         weapon_resource=weapon_resource,
         turn_state=turn_state,
         attacks_max=max_attacks,
+        defender_interception=defender_interception,
     )
 
 

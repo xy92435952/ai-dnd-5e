@@ -258,6 +258,7 @@ async def combat_action(
         "sneak_attack":         prepared.sneak_attack_applied,
         "sneak_attack_damage":  prepared.sneak_attack_damage,
         "extra_damage_notes":   extra_damage_notes,
+        "defender_interception": prepared.defender_interception,
         "attacks_made":         ts["attacks_made"],
         "attacks_max":          prepared.attacks_max,
         "attacks_remaining":    attacks_remaining,

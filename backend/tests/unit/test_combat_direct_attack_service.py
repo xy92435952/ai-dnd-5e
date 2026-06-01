@@ -265,6 +265,51 @@ async def test_prepare_direct_attack_applies_disadvantage_against_dodging_target
 
 
 @pytest.mark.asyncio
+async def test_prepare_direct_attack_uses_enemy_defender_interception():
+    from services import combat_direct_attack_service as direct_attack
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["guard-1"] = {"x": 1, "y": 1}
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=FakeFighter(),
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[
+            {
+                "id": "goblin-1",
+                "name": "哥布林",
+                "hp_current": 8,
+                "derived": {"ac": 15},
+                "conditions": [],
+                "tactical_role": "striker",
+            },
+            {
+                "id": "guard-1",
+                "name": "盾卫",
+                "hp_current": 18,
+                "derived": {"ac": 16},
+                "conditions": [],
+                "tactical_role": "defender",
+            },
+        ],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert combat_service.last_attack_kwargs["disadvantage"] is True
+    assert prepared.defender_interception["defender_id"] == "guard-1"
+    assert prepared.attack_result["defender_interception"]["defender_name"] == "盾卫"
+    assert prepared.extra_damage_notes == ["盾卫护卫干扰"]
+    assert combat.turn_states["guard-1"]["reaction_used"] is True
+
+
+@pytest.mark.asyncio
 async def test_prepare_direct_attack_applies_hex_on_marked_target(monkeypatch):
     from services import combat_damage_bonus_service
     from services import combat_direct_attack_service as direct_attack
