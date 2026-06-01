@@ -90,6 +90,7 @@ async def handle_ai_attack_action(
     total_damage = 0
     all_narrations = []
     target_attack_events = []
+    skirmisher_reposition = None
     state = session.game_state or {}
 
     ai_class = ""
@@ -472,6 +473,7 @@ async def handle_ai_attack_action(
                 "to": {"x": reposition["x"], "y": reposition["y"]},
                 "steps": reposition["steps"],
             }
+            skirmisher_reposition = dict(actor_ts_after["skirmisher_reposition"])
             _save_ts(combat, actor_id, actor_ts_after)
             all_narrations.append(f"↩ {actor_name} 游击撤步 {reposition['steps'] * 5}ft，拉开距离")
 
@@ -593,6 +595,7 @@ async def handle_ai_attack_action(
         "player_targeted": player_targeted,
         "player_can_react": player_can_react,
         "reaction_prompt": reaction_prompt,
+        "skirmisher_reposition": skirmisher_reposition,
         "next_turn_index": next_index,
         "round_number": combat.round_number,
         "combat_over": combat_over,

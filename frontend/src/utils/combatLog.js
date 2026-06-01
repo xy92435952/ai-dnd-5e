@@ -357,6 +357,18 @@ function summarizeWeaponResource(resource = null) {
   return null
 }
 
+function summarizeSkirmisherReposition(reposition = null) {
+  if (!reposition || typeof reposition !== 'object') return null
+  const steps = asNumber(reposition.steps)
+  const distance = steps !== null ? `${steps * 5}ft` : ''
+  const from = reposition.from
+  const to = reposition.to
+  const fromText = from && from.x !== undefined && from.y !== undefined ? `${from.x},${from.y}` : ''
+  const toText = to && to.x !== undefined && to.y !== undefined ? `${to.x},${to.y}` : ''
+  const route = fromText && toText ? `：${fromText} -> ${toText}` : ''
+  return compact(['游击撤步', distance]).join(' ') + route
+}
+
 export function buildCombatStateChangeSummary(result = {}, options = {}) {
   if (!result || typeof result !== 'object') return []
 
@@ -390,6 +402,7 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
   if (slots) entries.push(`法术位剩余 ${slots}`)
 
   entries.push(summarizeWeaponResource(result.weapon_resource))
+  entries.push(summarizeSkirmisherReposition(result.skirmisher_reposition))
   entries.push(summarizeTurnState(result.turn_state))
 
   if (options.includeDefenderInterception !== false) {

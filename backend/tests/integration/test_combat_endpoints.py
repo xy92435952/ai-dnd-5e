@@ -838,6 +838,11 @@ async def test_ai_skirmisher_repositions_after_ranged_attack(
     new_position = body["entity_positions"][enemy["id"]]
     assert chebyshev_distance(new_position, {"x": 5, "y": 5}) > old_distance
     assert "游击撤步" in body["narration"]
+    assert body["skirmisher_reposition"] == {
+        "from": {"x": 5, "y": 2},
+        "to": new_position,
+        "steps": 2,
+    }
 
     await db_session.refresh(ai_turn_combat)
     turn_state = ai_turn_combat.turn_states[enemy["id"]]

@@ -224,4 +224,16 @@ describe('combatLog', () => {
       'Shield Guard 护卫干扰：保护 Cult Priest，本次攻击劣势',
     ])
   })
+
+  it('summarizes skirmisher reposition from ai turn payloads', () => {
+    expect(buildCombatStateChangeSummary({
+      skirmisher_reposition: {
+        from: { x: 5, y: 2 },
+        to: { x: 5, y: 0 },
+        steps: 2,
+      },
+    })).toEqual([
+      '游击撤步 10ft：5,2 -> 5,0',
+    ])
+  })
 })

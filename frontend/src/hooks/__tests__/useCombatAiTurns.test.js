@@ -153,6 +153,53 @@ describe('useCombatAiTurns', () => {
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
+  it('adds skirmisher reposition summaries to ai combat logs', async () => {
+    getCombatMock
+      .mockResolvedValueOnce({
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      })
+      .mockResolvedValueOnce({
+        current_turn_index: 1,
+        turn_order: [
+          { character_id: 'enemy-1', is_player: false },
+          { character_id: 'char-1', is_player: true },
+        ],
+        turn_states: {
+          'char-1': { action_used: false, movement_used: 0 },
+        },
+      })
+    aiTurnMock.mockResolvedValue({
+      actor_id: 'enemy-1',
+      actor_name: 'Knife Dancer',
+      narration: 'Knife Dancer throws a blade and slips back.',
+      attack_result: {},
+      target_id: 'char-1',
+      next_turn_index: 1,
+      round_number: 1,
+      skirmisher_reposition: {
+        from: { x: 5, y: 2 },
+        to: { x: 5, y: 0 },
+        steps: 2,
+      },
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      const promise = result.current.triggerAiTurn()
+      await Promise.resolve()
+      await Promise.resolve()
+      await vi.runOnlyPendingTimersAsync()
+      await promise
+    })
+
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      state_changes: ['游击撤步 10ft：5,2 -> 5,0'],
+    }))
+  })
+
   it('does not drive an ai turn when fresh combat already contains a pending player reaction', async () => {
     const pendingReaction = {
       trigger: 'incoming_attack',
