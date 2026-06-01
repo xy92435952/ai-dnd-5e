@@ -110,7 +110,7 @@ describe('TurnBanner', () => {
         isRanged={true}
         selectedWeaponName="Longbow"
         selectedTarget="enemy-1"
-        selectedTargetEntity={{ id: 'enemy-1', name: 'Goblin Boss', is_enemy: true, ac: 15 }}
+        selectedTargetEntity={{ id: 'enemy-1', name: 'Goblin Boss', is_enemy: true, hp_current: 7, hp_max: 30, ac: 15 }}
         prediction={{
           hit_rate: 0.55,
           disadvantage: true,
@@ -127,8 +127,8 @@ describe('TurnBanner', () => {
 
     const coach = screen.getByLabelText('回合行动提示')
     expect(coach).toHaveTextContent('目标')
-    expect(coach).toHaveTextContent('敌人 · Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')
-    expect(screen.getByTitle('敌人 · Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')).toBeInTheDocument()
+    expect(coach).toHaveTextContent('敌人 · Goblin Boss · 危急 · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')
+    expect(screen.getByTitle('敌人 · Goblin Boss · 危急 · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')).toBeInTheDocument()
     expect(coach).toHaveTextContent('来源')
     expect(coach).toHaveTextContent('攻击者中毒 / 目标隐形')
     expect(screen.getByTitle('攻击者中毒 / 目标隐形')).toBeInTheDocument()

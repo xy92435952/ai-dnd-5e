@@ -167,6 +167,8 @@ function targetSummary(entity = null, prediction = null) {
 
   const side = targetSideLabel(entity)
   const parts = side ? [side, String(entity.name || '目标')] : [String(entity.name || '目标')]
+  const health = targetHealthLabel(entity)
+  if (health) parts.push(health)
   if (entity.ac !== null && entity.ac !== undefined) parts.push(`AC ${entity.ac}`)
   if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
     parts.push(`命中 ${formatPercent(prediction.hit_rate)}`)
@@ -181,6 +183,23 @@ function targetSideLabel(entity = {}) {
   if (entity.is_player === true || entity.is_ally === true || entity.is_companion === true) return '友军'
   if (entity.is_enemy === false) return '友军'
   return ''
+}
+
+function targetHealthLabel(entity = {}) {
+  const lifeState = String(entity.life_state || '').toLowerCase()
+  if (entity.dead || lifeState === 'dead') return '已倒下'
+  if (lifeState === 'dying') return '濒死'
+  if (lifeState === 'stable') return '稳定'
+
+  const hp = Number(entity.hp_current ?? entity.hp)
+  const hpMax = Number(entity.hp_max ?? entity.max_hp)
+  if (!Number.isFinite(hp) || !Number.isFinite(hpMax) || hpMax <= 0) return ''
+  if (hp <= 0) return '倒地'
+
+  const ratio = hp / hpMax
+  if (ratio <= 0.34) return '危急'
+  if (ratio <= 0.67) return '受伤'
+  return '健康'
 }
 
 function compactAttackRuleLabels(prediction = null, entity = null) {
