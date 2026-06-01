@@ -308,6 +308,53 @@ function aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement }) {
   }
 }
 
+function buildAoeWarnings({ spell, aoeBreakdown, hasPlacement, excludedNames = [] }) {
+  const warnings = []
+  if (!hasPlacement) {
+    warnings.push({
+      key: 'placement',
+      label: '落点',
+      detail: '先在战场上选择范围中心或方向点。',
+      tone: 'warning',
+    })
+    return warnings
+  }
+
+  if (!aoeBreakdown?.total) {
+    warnings.push({
+      key: 'empty',
+      label: '空范围',
+      detail: '当前范围内没有可结算目标。',
+      tone: 'warning',
+    })
+  }
+
+  const isDamage = String(spell?.type || '').toLowerCase() === 'damage'
+  if (isDamage && aoeBreakdown?.risk === 'friendly_fire') {
+    const affected = [
+      ...aoeBreakdown.groups.ally,
+      ...aoeBreakdown.groups.self,
+    ].filter(Boolean).join('、')
+    warnings.push({
+      key: 'friendly-fire',
+      label: '误伤',
+      detail: affected ? `伤害范围包含友方或施法者：${affected}` : '伤害范围包含友方或施法者。',
+      tone: 'warning',
+    })
+  }
+
+  if (excludedNames.length) {
+    warnings.push({
+      key: 'target-limit',
+      label: '上限',
+      detail: `超过目标上限，${excludedNames.join('、')} 不会结算。`,
+      tone: 'warning',
+    })
+  }
+
+  return warnings
+}
+
 export function buildSpellCastPlan({
   spell,
   level = 0,
@@ -351,6 +398,7 @@ export function buildSpellCastPlan({
   let aoeBreakdown = null
   let aoePlacement = null
   let targetPreflight = null
+  let warnings = []
 
   if (spell.aoe) {
     const template = getAoeTemplateType(spell)
@@ -396,6 +444,7 @@ export function buildSpellCastPlan({
           : '当前目标未超过法术上限。',
       })
     }
+    warnings = buildAoeWarnings({ spell, aoeBreakdown, hasPlacement, excludedNames })
     rows.push({
       label: '区域',
       value: `${templateLabel(template)} · ${aoeRadiusCells(spell) * 5} 尺 · ${areaAnchorLabel(aoeHover, template)}`,
@@ -490,5 +539,6 @@ export function buildSpellCastPlan({
     rows,
     aoeBreakdown,
     aoePlacement,
+    warnings,
   }
 }

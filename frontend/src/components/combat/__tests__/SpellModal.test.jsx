@@ -251,6 +251,9 @@ describe('SpellModal', () => {
     expect(within(breakdown).getByText('友方 1')).toBeInTheDocument()
     expect(within(breakdown).getByText('自身')).toBeInTheDocument()
     expect(within(breakdown).getByText('误伤风险')).toBeInTheDocument()
+    const warnings = screen.getByLabelText('范围战术提醒')
+    expect(within(warnings).getByText('误伤')).toBeInTheDocument()
+    expect(within(warnings).getByText('伤害范围包含友方或施法者：Companion、Wizard')).toBeInTheDocument()
 
     const placementActions = screen.getByLabelText('范围落点操作')
     fireEvent.click(within(placementActions).getByRole('button', { name: '重新选择落点' }))

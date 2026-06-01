@@ -159,6 +159,14 @@ describe('buildSpellCastPlan', () => {
       '自身',
       '误伤风险',
     ])
+    expect(plan.warnings).toEqual([
+      {
+        key: 'friendly-fire',
+        label: '误伤',
+        detail: '伤害范围包含友方或施法者：同伴、施法者',
+        tone: 'warning',
+      },
+    ])
     expect(preflight(plan, 'target')).toMatchObject({
       value: '影响 3 个：敌方 1 / 友方 1 / 自身',
       tone: 'warning',
@@ -238,10 +246,54 @@ describe('buildSpellCastPlan', () => {
       excluded: 2,
     })
     expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toContain('上限 2/2')
+    expect(plan.warnings).toEqual([
+      {
+        key: 'target-limit',
+        label: '上限',
+        detail: '超过目标上限，Wizard、Fighter 不会结算。',
+        tone: 'warning',
+      },
+    ])
     expect(preflight(plan, 'target')).toMatchObject({
       value: '影响 2/2 个：友方 1 / 自身',
       tone: 'ready',
     })
+  })
+
+  it('warns when an AoE placement has no valid targets', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Fireball',
+        level: 3,
+        type: 'damage',
+        aoe: true,
+        damage: '8d6',
+      },
+      level: 3,
+      slots: { '3rd': 1 },
+      playerId: 'hero-1',
+      aoeHover: '9_9',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20 },
+          'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true, hp_current: 7 },
+        },
+        entity_positions: {
+          'hero-1': { x: 1, y: 1 },
+          'enemy-1': { x: 1, y: 2 },
+        },
+      },
+    })
+
+    expect(row(plan, '命中单位')).toMatchObject({ value: '0 个', tone: 'warning' })
+    expect(plan.warnings).toEqual([
+      {
+        key: 'empty',
+        label: '空范围',
+        detail: '当前范围内没有可结算目标。',
+        tone: 'warning',
+      },
+    ])
   })
 
   it('marks blocked casts with the player-facing reason', () => {

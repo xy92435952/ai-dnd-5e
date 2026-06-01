@@ -2130,6 +2130,35 @@
   background: rgba(240,64,64,.1);
   color: #f09090;
 }
+.spell-tactical-warnings {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.spell-tactical-warnings div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid rgba(240,208,96,.26);
+  background: rgba(240,208,96,.08);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.25;
+}
+.spell-tactical-warnings div.warning b {
+  color: var(--gold);
+}
+.spell-tactical-warnings b {
+  color: var(--parchment);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.spell-tactical-warnings span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .spell-placement-actions {
   display: flex;
   justify-content: flex-end;

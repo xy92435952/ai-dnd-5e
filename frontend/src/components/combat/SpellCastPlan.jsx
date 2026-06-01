@@ -34,6 +34,16 @@ export default function SpellCastPlan({ plan, onResetAoeCenter = null }) {
           ))}
         </div>
       )}
+      {plan.warnings?.length > 0 && (
+        <div className="spell-tactical-warnings" aria-label="范围战术提醒">
+          {plan.warnings.map(warning => (
+            <div key={warning.key} className={warning.tone || ''}>
+              <b>{warning.label}</b>
+              <span>{warning.detail}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {plan.aoePlacement?.canReset && onResetAoeCenter && (
         <div className="spell-placement-actions" aria-label="范围落点操作">
           <button type="button" onClick={onResetAoeCenter} title="清除当前范围落点，重新在战场选择">
