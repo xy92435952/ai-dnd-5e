@@ -209,6 +209,7 @@ function sourceTag(key, prefix, sources, tone) {
   return {
     key,
     label: `${labelPrefix}: ${compactSourceSummary(sources)}`,
+    sources,
     tone,
     title: `${labelPrefix}来源：${sources.join(' / ')}。`,
   }

@@ -47,7 +47,35 @@ describe('buildCombatActionCoach', () => {
       value: 'Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20',
       tone: 'ready',
     })
+    expect(coach.items).toContainEqual({
+      key: 'rules',
+      label: '来源',
+      value: '攻击者中毒 / 目标隐形',
+      tone: 'warn',
+    })
     expect(coach.items).toContainEqual({ key: 'action', label: '动作', value: '可用', tone: 'ready' })
+  })
+
+  it('marks advantage-only rule sources as ready guidance', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      turnState: { action_used: false, movement_max: 6, movement_used: 0, reaction_used: false },
+      skillBar: [{ k: 'atk', kind: 'attack', available: true }],
+      selectedTarget: 'enemy-1',
+      selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', ac: 15 },
+      prediction: {
+        hit_rate: 0.8,
+        advantage: true,
+        advantage_sources: ['target restrained'],
+      },
+    })
+
+    expect(coach.items).toContainEqual({
+      key: 'rules',
+      label: '来源',
+      value: '目标束缚',
+      tone: 'ready',
+    })
   })
 
   it('summarizes spent action resources and bonus availability', () => {

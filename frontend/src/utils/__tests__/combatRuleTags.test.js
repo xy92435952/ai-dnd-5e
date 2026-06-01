@@ -25,6 +25,7 @@ describe('combatRuleTags', () => {
       {
         key: 'advantage-source',
         label: '优势: Pack Tactics',
+        sources: ['Pack Tactics'],
         tone: 'good',
         title: '优势来源：Pack Tactics。',
       },
@@ -86,6 +87,7 @@ describe('combatRuleTags', () => {
       '劣势',
       '劣势: 攻击者中毒 +1',
     ])
+    expect(tags[1].sources).toEqual(['攻击者中毒', '目标隐形'])
     expect(tags[0].title).toContain('攻击者中毒 / 目标隐形')
   })
 

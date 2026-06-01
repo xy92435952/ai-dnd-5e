@@ -61,17 +61,29 @@ export function buildCombatActionCoach({
     },
   ]
 
+  const targetItems = []
   if (targetNeeded || selectedTargetEntity || hasTarget) {
-    items.splice(1, 0, {
+    targetItems.push({
       key: 'target',
       label: '目标',
       value: hasTarget ? targetSummary(selectedTargetEntity, prediction) : '选目标',
       tone: hasTarget ? 'ready' : 'warn',
     })
+    const sourceSummary = hasTarget ? attackRuleSourceSummary(prediction, selectedTargetEntity) : null
+    if (sourceSummary) {
+      targetItems.push({
+        key: 'rules',
+        label: '来源',
+        value: sourceSummary.value,
+        tone: sourceSummary.tone,
+      })
+    }
+    items.splice(1, 0, ...targetItems)
   }
 
   if (hasBonusOption || !bonusOpen) {
-    items.splice(2, 0, {
+    const bonusIndex = targetItems.length > 0 ? 1 + targetItems.length : 2
+    items.splice(bonusIndex, 0, {
       key: 'bonus',
       label: '附赠',
       value: bonusOpen ? '可用' : '已用',
@@ -112,6 +124,41 @@ function compactAttackRuleLabels(prediction = null, entity = null) {
     .map(tag => tag.label)
     .filter(label => label && !label.startsWith('优势:') && !label.startsWith('劣势:'))
     .slice(0, 3)
+}
+
+function attackRuleSourceSummary(prediction = null, entity = null) {
+  const sourceTags = buildCombatRuleTags(prediction, entity)
+    .filter(tag => tag.key === 'advantage-source' || tag.key === 'disadvantage-source')
+
+  if (sourceTags.length === 0) return null
+
+  const sources = uniqueStrings(sourceTags.flatMap(sourceLabelsFromTag))
+  if (sources.length === 0) return null
+
+  return {
+    value: sources.join(' / '),
+    tone: sourceTags.some(tag => tag.key === 'disadvantage-source') ? 'warn' : 'ready',
+  }
+}
+
+function sourceLabelsFromTag(tag = {}) {
+  if (Array.isArray(tag.sources)) {
+    return tag.sources.map(source => String(source || '').trim()).filter(Boolean)
+  }
+  const titleMatch = String(tag.title || '').match(/来源：(.+?)(?:。)?$/)
+  const raw = titleMatch?.[1] || String(tag.label || '').replace(/^(优势|劣势)\s*[:：]\s*/, '')
+  return raw.split('/').map(source => source.trim()).filter(Boolean)
+}
+
+function uniqueStrings(values = []) {
+  const seen = new Set()
+  const result = []
+  for (const value of values) {
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    result.push(value)
+  }
+  return result
 }
 
 function formatPercent(value) {

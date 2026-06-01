@@ -112,6 +112,7 @@ describe('TurnBanner', () => {
           effective_target_ac: 20,
           cover_bonus: 5,
           cover_detail: { bonus: 5, raw_bonus: 5 },
+          disadvantage_sources: ['attacker poisoned', 'target invisible'],
         }}
         showThreat={false}
         onToggleThreat={vi.fn()}
@@ -122,6 +123,9 @@ describe('TurnBanner', () => {
     expect(coach).toHaveTextContent('目标')
     expect(coach).toHaveTextContent('Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')
     expect(screen.getByTitle('Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')).toBeInTheDocument()
+    expect(coach).toHaveTextContent('来源')
+    expect(coach).toHaveTextContent('攻击者中毒 / 目标隐形')
+    expect(screen.getByTitle('攻击者中毒 / 目标隐形')).toBeInTheDocument()
     expect(coach).toHaveTextContent('动作')
     expect(coach).toHaveTextContent('可用')
   })
