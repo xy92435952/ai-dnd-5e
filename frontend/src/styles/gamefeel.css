@@ -2151,13 +2151,15 @@
 .spell-cast-plan-row.ready b { color: var(--emerald-light); }
 .spell-cast-plan-row.warning b { color: var(--gold); }
 .spell-cast-plan-row.blocked b { color: #ff9090; }
-.spell-aoe-breakdown {
+.spell-aoe-breakdown,
+.spell-target-impacts {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 8px;
 }
-.spell-aoe-breakdown span {
+.spell-aoe-breakdown span,
+.spell-target-impacts span {
   max-width: 100%;
   padding: 2px 6px;
   border: 1px solid rgba(255,255,255,.08);
@@ -2172,17 +2174,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.spell-aoe-breakdown span.good {
+.spell-aoe-breakdown span.good,
+.spell-target-impacts span.good {
   border-color: rgba(138,234,160,.28);
   background: rgba(138,234,160,.08);
   color: #8aeaa0;
 }
-.spell-aoe-breakdown span.warning {
+.spell-aoe-breakdown span.warning,
+.spell-target-impacts span.warning {
   border-color: rgba(240,208,96,.34);
   background: rgba(240,208,96,.08);
   color: var(--gold);
 }
-.spell-aoe-breakdown span.danger {
+.spell-aoe-breakdown span.danger,
+.spell-target-impacts span.bad {
   border-color: rgba(240,64,64,.32);
   background: rgba(240,64,64,.1);
   color: #f09090;

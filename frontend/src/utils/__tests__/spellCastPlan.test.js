@@ -24,7 +24,14 @@ describe('buildSpellCastPlan', () => {
       selectedTarget: 'enemy-1',
       combat: {
         entities: {
-          'enemy-1': { id: 'enemy-1', name: '训练假人', is_enemy: true, hp_current: 7 },
+          'enemy-1': {
+            id: 'enemy-1',
+            name: '训练假人',
+            is_enemy: true,
+            hp_current: 7,
+            conditions: ['restrained'],
+            condition_durations: { restrained: 2 },
+          },
         },
       },
     })
@@ -38,6 +45,17 @@ describe('buildSpellCastPlan', () => {
     expect(row(plan, '效果').value).toBe('伤害 1d4+1')
     expect(row(plan, '目标').value).toBe('训练假人')
     expect(row(plan, '状态').value).toBe('可施放')
+    expect(plan.targetImpactChips.map(chip => chip.label)).toEqual([
+      '速度 0',
+      '受击优势',
+      '攻击劣势',
+      '敏捷劣势',
+    ])
+    expect(plan.targetImpactChips[0]).toMatchObject({
+      key: 'condition-speed_0',
+      tone: 'bad',
+      title: '移动速度降为 0。 来源：束缚 (2轮)。',
+    })
   })
 
   it('summarizes cantrips as no-slot casts', () => {

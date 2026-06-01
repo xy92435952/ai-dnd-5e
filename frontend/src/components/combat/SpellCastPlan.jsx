@@ -34,6 +34,13 @@ export default function SpellCastPlan({ plan, onResetAoeCenter = null }) {
           ))}
         </div>
       )}
+      {plan.targetImpactChips?.length > 0 && (
+        <div className="spell-target-impacts" aria-label="目标状态影响">
+          {plan.targetImpactChips.map(chip => (
+            <span key={chip.key} className={chip.tone || ''} title={chip.title}>{chip.label}</span>
+          ))}
+        </div>
+      )}
       {plan.warnings?.length > 0 && (
         <div className="spell-tactical-warnings" aria-label="范围战术提醒">
           {plan.warnings.map(warning => (

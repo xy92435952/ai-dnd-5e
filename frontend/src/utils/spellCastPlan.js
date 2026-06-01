@@ -5,6 +5,7 @@ import {
   getSpellMaxTargets,
   spellNameMatches,
 } from './combat'
+import { buildConditionImpactTags } from './conditionRules'
 
 const SLOT_LABELS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th']
 
@@ -24,6 +25,10 @@ function isCantripSpell(spell, cantrips = []) {
 function entityName(combat, entityId) {
   const entity = combat?.entities?.[entityId]
   return entity?.name || entityId || '未选择'
+}
+
+function entityById(combat, entityId) {
+  return entityId ? combat?.entities?.[entityId] || null : null
 }
 
 function entityGroup(combat, entityId, playerId) {
@@ -66,6 +71,18 @@ function buildAoeBreakdown({ spell, combat, targetIds, playerId }) {
     risk: friendlyRisk ? 'friendly_fire' : '',
     chips,
   }
+}
+
+function buildTargetImpactChips(combat, targetId) {
+  const entity = entityById(combat, targetId)
+  return buildConditionImpactTags(entity?.conditions || [], entity?.condition_durations || {})
+    .slice(0, 4)
+    .map(tag => ({
+      key: `condition-${tag.key}`,
+      label: tag.label,
+      tone: tag.tone,
+      title: tag.title,
+    }))
 }
 
 function casterDerived(combat, playerId) {
@@ -398,6 +415,7 @@ export function buildSpellCastPlan({
   let aoeBreakdown = null
   let aoePlacement = null
   let targetPreflight = null
+  let targetImpactChips = []
   let warnings = []
 
   if (spell.aoe) {
@@ -499,6 +517,7 @@ export function buildSpellCastPlan({
     }
   } else {
     const targetId = nonAoeTargetId(spell, selectedTarget, playerId)
+    targetImpactChips = buildTargetImpactChips(combat, targetId)
     targetPreflight = {
       key: 'target',
       label: '目标',
@@ -539,6 +558,7 @@ export function buildSpellCastPlan({
     rows,
     aoeBreakdown,
     aoePlacement,
+    targetImpactChips,
     warnings,
   }
 }

@@ -21,7 +21,17 @@ describe('SpellModal', () => {
         slots={{}}
         quickPick="火焰射线"
         selectedTarget="enemy-1"
-        combat={{ entities: { 'enemy-1': { id: 'enemy-1', name: '训练假人', hp_current: 7 } } }}
+        combat={{
+          entities: {
+            'enemy-1': {
+              id: 'enemy-1',
+              name: '训练假人',
+              hp_current: 7,
+              conditions: ['restrained'],
+              condition_durations: { restrained: 2 },
+            },
+          },
+        }}
         onCast={onCast}
         onClose={vi.fn()}
         onSpellHover={onSpellHover}
@@ -38,6 +48,12 @@ describe('SpellModal', () => {
     expect(within(preflight).getByText('训练假人')).toBeInTheDocument()
     expect(screen.getByText('戏法，无需法术位')).toBeInTheDocument()
     expect(screen.getAllByText('训练假人').length).toBeGreaterThan(0)
+    const impacts = screen.getByLabelText('目标状态影响')
+    expect(within(impacts).getByText('速度 0')).toHaveAttribute(
+      'title',
+      '移动速度降为 0。 来源：束缚 (2轮)。',
+    )
+    expect(within(impacts).getByText('受击优势')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /施放/ }))
 
     expect(onCast).toHaveBeenCalledWith(fireBolt, 1)
