@@ -120,7 +120,7 @@ describe('locationGraph', () => {
       ],
     })
 
-    expect(map.currentNode.routes).toEqual([{
+    expect(map.currentNode.routes).toEqual([expect.objectContaining({
       id: 'yard-armory',
       destinationId: 'armory',
       destinationName: 'Armory',
@@ -132,10 +132,14 @@ describe('locationGraph', () => {
       requiresKey: 'Bronze Key',
       dc: 15,
       checkType: 'thieves_tools',
-    }])
+      tone: 'locked',
+      guidance: 'Gated: needs Bronze Key or thieves tools DC 15',
+    })])
     expect(map.nodes.find(node => node.id === 'tower').routes).toEqual([expect.objectContaining({
       destinationId: 'yard',
       oneWay: true,
+      tone: 'one-way',
+      guidance: 'One-way route',
     })])
   })
 

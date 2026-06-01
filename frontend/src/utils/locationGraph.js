@@ -137,6 +137,30 @@ function getVisibleEdges(graph, nodes) {
     .filter(edge => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)) && !edge.hidden)
 }
 
+function readableCheckType(value) {
+  return String(value || 'check').replace(/[_-]+/g, ' ')
+}
+
+function routeGuidance(route) {
+  const gates = []
+  if (route.requiresKey) gates.push(`needs ${route.requiresKey}`)
+  if (route.dc != null) gates.push(`${readableCheckType(route.checkType)} DC ${route.dc}`)
+
+  if (route.locked) {
+    return gates.length ? `Gated: ${gates.join(' or ')}` : 'Gated route'
+  }
+  if (gates.length) return `Check: ${gates.join(' or ')}`
+  if (route.oneWay) return 'One-way route'
+  return route.destinationVisited ? 'Known route' : 'Unvisited destination'
+}
+
+function routeTone(route) {
+  if (route.locked) return 'locked'
+  if (route.requiresKey || route.dc != null) return 'gated'
+  if (route.oneWay) return 'one-way'
+  return route.destinationVisited ? 'known' : 'new'
+}
+
 function getNodeRoutes(nodeId, nodes, edges) {
   const nodeById = new Map(nodes.map(node => [String(node.id), node]))
   return edges
@@ -152,7 +176,7 @@ function getNodeRoutes(nodeId, nodes, edges) {
       if (!destinationId) return null
       const destination = nodeById.get(destinationId)
       if (!destination) return null
-      return {
+      const route = {
         id: edge.id,
         destinationId,
         destinationName: destination.name,
@@ -164,6 +188,11 @@ function getNodeRoutes(nodeId, nodes, edges) {
         requiresKey: edge.requiresKey,
         dc: edge.dc,
         checkType: edge.checkType,
+      }
+      return {
+        ...route,
+        tone: routeTone(route),
+        guidance: routeGuidance(route),
       }
     })
     .filter(Boolean)

@@ -38,19 +38,40 @@ function routeBadges(route) {
   return badges
 }
 
+function RouteSummary({ routes }) {
+  if (!routes?.length) return null
+  const gated = routes.filter(route => route.locked || route.tone === 'gated').length
+  const oneWay = routes.filter(route => route.oneWay).length
+  const unvisited = routes.filter(route => !route.destinationVisited).length
+  return (
+    <div className="location-map-route-summary" aria-label="Exit summary">
+      <span><b>{routes.length}</b> exits</span>
+      {gated > 0 && <span className="warn"><b>{gated}</b> gated</span>}
+      {oneWay > 0 && <span><b>{oneWay}</b> one-way</span>}
+      {unvisited > 0 && <span><b>{unvisited}</b> new</span>}
+    </div>
+  )
+}
+
 function RouteList({ routes }) {
   if (!routes?.length) return <p className="location-map-muted">No exits recorded.</p>
   return (
-    <ul className="location-map-route-list">
-      {routes.map(route => (
-        <li key={`${route.id}-${route.destinationId}`} className={route.locked ? 'locked' : ''}>
-          <span>{route.destinationName}</span>
-          <div className="location-map-route-meta">
-            {routeBadges(route).map(badge => <b key={badge}>{badge}</b>)}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      <RouteSummary routes={routes} />
+      <ul className="location-map-route-list">
+        {routes.map(route => (
+          <li key={`${route.id}-${route.destinationId}`} className={route.locked ? 'locked' : (route.tone || '')}>
+            <div className="location-map-route-main">
+              <span>{route.destinationName}</span>
+              {route.guidance && <em>{route.guidance}</em>}
+            </div>
+            <div className="location-map-route-meta">
+              {routeBadges(route).map(badge => <b key={badge}>{badge}</b>)}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
 

@@ -1472,9 +1472,38 @@
   display: grid;
   gap: 6px;
 }
+.location-map-route-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 7px;
+}
+.location-map-route-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid rgba(127,232,248,.24);
+  border-radius: 3px;
+  background: rgba(47,168,184,.08);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.2;
+}
+.location-map-route-summary span.warn {
+  border-color: rgba(240,208,96,.28);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.location-map-route-summary b {
+  color: var(--arcane-light);
+  font-size: 10px;
+}
 .location-map-route-list li {
   min-width: 0;
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   color: var(--parchment);
@@ -1484,9 +1513,24 @@
 .location-map-route-list li.locked {
   color: #f4b0a8;
 }
-.location-map-route-list span {
+.location-map-route-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.location-map-route-main span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.location-map-route-main em {
+  color: var(--parchment-dark);
+  font-size: 10px;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+.location-map-route-list li.locked .location-map-route-main em,
+.location-map-route-list li.gated .location-map-route-main em {
+  color: var(--gold);
 }
 .location-map-route-meta {
   flex: 0 0 auto;

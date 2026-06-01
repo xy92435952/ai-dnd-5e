@@ -54,8 +54,12 @@ describe('LocationMapModal', () => {
     expect(screen.queryByText('encounters')).not.toBeInTheDocument()
 
     expect(screen.getByRole('heading', { name: 'Exits' })).toBeInTheDocument()
+    const exitSummary = screen.getByLabelText('Exit summary')
+    expect(within(exitSummary).getByText('1')).toBeInTheDocument()
+    expect(within(exitSummary).getByText('exits')).toBeInTheDocument()
     const routeList = screen.getByRole('list')
     expect(within(routeList).getByText('Gatehouse')).toBeInTheDocument()
+    expect(within(routeList).getByText('Known route')).toBeInTheDocument()
     expect(within(routeList).getByText('sequence')).toBeInTheDocument()
     expect(screen.queryByText('locked')).not.toBeInTheDocument()
     expect(screen.queryByText('Construct Patrol')).not.toBeInTheDocument()
@@ -103,9 +107,13 @@ describe('LocationMapModal', () => {
 
     const routeList = screen.getByRole('list')
     expect(within(routeList).getByText('Armory')).toBeInTheDocument()
+    expect(within(routeList).getByText('Gated: needs Bronze Key or thieves tools DC 15')).toBeInTheDocument()
     expect(within(routeList).getByText('locked')).toBeInTheDocument()
     expect(within(routeList).getByText('key: Bronze Key')).toBeInTheDocument()
     expect(within(routeList).getByText('thieves_tools DC 15')).toBeInTheDocument()
+    const exitSummary = screen.getByLabelText('Exit summary')
+    expect(within(exitSummary).getByText('gated')).toBeInTheDocument()
+    expect(within(exitSummary).getByText('new')).toBeInTheDocument()
     expect(screen.queryByText('Secret Vault')).not.toBeInTheDocument()
   })
 
