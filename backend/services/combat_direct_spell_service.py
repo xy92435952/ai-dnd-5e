@@ -19,6 +19,7 @@ from services.combat_spell_resolution_service import (
 from services.combat_spell_roll_service import (
     CombatSpellRollError,
     spell_action_cost,
+    spell_requires_attack_roll,
     validate_spell_turn_state,
 )
 from services.combat_spell_target_service import (
@@ -153,6 +154,8 @@ async def cast_direct_spell(
         target_id=target_id,
         target_ids=target_ids,
     )
+    if spell_type == "damage" and not is_aoe and not resolved_target_ids:
+        raise CombatDirectSpellError(400, "请选择一个法术目标")
     await collect_spell_target_names(db, resolved_target_ids, enemies, session=session)
     positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
     validate_spell_range(
@@ -161,6 +164,8 @@ async def cast_direct_spell(
         caster_id=caster_id,
         spell_range_ft=spell.get("range", 0),
     )
+    if spell_type == "damage" and not is_aoe and spell_requires_attack_roll(spell_name, spell):
+        raise CombatDirectSpellError(400, "该法术需要先进行法术攻击检定，请使用 spell-roll 流程")
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, resolved_target_ids, enemies, session=session)
 

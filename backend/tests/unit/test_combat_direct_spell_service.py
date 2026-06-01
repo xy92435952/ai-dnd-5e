@@ -186,6 +186,7 @@ async def test_cast_direct_spell_marks_action_cantrip_action_used():
                 "level": 0,
                 "type": "damage",
                 "aoe": False,
+                "save": "dex",
             }
 
         def consume_slot(self, *_args):
@@ -194,6 +195,7 @@ async def test_cast_direct_spell_marks_action_cantrip_action_used():
     session = FakeSession()
     combat = FakeCombat()
     caster = FakeCaster()
+    caster.derived = {**caster.derived, "spell_save_dc": 99}
 
     result = await cast_direct_spell(
         FakeDb(),
@@ -202,7 +204,7 @@ async def test_cast_direct_spell_marks_action_cantrip_action_used():
         combat_obj=combat,
         caster=caster,
         caster_id="caster-1",
-        spell_name="fire-bolt",
+        spell_name="sacred-flame",
         spell_level=0,
         target_id="goblin-1",
         target_ids=None,
@@ -412,6 +414,98 @@ async def test_cast_direct_damage_rejects_missing_target_before_consuming_slot()
 
     assert caster.spell_slots == {"1st": 1}
     assert combat.turn_states["caster-1"]["action_used"] is False
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_damage_requires_target_before_consuming_slot():
+    from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
+
+    class DamageSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "damage",
+                "aoe": False,
+                "range": 30,
+            }
+
+        def resolve_damage(self, *_args):
+            raise AssertionError("targetless direct damage should fail before rolling")
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(CombatDirectSpellError) as exc:
+        await cast_direct_spell(
+            FakeDb(),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="chromatic-orb",
+            spell_level=1,
+            target_id=None,
+            target_ids=None,
+            spell_service_obj=DamageSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert exc.value.status_code == 400
+    assert "法术目标" in exc.value.detail
+    assert caster.spell_slots == {"1st": 1}
+    assert combat.turn_states["caster-1"]["action_used"] is False
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_damage_rejects_attack_roll_spell_before_consuming_slot():
+    from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
+
+    class AttackRollSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "damage",
+                "aoe": False,
+                "save": None,
+                "range": 30,
+            }
+
+        def resolve_damage(self, *_args):
+            raise AssertionError("attack-roll spells should go through spell-roll first")
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(CombatDirectSpellError) as exc:
+        await cast_direct_spell(
+            FakeDb(),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="chromatic-orb",
+            spell_level=1,
+            target_id="goblin-1",
+            target_ids=None,
+            spell_service_obj=AttackRollSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert exc.value.status_code == 400
+    assert "法术攻击检定" in exc.value.detail
+    assert caster.spell_slots == {"1st": 1}
+    assert combat.turn_states["caster-1"]["action_used"] is False
+    assert session.game_state["enemies"][0]["hp_current"] == 10
 
 
 @pytest.mark.asyncio
