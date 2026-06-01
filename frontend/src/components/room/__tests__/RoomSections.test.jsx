@@ -109,6 +109,84 @@ describe('Room sections', () => {
     expect(onLeave).toHaveBeenCalledTimes(1)
   })
 
+  it('blocks room lifecycle actions while lobby sync is reconnecting', () => {
+    const onCreateChar = vi.fn()
+    const onToggleStartReady = vi.fn()
+    const onFillAi = vi.fn()
+    const onStart = vi.fn()
+    const onLeave = vi.fn()
+
+    render(
+      <RoomActionsPanel
+        isHost
+        busy={false}
+        canStart
+        slotsAvailable={2}
+        claimedCount={2}
+        memberCount={2}
+        startReadyCount={2}
+        isStartReady={false}
+        myMember={{ user_id: 'me', character_id: 'c1' }}
+        syncBlocked
+        syncBlockedReason="房间正在重新同步，请恢复连接后再调整准备、分组或启动冒险。"
+        onCreateChar={onCreateChar}
+        onToggleStartReady={onToggleStartReady}
+        onFillAi={onFillAi}
+        onStart={onStart}
+        onLeave={onLeave}
+      />
+    )
+
+    expect(screen.getByText('同步暂停')).toBeInTheDocument()
+    const ready = screen.getByRole('button', { name: '✦ 确认准备 ✦' })
+    const fillAi = screen.getByRole('button', { name: '✦ 召唤 2 位 AI 队友 ✦' })
+    const start = screen.getByRole('button', { name: '✦ 开启冒险 ✦' })
+    expect(ready).toBeDisabled()
+    expect(fillAi).toBeDisabled()
+    expect(start).toBeDisabled()
+
+    fireEvent.click(ready)
+    fireEvent.click(fillAi)
+    fireEvent.click(start)
+    fireEvent.click(screen.getByRole('button', { name: '⎋ 离开房间' }))
+
+    expect(onToggleStartReady).not.toHaveBeenCalled()
+    expect(onFillAi).not.toHaveBeenCalled()
+    expect(onStart).not.toHaveBeenCalled()
+    expect(onCreateChar).not.toHaveBeenCalled()
+    expect(onLeave).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks host member management while room sync is reconnecting', () => {
+    const onTransfer = vi.fn()
+    const onKick = vi.fn()
+
+    render(
+      <RoomMembersGrid
+        members={[
+          { user_id: 'me', display_name: '我', role: 'host', character_id: 'c1', character_name: '战士', is_online: true },
+          { user_id: 'u2', display_name: '队友', role: 'player', character_id: 'c2', character_name: '法师', is_online: true },
+        ]}
+        myUserId="me"
+        isHost
+        disabledHostControls
+        disabledReason="房间正在重新同步，请恢复连接后再调整成员。"
+        onTransfer={onTransfer}
+        onKick={onKick}
+      />
+    )
+
+    const transfer = screen.getByRole('button', { name: '转让' })
+    const kick = screen.getByRole('button', { name: '发起移出投票' })
+    expect(transfer).toBeDisabled()
+    expect(kick).toBeDisabled()
+
+    fireEvent.click(transfer)
+    fireEvent.click(kick)
+    expect(onTransfer).not.toHaveBeenCalled()
+    expect(onKick).not.toHaveBeenCalled()
+  })
+
   it('keeps start disabled until every room member has claimed a character', () => {
     render(
       <RoomActionsPanel

@@ -8,12 +8,16 @@ export default function RoomActionsPanel({
   startReadyCount = 0,
   isStartReady = false,
   myMember,
+  syncBlocked = false,
+  syncBlockedReason = '',
   onCreateChar,
   onToggleStartReady,
   onFillAi,
   onStart,
   onLeave,
 }) {
+  const controlsDisabled = busy || syncBlocked
+  const blockReason = syncBlockedReason || '房间正在重新同步，请恢复连接后再调整准备状态。'
   const allMembersClaimed = memberCount > 0 && claimedCount === memberCount
   const startHint = claimedCount <= 0
     ? '至少需要一位玩家创建并认领角色'
@@ -23,9 +27,26 @@ export default function RoomActionsPanel({
 
   return (
     <>
+      {syncBlocked && (
+        <div
+          role="status"
+          className="multiplayer-sync-guard"
+          style={{ margin: '18px auto 0', maxWidth: 560, textAlign: 'left' }}
+        >
+          <strong>同步暂停</strong>
+          <span>{blockReason}</span>
+        </div>
+      )}
+
       {myMember && !myMember.character_id && (
         <div style={{ marginTop: 22, textAlign: 'center' }}>
-          <button onClick={onCreateChar} disabled={busy} className="btn-gold" style={{ padding: '12px 32px', fontSize: 14 }}>
+          <button
+            onClick={onCreateChar}
+            disabled={controlsDisabled}
+            title={syncBlocked ? blockReason : '创建你的英雄'}
+            className="btn-gold"
+            style={{ padding: '12px 32px', fontSize: 14 }}
+          >
             ✦ 创建你的英雄 ✦
           </button>
         </div>
@@ -35,7 +56,8 @@ export default function RoomActionsPanel({
         <div style={{ marginTop: 14, textAlign: 'center' }}>
           <button
             onClick={() => onToggleStartReady?.(!isStartReady)}
-            disabled={busy}
+            disabled={controlsDisabled}
+            title={syncBlocked ? blockReason : isStartReady ? '取消准备' : '确认准备'}
             className={isStartReady ? 'btn-ghost' : 'btn-gold'}
             style={{ padding: '10px 24px', fontSize: 12, letterSpacing: '.14em' }}
           >
@@ -48,7 +70,8 @@ export default function RoomActionsPanel({
         <div style={{ marginTop: 14, textAlign: 'center' }}>
           <button
             onClick={onFillAi}
-            disabled={busy}
+            disabled={controlsDisabled}
+            title={syncBlocked ? blockReason : '召唤 AI 队友补位'}
             className="btn-ghost"
             style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '.14em' }}
           >
@@ -64,13 +87,14 @@ export default function RoomActionsPanel({
         <div style={{ marginTop: 18, textAlign: 'center' }}>
           <button
             onClick={onStart}
-            disabled={!canStart || busy}
+            disabled={!canStart || controlsDisabled}
+            title={syncBlocked ? blockReason : canStart ? '开启冒险' : startHint}
             className="btn-gold"
-            style={{ padding: '12px 32px', fontSize: 14, letterSpacing: '.18em', opacity: canStart ? 1 : .5 }}
+            style={{ padding: '12px 32px', fontSize: 14, letterSpacing: '.18em', opacity: canStart && !controlsDisabled ? 1 : .5 }}
           >
             {busy ? '✦ 启动中… ✦' : '✦ 开启冒险 ✦'}
           </button>
-          {!canStart && (
+          {!syncBlocked && !canStart && (
             <div style={{ fontSize: 11, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
               {startHint}
             </div>

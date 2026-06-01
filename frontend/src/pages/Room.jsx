@@ -85,6 +85,8 @@ export default function Room() {
 
   const isHost = room?.host_user_id === myUserId
   const myMember = (room?.members || []).find(m => m.user_id === myUserId)
+  const roomSyncBlocked = !!room && !wsConnected
+  const roomSyncBlockedReason = '房间正在重新同步，请恢复连接后再调整准备、分组或启动冒险。'
 
   const copyCode = () => {
     if (!room?.room_code) return
@@ -94,6 +96,7 @@ export default function Room() {
   }
 
   const onStart = async () => {
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     setBusy(true); setError('')
     try { await roomsApi.start(sessionId); nav(`/adventure/${sessionId}`) }
     catch (e) { setError(e.message) }
@@ -108,10 +111,12 @@ export default function Room() {
   }
 
   const onCreateChar = () => {
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     nav(`/setup/${room.module_id}?roomSession=${sessionId}`)
   }
 
   const onKick = async (uid) => {
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     if (!confirm('发起或赞成移出该成员的投票？达到多数后才会执行。')) return
     setBusy(true)
     try { await roomsApi.kick(sessionId, uid); await refresh() }
@@ -120,6 +125,7 @@ export default function Room() {
   }
 
   const onTransfer = async (uid) => {
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     if (!confirm('确认转让房主权限？')) return
     setBusy(true)
     try { await roomsApi.transfer(sessionId, uid); await refresh() }
@@ -128,6 +134,7 @@ export default function Room() {
   }
 
   const onFillAi = async () => {
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     setBusy(true); setError('')
     try {
       const r = await roomsApi.fillAi(sessionId)
@@ -140,6 +147,7 @@ export default function Room() {
   }
 
   const onToggleStartReady = async (ready) => {
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     setBusy(true); setError('')
     try {
       const updated = await roomsApi.setStartReady(sessionId, ready)
@@ -150,6 +158,7 @@ export default function Room() {
 
   const onFocusGroup = async (groupId) => {
     if (!groupId) return
+    if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
     setBusy(true); setError('')
     try {
       const updated = await roomsApi.focusGroup(sessionId, groupId)
@@ -232,6 +241,8 @@ export default function Room() {
         myUserId={myUserId}
         isHost={isHost}
         roomVotes={room.room_votes || []}
+        disabledHostControls={busy || roomSyncBlocked}
+        disabledReason={roomSyncBlocked ? roomSyncBlockedReason : '房间操作处理中，请稍候。'}
         onTransfer={onTransfer}
         onKick={onKick}
       />
@@ -245,6 +256,8 @@ export default function Room() {
         busy={busy}
         wsConnected={wsConnected}
         wsStatus={wsStatus}
+        syncBlocked={roomSyncBlocked}
+        syncBlockedReason={roomSyncBlockedReason}
         onFocusGroup={onFocusGroup}
       />
 
@@ -260,6 +273,8 @@ export default function Room() {
         startReadyCount={startReadyCount}
         isStartReady={isStartReady}
         myMember={myMember}
+        syncBlocked={roomSyncBlocked}
+        syncBlockedReason={roomSyncBlockedReason}
         onCreateChar={onCreateChar}
         onToggleStartReady={onToggleStartReady}
         onFillAi={onFillAi}

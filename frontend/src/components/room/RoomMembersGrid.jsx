@@ -6,6 +6,8 @@ export default function RoomMembersGrid({
   myUserId,
   isHost,
   roomVotes = [],
+  disabledHostControls = false,
+  disabledReason = '',
   onTransfer,
   onKick,
 }) {
@@ -23,6 +25,7 @@ export default function RoomMembersGrid({
         const voteLabel = vote
           ? (hasVoted ? `已赞成 ${yesCount}/${threshold}` : `赞成移出 ${yesCount}/${threshold}`)
           : '发起移出投票'
+        const kickDisabled = hasVoted || disabledHostControls
 
         return (
           <div
@@ -75,13 +78,26 @@ export default function RoomMembersGrid({
             {member.user_id !== myUserId && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {isHost && (
-                  <button onClick={() => onTransfer(member.user_id)} className="btn-ghost" style={{ fontSize: 10, padding: '4px 8px' }}>转让</button>
+                  <button
+                    onClick={() => {
+                      if (!disabledHostControls) onTransfer(member.user_id)
+                    }}
+                    disabled={disabledHostControls}
+                    title={disabledHostControls ? disabledReason : '转让房主'}
+                    className="btn-ghost"
+                    style={{ fontSize: 10, padding: '4px 8px', opacity: disabledHostControls ? 0.6 : 1 }}
+                  >
+                    转让
+                  </button>
                 )}
                 <button
-                  onClick={() => onKick(member.user_id)}
-                  disabled={hasVoted}
+                  onClick={() => {
+                    if (!kickDisabled) onKick(member.user_id)
+                  }}
+                  disabled={kickDisabled}
+                  title={disabledHostControls ? disabledReason : voteLabel}
                   className="btn-ghost"
-                  style={{ fontSize: 10, padding: '4px 8px', borderColor: 'var(--blood)', color: '#ffaaaa', opacity: hasVoted ? 0.6 : 1 }}
+                  style={{ fontSize: 10, padding: '4px 8px', borderColor: 'var(--blood)', color: '#ffaaaa', opacity: kickDisabled ? 0.6 : 1 }}
                 >
                   {voteLabel}
                 </button>

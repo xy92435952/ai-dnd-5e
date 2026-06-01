@@ -5,7 +5,12 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 const {
   roomFixture,
   roomsGetMock,
+  roomStartMock,
+  setStartReadyMock,
+  fillAiMock,
   focusGroupMock,
+  wsConnectedMock,
+  wsStatusMock,
   wsHandlers,
 } = vi.hoisted(() => ({
   roomFixture: {
@@ -39,19 +44,24 @@ const {
     start_ready_user_ids: [],
   },
   roomsGetMock: vi.fn(),
+  roomStartMock: vi.fn(),
+  setStartReadyMock: vi.fn(),
+  fillAiMock: vi.fn(),
   focusGroupMock: vi.fn(),
+  wsConnectedMock: vi.fn(),
+  wsStatusMock: vi.fn(),
   wsHandlers: { current: null },
 }))
 
 vi.mock('../../api/client', () => ({
   roomsApi: {
     get: roomsGetMock,
-    start: vi.fn(),
-    setStartReady: vi.fn(),
+    start: roomStartMock,
+    setStartReady: setStartReadyMock,
     leave: vi.fn(),
     kick: vi.fn(),
     transfer: vi.fn(),
-    fillAi: vi.fn(),
+    fillAi: fillAiMock,
     focusGroup: focusGroupMock,
   },
 }))
@@ -59,7 +69,7 @@ vi.mock('../../api/client', () => ({
 vi.mock('../../hooks/useWebSocket', () => ({
   useWebSocket: (_sessionId, onEvent) => {
     wsHandlers.current = onEvent
-    return { connected: true, send: () => true }
+    return { connected: wsConnectedMock(), status: wsStatusMock(), send: () => true }
   },
 }))
 
@@ -69,6 +79,8 @@ describe('Room multiplayer lobby', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     wsHandlers.current = null
+    wsConnectedMock.mockReturnValue(true)
+    wsStatusMock.mockReturnValue({ state: 'connected', label: '同步在线', detail: '实时同步已连接。' })
     localStorage.setItem('user', JSON.stringify({ user_id: 'me', username: 'me', display_name: '我' }))
     roomsGetMock.mockResolvedValue(roomFixture)
     focusGroupMock.mockResolvedValue({ ...roomFixture, active_group_id: 'alley' })
@@ -209,6 +221,58 @@ describe('Room multiplayer lobby', () => {
     const newHostCard = screen.getAllByText('队友')[0].closest('.panel-ornate')
     expect(within(newHostCard).getByText(/★ 房主/)).toBeInTheDocument()
     expect(screen.getByText(/等待房主开启冒险/)).toBeInTheDocument()
+
+    cleanup()
+  })
+
+  it('blocks lobby room mutations while websocket sync is unavailable', async () => {
+    wsConnectedMock.mockReturnValue(false)
+    wsStatusMock.mockReturnValue({
+      state: 'reconnecting',
+      label: '正在重连',
+      detail: '服务器暂不可达或正在重启，正在自动重连。',
+      retryInMs: 4000,
+    })
+    roomsGetMock.mockResolvedValue({
+      ...roomFixture,
+      members: [
+        { user_id: 'me', display_name: '我', role: 'host', character_id: 'c1', character_name: '战士', is_online: true },
+        { user_id: 'u2', display_name: '队友', role: 'player', character_id: 'c2', character_name: '法师', is_online: true },
+      ],
+      start_ready_user_ids: ['me', 'u2'],
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(await screen.findAllByText('同步暂停')).toHaveLength(2)
+    expect(screen.getByText('同步中 · 暂停房间变更')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '设为焦点' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '转让' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '发起移出投票' })).toBeDisabled()
+    const ready = screen.getByRole('button', { name: '✓ 已准备，取消' })
+    const fillAi = screen.getByRole('button', { name: '✦ 召唤 2 位 AI 队友 ✦' })
+    const start = screen.getByRole('button', { name: '✦ 开启冒险 ✦' })
+    expect(ready).toBeDisabled()
+    expect(fillAi).toBeDisabled()
+    expect(start).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: '设为焦点' }))
+    fireEvent.click(screen.getByRole('button', { name: '转让' }))
+    fireEvent.click(screen.getByRole('button', { name: '发起移出投票' }))
+    fireEvent.click(ready)
+    fireEvent.click(fillAi)
+    fireEvent.click(start)
+
+    expect(focusGroupMock).not.toHaveBeenCalled()
+    expect(roomStartMock).not.toHaveBeenCalled()
+    expect(setStartReadyMock).not.toHaveBeenCalled()
+    expect(fillAiMock).not.toHaveBeenCalled()
 
     cleanup()
   })

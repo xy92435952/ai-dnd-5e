@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import RoomMultiplayerStatusPanel from '../RoomMultiplayerStatusPanel'
 
 vi.mock('../../../api/client', () => ({
@@ -52,6 +52,8 @@ describe('RoomMultiplayerStatusPanel', () => {
   })
 
   it('shows lobby websocket restart recovery state', () => {
+    const onFocusGroup = vi.fn()
+
     render(
       <RoomMultiplayerStatusPanel
         room={room}
@@ -65,12 +67,20 @@ describe('RoomMultiplayerStatusPanel', () => {
           detail: '服务器暂不可达或正在重启，正在自动重连。',
           retryInMs: 4000,
         }}
-        onFocusGroup={vi.fn()}
+        syncBlocked
+        syncBlockedReason="房间正在重新同步，请恢复连接后再调整分组。"
+        onFocusGroup={onFocusGroup}
       />
     )
 
     expect(screen.getByText('正在重连')).toBeInTheDocument()
+    expect(screen.getByText('同步中 · 暂停房间变更')).toBeInTheDocument()
+    expect(screen.getByText('同步暂停')).toBeInTheDocument()
     expect(screen.getByTitle('服务器暂不可达或正在重启，正在自动重连。 · 4秒后重试')).toBeInTheDocument()
+    const focusButton = screen.getByRole('button', { name: '设为焦点' })
+    expect(focusButton).toBeDisabled()
+    fireEvent.click(focusButton)
+    expect(onFocusGroup).not.toHaveBeenCalled()
   })
 
   it('stays hidden for single-player rooms', () => {

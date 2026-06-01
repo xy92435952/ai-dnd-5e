@@ -14,11 +14,15 @@ export default function RoomMultiplayerStatusPanel({
   busy,
   wsConnected = false,
   wsStatus = null,
+  syncBlocked = false,
+  syncBlockedReason = '',
   onFocusGroup,
 }) {
   if (!room?.is_multiplayer) return null
 
   const tableStatus = getMultiplayerTableStatus({ room })
+  const controlsDisabled = busy || syncBlocked
+  const blockReason = syncBlockedReason || '房间正在重新同步，请恢复连接后再调整分组。'
 
   return (
     <div className="panel-ornate" style={{ padding: 14, marginTop: 14 }}>
@@ -28,11 +32,19 @@ export default function RoomMultiplayerStatusPanel({
           label="联机准备"
           title={`${claimedCount}/${memberCount} 已认领角色`}
           reason={`当前焦点：${tableStatus.activeGroupLabel || '主队'}`}
+          focusLabel={syncBlocked ? '同步中 · 暂停房间变更' : ''}
           nextLabel={tableStatus.nextReadySummary}
         >
           <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
         </MultiplayerSessionStatusBar>
       </div>
+
+      {syncBlocked && (
+        <div role="status" className="multiplayer-sync-guard" style={{ marginBottom: 10 }}>
+          <strong>同步暂停</strong>
+          <span>{blockReason}</span>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
         {(room.party_groups || []).map(group => {
@@ -53,10 +65,13 @@ export default function RoomMultiplayerStatusPanel({
                   <span className="tag tag-gold" style={{ fontSize: 9 }}>焦点</span>
                 ) : (
                   <button
-                    onClick={() => onFocusGroup(group.id)}
-                    disabled={busy}
+                    onClick={() => {
+                      if (!controlsDisabled) onFocusGroup(group.id)
+                    }}
+                    disabled={controlsDisabled}
+                    title={syncBlocked ? blockReason : '设为当前焦点分队'}
                     className="btn-ghost"
-                    style={{ fontSize: 10, padding: '3px 8px' }}
+                    style={{ fontSize: 10, padding: '3px 8px', opacity: controlsDisabled ? 0.6 : 1 }}
                   >
                     设为焦点
                   </button>
