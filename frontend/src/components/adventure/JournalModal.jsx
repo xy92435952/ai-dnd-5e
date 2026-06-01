@@ -145,6 +145,7 @@ function buildQuestSummary(quest, recentUpdates) {
         status: itemStatus.label,
         tone: itemStatus.tone,
         detail: cleanText(item.detail || item.status || quest?.outcome),
+        at: cleanText(item.at || item.created_at || item.turn),
       }
     })
 
@@ -437,6 +438,7 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
                     <li key={step.id} className={step.tone}>
                       <b>{step.status}</b>
                       <span>{step.detail}</span>
+                      {step.at && <time>{step.at}</time>}
                     </li>
                   ))}
                 </ol>

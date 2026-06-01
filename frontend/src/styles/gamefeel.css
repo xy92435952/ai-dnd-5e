@@ -935,7 +935,7 @@
 }
 .journal-quest-timeline li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 6px;
   padding: 4px 6px;
@@ -965,6 +965,12 @@
 .journal-quest-timeline li span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.journal-quest-timeline li time {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
 }
 .journal-quest-hooks {
   display: grid;

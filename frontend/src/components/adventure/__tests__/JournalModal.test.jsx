@@ -127,6 +127,8 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('失败推进')).toBeInTheDocument()
     expect(within(dossier).getByText('旧矿道成为新的防线和线索入口。')).toBeInTheDocument()
     expect(within(dossier).getByText('营地被攻破')).toBeInTheDocument()
+    expect(within(within(dossier).getByLabelText('寻找失踪矿工 任务进展')).getByText('1')).toBeInTheDocument()
+    expect(within(within(dossier).getByLabelText('守住营地 任务进展')).getByText('2')).toBeInTheDocument()
     expect(within(dossier).getByText('时间线')).toBeInTheDocument()
     const timelineSummary = within(dossier).getByLabelText('时间线汇总')
     expect(within(timelineSummary).getByText('2')).toBeInTheDocument()
