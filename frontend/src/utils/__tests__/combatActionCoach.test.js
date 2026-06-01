@@ -18,8 +18,28 @@ describe('buildCombatActionCoach', () => {
 
     expect(coach.visible).toBe(true)
     expect(coach.items).toContainEqual({ key: 'action', label: 'Action', value: 'Pick target', tone: 'warn' })
+    expect(coach.items).toContainEqual({ key: 'target', label: 'Target', value: 'Pick target', tone: 'warn' })
     expect(coach.items).toContainEqual({ key: 'move', label: 'Move', value: '4 sq', tone: 'ready' })
     expect(coach.items).toContainEqual({ key: 'reaction', label: 'Reaction', value: 'Held', tone: 'ready' })
+  })
+
+  it('summarizes the selected target with AC and hit chance', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      turnState: { action_used: false, movement_max: 6, movement_used: 0, reaction_used: false },
+      skillBar: [{ k: 'atk', kind: 'attack', available: true }],
+      selectedTarget: 'enemy-1',
+      selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', ac: 15 },
+      prediction: { hit_rate: 0.65 },
+    })
+
+    expect(coach.items).toContainEqual({
+      key: 'target',
+      label: 'Target',
+      value: 'Goblin Boss · AC 15 · Hit 65%',
+      tone: 'ready',
+    })
+    expect(coach.items).toContainEqual({ key: 'action', label: 'Action', value: 'Ready', tone: 'ready' })
   })
 
   it('summarizes spent action resources and bonus availability', () => {

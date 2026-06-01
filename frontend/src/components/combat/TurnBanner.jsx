@@ -16,6 +16,8 @@ export default function TurnBanner({
   turnState,
   skillBar,
   selectedTarget,
+  selectedTargetEntity,
+  prediction,
   moveMode,
   showThreat,
   onToggleThreat,
@@ -37,6 +39,8 @@ export default function TurnBanner({
     turnState,
     skillBar,
     selectedTarget,
+    selectedTargetEntity,
+    prediction,
     moveMode,
   })
 

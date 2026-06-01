@@ -85,9 +85,36 @@ describe('TurnBanner', () => {
     const coach = screen.getByLabelText('Turn action coach')
     expect(coach).toHaveTextContent('Action')
     expect(coach).toHaveTextContent('Pick target')
+    expect(coach).toHaveTextContent('Target')
     expect(coach).toHaveTextContent('Move')
     expect(coach).toHaveTextContent('4 sq')
     expect(coach).toHaveTextContent('Reaction')
     expect(coach).toHaveTextContent('Held')
+  })
+
+  it('surfaces selected target context in the action coach', () => {
+    render(
+      <TurnBanner
+        roundNumber={2}
+        currentTurnName="Hero"
+        currentTurnEntry={{ character_id: 'hero-1', name: 'Hero', is_player: true }}
+        currentTurnEntity={{ id: 'hero-1', name: 'Hero', is_player: true }}
+        controlledCharacter={{ id: 'hero-1', name: 'Hero' }}
+        isPlayerTurn={true}
+        turnState={{ action_used: false, movement_max: 6, movement_used: 0, reaction_used: false }}
+        skillBar={[{ k: 'atk', kind: 'attack', available: true }]}
+        selectedTarget="enemy-1"
+        selectedTargetEntity={{ id: 'enemy-1', name: 'Goblin Boss', ac: 15 }}
+        prediction={{ hit_rate: 0.65 }}
+        showThreat={false}
+        onToggleThreat={vi.fn()}
+      />
+    )
+
+    const coach = screen.getByLabelText('Turn action coach')
+    expect(coach).toHaveTextContent('Target')
+    expect(coach).toHaveTextContent('Goblin Boss · AC 15 · Hit 65%')
+    expect(coach).toHaveTextContent('Action')
+    expect(coach).toHaveTextContent('Ready')
   })
 })

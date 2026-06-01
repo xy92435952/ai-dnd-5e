@@ -8,6 +8,8 @@ export function buildCombatActionCoach({
   turnState = {},
   skillBar = [],
   selectedTarget = null,
+  selectedTargetEntity = null,
+  prediction = null,
   moveMode = false,
 } = {}) {
   if (!isPlayerTurn || isProcessing || syncBlocked) {
@@ -24,17 +26,18 @@ export function buildCombatActionCoach({
   const hasActionOption = usableSkills.some(skill => ACTION_KINDS.has(skill.kind))
   const hasBonusOption = usableSkills.some(skill => BONUS_KINDS.has(skill.kind) || /bonus/i.test(String(skill.cost || '')))
   const targetNeeded = usableSkills.some(skill => skillNeedsTarget(skill))
+  const hasTarget = Boolean(selectedTarget)
 
   const items = [
     {
       key: 'action',
       label: 'Action',
       value: actionOpen
-        ? selectedTarget || !targetNeeded
+        ? hasTarget || !targetNeeded
           ? hasActionOption ? 'Ready' : 'Choose'
           : 'Pick target'
         : 'Spent',
-      tone: actionOpen ? selectedTarget || !targetNeeded ? 'ready' : 'warn' : 'spent',
+      tone: actionOpen ? hasTarget || !targetNeeded ? 'ready' : 'warn' : 'spent',
     },
     {
       key: 'move',
@@ -55,6 +58,15 @@ export function buildCombatActionCoach({
       tone: actionOpen || movementLeft > 0 ? '' : 'ready',
     },
   ]
+
+  if (targetNeeded || selectedTargetEntity || hasTarget) {
+    items.splice(1, 0, {
+      key: 'target',
+      label: 'Target',
+      value: hasTarget ? targetSummary(selectedTargetEntity, prediction) : 'Pick target',
+      tone: hasTarget ? 'ready' : 'warn',
+    })
+  }
 
   if (hasBonusOption || !bonusOpen) {
     items.splice(2, 0, {
@@ -78,4 +90,22 @@ function skillNeedsTarget(skill = {}) {
 function readNumber(value, fallback) {
   const number = Number(value)
   return Number.isFinite(number) ? number : fallback
+}
+
+function targetSummary(entity = null, prediction = null) {
+  if (!entity) return 'Selected'
+
+  const parts = [String(entity.name || 'Target')]
+  if (entity.ac !== null && entity.ac !== undefined) parts.push(`AC ${entity.ac}`)
+  if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
+    parts.push(`Hit ${formatPercent(prediction.hit_rate)}`)
+  }
+
+  return parts.join(' · ')
+}
+
+function formatPercent(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '--'
+  return `${Math.round((number <= 1 ? number * 100 : number))}%`
 }

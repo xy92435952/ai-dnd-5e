@@ -190,6 +190,8 @@ export default function Combat() {
         turnState={turnState}
         skillBar={skillBar}
         selectedTarget={selectedTarget}
+        selectedTargetEntity={selectedTargetEntity}
+        prediction={prediction}
         moveMode={moveMode}
         showThreat={showThreat}
         onToggleThreat={() => { setShowThreat(v => !v); ignoreOptionalEffect(() => JuiceAudio.click()) }}
