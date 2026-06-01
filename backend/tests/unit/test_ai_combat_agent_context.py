@@ -113,6 +113,7 @@ async def test_ai_turn_context_preserves_enemy_spell_fields():
         "cantrips": ["Fire Bolt"],
         "spell_slots": {"1st": 1},
         "concentration": "Hex",
+        "tactical_role": "controller",
         "derived": {"spell_save_dc": 13},
     }
 
@@ -131,6 +132,7 @@ async def test_ai_turn_context_preserves_enemy_spell_fields():
     assert actor_full["cantrips"] == ["Fire Bolt"]
     assert actor_full["spell_slots"] == {"1st": 1}
     assert actor_full["concentration"] == "Hex"
+    assert actor_full["tactical_role"] == "controller"
 
 
 def test_ai_decision_target_validation_accepts_special_action():

@@ -120,6 +120,12 @@ async def resolve_ai_spell_action(
         target_character = await db.get(Character, spell_target)
         if target_character and not can_receive_ordinary_healing(target_character):
             return None
+        target_enemy = next(
+            (enemy for enemy in enemies if str(enemy.get("id")) == str(spell_target)),
+            None,
+        )
+        if target_enemy and not can_receive_ordinary_healing(target_enemy):
+            return None
 
     if not is_cantrip and caster:
         if not consume_ai_spell_slot(caster, spell_level):
@@ -181,6 +187,10 @@ async def resolve_ai_spell_action(
             spell_mod=spell_mod,
             bonus_healing=bonus_healing,
             spell_service_obj=spell_service_obj,
+            session=session,
+            state=state,
+            enemies=enemies,
+            flag_modified_func=flag_modified_func,
         )
     elif spell_type in ("control", "utility"):
         await _apply_ai_control_spell(

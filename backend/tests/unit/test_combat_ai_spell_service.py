@@ -196,6 +196,61 @@ async def test_resolve_enemy_ai_spell_action_consumes_dict_slot_and_sets_concent
 
 
 @pytest.mark.asyncio
+async def test_resolve_enemy_ai_heal_spell_restores_enemy_ally_and_persists_state():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    enemy_healer = {
+        "id": "enemy-priest",
+        "name": "Enemy Priest",
+        "spell_slots": {"1st": 1},
+    }
+    wounded_ally = {
+        "id": "enemy-guard",
+        "name": "Enemy Guard",
+        "hp_current": 3,
+        "hp_max": 12,
+        "derived": {"hp_max": 12},
+    }
+    state = {"enemies": [enemy_healer, wounded_ally]}
+    session = FakeSession(game_state=state)
+    flagged = []
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=session,
+        actor_name="Enemy Priest",
+        is_enemy=True,
+        caster=enemy_healer,
+        actor_derived={
+            "spell_ability": "wis",
+            "ability_modifiers": {"wis": 2},
+        },
+        decided_target_id="enemy-guard",
+        decided_reason="heal ally",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[],
+        spell_service_obj=FakeSpellService(
+            {"level": 1, "type": "heal", "heal_dice": "1d4"},
+            spell_name="Magic Bolt",
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda _obj, attr: flagged.append(attr),
+    )
+
+    assert result is not None
+    assert enemy_healer["spell_slots"] == {"1st": 0}
+    assert wounded_ally["hp_current"] == 9
+    assert result.heal == 6
+    assert result.target_new_hp == 9
+    assert result.target_name == "Enemy Guard"
+    assert session.game_state["enemies"][1]["hp_current"] == 9
+    assert "game_state" in flagged
+
+
+@pytest.mark.asyncio
 async def test_resolve_enemy_ai_control_spell_tracks_character_condition_source():
     from services.combat_ai_spell_service import resolve_ai_spell_action
 

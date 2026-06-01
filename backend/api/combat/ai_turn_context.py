@@ -60,6 +60,7 @@ async def build_ai_turn_context(db, session: Session, combat: CombatState, actor
             "actions": list(e.get("actions", [])) + list(e.get("recharge_abilities", [])), "speed": e.get("speed", 30),
             "recharge_abilities": e.get("recharge_abilities", []),
             "tactics": e.get("tactics", ""), "type": e.get("type", ""),
+            "tactical_role": e.get("tactical_role"),
             "known_spells": e.get("known_spells", []),
             "prepared_spells": e.get("prepared_spells", []),
             "cantrips": e.get("cantrips", []),

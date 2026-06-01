@@ -10,7 +10,7 @@ from services.combat_spell_effect_service import (
     resolve_spell_condition,
     resolve_spell_condition_duration,
 )
-from services.dnd_rules import get_life_state
+from services.dnd_rules import get_effective_hp_max, get_life_state
 from services.dnd_rules import apply_character_healing, can_receive_ordinary_healing, roll_dice, roll_saving_throw
 
 
@@ -21,6 +21,10 @@ async def apply_ai_heal_spell(
     spell_mod: int,
     bonus_healing: bool,
     spell_service_obj,
+    session=None,
+    state: dict[str, Any] | None = None,
+    enemies: list[dict[str, Any]] | None = None,
+    flag_modified_func: Callable[[Any, str], None] = flag_modified,
 ) -> None:
     total_heal, _dice_detail = spell_service_obj.resolve_heal(
         resolution.spell_name,
@@ -36,7 +40,54 @@ async def apply_ai_heal_spell(
             apply_character_healing(target_character, total_heal)
             resolution.target_new_hp = target_character.hp_current
             resolution.target_name = target_character.name
+            resolution.heal = total_heal
+            return
+
+        target_enemy = next(
+            (
+                enemy
+                for enemy in enemies or []
+                if str(enemy.get("id")) == str(resolution.spell_target)
+            ),
+            None,
+        )
+        if target_enemy and can_receive_ordinary_healing(target_enemy):
+            _apply_enemy_healing(target_enemy, total_heal)
+            resolution.target_new_hp = target_enemy.get("hp_current", 0)
+            resolution.target_name = target_enemy.get("name", "Enemy")
+            resolution.target_state = _enemy_heal_target_state(target_enemy)
+            if session is not None and state is not None and enemies is not None:
+                state["enemies"] = enemies
+                session.game_state = dict(state)
+                flag_modified_func(session, "game_state")
     resolution.heal = total_heal
+
+
+def _apply_enemy_healing(enemy: dict[str, Any], healing: int) -> None:
+    hp_before = int(enemy.get("hp_current", 0) or 0)
+    hp_max = int(enemy.get("hp_max") or get_effective_hp_max(enemy) or 1)
+    enemy["hp_current"] = min(hp_max, hp_before + max(0, int(healing or 0)))
+    if hp_before <= 0 < enemy["hp_current"]:
+        enemy["death_saves"] = None
+        enemy["dead"] = False
+        enemy["conditions"] = [
+            condition
+            for condition in list(enemy.get("conditions") or [])
+            if condition != "unconscious"
+        ]
+
+
+def _enemy_heal_target_state(enemy: dict[str, Any]) -> dict[str, Any]:
+    hp_current = int(enemy.get("hp_current", 0) or 0)
+    return {
+        "target_id": enemy.get("id"),
+        "target_name": enemy.get("name", "Enemy"),
+        "hp_current": hp_current,
+        "new_hp": hp_current,
+        "conditions": enemy.get("conditions", []),
+        "condition_durations": enemy.get("condition_durations", {}),
+        "life_state": "dead" if hp_current <= 0 else "alive",
+    }
 
 
 async def apply_ai_control_spell(

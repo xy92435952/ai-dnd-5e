@@ -30,6 +30,7 @@ from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
 from services.combat_legendary_action_service import refresh_legendary_actions_for_turn_start
 from services.combat_recharge_service import refresh_recharge_abilities_at_turn_start
+from services.combat_ai_role_decision_service import apply_tactical_role_decision
 from services.dnd_rules import get_incapacitating_reasons, is_incapacitated
 from services.module_content import get_module_content
 
@@ -226,6 +227,14 @@ async def _ai_combat_turn_locked(
         module_tactics=_tactics,
         actor_personality=_personality,
     )
+    if is_enemy:
+        decision = apply_tactical_role_decision(
+            actor=actor_full,
+            decision=decision,
+            all_characters=all_characters,
+            all_enemies=enemies_alive,
+            positions=dict(combat.entity_positions or {}),
+        )
 
     # 从决策中获取目标
     decided_target_id = decision.get("target_id")
