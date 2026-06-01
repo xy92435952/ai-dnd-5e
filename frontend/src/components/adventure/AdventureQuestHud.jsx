@@ -48,10 +48,12 @@ export default function AdventureQuestHud({
   const locationSummary = getLocationGraphSummary(locationGraph)
   const questStatus = getQuestStatusMeta(questLine)
   const questDetail = getQuestDetail(questLine)
+  const questProgressCount = Number(questLine?.progressCount || 0)
   const questTitle = questLine
     ? [
         questLine.quest,
         `状态：${questStatus.label}`,
+        questProgressCount > 0 ? `进展：${questProgressCount}` : '',
         questLine.branch ? `分支：${questLine.branch}` : '',
         questDetail ? `进展：${questDetail}` : '',
         questLine.consequence ? `后果：${questLine.consequence}` : '',
@@ -83,6 +85,11 @@ export default function AdventureQuestHud({
       {questLine?.branch && (
         <span className="quest-branch-pill" title={questTitle}>
           {questLine.branch}
+        </span>
+      )}
+      {questProgressCount > 0 && (
+        <span className="quest-progress-pill" title={questTitle}>
+          进展 {questProgressCount}
         </span>
       )}
       {questDetail && (

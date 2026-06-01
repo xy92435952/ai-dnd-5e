@@ -13,6 +13,7 @@ describe('AdventureQuestHud', () => {
           next_step: '确认井底暗门是否会在月光下开启',
           failure_consequence: '守卫巡逻会提前封锁井口',
           fail_forward: '错过月光窗口后仍可寻找铁匠旧钥匙',
+          progressCount: 2,
         }}
         clues={[{ text: '暗门在井底', category: 'location', is_new: true }]}
         locationGraph={{
@@ -45,6 +46,7 @@ describe('AdventureQuestHud', () => {
     expect(screen.getByText('调查暗门')).toBeInTheDocument()
     expect(screen.getByText('进行中')).toHaveClass('quest-status-pill', 'active')
     expect(screen.getByText('井底调查线')).toHaveClass('quest-branch-pill')
+    expect(screen.getByText('进展 2')).toHaveClass('quest-progress-pill')
     expect(screen.getByText('确认井底暗门是否会在月光下开启')).toHaveClass('quest-outcome-snippet', 'active')
     expect(screen.getByText(/地图/)).toBeInTheDocument()
     expect(screen.getByText('矿村井口')).toBeInTheDocument()

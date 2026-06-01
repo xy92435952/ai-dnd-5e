@@ -47,6 +47,7 @@ describe('useAdventureDerivedState', () => {
           key_decisions: ['救下铁匠', '信任铁匠'],
           recent_updates: [
             { type: 'quest', label: '旧任务', detail: 'completed', at: '1' },
+            { type: 'quest', label: '当前任务', detail: '发现第二道暗门', at: '1.5' },
             { type: 'npc', label: '铁匠', detail: '友好', at: '2' },
             { type: 'decision', label: '信任铁匠', detail: '关键决定', at: '3' },
             { type: 'clue', label: '暗门在井底', detail: 'location', at: '4' },
@@ -67,6 +68,7 @@ describe('useAdventureDerivedState', () => {
     expect(result.current.sceneVibe).toEqual({ tone: 'tense' })
     expect(result.current.clues).toEqual(['b', 'c', 'd', 'e'])
     expect(result.current.questLine.quest).toBe('当前任务')
+    expect(result.current.questLine.progressCount).toBe(1)
     expect(result.current.npcUpdates).toEqual([
       { name: '铁匠', relationship: '友好', keyFacts: ['愿意修装备'] },
     ])
@@ -102,6 +104,7 @@ describe('useAdventureDerivedState', () => {
       quest: '守住营地',
       status: 'failed',
       outcome: '幸存者撤入旧矿道',
+      progressCount: 0,
     })
   })
 })

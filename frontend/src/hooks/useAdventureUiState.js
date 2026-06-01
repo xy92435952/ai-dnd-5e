@@ -1,5 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
 
+function cleanText(value) {
+  return String(value || '').trim()
+}
+
 export function useAdventureUiState() {
   const [logs, setLogs] = useState([])
   const [input, setInput] = useState('')
@@ -81,10 +85,20 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
   ), [session])
 
   const questLine = useMemo(() => {
-    const quests = Array.isArray(session?.campaign_state?.quest_log)
-      ? session.campaign_state.quest_log.filter(q => q?.quest)
+    const campaign = session?.campaign_state || {}
+    const quests = Array.isArray(campaign.quest_log)
+      ? campaign.quest_log.filter(q => q?.quest)
       : []
-    return quests.find(q => String(q.status || '').toLowerCase() === 'active') || quests[quests.length - 1]
+    const selectedQuest = quests.find(q => String(q.status || '').toLowerCase() === 'active') || quests[quests.length - 1]
+    if (!selectedQuest) return selectedQuest
+
+    const progressCount = Array.isArray(campaign.recent_updates)
+      ? campaign.recent_updates.filter(item => (
+        item?.type === 'quest' && cleanText(item.label) === cleanText(selectedQuest.quest)
+      )).length
+      : 0
+
+    return { ...selectedQuest, progressCount }
   }, [session])
 
   return {

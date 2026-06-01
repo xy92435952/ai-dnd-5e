@@ -771,6 +771,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.quest-progress-pill {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid rgba(240,208,96,.42);
+  border-radius: 3px;
+  background: rgba(138,90,24,.12);
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
 .quest-outcome-snippet {
   min-width: 64px;
   max-width: 190px;
