@@ -83,10 +83,10 @@ function featureLabels(values) {
 
 function buildDetailGroups({ objectives, terrain, cover, hazards, counts }) {
   return [
-    detailGroup('objective', 'OBJ', objectives, counts.objective, 'Mapped objective'),
-    detailGroup('cover', 'COV', cover, counts.cover, 'Mapped cover'),
-    detailGroup('terrain', 'TER', terrain, counts.difficult, 'Difficult terrain'),
-    detailGroup('hazard', 'HZD', hazards, counts.hazard, 'Mapped hazard'),
+    detailGroup('objective', 'Goal', objectives, counts.objective, 'Mapped objective'),
+    detailGroup('cover', 'Cover', cover, counts.cover, 'Mapped cover'),
+    detailGroup('terrain', 'Terrain', terrain, counts.difficult, 'Difficult terrain'),
+    detailGroup('hazard', 'Hazard', hazards, counts.hazard, 'Mapped hazard'),
   ].filter(Boolean)
 }
 

@@ -20,10 +20,10 @@ export default function CombatTacticalContextPanel({ context }) {
         <b>{context.title}</b>
       </div>
       <div className="tactical-context-grid">
-        <ContextMetric label="OBJ" value={objective} />
-        <ContextMetric label="TER" value={terrain} />
-        <ContextMetric label="HZD" value={hazard} />
-        <ContextMetric label="BAL" value={balance || 'Unknown'} />
+        <ContextMetric label="Goal" value={objective} />
+        <ContextMetric label="Space" value={terrain} />
+        <ContextMetric label="Risk" value={hazard} />
+        <ContextMetric label="Balance" value={balance || 'Unknown'} />
       </div>
       {context.detailGroups?.length > 0 && (
         <div className="tactical-context-details" aria-label="Tactical feature details">
