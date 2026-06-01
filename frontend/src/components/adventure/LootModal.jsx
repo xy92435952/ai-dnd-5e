@@ -40,11 +40,12 @@ function statusLabel(item) {
   return item?.claimed_by_name ? `Claimed by ${item.claimed_by_name}` : 'Claimed'
 }
 
-function LootRow({ item, disabled, claiming, onClaim }) {
+function LootRow({ item, disabled, disabledReason = '', claiming, onClaim }) {
   const claimed = item.status === 'claimed'
   const meta = lootMeta(item)
   const canSplit = item.category === 'gold' && Number(item.amount || 0) > 0
   const canDistribute = item.category !== 'gold'
+  const actionTitle = disabled ? disabledReason : undefined
 
   return (
     <article className={`loot-row ${claimed ? 'claimed' : ''}`}>
@@ -63,6 +64,7 @@ function LootRow({ item, disabled, claiming, onClaim }) {
       <button
         className="btn-fantasy loot-claim-button"
         disabled={disabled || claimed || claiming}
+        title={actionTitle}
         aria-label={`Claim ${item.name || 'loot'}`}
         onClick={() => onClaim(item, 'claim')}
       >
@@ -72,6 +74,7 @@ function LootRow({ item, disabled, claiming, onClaim }) {
         <button
           className="btn-fantasy loot-claim-button"
           disabled={disabled || claimed || claiming}
+          title={actionTitle}
           aria-label={`Split ${item.name || 'loot'}`}
           onClick={() => onClaim(item, 'split_party')}
         >
@@ -83,6 +86,7 @@ function LootRow({ item, disabled, claiming, onClaim }) {
           <button
             className="btn-fantasy loot-claim-button"
             disabled={disabled || claimed || claiming}
+            title={actionTitle}
             aria-label={`Share ${item.name || 'loot'}`}
             onClick={() => onClaim(item, 'party_stash')}
           >
@@ -91,6 +95,7 @@ function LootRow({ item, disabled, claiming, onClaim }) {
           <button
             className="btn-fantasy loot-claim-button"
             disabled={disabled || claimed || claiming}
+            title={actionTitle}
             aria-label={`Roll ${item.name || 'loot'}`}
             onClick={() => onClaim(item, 'roll_party')}
           >
@@ -102,7 +107,14 @@ function LootRow({ item, disabled, claiming, onClaim }) {
   )
 }
 
-export default function LootModal({ sessionId, player, onClaimed, onClose }) {
+export default function LootModal({
+  sessionId,
+  player,
+  disabled = false,
+  disabledReason = '',
+  onClaimed,
+  onClose,
+}) {
   const [lootPool, setLootPool] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -122,8 +134,13 @@ export default function LootModal({ sessionId, player, onClaimed, onClose }) {
   const items = useMemo(() => lootItems(lootPool), [lootPool])
   const availableCount = items.filter(item => item.status !== 'claimed').length
   const claimedCount = items.length - availableCount
+  const blockReason = disabledReason || '房间正在重新同步，请恢复连接后再分配战利品。'
 
   const handleClaim = async (item, claimMode = 'claim') => {
+    if (disabled) {
+      setError(blockReason)
+      return
+    }
     if (!player?.id) {
       setError('No player character is available.')
       return
@@ -159,6 +176,13 @@ export default function LootModal({ sessionId, player, onClaimed, onClose }) {
 
       {error && <p className="checkpoint-error">{error}</p>}
 
+      {disabled && (
+        <div role="status" className="multiplayer-sync-guard" style={{ margin: '0 0 10px' }}>
+          <strong>同步暂停</strong>
+          <span>{blockReason}</span>
+        </div>
+      )}
+
       <div className="loot-list" aria-label="Session loot">
         {loading ? (
           <p className="checkpoint-empty">Loading loot...</p>
@@ -169,7 +193,8 @@ export default function LootModal({ sessionId, player, onClaimed, onClose }) {
             <LootRow
               key={item.id || item.name}
               item={item}
-              disabled={!player?.id}
+              disabled={disabled || !player?.id}
+              disabledReason={disabled ? blockReason : 'No player character is available.'}
               claiming={claimingId === item.id}
               onClaim={handleClaim}
             />

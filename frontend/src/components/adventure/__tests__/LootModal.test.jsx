@@ -92,6 +92,46 @@ describe('LootModal', () => {
     expect(screen.getByRole('button', { name: 'Claim 25 gp' })).toBeDisabled()
   })
 
+  it('keeps discovered loot visible but blocks distribution while room sync is reconnecting', async () => {
+    getLootMock.mockResolvedValue({
+      items: [
+        { id: 'loot_gold_0', name: '25 gp', category: 'gold', amount: 25, status: 'available' },
+        { id: 'loot_gear_gate_token_0', name: 'Gate Token', category: 'gear', rarity: 'common', status: 'available' },
+      ],
+    })
+
+    render(
+      <LootModal
+        sessionId="sess-1"
+        player={{ id: 'char-1', name: 'Tester' }}
+        disabled
+        disabledReason="房间正在重新同步，请恢复连接后再分配战利品。"
+        onClaimed={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const claim = await screen.findByRole('button', { name: 'Claim 25 gp' })
+    expect(screen.getByText('Gate Token')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('同步暂停')
+    expect(screen.getByText('房间正在重新同步，请恢复连接后再分配战利品。')).toBeInTheDocument()
+
+    const split = screen.getByRole('button', { name: 'Split 25 gp' })
+    const share = screen.getByRole('button', { name: 'Share Gate Token' })
+    const roll = screen.getByRole('button', { name: 'Roll Gate Token' })
+    expect(claim).toBeDisabled()
+    expect(split).toBeDisabled()
+    expect(share).toBeDisabled()
+    expect(roll).toBeDisabled()
+    expect(claim).toHaveAttribute('title', '房间正在重新同步，请恢复连接后再分配战利品。')
+
+    fireEvent.click(claim)
+    fireEvent.click(split)
+    fireEvent.click(share)
+    fireEvent.click(roll)
+    expect(claimLootMock).not.toHaveBeenCalled()
+  })
+
   it('splits gold loot across the party when requested', async () => {
     getLootMock.mockResolvedValue({
       items: [

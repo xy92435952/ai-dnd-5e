@@ -322,6 +322,8 @@ export default function Adventure() {
         <LootModal
           sessionId={sessionId}
           player={player}
+          disabled={multiplayerSyncBlocked}
+          disabledReason="房间正在重新同步，请恢复连接后再分配战利品。"
           onClaimed={async (result) => {
             const name = result?.claimed?.name || 'reward'
             addLog('system', `Loot claimed: ${name}`, 'system')
