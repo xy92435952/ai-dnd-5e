@@ -61,6 +61,7 @@ const RECENT_TYPE_META = {
   clue: { label: '线索', tone: 'active' },
   companion: { label: '队友', tone: 'good' },
   decision: { label: '决定', tone: 'default' },
+  location: { label: '地点', tone: 'active' },
   npc: { label: 'NPC', tone: 'good' },
   world: { label: '后果', tone: 'danger' },
   threat: { label: '威胁', tone: 'danger' },
@@ -158,7 +159,19 @@ function buildTimelineEntry(item, index) {
     tone: questStatus?.tone || typeMeta.tone,
     label: cleanText(item?.label),
     detail: cleanText(item?.detail || item?.status),
+    at: cleanText(item?.at || item?.created_at || item?.turn),
   }
+}
+
+function buildTimelineSummary(timeline) {
+  const counts = new Map()
+  timeline.forEach(item => {
+    const key = item.typeLabel || '记录'
+    const current = counts.get(key) || { label: key, tone: item.tone, count: 0 }
+    current.count += 1
+    counts.set(key, current)
+  })
+  return [...counts.values()]
 }
 
 function matchCompanionByName(speaker, companions) {
@@ -283,10 +296,11 @@ function buildJournalSections(session, room) {
   const sceneVibe = asObject(gameState.scene_vibe)
   const recentUpdates = asArray(campaign.recent_updates).filter(Boolean)
   const timeline = recentUpdates
-    .slice(-8)
+    .slice(-12)
     .reverse()
     .map(buildTimelineEntry)
     .filter(item => item.label)
+  const timelineSummary = buildTimelineSummary(timeline)
   const quests = asArray(campaign.quest_log)
     .filter(q => q?.quest)
     .map(q => buildQuestSummary(q, recentUpdates))
@@ -349,6 +363,7 @@ function buildJournalSections(session, room) {
     threats,
     decisions,
     timeline,
+    timelineSummary,
   }
 }
 
@@ -417,16 +432,26 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
           ))}
         </Section>
 
-        <Section title="近期" count={journal.timeline.length}>
+        <Section title="时间线" count={journal.timeline.length}>
           {journal.timeline.length === 0 ? <EmptyLine>暂无近期变化</EmptyLine> : (
-            <ol className="journal-campaign-timeline" aria-label="近期时间线">
-              {journal.timeline.map(item => (
-                <li key={item.id} className={`${item.tone} ${item.type}`}>
-                  <b>{item.typeLabel}</b>
-                  <span>{item.label}{item.detail ? `：${item.detail}` : ''}</span>
-                </li>
-              ))}
-            </ol>
+            <>
+              <div className="journal-timeline-summary" aria-label="时间线汇总">
+                {journal.timelineSummary.map(item => (
+                  <span key={item.label} className={item.tone}>
+                    <b>{item.count}</b>{item.label}
+                  </span>
+                ))}
+              </div>
+              <ol className="journal-campaign-timeline" aria-label="完整时间线">
+                {journal.timeline.map(item => (
+                  <li key={item.id} className={`${item.tone} ${item.type}`}>
+                    <b>{item.typeLabel}</b>
+                    <span>{item.label}{item.detail ? `：${item.detail}` : ''}</span>
+                    {item.at && <time>{item.at}</time>}
+                  </li>
+                ))}
+              </ol>
+            </>
           )}
         </Section>
 

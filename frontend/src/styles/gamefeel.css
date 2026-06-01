@@ -968,9 +968,47 @@
   padding: 0;
   list-style: none;
 }
+.journal-timeline-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.journal-timeline-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid rgba(213,184,121,.22);
+  border-radius: 3px;
+  background: rgba(0,0,0,.16);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.2;
+}
+.journal-timeline-summary b {
+  color: var(--parchment-light);
+  font-size: 10px;
+}
+.journal-timeline-summary span.active {
+  border-color: rgba(240,208,96,.26);
+  background: rgba(240,208,96,.08);
+  color: var(--amber);
+}
+.journal-timeline-summary span.good {
+  border-color: rgba(106,196,132,.24);
+  background: rgba(42,106,58,.12);
+  color: var(--emerald-light);
+}
+.journal-timeline-summary span.danger {
+  border-color: rgba(240,64,64,.28);
+  background: rgba(138,26,26,.12);
+  color: var(--blood-light);
+}
 .journal-campaign-timeline li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 7px;
   align-items: baseline;
   padding: 6px 7px;
@@ -999,6 +1037,12 @@
 .journal-campaign-timeline li span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.journal-campaign-timeline li time {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
 }
 .journal-companion-bond {
   display: grid;
