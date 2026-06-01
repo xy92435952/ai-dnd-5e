@@ -53,6 +53,19 @@ describe('buildCombatTurnCoach', () => {
     })
   })
 
+  it('adds tactical role context to enemy turn guidance', () => {
+    const coach = buildCombatTurnCoach({
+      currentTurnEntry: { character_id: 'goblin-1', name: '矿洞斥候', is_enemy: true },
+      currentTurnEntity: { id: 'goblin-1', name: '矿洞斥候', is_enemy: true, tactical_role: 'skirmisher' },
+    })
+
+    expect(coach).toEqual({
+      tone: 'danger',
+      label: '敌方行动',
+      detail: '矿洞斥候（游击）正在行动。倾向攻击边缘或后排，并在安全时撤步拉开距离。 留意反应提示、伤害结算和位置变化。',
+    })
+  })
+
   it('treats non-player allies as companion turns', () => {
     const coach = buildCombatTurnCoach({
       currentTurnEntry: { character_id: 'ally-1', name: '铁砧' },

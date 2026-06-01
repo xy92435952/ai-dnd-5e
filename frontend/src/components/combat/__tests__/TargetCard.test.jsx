@@ -104,6 +104,7 @@ describe('TargetCard', () => {
           hp_current: 6,
           hp_max: 24,
           ac: 16,
+          tactical_role: 'skirmisher',
           conditions: ['frightened', 'marked', 'slowed'],
           condition_durations: { frightened: 2 },
         }}
@@ -114,11 +115,13 @@ describe('TargetCard', () => {
     const summary = screen.getByLabelText('目标摘要 Wounded Hobgoblin')
     expect(summary).toHaveTextContent('敌人')
     expect(summary).toHaveTextContent('危急')
+    expect(summary).toHaveTextContent('游击')
     expect(summary).toHaveTextContent('AC 16')
     expect(summary).toHaveTextContent('命中 70%')
     expect(summary).toHaveTextContent('恐慌')
     expect(summary).toHaveTextContent('标记')
     expect(summary).toHaveTextContent('+1 状态')
+    expect(within(summary).getByTitle('战术定位：游击。倾向攻击边缘或后排，并在安全时撤步拉开距离。')).toBeInTheDocument()
     expect(within(summary).getByTitle('恐慌：来源可见时攻击骰和属性检定处于劣势；不能主动靠近来源。 持续：2 轮。')).toBeInTheDocument()
     expect(within(summary).getByTitle('迟缓：速度和动作选项减少；敏捷豁免可能受罚。')).toBeInTheDocument()
 

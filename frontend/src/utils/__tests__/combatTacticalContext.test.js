@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCombatTacticalContext } from '../combatTacticalContext'
+import { buildCombatTacticalContext, formatTacticalRole, getTacticalRoleHint } from '../combatTacticalContext'
 
 describe('combat tactical context', () => {
   it('summarizes encounter template, grid terrain, balance, and staged enemies', () => {
@@ -62,5 +62,14 @@ describe('combat tactical context', () => {
     expect(context.environmentAdjustedDifficulty).toBe('deadly')
     expect(context.stagedCount).toBe(2)
     expect(context.counts).toMatchObject({ cover: 1, difficult: 1, hazard: 1, objective: 1 })
+  })
+
+  it('formats tactical role labels and player-facing hints', () => {
+    expect(formatTacticalRole('skirmisher')).toBe('游击')
+    expect(formatTacticalRole('defender')).toBe('防卫')
+    expect(formatTacticalRole('unknown')).toBe('unknown')
+    expect(getTacticalRoleHint('skirmisher')).toBe('倾向攻击边缘或后排，并在安全时撤步拉开距离。')
+    expect(getTacticalRoleHint('defender')).toBe('会贴近盟友保护目标，可能用反应制造劣势。')
+    expect(getTacticalRoleHint('unknown')).toBe('')
   })
 })

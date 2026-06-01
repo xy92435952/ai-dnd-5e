@@ -1,5 +1,6 @@
 import { buildCombatPreviewRows } from '../../utils/combat'
 import { buildCombatRuleTags } from '../../utils/combatRuleTags'
+import { formatTacticalRole, getTacticalRoleHint } from '../../utils/combatTacticalContext'
 import { buildConditionImpactTags, buildConditionSummaries } from '../../utils/conditionRules'
 import { buildEnemyInspectModel } from '../../utils/enemyInspect'
 
@@ -127,6 +128,9 @@ function buildTargetBadges(entity = {}, prediction = null) {
     { label: targetHealthLabel(entity), tone: targetHealthTone(entity) },
   ]
 
+  const tacticalRoleBadge = buildTacticalRoleBadge(entity)
+  if (tacticalRoleBadge) badges.push(tacticalRoleBadge)
+
   if (entity.ac !== null && entity.ac !== undefined) badges.push({ label: `AC ${entity.ac}` })
   if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
     badges.push({ label: `命中 ${formatHitRate(prediction.hit_rate)}`, tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : '' })
@@ -149,6 +153,17 @@ function buildTargetBadges(entity = {}, prediction = null) {
     })
   }
   return badges
+}
+
+function buildTacticalRoleBadge(entity = {}) {
+  if (!entity.is_enemy || !entity.tactical_role) return null
+  const role = formatTacticalRole(entity.tactical_role)
+  const hint = getTacticalRoleHint(entity.tactical_role)
+  return {
+    label: role,
+    tone: 'warning',
+    title: `战术定位：${role}。${hint || '观察其行动模式来判断优先级。'}`,
+  }
 }
 
 function targetHealthLabel(entity = {}) {

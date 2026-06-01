@@ -1,3 +1,5 @@
+import { formatTacticalRole, getTacticalRoleHint } from './combatTacticalContext'
+
 function actorName(entry, entity) {
   return entity?.name || entry?.name || '当前单位'
 }
@@ -61,10 +63,14 @@ export function buildCombatTurnCoach({
   }
 
   if (isEnemy) {
+    const role = currentTurnEntity?.tactical_role || currentTurnEntry?.tactical_role || ''
+    const roleLabel = role ? formatTacticalRole(role) : ''
+    const roleHint = getTacticalRoleHint(role)
+    const turnLead = roleLabel ? `${name}（${roleLabel}）正在行动。` : `${name} 正在行动。`
     return {
       tone: 'danger',
       label: '敌方行动',
-      detail: `${name} 正在行动。留意反应提示、伤害结算和位置变化。`,
+      detail: `${turnLead}${roleHint ? `${roleHint} ` : ''}留意反应提示、伤害结算和位置变化。`,
     }
   }
 

@@ -140,7 +140,7 @@ function enemyRoleEntries(values) {
       return {
         name,
         role,
-        label: [name, role && roleLabel(role)].filter(Boolean).join(': '),
+        label: [name, role && formatTacticalRole(role)].filter(Boolean).join(': '),
       }
     })
     .filter(Boolean)
@@ -154,11 +154,11 @@ function summarizeRoleCounts(entries) {
     counts.set(key, (counts.get(key) || 0) + 1)
   })
   return [...counts.entries()]
-    .map(([role, count]) => `${roleLabel(role)} x${count}`)
+    .map(([role, count]) => `${formatTacticalRole(role)} x${count}`)
     .join(' / ')
 }
 
-function roleLabel(role) {
+export function formatTacticalRole(role) {
   const normalized = String(role || '').trim().toLowerCase()
   return ({
     striker: '突击',
@@ -167,6 +167,17 @@ function roleLabel(role) {
     healer: '治疗',
     skirmisher: '游击',
   })[normalized] || role
+}
+
+export function getTacticalRoleHint(role) {
+  const normalized = String(role || '').trim().toLowerCase()
+  return ({
+    striker: '会优先压低血量、专注或低 AC 目标。',
+    controller: '会优先用控制或区域威胁限制行动。',
+    defender: '会贴近盟友保护目标，可能用反应制造劣势。',
+    healer: '会优先维持敌方队伍血线。',
+    skirmisher: '倾向攻击边缘或后排，并在安全时撤步拉开距离。',
+  })[normalized] || ''
 }
 
 function asArray(value) {
