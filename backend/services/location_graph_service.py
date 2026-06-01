@@ -527,11 +527,13 @@ def public_location_graph(graph: dict[str, Any] | None) -> dict[str, Any]:
         "nodes": visible_nodes,
         "edges": public_edges,
     }
-    if graph.get("selected_encounter_template_id"):
-        public_graph["selected_encounter_template_id"] = str(graph.get("selected_encounter_template_id"))
     public_templates = _public_encounter_templates(graph, visible_ids)
     if public_templates:
         public_graph["encounter_templates"] = public_templates
+        public_template_ids = {str(template.get("id")) for template in public_templates}
+        selected_template_id = str(graph.get("selected_encounter_template_id") or "")
+        if selected_template_id in public_template_ids:
+            public_graph["selected_encounter_template_id"] = selected_template_id
     return public_graph
 
 

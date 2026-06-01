@@ -175,6 +175,31 @@ def test_public_location_graph_preserves_selected_encounter_template_id():
     }]
 
 
+def test_public_location_graph_hides_selected_template_id_for_hidden_location():
+    public = public_location_graph({
+        "current_location_id": "gate",
+        "selected_encounter_template_id": "encounter_vault_0",
+        "nodes": [
+            {"id": "gate", "name": "Gatehouse", "visited": True},
+            {"id": "vault", "name": "Secret Vault", "visited": False},
+        ],
+        "edges": [{"from": "gate", "to": "vault", "type": "hidden", "hidden": True}],
+        "encounter_templates": [{
+            "id": "encounter_vault_0",
+            "location_id": "vault",
+            "status": "available",
+            "selected": True,
+            "name": "Vault Ambush",
+            "enemy_names": ["Moonlit Warden"],
+        }],
+    })
+
+    assert [node["name"] for node in public["nodes"]] == ["Gatehouse"]
+    assert public["edges"] == []
+    assert "encounter_templates" not in public
+    assert "selected_encounter_template_id" not in public
+
+
 def test_public_location_graph_exposes_safe_environment_pressure_only():
     public = public_location_graph({
         "current_location_id": "yard",
