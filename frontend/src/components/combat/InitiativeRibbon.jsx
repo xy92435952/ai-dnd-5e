@@ -1,4 +1,5 @@
 import { formatTacticalRole, getTacticalRoleHint } from '../../utils/combatTacticalContext'
+import { buildConditionSummaries } from '../../utils/conditionRules'
 
 export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget = () => {} }) {
   const activeIndex = initiativeChips.findIndex(chip => chip.isCur)
@@ -11,7 +12,7 @@ export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget 
         const isNext = index === nextIndex && !isCur
         const sideLabel = t.is_enemy ? 'FOE' : 'ALLY'
         const turnLabel = isCur ? 'NOW' : isNext ? 'NEXT' : sideLabel
-        const conditions = formatConditions(ent?.conditions)
+        const conditions = buildConditionSummaries(ent?.conditions || [], ent?.condition_durations || {})
         const tacticalRole = t.is_enemy ? ent?.tactical_role || t.tactical_role : ''
         const roleLabel = tacticalRole ? formatTacticalRole(tacticalRole) : ''
         const roleHint = getTacticalRoleHint(tacticalRole)
@@ -39,9 +40,18 @@ export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget 
             <div className="unit-name">{name.slice(0, 4)}</div>
             <div className="hp-tick"><div className="fill" style={{ width: `${pct}%` }} /></div>
             {conditions.length > 0 && (
-              <div className="condition-dots" aria-label={`${name} conditions`}>
+              <div
+                className="condition-dots"
+                aria-label={`${name} conditions: ${conditions.map(condition => condition.label).join(', ')}`}
+              >
                 {conditions.slice(0, 3).map((condition, conditionIndex) => (
-                  <span key={`${condition}-${conditionIndex}`} title={condition}>!</span>
+                  <span
+                    key={`${condition.key}-${conditionIndex}`}
+                    className={condition.tone || ''}
+                    title={condition.title}
+                  >
+                    {conditionMarker(condition)}
+                  </span>
                 ))}
               </div>
             )}
@@ -62,13 +72,6 @@ function getNextLivingIndex(chips, activeIndex) {
   return -1
 }
 
-function formatConditions(conditions) {
-  if (!Array.isArray(conditions)) return []
-  return conditions
-    .map(condition => {
-      if (typeof condition === 'string') return condition
-      if (!condition || typeof condition !== 'object') return ''
-      return String(condition.name || condition.condition || condition.type || condition.id || '')
-    })
-    .filter(Boolean)
+function conditionMarker(condition = {}) {
+  return String(condition.label || condition.key || '!').slice(0, 1) || '!'
 }

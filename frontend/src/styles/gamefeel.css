@@ -2661,6 +2661,10 @@
   font-weight: 900;
   line-height: 9px;
 }
+.condition-dots span.buff {
+  border-color: rgba(138,234,160,.45);
+  color: #8aeaa0;
+}
 
 /* 战场 2D 俯视网格 —— HD-2D 氛围（八方旅人致敬） */
 .combat-stage {
