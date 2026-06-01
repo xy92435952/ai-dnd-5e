@@ -71,14 +71,25 @@ def build_character_snapshot(char) -> dict:
 
 def build_reward_context(game_state: dict) -> dict:
     loot_pool = game_state.get("loot_pool") if isinstance(game_state.get("loot_pool"), dict) else {}
+    raw_items = [
+        item for item in list(loot_pool.get("items") or [])
+        if isinstance(item, dict)
+    ] if isinstance(loot_pool, dict) else []
     items = public_loot_pool(loot_pool).get("items", [])
     available = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") == "available"]
     claimed = [_reward_item_summary(item) for item in items if isinstance(item, dict) and item.get("status") == "claimed"]
+    hidden = [
+        _reward_item_summary(item)
+        for item in raw_items
+        if str(item.get("status") or "hidden") == "hidden"
+    ]
     return {
         "available_count": len(available),
         "claimed_count": len(claimed),
+        "hidden_count": len(hidden),
         "available_loot": available[:8],
         "claimed_loot": claimed[:8],
+        "discoverable_loot_hints": hidden[:8],
     }
 
 

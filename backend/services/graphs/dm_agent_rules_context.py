@@ -168,8 +168,11 @@ def _format_reward_note(reward_context: dict[str, Any]) -> str:
 - Treat `game_state.reward_context` as the backend-authored reward ledger for discovered session loot.
 - Available loot count: {reward_context.get("available_count", 0)}
 - Claimed loot count: {reward_context.get("claimed_count", 0)}
+- Hidden discoverable loot count: {reward_context.get("hidden_count", 0)}
 - Available loot: {json.dumps(reward_context.get("available_loot") or [], ensure_ascii=False)}
 - Claimed loot: {json.dumps(reward_context.get("claimed_loot") or [], ensure_ascii=False)}
+- Discoverable loot hints, internal only: {json.dumps(reward_context.get("discoverable_loot_hints") or [], ensure_ascii=False)}
 - When players search, loot a room, finish an encounter, or collect a quest reward, narrate discovered rewards clearly.
 - Ordinary coin rewards may use `state_delta.gold_changes` when the amount is immediately granted.
+- Do not mention hidden discoverable loot hints unless the player's current action, search result, encounter result, or quest reward actually reveals them.
 - Non-gold, magic, or party-contested rewards should be written to `state_delta.loot_discoveries` by reward name or loot_id, then left for the Loot UI / `/loot/claim` flow to claim, split, share, or roll; do not silently add those items to a character's equipment in narration."""

@@ -149,11 +149,15 @@ def test_rules_layer_includes_reward_context_for_loot_prompts():
         "reward_context": {
             "available_count": 1,
             "claimed_count": 1,
+            "hidden_count": 1,
             "available_loot": [
                 {"id": "loot_gear_gate_token_0", "name": "Gate Token", "category": "gear", "rarity": "common"}
             ],
             "claimed_loot": [
                 {"id": "loot_gold_1", "name": "25 gp", "category": "gold", "claim_mode": "split_party"}
+            ],
+            "discoverable_loot_hints": [
+                {"id": "loot_weapon_moonblade_2", "name": "Moonblade", "category": "weapon"}
             ],
         },
     }
@@ -167,6 +171,8 @@ def test_rules_layer_includes_reward_context_for_loot_prompts():
 
     assert "Reward Snapshot" in context
     assert "Gate Token" in context
+    assert "Moonblade" in context
+    assert "internal only" in context
     assert "state_delta.gold_changes" in context
     assert "/loot/claim" in context
     assert "do not silently add" in context

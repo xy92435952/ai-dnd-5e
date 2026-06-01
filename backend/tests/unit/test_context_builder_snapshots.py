@@ -74,6 +74,13 @@ def test_game_state_payload_includes_exploration_context_for_dm_input():
                         "status": "claimed",
                         "claimed_by_name": "Scout",
                     },
+                    {
+                        "id": "loot_weapon_moonblade_2",
+                        "name": "Moonblade",
+                        "category": "weapon",
+                        "status": "hidden",
+                        "source": "magic_items",
+                    },
                 ],
             },
         },
@@ -150,5 +157,7 @@ def test_game_state_payload_includes_exploration_context_for_dm_input():
     assert state["location_graph_context"]["current_encounters"][0]["name"] == "Construct Patrol"
     assert state["reward_context"]["available_count"] == 1
     assert state["reward_context"]["claimed_count"] == 1
+    assert state["reward_context"]["hidden_count"] == 1
     assert state["reward_context"]["available_loot"][0]["name"] == "25 gp"
     assert state["reward_context"]["claimed_loot"][0]["claimed_by_name"] == "Scout"
+    assert state["reward_context"]["discoverable_loot_hints"][0]["id"] == "loot_weapon_moonblade_2"
