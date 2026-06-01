@@ -165,7 +165,8 @@ function readNumber(value, fallback) {
 function targetSummary(entity = null, prediction = null) {
   if (!entity) return '已选择'
 
-  const parts = [String(entity.name || '目标')]
+  const side = targetSideLabel(entity)
+  const parts = side ? [side, String(entity.name || '目标')] : [String(entity.name || '目标')]
   if (entity.ac !== null && entity.ac !== undefined) parts.push(`AC ${entity.ac}`)
   if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
     parts.push(`命中 ${formatPercent(prediction.hit_rate)}`)
@@ -173,6 +174,13 @@ function targetSummary(entity = null, prediction = null) {
   parts.push(...compactAttackRuleLabels(prediction, entity))
 
   return parts.join(' · ')
+}
+
+function targetSideLabel(entity = {}) {
+  if (entity.is_enemy === true) return '敌人'
+  if (entity.is_player === true || entity.is_ally === true || entity.is_companion === true) return '友军'
+  if (entity.is_enemy === false) return '友军'
+  return ''
 }
 
 function compactAttackRuleLabels(prediction = null, entity = null) {

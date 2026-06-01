@@ -29,7 +29,7 @@ describe('buildCombatActionCoach', () => {
       turnState: { action_used: false, movement_max: 6, movement_used: 0, reaction_used: false },
       skillBar: [{ k: 'atk', kind: 'attack', available: true }],
       selectedTarget: 'enemy-1',
-      selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', ac: 15 },
+      selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', is_enemy: true, ac: 15 },
       prediction: {
         hit_rate: 0.55,
         disadvantage: true,
@@ -44,7 +44,7 @@ describe('buildCombatActionCoach', () => {
     expect(coach.items).toContainEqual({
       key: 'target',
       label: '目标',
-      value: 'Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20',
+      value: '敌人 · Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20',
       tone: 'ready',
     })
     expect(coach.items).toContainEqual({
@@ -62,7 +62,7 @@ describe('buildCombatActionCoach', () => {
       turnState: { action_used: false, movement_max: 6, movement_used: 0, reaction_used: false },
       skillBar: [{ k: 'atk', kind: 'attack', available: true }],
       selectedTarget: 'enemy-1',
-      selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', ac: 15 },
+      selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', is_enemy: true, ac: 15 },
       prediction: {
         hit_rate: 0.8,
         advantage: true,
@@ -74,6 +74,23 @@ describe('buildCombatActionCoach', () => {
       key: 'rules',
       label: '来源',
       value: '目标束缚',
+      tone: 'ready',
+    })
+  })
+
+  it('marks allied selected targets in the target summary', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      turnState: { action_used: false, movement_max: 6, movement_used: 0, reaction_used: false },
+      skillBar: [{ k: 'heal', kind: 'spell', available: true }],
+      selectedTarget: 'ally-1',
+      selectedTargetEntity: { id: 'ally-1', name: 'Asha', is_enemy: false, ac: 14 },
+    })
+
+    expect(coach.items).toContainEqual({
+      key: 'target',
+      label: '目标',
+      value: '友军 · Asha · AC 14',
       tone: 'ready',
     })
   })
