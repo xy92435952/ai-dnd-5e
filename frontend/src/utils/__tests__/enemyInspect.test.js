@@ -13,12 +13,12 @@ describe('enemyInspect', () => {
       tactics: 'Flank isolated targets.',
     })
 
-    expect(model.revealLabel).toBe('PARTIAL')
+    expect(model.revealLabel).toBe('部分')
     expect(model.rows.find(row => row.label === 'CR')).toMatchObject({
-      value: 'Unknown',
+      value: '未知',
       hidden: true,
     })
-    expect(model.actions).toBe('Unknown')
+    expect(model.actions).toBe('未知')
     expect(model.tacticsHidden).toBe(true)
   })
 
@@ -36,8 +36,8 @@ describe('enemyInspect', () => {
 
     expect(isEnemyDetailVisible(entity, 'speed')).toBe(true)
     expect(model.rows.find(row => row.label === 'CR')).toMatchObject({ value: '1', hidden: false })
-    expect(model.rows.find(row => row.label === 'RES')).toMatchObject({ value: 'fire', hidden: false })
-    expect(model.rows.find(row => row.label === 'IMM')).toMatchObject({ value: 'Unknown', hidden: true })
+    expect(model.rows.find(row => row.label === '抗性')).toMatchObject({ value: 'fire', hidden: false })
+    expect(model.rows.find(row => row.label === '免疫')).toMatchObject({ value: '未知', hidden: true })
     expect(model.actions).toBe('Bite / Claw')
   })
 
@@ -53,9 +53,9 @@ describe('enemyInspect', () => {
       tactics: 'Focus wounded targets.',
     })
 
-    expect(model.revealLabel).toBe('IDENTIFIED')
-    expect(model.rows.find(row => row.label === 'VULN').value).toBe('radiant')
-    expect(model.rows.find(row => row.label === 'COND').value).toBe('charmed')
+    expect(model.revealLabel).toBe('已识别')
+    expect(model.rows.find(row => row.label === '易伤').value).toBe('radiant')
+    expect(model.rows.find(row => row.label === '状态免疫').value).toBe('charmed')
     expect(model.traits).toBe('Pack Tactics')
     expect(model.tactics).toBe('Focus wounded targets.')
   })
@@ -72,12 +72,12 @@ describe('enemyInspect', () => {
       tactics: 'Punish isolated targets.',
     })
 
-    expect(model.revealLabel).toBe('PARTIAL')
+    expect(model.revealLabel).toBe('部分')
     expect(model.rows.find(row => row.label === 'CR')).toMatchObject({
-      value: 'Unknown',
+      value: '未知',
       hidden: true,
     })
-    expect(model.actions).toBe('Unknown')
-    expect(model.tactics).toBe('Unknown')
+    expect(model.actions).toBe('未知')
+    expect(model.tactics).toBe('未知')
   })
 })

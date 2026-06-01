@@ -21,13 +21,13 @@ describe('TargetCard', () => {
       />,
     )
 
-    const sheet = screen.getByLabelText('Enemy inspect Veiled Stalker')
-    expect(sheet).toHaveTextContent('INSPECT')
-    expect(sheet).toHaveTextContent('PARTIAL')
-    expect(sheet).toHaveTextContent('Actions')
-    expect(sheet).toHaveTextContent('Traits')
-    expect(sheet).toHaveTextContent('Tactics')
-    expect(within(sheet).getAllByText('Unknown').length).toBeGreaterThan(0)
+    const sheet = screen.getByLabelText('敌人检视 Veiled Stalker')
+    expect(sheet).toHaveTextContent('检视')
+    expect(sheet).toHaveTextContent('部分')
+    expect(sheet).toHaveTextContent('动作')
+    expect(sheet).toHaveTextContent('特性')
+    expect(sheet).toHaveTextContent('战术')
+    expect(within(sheet).getAllByText('未知').length).toBeGreaterThan(0)
     expect(sheet).not.toHaveTextContent('Shadow Strike')
   })
 
@@ -54,8 +54,8 @@ describe('TargetCard', () => {
       />,
     )
 
-    const sheet = screen.getByLabelText('Enemy inspect Clockwork Sentry')
-    expect(sheet).toHaveTextContent('IDENTIFIED')
+    const sheet = screen.getByLabelText('敌人检视 Clockwork Sentry')
+    expect(sheet).toHaveTextContent('已识别')
     expect(sheet).toHaveTextContent('poison')
     expect(sheet).toHaveTextContent('poisoned')
     expect(sheet).toHaveTextContent('Slam')
@@ -81,7 +81,7 @@ describe('TargetCard', () => {
       />,
     )
 
-    const actions = screen.getByLabelText('Inspect actions Masked Cultist')
+    const actions = screen.getByLabelText('检视操作 Masked Cultist')
     const perception = within(actions).getByRole('button', { name: '察觉' })
     const investigation = within(actions).getByRole('button', { name: '调查' })
     expect(perception).toHaveAttribute('title', '用察觉检视敌人态势')
@@ -111,18 +111,18 @@ describe('TargetCard', () => {
       />,
     )
 
-    const summary = screen.getByLabelText('Target summary Wounded Hobgoblin')
-    expect(summary).toHaveTextContent('Enemy')
-    expect(summary).toHaveTextContent('Critical')
+    const summary = screen.getByLabelText('目标摘要 Wounded Hobgoblin')
+    expect(summary).toHaveTextContent('敌人')
+    expect(summary).toHaveTextContent('危急')
     expect(summary).toHaveTextContent('AC 16')
-    expect(summary).toHaveTextContent('Hit 70%')
+    expect(summary).toHaveTextContent('命中 70%')
     expect(summary).toHaveTextContent('恐慌')
     expect(summary).toHaveTextContent('标记')
     expect(summary).toHaveTextContent('+1 状态')
     expect(within(summary).getByTitle('恐慌：来源可见时攻击骰和属性检定处于劣势；不能主动靠近来源。 持续：2 轮。')).toBeInTheDocument()
     expect(within(summary).getByTitle('迟缓：速度和动作选项减少；敏捷豁免可能受罚。')).toBeInTheDocument()
 
-    const impacts = screen.getByLabelText('Condition impacts Wounded Hobgoblin')
+    const impacts = screen.getByLabelText('状态影响 Wounded Hobgoblin')
     expect(impacts).toHaveTextContent('攻击劣势')
     expect(impacts).toHaveTextContent('移动受限')
     expect(impacts).toHaveTextContent('集火标记')
@@ -157,7 +157,7 @@ describe('TargetCard', () => {
       />,
     )
 
-    const tags = screen.getByLabelText('Attack rule tags Guard Behind Pillar')
+    const tags = screen.getByLabelText('攻击规则标签 Guard Behind Pillar')
     expect(tags).toHaveTextContent('劣势')
     expect(tags).toHaveTextContent('劣势: attacker poisoned +1')
     expect(tags).toHaveTextContent('3/4 掩护 +5 AC')

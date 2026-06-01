@@ -36,42 +36,42 @@ export function buildEnemyInspectModel(entity = null) {
   const rows = [
     {
       label: 'CR',
-      value: visible('cr') ? displayValue(entity.cr ?? entity.challenge_rating ?? entity.challenge) : 'Unknown',
+      value: visible('cr') ? displayValue(entity.cr ?? entity.challenge_rating ?? entity.challenge) : '未知',
       hidden: !visible('cr'),
     },
     {
-      label: 'SPD',
-      value: visible('speed') ? displayValue(entity.speed) : 'Unknown',
+      label: '速度',
+      value: visible('speed') ? displayValue(entity.speed) : '未知',
       hidden: !visible('speed'),
     },
     {
-      label: 'RES',
-      value: visible('resistances') ? displayList(entity.resistances) : 'Unknown',
+      label: '抗性',
+      value: visible('resistances') ? displayList(entity.resistances) : '未知',
       hidden: !visible('resistances'),
     },
     {
-      label: 'IMM',
-      value: visible('immunities') ? displayList(entity.immunities) : 'Unknown',
+      label: '免疫',
+      value: visible('immunities') ? displayList(entity.immunities) : '未知',
       hidden: !visible('immunities'),
     },
     {
-      label: 'VULN',
-      value: visible('vulnerabilities') ? displayList(entity.vulnerabilities) : 'Unknown',
+      label: '易伤',
+      value: visible('vulnerabilities') ? displayList(entity.vulnerabilities) : '未知',
       hidden: !visible('vulnerabilities'),
     },
     {
-      label: 'COND',
-      value: visible('condition_immunities') ? displayList(entity.condition_immunities) : 'Unknown',
+      label: '状态免疫',
+      value: visible('condition_immunities') ? displayList(entity.condition_immunities) : '未知',
       hidden: !visible('condition_immunities'),
     },
   ]
 
   return {
-    revealLabel: fullyIdentified ? 'IDENTIFIED' : 'PARTIAL',
+    revealLabel: fullyIdentified ? '已识别' : '部分',
     rows,
-    actions: visible('actions') ? displayActions(entity.actions) : 'Unknown',
-    traits: visible('special_abilities') ? displayTraits(entity.special_abilities) : 'Unknown',
-    tactics: visible('tactics') ? displayValue(entity.tactics) : 'Unknown',
+    actions: visible('actions') ? displayActions(entity.actions) : '未知',
+    traits: visible('special_abilities') ? displayTraits(entity.special_abilities) : '未知',
+    tactics: visible('tactics') ? displayValue(entity.tactics) : '未知',
     actionsHidden: !visible('actions'),
     traitsHidden: !visible('special_abilities'),
     tacticsHidden: !visible('tactics'),
@@ -79,29 +79,29 @@ export function buildEnemyInspectModel(entity = null) {
 }
 
 function displayValue(value) {
-  if (value === null || value === undefined || value === '') return 'None'
+  if (value === null || value === undefined || value === '') return '无'
   return String(value)
 }
 
 function displayList(value) {
-  if (!Array.isArray(value) || value.length === 0) return 'None'
+  if (!Array.isArray(value) || value.length === 0) return '无'
   return value.map(item => String(item)).join(' / ')
 }
 
 function displayActions(actions) {
-  if (!Array.isArray(actions) || actions.length === 0) return 'None'
+  if (!Array.isArray(actions) || actions.length === 0) return '无'
   return actions
     .map(action => typeof action === 'string' ? action : action?.name)
     .filter(Boolean)
     .slice(0, 3)
-    .join(' / ') || 'None'
+    .join(' / ') || '无'
 }
 
 function displayTraits(traits) {
-  if (!Array.isArray(traits) || traits.length === 0) return 'None'
+  if (!Array.isArray(traits) || traits.length === 0) return '无'
   return traits
     .map(trait => typeof trait === 'string' ? trait : trait?.name)
     .filter(Boolean)
     .slice(0, 3)
-    .join(' / ') || 'None'
+    .join(' / ') || '无'
 }

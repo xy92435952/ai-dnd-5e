@@ -23,9 +23,9 @@ export default function TargetCard({
       <div className="target-card">
         <div className="target-head">
           <span className="name">{entity.name}</span>
-          <span className="tag">TARGET</span>
+          <span className="tag">目标</span>
         </div>
-        <div className="target-summary-strip" aria-label={`Target summary ${entity.name}`}>
+        <div className="target-summary-strip" aria-label={`目标摘要 ${entity.name}`}>
           {badges.map(badge => (
             <span key={`${badge.tone}-${badge.label}`} className={badge.tone || ''} title={badge.title || ''}>
               {badge.label}
@@ -40,7 +40,7 @@ export default function TargetCard({
         </div>
 
         {ruleTags.length > 0 && (
-          <div className="target-rule-tags" aria-label={`Attack rule tags ${entity.name}`}>
+          <div className="target-rule-tags" aria-label={`攻击规则标签 ${entity.name}`}>
             {ruleTags.map(tag => (
               <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
             ))}
@@ -48,7 +48,7 @@ export default function TargetCard({
         )}
 
         {conditionImpactTags.length > 0 && (
-          <div className="target-condition-impacts" aria-label={`Condition impacts ${entity.name}`}>
+          <div className="target-condition-impacts" aria-label={`状态影响 ${entity.name}`}>
             {conditionImpactTags.map(tag => (
               <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
             ))}
@@ -67,9 +67,9 @@ export default function TargetCard({
         )}
 
         {inspect && (
-          <div className="enemy-inspect-sheet" aria-label={`Enemy inspect ${entity.name}`}>
+          <div className="enemy-inspect-sheet" aria-label={`敌人检视 ${entity.name}`}>
             <div className="enemy-inspect-head">
-              <span>INSPECT</span>
+              <span>检视</span>
               <b>{inspect.revealLabel}</b>
             </div>
             <div className="enemy-inspect-grid">
@@ -82,20 +82,20 @@ export default function TargetCard({
             </div>
             <div className="enemy-inspect-lines">
               <div className={inspect.actionsHidden ? 'hidden-stat' : ''}>
-                <span>Actions</span>
+                <span>动作</span>
                 <b>{inspect.actions}</b>
               </div>
               <div className={inspect.traitsHidden ? 'hidden-stat' : ''}>
-                <span>Traits</span>
+                <span>特性</span>
                 <b>{inspect.traits}</b>
               </div>
               <div className={inspect.tacticsHidden ? 'hidden-stat' : ''}>
-                <span>Tactics</span>
+                <span>战术</span>
                 <b>{inspect.tactics}</b>
               </div>
             </div>
             {onInspect && (
-              <div className="enemy-inspect-actions" aria-label={`Inspect actions ${entity.name}`}>
+              <div className="enemy-inspect-actions" aria-label={`检视操作 ${entity.name}`}>
                 <button
                   className="btn-fantasy"
                   disabled={!canInspect || inspectBusy}
@@ -123,13 +123,13 @@ export default function TargetCard({
 
 function buildTargetBadges(entity = {}, prediction = null) {
   const badges = [
-    { label: entity.is_enemy ? 'Enemy' : entity.is_companion ? 'Companion' : 'Ally', tone: entity.is_enemy ? 'danger' : 'good' },
+    { label: entity.is_enemy ? '敌人' : entity.is_companion ? '队友' : '友方', tone: entity.is_enemy ? 'danger' : 'good' },
     { label: targetHealthLabel(entity), tone: targetHealthTone(entity) },
   ]
 
   if (entity.ac !== null && entity.ac !== undefined) badges.push({ label: `AC ${entity.ac}` })
   if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
-    badges.push({ label: `Hit ${formatHitRate(prediction.hit_rate)}`, tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : '' })
+    badges.push({ label: `命中 ${formatHitRate(prediction.hit_rate)}`, tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : '' })
   }
 
   const conditions = buildConditionSummaries(entity.conditions || [], entity.condition_durations || {})
@@ -154,13 +154,13 @@ function buildTargetBadges(entity = {}, prediction = null) {
 function targetHealthLabel(entity = {}) {
   const current = Number(entity.hp_current ?? 0)
   const max = Number(entity.hp_max || 0)
-  if (current <= 0) return entity.is_enemy ? 'Defeated' : 'Down'
-  if (!max) return 'Unknown HP'
+  if (current <= 0) return entity.is_enemy ? '已击败' : '倒地'
+  if (!max) return '生命未知'
   const pct = current / max
-  if (pct <= 0.25) return 'Critical'
-  if (pct <= 0.5) return 'Bloodied'
-  if (pct < 1) return 'Wounded'
-  return 'Fresh'
+  if (pct <= 0.25) return '危急'
+  if (pct <= 0.5) return '重伤'
+  if (pct < 1) return '受伤'
+  return '健康'
 }
 
 function targetHealthTone(entity = {}) {
