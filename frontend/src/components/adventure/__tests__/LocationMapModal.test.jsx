@@ -163,6 +163,7 @@ describe('LocationMapModal', () => {
   it('shows public encounter environment pressure without private details', () => {
     render(<LocationMapModal graph={{
       current_location_id: 'yard',
+      selected_encounter_template_id: 'enc_yard',
       nodes: [
         { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
       ],
@@ -186,6 +187,9 @@ describe('LocationMapModal', () => {
     }} onClose={() => {}} />)
 
     const encounters = screen.getByLabelText('Selected encounter templates')
+    const summary = screen.getByLabelText('Map summary')
+    expect(within(summary).getByText('Active')).toBeInTheDocument()
+    expect(within(summary).getByText('Construct Patrol')).toBeInTheDocument()
     expect(within(encounters).getByText('Construct Patrol')).toBeInTheDocument()
     expect(within(encounters).getByText('Env heavy')).toBeInTheDocument()
     expect(within(encounters).getByText('hazards 1')).toBeInTheDocument()

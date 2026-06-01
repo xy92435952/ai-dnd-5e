@@ -188,6 +188,11 @@ export default function LocationMapModal({
             <span><b>{map.visitedCount}</b> visited</span>
             <span><b>{map.totalCount}</b> locations</span>
             {map.encounterCount > 0 && <span><b>{map.encounterCount}</b> encounters</span>}
+            {map.activeEncounter && (
+              <span className="active-encounter" title={map.activeEncounter.locationName}>
+                <b>Active</b> {map.activeEncounter.name}
+              </span>
+            )}
           </div>
 
           <div className="location-map-canvas" aria-label="Location map">

@@ -330,6 +330,7 @@ export function getLocationGraphMap(graph) {
   }))
 
   const currentNode = nodesWithRoutes.find(node => node.current) || nodesWithRoutes[0]
+  const activeEncounter = activeEncounterView(nodesWithRoutes)
   return {
     currentId,
     currentNode,
@@ -338,5 +339,22 @@ export function getLocationGraphMap(graph) {
     visitedCount: nodesWithRoutes.filter(node => node.visited).length || 1,
     totalCount: nodesWithRoutes.length,
     encounterCount: templates.length,
+    activeEncounter,
   }
+}
+
+function activeEncounterView(nodes = []) {
+  for (const node of nodes) {
+    const encounter = asArray(node?.encounters).find(item => item?.selected)
+    if (encounter) {
+      return {
+        id: encounter.id,
+        name: encounter.name,
+        difficulty: encounter.difficulty,
+        locationId: node.id,
+        locationName: node.name,
+      }
+    }
+  }
+  return null
 }

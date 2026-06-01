@@ -1390,7 +1390,7 @@
 }
 .location-map-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 8px;
 }
 .location-map-summary span {
@@ -1404,6 +1404,13 @@
   background: rgba(47,168,184,.1);
   color: var(--parchment-dark);
   font-size: 11px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.location-map-summary span.active-encounter {
+  border-color: rgba(240,208,96,.34);
+  background: rgba(240,208,96,.09);
+  color: var(--gold);
 }
 .location-map-summary b {
   color: var(--arcane-light);

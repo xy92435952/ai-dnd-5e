@@ -148,6 +148,7 @@ describe('locationGraph', () => {
   it('surfaces public encounter environment pressure as aggregate tags', () => {
     const map = getLocationGraphMap({
       current_location_id: 'yard',
+      selected_encounter_template_id: 'enc_yard',
       nodes: [
         { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
       ],
@@ -171,6 +172,13 @@ describe('locationGraph', () => {
     expect(map.currentNode.encounters[0]).toMatchObject({
       environmentPressure: 'heavy',
       environmentPressureTags: ['Env heavy', 'hazards 1', 'objectives 1', 'terrain 2', 'cells 5'],
+    })
+    expect(map.activeEncounter).toEqual({
+      id: 'enc_yard',
+      name: 'Yard Patrol',
+      difficulty: '',
+      locationId: 'yard',
+      locationName: 'Training Yard',
     })
   })
 
