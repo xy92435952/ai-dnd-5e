@@ -19,12 +19,38 @@ from services.encounter_balance_service import estimate_encounter_difficulty
 from services.module_content import get_module_content
 
 
+def _ability_modifier(score) -> int:
+    try:
+        return (int(score) - 10) // 2
+    except (TypeError, ValueError):
+        return 0
+
+
+def _ability_modifiers(scores: dict | None) -> dict:
+    scores = scores or {}
+    return {
+        "str": _ability_modifier(scores.get("str", 10)),
+        "dex": _ability_modifier(scores.get("dex", 10)),
+        "con": _ability_modifier(scores.get("con", 10)),
+        "int": _ability_modifier(scores.get("int", 10)),
+        "wis": _ability_modifier(scores.get("wis", 10)),
+        "cha": _ability_modifier(scores.get("cha", 10)),
+    }
+
+
+def _list_field(value) -> list:
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return list(value)
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
+
 def build_enemy_from_module(monster: dict) -> dict:
     """Convert a parsed module monster stat block into combat enemy state."""
     scores = monster.get("ability_scores", {})
-
-    def mod(score):
-        return (score - 10) // 2
 
     primary_action = next(
         (
@@ -39,23 +65,32 @@ def build_enemy_from_module(monster: dict) -> dict:
     hp = monster.get("hp", 10)
     multiattack = max(1, int(monster.get("multiattack") or monster.get("attacks_max") or 1))
     recharge_abilities = normalize_recharge_abilities(monster)
+    saving_throws = dict(monster.get("saving_throws") or {})
+    skill_modifiers = dict(monster.get("skills") or {})
+    ability_modifiers = _ability_modifiers(scores)
 
     enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": monster.get("name", "未知怪物"),
         "type": monster.get("type") or monster.get("creature_type") or monster.get("creatureType"),
+        "hp_dice": monster.get("hp_dice"),
         "hp_current": hp,
         "hp_max": hp,
         "cr": monster.get("cr", monster.get("challenge_rating", monster.get("challenge"))),
         "xp": monster.get("xp"),
         "ac": monster.get("ac", 13),
+        "ac_source": monster.get("ac_source"),
         "conditions": [],
         "dead": False,
         "ability_scores": scores,
+        "saving_throws": saving_throws,
+        "skills": skill_modifiers,
         "attack_bonus": attack_bonus,
         "damage_dice": damage_dice,
         "damage_type": damage_type,
         "speed": monster.get("speed", 30),
+        "senses": monster.get("senses"),
+        "languages": _list_field(monster.get("languages")),
         "resistances": monster.get("resistances", []),
         "immunities": monster.get("immunities", []),
         "vulnerabilities": monster.get("vulnerabilities", []),
@@ -66,6 +101,7 @@ def build_enemy_from_module(monster: dict) -> dict:
         "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
+        "pack_tactics": bool(monster.get("pack_tactics", False)),
         "tactical_role": infer_enemy_tactical_role(monster),
         "known_spells": list(monster.get("known_spells") or []),
         "prepared_spells": list(monster.get("prepared_spells") or []),
@@ -75,23 +111,18 @@ def build_enemy_from_module(monster: dict) -> dict:
         "spell_save_dc": monster.get("spell_save_dc"),
         "concentration": monster.get("concentration"),
         "tactics": monster.get("tactics", "直接攻击最近的目标"),
-        "initiative": mod(scores.get("dex", 10)),
+        "initiative": ability_modifiers["dex"],
         "is_player": False,
         "derived": {
             "hp_max": hp,
             "ac": monster.get("ac", 13),
-            "initiative": mod(scores.get("dex", 10)),
+            "initiative": ability_modifiers["dex"],
             "attack_bonus": attack_bonus,
             "spell_ability": monster.get("spell_ability"),
             "spell_save_dc": monster.get("spell_save_dc"),
-            "ability_modifiers": {
-                "str": mod(scores.get("str", 10)),
-                "dex": mod(scores.get("dex", 10)),
-                "con": mod(scores.get("con", 10)),
-                "int": mod(scores.get("int", 10)),
-                "wis": mod(scores.get("wis", 10)),
-                "cha": mod(scores.get("cha", 10)),
-            },
+            "ability_modifiers": ability_modifiers,
+            "saving_throws": saving_throws,
+            "skill_modifiers": skill_modifiers,
         },
     }
     enemy["legendary_resistances"] = monster.get(
@@ -453,22 +484,34 @@ def _build_enemies_from_initial_items(items: list, module: Module) -> list[dict]
 
 def _fallback_enemy_from_dm(item, name: str) -> dict:
     item = item if isinstance(item, dict) else {}
+    scores = item.get("ability_scores") or {}
+    ability_modifiers = _ability_modifiers(scores)
+    saving_throws = dict(item.get("saving_throws") or {})
+    skill_modifiers = dict(item.get("skills") or {})
     multiattack = max(1, int(item.get("multiattack") or item.get("attacks_max") or 1))
     recharge_abilities = normalize_recharge_abilities(item)
     enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": name,
         "type": item.get("type") or item.get("creature_type") or item.get("creatureType"),
+        "hp_dice": item.get("hp_dice"),
         "hp_current": item.get("hp", 20),
         "hp_max": item.get("hp", 20),
         "cr": item.get("cr", item.get("challenge_rating", item.get("challenge"))),
         "xp": item.get("xp"),
         "ac": item.get("ac", 13),
+        "ac_source": item.get("ac_source"),
         "conditions": [],
         "dead": False,
+        "ability_scores": scores,
+        "saving_throws": saving_throws,
+        "skills": skill_modifiers,
         "attack_bonus": item.get("attack_bonus", 3),
         "damage_dice": item.get("damage_dice", "1d6+2"),
         "damage_type": item.get("damage_type", "钝击"),
+        "speed": item.get("speed", 30),
+        "senses": item.get("senses"),
+        "languages": _list_field(item.get("languages")),
         "resistances": item.get("resistances", []),
         "immunities": item.get("immunities", []),
         "vulnerabilities": item.get("vulnerabilities", []),
@@ -479,14 +522,19 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
         "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
+        "pack_tactics": bool(item.get("pack_tactics", False)),
         "tactical_role": infer_enemy_tactical_role(item),
-        "tactics": "直接攻击最近的目标",
+        "tactics": item.get("tactics", "直接攻击最近的目标"),
         "is_player": False,
-        "initiative": 0,
+        "initiative": ability_modifiers["dex"],
         "derived": {
             "hp_max": item.get("hp", 20),
             "ac": item.get("ac", 13),
             "attack_bonus": item.get("attack_bonus", 3),
+            "initiative": ability_modifiers["dex"],
+            "ability_modifiers": ability_modifiers,
+            "saving_throws": saving_throws,
+            "skill_modifiers": skill_modifiers,
         },
     }
     enemy["legendary_resistances"] = item.get(

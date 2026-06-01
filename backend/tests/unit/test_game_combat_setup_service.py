@@ -1,16 +1,25 @@
 def test_build_enemy_from_module_preserves_spellcasting_fields():
+    from services.dnd_rules import roll_saving_throw
     from services.game_combat_setup_service import build_enemy_from_module
 
     enemy = build_enemy_from_module({
         "name": "Cult Mage",
         "type": "undead",
         "hp": 18,
+        "hp_dice": "5d8-5",
         "ac": 12,
+        "ac_source": "natural armor",
+        "speed": 40,
         "ability_scores": {"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 11},
+        "saving_throws": {"dex": 6, "wis": 4},
+        "skills": {"Perception": 4, "Stealth": 6},
+        "senses": "darkvision 60 ft.",
+        "languages": ["Common", "Infernal"],
         "actions": [{
             "name": "Dagger",
             "type": "melee_attack",
             "attack_bonus": 4,
+            "reach_or_range": "reach 5 ft.",
             "damage_dice": "1d4+2",
             "damage_type": "piercing",
         }],
@@ -26,6 +35,7 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
         "legendary_actions_per_round": 3,
         "condition_immunities": ["charmed"],
         "vulnerabilities": ["radiant"],
+        "pack_tactics": True,
         "recharge_abilities": [{
             "name": "Fire Breath",
             "recharge": "5-6",
@@ -37,6 +47,14 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["prepared_spells"] == ["Shield"]
     assert enemy["cantrips"] == ["Fire Bolt"]
     assert enemy["type"] == "undead"
+    assert enemy["hp_dice"] == "5d8-5"
+    assert enemy["ac_source"] == "natural armor"
+    assert enemy["speed"] == 40
+    assert enemy["saving_throws"] == {"dex": 6, "wis": 4}
+    assert enemy["skills"] == {"Perception": 4, "Stealth": 6}
+    assert enemy["senses"] == "darkvision 60 ft."
+    assert enemy["languages"] == ["Common", "Infernal"]
+    assert enemy["pack_tactics"] is True
     assert enemy["spell_slots"] == {"1st": 2, "2nd": 1}
     assert enemy["spell_ability"] == "int"
     assert enemy["spell_save_dc"] == 13
@@ -59,6 +77,53 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["derived"]["spell_ability"] == "int"
     assert enemy["derived"]["spell_save_dc"] == 13
     assert enemy["derived"]["ability_modifiers"]["int"] == 3
+    assert enemy["derived"]["saving_throws"] == {"dex": 6, "wis": 4}
+    assert enemy["derived"]["skill_modifiers"] == {"Perception": 4, "Stealth": 6}
+
+    save = roll_saving_throw(
+        enemy,
+        "dex",
+        15,
+        d20_roller=lambda _expr: {"rolls": [10], "total": 10},
+    )
+    assert save["modifier"] == 6
+    assert save["success"] is True
+
+
+def test_fallback_enemy_from_dm_preserves_combat_ready_stat_fields():
+    from services.game_combat_setup_service import _fallback_enemy_from_dm
+
+    enemy = _fallback_enemy_from_dm(
+        {
+            "type": "beast",
+            "hp": 11,
+            "hp_dice": "2d8+2",
+            "ac": 13,
+            "ac_source": "hide armor",
+            "speed": 50,
+            "ability_scores": {"str": 12, "dex": 16, "con": 12, "int": 3, "wis": 12, "cha": 6},
+            "saving_throws": {"dex": 5},
+            "skills": {"Perception": 3},
+            "senses": "passive Perception 13",
+            "languages": "understands Goblin",
+            "pack_tactics": True,
+            "tactics": "Flank isolated targets.",
+        },
+        "Wolf Scout",
+    )
+
+    assert enemy["type"] == "beast"
+    assert enemy["hp_dice"] == "2d8+2"
+    assert enemy["ac_source"] == "hide armor"
+    assert enemy["speed"] == 50
+    assert enemy["saving_throws"] == {"dex": 5}
+    assert enemy["skills"] == {"Perception": 3}
+    assert enemy["languages"] == ["understands Goblin"]
+    assert enemy["pack_tactics"] is True
+    assert enemy["tactics"] == "Flank isolated targets."
+    assert enemy["initiative"] == 3
+    assert enemy["derived"]["ability_modifiers"]["dex"] == 3
+    assert enemy["derived"]["saving_throws"] == {"dex": 5}
 
 
 def test_grid_data_from_encounter_template_places_authored_hazard_cells():
