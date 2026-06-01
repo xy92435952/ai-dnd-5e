@@ -67,8 +67,8 @@ describe('buildSpellCastPlan', () => {
       },
     })
 
-    expect(row(plan, '判定').value).toBe('DEX save · DC 14 · success halves damage')
-    expect(row(plan, '升环').value).toBe('+1 slot level · 1d6 per level')
+    expect(row(plan, '判定').value).toBe('敏捷豁免 · DC 14 · 成功减半')
+    expect(row(plan, '升环').value).toBe('+1 环 · 每环 1d6')
   })
 
   it('surfaces spell attack bonus and concentration before casting', () => {
@@ -93,8 +93,8 @@ describe('buildSpellCastPlan', () => {
       },
     })
 
-    expect(row(plan, '判定').value).toBe('Spell attack +6')
-    expect(row(plan, '维持').value).toBe('Concentration; taking damage may force a check')
+    expect(row(plan, '判定').value).toBe('法术攻击 +6')
+    expect(row(plan, '维持').value).toBe('专注；受到伤害可能触发专注检定')
   })
 
   it('summarizes AoE center and affected living units', () => {
@@ -146,10 +146,10 @@ describe('buildSpellCastPlan', () => {
       risk: 'friendly_fire',
     })
     expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toEqual([
-      'Enemies 1',
-      'Allies 1',
-      'Self',
-      'Friendly fire',
+      '敌方 1',
+      '友方 1',
+      '自身',
+      '误伤风险',
     ])
   })
 
@@ -225,7 +225,7 @@ describe('buildSpellCastPlan', () => {
       limit: 2,
       excluded: 2,
     })
-    expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toContain('Limit 2/2')
+    expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toContain('上限 2/2')
   })
 
   it('marks blocked casts with the player-facing reason', () => {

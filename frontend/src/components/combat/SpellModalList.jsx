@@ -47,11 +47,11 @@ export default function SpellModalList({
                 {spell.type==='damage' ? spell.damage : spell.heal}
               </span>
             </div>
-            <div className="spell-rule-badges" aria-label={`${spell.name} rule tags`}>
+            <div className="spell-rule-badges" aria-label={`法术规则 ${spell.name}`}>
               {badges.map(badge => <span key={`${badge.key}-${badge.label}`}>{badge.label}</span>)}
             </div>
             {previewRows.length > 0 && (
-              <div className="spell-rule-preview" aria-label={`${spell.name} preview`}>
+              <div className="spell-rule-preview" aria-label={`法术预览 ${spell.name}`}>
                 {previewRows.map(row => (
                   <span key={row.key}>
                     <b>{row.label}</b>

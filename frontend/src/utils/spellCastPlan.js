@@ -46,16 +46,16 @@ function buildAoeBreakdown({ spell, combat, targetIds, playerId }) {
   const friendlyRisk = isDamage && (groups.ally.length > 0 || groups.self.length > 0)
   const chips = []
   if (groups.enemy.length) {
-    chips.push({ key: 'enemy', label: `Enemies ${groups.enemy.length}`, tone: 'danger', title: namesTitle(groups.enemy) })
+    chips.push({ key: 'enemy', label: `敌方 ${groups.enemy.length}`, tone: 'danger', title: namesTitle(groups.enemy) })
   }
   if (groups.ally.length) {
-    chips.push({ key: 'ally', label: `Allies ${groups.ally.length}`, tone: friendlyRisk ? 'warning' : 'good', title: namesTitle(groups.ally) })
+    chips.push({ key: 'ally', label: `友方 ${groups.ally.length}`, tone: friendlyRisk ? 'warning' : 'good', title: namesTitle(groups.ally) })
   }
   if (groups.self.length) {
-    chips.push({ key: 'self', label: 'Self', tone: friendlyRisk ? 'warning' : 'good', title: namesTitle(groups.self) })
+    chips.push({ key: 'self', label: '自身', tone: friendlyRisk ? 'warning' : 'good', title: namesTitle(groups.self) })
   }
   if (friendlyRisk) {
-    chips.push({ key: 'friendly-fire', label: 'Friendly fire', tone: 'warning', title: 'A damage AoE includes allies or the caster.' })
+    chips.push({ key: 'friendly-fire', label: '误伤风险', tone: 'warning', title: '伤害范围包含友方或施法者。' })
   }
   return {
     total: targetIds.length,
@@ -106,6 +106,24 @@ function upcastDiceLabel(spell = {}) {
   return spell.upcast_dice || spell.upcastDice || spell.upcast || spell.higher_level || ''
 }
 
+function abilityLabel(value) {
+  const key = String(value || '').trim().toLowerCase()
+  return ({
+    str: '力量',
+    strength: '力量',
+    dex: '敏捷',
+    dexterity: '敏捷',
+    con: '体质',
+    constitution: '体质',
+    int: '智力',
+    intelligence: '智力',
+    wis: '感知',
+    wisdom: '感知',
+    cha: '魅力',
+    charisma: '魅力',
+  })[key] || String(value || '').toUpperCase()
+}
+
 function buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }) {
   const rows = []
   const derived = casterDerived(combat, playerId)
@@ -115,23 +133,23 @@ function buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }) {
     rows.push({
       label: '判定',
       value: [
-        `${String(save).toUpperCase()} save`,
+        `${abilityLabel(save)}豁免`,
         dc !== null ? `DC ${dc}` : '',
-        spellHasHalfOnSave(spell) ? 'success halves damage' : 'success negates/reduces effect',
+        spellHasHalfOnSave(spell) ? '成功减半' : '成功避免/减轻效果',
       ].filter(Boolean).join(' · '),
     })
   } else if (spellRequiresAttackRoll(spell)) {
     const attackBonus = formatSignedNumber(spell.spell_attack_bonus ?? spell.attack_bonus ?? derived.spell_attack_bonus)
     rows.push({
       label: '判定',
-      value: `Spell attack${attackBonus ? ` ${attackBonus}` : ''}`,
+      value: `法术攻击${attackBonus ? ` ${attackBonus}` : ''}`,
     })
   }
 
   if (spellRequiresConcentration(spell)) {
     rows.push({
       label: '维持',
-      value: 'Concentration; taking damage may force a check',
+      value: '专注；受到伤害可能触发专注检定',
     })
   }
 
@@ -141,8 +159,8 @@ function buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }) {
     rows.push({
       label: '升环',
       value: upcast
-        ? `+${levelsUp} slot level${levelsUp === 1 ? '' : 's'} · ${upcast} per level`
-        : `+${levelsUp} slot level${levelsUp === 1 ? '' : 's'} · no extra scaling recorded`,
+        ? `+${levelsUp} 环 · 每环 ${upcast}`
+        : `+${levelsUp} 环 · 未记录额外成长`,
     })
   }
 
@@ -222,7 +240,7 @@ function effectLabel(spell = {}) {
   if (spell.damage) parts.push(`伤害 ${spell.damage}`)
   if (spell.heal) parts.push(`治疗 ${spell.heal}`)
   if (spell.save || spell.saving_throw || spell.save_ability) {
-    parts.push(`豁免 ${spell.save || spell.saving_throw || spell.save_ability}`)
+    parts.push(`${abilityLabel(spell.save || spell.saving_throw || spell.save_ability)}豁免`)
   }
   if (spell.condition || spell.conditions) {
     const value = Array.isArray(spell.conditions) ? spell.conditions.join('/') : spell.condition || spell.conditions
@@ -314,11 +332,11 @@ export function buildSpellCastPlan({
       aoeBreakdown.excluded = excludedTargetIds.length
       aoeBreakdown.chips.push({
         key: 'target-limit',
-        label: `Limit ${targetIds.length}/${maxTargets}`,
+        label: `上限 ${targetIds.length}/${maxTargets}`,
         tone: excludedTargetIds.length ? 'warning' : 'good',
         title: excludedTargetIds.length
-          ? `Targets beyond the cap are excluded: ${namesTitle(excludedNames)}`
-          : 'Current targets fit within the spell target cap.',
+          ? `超过上限的目标不会结算：${namesTitle(excludedNames)}`
+          : '当前目标未超过法术上限。',
       })
     }
     rows.push({

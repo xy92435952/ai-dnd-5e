@@ -12,12 +12,12 @@ describe('buildSpellRuleBadges', () => {
       save: 'str',
       concentration: true,
     })).toEqual([
-      { key: 'level', label: 'L1' },
-      { key: 'type', label: 'Control' },
-      { key: 'aoe', label: 'AoE' },
-      { key: 'target', label: 'Point' },
-      { key: 'save', label: 'Save STR' },
-      { key: 'concentration', label: 'Concentration' },
+      { key: 'level', label: '1环' },
+      { key: 'type', label: '控制' },
+      { key: 'aoe', label: '范围' },
+      { key: 'target', label: '地点' },
+      { key: 'save', label: '力量豁免' },
+      { key: 'concentration', label: '专注' },
     ])
   })
 
@@ -28,7 +28,7 @@ describe('buildSpellRuleBadges', () => {
       type: 'damage',
       target_type: 'enemy',
       desc: 'Make a ranged spell attack.',
-    }, { isCantrip: true })).toContainEqual({ key: 'attack', label: 'Attack roll' })
+    }, { isCantrip: true })).toContainEqual({ key: 'attack', label: '法术攻击' })
   })
 
   it('previews spell effect, resolution, and timing before selection', () => {
@@ -42,9 +42,9 @@ describe('buildSpellRuleBadges', () => {
       casting_time: '1 action',
       range: '150 ft',
     })).toEqual([
-      { key: 'effect', label: 'Effect', value: 'Damage 8d6' },
-      { key: 'resolve', label: 'Resolve', value: 'DEX save · half on save' },
-      { key: 'timing', label: 'Timing', value: '1 action · Range 150 ft' },
+      { key: 'effect', label: '效果', value: '伤害 8d6' },
+      { key: 'resolve', label: '结算', value: '敏捷豁免 · 成功减半' },
+      { key: 'timing', label: '时机', value: '1 动作 · 射程 150 ft' },
     ])
   })
 
@@ -57,7 +57,7 @@ describe('buildSpellRuleBadges', () => {
       casting_time: '1 action',
     }, {
       caster: { derived: { spell_save_dc: 15 } },
-    })).toContainEqual({ key: 'resolve', label: 'Resolve', value: 'WIS save · DC 15' })
+    })).toContainEqual({ key: 'resolve', label: '结算', value: '感知豁免 · DC 15' })
 
     expect(buildSpellRulePreview({
       name: 'Guiding Bolt',
@@ -66,6 +66,6 @@ describe('buildSpellRuleBadges', () => {
       desc: 'Make a ranged spell attack.',
     }, {
       caster: { derived: { spell_attack_bonus: 6 } },
-    })).toContainEqual({ key: 'resolve', label: 'Resolve', value: 'Spell attack roll · +6' })
+    })).toContainEqual({ key: 'resolve', label: '结算', value: '法术攻击检定 · +6' })
   })
 })
