@@ -64,6 +64,23 @@ def consume_named_spell_slot(caster, slot_key: str) -> bool:
     return True
 
 
+def _has_valid_ai_damage_target(
+    target_id: str | None,
+    *,
+    is_enemy: bool,
+    enemies_alive: list[dict[str, Any]],
+    all_characters: list[dict[str, Any]],
+) -> bool:
+    if not target_id:
+        return False
+    target = str(target_id)
+    legal_targets = all_characters if is_enemy else enemies_alive
+    return any(
+        str(item.get("id")) == target and int(item.get("hp_current", 0) or 0) > 0
+        for item in legal_targets
+    )
+
+
 def _persist_enemy_caster_state(
     *,
     session,
@@ -115,6 +132,18 @@ async def resolve_ai_spell_action(
     bonus_healing = actor_derived.get("bonus_healing", False)
     is_cantrip = spell_data.get("level", 0) == 0
     spell_type = spell_data.get("type", "damage")
+
+    if (
+        spell_type == "damage"
+        and not spell_data.get("aoe", False)
+        and not _has_valid_ai_damage_target(
+            spell_target,
+            is_enemy=is_enemy,
+            enemies_alive=enemies_alive,
+            all_characters=all_characters,
+        )
+    ):
+        return None
 
     if spell_type == "heal" and spell_target:
         target_character = await db.get(Character, spell_target)

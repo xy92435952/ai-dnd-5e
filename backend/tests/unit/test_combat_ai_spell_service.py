@@ -152,6 +152,108 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
 
 
 @pytest.mark.asyncio
+async def test_resolve_ai_spell_action_rejects_missing_damage_target_before_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollSpellService(FakeSpellService):
+        def resolve_damage(self, *_args):
+            raise AssertionError("invalid AI spell target should fail before damage")
+
+    state = {
+        "enemies": [{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 10,
+            "derived": {"hp_max": 10},
+        }]
+    }
+    enemies = state["enemies"]
+    caster = FakeCaster()
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=FakeSession(game_state=state),
+        actor_name="Wizard",
+        is_enemy=False,
+        caster=caster,
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3},
+            "spell_save_dc": 13,
+        },
+        decided_target_id="missing-target",
+        decided_reason="bad target",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=enemies,
+        enemies_alive=enemies,
+        all_characters=[],
+        spell_service_obj=NoRollSpellService({
+            "level": 1,
+            "type": "damage",
+            "aoe": False,
+            "save": None,
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: (_ for _ in ()).throw(AssertionError("no persistence expected")),
+    )
+
+    assert result is None
+    assert caster.spell_slots == {"1st": 1}
+    assert enemies[0]["hp_current"] == 10
+
+
+@pytest.mark.asyncio
+async def test_resolve_ai_spell_action_rejects_dead_damage_target_before_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollSpellService(FakeSpellService):
+        def resolve_damage(self, *_args):
+            raise AssertionError("dead AI spell target should fail before damage")
+
+    dead_enemy = {
+        "id": "goblin-1",
+        "name": "Goblin",
+        "hp_current": 0,
+        "derived": {"hp_max": 10},
+    }
+    state = {"enemies": [dead_enemy]}
+    caster = FakeCaster()
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=FakeSession(game_state=state),
+        actor_name="Wizard",
+        is_enemy=False,
+        caster=caster,
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3},
+            "spell_save_dc": 13,
+        },
+        decided_target_id="goblin-1",
+        decided_reason="bad target",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=[],
+        all_characters=[],
+        spell_service_obj=NoRollSpellService({
+            "level": 1,
+            "type": "damage",
+            "aoe": False,
+            "save": None,
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: (_ for _ in ()).throw(AssertionError("no persistence expected")),
+    )
+
+    assert result is None
+    assert caster.spell_slots == {"1st": 1}
+    assert dead_enemy["hp_current"] == 0
+
+
+@pytest.mark.asyncio
 async def test_resolve_enemy_ai_spell_action_consumes_dict_slot_and_sets_concentration():
     from services.combat_ai_spell_service import resolve_ai_spell_action
 
