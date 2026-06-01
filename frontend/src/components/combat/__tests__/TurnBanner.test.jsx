@@ -133,4 +133,27 @@ describe('TurnBanner', () => {
     expect(coach).toHaveTextContent('动作')
     expect(coach).toHaveTextContent('可用')
   })
+
+  it('shows the allied target prompt while Help mode is active', () => {
+    render(
+      <TurnBanner
+        roundNumber={2}
+        currentTurnName="Hero"
+        currentTurnEntry={{ character_id: 'hero-1', name: 'Hero', is_player: true }}
+        currentTurnEntity={{ id: 'hero-1', name: 'Hero', is_player: true }}
+        controlledCharacter={{ id: 'hero-1', name: 'Hero' }}
+        isPlayerTurn={true}
+        turnState={{ action_used: false, movement_max: 6, movement_used: 1, reaction_used: false }}
+        skillBar={[{ k: 'help', label: '协助', kind: 'action', available: true }]}
+        helpMode={true}
+        showThreat={false}
+        onToggleThreat={vi.fn()}
+      />
+    )
+
+    const coach = screen.getByLabelText('回合行动提示')
+    expect(coach).toHaveTextContent('动作')
+    expect(coach).toHaveTextContent('选队友')
+    expect(coach).toHaveTextContent('协助')
+  })
 })

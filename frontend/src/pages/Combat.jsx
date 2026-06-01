@@ -196,6 +196,7 @@ export default function Combat() {
         selectedTargetEntity={selectedTargetEntity}
         prediction={prediction}
         moveMode={moveMode}
+        helpMode={helpMode}
         nextTurnName={nextTurnName}
         nextTurnTone={nextTurnTone}
         showThreat={showThreat}

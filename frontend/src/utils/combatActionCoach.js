@@ -13,6 +13,7 @@ export function buildCombatActionCoach({
   selectedTargetEntity = null,
   prediction = null,
   moveMode = false,
+  helpMode = false,
 } = {}) {
   if (!isPlayerTurn || isProcessing || syncBlocked) {
     return { visible: false, items: [] }
@@ -29,17 +30,20 @@ export function buildCombatActionCoach({
   const hasBonusOption = usableSkills.some(skill => BONUS_KINDS.has(skill.kind) || /bonus/i.test(String(skill.cost || '')))
   const targetNeeded = usableSkills.some(skill => skillNeedsTarget(skill))
   const hasTarget = Boolean(selectedTarget)
+  const actionStatus = buildActionStatus({
+    actionOpen,
+    helpMode,
+    hasTarget,
+    targetNeeded,
+    hasActionOption,
+  })
 
   const items = [
     {
       key: 'action',
       label: '动作',
-      value: actionOpen
-        ? hasTarget || !targetNeeded
-          ? hasActionOption ? '可用' : '选择'
-          : '选目标'
-        : '已用',
-      tone: actionOpen ? hasTarget || !targetNeeded ? 'ready' : 'warn' : 'spent',
+      value: actionStatus.value,
+      tone: actionStatus.tone,
     },
     {
       key: 'move',
@@ -62,7 +66,14 @@ export function buildCombatActionCoach({
   ]
 
   const targetItems = []
-  if (targetNeeded || selectedTargetEntity || hasTarget) {
+  if (helpMode) {
+    targetItems.push({
+      key: 'assist',
+      label: '协助',
+      value: actionOpen ? '选队友' : '动作已用',
+      tone: actionOpen ? 'warn' : 'spent',
+    })
+  } else if (targetNeeded || selectedTargetEntity || hasTarget) {
     targetItems.push({
       key: 'target',
       label: '目标',
@@ -78,6 +89,8 @@ export function buildCombatActionCoach({
         tone: sourceSummary.tone,
       })
     }
+  }
+  if (targetItems.length > 0) {
     items.splice(1, 0, ...targetItems)
   }
 
@@ -92,6 +105,19 @@ export function buildCombatActionCoach({
   }
 
   return { visible: true, items }
+}
+
+function buildActionStatus({
+  actionOpen,
+  helpMode,
+  hasTarget,
+  targetNeeded,
+  hasActionOption,
+}) {
+  if (!actionOpen) return { value: '已用', tone: 'spent' }
+  if (helpMode) return { value: '选队友', tone: 'warn' }
+  if (!hasTarget && targetNeeded) return { value: '选目标', tone: 'warn' }
+  return { value: hasActionOption ? '可用' : '选择', tone: 'ready' }
 }
 
 function skillNeedsTarget(skill = {}) {

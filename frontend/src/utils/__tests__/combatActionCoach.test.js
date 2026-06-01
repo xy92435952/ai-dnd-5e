@@ -97,4 +97,23 @@ describe('buildCombatActionCoach', () => {
     expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '0 格', tone: 'spent' })
     expect(coach.items).toContainEqual({ key: 'reaction', label: '反应', value: '已用', tone: 'spent' })
   })
+
+  it('surfaces Help mode as an allied-target prompt', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      helpMode: true,
+      turnState: {
+        action_used: false,
+        bonus_action_used: false,
+        reaction_used: false,
+        movement_max: 6,
+        movement_used: 1,
+      },
+      skillBar: [{ k: 'help', label: '协助', kind: 'action', available: true }],
+    })
+
+    expect(coach.items).toContainEqual({ key: 'action', label: '动作', value: '选队友', tone: 'warn' })
+    expect(coach.items).toContainEqual({ key: 'assist', label: '协助', value: '选队友', tone: 'warn' })
+    expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '5 格', tone: 'ready' })
+  })
 })

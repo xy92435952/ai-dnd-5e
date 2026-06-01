@@ -19,6 +19,7 @@ export default function TurnBanner({
   selectedTargetEntity,
   prediction,
   moveMode,
+  helpMode,
   nextTurnName = '',
   nextTurnTone = 'ally',
   showThreat,
@@ -44,6 +45,7 @@ export default function TurnBanner({
     selectedTargetEntity,
     prediction,
     moveMode,
+    helpMode,
   })
 
   return (
