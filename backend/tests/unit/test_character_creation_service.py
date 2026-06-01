@@ -1,6 +1,17 @@
 import pytest
 
 from services import character_creation_service
+from services.dnd_rules import BACKGROUNDS, STARTING_EQUIPMENT, calc_derived
+
+
+DEFAULT_ABILITY_SCORES = {
+    "str": 14,
+    "dex": 14,
+    "con": 14,
+    "int": 10,
+    "wis": 12,
+    "cha": 10,
+}
 
 
 def test_build_starting_equipment_equips_fighter_heavy_armor_loadout():
@@ -91,6 +102,48 @@ def test_build_starting_equipment_supports_english_background_alias():
     assert equipment["gold"] == 20
     assert any(item["name"] == "Letter from a Dead Colleague" for item in equipment["gear"])
     assert equipment["gear"][-1]["source_background"] == "Sage"
+
+
+def test_all_class_background_starting_loadouts_are_playable():
+    for cls_key, options in STARTING_EQUIPMENT.items():
+        for equipment_choice in range(len(options)):
+            for background in BACKGROUNDS:
+                equipment = character_creation_service.build_starting_equipment(
+                    cls_key,
+                    equipment_choice,
+                    background=background,
+                )
+                context = f"{cls_key} option {equipment_choice} with {background}"
+
+                assert equipment["gold"] >= 10, context
+                assert equipment["weapons"], context
+                assert any(weapon.get("equipped") for weapon in equipment["weapons"]), context
+                assert equipment["gear"], context
+                assert all(item.get("name") and item.get("zh") for item in equipment["gear"]), context
+
+                for weapon in equipment["weapons"]:
+                    if _has_weapon_property(weapon, "ammunition"):
+                        assert weapon.get("ammo") == 20, context
+
+                derived = calc_derived(
+                    cls_key,
+                    1,
+                    DEFAULT_ABILITY_SCORES,
+                    equipment=equipment,
+                    race="Human",
+                    proficient_skills=[],
+                )
+                assert derived["hp_max"] > 0, context
+                assert derived["ac"] >= 10, context
+                assert derived["equipped_weapon_damage"], context
+                assert derived["attack_bonus"] is not None, context
+
+
+def _has_weapon_property(weapon: dict, property_name: str) -> bool:
+    properties = weapon.get("properties") or []
+    if isinstance(properties, str):
+        return properties.lower() == property_name
+    return any(str(prop).lower() == property_name for prop in properties)
 
 
 def test_build_starting_equipment_expands_spellcasting_focus_as_gear():
