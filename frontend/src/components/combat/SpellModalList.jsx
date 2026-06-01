@@ -1,6 +1,7 @@
 import React from 'react'
 import { SpellIcon, HeartIcon } from '../Icons'
 import { buildConditionImpactTags } from '../../utils/conditionRules'
+import { buildSpellAttackDefenseSummary } from '../../utils/spellCastPlan'
 import { buildSpellRuleBadges, buildSpellRulePreview } from '../../utils/spellRuleBadges'
 
 export default function SpellModalList({
@@ -101,6 +102,7 @@ function buildSpellTargetFit(spell = {}, { combat = null, playerId = null, selec
   const selectedIsSelf = selectedTarget && String(selectedTarget) === String(playerId)
   const selectedIsEnemy = selected?.is_enemy === true
   const selectedConditionFit = buildSelectedTargetConditionFit(selected)
+  const selectedDefenseFit = buildSelectedTargetDefenseFit(spell, { combat, playerId, selectedTarget })
   const wantsSelf = /self|自身/.test(targetText)
   const wantsAlly = type === 'heal' || /ally|friend|willing|队友|友方/.test(targetText)
   const wantsEnemy = type === 'damage' || /enemy|hostile|foe|敌/.test(targetText)
@@ -130,7 +132,7 @@ function buildSpellTargetFit(spell = {}, { combat = null, playerId = null, selec
       label: fits ? `目标 ${selectedName}` : '目标不匹配',
       tone: fits ? 'good' : 'bad',
       title: fits ? '当前目标可用于此法术。' : '当前选中敌方；治疗或友方法术需要队友或自己。',
-    }, ...(fits ? selectedConditionFit : [])]
+    }, ...(fits ? selectedDefenseFit : []), ...(fits ? selectedConditionFit : [])]
   }
 
   if (wantsEnemy) {
@@ -140,7 +142,7 @@ function buildSpellTargetFit(spell = {}, { combat = null, playerId = null, selec
       label: fits ? `目标 ${selectedName}` : '目标不匹配',
       tone: fits ? 'good' : 'bad',
       title: fits ? '当前目标可用于此法术。' : '当前选中友方；伤害或敌方法术需要敌方目标。',
-    }, ...(fits ? selectedConditionFit : [])]
+    }, ...(fits ? selectedDefenseFit : []), ...(fits ? selectedConditionFit : [])]
   }
 
   return selectedName
@@ -149,7 +151,19 @@ function buildSpellTargetFit(spell = {}, { combat = null, playerId = null, selec
         label: `目标 ${selectedName}`,
         tone: 'good',
         title: '当前已选择目标。',
-      }, ...selectedConditionFit]
+      }, ...selectedDefenseFit, ...selectedConditionFit]
+    : []
+}
+
+function buildSelectedTargetDefenseFit(spell, { combat = null, playerId = null, selectedTarget = null } = {}) {
+  const summary = buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId: selectedTarget })
+  return summary
+    ? [{
+        key: 'target-defense',
+        label: summary.compactLabel,
+        tone: summary.tone,
+        title: summary.title,
+      }]
     : []
 }
 

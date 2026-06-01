@@ -104,10 +104,16 @@ describe('SpellModalList', () => {
         cantrips={[]}
         combat={{
           entities: {
+            'hero-1': {
+              id: 'hero-1',
+              name: 'Cleric',
+              derived: { spell_attack_bonus: 6 },
+            },
             'enemy-1': {
               id: 'enemy-1',
               name: 'Cultist',
               is_enemy: true,
+              ac: 15,
               conditions: ['restrained'],
               condition_durations: { restrained: 2 },
             },
@@ -129,6 +135,10 @@ describe('SpellModalList', () => {
     expect(within(guidingFit).getByText('目标 Cultist')).toHaveAttribute(
       'title',
       '当前目标可用于此法术。',
+    )
+    expect(within(guidingFit).getByText('AC 15 · 9+ · 60%')).toHaveAttribute(
+      'title',
+      '法术攻击基础估算：AC 15 · d20 需 9+ · 约 60%。未包含临时掩护、优势/劣势或反应修正。',
     )
     expect(within(guidingFit).getByText('速度 0')).toHaveAttribute(
       'title',

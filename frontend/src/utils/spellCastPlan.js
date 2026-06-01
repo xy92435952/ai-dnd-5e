@@ -127,26 +127,44 @@ function spellAttackBonusValue(spell = {}, combat = null, playerId = null) {
   return readFiniteNumber(spell.spell_attack_bonus ?? spell.attack_bonus ?? derived.spell_attack_bonus)
 }
 
-function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
+export function buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId }) {
   if (!spellRequiresAttackRoll(spell)) return null
   const target = entityById(combat, targetId)
   const ac = targetArmorClass(target)
   if (ac === null) return null
 
   const parts = [`AC ${ac}`]
+  const compactParts = [`AC ${ac}`]
   const attackBonus = spellAttackBonusValue(spell, combat, playerId)
+  let hitChance = null
   if (attackBonus !== null) {
     const needed = ac - attackBonus
     const displayedNeeded = needed > 20 ? '自然20' : `${Math.max(2, needed)}+`
     const successRolls = Math.max(1, Math.min(19, 21 - needed))
-    const hitChance = Math.round((successRolls / 20) * 100)
+    hitChance = Math.round((successRolls / 20) * 100)
     parts.push(`d20 需 ${displayedNeeded}`)
     parts.push(`约 ${hitChance}%`)
+    compactParts.push(displayedNeeded)
+    compactParts.push(`${hitChance}%`)
   }
+
+  const value = parts.join(' · ')
+  return {
+    value,
+    compactLabel: compactParts.join(' · '),
+    hitChance,
+    tone: hitChance !== null && hitChance < 50 ? 'warning' : 'good',
+    title: `法术攻击基础估算：${value}。未包含临时掩护、优势/劣势或反应修正。`,
+  }
+}
+
+function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
+  const summary = buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId })
+  if (!summary) return null
 
   return {
     label: '目标防御',
-    value: parts.join(' · '),
+    value: summary.value,
   }
 }
 
