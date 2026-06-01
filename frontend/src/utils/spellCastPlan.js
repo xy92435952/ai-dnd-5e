@@ -78,6 +78,23 @@ function readFiniteNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
+function slotRemaining(slots, level) {
+  const value = readFiniteNumber(slots?.[slotKey(level)])
+  return value === null ? 0 : Math.max(0, value)
+}
+
+function slotAfterCast(slots, level) {
+  return Math.max(0, slotRemaining(slots, level) - 1)
+}
+
+function slotCostLabel(slots, level) {
+  return `${level} 环法术位（剩余 ${slotRemaining(slots, level)} -> ${slotAfterCast(slots, level)}）`
+}
+
+function slotPreflightLabel(slots, level) {
+  return `${level} 环 · ${slotRemaining(slots, level)} -> ${slotAfterCast(slots, level)}`
+}
+
 function formatSignedNumber(value) {
   const number = readFiniteNumber(value)
   if (number === null) return ''
@@ -257,6 +274,40 @@ function nonAoeTargetId(spell, selectedTarget, playerId) {
   return selectedTarget || null
 }
 
+function aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement }) {
+  if (!hasPlacement) {
+    return {
+      key: 'target',
+      label: '目标',
+      value: '待确认落点',
+      tone: 'warning',
+      title: '先在战场上选择或锁定范围落点。',
+    }
+  }
+  if (!aoeBreakdown?.total) {
+    return {
+      key: 'target',
+      label: '目标',
+      value: '影响 0 个',
+      tone: 'warning',
+      title: '当前范围内没有可结算目标。',
+    }
+  }
+
+  const groups = []
+  if (aoeBreakdown.enemies) groups.push(`敌方 ${aoeBreakdown.enemies}`)
+  if (aoeBreakdown.allies) groups.push(`友方 ${aoeBreakdown.allies}`)
+  if (aoeBreakdown.self) groups.push('自身')
+  const total = `影响 ${aoeBreakdown.total}${maxTargets ? `/${maxTargets}` : ''} 个`
+  return {
+    key: 'target',
+    label: '目标',
+    value: groups.length ? `${total}：${groups.join(' / ')}` : total,
+    tone: aoeBreakdown.risk ? 'warning' : 'ready',
+    title: aoeBreakdown.risk ? '伤害范围包含友方或施法者。' : '当前范围目标已可结算。',
+  }
+}
+
 export function buildSpellCastPlan({
   spell,
   level = 0,
@@ -273,6 +324,9 @@ export function buildSpellCastPlan({
     return {
       tone: 'empty',
       status: '等待选择',
+      preflight: [
+        { key: 'next', label: '下一步', value: '选择法术', tone: 'warning' },
+      ],
       rows: [
         { label: '下一步', value: '先从列表选择一个法术' },
         { label: '目标', value: '选择后会显示消耗、目标与影响范围' },
@@ -288,7 +342,7 @@ export function buildSpellCastPlan({
       label: '消耗',
       value: cantrip
         ? '戏法，无需法术位'
-        : `${castLevel} 环法术位（剩余 ${slots?.[slotKey(castLevel)] ?? 0}）`,
+        : slotCostLabel(slots, castLevel),
     },
     { label: '效果', value: effectLabel(spell) },
   ]
@@ -296,6 +350,7 @@ export function buildSpellCastPlan({
 
   let aoeBreakdown = null
   let aoePlacement = null
+  let targetPreflight = null
 
   if (spell.aoe) {
     const template = getAoeTemplateType(spell)
@@ -321,12 +376,14 @@ export function buildSpellCastPlan({
     const excludedTargetIds = uncappedTargetIds.slice(targetIds.length)
     const excludedNames = excludedTargetIds.map(id => entityName(combat, id))
     const direction = areaDirectionLabel({ template, aoeHover, combat, playerId })
+    const hasPlacement = Boolean(aoeHover) || template === 'aura'
     aoePlacement = {
       locked: Boolean(aoeLockedCenter),
       canReset: Boolean(aoeLockedCenter),
       label: placementLabel({ template, aoeHover, aoeLockedCenter }),
     }
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
+    targetPreflight = aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement })
     if (maxTargets) {
       aoeBreakdown.limit = maxTargets
       aoeBreakdown.excluded = excludedTargetIds.length
@@ -393,6 +450,12 @@ export function buildSpellCastPlan({
     }
   } else {
     const targetId = nonAoeTargetId(spell, selectedTarget, playerId)
+    targetPreflight = {
+      key: 'target',
+      label: '目标',
+      value: targetId ? entityName(combat, targetId) : `需要选择${targetKindLabel(spell)}`,
+      tone: targetId ? 'ready' : 'warning',
+    }
     rows.push({
       label: '目标',
       value: targetId ? entityName(combat, targetId) : `需要选择${targetKindLabel(spell)}`,
@@ -409,6 +472,21 @@ export function buildSpellCastPlan({
   return {
     tone: disabledReason ? 'blocked' : 'ready',
     status: disabledReason ? '无法施放' : '可施放',
+    preflight: [
+      {
+        key: 'status',
+        label: '状态',
+        value: disabledReason || '可施放',
+        tone: disabledReason ? 'blocked' : 'ready',
+      },
+      {
+        key: 'cost',
+        label: '消耗',
+        value: cantrip ? '戏法' : slotPreflightLabel(slots, castLevel),
+        tone: cantrip || slotRemaining(slots, castLevel) > 0 ? 'ready' : 'blocked',
+      },
+      targetPreflight,
+    ].filter(Boolean),
     rows,
     aoeBreakdown,
     aoePlacement,

@@ -32,8 +32,12 @@ describe('SpellModal', () => {
       expect(onSpellHover).toHaveBeenCalledWith(fireBolt)
     })
     expect(screen.getByRole('region', { name: '施法计划' })).toBeInTheDocument()
+    const preflight = screen.getByLabelText('施法预检')
+    expect(within(preflight).getByText('消耗')).toBeInTheDocument()
+    expect(within(preflight).getByText('戏法')).toBeInTheDocument()
+    expect(within(preflight).getByText('训练假人')).toBeInTheDocument()
     expect(screen.getByText('戏法，无需法术位')).toBeInTheDocument()
-    expect(screen.getByText('训练假人')).toBeInTheDocument()
+    expect(screen.getAllByText('训练假人').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('button', { name: /施放/ }))
 
     expect(onCast).toHaveBeenCalledWith(fireBolt, 1)
@@ -231,6 +235,9 @@ describe('SpellModal', () => {
     fireEvent.click(screen.getByText('Fireball'))
 
     const plan = screen.getByLabelText('施法计划')
+    const preflight = screen.getByLabelText('施法预检')
+    expect(within(preflight).getByText('3 环 · 1 -> 0')).toBeInTheDocument()
+    expect(within(preflight).getByText('影响 3 个：敌方 1 / 友方 1 / 自身')).toBeInTheDocument()
     expect(within(plan).getByText('敏捷豁免 · DC 15 · 成功减半')).toBeInTheDocument()
     expect(within(plan).getByText('已锁定 · 中心 5, 5')).toBeInTheDocument()
     expect(within(plan).getByText('敌方')).toBeInTheDocument()
@@ -281,7 +288,7 @@ describe('SpellModal', () => {
     fireEvent.click(screen.getByTitle('1 环法术'))
     fireEvent.click(screen.getByText('Cure Wounds'))
 
-    const cast = screen.getByTitle('请选择队友或自己作为法术目标')
+    const cast = screen.getByRole('button', { name: /施放/ })
     expect(cast).toBeDisabled()
     expect(cast).toHaveAttribute('title', '请选择队友或自己作为法术目标')
     expect(screen.getAllByText('请选择队友或自己作为法术目标').length).toBeGreaterThan(0)

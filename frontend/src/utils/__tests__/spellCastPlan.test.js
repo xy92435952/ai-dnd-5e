@@ -5,6 +5,10 @@ function row(plan, label) {
   return plan.rows.find(item => item.label === label)
 }
 
+function preflight(plan, key) {
+  return plan.preflight.find(item => item.key === key)
+}
+
 describe('buildSpellCastPlan', () => {
   it('summarizes selected single-target spell cost, effect, target, and status', () => {
     const plan = buildSpellCastPlan({
@@ -27,7 +31,10 @@ describe('buildSpellCastPlan', () => {
 
     expect(plan.tone).toBe('ready')
     expect(plan.status).toBe('可施放')
-    expect(row(plan, '消耗').value).toBe('1 环法术位（剩余 2）')
+    expect(preflight(plan, 'status')).toMatchObject({ value: '可施放', tone: 'ready' })
+    expect(preflight(plan, 'cost')).toMatchObject({ value: '1 环 · 2 -> 1', tone: 'ready' })
+    expect(preflight(plan, 'target')).toMatchObject({ value: '训练假人', tone: 'ready' })
+    expect(row(plan, '消耗').value).toBe('1 环法术位（剩余 2 -> 1）')
     expect(row(plan, '效果').value).toBe('伤害 1d4+1')
     expect(row(plan, '目标').value).toBe('训练假人')
     expect(row(plan, '状态').value).toBe('可施放')
@@ -42,6 +49,7 @@ describe('buildSpellCastPlan', () => {
     })
 
     expect(row(plan, '消耗').value).toBe('戏法，无需法术位')
+    expect(preflight(plan, 'cost')).toMatchObject({ value: '戏法', tone: 'ready' })
   })
 
   it('surfaces save DC and half-on-save resolution before casting', () => {
@@ -151,6 +159,10 @@ describe('buildSpellCastPlan', () => {
       '自身',
       '误伤风险',
     ])
+    expect(preflight(plan, 'target')).toMatchObject({
+      value: '影响 3 个：敌方 1 / 友方 1 / 自身',
+      tone: 'warning',
+    })
   })
 
   it('shows directional anchors for cone and line style AoE spells', () => {
@@ -226,6 +238,10 @@ describe('buildSpellCastPlan', () => {
       excluded: 2,
     })
     expect(plan.aoeBreakdown.chips.map(chip => chip.label)).toContain('上限 2/2')
+    expect(preflight(plan, 'target')).toMatchObject({
+      value: '影响 2/2 个：友方 1 / 自身',
+      tone: 'ready',
+    })
   })
 
   it('marks blocked casts with the player-facing reason', () => {
@@ -240,6 +256,10 @@ describe('buildSpellCastPlan', () => {
 
     expect(plan.tone).toBe('blocked')
     expect(plan.status).toBe('无法施放')
+    expect(preflight(plan, 'status')).toMatchObject({
+      value: '请选择队友或自己作为法术目标',
+      tone: 'blocked',
+    })
     expect(row(plan, '状态').value).toBe('请选择队友或自己作为法术目标')
   })
 })

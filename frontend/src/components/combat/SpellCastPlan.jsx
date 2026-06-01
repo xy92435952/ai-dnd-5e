@@ -9,6 +9,16 @@ export default function SpellCastPlan({ plan, onResetAoeCenter = null }) {
         <span>施法计划</span>
         <b>{plan.status}</b>
       </div>
+      {plan.preflight?.length > 0 && (
+        <div className="spell-preflight-strip" aria-label="施法预检">
+          {plan.preflight.map(item => (
+            <span key={item.key} className={item.tone || ''} title={item.title || item.value}>
+              <b>{item.label}</b>
+              <em>{item.value}</em>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="spell-cast-plan-grid">
         {plan.rows.map(row => (
           <div key={`${row.label}-${row.value}`} className={`spell-cast-plan-row ${row.tone || ''}`}>
