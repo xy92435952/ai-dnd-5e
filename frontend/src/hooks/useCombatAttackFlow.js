@@ -20,6 +20,24 @@ function ignoreOptionalEffect(fn) {
   }
 }
 
+function buildAttackLogDice(atkResult, hit) {
+  return {
+    d20: atkResult.d20,
+    attack_bonus: atkResult.attack_bonus,
+    attack_total: atkResult.attack_total,
+    target_ac: atkResult.target_ac,
+    hit,
+    is_crit: hit ? atkResult.is_crit : false,
+    is_fumble: hit ? false : atkResult.is_fumble,
+    ...(atkResult.defender_interception
+      ? {
+          defender_interception: atkResult.defender_interception,
+          disadvantage: true,
+        }
+      : {}),
+  }
+}
+
 export function useCombatAttackFlow({
   sessionId,
   playerId,
@@ -80,9 +98,9 @@ export function useCombatAttackFlow({
           ? `\uD83D\uDC80 大失手！${atkResult.attacker_name} 对 ${atkResult.target_name} 攻击失手。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`
           : `${atkResult.attacker_name} 攻击 ${atkResult.target_name}，未命中。（${atkResult.attack_total} vs AC${atkResult.target_ac}）`)
         addLog({ role: 'player', content: missText, log_type: 'combat',
-          dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: false, is_crit: false, is_fumble: atkResult.is_fumble } },
+          dice_result: { attack: buildAttackLogDice(atkResult, false) },
           rule_result: atkResult.is_fumble ? '大失手' : '攻击未命中',
-          state_changes: buildCombatStateChangeSummary(atkResult),
+          state_changes: buildCombatStateChangeSummary(atkResult, { includeDefenderInterception: false }),
         })
         setSelectedTarget(null)
         processingRef.current = false
@@ -98,9 +116,9 @@ export function useCombatAttackFlow({
       }
       const hitLabel = atkResult.is_crit ? '\uD83D\uDCA5 暴击！' : '命中！'
       addLog({ role: 'system', content: `${hitLabel} ${atkResult.attacker_name} 对 ${atkResult.target_name}（${atkResult.attack_total} vs AC${atkResult.target_ac}）`, log_type: 'combat',
-        dice_result: { attack: { d20: atkResult.d20, attack_total: atkResult.attack_total, target_ac: atkResult.target_ac, hit: true, is_crit: atkResult.is_crit, is_fumble: false } },
+        dice_result: { attack: buildAttackLogDice(atkResult, true) },
         rule_result: atkResult.is_crit ? '暴击命中' : '攻击命中',
-        state_changes: buildCombatStateChangeSummary(atkResult),
+        state_changes: buildCombatStateChangeSummary(atkResult, { includeDefenderInterception: false }),
       })
 
       setTimeout(async () => {

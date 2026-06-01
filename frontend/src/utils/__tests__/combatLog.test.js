@@ -121,6 +121,41 @@ describe('combatLog', () => {
     }).feedback).toEqual([{ kind: 'concentration-break', label: '专注中断' }])
   })
 
+  it('surfaces defender interception as a rule and feedback badge', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Shield Guard knocks the blade aside.',
+      dice_result: {
+        attack: {
+          d20: 12,
+          attack_bonus: 5,
+          attack_total: 17,
+          target_ac: 18,
+          hit: false,
+          defender_interception: {
+            defender_name: 'Shield Guard',
+            protected_target_name: 'Cult Priest',
+            effect: 'disadvantage',
+          },
+        },
+      },
+    })
+
+    expect(view.feedback).toEqual([
+      { kind: 'miss', label: '未命中' },
+      { kind: 'defender-interception', label: '护卫干扰' },
+    ])
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: [
+        '未命中 · 17 vs AC18',
+        'Shield Guard 护卫干扰：保护 Cult Priest，本次攻击劣势',
+      ],
+    })
+  })
+
   it('does not infer a miss from spell damage logs without attack outcome', () => {
     const view = buildCombatLogView({
       role: 'player',
@@ -175,5 +210,18 @@ describe('combatLog', () => {
 
     expect(summary.some(item => item.startsWith('Tester HP 3 -> 12'))).toBe(true)
     expect(summary).not.toContain('Tester HP 12')
+  })
+
+  it('summarizes defender interception from action result payloads', () => {
+    expect(buildCombatStateChangeSummary({
+      defender_interception: {
+        defender_name: 'Shield Guard',
+        protected_target_name: 'Cult Priest',
+      },
+      turn_state: { reaction_used: true },
+    })).toEqual([
+      '反应已用',
+      'Shield Guard 护卫干扰：保护 Cult Priest，本次攻击劣势',
+    ])
   })
 })

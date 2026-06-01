@@ -3736,6 +3736,11 @@
   background: rgba(110,70,180,.2);
   color: #d9bdff;
 }
+.log-feedback.defender-interception {
+  border-color: rgba(95,216,232,.58);
+  background: rgba(47,169,196,.16);
+  color: var(--arcane-light, #5fd8e8);
+}
 .log-section.rules .log-section-items { color: var(--amber); }
 .log-section.dice .log-section-items { color: var(--arcane-light, #5fd8e8); }
 .log-section.state .log-section-items { color: #9fd68a; }
@@ -3749,6 +3754,7 @@
 .log-entry.feedback-death-save-failure { --log-feedback-glow: rgba(240,64,64,.28); }
 .log-entry.feedback-death-save { --log-feedback-glow: rgba(240,208,96,.22); }
 .log-entry.feedback-concentration-break { --log-feedback-glow: rgba(188,128,255,.3); }
+.log-entry.feedback-defender-interception { --log-feedback-glow: rgba(95,216,232,.28); }
 .log-entry.feedback-hit,
 .log-entry.feedback-miss,
 .log-entry.feedback-crit,
@@ -3757,7 +3763,8 @@
 .log-entry.feedback-death-save,
 .log-entry.feedback-death-save-success,
 .log-entry.feedback-death-save-failure,
-.log-entry.feedback-concentration-break {
+.log-entry.feedback-concentration-break,
+.log-entry.feedback-defender-interception {
   animation: log-feedback-pulse .78s ease-out;
 }
 .log-entry.crit .log-entry-icon,

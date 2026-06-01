@@ -58,6 +58,14 @@ function formatAttackRule(attack = {}) {
   return compact([outcome, compare]).join(' · ')
 }
 
+function formatDefenderInterception(interception = null) {
+  if (!interception || typeof interception !== 'object') return null
+  const defenderName = interception.defender_name || interception.defender_id || '敌方护卫'
+  const protectedName = interception.protected_target_name || interception.protected_target_id
+  const targetText = protectedName ? `保护 ${protectedName}，` : ''
+  return `${defenderName} 护卫干扰：${targetText}本次攻击劣势`
+}
+
 function formatAttackDice(attack = {}) {
   if (!attack || typeof attack !== 'object') return null
   const d20 = asNumber(attack.d20 ?? attack.roll)
@@ -175,10 +183,18 @@ function buildConcentrationFeedback(state = []) {
     : null
 }
 
+function buildDefenderInterceptionFeedback(attack = {}, state = []) {
+  if (attack?.defender_interception) return { kind: 'defender-interception', label: '护卫干扰' }
+  return state.some(item => String(item || '').includes('护卫干扰'))
+    ? { kind: 'defender-interception', label: '护卫干扰' }
+    : null
+}
+
 function buildCombatFeedback({ dice, state }) {
   const attack = dice?.attack || {}
   const feedback = [
     buildAttackFeedback(attack),
+    buildDefenderInterceptionFeedback(attack, state),
     buildSaveFeedback(dice),
     buildDeathSaveFeedback(dice),
     buildConcentrationFeedback(state),
@@ -376,6 +392,14 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
   entries.push(summarizeWeaponResource(result.weapon_resource))
   entries.push(summarizeTurnState(result.turn_state))
 
+  if (options.includeDefenderInterception !== false) {
+    entries.push(formatDefenderInterception(
+      result.defender_interception
+      || result.attack_result?.defender_interception
+      || result.dice_result?.attack?.defender_interception,
+    ))
+  }
+
   if (result.concentration_check?.broke) {
     entries.push(`专注中断${result.concentration_check.spell_name ? `：${result.concentration_check.spell_name}` : ''}`)
   }
@@ -386,14 +410,15 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
 
 export function buildCombatLogView(log = {}) {
   const dice = log.dice_result || null
+  const attack = dice?.attack || {}
   const rules = compact([
     log.rule_result,
-    formatAttackRule(dice?.attack),
+    formatAttackRule(attack),
+    formatDefenderInterception(attack.defender_interception),
   ])
   const diceEntries = buildDiceSections(dice)
   const state = normalizeStateChanges(log.state_changes)
   const narration = log.content ? [log.content] : []
-  const attack = dice?.attack || {}
   const feedback = buildCombatFeedback({ dice, state })
 
   const tone = attack.is_crit

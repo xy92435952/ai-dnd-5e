@@ -68,6 +68,39 @@ describe('CombatHudCombatLog', () => {
     expect(within(entry).getByText('专注中断')).toHaveClass('log-feedback', 'concentration-break')
   })
 
+  it('renders defender interception as a visible combat feedback badge', () => {
+    render(
+      <CombatHudCombatLog
+        logs={[
+          {
+            id: 'guard-1',
+            role: 'player',
+            content: '护卫以盾缘压低了你的剑锋。',
+            log_type: 'combat',
+            dice_result: {
+              attack: {
+                d20: 11,
+                attack_bonus: 5,
+                attack_total: 16,
+                target_ac: 16,
+                hit: false,
+                defender_interception: {
+                  defender_name: 'Shield Guard',
+                  protected_target_name: 'Cult Priest',
+                },
+              },
+            },
+          },
+        ]}
+      />,
+    )
+
+    const entry = screen.getByText('玩家').closest('.log-entry')
+    expect(entry).toHaveClass('feedback-defender-interception')
+    expect(within(entry).getByText('护卫干扰')).toHaveClass('log-feedback', 'defender-interception')
+    expect(within(entry).getByText('Shield Guard 护卫干扰：保护 Cult Priest，本次攻击劣势')).toBeInTheDocument()
+  })
+
   it('keeps only the newest eight visible entries', () => {
     render(
       <CombatHudCombatLog

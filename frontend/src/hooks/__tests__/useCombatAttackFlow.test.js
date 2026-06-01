@@ -115,6 +115,50 @@ describe('useCombatAttackFlow', () => {
     expect(deps.setSelectedTarget).toHaveBeenCalledWith(null)
   })
 
+  it('keeps defender interception metadata on the attack log', async () => {
+    attackRollMock.mockResolvedValueOnce({
+      d20: 14,
+      attack_bonus: 5,
+      attack_total: 19,
+      target_ac: 20,
+      hit: false,
+      is_crit: false,
+      is_fumble: false,
+      attacker_name: 'Hero',
+      target_name: 'Cult Priest',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8+3',
+      pending_attack_id: 'pending-guard',
+      defender_interception: {
+        defender_name: 'Shield Guard',
+        protected_target_name: 'Cult Priest',
+      },
+      turn_state: { action_used: true, attacks_made: 1 },
+      narration: 'Shield Guard forces the strike wide.',
+    })
+    const { result, deps } = renderAttackFlow()
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: {
+        attack: expect.objectContaining({
+          defender_interception: {
+            defender_name: 'Shield Guard',
+            protected_target_name: 'Cult Priest',
+          },
+          disadvantage: true,
+        }),
+      },
+      state_changes: expect.not.arrayContaining([
+        expect.stringContaining('护卫干扰'),
+      ]),
+    }))
+  })
+
   it('passes critical hit context into the smite prompt', async () => {
     vi.useFakeTimers()
     try {
