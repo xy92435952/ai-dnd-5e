@@ -1,6 +1,6 @@
 const COVER_LABELS = {
-  2: 'Half cover +2 AC',
-  5: '3/4 cover +5 AC',
+  2: '半掩护 +2 AC',
+  5: '3/4 掩护 +5 AC',
 }
 
 const COVER_NAMES = new Set([
@@ -45,23 +45,23 @@ function pushUnique(tags, tag) {
 
 function coverLabel(coverBonus) {
   if (COVER_LABELS[coverBonus]) return COVER_LABELS[coverBonus]
-  if (coverBonus >= 99) return 'Total cover'
-  return `Cover +${coverBonus} AC`
+  if (coverBonus >= 99) return '全掩护'
+  return `掩护 +${coverBonus} AC`
 }
 
 function coverTitle({ coverBonus, targetAc, effectiveAc, coverDetail = null }) {
   const rawBonus = asNumber(coverDetail?.raw_bonus ?? coverDetail?.rawBonus)
   const cells = coverCells(coverDetail)
-  const path = cells.length > 0 ? ` Path crosses ${cells.join(' / ')}.` : ''
+  const path = cells.length > 0 ? `路径经过 ${cells.join(' / ')}。` : ''
   if (coverDetail?.ignored_by || coverDetail?.ignoredBy) {
     const ignoredBy = coverDetail.ignored_by || coverDetail.ignoredBy
-    return `Cover would add +${rawBonus ?? coverBonus} AC, but ${ignoredBy} ignores it.${path}`
+    return `掩护原本会提供 +${rawBonus ?? coverBonus} AC，但被 ${ignoredBy} 忽略。${path}`
   }
-  if (coverBonus >= 99) return 'Total cover blocks ordinary ranged attacks unless a rule says otherwise.'
+  if (coverBonus >= 99) return '全掩护会阻挡普通远程攻击，除非有规则另行说明。'
   if (targetAc !== null && effectiveAc !== null && targetAc !== effectiveAc) {
-    return `Cover raises AC from ${targetAc} to ${effectiveAc} for this attack.${path}`
+    return `掩护使本次攻击的 AC 从 ${targetAc} 提升到 ${effectiveAc}。${path}`
   }
-  return `Cover raises the target AC for this attack.${path}`
+  return `掩护会提高本次攻击的目标 AC。${path}`
 }
 
 function modifierIsAlreadyExplained(modifier, explainedSources = []) {
@@ -94,10 +94,10 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   if ((hasAdvantage && hasDisadvantage) || hasCancelledSources) {
     pushUnique(tags, {
       key: 'flat-roll',
-      label: 'Flat roll',
+      label: '优势抵消',
       tone: 'neutral',
       title: rollStateTitle(
-        'Advantage and disadvantage cancel, so the attack rolls one d20.',
+        '优势和劣势相互抵消，本次攻击只掷一个 d20。',
         advantageSources,
         disadvantageSources,
       ),
@@ -105,16 +105,16 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   } else if (hasAdvantage) {
     pushUnique(tags, {
       key: 'advantage',
-      label: 'Advantage',
+      label: '优势',
       tone: 'good',
-      title: rollStateTitle('Roll two d20 and use the higher result.', advantageSources, []),
+      title: rollStateTitle('掷两个 d20，取较高结果。', advantageSources, []),
     })
   } else if (hasDisadvantage) {
     pushUnique(tags, {
       key: 'disadvantage',
-      label: 'Disadvantage',
+      label: '劣势',
       tone: 'bad',
-      title: rollStateTitle('Roll two d20 and use the lower result.', [], disadvantageSources),
+      title: rollStateTitle('掷两个 d20，取较低结果。', [], disadvantageSources),
     })
   }
 
@@ -135,7 +135,7 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   } else if (ignoredCover) {
     pushUnique(tags, {
       key: 'cover-ignored',
-      label: 'Cover ignored',
+      label: '忽略掩护',
       tone: 'good',
       title: coverTitle({ coverBonus: rawCoverBonus, targetAc, effectiveAc, coverDetail }),
     })
@@ -144,11 +144,11 @@ export function buildCombatRuleTags(prediction = null, target = null) {
   if (effectiveAc !== null) {
     pushUnique(tags, {
       key: 'effective-ac',
-      label: `Eff AC ${effectiveAc}`,
+      label: `有效 AC ${effectiveAc}`,
       tone: coverBonus > 0 ? 'warning' : 'neutral',
       title: targetAc !== null && targetAc !== effectiveAc
-        ? `Base AC ${targetAc}; effective AC ${effectiveAc} after cover and modifiers.`
-        : `Effective AC ${effectiveAc} for this attack.`,
+        ? `基础 AC ${targetAc}；掩护和修正后本次攻击有效 AC ${effectiveAc}。`
+        : `本次攻击有效 AC ${effectiveAc}。`,
     })
   }
 
@@ -161,7 +161,7 @@ export function buildCombatRuleTags(prediction = null, target = null) {
       key: `modifier-${normalizeLookup(label).replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')}`,
       label,
       tone: 'neutral',
-      title: `Attack modifier: ${label}.`,
+      title: `攻击修正：${label}。`,
     })
     if (tags.length >= 6) break
   }
@@ -184,17 +184,18 @@ function sourceLabel(value) {
 
 function rollStateTitle(base, advantageSources = [], disadvantageSources = []) {
   const parts = [base]
-  if (advantageSources.length > 0) parts.push(`Advantage sources: ${advantageSources.join(' / ')}.`)
-  if (disadvantageSources.length > 0) parts.push(`Disadvantage sources: ${disadvantageSources.join(' / ')}.`)
-  return parts.join(' ')
+  if (advantageSources.length > 0) parts.push(`优势来源：${advantageSources.join(' / ')}。`)
+  if (disadvantageSources.length > 0) parts.push(`劣势来源：${disadvantageSources.join(' / ')}。`)
+  return parts.join('')
 }
 
 function sourceTag(key, prefix, sources, tone) {
+  const labelPrefix = prefix === 'Adv' ? '优势' : '劣势'
   return {
     key,
-    label: `${prefix}: ${compactSourceSummary(sources)}`,
+    label: `${labelPrefix}: ${compactSourceSummary(sources)}`,
     tone,
-    title: `${prefix === 'Adv' ? 'Advantage' : 'Disadvantage'} sources: ${sources.join(' / ')}.`,
+    title: `${labelPrefix}来源：${sources.join(' / ')}。`,
   }
 }
 

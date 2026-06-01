@@ -18,27 +18,27 @@ describe('combatRuleTags', () => {
     })).toEqual([
       {
         key: 'advantage',
-        label: 'Advantage',
+        label: '优势',
         tone: 'good',
-        title: 'Roll two d20 and use the higher result. Advantage sources: Pack Tactics.',
+        title: '掷两个 d20，取较高结果。优势来源：Pack Tactics。',
       },
       {
         key: 'advantage-source',
-        label: 'Adv: Pack Tactics',
+        label: '优势: Pack Tactics',
         tone: 'good',
-        title: 'Advantage sources: Pack Tactics.',
+        title: '优势来源：Pack Tactics。',
       },
       {
         key: 'cover-2',
-        label: 'Half cover +2 AC',
+        label: '半掩护 +2 AC',
         tone: 'bad',
-        title: 'Cover raises AC from 14 to 16 for this attack. Path crosses 2_0 cover.',
+        title: '掩护使本次攻击的 AC 从 14 提升到 16。路径经过 2_0 cover。',
       },
       {
         key: 'effective-ac',
-        label: 'Eff AC 16',
+        label: '有效 AC 16',
         tone: 'warning',
-        title: 'Base AC 14; effective AC 16 after cover and modifiers.',
+        title: '基础 AC 14；掩护和修正后本次攻击有效 AC 16。',
       },
     ])
   })
@@ -52,12 +52,12 @@ describe('combatRuleTags', () => {
     })
 
     expect(tags.map(tag => tag.label)).toEqual([
-      'Disadvantage',
-      '3/4 cover +5 AC',
-      'Eff AC 18',
+      '劣势',
+      '3/4 掩护 +5 AC',
+      '有效 AC 18',
     ])
-    expect(tags[0].title).toContain('lower result')
-    expect(tags[1].title).toBe('Cover raises AC from 13 to 18 for this attack.')
+    expect(tags[0].title).toContain('取较低结果')
+    expect(tags[1].title).toBe('掩护使本次攻击的 AC 从 13 提升到 18。')
   })
 
   it('shows a flat roll when advantage and disadvantage cancel out', () => {
@@ -68,10 +68,10 @@ describe('combatRuleTags', () => {
       disadvantage_sources: ['attacker poisoned'],
       effective_target_ac: 12,
     }).map(tag => tag.label)).toEqual([
-      'Flat roll',
-      'Adv: target restrained',
-      'Dis: attacker poisoned',
-      'Eff AC 12',
+      '优势抵消',
+      '优势: target restrained',
+      '劣势: attacker poisoned',
+      '有效 AC 12',
     ])
   })
 
@@ -83,8 +83,8 @@ describe('combatRuleTags', () => {
     })
 
     expect(tags.map(tag => tag.label)).toEqual([
-      'Disadvantage',
-      'Dis: attacker poisoned +1',
+      '劣势',
+      '劣势: attacker poisoned +1',
     ])
     expect(tags[0].title).toContain('attacker poisoned / target invisible')
   })
@@ -102,8 +102,8 @@ describe('combatRuleTags', () => {
       },
     })
 
-    expect(tags.map(tag => tag.label)).toEqual(['Cover ignored', 'Eff AC 14'])
-    expect(tags[0].title).toBe('Cover would add +2 AC, but Sharpshooter ignores it. Path crosses 2_0 wall.')
+    expect(tags.map(tag => tag.label)).toEqual(['忽略掩护', '有效 AC 14'])
+    expect(tags[0].title).toBe('掩护原本会提供 +2 AC，但被 Sharpshooter 忽略。路径经过 2_0 wall。')
   })
 
   it('returns no tags without prediction metadata', () => {
