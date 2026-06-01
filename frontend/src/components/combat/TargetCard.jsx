@@ -143,7 +143,7 @@ function buildTargetBadges(entity = {}, prediction = null) {
 
   if (conditions.length > 2) {
     badges.push({
-      label: `+${conditions.length - 2} cond`,
+      label: `+${conditions.length - 2} 状态`,
       tone: 'bad',
       title: conditions.slice(2).map(condition => condition.title).join(' / '),
     })

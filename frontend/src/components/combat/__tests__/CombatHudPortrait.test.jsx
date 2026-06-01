@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import CombatHudPortrait from '../CombatHudPortrait'
 
 describe('CombatHudPortrait', () => {
@@ -104,14 +104,14 @@ describe('CombatHudPortrait', () => {
     )
 
     const rules = screen.getByLabelText('Active condition rules')
-    expect(rules).toHaveTextContent('Poisoned')
-    expect(rules).toHaveTextContent('Fire Resistance')
-    expect(screen.getByTitle(/Disadvantage on attack rolls/)).toBeInTheDocument()
-    expect(screen.getByTitle(/Fire damage is reduced/)).toHaveClass('buff')
+    expect(rules).toHaveTextContent('中毒')
+    expect(rules).toHaveTextContent('火焰抗性')
+    expect(within(rules).getByTitle(/攻击骰和属性检定处于劣势/)).toBeInTheDocument()
+    expect(within(rules).getByTitle(/火焰伤害降低/)).toHaveClass('buff')
 
     const impacts = screen.getByLabelText('Active condition impacts')
-    expect(impacts).toHaveTextContent('Atk disadv')
-    expect(impacts).toHaveTextContent('Resist')
-    expect(screen.getByTitle(/Damage resistance is active/)).toHaveClass('good')
+    expect(impacts).toHaveTextContent('攻击劣势')
+    expect(impacts).toHaveTextContent('抗性')
+    expect(within(impacts).getByTitle(/伤害抗性已生效/)).toHaveClass('good')
   })
 })
