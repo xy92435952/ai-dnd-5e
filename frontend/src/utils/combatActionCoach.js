@@ -31,30 +31,30 @@ export function buildCombatActionCoach({
   const items = [
     {
       key: 'action',
-      label: 'Action',
+      label: '动作',
       value: actionOpen
         ? hasTarget || !targetNeeded
-          ? hasActionOption ? 'Ready' : 'Choose'
-          : 'Pick target'
-        : 'Spent',
+          ? hasActionOption ? '可用' : '选择'
+          : '选目标'
+        : '已用',
       tone: actionOpen ? hasTarget || !targetNeeded ? 'ready' : 'warn' : 'spent',
     },
     {
       key: 'move',
-      label: 'Move',
-      value: moveMode ? 'Choose cell' : `${movementLeft} sq`,
+      label: '移动',
+      value: moveMode ? '选格子' : `${movementLeft} 格`,
       tone: movementLeft > 0 ? moveMode ? 'warn' : 'ready' : 'spent',
     },
     {
       key: 'reaction',
-      label: 'Reaction',
-      value: reactionOpen ? 'Held' : 'Spent',
+      label: '反应',
+      value: reactionOpen ? '保留' : '已用',
       tone: reactionOpen ? 'ready' : 'spent',
     },
     {
       key: 'finish',
-      label: 'Finish',
-      value: actionOpen || movementLeft > 0 ? 'End when done' : 'End turn',
+      label: '结束',
+      value: actionOpen || movementLeft > 0 ? '完成后结束' : '结束回合',
       tone: actionOpen || movementLeft > 0 ? '' : 'ready',
     },
   ]
@@ -62,8 +62,8 @@ export function buildCombatActionCoach({
   if (targetNeeded || selectedTargetEntity || hasTarget) {
     items.splice(1, 0, {
       key: 'target',
-      label: 'Target',
-      value: hasTarget ? targetSummary(selectedTargetEntity, prediction) : 'Pick target',
+      label: '目标',
+      value: hasTarget ? targetSummary(selectedTargetEntity, prediction) : '选目标',
       tone: hasTarget ? 'ready' : 'warn',
     })
   }
@@ -71,8 +71,8 @@ export function buildCombatActionCoach({
   if (hasBonusOption || !bonusOpen) {
     items.splice(2, 0, {
       key: 'bonus',
-      label: 'Bonus',
-      value: bonusOpen ? 'Ready' : 'Spent',
+      label: '附赠',
+      value: bonusOpen ? '可用' : '已用',
       tone: bonusOpen ? 'ready' : 'spent',
     })
   }
@@ -93,12 +93,12 @@ function readNumber(value, fallback) {
 }
 
 function targetSummary(entity = null, prediction = null) {
-  if (!entity) return 'Selected'
+  if (!entity) return '已选择'
 
-  const parts = [String(entity.name || 'Target')]
+  const parts = [String(entity.name || '目标')]
   if (entity.ac !== null && entity.ac !== undefined) parts.push(`AC ${entity.ac}`)
   if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
-    parts.push(`Hit ${formatPercent(prediction.hit_rate)}`)
+    parts.push(`命中 ${formatPercent(prediction.hit_rate)}`)
   }
 
   return parts.join(' · ')

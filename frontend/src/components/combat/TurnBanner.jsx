@@ -72,7 +72,7 @@ export default function TurnBanner({
       </div>
 
       {actionCoach.visible && (
-        <div className="turn-action-coach" aria-label="Turn action coach">
+        <div className="turn-action-coach" aria-label="回合行动提示">
           {actionCoach.items.map(item => (
             <span key={item.key} className={`turn-action-step ${item.tone || ''}`}>
               <b>{item.label}</b>

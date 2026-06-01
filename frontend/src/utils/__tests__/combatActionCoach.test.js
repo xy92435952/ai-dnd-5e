@@ -17,10 +17,10 @@ describe('buildCombatActionCoach', () => {
     })
 
     expect(coach.visible).toBe(true)
-    expect(coach.items).toContainEqual({ key: 'action', label: 'Action', value: 'Pick target', tone: 'warn' })
-    expect(coach.items).toContainEqual({ key: 'target', label: 'Target', value: 'Pick target', tone: 'warn' })
-    expect(coach.items).toContainEqual({ key: 'move', label: 'Move', value: '4 sq', tone: 'ready' })
-    expect(coach.items).toContainEqual({ key: 'reaction', label: 'Reaction', value: 'Held', tone: 'ready' })
+    expect(coach.items).toContainEqual({ key: 'action', label: '动作', value: '选目标', tone: 'warn' })
+    expect(coach.items).toContainEqual({ key: 'target', label: '目标', value: '选目标', tone: 'warn' })
+    expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '4 格', tone: 'ready' })
+    expect(coach.items).toContainEqual({ key: 'reaction', label: '反应', value: '保留', tone: 'ready' })
   })
 
   it('summarizes the selected target with AC and hit chance', () => {
@@ -35,11 +35,11 @@ describe('buildCombatActionCoach', () => {
 
     expect(coach.items).toContainEqual({
       key: 'target',
-      label: 'Target',
-      value: 'Goblin Boss · AC 15 · Hit 65%',
+      label: '目标',
+      value: 'Goblin Boss · AC 15 · 命中 65%',
       tone: 'ready',
     })
-    expect(coach.items).toContainEqual({ key: 'action', label: 'Action', value: 'Ready', tone: 'ready' })
+    expect(coach.items).toContainEqual({ key: 'action', label: '动作', value: '可用', tone: 'ready' })
   })
 
   it('summarizes spent action resources and bonus availability', () => {
@@ -56,9 +56,9 @@ describe('buildCombatActionCoach', () => {
       selectedTarget: 'enemy-1',
     })
 
-    expect(coach.items).toContainEqual({ key: 'action', label: 'Action', value: 'Spent', tone: 'spent' })
-    expect(coach.items).toContainEqual({ key: 'bonus', label: 'Bonus', value: 'Ready', tone: 'ready' })
-    expect(coach.items).toContainEqual({ key: 'move', label: 'Move', value: '0 sq', tone: 'spent' })
-    expect(coach.items).toContainEqual({ key: 'reaction', label: 'Reaction', value: 'Spent', tone: 'spent' })
+    expect(coach.items).toContainEqual({ key: 'action', label: '动作', value: '已用', tone: 'spent' })
+    expect(coach.items).toContainEqual({ key: 'bonus', label: '附赠', value: '可用', tone: 'ready' })
+    expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '0 格', tone: 'spent' })
+    expect(coach.items).toContainEqual({ key: 'reaction', label: '反应', value: '已用', tone: 'spent' })
   })
 })

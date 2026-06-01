@@ -82,14 +82,14 @@ describe('TurnBanner', () => {
       />
     )
 
-    const coach = screen.getByLabelText('Turn action coach')
-    expect(coach).toHaveTextContent('Action')
-    expect(coach).toHaveTextContent('Pick target')
-    expect(coach).toHaveTextContent('Target')
-    expect(coach).toHaveTextContent('Move')
-    expect(coach).toHaveTextContent('4 sq')
-    expect(coach).toHaveTextContent('Reaction')
-    expect(coach).toHaveTextContent('Held')
+    const coach = screen.getByLabelText('回合行动提示')
+    expect(coach).toHaveTextContent('动作')
+    expect(coach).toHaveTextContent('选目标')
+    expect(coach).toHaveTextContent('目标')
+    expect(coach).toHaveTextContent('移动')
+    expect(coach).toHaveTextContent('4 格')
+    expect(coach).toHaveTextContent('反应')
+    expect(coach).toHaveTextContent('保留')
   })
 
   it('surfaces selected target context in the action coach', () => {
@@ -111,10 +111,10 @@ describe('TurnBanner', () => {
       />
     )
 
-    const coach = screen.getByLabelText('Turn action coach')
-    expect(coach).toHaveTextContent('Target')
-    expect(coach).toHaveTextContent('Goblin Boss · AC 15 · Hit 65%')
-    expect(coach).toHaveTextContent('Action')
-    expect(coach).toHaveTextContent('Ready')
+    const coach = screen.getByLabelText('回合行动提示')
+    expect(coach).toHaveTextContent('目标')
+    expect(coach).toHaveTextContent('Goblin Boss · AC 15 · 命中 65%')
+    expect(coach).toHaveTextContent('动作')
+    expect(coach).toHaveTextContent('可用')
   })
 })
