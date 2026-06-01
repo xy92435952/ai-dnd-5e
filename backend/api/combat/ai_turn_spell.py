@@ -185,6 +185,7 @@ async def handle_ai_spell_action(
         enemies=enemies,
         enemies_alive=enemies_alive,
         all_characters=all_characters,
+        positions=dict(combat.entity_positions or {}),
     )
     if spell_resolution is None:
         return None

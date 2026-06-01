@@ -22,7 +22,9 @@ from services.combat_ai_spell_models import (
     consume_ai_spell_slot,
     spell_modifier as _spell_modifier,
 )
+from services.combat_grid_service import chebyshev_distance
 from services.combat_service import CombatService
+from services.combat_spell_target_service import parse_spell_range_tiles
 from services.dnd_rules import can_receive_ordinary_healing, roll_dice
 from services.spell_service import spell_service
 
@@ -81,6 +83,27 @@ def _has_valid_ai_damage_target(
     )
 
 
+def _ai_spell_target_in_range(
+    caster,
+    target_id: str | None,
+    spell_data: dict[str, Any],
+    positions: dict[str, Any] | None,
+) -> bool:
+    if not target_id or not positions:
+        return True
+    caster_id = _caster_id(caster)
+    if not caster_id:
+        return True
+    caster_pos = positions.get(str(caster_id))
+    target_pos = positions.get(str(target_id))
+    if not caster_pos or not target_pos:
+        return True
+    spell_range_tiles = parse_spell_range_tiles(spell_data.get("range"))
+    if spell_range_tiles <= 0:
+        return chebyshev_distance(caster_pos, target_pos) <= 0
+    return chebyshev_distance(caster_pos, target_pos) <= spell_range_tiles
+
+
 def _persist_enemy_caster_state(
     *,
     session,
@@ -115,6 +138,7 @@ async def resolve_ai_spell_action(
     combat_service: CombatService = svc,
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     roll_dice_func: Callable[[str], dict[str, Any]] = roll_dice,
+    positions: dict[str, Any] | None = None,
 ) -> AiSpellResolution | None:
     """Resolve the AI spell branch and mutate combat state like the legacy endpoint did."""
     if not (decision.get("action_type") == "spell" and decision.get("action_name")):
@@ -132,6 +156,13 @@ async def resolve_ai_spell_action(
     bonus_healing = actor_derived.get("bonus_healing", False)
     is_cantrip = spell_data.get("level", 0) == 0
     spell_type = spell_data.get("type", "damage")
+
+    if (
+        spell_target
+        and not spell_data.get("aoe", False)
+        and not _ai_spell_target_in_range(caster, spell_target, spell_data, positions)
+    ):
+        return None
 
     if (
         spell_type == "damage"

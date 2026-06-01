@@ -41,6 +41,7 @@ class FakeCombatService:
 
 class FakeCaster:
     def __init__(self):
+        self.id = "caster-1"
         self.spell_slots = {"1st": 1}
         self.concentration = None
 
@@ -251,6 +252,63 @@ async def test_resolve_ai_spell_action_rejects_dead_damage_target_before_slot():
     assert result is None
     assert caster.spell_slots == {"1st": 1}
     assert dead_enemy["hp_current"] == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_ai_spell_action_rejects_out_of_range_target_before_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollSpellService(FakeSpellService):
+        def resolve_damage(self, *_args):
+            raise AssertionError("out-of-range AI spell target should fail before damage")
+
+    state = {
+        "enemies": [{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 10,
+            "derived": {"hp_max": 10},
+        }]
+    }
+    enemies = state["enemies"]
+    caster = FakeCaster()
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=FakeSession(game_state=state),
+        actor_name="Wizard",
+        is_enemy=False,
+        caster=caster,
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3},
+            "spell_save_dc": 13,
+        },
+        decided_target_id="goblin-1",
+        decided_reason="bad range",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=enemies,
+        enemies_alive=enemies,
+        all_characters=[],
+        spell_service_obj=NoRollSpellService({
+            "level": 1,
+            "type": "damage",
+            "aoe": False,
+            "save": None,
+            "range": 12,
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: (_ for _ in ()).throw(AssertionError("no persistence expected")),
+        positions={
+            "caster-1": {"x": 0, "y": 0},
+            "goblin-1": {"x": 13, "y": 0},
+        },
+    )
+
+    assert result is None
+    assert caster.spell_slots == {"1st": 1}
+    assert enemies[0]["hp_current"] == 10
 
 
 @pytest.mark.asyncio
