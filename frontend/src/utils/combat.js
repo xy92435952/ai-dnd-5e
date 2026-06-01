@@ -147,6 +147,7 @@ export function buildSpellAoePreview(spell) {
     template,
     spellName: spell.name,
   }
+  if (spell.type) preview.spellType = String(spell.type).toLowerCase()
   if (template === 'cube') preview.size = Math.max(1, radius)
   return preview
 }

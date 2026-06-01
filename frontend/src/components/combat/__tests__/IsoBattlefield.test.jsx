@@ -48,7 +48,7 @@ describe('IsoBattlefield', () => {
     expect(cell.className).toContain('target')
     expect(cell.className).toContain('aoe-center')
     expect(cell).toHaveAttribute('role', 'button')
-    expect(cell).toHaveAttribute('title', '选择 Target')
+    expect(cell).toHaveAttribute('title', '选择 Target · 范围命中：敌方')
 
     fireEvent.click(cell)
     expect(onSelectTarget).toHaveBeenCalledWith('enemy')
@@ -390,7 +390,7 @@ describe('IsoBattlefield', () => {
 
     const cell = container.querySelector('.iso-cell')
     expect(cell).toHaveAttribute('role', 'button')
-    expect(cell).toHaveAttribute('title', '已确认法术中心 4, 7')
+    expect(cell).toHaveAttribute('title', '已锁定范围中心 4, 7 · 命中 0')
 
     fireEvent.mouseLeave(cell)
     expect(onAoeHover).not.toHaveBeenCalledWith(null)
@@ -413,16 +413,18 @@ describe('IsoBattlefield', () => {
           player: { x: 5, y: 5 },
           enemy: { x: 1, y: 0 },
           ally: { x: 2, y: 0 },
+          dead: { x: 3, y: 0 },
         }}
         entities={{
           player: { id: 'player', name: 'Wizard', is_enemy: false, hp_current: 10 },
           enemy: { id: 'enemy', name: 'Goblin', is_enemy: true, hp_current: 7 },
           ally: { id: 'ally', name: 'Companion', is_enemy: false, hp_current: 8 },
+          dead: { id: 'dead', name: 'Fallen', is_enemy: true, hp_current: 0 },
         }}
         selectedTarget={null}
         currentTurnCharacterId="player"
         threatCells={new Set()}
-        aoeCells={{ center: '0_0', ring: new Set(['0_0', '1_0', '2_0', '5_5']) }}
+        aoeCells={{ center: '0_0', ring: new Set(['0_0', '1_0', '2_0', '3_0', '5_5']) }}
         moveMode={false}
         helpMode={false}
         aoePreview={{ radius: 2, template: 'sphere' }}
@@ -437,7 +439,44 @@ describe('IsoBattlefield', () => {
     )
 
     const cell = container.querySelector('.iso-cell')
-    expect(cell).toHaveAttribute('title', '已确认法术中心 0, 0 · 影响 敌方1 / 友方1 / 自身 · 友伤风险')
+    expect(cell).toHaveAttribute('title', '已锁定范围中心 0, 0 · 命中 3：敌方 Goblin；友方 Companion；自身 Wizard · 误伤风险')
+  })
+
+  it('does not warn friendly fire for healing AoE placement titles', () => {
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{
+          player: { x: 5, y: 5 },
+          ally: { x: 2, y: 0 },
+        }}
+        entities={{
+          player: { id: 'player', name: 'Cleric', is_enemy: false, hp_current: 10 },
+          ally: { id: 'ally', name: 'Rogue', is_enemy: false, hp_current: 8 },
+        }}
+        selectedTarget={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: '0_0', ring: new Set(['0_0', '2_0', '5_5']) }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={{ radius: 2, template: 'sphere', spellType: 'heal' }}
+        aoeHover="0_0"
+        aoeLockedCenter="0_0"
+        playerId="player"
+        onSelectTarget={vi.fn()}
+        onMoveTo={vi.fn()}
+        onAoeHover={vi.fn()}
+        onAoeLockCenter={vi.fn()}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell).toHaveAttribute('title', '已锁定范围中心 0, 0 · 命中 2：友方 Rogue；自身 Cleric')
   })
 
   it('labels directional AoE cells by template before locking', () => {
@@ -470,7 +509,7 @@ describe('IsoBattlefield', () => {
     )
 
     const cell = container.querySelector('.iso-cell')
-    expect(cell).toHaveAttribute('title', '确认锥形方向 4, 7')
+    expect(cell).toHaveAttribute('title', '预览锥形方向点 4, 7；点击锁定')
 
     fireEvent.mouseEnter(cell)
     expect(onAoeHover).toHaveBeenCalledWith('4_7')

@@ -1,5 +1,6 @@
 import IsoBattlefieldCell from './IsoBattlefieldCell'
 import IsoUnit from './IsoUnit'
+import { isCombatEntityDead } from '../../utils/combat'
 
 export default function IsoBattlefield({
   viewWidth,
@@ -52,7 +53,10 @@ export default function IsoBattlefield({
     const aoeTemplate = aoeCells?.template || aoePreview?.template || ''
     const aoeTemplateClass = isAoeRing && aoeCells.template ? ` aoe-${aoeCells.template}` : ''
     const aoeImpact = aoePreview
-      ? buildAoeImpactSummary({ aoeCells, entityPositions, entities, playerId })
+      ? buildAoeImpactSummary({ aoeCells, entityPositions, entities, playerId, aoePreview })
+      : ''
+    const aoeUnitHint = aoePreview && ent && isCellInAoe(key, aoeCells)
+      ? buildAoeUnitHint({ entityId: entId, entity: ent, playerId, aoePreview })
       : ''
     const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
@@ -62,8 +66,8 @@ export default function IsoBattlefield({
         : ''
     const title = ent
       ? helpMode && !ent.is_enemy && entId !== playerId
-        ? withTerrainHint(`协助 ${ent.name || entId}`, terrainDetail)
-        : withTerrainHint(`选择 ${ent.name || entId}`, terrainDetail)
+        ? withTerrainHint(joinTitleParts([`协助 ${ent.name || entId}`, aoeUnitHint]), terrainDetail)
+        : withTerrainHint(joinTitleParts([`选择 ${ent.name || entId}`, aoeUnitHint]), terrainDetail)
       : aoePreview && !isWall
         ? withTerrainHint(buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y, impact: aoeImpact }), terrainDetail)
       : moveMode && !isWall
@@ -123,36 +127,55 @@ export default function IsoBattlefield({
 }
 
 function buildAoeCellTitle({ template, locked, x, y, impact = '' }) {
-  const prefix = locked ? '已确认' : '确认'
+  const prefix = locked ? '已锁定' : '预览'
+  const action = locked ? '' : '；点击锁定'
   const suffix = impact ? ` · ${impact}` : ''
-  if (template === 'cone') return `${prefix}锥形方向 ${x}, ${y}${suffix}`
-  if (template === 'line') return `${prefix}直线方向 ${x}, ${y}${suffix}`
-  if (template === 'cube') return `${prefix}立方区域中心 ${x}, ${y}${suffix}`
-  if (template === 'aura') return `${prefix}自身光环 ${x}, ${y}${suffix}`
-  return `${prefix}法术中心 ${x}, ${y}${suffix}`
+  if (template === 'cone') return `${prefix}锥形方向点 ${x}, ${y}${action}${suffix}`
+  if (template === 'line') return `${prefix}直线方向点 ${x}, ${y}${action}${suffix}`
+  if (template === 'cube') return `${prefix}立方中心 ${x}, ${y}${action}${suffix}`
+  if (template === 'aura') return `${prefix}自身光环 ${x}, ${y}${action}${suffix}`
+  return `${prefix}范围中心 ${x}, ${y}${action}${suffix}`
 }
 
-function buildAoeImpactSummary({ aoeCells, entityPositions = {}, entities = {}, playerId = '' }) {
+function buildAoeImpactSummary({ aoeCells, entityPositions = {}, entities = {}, playerId = '', aoePreview = null }) {
   const affectedCells = new Set([...(aoeCells?.ring || []), aoeCells?.center].filter(Boolean))
   if (affectedCells.size === 0) return ''
 
-  const counts = { enemy: 0, ally: 0, self: 0 }
+  const groups = { enemy: [], ally: [], self: [] }
   for (const [entityId, pos] of Object.entries(entityPositions || {})) {
     if (!pos || !affectedCells.has(`${pos.x}_${pos.y}`)) continue
     const ent = entities?.[entityId]
-    if (!ent) continue
-    if (entityId === playerId) counts.self += 1
-    else if (ent.is_enemy) counts.enemy += 1
-    else counts.ally += 1
+    if (!ent || isCombatEntityDead(ent)) continue
+    const name = ent.name || entityId
+    if (entityId === playerId) groups.self.push(name)
+    else if (ent.is_enemy) groups.enemy.push(name)
+    else groups.ally.push(name)
   }
 
   const parts = []
-  if (counts.enemy) parts.push(`敌方${counts.enemy}`)
-  if (counts.ally) parts.push(`友方${counts.ally}`)
-  if (counts.self) parts.push('自身')
-  if (parts.length === 0) return ''
-  const friendlyRisk = counts.ally || counts.self ? ' · 友伤风险' : ''
-  return `影响 ${parts.join(' / ')}${friendlyRisk}`
+  if (groups.enemy.length) parts.push(`敌方 ${groups.enemy.join('、')}`)
+  if (groups.ally.length) parts.push(`友方 ${groups.ally.join('、')}`)
+  if (groups.self.length) parts.push(`自身 ${groups.self.join('、')}`)
+  const total = groups.enemy.length + groups.ally.length + groups.self.length
+  if (!total) return '命中 0'
+  const friendlyRisk = isHarmfulAoe(aoePreview) && (groups.ally.length || groups.self.length) ? ' · 误伤风险' : ''
+  return `命中 ${total}：${parts.join('；')}${friendlyRisk}`
+}
+
+function buildAoeUnitHint({ entityId, entity, playerId, aoePreview = null }) {
+  if (!entity || isCombatEntityDead(entity)) return ''
+  const group = entityId === playerId ? '自身' : entity.is_enemy ? '敌方' : '友方'
+  const risk = isHarmfulAoe(aoePreview) && (group === '友方' || group === '自身') ? ' · 误伤风险' : ''
+  return `范围命中：${group}${risk}`
+}
+
+function isCellInAoe(key, aoeCells) {
+  return Boolean(key && (aoeCells?.center === key || aoeCells?.ring?.has(key)))
+}
+
+function isHarmfulAoe(aoePreview = null) {
+  const type = String(aoePreview?.spellType || '').toLowerCase()
+  return !['heal', 'buff', 'support'].includes(type)
 }
 
 function wallDisabledReason(detail) {
@@ -167,6 +190,10 @@ function emptyCellReason(detail) {
 function withTerrainHint(base, detail) {
   const hint = terrainHint(detail)
   return hint ? `${base} · ${hint}` : base
+}
+
+function joinTitleParts(parts) {
+  return parts.filter(Boolean).join(' · ')
 }
 
 function terrainHint(detail) {
@@ -195,6 +222,6 @@ function terrainSummary(detail) {
 function labelSuffix(detail) {
   const label = detail?.label
   if (!label) return ''
-  if (['Hazard', 'Difficult terrain', 'Objective', 'Cover', 'Wall', 'Total cover'].includes(label)) return ''
+  if (['Hazard', 'Difficult terrain', 'Objective', 'Cover', 'Wall', 'Total cover', '危险', '困难地形', '目标点', '掩护', '阻挡', '全掩护'].includes(label)) return ''
   return `: ${label}`
 }
