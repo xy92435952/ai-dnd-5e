@@ -154,6 +154,22 @@ function routeGuidance(route) {
   return route.destinationVisited ? 'Known route' : 'Unvisited destination'
 }
 
+function routeActionHint(route) {
+  const destination = route.destinationName || 'destination'
+  const gateActions = []
+  if (route.requiresKey) gateActions.push(`use ${route.requiresKey}`)
+  if (route.dc != null) gateActions.push(`try ${readableCheckType(route.checkType)} DC ${route.dc}`)
+
+  if (route.locked) {
+    return gateActions.length
+      ? `Next: ${gateActions.join(' or ')}`
+      : `Next: find a way to open ${destination}`
+  }
+  if (gateActions.length) return `Next: ${gateActions.join(' or ')}`
+  if (route.oneWay) return `Next: travel to ${destination} (one-way)`
+  return route.destinationVisited ? `Next: travel to ${destination}` : `Next: explore ${destination}`
+}
+
 function routeTone(route) {
   if (route.locked) return 'locked'
   if (route.requiresKey || route.dc != null) return 'gated'
@@ -193,6 +209,7 @@ function getNodeRoutes(nodeId, nodes, edges) {
         ...route,
         tone: routeTone(route),
         guidance: routeGuidance(route),
+        actionHint: routeActionHint(route),
       }
     })
     .filter(Boolean)

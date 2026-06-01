@@ -64,6 +64,7 @@ function RouteList({ routes }) {
             <div className="location-map-route-main">
               <span>{route.destinationName}</span>
               {route.guidance && <em>{route.guidance}</em>}
+              {route.actionHint && <small>{route.actionHint}</small>}
             </div>
             <div className="location-map-route-meta">
               {routeBadges(route).map(badge => <b key={badge}>{badge}</b>)}

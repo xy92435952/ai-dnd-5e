@@ -1596,8 +1596,19 @@
   font-style: normal;
   overflow-wrap: anywhere;
 }
+.location-map-route-main small {
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 .location-map-route-list li.locked .location-map-route-main em,
 .location-map-route-list li.gated .location-map-route-main em {
+  color: var(--gold);
+}
+.location-map-route-list li.locked .location-map-route-main small,
+.location-map-route-list li.gated .location-map-route-main small {
   color: var(--gold);
 }
 .location-map-route-meta {

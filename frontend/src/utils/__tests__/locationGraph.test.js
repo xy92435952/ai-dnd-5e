@@ -134,12 +134,14 @@ describe('locationGraph', () => {
       checkType: 'thieves_tools',
       tone: 'locked',
       guidance: 'Gated: needs Bronze Key or thieves tools DC 15',
+      actionHint: 'Next: use Bronze Key or try thieves tools DC 15',
     })])
     expect(map.nodes.find(node => node.id === 'tower').routes).toEqual([expect.objectContaining({
       destinationId: 'yard',
       oneWay: true,
       tone: 'one-way',
       guidance: 'One-way route',
+      actionHint: 'Next: travel to Training Yard (one-way)',
     })])
   })
 
