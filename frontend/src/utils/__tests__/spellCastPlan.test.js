@@ -114,13 +114,44 @@ describe('buildSpellCastPlan', () => {
       combat: {
         entities: {
           'cleric-1': { id: 'cleric-1', derived: { spell_attack_bonus: 6 } },
-          'enemy-1': { id: 'enemy-1', name: 'Skeleton', is_enemy: true },
+          'enemy-1': { id: 'enemy-1', name: 'Skeleton', is_enemy: true, ac: 15 },
         },
       },
     })
 
     expect(row(plan, '判定').value).toBe('法术攻击 +6')
+    expect(row(plan, '目标防御').value).toBe('AC 15 · d20 需 9+ · 约 60%')
     expect(row(plan, '维持').value).toBe('专注；受到伤害可能触发专注检定')
+  })
+
+  it('bounds spell attack estimates by natural 1 and natural 20', () => {
+    const easy = buildSpellCastPlan({
+      spell: { name: 'Fire Bolt', level: 0, type: 'damage', desc: 'Make a ranged spell attack.' },
+      cantrips: ['Fire Bolt'],
+      playerId: 'wizard-1',
+      selectedTarget: 'ooze-1',
+      combat: {
+        entities: {
+          'wizard-1': { id: 'wizard-1', derived: { spell_attack_bonus: 10 } },
+          'ooze-1': { id: 'ooze-1', name: 'Ooze', is_enemy: true, ac: 5 },
+        },
+      },
+    })
+    const hard = buildSpellCastPlan({
+      spell: { name: 'Fire Bolt', level: 0, type: 'damage', desc: 'Make a ranged spell attack.' },
+      cantrips: ['Fire Bolt'],
+      playerId: 'wizard-1',
+      selectedTarget: 'shielded-1',
+      combat: {
+        entities: {
+          'wizard-1': { id: 'wizard-1', derived: { spell_attack_bonus: 5 } },
+          'shielded-1': { id: 'shielded-1', name: 'Shielded Knight', is_enemy: true, ac: 30 },
+        },
+      },
+    })
+
+    expect(row(easy, '目标防御').value).toBe('AC 5 · d20 需 2+ · 约 95%')
+    expect(row(hard, '目标防御').value).toBe('AC 30 · d20 需 自然20 · 约 5%')
   })
 
   it('summarizes AoE center and affected living units', () => {

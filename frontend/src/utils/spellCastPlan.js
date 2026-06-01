@@ -118,6 +118,38 @@ function formatSignedNumber(value) {
   return number >= 0 ? `+${number}` : `${number}`
 }
 
+function targetArmorClass(entity = null) {
+  return readFiniteNumber(entity?.ac ?? entity?.derived?.ac)
+}
+
+function spellAttackBonusValue(spell = {}, combat = null, playerId = null) {
+  const derived = casterDerived(combat, playerId)
+  return readFiniteNumber(spell.spell_attack_bonus ?? spell.attack_bonus ?? derived.spell_attack_bonus)
+}
+
+function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
+  if (!spellRequiresAttackRoll(spell)) return null
+  const target = entityById(combat, targetId)
+  const ac = targetArmorClass(target)
+  if (ac === null) return null
+
+  const parts = [`AC ${ac}`]
+  const attackBonus = spellAttackBonusValue(spell, combat, playerId)
+  if (attackBonus !== null) {
+    const needed = ac - attackBonus
+    const displayedNeeded = needed > 20 ? '自然20' : `${Math.max(2, needed)}+`
+    const successRolls = Math.max(1, Math.min(19, 21 - needed))
+    const hitChance = Math.round((successRolls / 20) * 100)
+    parts.push(`d20 需 ${displayedNeeded}`)
+    parts.push(`约 ${hitChance}%`)
+  }
+
+  return {
+    label: '目标防御',
+    value: parts.join(' · '),
+  }
+}
+
 function spellSaveAbility(spell = {}) {
   return spell.save || spell.saving_throw || spell.save_ability || ''
 }
@@ -529,6 +561,8 @@ export function buildSpellCastPlan({
       value: targetId ? entityName(combat, targetId) : `需要选择${targetKindLabel(spell)}`,
       tone: targetId ? 'ready' : 'warning',
     })
+    const defenseRow = spellAttackDefenseRow({ spell, combat, playerId, targetId })
+    if (defenseRow) rows.push(defenseRow)
   }
 
   rows.push({

@@ -12,6 +12,7 @@ describe('SpellModal', () => {
       level: 0,
       type: 'damage',
       damage: '1d10',
+      desc: 'Make a ranged spell attack.',
     }
 
     render(
@@ -21,12 +22,19 @@ describe('SpellModal', () => {
         slots={{}}
         quickPick="火焰射线"
         selectedTarget="enemy-1"
+        playerId="hero-1"
         combat={{
           entities: {
+            'hero-1': {
+              id: 'hero-1',
+              name: '法师',
+              derived: { spell_attack_bonus: 5 },
+            },
             'enemy-1': {
               id: 'enemy-1',
               name: '训练假人',
               hp_current: 7,
+              ac: 13,
               conditions: ['restrained'],
               condition_durations: { restrained: 2 },
             },
@@ -48,6 +56,7 @@ describe('SpellModal', () => {
     expect(within(preflight).getByText('训练假人')).toBeInTheDocument()
     expect(screen.getByText('戏法，无需法术位')).toBeInTheDocument()
     expect(screen.getAllByText('训练假人').length).toBeGreaterThan(0)
+    expect(screen.getByText('AC 13 · d20 需 8+ · 约 65%')).toBeInTheDocument()
     const impacts = screen.getByLabelText('目标状态影响')
     expect(within(impacts).getByText('速度 0')).toHaveAttribute(
       'title',
