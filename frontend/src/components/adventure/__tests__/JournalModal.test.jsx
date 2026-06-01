@@ -111,6 +111,10 @@ describe('JournalModal', () => {
 
     const dossier = screen.getByLabelText('冒险卷宗')
     expect(within(dossier).getAllByText('任务').length).toBeGreaterThanOrEqual(1)
+    const questSummary = within(dossier).getByLabelText('任务状态汇总')
+    expect(within(questSummary).getByText('进行中')).toBeInTheDocument()
+    expect(within(questSummary).getByText('失败')).toBeInTheDocument()
+    expect(within(questSummary).getAllByText('1')).toHaveLength(2)
     expect(within(dossier).getByText('寻找失踪矿工')).toBeInTheDocument()
     expect(within(dossier).getAllByText('进行中').length).toBeGreaterThanOrEqual(1)
     expect(within(dossier).getAllByText('进展 1')).toHaveLength(2)

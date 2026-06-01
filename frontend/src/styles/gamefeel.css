@@ -1025,12 +1025,14 @@
   padding: 0;
   list-style: none;
 }
+.journal-quest-summary,
 .journal-timeline-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   margin-bottom: 8px;
 }
+.journal-quest-summary span,
 .journal-timeline-summary span {
   display: inline-flex;
   align-items: center;
@@ -1044,20 +1046,24 @@
   font-size: 9px;
   line-height: 1.2;
 }
+.journal-quest-summary b,
 .journal-timeline-summary b {
   color: var(--parchment-light);
   font-size: 10px;
 }
+.journal-quest-summary span.active,
 .journal-timeline-summary span.active {
   border-color: rgba(240,208,96,.26);
   background: rgba(240,208,96,.08);
   color: var(--amber);
 }
+.journal-quest-summary span.good,
 .journal-timeline-summary span.good {
   border-color: rgba(106,196,132,.24);
   background: rgba(42,106,58,.12);
   color: var(--emerald-light);
 }
+.journal-quest-summary span.danger,
 .journal-timeline-summary span.danger {
   border-color: rgba(240,64,64,.28);
   background: rgba(138,26,26,.12);

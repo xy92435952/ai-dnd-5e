@@ -160,6 +160,21 @@ function buildQuestSummary(quest, recentUpdates) {
   }
 }
 
+function buildQuestStatusSummary(quests) {
+  const summary = new Map()
+  quests.forEach(quest => {
+    const key = `${quest.statusLabel}-${quest.statusTone}`
+    const current = summary.get(key) || {
+      label: quest.statusLabel,
+      tone: quest.statusTone,
+      count: 0,
+    }
+    current.count += 1
+    summary.set(key, current)
+  })
+  return Array.from(summary.values())
+}
+
 function buildTimelineEntry(item, index) {
   const type = cleanText(item?.type || 'note').toLowerCase()
   const typeMeta = getRecentTypeMeta(type)
@@ -371,6 +386,7 @@ function buildJournalSections(session, room) {
 
   return {
     quests,
+    questSummary: buildQuestStatusSummary(quests),
     companions: companionSummaries,
     clues,
     npcs,
@@ -416,37 +432,48 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
 
       <div className="journal-dossier" aria-label="冒险卷宗">
         <Section title="任务" count={journal.quests.length}>
-          {journal.quests.length === 0 ? <EmptyLine>暂无任务记录</EmptyLine> : journal.quests.map((quest, index) => (
-            <article key={`${quest.quest}-${index}`} className={`journal-card quest ${quest.statusTone}`}>
-              <div className="journal-card-head">
-                <strong>{quest.quest}</strong>
-                <Pill tone={quest.statusTone}>{quest.statusLabel}</Pill>
-                {quest.progressCount > 0 && <Pill>进展 {quest.progressCount}</Pill>}
+          {journal.quests.length === 0 ? <EmptyLine>暂无任务记录</EmptyLine> : (
+            <>
+              <div className="journal-quest-summary" aria-label="任务状态汇总">
+                {journal.questSummary.map(item => (
+                  <span key={item.label} className={item.tone}>
+                    <b>{item.count}</b>{item.label}
+                  </span>
+                ))}
               </div>
-              {quest.detail && <p>{quest.detail}</p>}
-              {quest.hooks.length > 0 && (
-                <dl className="journal-quest-hooks">
-                  {quest.hooks.map(item => (
-                    <div key={`${quest.quest}-${item.label}`} className={item.tone}>
-                      <dt>{item.label}</dt>
-                      <dd>{item.text}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              {quest.timeline.length > 0 && (
-                <ol className="journal-quest-timeline" aria-label={`${quest.quest} 任务进展`}>
-                  {quest.timeline.map(step => (
-                    <li key={step.id} className={step.tone}>
-                      <b>{step.status}</b>
-                      <span>{step.detail}</span>
-                      {step.at && <time>{step.at}</time>}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </article>
-          ))}
+              {journal.quests.map((quest, index) => (
+                <article key={`${quest.quest}-${index}`} className={`journal-card quest ${quest.statusTone}`}>
+                  <div className="journal-card-head">
+                    <strong>{quest.quest}</strong>
+                    <Pill tone={quest.statusTone}>{quest.statusLabel}</Pill>
+                    {quest.progressCount > 0 && <Pill>进展 {quest.progressCount}</Pill>}
+                  </div>
+                  {quest.detail && <p>{quest.detail}</p>}
+                  {quest.hooks.length > 0 && (
+                    <dl className="journal-quest-hooks">
+                      {quest.hooks.map(item => (
+                        <div key={`${quest.quest}-${item.label}`} className={item.tone}>
+                          <dt>{item.label}</dt>
+                          <dd>{item.text}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {quest.timeline.length > 0 && (
+                    <ol className="journal-quest-timeline" aria-label={`${quest.quest} 任务进展`}>
+                      {quest.timeline.map(step => (
+                        <li key={step.id} className={step.tone}>
+                          <b>{step.status}</b>
+                          <span>{step.detail}</span>
+                          {step.at && <time>{step.at}</time>}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </article>
+              ))}
+            </>
+          )}
         </Section>
 
         <Section title="时间线" count={journal.timeline.length}>
