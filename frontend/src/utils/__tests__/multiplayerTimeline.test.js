@@ -38,6 +38,22 @@ describe('multiplayer timeline helpers', () => {
     expect(timeline.lanes.group.items.map(item => item.text)).not.toContain('钟楼发现密信。')
   })
 
+  it('uses group membership as a safe fallback when group visibility lists are empty', () => {
+    const logs = [
+      { role: 'dm', content: '后巷低声交换口令。', visibility: { scope: 'group', group_id: 'alley', visible_to_user_ids: [] } },
+      { role: 'dm', content: '钟楼找到了第二张地图。', visibility: { scope: 'group', group_id: 'tower', visible_to_user_ids: [] } },
+      { role: 'dm', content: '无目标私密暗号。', visibility: { scope: 'private', visible_to_user_ids: [] } },
+      { role: 'dm', content: '公共钟声照常响起。', visibility: { scope: 'party', visible_to_user_ids: [] } },
+    ]
+
+    const timeline = buildMultiplayerTimeline({ logs, room, myUserId: 'u1' })
+
+    expect(timeline.lanes.public.items.map(item => item.text)).toEqual(['公共钟声照常响起。'])
+    expect(timeline.lanes.group.items.map(item => item.text)).toEqual(['后巷低声交换口令。'])
+    expect(timeline.lanes.group.items.map(item => item.text)).not.toContain('钟楼找到了第二张地图。')
+    expect(timeline.lanes.private.items.map(item => item.text)).not.toContain('无目标私密暗号。')
+  })
+
   it('summarizes lane counts for compact UI labels', () => {
     expect(summarizeTimelineLane({ label: '我的分队', items: [{}, {}] })).toBe('我的分队 2')
     expect(summarizeTimelineLane({ label: '私密', items: [] })).toBe('私密 0')

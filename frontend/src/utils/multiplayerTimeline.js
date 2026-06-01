@@ -4,16 +4,29 @@ const DEFAULT_LIMIT = 5
 
 function findMyGroup(room, myUserId) {
   const groups = room?.party_groups || []
-  return groups.find(group => (group.member_user_ids || []).includes(myUserId))
+  return findUserGroup(room, myUserId)
     || groups.find(group => group.id === room?.active_group_id)
     || groups[0]
     || null
 }
 
-function isVisibleToUser(visibility, myUserId) {
+function findUserGroup(room, myUserId) {
+  if (!myUserId) return null
+  const groups = room?.party_groups || []
+  return groups.find(group => (group.member_user_ids || []).includes(myUserId)) || null
+}
+
+function isVisibleToUser(visibility, myUserId, myUserGroup) {
+  const scope = visibility?.scope || 'party'
   const visibleTo = visibility?.visible_to_user_ids
-  if (!Array.isArray(visibleTo) || visibleTo.length === 0) return true
-  return visibleTo.includes(myUserId)
+  if (Array.isArray(visibleTo) && visibleTo.length > 0) {
+    return Boolean(myUserId && visibleTo.includes(myUserId))
+  }
+  if (scope === 'group') {
+    return Boolean(myUserGroup?.id && visibility?.group_id === myUserGroup.id)
+  }
+  if (scope === 'private') return false
+  return true
 }
 
 function normalizeTimelineItem(log, index) {
@@ -28,6 +41,7 @@ function normalizeTimelineItem(log, index) {
 
 export function buildMultiplayerTimeline({ logs = [], room = null, myUserId = null, limit = DEFAULT_LIMIT }) {
   const myGroup = findMyGroup(room, myUserId)
+  const myUserGroup = findUserGroup(room, myUserId)
   const lanes = {
     public: { id: 'public', label: '公共', items: [] },
     group: { id: 'group', label: '我的分队', items: [] },
@@ -36,7 +50,7 @@ export function buildMultiplayerTimeline({ logs = [], room = null, myUserId = nu
 
   logs.forEach((log, index) => {
     if (log?.role !== 'dm') return
-    if (!isVisibleToUser(log.visibility, myUserId)) return
+    if (!isVisibleToUser(log.visibility, myUserId, myUserGroup)) return
 
     const item = normalizeTimelineItem(log, index)
     if (!item.text) return
