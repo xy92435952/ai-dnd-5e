@@ -197,6 +197,8 @@ export default function Combat() {
         prediction={prediction}
         moveMode={moveMode}
         helpMode={helpMode}
+        isRanged={isRanged}
+        selectedWeaponName={selectedWeaponName}
         nextTurnName={nextTurnName}
         nextTurnTone={nextTurnTone}
         showThreat={showThreat}

@@ -116,4 +116,22 @@ describe('buildCombatActionCoach', () => {
     expect(coach.items).toContainEqual({ key: 'assist', label: '协助', value: '选队友', tone: 'warn' })
     expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '5 格', tone: 'ready' })
   })
+
+  it('summarizes attack mode and selected weapon', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      isRanged: true,
+      selectedWeaponName: 'Longbow',
+      turnState: {
+        action_used: false,
+        bonus_action_used: false,
+        reaction_used: false,
+        movement_max: 6,
+        movement_used: 0,
+      },
+      skillBar: [{ k: 'atk', label: '攻击', kind: 'attack', available: true }],
+    })
+
+    expect(coach.items).toContainEqual({ key: 'mode', label: '方式', value: '远程 · Longbow', tone: 'ready' })
+  })
 })

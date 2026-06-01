@@ -14,6 +14,8 @@ export function buildCombatActionCoach({
   prediction = null,
   moveMode = false,
   helpMode = false,
+  isRanged = false,
+  selectedWeaponName = '',
 } = {}) {
   if (!isPlayerTurn || isProcessing || syncBlocked) {
     return { visible: false, items: [] }
@@ -27,6 +29,7 @@ export function buildCombatActionCoach({
   const movementLeft = Math.max(0, movementMax - movementUsed)
   const usableSkills = Array.isArray(skillBar) ? skillBar.filter(skill => skill?.available !== false) : []
   const hasActionOption = usableSkills.some(skill => ACTION_KINDS.has(skill.kind))
+  const hasAttackOption = usableSkills.some(skill => skill?.kind === 'attack')
   const hasBonusOption = usableSkills.some(skill => BONUS_KINDS.has(skill.kind) || /bonus/i.test(String(skill.cost || '')))
   const targetNeeded = usableSkills.some(skill => skillNeedsTarget(skill))
   const hasTarget = Boolean(selectedTarget)
@@ -94,8 +97,19 @@ export function buildCombatActionCoach({
     items.splice(1, 0, ...targetItems)
   }
 
+  const attackModeItem = buildAttackModeItem({
+    hasAttackOption,
+    isRanged,
+    selectedWeaponName,
+  })
+  if (attackModeItem) {
+    items.splice(targetItems.length > 0 ? 1 + targetItems.length : 1, 0, attackModeItem)
+  }
+
   if (hasBonusOption || !bonusOpen) {
-    const bonusIndex = targetItems.length > 0 ? 1 + targetItems.length : 2
+    const bonusIndex = targetItems.length > 0 || attackModeItem
+      ? 1 + targetItems.length + (attackModeItem ? 1 : 0)
+      : 2
     items.splice(bonusIndex, 0, {
       key: 'bonus',
       label: '附赠',
@@ -118,6 +132,22 @@ function buildActionStatus({
   if (helpMode) return { value: '选队友', tone: 'warn' }
   if (!hasTarget && targetNeeded) return { value: '选目标', tone: 'warn' }
   return { value: hasActionOption ? '可用' : '选择', tone: 'ready' }
+}
+
+function buildAttackModeItem({
+  hasAttackOption,
+  isRanged,
+  selectedWeaponName,
+}) {
+  if (!hasAttackOption && !selectedWeaponName && !isRanged) return null
+  const weapon = String(selectedWeaponName || '').trim()
+  const mode = isRanged ? '远程' : '近战'
+  return {
+    key: 'mode',
+    label: '方式',
+    value: weapon ? `${mode} · ${weapon}` : mode,
+    tone: isRanged || weapon ? 'ready' : '',
+  }
 }
 
 function skillNeedsTarget(skill = {}) {

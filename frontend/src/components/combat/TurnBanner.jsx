@@ -20,6 +20,8 @@ export default function TurnBanner({
   prediction,
   moveMode,
   helpMode,
+  isRanged,
+  selectedWeaponName,
   nextTurnName = '',
   nextTurnTone = 'ally',
   showThreat,
@@ -46,6 +48,8 @@ export default function TurnBanner({
     prediction,
     moveMode,
     helpMode,
+    isRanged,
+    selectedWeaponName,
   })
 
   return (

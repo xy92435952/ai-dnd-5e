@@ -107,6 +107,8 @@ describe('TurnBanner', () => {
         isPlayerTurn={true}
         turnState={{ action_used: false, movement_max: 6, movement_used: 0, reaction_used: false }}
         skillBar={[{ k: 'atk', kind: 'attack', available: true }]}
+        isRanged={true}
+        selectedWeaponName="Longbow"
         selectedTarget="enemy-1"
         selectedTargetEntity={{ id: 'enemy-1', name: 'Goblin Boss', ac: 15 }}
         prediction={{
@@ -130,6 +132,7 @@ describe('TurnBanner', () => {
     expect(coach).toHaveTextContent('来源')
     expect(coach).toHaveTextContent('攻击者中毒 / 目标隐形')
     expect(screen.getByTitle('攻击者中毒 / 目标隐形')).toBeInTheDocument()
+    expect(coach).toHaveTextContent('远程 · Longbow')
     expect(coach).toHaveTextContent('动作')
     expect(coach).toHaveTextContent('可用')
   })
