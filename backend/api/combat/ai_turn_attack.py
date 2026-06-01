@@ -258,7 +258,9 @@ async def handle_ai_attack_action(
                 save_turn_state_func=_save_ts,
             )
 
+        attacks_attempted = 0
         for atk_idx in range(num_attacks):
+            attacks_attempted += 1
             result_obj = svc.resolve_melee_attack(
                 attacker_derived=actor_derived,
                 target_derived=ai_target_derived,
@@ -454,6 +456,15 @@ async def handle_ai_attack_action(
 
             if target_new_hp is not None and target_new_hp <= 0:
                 break
+
+        if attacks_attempted:
+            actor_ts_after_attack = _get_ts(combat, actor_id)
+            actor_ts_after_attack["attacks_made"] = max(
+                int(actor_ts_after_attack.get("attacks_made", 0) or 0),
+                attacks_attempted,
+            )
+            actor_ts_after_attack["action_used"] = True
+            _save_ts(combat, actor_id, actor_ts_after_attack)
 
         reposition = choose_skirmisher_reposition(
             actor=e if is_enemy else None,
