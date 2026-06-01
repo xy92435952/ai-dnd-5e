@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getReactionOptionHpPreview,
+  getReactionOptionOutcome,
   getReactionPromptContext,
   getReactionPromptMeta,
   isReactionPromptForCharacter,
@@ -38,6 +39,11 @@ describe('combatReactionPrompt', () => {
         cost: '1st slot',
         damage_prevented: 4,
         hp_preview: '预计减免 4 伤害',
+        hp_outcome: {
+          prevented: 4,
+          prevented_label: '减免 4 伤害',
+          hp_preview: '预计减免 4 伤害',
+        },
       },
     ])
   })
@@ -48,7 +54,27 @@ describe('combatReactionPrompt', () => {
       incoming_damage: 9,
     }, {
       damage_prevented: 4,
-    })).toBe('HP 12 -> 3，反应后 7')
+    })).toBe('不反应 HP 12 -> 3；使用后 HP 12 -> 7')
+  })
+
+  it('builds structured reaction outcome previews including downed risk', () => {
+    expect(getReactionOptionOutcome({
+      target_hp_before_damage: 8,
+      incoming_damage: 12,
+    }, {
+      damage_prevented: 7,
+    })).toEqual({
+      prevented: 7,
+      prevented_label: '减免 7 伤害',
+      hp_before: 8,
+      incoming_damage: 12,
+      hp_without_reaction: 0,
+      hp_after_reaction: 7,
+      no_reaction_label: '不反应 HP 8 -> 0',
+      reaction_label: '使用后 HP 8 -> 7',
+      risk_label: '可避免倒地',
+      hp_preview: '不反应 HP 8 -> 0；使用后 HP 8 -> 7',
+    })
   })
 
   it('merges compact prompt options with rich available reaction details', () => {
@@ -82,7 +108,19 @@ describe('combatReactionPrompt', () => {
         label: 'Shield - +5 AC',
         cost: '1st-level spell slot',
         damage_prevented: 9,
-        hp_preview: 'HP 12 -> 3，反应后 12',
+        hp_preview: '不反应 HP 12 -> 3；使用后 HP 12 -> 12',
+        hp_outcome: {
+          prevented: 9,
+          prevented_label: '减免 9 伤害',
+          hp_before: 12,
+          incoming_damage: 9,
+          hp_without_reaction: 3,
+          hp_after_reaction: 12,
+          no_reaction_label: '不反应 HP 12 -> 3',
+          reaction_label: '使用后 HP 12 -> 12',
+          risk_label: '',
+          hp_preview: '不反应 HP 12 -> 3；使用后 HP 12 -> 12',
+        },
       },
     ])
   })

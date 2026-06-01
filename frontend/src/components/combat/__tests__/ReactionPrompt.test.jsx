@@ -202,9 +202,43 @@ describe('ReactionPrompt', () => {
     expect(screen.getByText('攻击 18 vs AC14')).toBeInTheDocument()
     expect(screen.getByText('伤害 9')).toBeInTheDocument()
     expect(screen.getByText('HP 12 -> 3')).toBeInTheDocument()
-    expect(screen.getByText('HP 12 -> 3，反应后 12')).toBeInTheDocument()
+    expect(screen.getByText('不反应 HP 12 -> 3')).toBeInTheDocument()
+    expect(screen.getByText('使用后 HP 12 -> 12')).toBeInTheDocument()
+    expect(screen.getByText('减免 9 伤害')).toBeInTheDocument()
     const action = screen.getByRole('button', { name: /Shield/ })
-    expect(action).toHaveAttribute('title', 'Shield - +5 AC · 1st-level spell slot')
+    expect(action).toHaveAttribute(
+      'title',
+      'Shield - +5 AC · 1st-level spell slot · 不反应 HP 12 -> 3；使用后 HP 12 -> 12 · 减免 9 伤害',
+    )
     expect(screen.getByText('1st-level spell slot')).toBeInTheDocument()
+  })
+
+  it('calls out when a reaction avoids dropping to zero hp', () => {
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          context: 'Incoming attack',
+          attacker_id: 'enemy-1',
+          reactor_character_id: 'char-2',
+          incoming_damage: 12,
+          target_hp_before_damage: 8,
+          available_reactions: [
+            {
+              id: 'absorb_elements',
+              type: 'absorb_elements',
+              name: 'Absorb Elements',
+              damage_prevented: 7,
+            },
+          ],
+        }}
+        onReact={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('不反应 HP 8 -> 0')).toBeInTheDocument()
+    expect(screen.getByText('使用后 HP 8 -> 7')).toBeInTheDocument()
+    expect(screen.getByText('可避免倒地')).toBeInTheDocument()
   })
 })

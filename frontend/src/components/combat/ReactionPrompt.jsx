@@ -50,12 +50,14 @@ export default function ReactionPrompt({
             <button
               key={`${opt.type}-${i}`}
               className="btn-gold reaction-prompt-action"
-              title={opt.cost ? `${opt.label} · ${opt.cost}` : opt.label}
+              title={reactionActionTitle(opt)}
               onClick={() => onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)}
             >
               <span>{opt.label}</span>
               {opt.cost && <small>{opt.cost}</small>}
-              {opt.hp_preview && <small className="reaction-prompt-hp">{opt.hp_preview}</small>}
+              {opt.hp_outcome ? <ReactionOutcome outcome={opt.hp_outcome} /> : opt.hp_preview && (
+                <small className="reaction-prompt-hp">{opt.hp_preview}</small>
+              )}
             </button>
           )) : (
             <div style={{ color: 'var(--parchment-dark)', fontSize: 12 }}>
@@ -69,4 +71,28 @@ export default function ReactionPrompt({
       </section>
     </div>
   )
+}
+
+function ReactionOutcome({ outcome }) {
+  const hasHp = outcome.hp_before !== undefined
+  return (
+    <span className="reaction-outcome-panel" aria-label="反应结果预览">
+      {hasHp ? (
+        <>
+          <span>{outcome.no_reaction_label}</span>
+          <b>{outcome.reaction_label}</b>
+        </>
+      ) : (
+        <b>{outcome.hp_preview}</b>
+      )}
+      <em>{outcome.prevented_label}</em>
+      {outcome.risk_label && <strong>{outcome.risk_label}</strong>}
+    </span>
+  )
+}
+
+function reactionActionTitle(option = {}) {
+  return [option.label, option.cost, option.hp_preview, option.hp_outcome?.prevented_label, option.hp_outcome?.risk_label]
+    .filter(Boolean)
+    .join(' · ')
 }

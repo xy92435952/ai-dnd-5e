@@ -599,7 +599,9 @@ describe('Combat render smoke', () => {
     expect(prompt).toHaveTextContent('攻击 17 vs AC15')
     expect(prompt).toHaveTextContent('HP 5 -> 0')
     expect(prompt).toHaveTextContent('Shield')
-    expect(prompt).toHaveTextContent('HP 5 -> 0，反应后 5')
+    expect(prompt).toHaveTextContent('不反应 HP 5 -> 0')
+    expect(prompt).toHaveTextContent('使用后 HP 5 -> 5')
+    expect(prompt).toHaveTextContent('可避免倒地')
   })
 
   it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {

@@ -44,22 +44,48 @@ function toNumber(value) {
 }
 
 function withHpPreview(prompt, option) {
-  const preview = getReactionOptionHpPreview(prompt, option)
-  return preview ? { hp_preview: preview } : {}
+  const outcome = getReactionOptionOutcome(prompt, option)
+  return outcome ? { hp_preview: outcome.hp_preview, hp_outcome: outcome } : {}
 }
 
 export function getReactionOptionHpPreview(prompt = {}, option = {}) {
+  return getReactionOptionOutcome(prompt, option)?.hp_preview || null
+}
+
+export function getReactionOptionOutcome(prompt = {}, option = {}) {
   const prevented = toNumber(option.damage_prevented)
   if (!prevented || prevented <= 0) return null
 
   const hpBefore = toNumber(prompt.target_hp_before_damage ?? prompt.hp_before)
   const incoming = toNumber(prompt.incoming_damage)
-  if (hpBefore === null || incoming === null) return `预计减免 ${prevented} 伤害`
+  if (hpBefore === null || incoming === null) {
+    return {
+      prevented,
+      prevented_label: `减免 ${prevented} 伤害`,
+      hp_preview: `预计减免 ${prevented} 伤害`,
+    }
+  }
 
-  const noReactionHp = Math.max(0, hpBefore - incoming)
-  const reactionHp = Math.min(hpBefore, noReactionHp + prevented)
-  if (reactionHp <= noReactionHp) return null
-  return `HP ${hpBefore} -> ${noReactionHp}，反应后 ${reactionHp}`
+  const hp_without_reaction = Math.max(0, hpBefore - incoming)
+  const hp_after_reaction = Math.min(hpBefore, hp_without_reaction + prevented)
+  if (hp_after_reaction <= hp_without_reaction) return null
+
+  return {
+    prevented,
+    prevented_label: `减免 ${prevented} 伤害`,
+    hp_before: hpBefore,
+    incoming_damage: incoming,
+    hp_without_reaction,
+    hp_after_reaction,
+    no_reaction_label: `不反应 HP ${hpBefore} -> ${hp_without_reaction}`,
+    reaction_label: `使用后 HP ${hpBefore} -> ${hp_after_reaction}`,
+    risk_label: hp_without_reaction <= 0 && hp_after_reaction > 0
+      ? '可避免倒地'
+      : hp_after_reaction <= 0
+        ? '仍可能倒地'
+        : '',
+    hp_preview: `不反应 HP ${hpBefore} -> ${hp_without_reaction}；使用后 HP ${hpBefore} -> ${hp_after_reaction}`,
+  }
 }
 
 export function getReactionPromptContext(prompt = {}) {
