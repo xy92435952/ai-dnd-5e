@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from fastapi import HTTPException
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import GameLog
@@ -83,6 +84,8 @@ async def confirm_pending_spell(
     attack_hit = attack_roll.get("hit") if isinstance(attack_roll, dict) else None
     is_crit = bool(attack_roll.get("is_crit")) if isinstance(attack_roll, dict) else False
 
+    if spell_type == "damage" and not is_aoe and not target_ids:
+        raise HTTPException(400, "请选择一个法术目标")
     await collect_spell_target_names(db, target_ids, enemies, session=session)
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, target_ids, enemies, session=session)

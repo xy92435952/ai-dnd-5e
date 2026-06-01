@@ -83,6 +83,8 @@ async def prepare_spell_roll(
         effective_target_id = caster_id
 
     raw_ids = collect_spell_target_ids(effective_target_id, effective_target_ids, enemies, is_aoe=is_aoe)
+    if spell.get("type") == "damage" and not is_aoe and not raw_ids:
+        raise CombatSpellRollError(400, "请选择一个法术目标")
     target_names = await collect_spell_target_names(db, raw_ids, enemies, session=session)
 
     positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}

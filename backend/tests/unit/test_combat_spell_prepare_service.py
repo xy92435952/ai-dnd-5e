@@ -132,6 +132,41 @@ async def test_prepare_spell_roll_rejects_action_cantrip_after_action_used():
 
 
 @pytest.mark.asyncio
+async def test_prepare_spell_roll_rejects_single_target_damage_without_target():
+    combat = FakeCombat()
+    combat.turn_states = {}
+
+    with pytest.raises(CombatSpellRollError) as exc:
+        await prepare_spell_roll(
+            FakeDb(),
+            combat_obj=combat,
+            session=None,
+            caster=FakeCaster(),
+            caster_id="caster-1",
+            spell_name="Fire Bolt",
+            spell_level=0,
+            spell={
+                "level": 0,
+                "type": "damage",
+                "damage_dice": "1d10",
+                "aoe": False,
+                "range": 120,
+            },
+            target_id=None,
+            target_ids=None,
+            enemies=[{"id": "goblin-1", "name": "Goblin", "hp_current": 7}],
+            default_turn_state=DEFAULT_TURN_STATE,
+            get_turn_state=lambda *_args: {"action_used": False, "bonus_action_used": False},
+            consume_slot=lambda *_args: (_ for _ in ()).throw(AssertionError("cantrip should not consume")),
+            calc_upcast_dice=lambda *_args: None,
+        )
+
+    assert exc.value.status_code == 400
+    assert "法术目标" in exc.value.detail
+    assert combat.turn_states == {}
+
+
+@pytest.mark.asyncio
 async def test_prepare_spell_roll_allows_bonus_spell_after_action_used():
     from models import CombatState
 

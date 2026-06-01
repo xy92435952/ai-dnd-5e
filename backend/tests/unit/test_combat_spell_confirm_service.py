@@ -253,6 +253,43 @@ async def test_confirm_pending_damage_rejects_missing_target_before_consuming_sl
 
 
 @pytest.mark.asyncio
+async def test_confirm_pending_damage_rejects_empty_target_list_before_consuming_slot():
+    from fastapi import HTTPException
+
+    from services import combat_spell_confirm_service as confirm_service
+
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(HTTPException, match="法术目标"):
+        await confirm_service.confirm_pending_spell(
+            FakeDb(),
+            session_id="sess-1",
+            combat_obj=combat,
+            caster=caster,
+            caster_entity_id="caster-1",
+            pending={
+                "spell_name": "Fire Bolt",
+                "spell_level": 0,
+                "target_ids": [],
+                "is_cantrip": True,
+                "is_aoe": False,
+                "spell_type": "damage",
+            },
+            spell={"type": "damage"},
+            state={"enemies": []},
+            enemies=[],
+            damage_values=[5],
+            spell_service_obj=FakeSpellService(),
+            complete_pending_spell_func=complete_pending_spell,
+        )
+
+    assert caster.spell_slots == {"1st": 1}
+    assert "pending_spell" in combat.turn_states["caster-1"]
+    assert combat.turn_states["caster-1"]["action_used"] is False
+
+
+@pytest.mark.asyncio
 async def test_confirm_pending_resurrection_returns_target_state():
     from types import SimpleNamespace
 
