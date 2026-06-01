@@ -24,6 +24,9 @@ describe('TargetCard', () => {
     const sheet = screen.getByLabelText('Enemy inspect Veiled Stalker')
     expect(sheet).toHaveTextContent('INSPECT')
     expect(sheet).toHaveTextContent('PARTIAL')
+    expect(sheet).toHaveTextContent('Actions')
+    expect(sheet).toHaveTextContent('Traits')
+    expect(sheet).toHaveTextContent('Tactics')
     expect(within(sheet).getAllByText('Unknown').length).toBeGreaterThan(0)
     expect(sheet).not.toHaveTextContent('Shadow Strike')
   })
@@ -79,8 +82,13 @@ describe('TargetCard', () => {
     )
 
     const actions = screen.getByLabelText('Inspect actions Masked Cultist')
-    fireEvent.click(within(actions).getByRole('button', { name: 'PER' }))
-    fireEvent.click(within(actions).getByRole('button', { name: 'INV' }))
+    const perception = within(actions).getByRole('button', { name: '察觉' })
+    const investigation = within(actions).getByRole('button', { name: '调查' })
+    expect(perception).toHaveAttribute('title', '用察觉检视敌人态势')
+    expect(investigation).toHaveAttribute('title', '用调查分析敌人信息')
+
+    fireEvent.click(perception)
+    fireEvent.click(investigation)
 
     expect(onInspect).toHaveBeenCalledWith('perception')
     expect(onInspect).toHaveBeenCalledWith('investigation')

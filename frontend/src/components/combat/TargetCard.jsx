@@ -82,15 +82,15 @@ export default function TargetCard({
             </div>
             <div className="enemy-inspect-lines">
               <div className={inspect.actionsHidden ? 'hidden-stat' : ''}>
-                <span>ACT</span>
+                <span>Actions</span>
                 <b>{inspect.actions}</b>
               </div>
               <div className={inspect.traitsHidden ? 'hidden-stat' : ''}>
-                <span>TRT</span>
+                <span>Traits</span>
                 <b>{inspect.traits}</b>
               </div>
               <div className={inspect.tacticsHidden ? 'hidden-stat' : ''}>
-                <span>TAC</span>
+                <span>Tactics</span>
                 <b>{inspect.tactics}</b>
               </div>
             </div>
@@ -99,16 +99,18 @@ export default function TargetCard({
                 <button
                   className="btn-fantasy"
                   disabled={!canInspect || inspectBusy}
+                  title="用察觉检视敌人态势"
                   onClick={() => onInspect('perception')}
                 >
-                  PER
+                  察觉
                 </button>
                 <button
                   className="btn-fantasy"
                   disabled={!canInspect || inspectBusy}
+                  title="用调查分析敌人信息"
                   onClick={() => onInspect('investigation')}
                 >
-                  INV
+                  调查
                 </button>
               </div>
             )}
