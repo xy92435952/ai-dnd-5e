@@ -172,4 +172,4 @@ def _format_reward_note(reward_context: dict[str, Any]) -> str:
 - Claimed loot: {json.dumps(reward_context.get("claimed_loot") or [], ensure_ascii=False)}
 - When players search, loot a room, finish an encounter, or collect a quest reward, narrate discovered rewards clearly.
 - Ordinary coin rewards may use `state_delta.gold_changes` when the amount is immediately granted.
-- Non-gold, magic, or party-contested rewards should be narrated as discovered loot and left for the Loot UI / `/loot/claim` flow to claim, split, share, or roll; do not silently add those items to a character's equipment in narration."""
+- Non-gold, magic, or party-contested rewards should be written to `state_delta.loot_discoveries` by reward name or loot_id, then left for the Loot UI / `/loot/claim` flow to claim, split, share, or roll; do not silently add those items to a character's equipment in narration."""

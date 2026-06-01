@@ -4,6 +4,7 @@ import pytest
 
 from models.session import Session
 from services.state_applicator import StateApplicator
+from services.loot_service import build_loot_pool_from_module, public_loot_pool
 
 
 class FakeDb:
@@ -250,6 +251,45 @@ async def test_state_applicator_tags_location_exit_choices_after_apply():
     assert applied.player_choices[0]["text"] == "Go to the Training Yard"
     assert applied.player_choices[0]["choice_type"] == "movement"
     assert applied.player_choices[0]["location_exit"]["target_location_id"] == "yard"
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_reveals_discovered_loot_by_name():
+    session = Session(
+        id="session-loot-discovery",
+        module_id="module-1",
+        game_state={
+            "loot_pool": build_loot_pool_from_module({
+                "key_rewards": ["25 gp", "Gate Token"],
+            }),
+        },
+        campaign_state={},
+    )
+    applicator = StateApplicator(FakeDb())
+
+    await applicator.apply(
+        session,
+        json.dumps({
+            "narrative": "You find a brass token under the broken floorboard.",
+            "state_delta": {
+                "loot_discoveries": [{
+                    "name": "Gate Token",
+                    "reason": "Found under the floorboard",
+                }],
+            },
+            "player_choices": [],
+        }),
+        characters=[],
+    )
+
+    pool = session.game_state["loot_pool"]
+    token = next(item for item in pool["items"] if item["name"] == "Gate Token")
+    gold = next(item for item in pool["items"] if item["name"] == "25 gp")
+    assert token["status"] == "available"
+    assert token["discovered"] is True
+    assert token["discovery_reason"] == "Found under the floorboard"
+    assert gold["status"] == "hidden"
+    assert [item["name"] for item in public_loot_pool(pool)["items"]] == ["Gate Token"]
 
 
 @pytest.mark.asyncio

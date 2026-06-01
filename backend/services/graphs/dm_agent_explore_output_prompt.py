@@ -32,6 +32,13 @@ EXPLORE_OUTPUT_SECTION = """
     "gold_changes": [
       {"id": "获得金币的角色ID（通常是玩家角色ID）", "amount": 0, "reason": "获取来源"}
     ],
+    "loot_discoveries": [
+      {
+        "loot_id": "可选；若知道后端奖励ID则填写",
+        "name": "本轮实际发现、可打开 Loot UI 领取的奖励名称",
+        "reason": "玩家如何发现该奖励"
+      }
+    ],
     "trap_updates": [
       {
         "id": "trap-id",
@@ -154,6 +161,7 @@ EXPLORE_OUTPUT_SECTION = """
 - companion_updates 只在 AI 队友关系、好感或个人任务线发生清晰变化时填写；普通队友闲聊不要写入。approval_delta 建议 -5 到 +5，重大选择最多到 +/-10。
 - key_decisions_add 只记录会影响后续剧情或关系的决定，不记录普通移动或闲聊。
 - clues_add 只记录玩家实际发现的新线索，不记录尚未揭示的信息。
+- state_delta.loot_discoveries 只记录玩家本轮实际发现的非金币、魔法物品、争议物品或需要队伍分配的奖励；普通金币即时获得仍优先写入 state_delta.gold_changes。
 - scene_vibe 用于当前地点、时间和紧张度，场景未变化时可为 null；location_id 和 route 可选，仅在本轮确实移动到新地点或发现/更新路线时填写。
 
 ## needs_check 示例

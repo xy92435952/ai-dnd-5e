@@ -17,6 +17,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
             "trap_triggers": [{"target_character_id": "c1", "trap": {"name": "Dart"}}],
             "trap_attacks": [{"target_character_id": "c1", "trap": {"name": "Blade"}}],
             "trap_disarms": [{"actor_character_id": "c1", "trap": {"name": "Wire"}}],
+            "loot_discoveries": [{"name": "Gate Token"}],
         },
         "ai_turns": [
             {
@@ -39,6 +40,7 @@ def test_normalize_dm_output_coerces_numeric_state_delta_fields():
     assert data["state_delta"]["trap_triggers"][0]["trap"]["name"] == "Dart"
     assert data["state_delta"]["trap_attacks"][0]["trap"]["name"] == "Blade"
     assert data["state_delta"]["trap_disarms"][0]["trap"]["name"] == "Wire"
+    assert data["state_delta"]["loot_discoveries"][0]["name"] == "Gate Token"
     assert data["ai_turns"][0]["state_delta"]["characters"][0]["hp_change"] == 0
     assert data["needs_check"] == {
         "required": False,

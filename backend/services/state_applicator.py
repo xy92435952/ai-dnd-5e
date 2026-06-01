@@ -36,6 +36,7 @@ from services.location_graph_service import (
     apply_location_update,
     tag_player_choices_with_location_exits,
 )
+from services.loot_service import ensure_loot_state
 from services.module_content import get_module_content
 from services.state_log_service import append_session_history, write_game_logs
 
@@ -122,6 +123,11 @@ class StateApplicator:
         # ── 金币变化 ──
         for gold_delta in delta.get("gold_changes", []):
             await self._apply_gold_change(gold_delta, char_map)
+
+        if delta.get("loot_discoveries"):
+            parsed_module = await self._get_session_module_content(session)
+            for loot_delta in delta.get("loot_discoveries", []):
+                self._apply_loot_discovery_delta(loot_delta, session, parsed_module)
 
         for trap_update in delta.get("trap_updates", []):
             self._apply_trap_update_delta(trap_update, session)
@@ -284,6 +290,77 @@ class StateApplicator:
     # ─────────────────────────────────────────────
     # 金币变化
     # ─────────────────────────────────────────────
+
+    async def _get_session_module_content(self, session: Session) -> dict:
+        module = (
+            await self.db.get(Module, session.module_id)
+            if session.module_id and hasattr(self.db, "get")
+            else None
+        )
+        return get_module_content(module)
+
+    def _apply_loot_discovery_delta(
+        self,
+        delta: dict,
+        session: Session,
+        parsed_module: dict,
+    ) -> None:
+        if not isinstance(delta, dict):
+            delta = {"name": str(delta or "")}
+
+        loot_id = str(delta.get("loot_id") or delta.get("id") or "").strip()
+        loot_name = str(delta.get("name") or delta.get("item") or delta.get("reward") or "").strip()
+        if not loot_id and not loot_name:
+            logger.warning("loot_discoveries entry missing id/name")
+            return
+
+        game_state = dict(session.game_state or {})
+        pool = game_state.get("loot_pool")
+        if not isinstance(pool, dict) or not isinstance(pool.get("items"), list):
+            game_state = ensure_loot_state(game_state, parsed_module)
+            pool = game_state.get("loot_pool")
+
+        items = list((pool or {}).get("items") or [])
+        target = self._find_loot_item(items, loot_id=loot_id, loot_name=loot_name)
+        if not target:
+            logger.warning("loot_discoveries references unknown loot: %s%s", loot_id, loot_name)
+            return
+        if target.get("status") == "claimed":
+            return
+
+        target["status"] = "available"
+        target["discovered"] = True
+        if delta.get("reason"):
+            target["discovery_reason"] = str(delta.get("reason"))
+        if delta.get("source"):
+            target["discovery_source"] = str(delta.get("source"))
+        if delta.get("description") and not target.get("description"):
+            target["description"] = str(delta.get("description"))
+
+        pool["items"] = items
+        game_state["loot_pool"] = pool
+        session.game_state = game_state
+        flag_modified(session, "game_state")
+
+    def _find_loot_item(
+        self,
+        items: list[dict],
+        *,
+        loot_id: str = "",
+        loot_name: str = "",
+    ) -> dict | None:
+        normalized_name = self._normalize_loot_lookup(loot_name)
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if loot_id and str(item.get("id")) == loot_id:
+                return item
+            if normalized_name and self._normalize_loot_lookup(item.get("name")) == normalized_name:
+                return item
+        return None
+
+    def _normalize_loot_lookup(self, value) -> str:
+        return " ".join(str(value or "").strip().lower().split())
 
     # Exploration trap triggers.
     def _apply_trap_update_delta(self, delta: dict, session: Session) -> None:

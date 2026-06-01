@@ -31,6 +31,7 @@ def _normalize_state_delta(delta: dict) -> dict:
         "trap_triggers",
         "trap_attacks",
         "trap_disarms",
+        "loot_discoveries",
     ):
         if not isinstance(delta.get(key, []), list):
             delta[key] = []
@@ -44,6 +45,7 @@ def _normalize_state_delta(delta: dict) -> dict:
     delta.setdefault("trap_triggers", [])
     delta.setdefault("trap_attacks", [])
     delta.setdefault("trap_disarms", [])
+    delta.setdefault("loot_discoveries", [])
 
     for gc in delta.get("gold_changes", []):
         if "amount" in gc:
