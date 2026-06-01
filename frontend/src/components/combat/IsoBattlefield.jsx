@@ -1,6 +1,7 @@
 import IsoBattlefieldCell from './IsoBattlefieldCell'
 import IsoUnit from './IsoUnit'
 import { isCombatEntityDead } from '../../utils/combat'
+import { buildCombatRuleTags } from '../../utils/combatRuleTags'
 
 export default function IsoBattlefield({
   viewWidth,
@@ -13,6 +14,7 @@ export default function IsoBattlefield({
   entityPositions,
   entities,
   selectedTarget,
+  prediction,
   currentTurnCharacterId,
   threatCells,
   aoeCells,
@@ -58,6 +60,12 @@ export default function IsoBattlefield({
     const aoeUnitHint = aoePreview && ent && isCellInAoe(key, aoeCells)
       ? buildAoeUnitHint({ entityId: entId, entity: ent, playerId, aoePreview })
       : ''
+    const selectedAttackHint = buildSelectedAttackHint({
+      entId,
+      selectedTarget,
+      prediction,
+      entity: ent,
+    })
     const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
       ? wallDisabledReason(terrainDetail)
@@ -67,7 +75,7 @@ export default function IsoBattlefield({
     const title = ent
       ? helpMode && !ent.is_enemy && entId !== playerId
         ? withTerrainHint(joinTitleParts([`协助 ${ent.name || entId}`, aoeUnitHint]), terrainDetail)
-        : withTerrainHint(joinTitleParts([`选择 ${ent.name || entId}`, aoeUnitHint]), terrainDetail)
+        : withTerrainHint(joinTitleParts([`选择 ${ent.name || entId}`, selectedAttackHint, aoeUnitHint]), terrainDetail)
       : aoePreview && !isWall
         ? withTerrainHint(buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y, impact: aoeImpact }), terrainDetail)
       : moveMode && !isWall
@@ -167,6 +175,29 @@ function buildAoeUnitHint({ entityId, entity, playerId, aoePreview = null }) {
   const group = entityId === playerId ? '自身' : entity.is_enemy ? '敌方' : '友方'
   const risk = isHarmfulAoe(aoePreview) && (group === '友方' || group === '自身') ? ' · 误伤风险' : ''
   return `范围命中：${group}${risk}`
+}
+
+function buildSelectedAttackHint({ entId, selectedTarget, prediction = null, entity = null }) {
+  if (!prediction || !entId || entId !== selectedTarget || !entity) return ''
+
+  const parts = []
+  if (prediction.hit_rate !== null && prediction.hit_rate !== undefined) {
+    parts.push(`命中 ${formatPercent(prediction.hit_rate)}`)
+  }
+
+  const ruleLabels = buildCombatRuleTags(prediction, entity)
+    .map(tag => tag.label)
+    .filter(label => label && !label.startsWith('优势:') && !label.startsWith('劣势:'))
+    .slice(0, 4)
+
+  parts.push(...ruleLabels)
+  return parts.join(' · ')
+}
+
+function formatPercent(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '--'
+  return `${Math.round((number <= 1 ? number * 100 : number))}%`
 }
 
 function isCellInAoe(key, aoeCells) {

@@ -59,6 +59,56 @@ describe('IsoBattlefield', () => {
 
   })
 
+  it('surfaces selected attack rule hints on the battlefield cell', () => {
+    const { container } = render(
+      <IsoBattlefield
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        entityPositions={{ enemy: { x: 0, y: 0 } }}
+        entities={{
+          enemy: {
+            id: 'enemy',
+            name: 'Guard Behind Pillar',
+            is_enemy: true,
+            hp_current: 18,
+            hp_max: 18,
+            ac: 14,
+          },
+        }}
+        selectedTarget="enemy"
+        prediction={{
+          hit_rate: 0.55,
+          disadvantage: true,
+          target_ac: 14,
+          effective_target_ac: 19,
+          cover_bonus: 5,
+          cover_detail: { bonus: 5, raw_bonus: 5 },
+          disadvantage_sources: ['attacker poisoned', 'target invisible'],
+        }}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set() }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={null}
+        aoeHover={null}
+        playerId="player"
+        onSelectTarget={vi.fn()}
+        onMoveTo={vi.fn()}
+        onAoeHover={vi.fn()}
+      />,
+    )
+
+    const cell = container.querySelector('.iso-cell')
+    expect(cell).toHaveAttribute(
+      'title',
+      '选择 Guard Behind Pillar · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 19',
+    )
+  })
+
   it('supports keyboard selection for interactive battlefield cells', () => {
     const onSelectTarget = vi.fn()
 

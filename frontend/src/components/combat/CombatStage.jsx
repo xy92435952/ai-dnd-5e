@@ -57,6 +57,7 @@ export default function CombatStage({
         entityPositions={entityPositions}
         entities={entities}
         selectedTarget={selectedTarget}
+        prediction={prediction}
         currentTurnCharacterId={currentTurnCharacterId}
         threatCells={threatCells}
         aoeCells={aoeCells}
