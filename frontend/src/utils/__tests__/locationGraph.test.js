@@ -173,4 +173,38 @@ describe('locationGraph', () => {
       environmentPressureTags: ['Env heavy', 'hazards 1', 'objectives 1', 'terrain 2', 'cells 5'],
     })
   })
+
+  it('includes public encounter templates on non-current visible locations', () => {
+    const map = getLocationGraphMap({
+      current_location_id: 'yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true },
+        { id: 'armory', name: 'Armory', discovered: true, encounter_template_ids: ['enc_armory'] },
+        { id: 'vault', name: 'Vault', visited: false, encounter_template_ids: ['enc_vault'] },
+      ],
+      encounter_templates: [
+        {
+          id: 'enc_armory',
+          location_id: 'armory',
+          status: 'available',
+          public: true,
+          name: 'Armory Ambush',
+        },
+        {
+          id: 'enc_vault',
+          location_id: 'vault',
+          status: 'available',
+          public: true,
+          name: 'Vault Guardian',
+        },
+      ],
+    })
+
+    expect(map.encounterCount).toBe(1)
+    expect(map.nodes.find(node => node.id === 'armory')).toMatchObject({
+      encounterCount: 1,
+      encounterNames: ['Armory Ambush'],
+    })
+    expect(map.nodes.find(node => node.id === 'vault')).toBeUndefined()
+  })
 })

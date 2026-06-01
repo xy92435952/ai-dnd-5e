@@ -103,6 +103,21 @@ function getVisibleEncounterTemplates(graph, currentId) {
     })
 }
 
+function getVisibleMapEncounterTemplates(graph, nodes = []) {
+  const visibleNodeIds = new Set(nodes.map(node => String(node?.id || '')))
+  const visibleTemplateIds = new Set(
+    nodes.flatMap(node => asArray(node?.encounter_template_ids).map(String)),
+  )
+
+  return asArray(graph?.encounter_templates)
+    .filter(template => template && template.status !== 'resolved' && isPublicEncounter(template))
+    .filter(template => {
+      const locationId = cleanId(template?.location_id, '')
+      const templateId = String(template?.id || '')
+      return visibleNodeIds.has(locationId) || visibleTemplateIds.has(templateId)
+    })
+}
+
 function edgeLabel(edge) {
   if (edge?.label) return String(edge.label)
   if (edge?.name) return String(edge.name)
@@ -271,7 +286,7 @@ export function getLocationGraphMap(graph) {
   const currentId = getCurrentLocationId(graph, rawNodes)
   const nodesSource = getVisibleNodes(rawNodes, currentId)
   const selectedTemplateId = String(graph?.selected_encounter_template_id || '')
-  const templates = getVisibleEncounterTemplates(graph, currentId)
+  const templates = getVisibleMapEncounterTemplates(graph, nodesSource)
   const templateIdsByNode = new Map()
   templates.forEach(template => {
     const locationId = cleanId(template?.location_id, '')

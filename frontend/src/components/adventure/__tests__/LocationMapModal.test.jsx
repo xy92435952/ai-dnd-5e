@@ -196,6 +196,42 @@ describe('LocationMapModal', () => {
     expect(screen.queryByText('Hidden plan')).not.toBeInTheDocument()
   })
 
+  it('previews public encounters on a selected non-current visible location', () => {
+    render(<LocationMapModal graph={{
+      current_location_id: 'yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true },
+        { id: 'armory', name: 'Armory', discovered: true, encounter_template_ids: ['enc_armory'] },
+        { id: 'vault', name: 'Vault', visited: false, encounter_template_ids: ['enc_vault'] },
+      ],
+      edges: [{ id: 'yard-armory', from: 'yard', to: 'armory', type: 'route' }],
+      encounter_templates: [
+        {
+          id: 'enc_armory',
+          location_id: 'armory',
+          status: 'available',
+          public: true,
+          name: 'Armory Ambush',
+          enemy_names: ['Animated Armor'],
+        },
+        {
+          id: 'enc_vault',
+          location_id: 'vault',
+          status: 'available',
+          public: true,
+          name: 'Vault Guardian',
+        },
+      ],
+    }} onClose={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Armory unvisited' }))
+
+    const encounters = screen.getByLabelText('Selected encounter templates')
+    expect(within(encounters).getByText('Armory Ambush')).toBeInTheDocument()
+    expect(within(encounters).getByText('Animated Armor')).toBeInTheDocument()
+    expect(screen.queryByText('Vault Guardian')).not.toBeInTheDocument()
+  })
+
   it('closes through the header button', () => {
     const onClose = vi.fn()
     render(<LocationMapModal graph={GRAPH} onClose={onClose} />)
