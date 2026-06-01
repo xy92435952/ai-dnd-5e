@@ -1,5 +1,5 @@
 import { JuiceAudio } from '../../juice'
-import { getChoiceIntent } from '../../utils/adventureChoices'
+import { getChoiceIntent, getChoiceLocationExit } from '../../utils/adventureChoices'
 import { computeChoicePreview, getChoiceCheckTag, KIND_TO_SKILL_ZH } from '../../utils/skillCheck'
 
 export default function DialogueChoices({
@@ -17,6 +17,7 @@ export default function DialogueChoices({
         const obj = typeof c === 'string' ? { text: c, tags: [] } : c
         const preview = computeChoicePreview(obj, player)
         const intent = getChoiceIntent(obj)
+        const locationExit = getChoiceLocationExit(obj)
         return (
           <button
             key={i}
@@ -58,6 +59,14 @@ export default function DialogueChoices({
                   <span className="choice-check-flag">检定</span>
                 )}
               </span>
+
+              {locationExit && (
+                <span className={`choice-exit-summary ${locationExit.tone}`} aria-label="地图出口">
+                  <span>出口</span>
+                  <b>{locationExit.destination}</b>
+                  {locationExit.flags.map(flag => <em key={flag}>{flag}</em>)}
+                </span>
+              )}
 
               {preview && (
                 <span className="choice-check-summary" aria-label="技能检定预览">

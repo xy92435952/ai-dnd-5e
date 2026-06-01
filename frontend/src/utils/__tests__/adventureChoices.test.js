@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getChoiceIntent } from '../adventureChoices'
+import { getChoiceIntent, getChoiceLocationExit } from '../adventureChoices'
 
 describe('getChoiceIntent', () => {
   it('uses explicit choice intent fields first', () => {
@@ -55,5 +55,29 @@ describe('getChoiceIntent', () => {
       type: 'movement',
       label: '移动',
     })
+  })
+
+  it('treats visible location exits as movement choices and summarizes route flags', () => {
+    const choice = {
+      text: '前往军械库',
+      location_exit: {
+        target_location_id: 'armory',
+        target_location_name: '军械库',
+        route_type: 'locked',
+        locked: true,
+        one_way: true,
+      },
+    }
+
+    expect(getChoiceIntent(choice)).toMatchObject({ type: 'movement', label: '移动' })
+    expect(getChoiceLocationExit(choice)).toEqual({
+      destination: '军械库',
+      flags: ['锁定', '单向'],
+      tone: 'locked',
+    })
+    expect(getChoiceLocationExit({
+      text: '发现暗门',
+      location_exit: { target_location_name: '密室', hidden: true },
+    })).toBeNull()
   })
 })

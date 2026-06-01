@@ -124,4 +124,36 @@ describe('DialogueChoices', () => {
     expect(screen.getByRole('button', { name: /拔剑威胁守卫/ })).toHaveClass('choice-intent-danger')
     expect(screen.getByText('危险')).toHaveClass('choice-intent-badge', 'danger')
   })
+
+  it('surfaces location-exit metadata on movement choices', () => {
+    render(
+      <DialogueChoices
+        choices={[{
+          text: '穿过青铜门进入军械库',
+          location_exit: {
+            target_location_id: 'armory',
+            target_location_name: '军械库',
+            route_type: 'locked',
+            locked: true,
+            one_way: true,
+          },
+          tags: [{ label: 'Exit', kind: 'location_exit' }],
+        }]}
+        player={makePlayer()}
+        setPendingCheck={vi.fn()}
+        onAction={vi.fn()}
+        disabled={false}
+      />,
+    )
+
+    const choice = screen.getByRole('button', { name: /穿过青铜门/ })
+    expect(choice).toHaveClass('choice-intent-movement')
+    expect(within(choice).getByText('移动')).toHaveClass('choice-intent-badge', 'movement')
+
+    const exit = within(choice).getByLabelText('地图出口')
+    expect(within(exit).getByText('出口')).toBeInTheDocument()
+    expect(within(exit).getByText('军械库')).toBeInTheDocument()
+    expect(within(exit).getByText('锁定')).toBeInTheDocument()
+    expect(within(exit).getByText('单向')).toBeInTheDocument()
+  })
 })

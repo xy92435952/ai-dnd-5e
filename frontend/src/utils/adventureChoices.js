@@ -19,6 +19,10 @@ const INTENT_ALIASES = {
   move: 'movement',
   movement: 'movement',
   travel: 'movement',
+  navigation: 'movement',
+  route: 'movement',
+  exit: 'movement',
+  location_exit: 'movement',
   investigate: 'investigation',
   investigation: 'investigation',
   inspect: 'investigation',
@@ -107,6 +111,9 @@ function intentFromText(text = '') {
 export function getChoiceIntent(choice = {}) {
   const obj = typeof choice === 'string' ? { text: choice } : (choice || {})
   if (obj.action) return CHOICE_INTENTS.danger
+  if (obj.location_exit && typeof obj.location_exit === 'object' && !obj.location_exit.hidden) {
+    return CHOICE_INTENTS.movement
+  }
 
   const explicit = normalizeIntentType(obj.choice_type || obj.action_type || obj.type || obj.intent)
   const fromTags = intentFromTags(obj.tags)
@@ -117,4 +124,26 @@ export function getChoiceIntent(choice = {}) {
   const type = explicit || fromSkill || fromTags || fromText || 'roleplay'
 
   return CHOICE_INTENTS[type] || CHOICE_INTENTS.roleplay
+}
+
+export function getChoiceLocationExit(choice = {}) {
+  const obj = typeof choice === 'string' ? { text: choice } : (choice || {})
+  const exit = obj.location_exit
+  if (!exit || typeof exit !== 'object' || exit.hidden) return null
+
+  const destination = String(exit.target_location_name || exit.name || exit.target_location_id || '').trim()
+  const routeType = String(exit.route_type || exit.type || '').trim()
+  const flags = []
+  if (exit.locked) flags.push('锁定')
+  if (exit.one_way) flags.push('单向')
+  const normalizedRouteType = routeType.toLowerCase()
+  if (routeType && !['route', 'movement', 'locked', 'hidden', 'one_way', 'one-way'].includes(normalizedRouteType)) {
+    flags.push(routeType)
+  }
+
+  return {
+    destination: destination || '未知地点',
+    flags,
+    tone: exit.locked ? 'locked' : exit.one_way ? 'one-way' : 'route',
+  }
 }
