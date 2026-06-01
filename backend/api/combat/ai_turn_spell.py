@@ -186,19 +186,36 @@ async def handle_ai_spell_action(
         enemies_alive=enemies_alive,
         all_characters=all_characters,
         positions=dict(combat.entity_positions or {}),
+        grid_data=dict(combat.grid_data or {}),
+        turn_states=dict(combat.turn_states or {}),
     )
     if spell_resolution is None:
         return None
 
     ai_class = _normalize_class(achar.char_class) if achar else actor_name
+    attack_roll = spell_resolution.attack_roll or {}
+    spell_attack_detail = ""
+    if attack_roll:
+        if attack_roll.get("is_crit"):
+            spell_attack_detail = "结果：法术攻击暴击"
+        elif attack_roll.get("is_fumble"):
+            spell_attack_detail = "结果：法术攻击大失手"
+        elif attack_roll.get("hit"):
+            spell_attack_detail = "结果：法术攻击命中"
+        else:
+            spell_attack_detail = "结果：法术攻击未命中"
     vivid = await narrate_action(
         actor_name=actor_name,
         actor_class=ai_class,
         target_name=spell_resolution.target_name or "目标",
         action_type="spell",
+        hit=bool(attack_roll.get("hit")) if attack_roll else False,
+        is_crit=bool(attack_roll.get("is_crit")) if attack_roll else False,
+        is_fumble=bool(attack_roll.get("is_fumble")) if attack_roll else False,
         spell_name=spell_resolution.spell_name,
         damage=spell_resolution.damage,
         heal_amount=spell_resolution.heal,
+        extra_details=spell_attack_detail,
     )
     narration = vivid if vivid else spell_resolution.mechanical_narration
 
@@ -227,7 +244,7 @@ async def handle_ai_spell_action(
         "actor_name": actor_name,
         "actor_id": actor_id,
         "narration": narration,
-        "attack_result": {},
+        "attack_result": attack_roll,
         "damage": spell_resolution.damage,
         "target_id": str(spell_resolution.spell_target) if spell_resolution.spell_target else None,
         "target_new_hp": spell_resolution.target_new_hp,

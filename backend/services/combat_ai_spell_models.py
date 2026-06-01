@@ -46,6 +46,8 @@ class AiSpellResolution:
     spell_target: str | None
     spell_data: dict[str, Any]
     is_cantrip: bool
+    attack_roll: dict[str, Any] | None = None
+    spell_attack_required: bool = False
     damage: int = 0
     heal: int = 0
     target_new_hp: int | None = None

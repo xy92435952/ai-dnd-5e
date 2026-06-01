@@ -39,6 +39,10 @@ class FakeCombatService:
         return apply_damage_with_resistance(damage, damage_type, resistances, immunities, vulnerabilities)
 
 
+def fixed_d20(value):
+    return lambda _expr: {"rolls": [value], "total": value}
+
+
 class FakeCaster:
     def __init__(self):
         self.id = "caster-1"
@@ -140,9 +144,11 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
         }),
         combat_service=FakeCombatService(),
         flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(15),
     )
 
     assert result is not None
+    assert result.attack_roll["hit"] is True
     assert caster.spell_slots == {"1st": 0}
     assert result.damage == 9
     assert result.target_new_hp == 1
@@ -150,6 +156,63 @@ async def test_resolve_ai_spell_action_damages_enemy_and_consumes_slot():
     assert "Magic Bolt" in result.mechanical_narration
     assert "test cast" in result.mechanical_narration
     assert enemies[0]["hp_current"] == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_ai_spell_action_attack_roll_miss_consumes_slot_without_damage():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollSpellService(FakeSpellService):
+        def resolve_damage(self, *_args):
+            raise AssertionError("missed AI spell attack should not roll damage")
+
+    state = {
+        "enemies": [{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 10,
+            "derived": {"hp_max": 10, "ac": 25},
+        }]
+    }
+    enemies = state["enemies"]
+    caster = FakeCaster()
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=FakeSession(game_state=state),
+        actor_name="Wizard",
+        is_enemy=False,
+        caster=caster,
+        actor_derived={
+            "spell_ability": "int",
+            "ability_modifiers": {"int": 3},
+            "spell_save_dc": 13,
+        },
+        decided_target_id="goblin-1",
+        decided_reason="test miss",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=enemies,
+        enemies_alive=enemies,
+        all_characters=[],
+        spell_service_obj=NoRollSpellService({
+            "level": 1,
+            "type": "damage",
+            "aoe": False,
+            "save": None,
+        }),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(2),
+    )
+
+    assert result is not None
+    assert result.spell_attack_required is True
+    assert result.attack_roll["hit"] is False
+    assert result.damage == 0
+    assert caster.spell_slots == {"1st": 0}
+    assert enemies[0]["hp_current"] == 10
+    assert "未命中" in result.mechanical_narration
 
 
 @pytest.mark.asyncio
@@ -617,6 +680,7 @@ async def test_enemy_ai_concentration_replacement_clears_previous_character_cond
         }),
         combat_service=FakeCombatService(),
         flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(15),
     )
 
     assert result is not None
@@ -671,6 +735,7 @@ async def test_resolve_ai_spell_action_respects_enemy_spell_immunity():
         }),
         combat_service=FakeCombatService(),
         flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(15),
     )
 
     assert result is not None
@@ -729,6 +794,7 @@ async def test_resolve_ai_spell_action_respects_enemy_component_immunity():
         ),
         combat_service=FakeCombatService(),
         flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(15),
     )
 
     assert result is not None
@@ -773,6 +839,7 @@ async def test_resolve_enemy_ai_spell_respects_character_fire_resistance():
         }),
         combat_service=FakeCombatService(),
         flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(15),
     )
 
     assert result is not None
@@ -823,6 +890,7 @@ async def test_resolve_enemy_ai_spell_respects_character_component_resistance():
         ),
         combat_service=FakeCombatService(),
         flag_modified_func=lambda *_args: None,
+        roll_dice_func=fixed_d20(15),
     )
 
     assert result is not None

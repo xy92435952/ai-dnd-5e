@@ -70,6 +70,14 @@ async def narrate_action(
             details_parts.append("结果：未命中")
     elif action_type == "spell":
         details_parts.append(f"法术：{spell_name}")
+        if is_crit:
+            details_parts.append("结果：法术攻击暴击")
+        elif is_fumble:
+            details_parts.append("结果：法术攻击大失手")
+        elif hit:
+            details_parts.append("结果：法术攻击命中")
+        elif extra_details:
+            details_parts.append(extra_details)
         if heal_amount > 0:
             details_parts.append(f"治疗量：{heal_amount}")
         elif damage > 0:

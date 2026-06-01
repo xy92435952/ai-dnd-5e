@@ -14,6 +14,7 @@ from services.combat_spell_damage_component_service import (
     resolve_spell_damage_components,
 )
 from services.combat_spell_damage_type_service import resolve_spell_damage_type
+from services.combat_spell_resolution_service import apply_spell_critical_damage
 from services.dnd_rules import apply_character_damage, roll_dice, roll_saving_throw
 
 
@@ -39,6 +40,16 @@ async def apply_ai_damage_spell(
         resolution.spell_level,
         spell_mod,
     )
+    if resolution.attack_roll is not None:
+        is_crit = bool(resolution.attack_roll.get("is_crit"))
+        total_damage, dice_detail = apply_spell_critical_damage(
+            total_damage,
+            dice_detail,
+            is_crit=is_crit,
+            roll_dice=roll_dice_func,
+        )
+        dice_detail["attack_roll"] = resolution.attack_roll
+        dice_detail["is_crit"] = is_crit
     damage_type = resolve_spell_damage_type(resolution.spell_name, resolution.spell_data)
     damage_components = resolve_spell_damage_components(
         resolution.spell_name,
