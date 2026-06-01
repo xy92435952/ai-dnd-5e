@@ -31,6 +31,7 @@ async def handle_ai_simple_action(
     """Handle dodge / dash / disengage actions and return a response dict when handled."""
     if decided_action == "dodge":
         ts_dodge = _get_ts(combat, actor_id)
+        ts_dodge["action_used"] = True
         ts_dodge["dodging"] = True
         _save_ts(combat, actor_id, ts_dodge)
         tick_logs = tick_ai_actor_conditions(
@@ -62,9 +63,10 @@ async def handle_ai_simple_action(
         }
 
     if decided_action == "dash":
+        dash_ts = _get_ts(combat, actor_id)
+        dash_ts["action_used"] = True
         if decided_target_id:
             dash_tgt_pos = positions.get(str(decided_target_id))
-            dash_ts = _get_ts(combat, actor_id)
             actor_conditions = (
                 enemy.get("conditions", [])
                 if is_enemy and enemy
@@ -108,8 +110,7 @@ async def handle_ai_simple_action(
                 positions[str(actor_id)] = {"x": dash_result["x"], "y": dash_result["y"]}
                 combat.entity_positions = positions
                 dash_ts["movement_used"] += dash_result["steps"]
-            if (stand_result and stand_result.stood_up) or dash_result:
-                _save_ts(combat, actor_id, dash_ts)
+        _save_ts(combat, actor_id, dash_ts)
         tick_logs = tick_ai_actor_conditions(
             session_id=session_id,
             session=session,
@@ -140,6 +141,7 @@ async def handle_ai_simple_action(
 
     if decided_action == "disengage":
         ts_dis = _get_ts(combat, actor_id)
+        ts_dis["action_used"] = True
         ts_dis["disengaged"] = True
         _save_ts(combat, actor_id, ts_dis)
         tick_logs = tick_ai_actor_conditions(
