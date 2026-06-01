@@ -459,6 +459,8 @@ def _preserve_claims(existing: dict[str, Any], generated: dict[str, Any]) -> dic
         for key in (
             "discovered",
             "discovered_at",
+            "discovery_reason",
+            "discovery_source",
             "revealed",
             "public",
             "claimed_by_character_id",

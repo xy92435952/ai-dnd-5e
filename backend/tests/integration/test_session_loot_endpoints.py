@@ -1,6 +1,9 @@
+import json
+
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
+from services.state_applicator import StateApplicator
 from services.loot_service import discover_loot_item
 
 
@@ -82,6 +85,100 @@ async def test_session_loot_can_be_claimed_to_character_inventory(
     item_data = item_response.json()
     assert [item["name"] for item in item_data["equipment"]["gear"]] == ["Gate Token"]
     assert item_data["loot_pool"]["items"][1]["claimed_by_character_id"] == sample_character.id
+
+
+async def test_dm_loot_discovery_reveals_then_claims_hidden_module_reward(
+    client,
+    db_session,
+    sample_user,
+    sample_module,
+    sample_session,
+    sample_character,
+):
+    sample_module.parsed_content = {
+        "key_rewards": ["25 gp"],
+        "magic_items": [
+            {
+                "name": "Moonblade",
+                "category": "weapon",
+                "rarity": "rare",
+                "description": "A silver blade that drinks in moonlight.",
+            },
+        ],
+    }
+    sample_character.equipment = {"gold": 0, "gear": [], "weapons": []}
+    sample_session.game_state = {}
+    flag_modified(sample_module, "parsed_content")
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
+    headers = await _auth_headers(client, sample_user)
+
+    hidden_loot_response = await client.get(
+        f"/game/sessions/{sample_session.id}/loot",
+        headers=headers,
+    )
+    assert hidden_loot_response.status_code == 200, hidden_loot_response.text
+    assert hidden_loot_response.json()["items"] == []
+
+    hidden_session_response = await client.get(
+        f"/game/sessions/{sample_session.id}",
+        headers=headers,
+    )
+    assert hidden_session_response.status_code == 200, hidden_session_response.text
+    assert hidden_session_response.json()["game_state"]["loot_pool"]["items"] == []
+
+    await StateApplicator(db_session).apply(
+        sample_session,
+        json.dumps({
+            "narrative": "Behind the altar stone, moonlight catches on a silver blade.",
+            "state_delta": {
+                "loot_discoveries": [
+                    {
+                        "loot_id": "loot_weapon_moonblade_1",
+                        "reason": "Discovered behind the altar stone",
+                    }
+                ],
+            },
+            "player_choices": [],
+        }),
+        characters=[sample_character],
+    )
+    await db_session.commit()
+
+    discovered_loot_response = await client.get(
+        f"/game/sessions/{sample_session.id}/loot",
+        headers=headers,
+    )
+    assert discovered_loot_response.status_code == 200, discovered_loot_response.text
+    discovered_items = discovered_loot_response.json()["items"]
+    assert [item["name"] for item in discovered_items] == ["Moonblade"]
+    assert discovered_items[0]["status"] == "available"
+    assert discovered_items[0]["discovered"] is True
+    assert discovered_items[0]["discovery_reason"] == "Discovered behind the altar stone"
+
+    discovered_session_response = await client.get(
+        f"/game/sessions/{sample_session.id}",
+        headers=headers,
+    )
+    assert discovered_session_response.status_code == 200, discovered_session_response.text
+    assert [
+        item["name"]
+        for item in discovered_session_response.json()["game_state"]["loot_pool"]["items"]
+    ] == ["Moonblade"]
+
+    claim_response = await client.post(
+        f"/game/sessions/{sample_session.id}/loot/claim",
+        headers=headers,
+        json={
+            "character_id": sample_character.id,
+            "loot_id": "loot_weapon_moonblade_1",
+        },
+    )
+    assert claim_response.status_code == 200, claim_response.text
+    claim_data = claim_response.json()
+    assert [item["name"] for item in claim_data["equipment"]["weapons"]] == ["Moonblade"]
+    assert claim_data["loot_pool"]["items"][0]["status"] == "claimed"
+    assert claim_data["loot_pool"]["items"][0]["claimed_by_character_id"] == sample_character.id
 
 
 async def test_session_loot_rejects_duplicate_claim(
