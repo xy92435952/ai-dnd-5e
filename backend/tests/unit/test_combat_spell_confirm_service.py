@@ -217,6 +217,42 @@ async def test_confirm_pending_heal_rejects_dead_target_before_consuming_slot():
 
 
 @pytest.mark.asyncio
+async def test_confirm_pending_damage_rejects_missing_target_before_consuming_slot():
+    from fastapi import HTTPException
+
+    from services import combat_spell_confirm_service as confirm_service
+
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(HTTPException, match="Target does not exist"):
+        await confirm_service.confirm_pending_spell(
+            FakeDb(),
+            session_id="sess-1",
+            combat_obj=combat,
+            caster=caster,
+            caster_entity_id="caster-1",
+            pending={
+                "spell_name": "Chromatic Orb",
+                "spell_level": 1,
+                "target_ids": ["missing-target"],
+                "is_cantrip": False,
+                "is_aoe": False,
+                "spell_type": "damage",
+            },
+            spell={"type": "damage"},
+            state={"enemies": []},
+            enemies=[],
+            damage_values=[5],
+            spell_service_obj=FakeSpellService(),
+            complete_pending_spell_func=complete_pending_spell,
+        )
+
+    assert caster.spell_slots == {"1st": 1}
+    assert "pending_spell" in combat.turn_states["caster-1"]
+
+
+@pytest.mark.asyncio
 async def test_confirm_pending_resurrection_returns_target_state():
     from types import SimpleNamespace
 

@@ -371,6 +371,50 @@ async def test_cast_direct_heal_rejects_out_of_range_target_before_consuming_slo
 
 
 @pytest.mark.asyncio
+async def test_cast_direct_damage_rejects_missing_target_before_consuming_slot():
+    from fastapi import HTTPException
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class DamageSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "damage",
+                "aoe": False,
+                "range": 0,
+            }
+
+        def resolve_damage(self, *_args):
+            raise AssertionError("missing target should fail before rolling")
+
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(HTTPException, match="Target does not exist"):
+        await cast_direct_spell(
+            FakeDb(),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="chromatic-orb",
+            spell_level=1,
+            target_id="missing-target",
+            target_ids=None,
+            spell_service_obj=DamageSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert caster.spell_slots == {"1st": 1}
+    assert combat.turn_states["caster-1"]["action_used"] is False
+
+
+@pytest.mark.asyncio
 async def test_cast_direct_spell_rejects_reaction_spell_in_ordinary_flow():
     from services.combat_direct_spell_service import CombatDirectSpellError, cast_direct_spell
 

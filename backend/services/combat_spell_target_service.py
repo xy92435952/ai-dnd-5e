@@ -40,6 +40,9 @@ async def collect_spell_target_names(
             if session is not None:
                 await assert_character_in_session(target_character, session, db)
             target_names.append(target_character.name)
+            continue
+
+        raise HTTPException(400, f"Target does not exist: {target_id}")
     return target_names
 
 
