@@ -184,7 +184,7 @@ describe('TurnBanner', () => {
 
     const coach = screen.getByLabelText('回合行动提示')
     expect(coach).toHaveTextContent('附赠')
-    expect(coach).toHaveTextContent('可用')
+    expect(coach).toHaveTextContent('副手攻击')
     expect(coach).toHaveTextContent('结束')
     expect(coach).toHaveTextContent('还有附赠')
   })

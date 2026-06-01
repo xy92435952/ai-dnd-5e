@@ -30,7 +30,8 @@ export function buildCombatActionCoach({
   const usableSkills = Array.isArray(skillBar) ? skillBar.filter(skill => skill?.available !== false) : []
   const hasActionOption = usableSkills.some(skill => ACTION_KINDS.has(skill.kind))
   const hasAttackOption = usableSkills.some(skill => skill?.kind === 'attack')
-  const hasBonusOption = usableSkills.some(skill => BONUS_KINDS.has(skill.kind) || /bonus/i.test(String(skill.cost || '')))
+  const availableBonusSkills = usableSkills.filter(skill => BONUS_KINDS.has(skill.kind) || /bonus/i.test(String(skill.cost || '')))
+  const hasBonusOption = availableBonusSkills.length > 0
   const targetNeeded = usableSkills.some(skill => skillNeedsTarget(skill))
   const hasTarget = Boolean(selectedTarget)
   const actionStatus = buildActionStatus({
@@ -108,7 +109,7 @@ export function buildCombatActionCoach({
     items.splice(bonusIndex, 0, {
       key: 'bonus',
       label: '附赠',
-      value: bonusOpen ? '可用' : '已用',
+      value: bonusOpen ? bonusSkillSummary(availableBonusSkills) : '已用',
       tone: bonusOpen ? 'ready' : 'spent',
     })
   }
@@ -181,6 +182,16 @@ function buildFinishItem({
     value: '结束回合',
     tone: 'ready',
   }
+}
+
+function bonusSkillSummary(skills = []) {
+  const labels = skills
+    .map(skill => String(skill?.label || skill?.name || '').trim())
+    .filter(Boolean)
+
+  if (labels.length === 0) return '可用'
+  if (labels.length === 1) return labels[0]
+  return `${labels[0]} +${labels.length - 1}`
 }
 
 function skillNeedsTarget(skill = {}) {

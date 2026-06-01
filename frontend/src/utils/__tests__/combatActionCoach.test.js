@@ -134,6 +134,42 @@ describe('buildCombatActionCoach', () => {
     expect(coach.items).toContainEqual({ key: 'finish', label: '结束', value: '结束回合', tone: 'ready' })
   })
 
+  it('names the available bonus action when the skill bar exposes one', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      turnState: {
+        action_used: true,
+        bonus_action_used: false,
+        reaction_used: false,
+        movement_max: 6,
+        movement_used: 6,
+      },
+      skillBar: [{ k: 'off_attack', label: '副手攻击', kind: 'bonus', available: true }],
+    })
+
+    expect(coach.items).toContainEqual({ key: 'bonus', label: '附赠', value: '副手攻击', tone: 'ready' })
+    expect(coach.items).toContainEqual({ key: 'finish', label: '结束', value: '还有附赠', tone: 'warn' })
+  })
+
+  it('keeps multiple bonus actions compact', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      turnState: {
+        action_used: true,
+        bonus_action_used: false,
+        reaction_used: false,
+        movement_max: 6,
+        movement_used: 6,
+      },
+      skillBar: [
+        { k: 'dash_bonus', label: '灵巧疾行', kind: 'bonus', available: true },
+        { k: 'off_attack', label: '副手攻击', kind: 'bonus', available: true },
+      ],
+    })
+
+    expect(coach.items).toContainEqual({ key: 'bonus', label: '附赠', value: '灵巧疾行 +1', tone: 'ready' })
+  })
+
   it('surfaces Help mode as an allied-target prompt', () => {
     const coach = buildCombatActionCoach({
       isPlayerTurn: true,
