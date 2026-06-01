@@ -3289,6 +3289,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.slot-label-bar > span.ready {
+  color: rgba(232, 218, 190, .9);
+}
+.slot-label-bar > span.blocked {
+  color: rgba(190, 164, 126, .42);
+}
 
 /* 结束回合大按钮 */
 .end-turn-mega {

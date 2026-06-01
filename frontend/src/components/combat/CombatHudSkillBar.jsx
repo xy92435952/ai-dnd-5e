@@ -18,7 +18,7 @@ const PREDICTED_ATTACK_SKILLS = new Set(['atk', 'sneak', 'smite', 'firebolt', 's
 export default function CombatHudSkillBar({
   skillBar,
   session,
-  entities,
+  entities = {},
   selectedTarget,
   turnState,
   prediction = null,
@@ -27,31 +27,41 @@ export default function CombatHudSkillBar({
   isProcessing = false,
   syncBlocked = false,
 }) {
+  const selectedTargetEntity = entities[selectedTarget]
+  const skillViews = skillBar.map(s => {
+    const canUsePrediction = PREDICTED_ATTACK_SKILLS.has(s.k)
+    const stats = buildCombatPreviewRows({
+      prediction: canUsePrediction ? prediction : null,
+      skill: s,
+      player: session?.player,
+      target: selectedTargetEntity,
+    })
+    const ruleTags = canUsePrediction
+      ? buildCombatRuleTags(prediction, selectedTargetEntity)
+      : []
+    const info = SKILL_INFO[s.k] || {}
+    const unavailableReason = getSkillUnavailableReason({
+      skill: s,
+      turnState,
+      isPlayerTurn,
+      syncBlocked,
+      isProcessing,
+      selectedTarget,
+    })
+    return {
+      skill: s,
+      stats,
+      ruleTags,
+      info,
+      unavailableReason,
+      canUse: !unavailableReason,
+    }
+  })
+
   return (
     <div>
       <div className="skill-bar">
-        {skillBar.map(s => {
-          const selectedTargetEntity = entities[selectedTarget]
-          const canUsePrediction = PREDICTED_ATTACK_SKILLS.has(s.k)
-          const stats = buildCombatPreviewRows({
-            prediction: canUsePrediction ? prediction : null,
-            skill: s,
-            player: session?.player,
-            target: selectedTargetEntity,
-          })
-          const ruleTags = canUsePrediction
-            ? buildCombatRuleTags(prediction, selectedTargetEntity)
-            : []
-          const info = SKILL_INFO[s.k] || {}
-          const unavailableReason = getSkillUnavailableReason({
-            skill: s,
-            turnState,
-            isPlayerTurn,
-            syncBlocked,
-            isProcessing,
-            selectedTarget,
-          })
-          const canUse = !unavailableReason
+        {skillViews.map(({ skill: s, stats, ruleTags, info, unavailableReason, canUse }) => {
           return (
             <div
               key={s.k}
@@ -97,8 +107,27 @@ export default function CombatHudSkillBar({
         })}
       </div>
       <div className="slot-label-bar">
-        {skillBar.map(s => <span key={s.k}>{s.label || '—'}</span>)}
+        {skillViews.map(({ skill: s, unavailableReason, canUse }) => (
+          <span
+            key={s.k}
+            className={canUse ? 'ready' : 'blocked'}
+            title={skillStatusTitle(s, unavailableReason)}
+            aria-label={`${s.label || '—'}：${unavailableReason || '可用'}`}
+          >
+            {s.label || '—'}
+          </span>
+        ))}
       </div>
     </div>
   )
+}
+
+function skillStatusTitle(skill = {}, unavailableReason = '') {
+  const kindLabel = SKILL_KIND_LABELS[skill.kind] || '—'
+  return [
+    skill.label || '—',
+    kindLabel,
+    skill.cost && skill.cost !== kindLabel ? skill.cost : '',
+    unavailableReason || '可用',
+  ].filter(Boolean).join(' · ')
 }

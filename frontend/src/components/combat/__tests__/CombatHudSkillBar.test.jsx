@@ -26,6 +26,11 @@ describe('CombatHudSkillBar', () => {
     expect(screen.getByText('动作 · 动作')).toBeInTheDocument()
     expect(screen.getByText('物品 · 动作')).toBeInTheDocument()
     expect(screen.getByText('附赠 · 附赠')).toBeInTheDocument()
+    const labels = container.querySelectorAll('.slot-label-bar span')
+    expect(labels[0]).toHaveClass('ready')
+    expect(labels[0]).toHaveAttribute('title', '协助 · 动作 · 可用')
+    expect(labels[1]).toHaveAttribute('title', '治疗药剂 · 物品 · 动作 · 可用')
+    expect(labels[2]).toHaveAttribute('aria-label', '再接再厉：可用')
 
     fireEvent.click(container.querySelector('.slot-key.item'))
     expect(onSkillClick).toHaveBeenCalledWith(expect.objectContaining({ k: 'pot_heal', kind: 'item' }))
@@ -49,8 +54,12 @@ describe('CombatHudSkillBar', () => {
     )
 
     const attack = container.querySelector('.slot-key.attack')
+    const attackLabel = container.querySelector('.slot-label-bar span')
     expect(attack).toHaveAttribute('aria-disabled', 'true')
     expect(attack).toHaveAttribute('title', '需要先选择目标')
+    expect(attackLabel).toHaveClass('blocked')
+    expect(attackLabel).toHaveAttribute('title', '攻击 · 攻击 · 动作 · 需要先选择目标')
+    expect(attackLabel).toHaveAttribute('aria-label', '攻击：需要先选择目标')
     expect(screen.getAllByText('需要先选择目标').length).toBeGreaterThan(0)
 
     fireEvent.click(attack)
@@ -118,8 +127,11 @@ describe('CombatHudSkillBar', () => {
     )
 
     const skill = container.querySelector('.slot-key.spell')
+    const skillLabel = container.querySelector('.slot-label-bar span')
     expect(skill).toHaveAttribute('aria-disabled', 'false')
     expect(skill).toHaveAttribute('title', '强酸飞溅')
+    expect(skillLabel).toHaveClass('ready')
+    expect(skillLabel).toHaveAttribute('aria-label', '强酸飞溅：可用')
 
     fireEvent.click(skill)
     expect(onSkillClick).toHaveBeenCalledWith(skillEntry)
