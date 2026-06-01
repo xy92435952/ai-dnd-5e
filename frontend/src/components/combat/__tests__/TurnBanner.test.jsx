@@ -105,7 +105,14 @@ describe('TurnBanner', () => {
         skillBar={[{ k: 'atk', kind: 'attack', available: true }]}
         selectedTarget="enemy-1"
         selectedTargetEntity={{ id: 'enemy-1', name: 'Goblin Boss', ac: 15 }}
-        prediction={{ hit_rate: 0.65 }}
+        prediction={{
+          hit_rate: 0.55,
+          disadvantage: true,
+          target_ac: 15,
+          effective_target_ac: 20,
+          cover_bonus: 5,
+          cover_detail: { bonus: 5, raw_bonus: 5 },
+        }}
         showThreat={false}
         onToggleThreat={vi.fn()}
       />
@@ -113,7 +120,8 @@ describe('TurnBanner', () => {
 
     const coach = screen.getByLabelText('回合行动提示')
     expect(coach).toHaveTextContent('目标')
-    expect(coach).toHaveTextContent('Goblin Boss · AC 15 · 命中 65%')
+    expect(coach).toHaveTextContent('Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')
+    expect(screen.getByTitle('Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')).toBeInTheDocument()
     expect(coach).toHaveTextContent('动作')
     expect(coach).toHaveTextContent('可用')
   })

@@ -1,3 +1,5 @@
+import { buildCombatRuleTags } from './combatRuleTags'
+
 const ACTION_KINDS = new Set(['attack', 'spell', 'action', 'item', 'move'])
 const BONUS_KINDS = new Set(['bonus', 'bonus_action'])
 
@@ -100,8 +102,16 @@ function targetSummary(entity = null, prediction = null) {
   if (prediction?.hit_rate !== null && prediction?.hit_rate !== undefined) {
     parts.push(`命中 ${formatPercent(prediction.hit_rate)}`)
   }
+  parts.push(...compactAttackRuleLabels(prediction, entity))
 
   return parts.join(' · ')
+}
+
+function compactAttackRuleLabels(prediction = null, entity = null) {
+  return buildCombatRuleTags(prediction, entity)
+    .map(tag => tag.label)
+    .filter(label => label && !label.startsWith('优势:') && !label.startsWith('劣势:'))
+    .slice(0, 3)
 }
 
 function formatPercent(value) {

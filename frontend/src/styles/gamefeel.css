@@ -2250,6 +2250,9 @@
   white-space: nowrap;
   font-style: normal;
 }
+.turn-action-step.target em {
+  max-width: min(360px, 56vw);
+}
 .turn-action-step.ready {
   border-color: rgba(138,234,160,.25);
   background: rgba(138,234,160,.07);

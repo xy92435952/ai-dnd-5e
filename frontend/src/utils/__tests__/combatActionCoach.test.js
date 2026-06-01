@@ -23,20 +23,28 @@ describe('buildCombatActionCoach', () => {
     expect(coach.items).toContainEqual({ key: 'reaction', label: '反应', value: '保留', tone: 'ready' })
   })
 
-  it('summarizes the selected target with AC and hit chance', () => {
+  it('summarizes the selected target with AC, hit chance, and attack rules', () => {
     const coach = buildCombatActionCoach({
       isPlayerTurn: true,
       turnState: { action_used: false, movement_max: 6, movement_used: 0, reaction_used: false },
       skillBar: [{ k: 'atk', kind: 'attack', available: true }],
       selectedTarget: 'enemy-1',
       selectedTargetEntity: { id: 'enemy-1', name: 'Goblin Boss', ac: 15 },
-      prediction: { hit_rate: 0.65 },
+      prediction: {
+        hit_rate: 0.55,
+        disadvantage: true,
+        target_ac: 15,
+        effective_target_ac: 20,
+        cover_bonus: 5,
+        cover_detail: { bonus: 5, raw_bonus: 5 },
+        disadvantage_sources: ['attacker poisoned', 'target invisible'],
+      },
     })
 
     expect(coach.items).toContainEqual({
       key: 'target',
       label: '目标',
-      value: 'Goblin Boss · AC 15 · 命中 65%',
+      value: 'Goblin Boss · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20',
       tone: 'ready',
     })
     expect(coach.items).toContainEqual({ key: 'action', label: '动作', value: '可用', tone: 'ready' })
