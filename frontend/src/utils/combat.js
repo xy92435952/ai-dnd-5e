@@ -993,8 +993,6 @@ export function getSkillUnavailableReason({
 
   const key = skill.k
   const kind = skill.kind
-  const needsTarget = skillRequiresTarget(skill)
-  if (needsTarget && !selectedTarget) return '需要先选择目标'
 
   if (kind === 'bonus' || key === 'off_attack') {
     if (turnState?.bonus_action_used) return '本回合附赠动作已使用'
@@ -1007,6 +1005,9 @@ export function getSkillUnavailableReason({
     return '本回合移动力已用尽'
   }
   if (kind === 'reaction' && turnState?.reaction_used) return '本回合反应已使用'
+
+  const needsTarget = skillRequiresTarget(skill)
+  if (needsTarget && !selectedTarget) return '需要先选择目标'
   return ''
 }
 

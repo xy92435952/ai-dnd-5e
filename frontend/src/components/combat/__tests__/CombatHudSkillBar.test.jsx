@@ -61,6 +61,7 @@ describe('CombatHudSkillBar', () => {
     expect(attackLabel).toHaveAttribute('title', '攻击 · 攻击 · 动作 · 需要先选择目标')
     expect(attackLabel).toHaveAttribute('aria-label', '攻击：需要先选择目标')
     expect(screen.getAllByText('需要先选择目标').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('技能限制提示')).toHaveTextContent('需要先选择目标：攻击')
 
     fireEvent.click(attack)
     expect(onSkillClick).not.toHaveBeenCalled()
@@ -156,6 +157,7 @@ describe('CombatHudSkillBar', () => {
 
     const dodge = container.querySelector('.slot-key.action')
     expect(dodge).toHaveAttribute('title', '本回合动作已使用')
+    expect(screen.getByLabelText('技能限制提示')).toHaveTextContent('本回合动作已使用：闪避')
     fireEvent.click(dodge)
     expect(onSkillClick).not.toHaveBeenCalled()
   })

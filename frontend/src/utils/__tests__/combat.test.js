@@ -649,6 +649,15 @@ describe('combat grid helpers', () => {
     })).toBe('')
   })
 
+  it('prioritizes spent action economy over missing target hints', () => {
+    expect(getSkillUnavailableReason({
+      skill: { k: 'atk', kind: 'attack', available: true },
+      turnState: { action_used: true },
+      isPlayerTurn: true,
+      selectedTarget: null,
+    })).toBe('本回合动作已使用')
+  })
+
   it('buildCombatPreviewRows surfaces hit chance, damage, cover and resource cost', () => {
     expect(buildCombatPreviewRows({
       prediction: {

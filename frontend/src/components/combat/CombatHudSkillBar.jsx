@@ -57,6 +57,7 @@ export default function CombatHudSkillBar({
       canUse: !unavailableReason,
     }
   })
+  const blockerSummary = buildSkillBlockerSummary(skillViews)
 
   return (
     <div>
@@ -118,8 +119,51 @@ export default function CombatHudSkillBar({
           </span>
         ))}
       </div>
+      {blockerSummary && (
+        <div className={`skill-blocker-summary ${blockerSummary.tone}`} aria-label="技能限制提示">
+          <b>限制</b>
+          <span>{blockerSummary.text}</span>
+        </div>
+      )}
     </div>
   )
+}
+
+function buildSkillBlockerSummary(skillViews = []) {
+  const blocked = skillViews.filter(view => view.unavailableReason)
+  if (!blocked.length) return null
+
+  const byReason = new Map()
+  blocked.forEach(view => {
+    const list = byReason.get(view.unavailableReason) || []
+    list.push(view.skill?.label || view.skill?.k || '技能')
+    byReason.set(view.unavailableReason, list)
+  })
+
+  const reason = [...byReason.keys()].sort((a, b) => reasonPriority(a) - reasonPriority(b))[0]
+  const labels = byReason.get(reason) || []
+  const shown = labels.slice(0, 3).join('、')
+  const more = labels.length > 3 ? ` 等 ${labels.length} 项` : ''
+  return {
+    tone: reason.includes('选择目标') ? 'warn' : 'blocked',
+    text: `${reason}：${shown}${more}`,
+  }
+}
+
+function reasonPriority(reason = '') {
+  const priorities = [
+    '等待战斗同步恢复',
+    '等待你的回合',
+    '正在结算上一项动作',
+    '本回合动作已使用',
+    '本回合附赠动作已使用',
+    '本回合移动力已用尽',
+    '需要先完成主手攻击',
+    '需要先选择目标',
+    '本回合反应已使用',
+  ]
+  const index = priorities.findIndex(item => reason.includes(item))
+  return index >= 0 ? index : priorities.length
 }
 
 function skillStatusTitle(skill = {}, unavailableReason = '') {

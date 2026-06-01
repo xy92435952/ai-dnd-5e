@@ -3298,6 +3298,37 @@
 .slot-label-bar > span.blocked {
   color: rgba(190, 164, 126, .42);
 }
+.skill-blocker-summary {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 4px 8px;
+  border: 1px solid rgba(240,64,64,.28);
+  background: rgba(240,64,64,.08);
+  color: #f09090;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.25;
+}
+.skill-blocker-summary.warn {
+  border-color: rgba(240,208,96,.34);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.skill-blocker-summary b {
+  flex: 0 0 auto;
+  color: var(--parchment);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.skill-blocker-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* 结束回合大按钮 */
 .end-turn-mega {
