@@ -530,6 +530,94 @@ async def test_resolve_enemy_ai_heal_spell_skips_undead_ally_before_consuming_sl
 
 
 @pytest.mark.asyncio
+async def test_resolve_enemy_ai_heal_spell_rejects_missing_target_before_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollHealSpellService(FakeSpellService):
+        def resolve_heal(self, *_args):
+            raise AssertionError("missing AI heal target should fail before rolling")
+
+    enemy_healer = {
+        "id": "enemy-priest",
+        "name": "Enemy Priest",
+        "spell_slots": {"1st": 1},
+    }
+    state = {"enemies": [enemy_healer]}
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=FakeSession(game_state=state),
+        actor_name="Enemy Priest",
+        is_enemy=True,
+        caster=enemy_healer,
+        actor_derived={
+            "spell_ability": "wis",
+            "ability_modifiers": {"wis": 2},
+        },
+        decided_target_id="missing-ally",
+        decided_reason="bad heal target",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[],
+        spell_service_obj=NoRollHealSpellService(
+            {"level": 1, "type": "heal", "heal_dice": "1d4"},
+            spell_name="Magic Bolt",
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: (_ for _ in ()).throw(AssertionError("no persistence expected")),
+    )
+
+    assert result is None
+    assert enemy_healer["spell_slots"] == {"1st": 1}
+
+
+@pytest.mark.asyncio
+async def test_resolve_enemy_ai_heal_spell_rejects_player_target_before_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollHealSpellService(FakeSpellService):
+        def resolve_heal(self, *_args):
+            raise AssertionError("enemy AI heal should not target a player")
+
+    enemy_healer = {
+        "id": "enemy-priest",
+        "name": "Enemy Priest",
+        "spell_slots": {"1st": 1},
+    }
+    state = {"enemies": [enemy_healer]}
+
+    result = await resolve_ai_spell_action(
+        CharacterDb(FakeCharacter(hp_current=10)),
+        session=FakeSession(game_state=state),
+        actor_name="Enemy Priest",
+        is_enemy=True,
+        caster=enemy_healer,
+        actor_derived={
+            "spell_ability": "wis",
+            "ability_modifiers": {"wis": 2},
+        },
+        decided_target_id="rogue-1",
+        decided_reason="wrong side",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[{"id": "rogue-1", "hp_current": 10}],
+        spell_service_obj=NoRollHealSpellService(
+            {"level": 1, "type": "heal", "heal_dice": "1d4"},
+            spell_name="Magic Bolt",
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: (_ for _ in ()).throw(AssertionError("no persistence expected")),
+    )
+
+    assert result is None
+    assert enemy_healer["spell_slots"] == {"1st": 1}
+
+
+@pytest.mark.asyncio
 async def test_ai_heal_spell_effect_skips_undead_enemy_before_rolling():
     from services.combat_ai_spell_effect_service import apply_ai_heal_spell
     from services.combat_ai_spell_models import AiSpellResolution
@@ -629,6 +717,51 @@ async def test_resolve_enemy_ai_control_spell_tracks_character_condition_source(
     assert sources[0]["caster_id"] == "enemy-mage"
     assert sources[0]["spell_name"] == "Hex"
     assert sources[0]["added_condition"] is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_enemy_ai_control_spell_rejects_missing_target_before_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    enemy_caster = {
+        "id": "enemy-mage",
+        "name": "Enemy Mage",
+        "spell_slots": {"1st": 1},
+        "concentration": None,
+    }
+    state = {"enemies": [enemy_caster]}
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=FakeSession(game_state=state),
+        actor_name="Enemy Mage",
+        is_enemy=True,
+        caster=enemy_caster,
+        actor_derived={"spell_save_dc": 13},
+        decided_target_id=None,
+        decided_reason="bad control target",
+        decision={"action_type": "spell", "action_name": "Hex", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[],
+        spell_service_obj=FakeSpellService(
+            {
+                "level": 1,
+                "type": "control",
+                "concentration": True,
+                "condition": "hexed",
+                "save": None,
+            },
+            spell_name="Hex",
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda *_args: (_ for _ in ()).throw(AssertionError("no persistence expected")),
+    )
+
+    assert result is None
+    assert enemy_caster["spell_slots"] == {"1st": 1}
+    assert enemy_caster["concentration"] is None
 
 
 @pytest.mark.asyncio

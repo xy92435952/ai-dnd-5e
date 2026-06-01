@@ -107,6 +107,52 @@ def _has_valid_ai_damage_target(
     )
 
 
+def _find_entity_by_id(items: list[dict[str, Any]], target_id: str | None):
+    if not target_id:
+        return None
+    target = str(target_id)
+    return next((item for item in items if str(item.get("id")) == target), None)
+
+
+async def _has_valid_ai_heal_target(
+    db,
+    target_id: str | None,
+    *,
+    is_enemy: bool,
+    enemies: list[dict[str, Any]],
+    all_characters: list[dict[str, Any]],
+) -> bool:
+    if not target_id:
+        return False
+    if is_enemy:
+        target_enemy = _find_entity_by_id(enemies, target_id)
+        return bool(target_enemy and can_receive_ordinary_healing(target_enemy))
+
+    if _find_entity_by_id(enemies, target_id):
+        return False
+    target_character = await db.get(Character, target_id)
+    if target_character:
+        return can_receive_ordinary_healing(target_character)
+    target_snapshot = _find_entity_by_id(all_characters, target_id)
+    return bool(target_snapshot and can_receive_ordinary_healing(target_snapshot))
+
+
+def _has_valid_ai_control_target(
+    target_id: str | None,
+    *,
+    is_enemy: bool,
+    enemies_alive: list[dict[str, Any]],
+    all_characters: list[dict[str, Any]],
+) -> bool:
+    if not target_id:
+        return False
+    legal_targets = all_characters if is_enemy else enemies_alive
+    return any(
+        str(item.get("id")) == str(target_id) and int(item.get("hp_current", 0) or 0) > 0
+        for item in legal_targets
+    )
+
+
 def _ai_spell_target_in_range(
     caster,
     target_id: str | None,
@@ -310,16 +356,22 @@ async def resolve_ai_spell_action(
     ):
         return None
 
-    if spell_type == "heal" and spell_target:
-        target_character = await db.get(Character, spell_target)
-        if target_character and not can_receive_ordinary_healing(target_character):
-            return None
-        target_enemy = next(
-            (enemy for enemy in enemies if str(enemy.get("id")) == str(spell_target)),
-            None,
-        )
-        if target_enemy and not can_receive_ordinary_healing(target_enemy):
-            return None
+    if spell_type == "heal" and not await _has_valid_ai_heal_target(
+        db,
+        spell_target,
+        is_enemy=is_enemy,
+        enemies=enemies,
+        all_characters=all_characters,
+    ):
+        return None
+
+    if spell_type == "control" and not _has_valid_ai_control_target(
+        spell_target,
+        is_enemy=is_enemy,
+        enemies_alive=enemies_alive,
+        all_characters=all_characters,
+    ):
+        return None
 
     if not is_cantrip and caster:
         if not consume_ai_spell_slot(caster, spell_level):
