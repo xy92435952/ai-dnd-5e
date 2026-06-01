@@ -26,6 +26,25 @@ async def apply_ai_heal_spell(
     enemies: list[dict[str, Any]] | None = None,
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
 ) -> None:
+    target_character = None
+    target_enemy = None
+    if resolution.spell_target:
+        target_character = await db.get(Character, resolution.spell_target)
+        if target_character:
+            if not can_receive_ordinary_healing(target_character):
+                return
+        else:
+            target_enemy = next(
+                (
+                    enemy
+                    for enemy in enemies or []
+                    if str(enemy.get("id")) == str(resolution.spell_target)
+                ),
+                None,
+            )
+            if target_enemy and not can_receive_ordinary_healing(target_enemy):
+                return
+
     total_heal, _dice_detail = spell_service_obj.resolve_heal(
         resolution.spell_name,
         resolution.spell_level,
@@ -33,25 +52,14 @@ async def apply_ai_heal_spell(
         bonus_healing,
     )
     if resolution.spell_target:
-        target_character = await db.get(Character, resolution.spell_target)
         if target_character:
-            if not can_receive_ordinary_healing(target_character):
-                return
             apply_character_healing(target_character, total_heal)
             resolution.target_new_hp = target_character.hp_current
             resolution.target_name = target_character.name
             resolution.heal = total_heal
             return
 
-        target_enemy = next(
-            (
-                enemy
-                for enemy in enemies or []
-                if str(enemy.get("id")) == str(resolution.spell_target)
-            ),
-            None,
-        )
-        if target_enemy and can_receive_ordinary_healing(target_enemy):
+        if target_enemy:
             _apply_enemy_healing(target_enemy, total_heal)
             resolution.target_new_hp = target_enemy.get("hp_current", 0)
             resolution.target_name = target_enemy.get("name", "Enemy")

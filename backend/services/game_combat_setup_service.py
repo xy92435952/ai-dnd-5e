@@ -43,6 +43,7 @@ def build_enemy_from_module(monster: dict) -> dict:
     enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": monster.get("name", "未知怪物"),
+        "type": monster.get("type") or monster.get("creature_type") or monster.get("creatureType"),
         "hp_current": hp,
         "hp_max": hp,
         "cr": monster.get("cr", monster.get("challenge_rating", monster.get("challenge"))),
@@ -457,6 +458,7 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
     enemy = {
         "id": f"enemy_{uuid.uuid4().hex[:8]}",
         "name": name,
+        "type": item.get("type") or item.get("creature_type") or item.get("creatureType"),
         "hp_current": item.get("hp", 20),
         "hp_max": item.get("hp", 20),
         "cr": item.get("cr", item.get("challenge_rating", item.get("challenge"))),

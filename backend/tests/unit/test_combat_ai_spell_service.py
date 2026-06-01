@@ -251,6 +251,111 @@ async def test_resolve_enemy_ai_heal_spell_restores_enemy_ally_and_persists_stat
 
 
 @pytest.mark.asyncio
+async def test_resolve_enemy_ai_heal_spell_skips_undead_ally_before_consuming_slot():
+    from services.combat_ai_spell_service import resolve_ai_spell_action
+
+    class NoRollHealSpellService(FakeSpellService):
+        def resolve_heal(self, *_args):
+            raise AssertionError("undead healing should fail before rolling")
+
+    enemy_healer = {
+        "id": "enemy-priest",
+        "name": "Enemy Priest",
+        "spell_slots": {"1st": 1},
+    }
+    undead_ally = {
+        "id": "enemy-wight",
+        "name": "Enemy Wight",
+        "type": "undead",
+        "hp_current": 3,
+        "hp_max": 12,
+        "derived": {"hp_max": 12},
+    }
+    state = {"enemies": [enemy_healer, undead_ally]}
+    session = FakeSession(game_state=state)
+    flagged = []
+
+    result = await resolve_ai_spell_action(
+        FakeDb(),
+        session=session,
+        actor_name="Enemy Priest",
+        is_enemy=True,
+        caster=enemy_healer,
+        actor_derived={
+            "spell_ability": "wis",
+            "ability_modifiers": {"wis": 2},
+        },
+        decided_target_id="enemy-wight",
+        decided_reason="heal ally",
+        decision={"action_type": "spell", "action_name": "Magic Bolt", "spell_level": 1},
+        state=state,
+        enemies=state["enemies"],
+        enemies_alive=state["enemies"],
+        all_characters=[],
+        spell_service_obj=NoRollHealSpellService(
+            {"level": 1, "type": "heal", "heal_dice": "1d4"},
+            spell_name="Magic Bolt",
+        ),
+        combat_service=FakeCombatService(),
+        flag_modified_func=lambda _obj, attr: flagged.append(attr),
+    )
+
+    assert result is None
+    assert enemy_healer["spell_slots"] == {"1st": 1}
+    assert undead_ally["hp_current"] == 3
+    assert flagged == []
+
+
+@pytest.mark.asyncio
+async def test_ai_heal_spell_effect_skips_undead_enemy_before_rolling():
+    from services.combat_ai_spell_effect_service import apply_ai_heal_spell
+    from services.combat_ai_spell_models import AiSpellResolution
+
+    class NoRollHealSpellService(FakeSpellService):
+        def resolve_heal(self, *_args):
+            raise AssertionError("undead healing should fail before rolling")
+
+    undead_ally = {
+        "id": "enemy-wight",
+        "name": "Enemy Wight",
+        "type": "undead",
+        "hp_current": 3,
+        "hp_max": 12,
+        "derived": {"hp_max": 12},
+    }
+    enemies = [undead_ally]
+    state = {"enemies": enemies}
+    resolution = AiSpellResolution(
+        spell_name="Magic Bolt",
+        spell_level=1,
+        spell_target="enemy-wight",
+        spell_data={"level": 1, "type": "heal", "heal_dice": "1d4"},
+        is_cantrip=False,
+    )
+    flagged = []
+
+    await apply_ai_heal_spell(
+        FakeDb(),
+        resolution=resolution,
+        spell_mod=2,
+        bonus_healing=False,
+        spell_service_obj=NoRollHealSpellService(
+            {"level": 1, "type": "heal", "heal_dice": "1d4"},
+            spell_name="Magic Bolt",
+        ),
+        session=FakeSession(game_state=state),
+        state=state,
+        enemies=enemies,
+        flag_modified_func=lambda _obj, attr: flagged.append(attr),
+    )
+
+    assert resolution.heal == 0
+    assert resolution.target_new_hp is None
+    assert undead_ally["hp_current"] == 3
+    assert flagged == []
+
+
+@pytest.mark.asyncio
 async def test_resolve_enemy_ai_control_spell_tracks_character_condition_source():
     from services.combat_ai_spell_service import resolve_ai_spell_action
 

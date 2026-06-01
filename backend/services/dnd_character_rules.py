@@ -1,5 +1,7 @@
 """Character-level DnD rule helpers: class aliases, resources, slots, and passive stats."""
 
+import re
+
 from services.dnd_data import (
     CANTRIPS_KNOWN, CASTER_TYPE, EXHAUSTION_EFFECTS, HIT_DICE,
     RACIAL_ABILITY_BONUSES, SPELL_SLOTS_FULL, SPELL_SLOTS_HALF,
@@ -122,9 +124,53 @@ def is_dead(character: dict | object | None) -> bool:
     return int(hp_current) <= 0 and int(death_saves.get("failures", 0) or 0) >= 3
 
 
+ORDINARY_HEALING_BLOCKED_TYPES = frozenset({
+    "construct",
+    "undead",
+    "构装",
+    "构装体",
+    "构装生物",
+    "亡灵",
+    "不死",
+})
+
+
+def ordinary_healing_block_reason(character: dict | object | None) -> str | None:
+    """Return why ordinary healing cannot restore HP to this character, if blocked."""
+    if is_dead(character):
+        return "dead"
+    creature_type = _character_creature_type(character)
+    if _is_ordinary_healing_blocked_type(creature_type):
+        return creature_type or "creature_type"
+    return None
+
+
 def can_receive_ordinary_healing(character: dict | object | None) -> bool:
     """Return whether normal healing can restore HP to this character."""
-    return not is_dead(character)
+    return ordinary_healing_block_reason(character) is None
+
+
+def _character_creature_type(character: dict | object | None) -> str:
+    if not character:
+        return ""
+    keys = ("creature_type", "creatureType", "monster_type", "monsterType", "type")
+    if isinstance(character, dict):
+        for key in keys:
+            value = character.get(key)
+            if value:
+                return str(value)
+        return str(character.get("race") or "")
+    for key in keys:
+        value = getattr(character, key, None)
+        if value:
+            return str(value)
+    return str(getattr(character, "race", "") or "")
+
+
+def _is_ordinary_healing_blocked_type(value: str | None) -> bool:
+    normalized = str(value or "").strip().lower()
+    compact = re.sub(r"[\s_\-]+", "", normalized)
+    return any(blocked in compact for blocked in ORDINARY_HEALING_BLOCKED_TYPES)
 
 
 def is_dying(character: dict | object | None) -> bool:

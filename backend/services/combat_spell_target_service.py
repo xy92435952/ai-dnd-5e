@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 from models import Character
 from services.combat_grid_service import chebyshev_distance
-from services.dnd_rules import can_receive_ordinary_healing
+from services.dnd_rules import can_receive_ordinary_healing, ordinary_healing_block_reason
 from services.session_access_service import assert_character_in_session
 
 
@@ -49,12 +49,11 @@ async def validate_ordinary_healing_targets(
     enemies: list[dict[str, Any]],
     session=None,
 ) -> None:
-    """Reject ordinary healing when a target is already dead."""
+    """Reject ordinary healing when a target is already dead or immune to ordinary healing."""
     for target_id in target_ids:
         enemy = next((item for item in enemies if item["id"] == target_id), None)
         if enemy:
-            if not can_receive_ordinary_healing(enemy):
-                raise HTTPException(400, "Ordinary healing cannot revive a dead target")
+            _raise_if_healing_blocked(enemy)
             continue
 
         target_character = await db.get(Character, target_id)
@@ -62,8 +61,16 @@ async def validate_ordinary_healing_targets(
             continue
         if session is not None:
             await assert_character_in_session(target_character, session, db)
-        if not can_receive_ordinary_healing(target_character):
-            raise HTTPException(400, "Ordinary healing cannot revive a dead target")
+        _raise_if_healing_blocked(target_character)
+
+
+def _raise_if_healing_blocked(target: Any) -> None:
+    if can_receive_ordinary_healing(target):
+        return
+    reason = ordinary_healing_block_reason(target)
+    if reason == "dead":
+        raise HTTPException(400, "Ordinary healing cannot revive a dead target")
+    raise HTTPException(400, "Ordinary healing has no effect on undead or construct targets")
 
 
 def parse_spell_range_ft(spell_range: int | str | None) -> int:

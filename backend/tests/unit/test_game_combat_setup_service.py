@@ -3,6 +3,7 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
 
     enemy = build_enemy_from_module({
         "name": "Cult Mage",
+        "type": "undead",
         "hp": 18,
         "ac": 12,
         "ability_scores": {"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 11},
@@ -35,6 +36,7 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["known_spells"] == ["Web"]
     assert enemy["prepared_spells"] == ["Shield"]
     assert enemy["cantrips"] == ["Fire Bolt"]
+    assert enemy["type"] == "undead"
     assert enemy["spell_slots"] == {"1st": 2, "2nd": 1}
     assert enemy["spell_ability"] == "int"
     assert enemy["spell_save_dc"] == 13

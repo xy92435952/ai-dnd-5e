@@ -15,6 +15,7 @@ from services.dnd_rules import (
     apply_character_damage,
     apply_character_healing,
     apply_character_resurrection,
+    can_receive_ordinary_healing,
     default_death_saves,
     get_effective_derived,
     get_effective_hp_base,
@@ -26,6 +27,7 @@ from services.dnd_rules import (
     is_dead,
     is_dying,
     is_incapacitated,
+    ordinary_healing_block_reason,
     should_auto_crit_melee_target,
     stabilize_character,
     _normalize_class,
@@ -728,6 +730,19 @@ class TestCharacterLifeState:
         assert char.hp_current == 0
         assert char.death_saves == {"successes": 0, "failures": 3, "stable": False}
         assert char.conditions == ["unconscious"]
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            {"hp_current": 7, "type": "undead"},
+            {"hp_current": 7, "creature_type": "construct"},
+            {"hp_current": 7, "type": "大型亡灵"},
+            {"hp_current": 7, "race": "构装体"},
+        ],
+    )
+    def test_ordinary_healing_rejects_undead_and_construct_targets(self, target):
+        assert can_receive_ordinary_healing(target) is False
+        assert ordinary_healing_block_reason(target) not in (None, "dead")
 
     def test_resurrection_revives_dead_character_and_clears_death_saves(self):
         from types import SimpleNamespace

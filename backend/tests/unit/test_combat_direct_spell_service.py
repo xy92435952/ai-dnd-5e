@@ -631,6 +631,64 @@ async def test_cast_direct_heal_rejects_dead_target_before_consuming_slot():
 
 
 @pytest.mark.asyncio
+async def test_cast_direct_heal_rejects_construct_target_before_consuming_slot():
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class HealSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "heal",
+                "aoe": False,
+            }
+
+        def resolve_damage(self, *_args):
+            return 0, {}
+
+        def resolve_heal(self, *_args):
+            raise AssertionError("construct healing should fail before rolling")
+
+    construct_target = SimpleNamespace(
+        id="ally-1",
+        name="Clockwork Ally",
+        session_id="sess-1",
+        hp_current=4,
+        death_saves={},
+        conditions=[],
+        creature_type="construct",
+    )
+    session = FakeSession()
+    combat = FakeCombat()
+    caster = FakeCaster()
+
+    with pytest.raises(HTTPException, match="undead or construct"):
+        await cast_direct_spell(
+            FakeDb({"ally-1": construct_target}),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="cure-wounds",
+            spell_level=1,
+            target_id="ally-1",
+            target_ids=None,
+            spell_service_obj=HealSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert caster.spell_slots == {"1st": 1}
+    assert combat.turn_states["caster-1"]["action_used"] is False
+    assert construct_target.hp_current == 4
+
+
+@pytest.mark.asyncio
 async def test_cast_direct_resurrection_spell_revives_dead_target():
     from types import SimpleNamespace
 
