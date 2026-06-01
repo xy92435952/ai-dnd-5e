@@ -104,7 +104,13 @@ describe('SpellModalList', () => {
         cantrips={[]}
         combat={{
           entities: {
-            'enemy-1': { id: 'enemy-1', name: 'Cultist', is_enemy: true },
+            'enemy-1': {
+              id: 'enemy-1',
+              name: 'Cultist',
+              is_enemy: true,
+              conditions: ['restrained'],
+              condition_durations: { restrained: 2 },
+            },
           },
         }}
         selectedTarget="enemy-1"
@@ -119,10 +125,17 @@ describe('SpellModalList', () => {
       'title',
       '当前选中敌方；治疗或友方法术需要队友或自己。',
     )
-    expect(within(screen.getByLabelText('目标适配 Guiding Bolt')).getByText('目标 Cultist')).toHaveAttribute(
+    const guidingFit = screen.getByLabelText('目标适配 Guiding Bolt')
+    expect(within(guidingFit).getByText('目标 Cultist')).toHaveAttribute(
       'title',
       '当前目标可用于此法术。',
     )
+    expect(within(guidingFit).getByText('速度 0')).toHaveAttribute(
+      'title',
+      '移动速度降为 0。 来源：束缚 (2轮)。',
+    )
+    expect(within(guidingFit).getByText('受击优势')).toBeInTheDocument()
+    expect(within(guidingFit).getByText('攻击劣势')).toBeInTheDocument()
     expect(within(screen.getByLabelText('目标适配 Fireball')).getByText('选落点')).toHaveAttribute(
       'title',
       '范围法术通过战场落点决定目标。',
