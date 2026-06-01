@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import CombatHudSkillBar from '../CombatHudSkillBar'
 
 describe('CombatHudSkillBar', () => {
@@ -202,13 +202,20 @@ describe('CombatHudSkillBar', () => {
     expect(screen.getByText('13 -> 18')).toBeInTheDocument()
     expect(screen.getByText('掩护')).toBeInTheDocument()
     expect(screen.getByText('+5 AC')).toBeInTheDocument()
-    expect(screen.getByText('劣势')).toBeInTheDocument()
-    expect(screen.getByText('3/4 掩护 +5 AC')).toBeInTheDocument()
-    expect(screen.getByText('有效 AC 18')).toBeInTheDocument()
-    expect(screen.getByTitle('掷两个 d20，取较低结果。')).toBeInTheDocument()
+    expect(screen.getAllByText('劣势').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('3/4 掩护 +5 AC').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('有效 AC 18').length).toBeGreaterThan(0)
+    expect(screen.getAllByTitle('掷两个 d20，取较低结果。').length).toBeGreaterThan(0)
     expect(screen.getByText('态势')).toBeInTheDocument()
     expect(screen.getByText('劣势 / 四分之三掩护')).toBeInTheDocument()
     expect(screen.getByText('资源')).toBeInTheDocument()
     expect(screen.getAllByText('动作').length).toBeGreaterThan(0)
+
+    const preview = screen.getByLabelText('当前攻击预览')
+    expect(preview).toHaveTextContent('目标')
+    expect(preview).toHaveTextContent('命中 70%')
+    expect(within(preview).getByText('劣势')).toHaveAttribute('title', '掷两个 d20，取较低结果。')
+    expect(within(preview).getByText('3/4 掩护 +5 AC')).toBeInTheDocument()
+    expect(within(preview).getByText('有效 AC 18')).toBeInTheDocument()
   })
 })

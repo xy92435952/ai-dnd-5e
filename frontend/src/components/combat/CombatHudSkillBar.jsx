@@ -28,6 +28,14 @@ export default function CombatHudSkillBar({
   syncBlocked = false,
 }) {
   const selectedTargetEntity = entities[selectedTarget]
+  const selectedTargetRuleTags = selectedTargetEntity && prediction
+    ? buildCombatRuleTags(prediction, selectedTargetEntity)
+    : []
+  const attackPreviewSummary = buildAttackPreviewSummary({
+    prediction,
+    target: selectedTargetEntity,
+    ruleTags: selectedTargetRuleTags,
+  })
   const skillViews = skillBar.map(s => {
     const canUsePrediction = PREDICTED_ATTACK_SKILLS.has(s.k)
     const stats = buildCombatPreviewRows({
@@ -119,6 +127,18 @@ export default function CombatHudSkillBar({
           </span>
         ))}
       </div>
+      {attackPreviewSummary && (
+        <div className="skill-rule-summary" aria-label="当前攻击预览">
+          <b title={attackPreviewSummary.targetName}>{attackPreviewSummary.targetName}</b>
+          <div>
+            {attackPreviewSummary.chips.map(chip => (
+              <span key={chip.key} className={chip.tone || ''} title={chip.title || chip.label}>
+                {chip.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {blockerSummary && (
         <div className={`skill-blocker-summary ${blockerSummary.tone}`} aria-label="技能限制提示">
           <b>限制</b>
@@ -127,6 +147,30 @@ export default function CombatHudSkillBar({
       )}
     </div>
   )
+}
+
+function buildAttackPreviewSummary({ prediction = null, target = null, ruleTags = [] } = {}) {
+  if (!prediction || !target) return null
+
+  const chips = []
+  if (prediction.hit_rate !== null && prediction.hit_rate !== undefined) {
+    chips.push({
+      key: 'hit-rate',
+      label: `命中 ${formatPercent(prediction.hit_rate)}`,
+      tone: prediction.advantage ? 'good' : prediction.disadvantage ? 'bad' : '',
+      title: `对 ${target.name || '目标'} 的预计命中率。`,
+    })
+  }
+
+  for (const tag of ruleTags.slice(0, 4)) {
+    chips.push(tag)
+  }
+
+  if (!chips.length) return null
+  return {
+    targetName: target.name || '目标',
+    chips,
+  }
 }
 
 function buildSkillBlockerSummary(skillViews = []) {
@@ -174,4 +218,10 @@ function skillStatusTitle(skill = {}, unavailableReason = '') {
     skill.cost && skill.cost !== kindLabel ? skill.cost : '',
     unavailableReason || '可用',
   ].filter(Boolean).join(' · ')
+}
+
+function formatPercent(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '--'
+  return `${Math.round((number <= 1 ? number * 100 : number))}%`
 }

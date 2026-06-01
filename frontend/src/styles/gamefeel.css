@@ -3476,6 +3476,62 @@
 .slot-label-bar > span.blocked {
   color: rgba(190, 164, 126, .42);
 }
+.skill-rule-summary {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid rgba(127,232,248,.22);
+  background: rgba(127,232,248,.06);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.25;
+}
+.skill-rule-summary b {
+  flex: 0 1 110px;
+  min-width: 0;
+  color: var(--parchment);
+  font-size: 9px;
+  letter-spacing: .08em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-rule-summary div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.skill-rule-summary span {
+  max-width: 150px;
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--parchment-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-rule-summary span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}
+.skill-rule-summary span.warning {
+  border-color: rgba(240,208,96,.32);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.skill-rule-summary span.bad {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(240,64,64,.1);
+  color: #f09090;
+}
 .skill-blocker-summary {
   margin-top: 4px;
   display: flex;
