@@ -21,7 +21,11 @@ from services.combat_spell_roll_service import (
     spell_action_cost,
     validate_spell_turn_state,
 )
-from services.combat_spell_target_service import collect_spell_target_names, validate_ordinary_healing_targets
+from services.combat_spell_target_service import (
+    collect_spell_target_names,
+    validate_ordinary_healing_targets,
+    validate_spell_range,
+)
 from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.combat_turn_state_service import DEFAULT_TURN_STATE, get_turn_state, save_turn_state
 from services.spell_service import spell_service
@@ -150,6 +154,13 @@ async def cast_direct_spell(
         target_ids=target_ids,
     )
     await collect_spell_target_names(db, resolved_target_ids, enemies, session=session)
+    positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
+    validate_spell_range(
+        target_ids=resolved_target_ids,
+        positions=positions,
+        caster_id=caster_id,
+        spell_range_ft=spell.get("range", 0),
+    )
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, resolved_target_ids, enemies, session=session)
 

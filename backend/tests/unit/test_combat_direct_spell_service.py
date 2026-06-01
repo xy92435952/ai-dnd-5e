@@ -32,6 +32,12 @@ class FakeCombat:
     current_turn_index = 1
 
     def __init__(self):
+        self.entity_positions = {
+            "caster-1": {"x": 0, "y": 0},
+            "goblin-1": {"x": 1, "y": 0},
+            "goblin-2": {"x": 2, "y": 0},
+            "orc-1": {"x": 3, "y": 0},
+        }
         self.turn_states = {
             "caster-1": {
                 "action_used": False,
@@ -302,6 +308,66 @@ async def test_cast_direct_spell_marks_bonus_action_spell_bonus_used():
     assert result.turn_state["action_used"] is True
     assert result.turn_state["bonus_action_used"] is True
     assert result.remaining_slots == {"1st": 0}
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_heal_rejects_out_of_range_target_before_consuming_slot():
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class HealingWordSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "level": 1,
+                "type": "heal",
+                "aoe": False,
+                "casting_time": "bonus_action",
+                "range": "60 ft.",
+            }
+
+        def resolve_damage(self, *_args):
+            return 0, {}
+
+        def resolve_heal(self, *_args):
+            raise AssertionError("out-of-range healing should fail before rolling")
+
+    ally = SimpleNamespace(
+        id="ally-1",
+        name="Far Ally",
+        session_id="sess-1",
+        hp_current=5,
+        death_saves={},
+        conditions=[],
+    )
+    session = FakeSession()
+    combat = FakeCombat()
+    combat.entity_positions["ally-1"] = {"x": 13, "y": 0}
+    caster = FakeCaster()
+
+    with pytest.raises(HTTPException, match="超出法术射程"):
+        await cast_direct_spell(
+            FakeDb({"ally-1": ally}),
+            session_id="sess-1",
+            session=session,
+            combat_obj=combat,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="healing-word",
+            spell_level=1,
+            target_id="ally-1",
+            target_ids=None,
+            spell_service_obj=HealingWordSpellService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        )
+
+    assert caster.spell_slots == {"1st": 1}
+    assert combat.turn_states["caster-1"]["bonus_action_used"] is False
+    assert ally.hp_current == 5
 
 
 @pytest.mark.asyncio
