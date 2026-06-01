@@ -28,6 +28,12 @@ function makeDeps(overrides = {}) {
   return {
     sessionId: 'sess-1',
     myUserId:  'me',
+    room: {
+      party_groups: [
+        { id: 'alley', member_user_ids: ['me'] },
+        { id: 'tower', member_user_ids: ['other'] },
+      ],
+    },
     companions: [{ name: '法师' }],
     buildDialogueQueue: vi.fn().mockReturnValue([{ role: 'dm', text: 'hi' }]),
     enterDialogueStage: vi.fn(),
@@ -116,6 +122,64 @@ describe('useDialogueWsSync', () => {
       })
     })
     expect(deps.setIsLoading).not.toHaveBeenCalledWith(false)
+    expect(deps.buildDialogueQueue).not.toHaveBeenCalled()
+    expect(deps.enterDialogueStage).not.toHaveBeenCalled()
+    expect(deps.loadSession).not.toHaveBeenCalled()
+  })
+
+  it('dm_responded: group visibility missing explicit targets only reaches my own group', () => {
+    const deps = makeDeps()
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+
+    act(() => {
+      result.current({
+        type: 'dm_responded',
+        by_user_id: 'other',
+        narrative: '后巷低声交换口令。',
+        companion_reactions: '',
+        action_type: 'exploration',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+        visibility: { scope: 'group', group_id: 'alley', visible_to_user_ids: [] },
+      })
+    })
+    expect(deps.enterDialogueStage).toHaveBeenCalled()
+
+    vi.clearAllMocks()
+    act(() => {
+      result.current({
+        type: 'dm_responded',
+        by_user_id: 'other',
+        narrative: '钟楼找到了第二张地图。',
+        companion_reactions: '',
+        action_type: 'exploration',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+        visibility: { scope: 'group', group_id: 'tower', visible_to_user_ids: [] },
+      })
+    })
+    expect(deps.enterDialogueStage).not.toHaveBeenCalled()
+    expect(deps.loadSession).not.toHaveBeenCalled()
+  })
+
+  it('dm_responded: private visibility missing explicit targets is hidden', () => {
+    const deps = makeDeps()
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+    act(() => {
+      result.current({
+        type: 'dm_responded',
+        by_user_id: 'other',
+        narrative: '无目标私密暗号。',
+        companion_reactions: '',
+        action_type: 'exploration',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+        visibility: { scope: 'private', visible_to_user_ids: [] },
+      })
+    })
     expect(deps.buildDialogueQueue).not.toHaveBeenCalled()
     expect(deps.enterDialogueStage).not.toHaveBeenCalled()
     expect(deps.loadSession).not.toHaveBeenCalled()

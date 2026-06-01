@@ -10,13 +10,13 @@ function findMyGroup(room, myUserId) {
     || null
 }
 
-function findUserGroup(room, myUserId) {
+export function findUserGroup(room, myUserId) {
   if (!myUserId) return null
   const groups = room?.party_groups || []
   return groups.find(group => (group.member_user_ids || []).includes(myUserId)) || null
 }
 
-function isVisibleToUser(visibility, myUserId, myUserGroup) {
+export function canUserSeeMultiplayerVisibility(visibility, { myUserId = null, myUserGroup = null } = {}) {
   const scope = visibility?.scope || 'party'
   const visibleTo = visibility?.visible_to_user_ids
   if (Array.isArray(visibleTo) && visibleTo.length > 0) {
@@ -50,7 +50,7 @@ export function buildMultiplayerTimeline({ logs = [], room = null, myUserId = nu
 
   logs.forEach((log, index) => {
     if (log?.role !== 'dm') return
-    if (!isVisibleToUser(log.visibility, myUserId, myUserGroup)) return
+    if (!canUserSeeMultiplayerVisibility(log.visibility, { myUserId, myUserGroup })) return
 
     const item = normalizeTimelineItem(log, index)
     if (!item.text) return

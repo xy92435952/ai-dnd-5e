@@ -164,7 +164,7 @@ export default function Adventure() {
 
   // 7. WS 事件处理 —— 整段 switch 抽到 useDialogueWsSync 里
   const onWsEvent = useDialogueWsSync({
-    sessionId, myUserId, companions,
+    sessionId, myUserId, room, companions,
     buildDialogueQueue, enterDialogueStage, loadSession,
     setIsLoading, setRoom,
   })
