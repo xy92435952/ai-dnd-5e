@@ -38,6 +38,7 @@ export default function AdventureBottomHud({
         recentConsequences={recentConsequences}
         companionSignals={companionSignals}
         locationGraph={locationGraph}
+        onOpenJournal={onOpenJournal}
       />
 
       <div style={{ display: 'flex', gap: 4 }}>

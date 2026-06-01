@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import AdventureQuestHud from '../AdventureQuestHud'
 
 describe('AdventureQuestHud', () => {
   it('renders recent consequences and quest updates after campaign state changes', () => {
+    const onOpenJournal = vi.fn()
     render(
       <AdventureQuestHud
         questLine={{
@@ -34,6 +35,7 @@ describe('AdventureQuestHud', () => {
         }}
         npcUpdates={[]}
         keyDecisions={[]}
+        onOpenJournal={onOpenJournal}
         companionSignals={[
           {
             id: 'ally-1',
@@ -68,6 +70,8 @@ describe('AdventureQuestHud', () => {
     expect(bondSignal).toHaveClass('companion-signal-item', 'good')
     expect(bondSignal).toHaveTextContent('好感 +6')
     expect(bondSignal).toHaveTextContent('追踪失踪徽章')
+    fireEvent.click(bondSignal)
+    expect(onOpenJournal).toHaveBeenCalledTimes(1)
     expect(screen.getByText('最近')).toBeInTheDocument()
 
     const recent = screen.getByText('最近').parentElement

@@ -37,6 +37,36 @@ function getQuestDetail(questLine) {
   ].map(cleanText).find(Boolean) || ''
 }
 
+function CompanionSignalChip({ signal, onOpenJournal }) {
+  const content = (
+    <>
+      <b>{signal.name}</b>{signal.summary}
+      {signal.detail && <em>{signal.detail}</em>}
+    </>
+  )
+  if (onOpenJournal) {
+    return (
+      <button
+        type="button"
+        className={`companion-signal-item ${signal.tone}`}
+        title={signal.title}
+        aria-label={`打开卷宗查看${signal.name}羁绊`}
+        onClick={onOpenJournal}
+      >
+        {content}
+      </button>
+    )
+  }
+  return (
+    <span
+      className={`companion-signal-item ${signal.tone}`}
+      title={signal.title}
+    >
+      {content}
+    </span>
+  )
+}
+
 export default function AdventureQuestHud({
   questLine,
   clues,
@@ -45,6 +75,7 @@ export default function AdventureQuestHud({
   recentConsequences = [],
   companionSignals = [],
   locationGraph = null,
+  onOpenJournal,
 }) {
   const locationSummary = getLocationGraphSummary(locationGraph)
   const questStatus = getQuestStatusMeta(questLine)
@@ -194,14 +225,11 @@ export default function AdventureQuestHud({
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--emerald-light)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>羁绊</span>
           <div className="companion-signal-list">
             {companionSignals.map(signal => (
-              <span
+              <CompanionSignalChip
                 key={signal.id}
-                className={`companion-signal-item ${signal.tone}`}
-                title={signal.title}
-              >
-                <b>{signal.name}</b>{signal.summary}
-                {signal.detail && <em>{signal.detail}</em>}
-              </span>
+                signal={signal}
+                onOpenJournal={onOpenJournal}
+              />
             ))}
           </div>
         </>
