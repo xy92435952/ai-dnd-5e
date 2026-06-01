@@ -2166,6 +2166,41 @@
   font-weight: 800;
   line-height: 1.2;
 }
+.spell-target-fit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.spell-target-fit span {
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spell-target-fit span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}
+.spell-target-fit span.warning {
+  border-color: rgba(240,208,96,.32);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.spell-target-fit span.bad {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(240,64,64,.1);
+  color: #f09090;
+}
 .spell-rule-preview {
   display: grid;
   gap: 3px;

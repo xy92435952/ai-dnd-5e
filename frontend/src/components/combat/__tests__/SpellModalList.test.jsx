@@ -73,4 +73,59 @@ describe('SpellModalList', () => {
     expect(within(screen.getByLabelText('法术预览 Hold Person')).getByText('感知豁免 · DC 15')).toBeInTheDocument()
     expect(within(screen.getByLabelText('法术预览 Guiding Bolt')).getByText('法术攻击检定 · +6')).toBeInTheDocument()
   })
+
+  it('shows selected target fit before choosing a spell', () => {
+    render(
+      <SpellModalList
+        level={1}
+        shownSpells={[
+          {
+            name: 'Cure Wounds',
+            level: 1,
+            type: 'heal',
+            target_type: 'ally',
+            heal: '1d8',
+          },
+          {
+            name: 'Guiding Bolt',
+            level: 1,
+            type: 'damage',
+            target_type: 'enemy',
+            desc: 'Make a ranged spell attack.',
+          },
+          {
+            name: 'Fireball',
+            level: 3,
+            type: 'damage',
+            aoe: true,
+            damage: '8d6',
+          },
+        ]}
+        cantrips={[]}
+        combat={{
+          entities: {
+            'enemy-1': { id: 'enemy-1', name: 'Cultist', is_enemy: true },
+          },
+        }}
+        selectedTarget="enemy-1"
+        playerId="hero-1"
+        selectedSpell={null}
+        setSelectedSpell={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    expect(within(screen.getByLabelText('目标适配 Cure Wounds')).getByText('目标不匹配')).toHaveAttribute(
+      'title',
+      '当前选中敌方；治疗或友方法术需要队友或自己。',
+    )
+    expect(within(screen.getByLabelText('目标适配 Guiding Bolt')).getByText('目标 Cultist')).toHaveAttribute(
+      'title',
+      '当前目标可用于此法术。',
+    )
+    expect(within(screen.getByLabelText('目标适配 Fireball')).getByText('选落点')).toHaveAttribute(
+      'title',
+      '范围法术通过战场落点决定目标。',
+    )
+  })
 })

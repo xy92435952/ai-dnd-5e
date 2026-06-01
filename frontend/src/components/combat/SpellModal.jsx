@@ -116,6 +116,9 @@ export default function SpellModal({
           shownSpells={shownSpells}
           cantrips={cantrips}
           caster={caster}
+          combat={combat}
+          playerId={playerId}
+          selectedTarget={selectedTarget}
           selectedSpell={selectedSpell}
           setSelectedSpell={setSelectedSpell}
           onSpellHover={onSpellHover}
