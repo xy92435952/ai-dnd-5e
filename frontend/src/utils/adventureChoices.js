@@ -136,6 +136,10 @@ export function getChoiceLocationExit(choice = {}) {
   const flags = []
   if (exit.locked) flags.push('锁定')
   if (exit.one_way) flags.push('单向')
+  if (exit.requires_key) flags.push(`钥匙: ${exit.requires_key}`)
+  if (exit.dc !== null && exit.dc !== undefined) {
+    flags.push(`${exit.check_type || 'check'} DC ${exit.dc}`)
+  }
   const normalizedRouteType = routeType.toLowerCase()
   if (routeType && !['route', 'movement', 'locked', 'hidden', 'one_way', 'one-way'].includes(normalizedRouteType)) {
     flags.push(routeType)

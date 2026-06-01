@@ -294,6 +294,9 @@ def test_tag_player_choices_with_location_exits_preserves_existing_choice_fields
                     "type": "locked",
                     "locked": True,
                     "one_way": True,
+                    "requires_key": "Bronze Key",
+                    "check_type": "thieves_tools",
+                    "dc": 15,
                 },
             ],
         },
@@ -320,6 +323,9 @@ def test_tag_player_choices_with_location_exits_preserves_existing_choice_fields
     assert tagged[0]["location_exit"]["target_location_id"] == "vault"
     assert tagged[0]["location_exit"]["locked"] is True
     assert tagged[0]["location_exit"]["one_way"] is True
+    assert tagged[0]["location_exit"]["requires_key"] == "Bronze Key"
+    assert tagged[0]["location_exit"]["check_type"] == "thieves_tools"
+    assert tagged[0]["location_exit"]["dc"] == 15
 
 
 def test_tag_player_choices_with_location_exits_does_not_expose_hidden_exits():

@@ -66,13 +66,16 @@ describe('getChoiceIntent', () => {
         route_type: 'locked',
         locked: true,
         one_way: true,
+        requires_key: '青铜钥匙',
+        check_type: 'thieves_tools',
+        dc: 15,
       },
     }
 
     expect(getChoiceIntent(choice)).toMatchObject({ type: 'movement', label: '移动' })
     expect(getChoiceLocationExit(choice)).toEqual({
       destination: '军械库',
-      flags: ['锁定', '单向'],
+      flags: ['锁定', '单向', '钥匙: 青铜钥匙', 'thieves_tools DC 15'],
       tone: 'locked',
     })
     expect(getChoiceLocationExit({

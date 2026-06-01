@@ -684,6 +684,9 @@ def _tag_choice_with_exit(
         "hidden": bool(exit_data.get("hidden")),
         "one_way": bool(exit_data.get("one_way")),
     }
+    for key in ("label", "requires_key", "status", "dc", "check_type"):
+        if exit_data.get(key) is not None:
+            tagged["location_exit"][key] = exit_data.get(key)
     tagged["tags"] = _append_location_exit_tag(tagged.get("tags"))
     return tagged
 

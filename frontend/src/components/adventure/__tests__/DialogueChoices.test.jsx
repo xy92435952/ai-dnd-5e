@@ -136,6 +136,9 @@ describe('DialogueChoices', () => {
             route_type: 'locked',
             locked: true,
             one_way: true,
+            requires_key: '青铜钥匙',
+            check_type: 'thieves_tools',
+            dc: 15,
           },
           tags: [{ label: 'Exit', kind: 'location_exit' }],
         }]}
@@ -155,5 +158,7 @@ describe('DialogueChoices', () => {
     expect(within(exit).getByText('军械库')).toBeInTheDocument()
     expect(within(exit).getByText('锁定')).toBeInTheDocument()
     expect(within(exit).getByText('单向')).toBeInTheDocument()
+    expect(within(exit).getByText('钥匙: 青铜钥匙')).toBeInTheDocument()
+    expect(within(exit).getByText('thieves_tools DC 15')).toBeInTheDocument()
   })
 })
