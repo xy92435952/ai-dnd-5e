@@ -85,12 +85,22 @@ function getApprovalMeta(value) {
         : clamped < 0
           ? '动摇'
           : '中立'
+  const next = clamped >= 50
+    ? { label: '最高信赖', remaining: 0, text: '已达最高信赖' }
+    : clamped >= 10
+      ? { label: '信赖', remaining: 50 - clamped }
+      : clamped >= 0
+        ? { label: '认可', remaining: 10 - clamped }
+        : clamped >= -49
+          ? { label: '中立', remaining: 0 - clamped }
+          : { label: '动摇', remaining: -49 - clamped }
   return {
     score: clamped,
     label,
     tone: clamped > 0 ? 'good' : clamped < 0 ? 'danger' : 'default',
     text: `${clamped > 0 ? '+' : ''}${clamped}`,
     fill: `${(clamped + 100) / 2}%`,
+    nextText: next.text || `距${next.label} ${next.remaining}`,
   }
 }
 
@@ -476,6 +486,12 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
                   {companion.bond.approval && (
                     <div className={`journal-approval-meter ${companion.bond.approval.tone}`} aria-label={`${companion.name} 好感 ${companion.bond.approval.text}`}>
                       <span style={{ width: companion.bond.approval.fill }} />
+                    </div>
+                  )}
+                  {companion.bond.approval && (
+                    <div className="journal-approval-thresholds" aria-label={`${companion.name} 好感阈值`}>
+                      <span><b>阶段</b>{companion.bond.approval.label}</span>
+                      <span><b>下一档</b>{companion.bond.approval.nextText}</span>
                     </div>
                   )}
                   {companion.bond.reason && <p className="journal-muted">最近影响：{companion.bond.reason}</p>}

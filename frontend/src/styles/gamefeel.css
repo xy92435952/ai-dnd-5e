@@ -1075,6 +1075,30 @@
 .journal-approval-meter.danger span {
   background: linear-gradient(90deg, rgba(115,38,38,.68), rgba(240,64,64,.72));
 }
+.journal-approval-thresholds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.journal-approval-thresholds span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 5px 6px;
+  border: 1px solid rgba(213,184,121,.18);
+  border-radius: 4px;
+  background: rgba(0,0,0,.16);
+  color: var(--parchment-light);
+  font-size: 11px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.journal-approval-thresholds b {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+}
 .journal-personal-quest {
   display: grid;
   gap: 5px;
