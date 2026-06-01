@@ -39,6 +39,7 @@ def test_build_enemy_from_module_preserves_spellcasting_fields():
     assert enemy["spell_ability"] == "int"
     assert enemy["spell_save_dc"] == 13
     assert enemy["concentration"] is None
+    assert enemy["tactical_role"] == "controller"
     assert enemy["attack_bonus"] == 4
     assert enemy["multiattack"] == 2
     assert enemy["attacks_max"] == 2
@@ -87,6 +88,7 @@ def test_grid_data_from_encounter_template_places_authored_hazard_cells():
             "half_on_save": True,
             "cells": ["13_5", {"x": 13, "y": 6}],
         }],
+        "enemy_roles": [{"name": "Cult Mage", "role": "controller"}],
     })
 
     assert grid["10_5"]["terrain"] == "wall"
@@ -98,6 +100,7 @@ def test_grid_data_from_encounter_template_places_authored_hazard_cells():
     assert grid["13_5"]["damage_dice"] == "2d6"
     assert grid["13_5"]["save_dc"] == 13
     assert grid["13_6"]["save_ability"] == "dexterity"
+    assert grid["_encounter_template"]["enemy_roles"] == [{"name": "Cult Mage", "role": "controller"}]
 
 
 async def test_init_combat_stores_encounter_balance(db_session, sample_session, sample_module, sample_character):
@@ -160,6 +163,7 @@ async def test_init_combat_uses_current_location_encounter_template(
     )
 
     assert sample_session.game_state["enemies"][0]["name"] == "Clockwork Construct"
+    assert sample_session.game_state["enemies"][0]["tactical_role"] == "striker"
     assert sample_session.game_state["last_encounter_template_id"] == "encounter_scene_1_0"
     assert sample_session.game_state["last_encounter_template_balance"]["estimate"]["party_size"] == 1
     assert sample_session.game_state["last_encounter_template_balance"]["estimated_difficulty"] == "deadly"

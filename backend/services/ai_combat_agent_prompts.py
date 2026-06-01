@@ -30,6 +30,14 @@ DIFFICULTY_INSTRUCTIONS = {
 - 会优先使用控制类法术（如恐惧、束缚）削弱多个目标""",
 }
 
+TACTICAL_ROLE_INSTRUCTIONS = {
+    "striker": "定位：striker。优先制造伤害，选择低 HP、正在专注或高价值的目标；不要浪费回合在低影响移动上。",
+    "controller": "定位：controller。优先使用控制、范围、减速、恐惧、束缚或限制行动的能力，打乱多个角色或关键施法者。",
+    "defender": "定位：defender。优先守住 chokepoint、保护脆弱盟友、牵制前排目标，并在低血量时选择 dodge/disengage。",
+    "healer": "定位：healer。优先保住濒危盟友；没有治疗或支援目标时才改为攻击或控制。",
+    "skirmisher": "定位：skirmisher。优先侧翼、绕后、攻击脆弱目标并保持机动，不要长期停在前排被围攻。",
+}
+
 
 ENEMY_DECISION_PROMPT = """你是一个 DnD 5e 战斗中敌方单位的战斗 AI。你需要为这个怪物选择本回合的行动。
 
@@ -38,6 +46,7 @@ ENEMY_DECISION_PROMPT = """你是一个 DnD 5e 战斗中敌方单位的战斗 AI
 HP：{actor_hp}/{actor_hp_max}
 AC：{actor_ac}
 位置：({actor_x}, {actor_y})
+战术定位：{actor_tactical_role}
 可用行动：
 {actor_actions}
 可用法术（剩余法术位）：
@@ -45,6 +54,9 @@ AC：{actor_ac}
 
 ## 战术指令
 {tactics}
+
+## 定位准则
+{tactical_role_instructions}
 
 {difficulty_instructions}
 

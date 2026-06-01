@@ -10,7 +10,9 @@ from services.combat_legendary_action_service import initialize_legendary_action
 from services.combat_legendary_resistance_service import initialize_legendary_resistances
 from services.combat_recharge_service import normalize_recharge_abilities
 from services.encounter_template_service import (
+    infer_enemy_tactical_role,
     mark_encounter_template_triggered,
+    normalize_tactical_role,
     select_current_encounter_template,
 )
 from services.encounter_balance_service import estimate_encounter_difficulty
@@ -63,6 +65,7 @@ def build_enemy_from_module(monster: dict) -> dict:
         "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
+        "tactical_role": infer_enemy_tactical_role(monster),
         "known_spells": list(monster.get("known_spells") or []),
         "prepared_spells": list(monster.get("prepared_spells") or []),
         "cantrips": list(monster.get("cantrips") or []),
@@ -216,6 +219,7 @@ def _resolve_initial_enemies_from_sources(
             module,
         )
         if enemies:
+            _apply_template_roles_to_enemies(enemies, encounter_template)
             return enemies, encounter_template
 
     module_monsters = get_module_content(module).get("monsters", [])
@@ -239,6 +243,7 @@ def _grid_data_from_encounter_template(template: dict | None) -> dict:
             "terrain": list(template.get("terrain") or [])[:6],
             "cover": list(template.get("cover") or [])[:6],
             "hazards": list(template.get("hazards") or [])[:6],
+            "enemy_roles": list(template.get("enemy_roles") or [])[:8],
         }
     }
 
@@ -383,16 +388,17 @@ def _enemy_roles_by_name(encounter_template: dict | None) -> dict[str, str]:
     for item in (encounter_template or {}).get("enemy_roles") or []:
         if not isinstance(item, dict) or not item.get("name"):
             continue
-        roles[str(item.get("name")).lower()] = str(item.get("role") or "frontliner").lower()
+        roles[str(item.get("name")).lower()] = normalize_tactical_role(item.get("role"), "striker")
     return roles
 
 
 def _enemy_position_for_role(role: str, index: int, occupied: set[tuple[int, int]]) -> dict:
-    if role in {"caster", "artillery", "controller"}:
+    role = normalize_tactical_role(role, "striker")
+    if role in {"controller", "healer"}:
         candidates = [(18, 4), (18, 7), (17, 5), (17, 8)]
-    elif role in {"skirmisher", "lurker"}:
+    elif role == "skirmisher":
         candidates = [(16, 3), (16, 9), (15, 2), (15, 10)]
-    elif role in {"defender", "brute"}:
+    elif role == "defender":
         candidates = [(15, 5), (15, 7), (14, 6), (16, 6)]
     else:
         candidates = [(15, 6), (15, 5), (15, 7), (16, 6)]
@@ -401,6 +407,15 @@ def _enemy_position_for_role(role: str, index: int, occupied: set[tuple[int, int
         if 0 <= x < 20 and 0 <= y < 12 and (x, y) not in occupied:
             return {"x": x, "y": y}
     return {"x": 17, "y": max(0, min(11, 8 + index))}
+
+
+def _apply_template_roles_to_enemies(enemies: list[dict], encounter_template: dict | None) -> None:
+    roles = _enemy_roles_by_name(encounter_template)
+    for enemy in enemies:
+        name = str(enemy.get("name") or "").lower()
+        if name in roles:
+            enemy["tactical_role"] = roles[name]
+
 
 def _build_enemies_from_initial_items(items: list, module: Module) -> list[dict]:
     enemies: list[dict] = []
@@ -421,6 +436,16 @@ def _build_enemies_from_initial_items(items: list, module: Module) -> list[dict]
                 enemy["hp_current"] = item["hp_current"]
         else:
             enemy = _fallback_enemy_from_dm(item, name)
+        if isinstance(item, dict) and item.get("tactical_role"):
+            enemy["tactical_role"] = normalize_tactical_role(
+                item.get("tactical_role"),
+                enemy.get("tactical_role", "striker"),
+            )
+        elif isinstance(item, dict) and item.get("role"):
+            enemy["tactical_role"] = normalize_tactical_role(
+                item.get("role"),
+                enemy.get("tactical_role", "striker"),
+            )
         enemies.append(enemy)
     return enemies
 
@@ -452,6 +477,7 @@ def _fallback_enemy_from_dm(item, name: str) -> dict:
         "recharge_abilities": recharge_abilities,
         "multiattack": multiattack,
         "attacks_max": multiattack,
+        "tactical_role": infer_enemy_tactical_role(item),
         "tactics": "直接攻击最近的目标",
         "is_player": False,
         "initiative": 0,
@@ -493,6 +519,7 @@ def _generic_fallback_enemy() -> dict:
         "recharge_abilities": [],
         "multiattack": 1,
         "attacks_max": 1,
+        "tactical_role": "striker",
         "tactics": "直接攻击最近的目标",
         "is_player": False,
         "initiative": 1,

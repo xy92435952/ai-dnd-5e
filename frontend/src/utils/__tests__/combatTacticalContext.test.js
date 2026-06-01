@@ -12,6 +12,11 @@ describe('combat tactical context', () => {
             terrain: [{ name: 'oil slick', terrain: 'difficult' }],
             cover: [{ name: 'altar', cover_level: 'half' }],
             hazards: [{ name: 'fire jet', damage_dice: '2d6' }],
+            enemy_roles: [
+              { name: 'Rune Guard', role: 'defender' },
+              { name: 'Spark Adept', role: 'controller' },
+              { name: 'Spark Adept', role: 'controller' },
+            ],
           },
           '1_1': { terrain: 'total_cover' },
           '2_2': { terrain: 'hazard' },
@@ -38,7 +43,14 @@ describe('combat tactical context', () => {
     expect(context.terrain).toEqual(['oil slick'])
     expect(context.cover).toEqual(['altar'])
     expect(context.hazards).toEqual(['fire jet'])
+    expect(context.roleSummary).toBe('防卫 x1 / 控制 x2')
+    expect(context.enemyRoles.map(role => role.label)).toEqual([
+      'Rune Guard: 防卫',
+      'Spark Adept: 控制',
+      'Spark Adept: 控制',
+    ])
     expect(context.detailGroups).toEqual([
+      { key: 'roles', label: '敌职', value: '防卫 x1 / 控制 x2', title: '防卫 x1 / 控制 x2' },
       { key: 'objective', label: '目标', value: 'Seal the rift · 1 格', title: 'Seal the rift' },
       { key: 'cover', label: '掩护', value: 'altar · 1 格', title: 'altar' },
       { key: 'terrain', label: '地形', value: 'oil slick · 1 格', title: 'oil slick' },

@@ -39,9 +39,40 @@ def test_build_encounter_templates_links_monsters_to_combat_scene():
         {"name": "Clockwork Training Construct"},
         {"name": "Voltaic Spark"},
     ]
+    assert template["enemy_roles"] == [
+        {"name": "Clockwork Training Construct", "role": "striker"},
+        {"name": "Voltaic Spark", "role": "skirmisher"},
+    ]
     assert template["cover"] == ["low walls"]
     assert "unstable energy" in template["hazards"]
     assert template["reward_hints"] == ["Gate Token"]
+
+
+def test_build_encounter_templates_infers_tactical_ai_roles():
+    templates = build_encounter_templates_from_module({
+        "scenes": [{
+            "title": "Role Yard",
+            "description": "A mixed enemy squad blocks the road.",
+            "monsters": ["War Priest", "Web Adept", "Iron Guard", "Knife Dancer", "Ogre Mauler"],
+        }],
+        "monsters": [
+            {"name": "War Priest", "prepared_spells": ["Healing Word"], "hp": 18, "ac": 14},
+            {"name": "Web Adept", "known_spells": ["Web"], "hp": 16, "ac": 12},
+            {"name": "Iron Guard", "hp": 42, "ac": 18},
+            {"name": "Knife Dancer", "hp": 12, "ac": 13, "speed": 45},
+            {"name": "Ogre Mauler", "hp": 26, "ac": 13, "multiattack": 2},
+        ],
+    }, [{"id": "role_yard"}])
+
+    roles = {item["name"]: item["role"] for item in templates[0]["enemy_roles"]}
+
+    assert roles == {
+        "War Priest": "healer",
+        "Web Adept": "controller",
+        "Iron Guard": "defender",
+        "Knife Dancer": "skirmisher",
+        "Ogre Mauler": "striker",
+    }
 
 
 def test_build_encounter_templates_preserves_structured_hazard_metadata():

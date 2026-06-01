@@ -16,6 +16,7 @@ def test_enemy_prompt_includes_available_spells_and_slots():
         "known_spells": ["Web"],
         "cantrips": ["Fire Bolt"],
         "spell_slots": {"1st": 1},
+        "tactical_role": "controller",
     }
     context = build_ai_combat_context(
         actor=actor,
@@ -42,6 +43,8 @@ def test_enemy_prompt_includes_available_spells_and_slots():
     assert "Fire Bolt" in prompt
     assert "1st" in prompt
     assert "Dagger" in prompt
+    assert "战术定位：controller" in prompt
+    assert "定位：controller" in prompt
 
 
 def test_enemy_prompt_allows_special_decisions_for_recharge_actions():

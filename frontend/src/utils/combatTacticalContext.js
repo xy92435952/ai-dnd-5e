@@ -17,7 +17,9 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
   const terrain = featureLabels(template.terrain)
   const cover = featureLabels(template.cover)
   const hazards = featureLabels(template.hazards)
-  const detailGroups = buildDetailGroups({ objectives, terrain, cover, hazards, counts })
+  const enemyRoles = enemyRoleEntries(template.enemy_roles)
+  const roleSummary = summarizeRoleCounts(enemyRoles)
+  const detailGroups = buildDetailGroups({ objectives, terrain, cover, hazards, counts, roleSummary })
 
   const title = String(template.name || session?.module_name || 'Encounter')
   const difficulty = String(encounterBalance.difficulty || templateBalance.estimated_difficulty || '')
@@ -37,6 +39,7 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
       || terrain.length
       || cover.length
       || hazards.length
+      || enemyRoles.length
       || difficulty
       || environmentPressure
       || stagedCount
@@ -56,6 +59,8 @@ export function buildCombatTacticalContext({ combat, session } = {}) {
     terrain,
     cover,
     hazards,
+    enemyRoles,
+    roleSummary,
     detailGroups,
     counts,
   }
@@ -81,8 +86,9 @@ function featureLabels(values) {
     .slice(0, 4)
 }
 
-function buildDetailGroups({ objectives, terrain, cover, hazards, counts }) {
+function buildDetailGroups({ objectives, terrain, cover, hazards, counts, roleSummary }) {
   return [
+    detailGroup('roles', '敌职', roleSummary ? [roleSummary] : [], 0, '已识别战术定位'),
     detailGroup('objective', '目标', objectives, counts.objective, '已标记目标'),
     detailGroup('cover', '掩护', cover, counts.cover, '已标记掩护'),
     detailGroup('terrain', '地形', terrain, counts.difficult, '困难地形'),
@@ -122,6 +128,45 @@ function featureLabel(value) {
     || value.cover_level
     || '',
   ).trim()
+}
+
+function enemyRoleEntries(values) {
+  return asArray(values)
+    .map(value => {
+      if (!value || typeof value !== 'object') return null
+      const role = String(value.role || value.tactical_role || '').trim()
+      const name = String(value.name || '').trim()
+      if (!role && !name) return null
+      return {
+        name,
+        role,
+        label: [name, role && roleLabel(role)].filter(Boolean).join(': '),
+      }
+    })
+    .filter(Boolean)
+}
+
+function summarizeRoleCounts(entries) {
+  if (!entries.length) return ''
+  const counts = new Map()
+  entries.forEach(entry => {
+    const key = entry.role || 'unknown'
+    counts.set(key, (counts.get(key) || 0) + 1)
+  })
+  return [...counts.entries()]
+    .map(([role, count]) => `${roleLabel(role)} x${count}`)
+    .join(' / ')
+}
+
+function roleLabel(role) {
+  const normalized = String(role || '').trim().toLowerCase()
+  return ({
+    striker: '突击',
+    controller: '控制',
+    defender: '防卫',
+    healer: '治疗',
+    skirmisher: '游击',
+  })[normalized] || role
 }
 
 function asArray(value) {

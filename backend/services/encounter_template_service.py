@@ -40,6 +40,57 @@ COMBAT_HINTS = {
     "敌人",
     "陷阱",
 }
+TACTICAL_ROLES = {"striker", "controller", "defender", "healer", "skirmisher"}
+TACTICAL_ROLE_ALIASES = {
+    "artillery": "striker",
+    "assassin": "striker",
+    "brute": "defender",
+    "caster": "controller",
+    "frontliner": "striker",
+    "guardian": "defender",
+    "lurker": "skirmisher",
+    "soldier": "defender",
+    "tank": "defender",
+    "治疗": "healer",
+    "治疗者": "healer",
+    "守卫": "defender",
+    "坦克": "defender",
+    "控制": "controller",
+    "控制者": "controller",
+    "游击": "skirmisher",
+    "突击": "striker",
+}
+HEALING_HINTS = {
+    "cure wounds",
+    "healing word",
+    "heal",
+    "mass cure",
+    "lay on hands",
+    "regenerate",
+    "治疗",
+    "治愈",
+    "恢复",
+}
+CONTROL_HINTS = {
+    "banish",
+    "charm",
+    "command",
+    "confusion",
+    "entangle",
+    "fear",
+    "hold",
+    "hypnotic",
+    "restrain",
+    "slow",
+    "stun",
+    "web",
+    "束缚",
+    "恐惧",
+    "魅惑",
+    "定身",
+    "减速",
+    "震慑",
+}
 
 
 def build_encounter_templates_from_module(
@@ -607,7 +658,7 @@ def _build_template(
         "enemy_names": enemy_names,
         "initial_enemies": [{"name": name} for name in enemy_names],
         "enemy_roles": [
-            {"name": str(monster.get("name")), "role": _enemy_role(monster)}
+            {"name": str(monster.get("name")), "role": infer_enemy_tactical_role(monster)}
             for monster in monsters
         ],
         "terrain": _terrain_features(scene),
@@ -813,17 +864,103 @@ def _tactics(monsters: list[dict[str, Any]]) -> str:
     return "Use the terrain and focus isolated targets."
 
 
-def _enemy_role(monster: dict[str, Any]) -> str:
+def normalize_tactical_role(value: Any, fallback: str = "striker") -> str:
+    raw = _normalize(value)
+    if raw in TACTICAL_ROLES:
+        return raw
+    if raw in TACTICAL_ROLE_ALIASES:
+        return TACTICAL_ROLE_ALIASES[raw]
+    return fallback
+
+
+def infer_enemy_tactical_role(monster: dict[str, Any] | None) -> str:
+    monster = monster or {}
+    explicit = (
+        monster.get("tactical_role")
+        or monster.get("combat_role")
+        or monster.get("battlefield_role")
+        or monster.get("role")
+    )
+    if explicit:
+        normalized = normalize_tactical_role(explicit, fallback="")
+        if normalized:
+            return normalized
+
+    spells_text = " ".join(
+        str(spell)
+        for spell in [
+            *_as_list(monster.get("known_spells")),
+            *_as_list(monster.get("prepared_spells")),
+            *_as_list(monster.get("cantrips")),
+        ]
+    ).lower()
+    actions_text = " ".join(
+        " ".join(str(value) for value in action.values() if value not in (None, ""))
+        for action in (monster.get("actions") or [])
+        if isinstance(action, dict)
+    ).lower()
+    abilities_text = " ".join(
+        " ".join(str(value) for value in ability.values() if value not in (None, ""))
+        if isinstance(ability, dict) else str(ability)
+        for ability in [
+            *list(monster.get("special_abilities") or []),
+            *list(monster.get("recharge_abilities") or []),
+        ]
+    ).lower()
+    combined = " ".join([spells_text, actions_text, abilities_text])
+
+    if any(hint in combined for hint in HEALING_HINTS):
+        return "healer"
+    if any(hint in combined for hint in CONTROL_HINTS) or _inflicts_control_condition(monster):
+        return "controller"
+
     speed = _to_int(monster.get("speed"), 30)
     ac = _to_int(monster.get("ac"), 10)
     hp = _to_int(monster.get("hp"), 1)
-    if monster.get("spell_slots") or monster.get("known_spells") or monster.get("prepared_spells"):
-        return "caster"
+    multiattack = _to_int(monster.get("multiattack") or monster.get("attacks_max"), 1)
+    scores = monster.get("ability_scores") if isinstance(monster.get("ability_scores"), dict) else {}
+    dex = _to_int(scores.get("dex"), 10)
+    con = _to_int(scores.get("con"), 10)
+
     if speed >= 40:
         return "skirmisher"
-    if ac >= 16 or hp >= 35:
-        return "brute"
-    return "frontliner"
+    if ac >= 16 or hp >= 35 or con >= 16:
+        return "defender"
+    if multiattack >= 2 or dex >= 16 or _has_high_damage_action(monster):
+        return "striker"
+    return "striker"
+
+
+def _inflicts_control_condition(monster: dict[str, Any]) -> bool:
+    control_conditions = {
+        "charmed",
+        "frightened",
+        "grappled",
+        "paralyzed",
+        "poisoned",
+        "prone",
+        "restrained",
+        "stunned",
+        "unconscious",
+    }
+    for action in (monster.get("actions") or []):
+        if not isinstance(action, dict):
+            continue
+        effects = action.get("conditions") or action.get("condition") or action.get("inflicts")
+        values = effects if isinstance(effects, list) else [effects]
+        if any(_normalize(value) in control_conditions for value in values if value):
+            return True
+    return False
+
+
+def _has_high_damage_action(monster: dict[str, Any]) -> bool:
+    for action in monster.get("actions") or []:
+        if not isinstance(action, dict):
+            continue
+        damage = str(action.get("damage_dice") or action.get("damage") or "")
+        if re.search(r"\b[2-9]d(6|8|10|12)\b", damage.lower()):
+            return True
+    return False
 
 
 def _difficulty_hint(xp_total: int, monster_count: int) -> str:

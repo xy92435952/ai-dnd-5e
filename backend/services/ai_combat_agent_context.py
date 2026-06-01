@@ -17,11 +17,13 @@ def format_entity(e: dict, pos: dict = None) -> str:
     pos_str = f"({pos['x']},{pos['y']})" if pos else "未知"
     cls = e.get("char_class", e.get("type", ""))
     conc_str = f" [专注: {conc}]" if conc else ""
+    tactical_role = e.get("tactical_role") or e.get("combat_role") or ""
+    role_str = f" | 定位: {tactical_role}" if tactical_role else ""
 
     return (
         f"  - ID: {e.get('id','?')} | {e.get('name','?')} ({cls}) | "
         f"HP: {hp}/{hp_max} ({hp_pct}%) | AC: {e.get('ac') or (e.get('derived') or {}).get('ac',10)} | "
-        f"位置: {pos_str} | 条件: {conds}{conc_str}"
+        f"位置: {pos_str} | 条件: {conds}{conc_str}{role_str}"
     )
 
 

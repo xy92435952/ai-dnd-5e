@@ -18,7 +18,9 @@ describe('CombatTacticalContextPanel', () => {
           terrain: ['oil slick'],
           cover: ['altar'],
           hazards: ['fire jet'],
+          roleSummary: '防卫 x1 / 控制 x2',
           detailGroups: [
+            { key: 'roles', label: '敌职', value: '防卫 x1 / 控制 x2', title: '防卫 x1 / 控制 x2' },
             { key: 'objective', label: '目标', value: 'Seal the rift · 1 格', title: 'Seal the rift' },
             { key: 'cover', label: '掩护', value: 'altar · 1 格', title: 'altar' },
             { key: 'terrain', label: '地形', value: 'oil slick · 1 格', title: 'oil slick' },
@@ -40,6 +42,8 @@ describe('CombatTacticalContextPanel', () => {
     expect(screen.getByText('fire jet')).toBeTruthy()
     expect(screen.getByText('困难 / 目标 中等 / 环境 致命')).toBeTruthy()
     expect(screen.getByLabelText('战术要素明细')).toBeTruthy()
+    expect(screen.getAllByText('敌职').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('防卫 x1 / 控制 x2').length).toBeGreaterThan(0)
     expect(screen.getAllByText('掩护').length).toBeGreaterThan(0)
     expect(screen.getAllByText('危险').length).toBeGreaterThan(0)
     expect(screen.getByText('altar · 1 格')).toBeTruthy()

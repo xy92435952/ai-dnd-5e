@@ -40,6 +40,7 @@ export default function CombatTacticalContextPanel({ context }) {
         <span>困难地形 {context.counts?.difficult || 0}</span>
         <span>危险 {context.counts?.hazard || 0}</span>
         <span>目标点 {context.counts?.objective || 0}</span>
+        {context.roleSummary && <span>{context.roleSummary}</span>}
         {context.environmentPressure && <span>环境 {pressureLabel(context.environmentPressure)}</span>}
         {context.stagedCount > 0 && <span>预置 {context.stagedCount}</span>}
       </div>

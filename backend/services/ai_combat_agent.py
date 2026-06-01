@@ -29,7 +29,9 @@ from services.ai_combat_agent_prompts import (
     ALLY_DECISION_PROMPT,
     DIFFICULTY_INSTRUCTIONS as _DIFFICULTY_INSTRUCTIONS,
     ENEMY_DECISION_PROMPT,
+    TACTICAL_ROLE_INSTRUCTIONS as _TACTICAL_ROLE_INSTRUCTIONS,
 )
+from services.encounter_template_service import normalize_tactical_role
 from services.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -123,6 +125,7 @@ def _build_enemy_prompt(
 ) -> str:
     actor_pos = context["actor_pos"]
     move_speed = context["move_speed"]
+    tactical_role = normalize_tactical_role(actor.get("tactical_role"), "striker")
     return ENEMY_DECISION_PROMPT.format(
         actor_name=actor.get("name", "未知"),
         actor_hp=actor.get("hp_current", 0),
@@ -130,9 +133,14 @@ def _build_enemy_prompt(
         actor_ac=actor.get("ac") or (actor.get("derived") or {}).get("ac", 10),
         actor_x=actor_pos.get("x", "?"),
         actor_y=actor_pos.get("y", "?"),
+        actor_tactical_role=tactical_role,
         actor_actions=_format_actions(actor.get("actions", [])),
         spell_info=_format_spells(actor),
         tactics=module_tactics or "无特殊战术指令",
+        tactical_role_instructions=_TACTICAL_ROLE_INSTRUCTIONS.get(
+            tactical_role,
+            _TACTICAL_ROLE_INSTRUCTIONS["striker"],
+        ),
         difficulty_instructions=_DIFFICULTY_INSTRUCTIONS.get(
             module_difficulty,
             _DIFFICULTY_INSTRUCTIONS["normal"],
@@ -198,6 +206,7 @@ __all__ = [
     "ENEMY_DECISION_PROMPT",
     "_DIFFICULTY_INSTRUCTIONS",
     "_FALLBACK",
+    "_TACTICAL_ROLE_INSTRUCTIONS",
     "_chebyshev",
     "_format_actions",
     "_format_distances",
