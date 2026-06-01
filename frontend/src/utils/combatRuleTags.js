@@ -1,3 +1,5 @@
+import { formatConditionLabel } from './conditionRules'
+
 const COVER_LABELS = {
   2: '半掩护 +2 AC',
   5: '3/4 掩护 +5 AC',
@@ -66,11 +68,12 @@ function coverTitle({ coverBonus, targetAc, effectiveAc, coverDetail = null }) {
 
 function modifierIsAlreadyExplained(modifier, explainedSources = []) {
   const text = normalizeLookup(modifier)
+  const localizedText = normalizeLookup(localizeSourceText(modifier))
   if (!text) return true
   if (ADVANTAGE_NAMES.has(text) || DISADVANTAGE_NAMES.has(text)) return true
   if (COVER_NAMES.has(text)) return true
   if (SOURCE_MARKER_NAMES.has(text)) return true
-  if (explainedSources.some(source => normalizeLookup(source) === text)) return true
+  if (explainedSources.some(source => normalizeLookup(source) === text || normalizeLookup(source) === localizedText)) return true
   if (text.includes('cover') || text.includes('掩护')) return true
   return false
 }
@@ -177,9 +180,21 @@ function sourceList(value) {
 }
 
 function sourceLabel(value) {
-  if (typeof value === 'string') return normalizeText(value)
+  if (typeof value === 'string') return localizeSourceText(value)
   if (!value || typeof value !== 'object') return ''
-  return normalizeText(value.label || value.name || value.source || value.reason || value.condition)
+  return localizeSourceText(value.label || value.name || value.source || value.reason || value.condition)
+}
+
+function localizeSourceText(value) {
+  const text = normalizeText(value)
+  const match = text.match(/^(attacker|target)\s+([a-zA-Z][a-zA-Z0-9_\-\s]*)$/i)
+  if (!match) return text
+
+  const subject = match[1].toLowerCase() === 'attacker' ? '攻击者' : '目标'
+  const rawCondition = match[2].trim()
+  if (/^(state|condition|status)$/i.test(rawCondition)) return text
+  const condition = formatConditionLabel(rawCondition)
+  return condition ? `${subject}${condition}` : text
 }
 
 function rollStateTitle(base, advantageSources = [], disadvantageSources = []) {

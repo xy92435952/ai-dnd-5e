@@ -192,6 +192,10 @@ export function buildConditionImpactTags(conditions = [], durations = {}) {
     .slice(0, 6)
 }
 
+export function formatConditionLabel(condition) {
+  return conditionLabel(conditionKey(condition))
+}
+
 function conditionSummary(condition, durations = {}) {
   const key = conditionKey(condition)
   if (!key) return null

@@ -162,11 +162,11 @@ describe('TargetCard', () => {
 
     const tags = screen.getByLabelText('攻击规则标签 Guard Behind Pillar')
     expect(tags).toHaveTextContent('劣势')
-    expect(tags).toHaveTextContent('劣势: attacker poisoned +1')
+    expect(tags).toHaveTextContent('劣势: 攻击者中毒 +1')
     expect(tags).toHaveTextContent('3/4 掩护 +5 AC')
     expect(tags).toHaveTextContent('有效 AC 19')
     expect(within(tags).getByTitle(/掷两个 d20，取较低结果/)).toBeInTheDocument()
-    expect(within(tags).getByTitle('劣势来源：attacker poisoned / target invisible。')).toBeInTheDocument()
+    expect(within(tags).getByTitle('劣势来源：攻击者中毒 / 目标隐形。')).toBeInTheDocument()
     expect(within(tags).getByTitle('掩护使本次攻击的 AC 从 14 提升到 19。路径经过 3_0 total_cover。')).toBeInTheDocument()
   })
 })

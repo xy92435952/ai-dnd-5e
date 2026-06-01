@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildConditionImpactTags, buildConditionSummaries } from '../conditionRules'
+import { buildConditionImpactTags, buildConditionSummaries, formatConditionLabel } from '../conditionRules'
 
 describe('buildConditionSummaries', () => {
   it('summarizes harmful conditions with duration hints', () => {
@@ -21,6 +21,9 @@ describe('buildConditionSummaries', () => {
       label: '火焰抗性',
       tone: 'buff',
     })
+    expect(formatConditionLabel('fire_resistance')).toBe('火焰抗性')
+    expect(formatConditionLabel('marked')).toBe('标记')
+    expect(formatConditionLabel('custom_state')).toBe('Custom State')
   })
 
   it('builds compact deduped impact tags for tactical reading', () => {

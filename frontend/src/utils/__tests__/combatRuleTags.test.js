@@ -69,8 +69,8 @@ describe('combatRuleTags', () => {
       effective_target_ac: 12,
     }).map(tag => tag.label)).toEqual([
       '优势抵消',
-      '优势: target restrained',
-      '劣势: attacker poisoned',
+      '优势: 目标束缚',
+      '劣势: 攻击者中毒',
       '有效 AC 12',
     ])
   })
@@ -84,9 +84,9 @@ describe('combatRuleTags', () => {
 
     expect(tags.map(tag => tag.label)).toEqual([
       '劣势',
-      '劣势: attacker poisoned +1',
+      '劣势: 攻击者中毒 +1',
     ])
-    expect(tags[0].title).toContain('attacker poisoned / target invisible')
+    expect(tags[0].title).toContain('攻击者中毒 / 目标隐形')
   })
 
   it('shows when cover is bypassed by a feature', () => {
