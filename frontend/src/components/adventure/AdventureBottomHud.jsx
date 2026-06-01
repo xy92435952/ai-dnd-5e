@@ -11,6 +11,7 @@ export default function AdventureBottomHud({
   npcUpdates,
   keyDecisions,
   recentConsequences,
+  companionSignals,
   locationGraph,
   onOpenCharacter,
   onOpenJournal,
@@ -35,6 +36,7 @@ export default function AdventureBottomHud({
         npcUpdates={npcUpdates}
         keyDecisions={keyDecisions}
         recentConsequences={recentConsequences}
+        companionSignals={companionSignals}
         locationGraph={locationGraph}
       />
 

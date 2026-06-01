@@ -730,6 +730,51 @@
   min-width: 0;
   overflow: hidden;
 }
+.companion-signal-list {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+.companion-signal-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 230px;
+  padding: 2px 7px;
+  border: 1px solid rgba(106,196,132,.34);
+  border-radius: 4px;
+  background: rgba(42,106,58,.12);
+  color: var(--emerald-light);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.companion-signal-item b {
+  color: var(--parchment-light);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0;
+}
+.companion-signal-item em {
+  min-width: 0;
+  color: var(--parchment-dark);
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.companion-signal-item.danger {
+  border-color: rgba(240,64,64,.42);
+  background: rgba(138,26,26,.14);
+  color: var(--blood-light);
+}
+.companion-signal-item.default {
+  border-color: rgba(213,184,121,.28);
+  background: rgba(213,184,121,.08);
+  color: var(--parchment-light);
+}
 .quest-status-pill {
   flex: 0 0 auto;
   max-width: 56px;

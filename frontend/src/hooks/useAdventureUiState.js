@@ -4,6 +4,95 @@ function cleanText(value) {
   return String(value || '').trim()
 }
 
+function asObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function formatSigned(value) {
+  return `${value > 0 ? '+' : ''}${value}`
+}
+
+function getBondEntries(source) {
+  if (Array.isArray(source)) {
+    return source.map((item, index) => [item?.id || item?.name || String(index), item])
+  }
+  return Object.entries(asObject(source))
+}
+
+function findCompanionBond(companion, source) {
+  const candidates = [
+    companion?.id,
+    companion?.character_id,
+    companion?.characterId,
+    companion?.name,
+  ].map(cleanText).filter(Boolean)
+  if (candidates.length === 0) return null
+
+  const entries = getBondEntries(source)
+  for (const [key, value] of entries) {
+    if (candidates.includes(cleanText(key))) return value
+  }
+
+  const matched = entries.find(([key, value]) => {
+    const bond = asObject(value)
+    const values = [
+      key,
+      bond.id,
+      bond.character_id,
+      bond.characterId,
+      bond.name,
+    ].map(cleanText).filter(Boolean)
+    return candidates.some(candidate => values.includes(candidate))
+  })
+  return matched?.[1] || null
+}
+
+function buildCompanionSignal(companion, rawBond) {
+  const bond = asObject(rawBond)
+  const personalQuest = asObject(bond.personal_quest || bond.personalQuest || bond.quest)
+  const approval = toFiniteNumber(bond.approval ?? bond.approval_score ?? bond.affinity)
+  const delta = toFiniteNumber(bond.last_approval_delta ?? bond.approval_delta ?? bond.approval_change)
+  const relationship = cleanText(bond.relationship || bond.relationship_label || bond.status)
+  const reason = cleanText(bond.last_approval_reason || bond.reason || bond.approval_reason)
+  const questTitle = cleanText(personalQuest.title || personalQuest.quest || personalQuest.name)
+  const questDetail = cleanText(personalQuest.next_step || personalQuest.nextStep || personalQuest.detail || personalQuest.description)
+  const summary = delta !== null
+    ? `好感 ${formatSigned(delta)}`
+    : approval !== null
+      ? `好感 ${formatSigned(approval)}`
+      : relationship
+        ? `关系 ${relationship}`
+        : questTitle
+          ? '个人任务'
+          : ''
+  const detail = questDetail || reason
+  if (!summary && !detail) return null
+
+  const toneSource = delta ?? approval ?? 0
+  const name = cleanText(companion?.name) || '队友'
+  return {
+    id: cleanText(companion?.id || companion?.character_id || companion?.characterId || name),
+    name,
+    summary,
+    detail,
+    tone: toneSource > 0 ? 'good' : toneSource < 0 ? 'danger' : 'default',
+    title: [
+      relationship ? `关系：${relationship}` : '',
+      approval !== null ? `好感：${formatSigned(approval)}` : '',
+      delta !== null ? `最近好感：${formatSigned(delta)}` : '',
+      reason ? `最近影响：${reason}` : '',
+      questTitle ? `个人任务：${questTitle}` : '',
+      questDetail ? `下一步：${questDetail}` : '',
+    ].filter(Boolean).join('\n'),
+  }
+}
+
 export function useAdventureUiState() {
   const [logs, setLogs] = useState([])
   const [input, setInput] = useState('')
@@ -101,6 +190,15 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
     return { ...selectedQuest, progressCount }
   }, [session])
 
+  const companionSignals = useMemo(() => {
+    const campaign = session?.campaign_state || {}
+    const source = campaign.companion_bonds || campaign.companion_relationships || campaign.companion_states
+    return (companions || [])
+      .map(companion => buildCompanionSignal(companion, findCompanionBond(companion, source)))
+      .filter(Boolean)
+      .slice(0, 3)
+  }, [session, companions])
+
   return {
     canPrepareSpells,
     sceneVibe: session?.game_state?.scene_vibe || {},
@@ -110,6 +208,7 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
     npcUpdates,
     keyDecisions,
     recentConsequences,
+    companionSignals,
     allMembers,
     latestDmLine,
   }

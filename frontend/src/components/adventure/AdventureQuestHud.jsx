@@ -43,6 +43,7 @@ export default function AdventureQuestHud({
   npcUpdates = [],
   keyDecisions = [],
   recentConsequences = [],
+  companionSignals = [],
   locationGraph = null,
 }) {
   const locationSummary = getLocationGraphSummary(locationGraph)
@@ -182,6 +183,24 @@ export default function AdventureQuestHud({
                 maxWidth: 180,
               }}>
                 · {decision}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+      {companionSignals.length > 0 && (
+        <>
+          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--emerald-light)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>羁绊</span>
+          <div className="companion-signal-list">
+            {companionSignals.map(signal => (
+              <span
+                key={signal.id}
+                className={`companion-signal-item ${signal.tone}`}
+                title={signal.title}
+              >
+                <b>{signal.name}</b>{signal.summary}
+                {signal.detail && <em>{signal.detail}</em>}
               </span>
             ))}
           </div>

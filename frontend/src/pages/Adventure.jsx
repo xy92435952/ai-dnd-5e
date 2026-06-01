@@ -250,6 +250,7 @@ export default function Adventure() {
     npcUpdates,
     keyDecisions,
     recentConsequences,
+    companionSignals,
     locationGraph,
     allMembers,
     latestDmLine,
@@ -496,6 +497,7 @@ export default function Adventure() {
           npcUpdates={npcUpdates}
           keyDecisions={keyDecisions}
           recentConsequences={recentConsequences}
+          companionSignals={companionSignals}
           locationGraph={locationGraph}
           onOpenCharacter={(id) => navigate(`/character/${id}?sessionId=${sessionId}`)}
           onOpenJournal={() => setJournalOpen(true)}

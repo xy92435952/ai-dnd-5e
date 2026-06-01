@@ -53,6 +53,18 @@ describe('useAdventureDerivedState', () => {
             { type: 'clue', label: '暗门在井底', detail: 'location', at: '4' },
             { type: 'world', label: 'smith_trusted', detail: '已触发', at: '5' },
           ],
+          companion_bonds: {
+            c1: {
+              relationship: '认可',
+              approval: 18,
+              last_approval_delta: 6,
+              last_approval_reason: '听取前线建议',
+              personal_quest: {
+                title: '旧誓言',
+                next_step: '询问铁匠的徽章',
+              },
+            },
+          },
         },
       },
       player: { id: 'p1', name: '法师', char_class: 'Wizard' },
@@ -79,6 +91,15 @@ describe('useAdventureDerivedState', () => {
       { type: 'decision', label: '信任铁匠', detail: '关键决定', at: '3' },
       { type: 'npc', label: '铁匠', detail: '友好', at: '2' },
     ])
+    expect(result.current.companionSignals).toHaveLength(1)
+    expect(result.current.companionSignals[0]).toMatchObject({
+      id: 'c1',
+      name: '战士',
+      summary: '好感 +6',
+      detail: '询问铁匠的徽章',
+      tone: 'good',
+    })
+    expect(result.current.companionSignals[0].title).toContain('最近影响：听取前线建议')
     expect(result.current.allMembers).toEqual([
       { id: 'p1', name: '法师', char_class: 'Wizard', isPlayer: true },
       { id: 'c1', name: '战士', isPlayer: false },

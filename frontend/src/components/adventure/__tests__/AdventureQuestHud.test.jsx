@@ -34,6 +34,16 @@ describe('AdventureQuestHud', () => {
         }}
         npcUpdates={[]}
         keyDecisions={[]}
+        companionSignals={[
+          {
+            id: 'ally-1',
+            name: '艾琳',
+            summary: '好感 +6',
+            detail: '追踪失踪徽章',
+            tone: 'good',
+            title: '最近好感：+6\n下一步：追踪失踪徽章',
+          },
+        ]}
         recentConsequences={[
           { type: 'quest', label: '寻找矿工', detail: '矿工获救' },
           { type: 'companion', label: '艾琳', detail: '好感+6' },
@@ -52,6 +62,12 @@ describe('AdventureQuestHud', () => {
     expect(screen.getByText('矿村井口')).toBeInTheDocument()
     expect(screen.getByText((_, element) => element?.textContent === '2/2')).toBeInTheDocument()
     expect(screen.queryByText('ENC 1')).not.toBeInTheDocument()
+    expect(screen.getByText('羁绊')).toBeInTheDocument()
+    const bonds = screen.getByText('羁绊').parentElement
+    const bondSignal = within(bonds).getByText('艾琳').parentElement
+    expect(bondSignal).toHaveClass('companion-signal-item', 'good')
+    expect(bondSignal).toHaveTextContent('好感 +6')
+    expect(bondSignal).toHaveTextContent('追踪失踪徽章')
     expect(screen.getByText('最近')).toBeInTheDocument()
 
     const recent = screen.getByText('最近').parentElement
@@ -76,5 +92,31 @@ describe('AdventureQuestHud', () => {
     expect(screen.getByText('守住营地')).toBeInTheDocument()
     expect(screen.getByText('失败')).toHaveClass('quest-status-pill', 'danger')
     expect(screen.getByText('狼群冲破外圈，幸存者退入旧矿道。')).toHaveClass('quest-outcome-snippet', 'danger')
+  })
+
+  it('renders companion bond signals without requiring recent consequence entries', () => {
+    render(
+      <AdventureQuestHud
+        questLine={null}
+        clues={[]}
+        companionSignals={[
+          {
+            id: 'ally-2',
+            name: '布莱恩',
+            summary: '好感 -4',
+            detail: '质疑鲁莽决定',
+            tone: 'danger',
+            title: '最近好感：-4',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('羁绊')).toBeInTheDocument()
+    expect(screen.queryByText('最近')).not.toBeInTheDocument()
+    const bondSignal = screen.getByText('布莱恩').parentElement
+    expect(bondSignal).toHaveClass('companion-signal-item', 'danger')
+    expect(bondSignal).toHaveTextContent('好感 -4')
+    expect(bondSignal).toHaveTextContent('质疑鲁莽决定')
   })
 })
