@@ -631,6 +631,7 @@ describe('Adventure render smoke', () => {
   })
 
   it('triggers AI takeover for an offline multiplayer speaker and refreshes room state', async () => {
+    wsConnectedMock.mockReturnValue(true)
     aiTakeoverMock.mockResolvedValue({
       narrative: 'The ally checks the locked door.',
       companion_reactions: '',
@@ -701,7 +702,64 @@ describe('Adventure render smoke', () => {
     await waitFor(() => {
       expect(roomsGetMock).toHaveBeenCalledTimes(2)
     })
-    expect(getSessionMock).toHaveBeenCalledTimes(2)
+    expect(getSessionMock).toHaveBeenCalledTimes(1)
+
+    cleanup()
+  })
+
+  it('blocks AI takeover while local multiplayer sync is disconnected', async () => {
+    wsConnectedMock.mockReturnValue(false)
+    aiTakeoverMock.mockResolvedValue({
+      narrative: '这段不应该出现。',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      is_multiplayer: true,
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+      logs: [],
+    })
+    roomsGetMock.mockResolvedValue({
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'u2',
+      active_group_id: 'main',
+      members: [
+        { user_id: 'me', display_name: 'Me', character_id: 'char-1', is_online: true, seconds_since_seen: 0 },
+        { user_id: 'u2', display_name: 'Ally', character_id: 'char-2', is_online: false, seconds_since_seen: 42 },
+      ],
+      party_groups: [{ id: 'main', name: 'Main', location: 'Hall', member_user_ids: ['me', 'u2'] }],
+      pending_actions_by_group: { main: [] },
+      group_readiness: { main: {} },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const takeoverButton = await screen.findByRole('button', { name: /AI 代演/ })
+    expect(takeoverButton).toBeDisabled()
+    expect(takeoverButton).toHaveAttribute('title', '房间正在重新同步，请恢复连接后再使用 AI 代演')
+    fireEvent.click(takeoverButton)
+
+    expect(aiTakeoverMock).not.toHaveBeenCalled()
 
     cleanup()
   })

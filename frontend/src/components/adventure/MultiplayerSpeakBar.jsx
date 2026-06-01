@@ -28,7 +28,13 @@ export default function MultiplayerSpeakBar({
   const statusText = getSpeakTurnStatusText({ isMySpeakTurn, currentSpeakerName })
   const speakerStatus = getSpeakerOnlineStatus(room, currentSpeakerUid)
   const takeoverStatus = getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn })
-  const canTakeover = takeoverStatus.canTakeover
+  const canTakeover = takeoverStatus.canTakeover && wsConnected
+  const takeoverTitle = !wsConnected
+    ? '房间正在重新同步，请恢复连接后再使用 AI 代演'
+    : takeoverStatus.label || (canTakeover ? '该玩家离线，可让 AI 据其人设代演一句' : '当前发言者仍在线，暂不能代演')
+  const takeoverButtonLabel = takeoverStatus.canTakeover
+    ? 'AI 代演'
+    : takeoverStatus.label || `玩家${speakerStatus.label}`
   const myMember = (room.members || []).find(member => member.user_id === myUserId)
   const myCharacterName = myMember?.character_name || player?.name || (myMember?.character_id ? '已绑定角色' : '未绑定角色')
   const speakerLabel = currentSpeakerName || '等待同步'
@@ -105,7 +111,7 @@ export default function MultiplayerSpeakBar({
           <button
             onClick={onAiTakeover}
             disabled={!canTakeover}
-            title={takeoverStatus.label || (canTakeover ? '该玩家离线，可让 AI 据其人设代演一句' : '当前发言者仍在线，暂不能代演')}
+            title={takeoverTitle}
             style={{
               padding: '3px 10px', fontSize: 11, background: 'transparent',
               color: canTakeover ? 'var(--arcane-light)' : 'var(--text-dim)',
@@ -113,7 +119,7 @@ export default function MultiplayerSpeakBar({
               borderRadius: 3, cursor: canTakeover ? 'pointer' : 'not-allowed',
               opacity: canTakeover ? 1 : 0.65,
             }}>
-            ⚙ {canTakeover ? 'AI 代演' : (takeoverStatus.label || `玩家${speakerStatus.label}`)}
+            ⚙ {takeoverButtonLabel}
           </button>
         )}
         <span style={{ fontSize: 11, opacity: 0.8 }}>房间码 {room.room_code}</span>

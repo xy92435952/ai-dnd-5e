@@ -364,6 +364,10 @@ export default function Adventure() {
           wsSend({ type: 'speak_done' })
         }}
         onAiTakeover={async () => {
+          if (multiplayerSyncBlocked) {
+            setError(actionBlockedReason)
+            return
+          }
           setError('')
           setIsLoading(true)
           try {

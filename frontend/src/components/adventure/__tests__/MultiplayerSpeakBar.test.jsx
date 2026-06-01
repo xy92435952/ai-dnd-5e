@@ -96,4 +96,28 @@ describe('MultiplayerSpeakBar', () => {
     fireEvent.click(button)
     expect(onAiTakeover).toHaveBeenCalledTimes(1)
   })
+
+  it('blocks AI takeover while the local room sync is reconnecting', () => {
+    const { onAiTakeover } = renderBar({
+      wsConnected: false,
+      wsStatus: {
+        state: 'reconnecting',
+        label: '正在重连',
+        detail: '服务器暂不可达或正在重启，正在自动重连。',
+        retryInMs: 1000,
+      },
+      room: {
+        members: [
+          { user_id: 'me', display_name: '我', character_id: 'c1', character_name: '战士', is_online: true, seconds_since_seen: 0 },
+          { user_id: 'u2', display_name: '队友', character_id: 'c2', character_name: '法师', is_online: false, seconds_since_seen: 42 },
+        ],
+      },
+    })
+
+    const button = screen.getByRole('button', { name: /AI 代演/ })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', '房间正在重新同步，请恢复连接后再使用 AI 代演')
+    fireEvent.click(button)
+    expect(onAiTakeover).not.toHaveBeenCalled()
+  })
 })
