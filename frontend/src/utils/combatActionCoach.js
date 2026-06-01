@@ -51,7 +51,7 @@ export function buildCombatActionCoach({
     {
       key: 'move',
       label: '移动',
-      value: moveMode ? '选格子' : `${movementLeft} 格`,
+      value: movementLeft > 0 && moveMode ? '选格子' : `${movementLeft} 格`,
       tone: movementLeft > 0 ? moveMode ? 'warn' : 'ready' : 'spent',
     },
     {
@@ -60,12 +60,7 @@ export function buildCombatActionCoach({
       value: reactionOpen ? '保留' : '已用',
       tone: reactionOpen ? 'ready' : 'spent',
     },
-    {
-      key: 'finish',
-      label: '结束',
-      value: actionOpen || movementLeft > 0 ? '完成后结束' : '结束回合',
-      tone: actionOpen || movementLeft > 0 ? '' : 'ready',
-    },
+    buildFinishItem({ actionOpen, bonusOpen, hasBonusOption, movementLeft }),
   ]
 
   const targetItems = []
@@ -147,6 +142,44 @@ function buildAttackModeItem({
     label: '方式',
     value: weapon ? `${mode} · ${weapon}` : mode,
     tone: isRanged || weapon ? 'ready' : '',
+  }
+}
+
+function buildFinishItem({
+  actionOpen,
+  bonusOpen,
+  hasBonusOption,
+  movementLeft,
+}) {
+  if (actionOpen) {
+    return {
+      key: 'finish',
+      label: '结束',
+      value: '完成后结束',
+      tone: '',
+    }
+  }
+  if (bonusOpen && hasBonusOption) {
+    return {
+      key: 'finish',
+      label: '结束',
+      value: '还有附赠',
+      tone: 'warn',
+    }
+  }
+  if (movementLeft > 0) {
+    return {
+      key: 'finish',
+      label: '结束',
+      value: '移动后结束',
+      tone: '',
+    }
+  }
+  return {
+    key: 'finish',
+    label: '结束',
+    value: '结束回合',
+    tone: 'ready',
   }
 }
 

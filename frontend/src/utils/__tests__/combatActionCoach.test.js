@@ -113,6 +113,25 @@ describe('buildCombatActionCoach', () => {
     expect(coach.items).toContainEqual({ key: 'bonus', label: '附赠', value: '可用', tone: 'ready' })
     expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '0 格', tone: 'spent' })
     expect(coach.items).toContainEqual({ key: 'reaction', label: '反应', value: '已用', tone: 'spent' })
+    expect(coach.items).toContainEqual({ key: 'finish', label: '结束', value: '还有附赠', tone: 'warn' })
+  })
+
+  it('does not prompt for a movement square when no movement remains', () => {
+    const coach = buildCombatActionCoach({
+      isPlayerTurn: true,
+      moveMode: true,
+      turnState: {
+        action_used: true,
+        bonus_action_used: true,
+        reaction_used: false,
+        movement_max: 6,
+        movement_used: 6,
+      },
+      skillBar: [],
+    })
+
+    expect(coach.items).toContainEqual({ key: 'move', label: '移动', value: '0 格', tone: 'spent' })
+    expect(coach.items).toContainEqual({ key: 'finish', label: '结束', value: '结束回合', tone: 'ready' })
   })
 
   it('surfaces Help mode as an allied-target prompt', () => {
@@ -150,5 +169,6 @@ describe('buildCombatActionCoach', () => {
     })
 
     expect(coach.items).toContainEqual({ key: 'mode', label: '方式', value: '远程 · Longbow', tone: 'ready' })
+    expect(coach.items.map(item => item.key)).toEqual(['action', 'target', 'mode', 'move', 'reaction', 'finish'])
   })
 })

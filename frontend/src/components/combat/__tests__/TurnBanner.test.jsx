@@ -159,4 +159,33 @@ describe('TurnBanner', () => {
     expect(coach).toHaveTextContent('选队友')
     expect(coach).toHaveTextContent('协助')
   })
+
+  it('warns before ending when a bonus action is still available', () => {
+    render(
+      <TurnBanner
+        roundNumber={2}
+        currentTurnName="Hero"
+        currentTurnEntry={{ character_id: 'hero-1', name: 'Hero', is_player: true }}
+        currentTurnEntity={{ id: 'hero-1', name: 'Hero', is_player: true }}
+        controlledCharacter={{ id: 'hero-1', name: 'Hero' }}
+        isPlayerTurn={true}
+        turnState={{
+          action_used: true,
+          bonus_action_used: false,
+          movement_max: 6,
+          movement_used: 6,
+          reaction_used: false,
+        }}
+        skillBar={[{ k: 'offhand', label: '副手攻击', kind: 'bonus', available: true }]}
+        showThreat={false}
+        onToggleThreat={vi.fn()}
+      />
+    )
+
+    const coach = screen.getByLabelText('回合行动提示')
+    expect(coach).toHaveTextContent('附赠')
+    expect(coach).toHaveTextContent('可用')
+    expect(coach).toHaveTextContent('结束')
+    expect(coach).toHaveTextContent('还有附赠')
+  })
 })
