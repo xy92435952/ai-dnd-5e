@@ -776,6 +776,75 @@ async def test_ai_turn_uses_available_recharge_special_action(
     assert sample_session.game_state["enemies"][0]["recharge_abilities"][0]["available"] is False
 
 
+async def test_ai_skirmisher_repositions_after_ranged_attack(
+    client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_grid_service import chebyshev_distance
+    from services.combat_service import AttackResult
+    import services.ai_combat_agent as ai_agent
+    import api.combat.ai_turn_attack as ai_turn_attack
+
+    state = sample_session.game_state or {}
+    enemy = state["enemies"][0]
+    enemy["name"] = "Knife Dancer"
+    enemy["tactical_role"] = "skirmisher"
+    enemy["actions"] = [{"name": "Throwing Knife", "type": "ranged_attack", "damage_dice": "1d4", "attack_bonus": 5}]
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    ai_turn_combat.entity_positions = {
+        enemy["id"]: {"x": 5, "y": 2},
+        sample_character.id: {"x": 5, "y": 5},
+    }
+    flag_modified(ai_turn_combat, "entity_positions")
+    await db_session.commit()
+
+    async def fake_get_ai_decision(**kwargs):
+        return {
+            "action_type": "attack",
+            "target_id": sample_character.id,
+            "action_name": "Throwing Knife",
+            "reason": "test skirmisher reposition",
+        }
+
+    def fake_resolve_melee_attack(*args, **kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": False,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 11,
+                "target_ac": 14,
+            },
+            damage=0,
+            damage_roll={"formula": "1d4", "rolls": [], "total": 0},
+            narration="miss",
+        )
+
+    async def fake_narrate_batch(actions):
+        return ["" for _action in actions]
+
+    monkeypatch.setattr(ai_agent, "get_ai_decision", fake_get_ai_decision)
+    monkeypatch.setattr(ai_agent, "calc_difficulty", lambda parsed: "normal")
+    monkeypatch.setattr(ai_turn_attack.svc, "resolve_melee_attack", fake_resolve_melee_attack)
+    monkeypatch.setattr(ai_turn_attack, "narrate_batch", fake_narrate_batch)
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(f"/game/combat/{sample_session.id}/ai-turn", headers=headers)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    old_distance = chebyshev_distance({"x": 5, "y": 2}, {"x": 5, "y": 5})
+    new_position = body["entity_positions"][enemy["id"]]
+    assert chebyshev_distance(new_position, {"x": 5, "y": 5}) > old_distance
+    assert "游击撤步" in body["narration"]
+
+    await db_session.refresh(ai_turn_combat)
+    turn_state = ai_turn_combat.turn_states[enemy["id"]]
+    assert turn_state["movement_used"] == 2
+    assert turn_state["skirmisher_reposition"]["to"] == new_position
+
+
 async def test_ai_turn_area_recharge_special_action_hits_multiple_characters(
     client, db_session, sample_session, sample_character, ai_turn_combat, sample_user, monkeypatch,
 ):

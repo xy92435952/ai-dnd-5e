@@ -20,6 +20,7 @@ from services.combat_ai_attack_service import (
     target_conditions,
     pack_tactics_advantage,
 )
+from services.combat_ai_movement_service import choose_skirmisher_reposition
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
 from services.combat_defender_reaction_service import apply_defender_interception
@@ -452,6 +453,27 @@ async def handle_ai_attack_action(
 
             if target_new_hp is not None and target_new_hp <= 0:
                 break
+
+        reposition = choose_skirmisher_reposition(
+            actor=e if is_enemy else None,
+            party=all_characters,
+            positions=positions,
+            turn_state=_get_ts(combat, actor_id),
+            target_id=target_id,
+        )
+        if reposition:
+            positions[str(actor_id)] = {"x": reposition["x"], "y": reposition["y"]}
+            combat.entity_positions = positions
+            flag_modified(combat, "entity_positions")
+            actor_ts_after = _get_ts(combat, actor_id)
+            actor_ts_after["movement_used"] = int(actor_ts_after.get("movement_used", 0) or 0) + reposition["steps"]
+            actor_ts_after["skirmisher_reposition"] = {
+                "from": reposition["from"],
+                "to": {"x": reposition["x"], "y": reposition["y"]},
+                "steps": reposition["steps"],
+            }
+            _save_ts(combat, actor_id, actor_ts_after)
+            all_narrations.append(f"↩ {actor_name} 游击撤步 {reposition['steps'] * 5}ft，拉开距离")
 
     if not all_narrations:
         all_narrations.append(f"{actor_name} 没有找到目标，跳过回合。")
