@@ -14,7 +14,7 @@ describe('InitiativeRibbon', () => {
       lifeState: 'alive',
     },
     {
-      ent: { name: 'Goblin Scout' },
+      ent: { name: 'Goblin Scout', tactical_role: 'skirmisher' },
       t: { character_id: 'enemy-1', name: 'Goblin Scout', initiative: 15, is_enemy: true },
       pct: 50,
       isCur: false,
@@ -40,7 +40,11 @@ describe('InitiativeRibbon', () => {
     expect(within(order).getByText('NOW')).toBeInTheDocument()
     expect(within(order).getByText('NEXT')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Asha, initiative 18, current turn/ })).toHaveClass('active')
-    expect(screen.getByRole('button', { name: /Goblin Scout, initiative 15, next turn/ })).toHaveClass('next')
+    expect(screen.getByRole('button', { name: /Goblin Scout, initiative 15, next turn, tactical role 游击/ })).toHaveClass('next')
+    expect(within(order).getByText('游击')).toHaveAttribute(
+      'title',
+      '战术定位：游击。倾向攻击边缘或后排，并在安全时撤步拉开距离。',
+    )
   })
 
   it('selects living actors and disables defeated actors', () => {

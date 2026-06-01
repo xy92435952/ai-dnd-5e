@@ -2540,6 +2540,7 @@
 }
 .turn-order-meta {
   display: flex;
+  gap: 3px;
   justify-content: flex-start;
   min-height: 12px;
   margin: -1px 0 2px;
@@ -2563,6 +2564,22 @@
   border-color: rgba(127,232,248,.36);
   background: rgba(127,232,248,.1);
   color: var(--aqua);
+}
+.turn-order-role {
+  min-width: 0;
+  max-width: 32px;
+  padding: 1px 4px;
+  border: 1px solid rgba(240,208,96,.26);
+  border-radius: 999px;
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .condition-dots {
   display: flex;

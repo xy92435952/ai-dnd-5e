@@ -1,3 +1,5 @@
+import { formatTacticalRole, getTacticalRoleHint } from '../../utils/combatTacticalContext'
+
 export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget = () => {} }) {
   const activeIndex = initiativeChips.findIndex(chip => chip.isCur)
   const nextIndex = getNextLivingIndex(initiativeChips, activeIndex)
@@ -10,6 +12,11 @@ export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget 
         const sideLabel = t.is_enemy ? 'FOE' : 'ALLY'
         const turnLabel = isCur ? 'NOW' : isNext ? 'NEXT' : sideLabel
         const conditions = formatConditions(ent?.conditions)
+        const tacticalRole = t.is_enemy ? ent?.tactical_role || t.tactical_role : ''
+        const roleLabel = tacticalRole ? formatTacticalRole(tacticalRole) : ''
+        const roleHint = getTacticalRoleHint(tacticalRole)
+        const roleTitle = roleLabel ? `战术定位：${roleLabel}。${roleHint || '观察其行动模式来判断优先级。'}` : ''
+        const ariaRole = roleLabel ? `, tactical role ${roleLabel}` : ''
 
         return (
           <button
@@ -18,11 +25,12 @@ export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget 
             className={`unit-chip ${t.is_enemy ? 'enemy' : ''} ${isCur ? 'active' : ''} ${isNext ? 'next' : ''} ${dead ? 'dead' : ''} ${low ? 'low' : ''} life-${lifeState || 'alive'}`}
             onClick={() => !dead && onSelectTarget(t.character_id)}
             disabled={dead}
-            aria-label={`${name}, initiative ${t.initiative ?? '?'}, ${isCur ? 'current turn' : isNext ? 'next turn' : sideLabel.toLowerCase()}`}
+            aria-label={`${name}, initiative ${t.initiative ?? '?'}, ${isCur ? 'current turn' : isNext ? 'next turn' : sideLabel.toLowerCase()}${ariaRole}`}
           >
             <div className="init-no">{t.initiative ?? '?'}</div>
             <div className="turn-order-meta">
               <span className={`turn-order-badge ${isCur ? 'now' : isNext ? 'next' : ''}`}>{turnLabel}</span>
+              {roleLabel && <span className="turn-order-role" title={roleTitle}>{roleLabel}</span>}
             </div>
             <div className="avatar">
               {(name || '?').slice(0, 1)}{dead && 'x'}
