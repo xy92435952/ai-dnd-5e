@@ -1,32 +1,32 @@
 export default function CombatTacticalContextPanel({ context }) {
   if (!context?.hasContext) return null
 
-  const objective = context.objectives?.[0] || 'Hold the field'
+  const objective = context.objectives?.[0] || '守住阵地'
   const terrain = compactLabel([
     context.cover?.[0],
     context.terrain?.[0],
-  ]) || 'Open ground'
-  const hazard = context.hazards?.[0] || (context.counts?.hazard ? 'Mapped hazard' : 'None')
+  ]) || '开阔地'
+  const hazard = context.hazards?.[0] || (context.counts?.hazard ? '已标记危险' : '无')
   const balance = compactLabel([
-    context.difficulty && context.difficulty.toUpperCase(),
-    context.targetDifficulty && `target ${context.targetDifficulty}`,
-    context.environmentAdjustedDifficulty && `env ${context.environmentAdjustedDifficulty}`,
+    context.difficulty && difficultyLabel(context.difficulty),
+    context.targetDifficulty && `目标 ${difficultyLabel(context.targetDifficulty)}`,
+    context.environmentAdjustedDifficulty && `环境 ${difficultyLabel(context.environmentAdjustedDifficulty)}`,
   ])
 
   return (
-    <aside className="tactical-context-panel" aria-label="Tactical context">
+    <aside className="tactical-context-panel" aria-label="战术上下文">
       <div className="tactical-context-head">
-        <span>TACTICS</span>
+        <span>战术</span>
         <b>{context.title}</b>
       </div>
       <div className="tactical-context-grid">
-        <ContextMetric label="Goal" value={objective} />
-        <ContextMetric label="Space" value={terrain} />
-        <ContextMetric label="Risk" value={hazard} />
-        <ContextMetric label="Balance" value={balance || 'Unknown'} />
+        <ContextMetric label="目标" value={objective} />
+        <ContextMetric label="地形" value={terrain} />
+        <ContextMetric label="风险" value={hazard} />
+        <ContextMetric label="强度" value={balance || '未知'} />
       </div>
       {context.detailGroups?.length > 0 && (
-        <div className="tactical-context-details" aria-label="Tactical feature details">
+        <div className="tactical-context-details" aria-label="战术要素明细">
           {context.detailGroups.map(group => (
             <div key={group.key} title={group.title}>
               <span>{group.label}</span>
@@ -35,13 +35,13 @@ export default function CombatTacticalContextPanel({ context }) {
           ))}
         </div>
       )}
-      <div className="tactical-context-pills" aria-label="Tactical counts">
-        <span>Cover {context.counts?.cover || 0}</span>
-        <span>Difficult {context.counts?.difficult || 0}</span>
-        <span>Hazard {context.counts?.hazard || 0}</span>
-        <span>Objective {context.counts?.objective || 0}</span>
-        {context.environmentPressure && <span>Env {context.environmentPressure}</span>}
-        {context.stagedCount > 0 && <span>Staged {context.stagedCount}</span>}
+      <div className="tactical-context-pills" aria-label="战术计数">
+        <span>掩护 {context.counts?.cover || 0}</span>
+        <span>困难地形 {context.counts?.difficult || 0}</span>
+        <span>危险 {context.counts?.hazard || 0}</span>
+        <span>目标点 {context.counts?.objective || 0}</span>
+        {context.environmentPressure && <span>环境 {pressureLabel(context.environmentPressure)}</span>}
+        {context.stagedCount > 0 && <span>预置 {context.stagedCount}</span>}
       </div>
     </aside>
   )
@@ -58,4 +58,26 @@ function ContextMetric({ label, value }) {
 
 function compactLabel(parts) {
   return parts.filter(Boolean).join(' / ')
+}
+
+function difficultyLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return ({
+    easy: '简单',
+    medium: '中等',
+    hard: '困难',
+    deadly: '致命',
+  })[normalized] || String(value || '')
+}
+
+function pressureLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return ({
+    low: '低压',
+    light: '低压',
+    moderate: '中压',
+    medium: '中压',
+    heavy: '高压',
+    severe: '严峻',
+  })[normalized] || String(value || '')
 }

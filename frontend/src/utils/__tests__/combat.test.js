@@ -303,7 +303,7 @@ describe('combat grid helpers', () => {
     expect(terrainDetails['4_4']).toMatchObject({
       key: '4_4',
       terrain: 'hazard',
-      label: 'Hazard',
+      label: '危险',
       damageDice: '1d6',
     })
     expect(terrainDetails['6_6']).toMatchObject({

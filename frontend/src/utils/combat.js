@@ -712,13 +712,13 @@ function normalizeGridTerrainKind(value) {
 }
 
 function terrainLabel(terrain) {
-  if (terrain === 'total_cover') return 'Total cover'
-  if (['wall', 'blocking', 'blocker', 'opaque'].includes(terrain)) return 'Wall'
-  if (['cover', 'half_cover', 'three_quarters_cover'].includes(terrain)) return 'Cover'
-  if (['difficult', 'difficult_terrain'].includes(terrain)) return 'Difficult terrain'
-  if (terrain === 'hazard') return 'Hazard'
-  if (terrain === 'objective') return 'Objective'
-  return terrain || 'Terrain'
+  if (terrain === 'total_cover') return '全掩护'
+  if (['wall', 'blocking', 'blocker', 'opaque'].includes(terrain)) return '阻挡'
+  if (['cover', 'half_cover', 'three_quarters_cover'].includes(terrain)) return '掩护'
+  if (['difficult', 'difficult_terrain'].includes(terrain)) return '困难地形'
+  if (terrain === 'hazard') return '危险'
+  if (terrain === 'objective') return '目标点'
+  return terrain || '地形'
 }
 
 /**

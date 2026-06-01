@@ -83,10 +83,10 @@ function featureLabels(values) {
 
 function buildDetailGroups({ objectives, terrain, cover, hazards, counts }) {
   return [
-    detailGroup('objective', 'Goal', objectives, counts.objective, 'Mapped objective'),
-    detailGroup('cover', 'Cover', cover, counts.cover, 'Mapped cover'),
-    detailGroup('terrain', 'Terrain', terrain, counts.difficult, 'Difficult terrain'),
-    detailGroup('hazard', 'Hazard', hazards, counts.hazard, 'Mapped hazard'),
+    detailGroup('objective', '目标', objectives, counts.objective, '已标记目标'),
+    detailGroup('cover', '掩护', cover, counts.cover, '已标记掩护'),
+    detailGroup('terrain', '地形', terrain, counts.difficult, '困难地形'),
+    detailGroup('hazard', '危险', hazards, counts.hazard, '已标记危险'),
   ].filter(Boolean)
 }
 
@@ -98,7 +98,7 @@ function detailGroup(key, label, items = [], count = 0, fallback = '') {
   const extraItems = Math.max(items.length - visibleItems.length, 0)
   const meta = []
   if (extraItems > 0) meta.push(`+${extraItems}`)
-  if (count > 0) meta.push(`${count} ${count === 1 ? 'cell' : 'cells'}`)
+  if (count > 0) meta.push(`${count} 格`)
 
   return {
     key,

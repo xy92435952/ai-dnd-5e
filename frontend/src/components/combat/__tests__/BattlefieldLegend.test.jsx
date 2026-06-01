@@ -16,15 +16,15 @@ describe('BattlefieldLegend', () => {
       />,
     )
 
-    const legend = screen.getByLabelText('Battlefield legend')
-    expect(legend).toHaveTextContent('Cover')
+    const legend = screen.getByLabelText('战场图例')
+    expect(legend).toHaveTextContent('掩护')
     expect(legend).toHaveTextContent('2')
-    expect(legend).toHaveTextContent('Hazard')
-    expect(legend).toHaveTextContent('Objective')
-    expect(legend).toHaveTextContent('Threat')
-    expect(legend).toHaveTextContent('AoE Cone locked')
-    expect(legend).toHaveTextContent('Move')
-    expect(legend).not.toHaveTextContent('Help')
+    expect(legend).toHaveTextContent('危险')
+    expect(legend).toHaveTextContent('目标点')
+    expect(legend).toHaveTextContent('威胁区')
+    expect(legend).toHaveTextContent('范围 锥形 已锁定')
+    expect(legend).toHaveTextContent('移动')
+    expect(legend).not.toHaveTextContent('协助')
   })
 
   it('stays hidden when no battlefield context is active', () => {

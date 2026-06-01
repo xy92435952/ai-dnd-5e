@@ -10,23 +10,23 @@ export default function BattlefieldLegend({
   aoeLockedCenter = null,
 }) {
   const items = [
-    walls.size > 0 && { key: 'cover', label: 'Cover', count: walls.size },
-    hazards.size > 0 && { key: 'hazard', label: 'Hazard', count: hazards.size },
-    objectives.size > 0 && { key: 'objective', label: 'Objective', count: objectives.size },
-    threatCells.size > 0 && { key: 'threat', label: 'Threat', count: threatCells.size },
+    walls.size > 0 && { key: 'cover', label: '掩护', count: walls.size },
+    hazards.size > 0 && { key: 'hazard', label: '危险', count: hazards.size },
+    objectives.size > 0 && { key: 'objective', label: '目标点', count: objectives.size },
+    threatCells.size > 0 && { key: 'threat', label: '威胁区', count: threatCells.size },
     (aoePreview || aoeCells?.ring?.size > 0 || aoeCells?.center) && {
       key: 'aoe',
       label: buildAoeLegendLabel({ aoePreview, aoeCells, aoeLockedCenter }),
       count: aoeCells?.ring?.size || null,
     },
-    moveMode && { key: 'move', label: 'Move' },
-    helpMode && { key: 'help', label: 'Help' },
+    moveMode && { key: 'move', label: '移动' },
+    helpMode && { key: 'help', label: '协助' },
   ].filter(Boolean)
 
   if (!items.length) return null
 
   return (
-    <aside className="battlefield-legend" aria-label="Battlefield legend">
+    <aside className="battlefield-legend" aria-label="战场图例">
       {items.map(item => (
         <span key={item.key} className={`battlefield-legend-item ${item.key}`}>
           <i aria-hidden="true" />
@@ -41,14 +41,14 @@ export default function BattlefieldLegend({
 function buildAoeLegendLabel({ aoePreview, aoeCells, aoeLockedCenter }) {
   const template = aoeCells?.template || aoePreview?.template || ''
   const templateLabel = ({
-    sphere: 'Sphere',
-    cone: 'Cone',
-    line: 'Line',
-    cube: 'Cube',
-    aura: 'Aura',
+    sphere: '球形',
+    cone: '锥形',
+    line: '直线',
+    cube: '立方',
+    aura: '光环',
   })[template] || ''
-  const parts = ['AoE']
+  const parts = ['范围']
   if (templateLabel) parts.push(templateLabel)
-  if (aoeLockedCenter) parts.push('locked')
+  if (aoeLockedCenter) parts.push('已锁定')
   return parts.join(' ')
 }
