@@ -113,6 +113,7 @@ describe('JournalModal', () => {
     expect(within(dossier).getAllByText('任务').length).toBeGreaterThanOrEqual(1)
     expect(within(dossier).getByText('寻找失踪矿工')).toBeInTheDocument()
     expect(within(dossier).getAllByText('进行中').length).toBeGreaterThanOrEqual(1)
+    expect(within(dossier).getAllByText('进展 1')).toHaveLength(2)
     expect(within(dossier).getByText('确认矿工是否被带往井底。')).toBeInTheDocument()
     expect(within(dossier).getByText('发现井底拖拽痕迹')).toBeInTheDocument()
     expect(within(dossier).getByText('守住营地')).toBeInTheDocument()

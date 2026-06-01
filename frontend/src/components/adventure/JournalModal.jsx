@@ -156,6 +156,7 @@ function buildQuestSummary(quest, recentUpdates) {
     detail,
     hooks: buildQuestHooks(quest, detail),
     timeline,
+    progressCount: timeline.length,
   }
 }
 
@@ -420,6 +421,7 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
               <div className="journal-card-head">
                 <strong>{quest.quest}</strong>
                 <Pill tone={quest.statusTone}>{quest.statusLabel}</Pill>
+                {quest.progressCount > 0 && <Pill>进展 {quest.progressCount}</Pill>}
               </div>
               {quest.detail && <p>{quest.detail}</p>}
               {quest.hooks.length > 0 && (
