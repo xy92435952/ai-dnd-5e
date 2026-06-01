@@ -201,6 +201,18 @@ async def handle_ai_attack_action(
             if narrate_text and narrate_text[0]:
                 all_narrations.append(narrate_text[0])
 
+            tick_logs = tick_ai_actor_conditions(
+                session_id=session_id,
+                session=session,
+                actor_name=actor_name,
+                is_enemy=is_enemy,
+                enemy=e,
+                character=achar,
+                enemies=enemies,
+            )
+            for log in tick_logs:
+                db.add(log)
+
             await advance_ai_turn(combat, session, db, turn_order, next_index)
             flag_modified(session, "game_state")
             flag_modified(combat, "entity_positions")
