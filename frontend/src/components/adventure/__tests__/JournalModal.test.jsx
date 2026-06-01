@@ -151,6 +151,7 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText(/口头禅：先看脚印，再拔剑。/)).toBeInTheDocument()
     expect(within(dossier).getByText('关系：信任')).toBeInTheDocument()
     expect(within(dossier).getByText('好感 +18 · 认可')).toBeInTheDocument()
+    expect(within(dossier).getByText('最近好感 +6')).toBeInTheDocument()
     expect(within(dossier).getByLabelText('艾琳 好感 +18')).toBeInTheDocument()
     const approvalThresholds = within(dossier).getByLabelText('艾琳 好感阈值')
     expect(within(approvalThresholds).getByText('阶段')).toBeInTheDocument()

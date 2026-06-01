@@ -240,10 +240,13 @@ function normalizeCompanionBond(rawBond) {
   const personalQuest = asObject(bond.personal_quest || bond.personalQuest || bond.quest)
   const approval = getApprovalMeta(bond.approval ?? bond.approval_score ?? bond.affinity)
   const delta = toFiniteNumber(bond.last_approval_delta ?? bond.approval_delta ?? bond.approval_change)
+  const roundedDelta = delta === null ? null : Math.round(delta)
   return {
     relationship: cleanText(bond.relationship || bond.status),
     approval,
-    delta: delta === null ? null : Math.round(delta),
+    delta: roundedDelta,
+    deltaText: roundedDelta === null ? '' : `${roundedDelta > 0 ? '+' : ''}${roundedDelta}`,
+    deltaTone: roundedDelta > 0 ? 'good' : roundedDelta < 0 ? 'danger' : 'default',
     reason: cleanText(bond.last_approval_reason || bond.reason || bond.approval_reason),
     personalQuest: {
       title: cleanText(personalQuest.title || personalQuest.quest || personalQuest.name),
@@ -482,6 +485,7 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
                   <div className="journal-companion-bond-row">
                     {companion.bond.relationship && <Pill tone="good">关系：{companion.bond.relationship}</Pill>}
                     {companion.bond.approval && <Pill tone={companion.bond.approval.tone}>好感 {companion.bond.approval.text} · {companion.bond.approval.label}</Pill>}
+                    {companion.bond.deltaText && <Pill tone={companion.bond.deltaTone}>最近好感 {companion.bond.deltaText}</Pill>}
                   </div>
                   {companion.bond.approval && (
                     <div className={`journal-approval-meter ${companion.bond.approval.tone}`} aria-label={`${companion.name} 好感 ${companion.bond.approval.text}`}>
