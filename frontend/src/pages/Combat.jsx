@@ -115,6 +115,9 @@ export default function Combat() {
   const currentTurnEntity = currentTurnEntry?.character_id
     ? entities?.[currentTurnEntry.character_id]
     : null
+  const nextTurnChip = getNextInitiativeChip(initiativeChips)
+  const nextTurnName = getInitiativeChipName(nextTurnChip)
+  const nextTurnTone = nextTurnChip?.t?.is_enemy || nextTurnChip?.ent?.is_enemy ? 'enemy' : 'ally'
   const {
     onSkillClick,
     handleMoveTo,
@@ -193,6 +196,8 @@ export default function Combat() {
         selectedTargetEntity={selectedTargetEntity}
         prediction={prediction}
         moveMode={moveMode}
+        nextTurnName={nextTurnName}
+        nextTurnTone={nextTurnTone}
         showThreat={showThreat}
         onToggleThreat={() => { setShowThreat(v => !v); ignoreOptionalEffect(() => JuiceAudio.click()) }}
       />
@@ -309,4 +314,22 @@ export default function Combat() {
       />
     </div>
   )
+}
+
+function getNextInitiativeChip(chips = []) {
+  if (!Array.isArray(chips) || chips.length === 0) return null
+  const activeIndex = chips.findIndex(chip => chip?.isCur)
+  if (activeIndex < 0) return null
+
+  for (let offset = 1; offset < chips.length; offset += 1) {
+    const index = (activeIndex + offset) % chips.length
+    const chip = chips[index]
+    if (chip && !chip.dead) return chip
+  }
+  return null
+}
+
+function getInitiativeChipName(chip) {
+  if (!chip) return ''
+  return chip.ent?.name || chip.t?.name || ''
 }

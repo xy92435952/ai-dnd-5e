@@ -12,6 +12,8 @@ describe('TurnBanner', () => {
         currentTurnEntity={{ id: 'hero-1', name: '洛林', is_player: true }}
         controlledCharacter={{ id: 'hero-1', name: '洛林' }}
         isPlayerTurn={true}
+        nextTurnName="矿洞斥候"
+        nextTurnTone="enemy"
         showThreat={false}
         onToggleThreat={vi.fn()}
       />
@@ -22,6 +24,8 @@ describe('TurnBanner', () => {
     expect(screen.getByText('洛林')).toBeInTheDocument()
     expect(screen.getByText('你的回合')).toBeInTheDocument()
     expect(screen.getByText(/正在控制 洛林/)).toBeInTheDocument()
+    expect(screen.getByLabelText('下一位行动 矿洞斥候')).toHaveTextContent('下个')
+    expect(screen.getByLabelText('下一位行动 矿洞斥候')).toHaveClass('enemy')
   })
 
   it('shows blocked sync guidance before normal turn guidance', () => {

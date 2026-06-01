@@ -19,6 +19,8 @@ export default function TurnBanner({
   selectedTargetEntity,
   prediction,
   moveMode,
+  nextTurnName = '',
+  nextTurnTone = 'ally',
   showThreat,
   onToggleThreat,
 }) {
@@ -53,6 +55,16 @@ export default function TurnBanner({
         {combatOver && (
           <span className={`combat-result ${combatOver === 'victory' ? 'victory' : 'defeat'}`}>
             · {combatOver === 'victory' ? '胜利' : '全灭'} ·
+          </span>
+        )}
+        {!combatOver && nextTurnName && (
+          <span
+            className={`next-turn-chip ${nextTurnTone === 'enemy' ? 'enemy' : 'ally'}`}
+            aria-label={`下一位行动 ${nextTurnName}`}
+            title={`下一位行动：${nextTurnName}`}
+          >
+            <span>下个</span>
+            <b>{nextTurnName}</b>
           </span>
         )}
         <span className="turn-banner-spacer" />

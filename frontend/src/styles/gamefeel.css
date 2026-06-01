@@ -2345,6 +2345,38 @@
 }
 .turn-banner .combat-result.victory { color: var(--emerald-light); }
 .turn-banner .combat-result.defeat { color: var(--blood-light); }
+.next-turn-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  max-width: min(180px, 26vw);
+  min-height: 26px;
+  padding: 3px 8px;
+  border: 1px solid rgba(127,232,248,.26);
+  background: rgba(2,8,12,.42);
+  color: rgba(231,221,199,.78);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.next-turn-chip span {
+  color: var(--parchment-dark);
+  font-size: 9px;
+}
+.next-turn-chip b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--arcane-light, #5fd8e8);
+  font-size: 10px;
+  font-weight: 700;
+}
+.next-turn-chip.enemy {
+  border-color: rgba(240,80,80,.32);
+  background: rgba(74,16,16,.24);
+}
+.next-turn-chip.enemy b { color: #ff9090; }
 .turn-banner-spacer {
   flex: 1;
   min-width: 12px;
