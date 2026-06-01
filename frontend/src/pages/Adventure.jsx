@@ -172,6 +172,7 @@ export default function Adventure() {
   const { connected: wsConnected, status: wsStatus, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)
   const multiplayerSyncBlocked = !!room && !wsConnected
   const actionBlockedReason = multiplayerSyncBlocked ? '房间正在重新同步，请恢复连接后再发言。' : ''
+  const encounterSelectBlockedReason = multiplayerSyncBlocked ? '房间正在重新同步，请恢复连接后再选择遭遇。' : ''
   const showReconnectSynced = useCallback(() => {
     setSyncNotice('房间状态已重新同步')
     if (syncNoticeTimerRef.current) clearTimeout(syncNoticeTimerRef.current)
@@ -256,6 +257,10 @@ export default function Adventure() {
 
   const handleSelectEncounterTemplate = async (templateId) => {
     if (!templateId) return
+    if (multiplayerSyncBlocked) {
+      setError(encounterSelectBlockedReason)
+      return
+    }
     setEncounterSelectingId(templateId)
     setError('')
     try {
@@ -336,6 +341,8 @@ export default function Adventure() {
         <LocationMapModal
           graph={locationGraph}
           selectingTemplateId={encounterSelectingId}
+          disabled={multiplayerSyncBlocked}
+          disabledReason={encounterSelectBlockedReason}
           onSelectEncounter={handleSelectEncounterTemplate}
           onClose={() => setMapOpen(false)}
         />

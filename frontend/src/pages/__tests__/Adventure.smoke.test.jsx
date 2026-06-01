@@ -20,6 +20,7 @@ const {
   sessionFixture,
   actionMock,
   aiTakeoverMock,
+  selectEncounterTemplateMock,
   skillCheckMock,
   rollDice3DMock,
   getSessionMock,
@@ -46,6 +47,7 @@ const {
   },
   actionMock: vi.fn(),
   aiTakeoverMock: vi.fn(),
+  selectEncounterTemplateMock: vi.fn(),
   skillCheckMock: vi.fn(),
   rollDice3DMock: vi.fn(),
   getSessionMock: vi.fn(),
@@ -62,6 +64,7 @@ vi.mock('../../api/client', () => ({
     getSession: getSessionMock,
     action:     actionMock,
     aiTakeover: aiTakeoverMock,
+    selectEncounterTemplate: selectEncounterTemplateMock,
     skillCheck: skillCheckMock,
     rest:       vi.fn(),
     saveCheckpoint:  vi.fn(),
@@ -105,6 +108,10 @@ describe('Adventure render smoke', () => {
     submitGroupActionMock.mockResolvedValue({})
     joinGroupMock.mockResolvedValue({})
     setGroupReadinessMock.mockResolvedValue({})
+    selectEncounterTemplateMock.mockResolvedValue({
+      template: { id: 'enc-yard', name: 'Construct Patrol' },
+      location_graph: {},
+    })
     rollDice3DMock.mockResolvedValue({ total: 10, rolls: [10] })
     skillCheckMock.mockResolvedValue({
       d20: 10,
@@ -760,6 +767,75 @@ describe('Adventure render smoke', () => {
     fireEvent.click(takeoverButton)
 
     expect(aiTakeoverMock).not.toHaveBeenCalled()
+
+    cleanup()
+  })
+
+  it('多人同步断开时地图可读但禁止切换遭遇模板', async () => {
+    wsConnectedMock.mockReturnValue(false)
+    roomsGetMock.mockResolvedValue({
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'me',
+      active_group_id: 'main',
+      members: [
+        { user_id: 'me', display_name: '我', character_id: 'char-1', is_online: true },
+      ],
+      party_groups: [{ id: 'main', name: '主队', location: '训练场', member_user_ids: ['me'] }],
+      pending_actions_by_group: { main: [] },
+      group_readiness: { main: {} },
+    })
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      is_multiplayer: true,
+      game_state: {
+        location_graph: {
+          current_location_id: 'yard',
+          nodes: [
+            { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc-yard'] },
+          ],
+          encounter_templates: [{
+            id: 'enc-yard',
+            location_id: 'yard',
+            status: 'available',
+            public: true,
+            name: 'Construct Patrol',
+            difficulty_hint: 'moderate',
+            enemy_names: ['Clockwork Construct'],
+          }],
+        },
+      },
+      player: {
+        id: 'char-1',
+        name: 'Tester',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Map' }))
+
+    expect(await screen.findByRole('heading', { name: 'Map' })).toBeInTheDocument()
+    expect(screen.getAllByText('Construct Patrol').length).toBeGreaterThan(0)
+    expect(screen.getByText('房间正在重新同步，请恢复连接后再选择遭遇。')).toBeInTheDocument()
+
+    const selectButton = screen.getByRole('button', { name: 'Set active' })
+    expect(selectButton).toBeDisabled()
+    expect(selectButton).toHaveAttribute('title', '房间正在重新同步，请恢复连接后再选择遭遇。')
+    fireEvent.click(selectButton)
+
+    expect(selectEncounterTemplateMock).not.toHaveBeenCalled()
 
     cleanup()
   })

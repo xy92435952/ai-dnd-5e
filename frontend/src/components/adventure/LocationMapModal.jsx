@@ -54,8 +54,8 @@ function RouteList({ routes }) {
   )
 }
 
-function EncounterCard({ encounter, selecting, onSelectEncounter }) {
-  const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter
+function EncounterCard({ encounter, selecting, disabled = false, disabledReason = '', onSelectEncounter }) {
+  const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter && !disabled
   return (
     <article className="location-encounter-card">
       <div className="location-encounter-card-head">
@@ -97,6 +97,7 @@ function EncounterCard({ encounter, selecting, onSelectEncounter }) {
           type="button"
           className="btn-fantasy location-encounter-select"
           disabled={!canSelect || selecting}
+          title={disabled ? disabledReason : undefined}
           onClick={() => onSelectEncounter(encounter.id)}
         >
           {selecting ? 'Setting...' : encounter.selected ? 'Active' : 'Set active'}
@@ -132,8 +133,16 @@ function NodeMarker({ node, selected, onSelect }) {
   )
 }
 
-export default function LocationMapModal({ graph, selectingTemplateId = '', onSelectEncounter, onClose }) {
+export default function LocationMapModal({
+  graph,
+  selectingTemplateId = '',
+  disabled = false,
+  disabledReason = '',
+  onSelectEncounter,
+  onClose,
+}) {
   const map = getLocationGraphMap(graph)
+  const blockReason = disabledReason || '房间正在重新同步，请恢复连接后再选择遭遇。'
   const [selectedId, setSelectedId] = useState(map?.currentId || '')
   const selectedNode = useMemo(() => (
     map?.nodes.find(node => String(node.id) === String(selectedId)) || map?.currentNode || null
@@ -204,11 +213,19 @@ export default function LocationMapModal({ graph, selectingTemplateId = '', onSe
 
           {selectedNode?.encounters?.length > 0 && (
             <div className="location-encounter-list" aria-label="Selected encounter templates">
+              {disabled && onSelectEncounter && (
+                <div role="status" className="multiplayer-sync-guard" style={{ margin: '0 0 10px' }}>
+                  <strong>同步暂停</strong>
+                  <span>{blockReason}</span>
+                </div>
+              )}
               {selectedNode.encounters.map(encounter => (
                 <EncounterCard
                   key={encounter.id || encounter.name}
                   encounter={encounter}
                   selecting={String(selectingTemplateId) === String(encounter.id)}
+                  disabled={disabled}
+                  disabledReason={blockReason}
                   onSelectEncounter={onSelectEncounter}
                 />
               ))}

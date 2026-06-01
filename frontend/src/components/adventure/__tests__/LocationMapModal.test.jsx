@@ -31,6 +31,14 @@ const GRAPH = {
   }],
 }
 
+const PUBLIC_GRAPH = {
+  ...GRAPH,
+  encounter_templates: GRAPH.encounter_templates.map(template => ({
+    ...template,
+    public: true,
+  })),
+}
+
 describe('LocationMapModal', () => {
   it('renders the current map without exposing hidden future locations or encounter details', () => {
     render(<LocationMapModal graph={GRAPH} onClose={() => {}} />)
@@ -106,6 +114,39 @@ describe('LocationMapModal', () => {
     render(<LocationMapModal graph={GRAPH} onSelectEncounter={onSelectEncounter} onClose={() => {}} />)
 
     expect(screen.queryByRole('button', { name: 'Set active' })).not.toBeInTheDocument()
+    expect(onSelectEncounter).not.toHaveBeenCalled()
+  })
+
+  it('selects an available public encounter template', () => {
+    const onSelectEncounter = vi.fn()
+    render(<LocationMapModal graph={PUBLIC_GRAPH} onSelectEncounter={onSelectEncounter} onClose={() => {}} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set active' }))
+
+    expect(onSelectEncounter).toHaveBeenCalledTimes(1)
+    expect(onSelectEncounter).toHaveBeenCalledWith('enc_yard')
+  })
+
+  it('keeps public encounters readable but blocks selection while sync is reconnecting', () => {
+    const onSelectEncounter = vi.fn()
+    render(
+      <LocationMapModal
+        graph={PUBLIC_GRAPH}
+        disabled
+        disabledReason="房间正在重新同步，请恢复连接后再选择遭遇。"
+        onSelectEncounter={onSelectEncounter}
+        onClose={() => {}}
+      />
+    )
+
+    expect(screen.getAllByText('Construct Patrol').length).toBeGreaterThan(0)
+    expect(screen.getByText('房间正在重新同步，请恢复连接后再选择遭遇。')).toBeInTheDocument()
+
+    const selectButton = screen.getByRole('button', { name: 'Set active' })
+    expect(selectButton).toBeDisabled()
+    expect(selectButton).toHaveAttribute('title', '房间正在重新同步，请恢复连接后再选择遭遇。')
+    fireEvent.click(selectButton)
+
     expect(onSelectEncounter).not.toHaveBeenCalled()
   })
 
