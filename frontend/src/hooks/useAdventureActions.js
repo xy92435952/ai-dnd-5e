@@ -223,6 +223,10 @@ export function useAdventureActions({
   }, [actionBlockedReason, handleAction, inputRef, rollPending, setError])
 
   const handleRest = useCallback(async (restType) => {
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      return
+    }
     setRestOpen(false)
     setIsLoading(true)
     try {
@@ -235,7 +239,7 @@ export function useAdventureActions({
     } finally {
       setIsLoading(false)
     }
-  }, [addLog, refreshCharacters, sessionId, setError, setIsLoading, setRestOpen])
+  }, [actionBlockedReason, addLog, refreshCharacters, sessionId, setError, setIsLoading, setRestOpen])
 
   const handleGenerateJournal = useCallback(async () => {
     setJournalLoading(true)
@@ -250,6 +254,10 @@ export function useAdventureActions({
   }, [sessionId, setJournalLoading, setJournalText])
 
   const handlePrepareSpells = useCallback(async (prepared) => {
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      return
+    }
     try {
       await charactersApi.prepareSpells(playerId, prepared)
       setPlayer(prev => ({ ...prev, prepared_spells: prepared }))
@@ -258,9 +266,13 @@ export function useAdventureActions({
     } catch (e) {
       addLog('system', `备法失败：${e.message}`, 'system')
     }
-  }, [addLog, playerId, setPlayer, setPrepareOpen])
+  }, [actionBlockedReason, addLog, playerId, setError, setPlayer, setPrepareOpen])
 
   const handleCheckpoint = useCallback(async () => {
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      throw new Error(actionBlockedReason)
+    }
     try {
       const result = await gameApi.saveCheckpoint(sessionId)
       if (result?.ok === false) {
@@ -273,7 +285,7 @@ export function useAdventureActions({
       addLog('system', `保存失败：${e.message}`, 'system')
       throw e
     }
-  }, [addLog, sessionId])
+  }, [actionBlockedReason, addLog, sessionId, setError])
 
   return {
     refreshCharacters,

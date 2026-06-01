@@ -5,6 +5,7 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     action: vi.fn(),
     getSession: vi.fn().mockResolvedValue({ player: null, companions: [] }),
+    rest: vi.fn(),
     saveCheckpoint: vi.fn(),
   },
   charactersApi: {
@@ -12,7 +13,7 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
-import { gameApi } from '../../api/client'
+import { charactersApi, gameApi } from '../../api/client'
 import { formatRestSummary, useAdventureActions } from '../useAdventureActions'
 
 
@@ -198,6 +199,36 @@ describe('useAdventureActions', () => {
     expect(deps.setInput).not.toHaveBeenCalled()
     expect(deps.addLog).not.toHaveBeenCalled()
     expect(deps.inputRef.current.focus).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks rest, prepared spells, and checkpoint mutations while multiplayer sync is unavailable', async () => {
+    const deps = makeDeps({
+      actionBlockedReason: '房间正在重新同步，请恢复连接后再发言。',
+    })
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleRest('short')
+    })
+    await act(async () => {
+      await result.current.handlePrepareSpells(['Magic Missile'])
+    })
+    let checkpointError
+    await act(async () => {
+      try {
+        await result.current.handleCheckpoint()
+      } catch (e) {
+        checkpointError = e
+      }
+    })
+
+    expect(gameApi.rest).not.toHaveBeenCalled()
+    expect(charactersApi.prepareSpells).not.toHaveBeenCalled()
+    expect(gameApi.saveCheckpoint).not.toHaveBeenCalled()
+    expect(deps.setRestOpen).not.toHaveBeenCalled()
+    expect(deps.setPrepareOpen).not.toHaveBeenCalled()
+    expect(checkpointError?.message).toBe('房间正在重新同步，请恢复连接后再发言。')
+    expect(deps.setError).toHaveBeenCalledWith('房间正在重新同步，请恢复连接后再发言。')
   })
 
   it('formats detailed long rest rule results for the adventure log', () => {

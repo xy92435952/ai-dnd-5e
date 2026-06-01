@@ -6,6 +6,8 @@ export default function AdventureTopBar({
   player,
   isLoading,
   canPrepareSpells,
+  syncBlocked = false,
+  syncBlockedReason = '',
   onHome,
   onCheckpoint,
   onShowHistory,
@@ -14,6 +16,9 @@ export default function AdventureTopBar({
   onOpenPrepare,
   onOpenCharacter,
 }) {
+  const mutationDisabled = isLoading || syncBlocked
+  const mutationTitle = syncBlocked ? syncBlockedReason || '房间正在重新同步，请恢复连接后再操作。' : undefined
+
   return (
     <div style={{
       position: 'relative',
@@ -29,7 +34,15 @@ export default function AdventureTopBar({
     }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onHome}>◄ 主页</button>
-        <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onCheckpoint} disabled={isLoading}>● 存档</button>
+        <button
+          className="btn-ghost"
+          style={{ padding: '4px 10px', fontSize: 10 }}
+          onClick={onCheckpoint}
+          disabled={mutationDisabled}
+          title={mutationTitle || '保存战役 checkpoint'}
+        >
+          ● 存档
+        </button>
       </div>
       <div style={{ textAlign: 'center', minWidth: 0, maxWidth: '60vw' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.3em', opacity: .7 }}>
@@ -49,9 +62,25 @@ export default function AdventureTopBar({
           onClick={onShowHistory}
         >☰ 对话历史</button>
         <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenJournal}>✎ 日志</button>
-        <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenRest}>☾ 休息</button>
+        <button
+          className="btn-ghost"
+          style={{ padding: '4px 10px', fontSize: 10 }}
+          onClick={onOpenRest}
+          disabled={mutationDisabled}
+          title={mutationTitle || '短休或长休'}
+        >
+          ☾ 休息
+        </button>
         {canPrepareSpells && (
-          <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenPrepare}>✧ 备法</button>
+          <button
+            className="btn-ghost"
+            style={{ padding: '4px 10px', fontSize: 10 }}
+            onClick={onOpenPrepare}
+            disabled={mutationDisabled}
+            title={mutationTitle || '准备法术'}
+          >
+            ✧ 备法
+          </button>
         )}
         {player && (
           <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenCharacter}>⚜ 角色</button>

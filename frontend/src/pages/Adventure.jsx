@@ -396,12 +396,23 @@ export default function Adventure() {
         player={player}
         isLoading={isLoading}
         canPrepareSpells={canPrepareSpells}
+        syncBlocked={multiplayerSyncBlocked}
+        syncBlockedReason={actionBlockedReason}
         onHome={() => navigate('/')}
-        onCheckpoint={() => setCheckpointOpen(true)}
+        onCheckpoint={() => {
+          if (multiplayerSyncBlocked) { setError(actionBlockedReason); return }
+          setCheckpointOpen(true)
+        }}
         onShowHistory={() => setShowHistory(true)}
         onOpenJournal={() => { setJournalOpen(true); if (!journalText) handleGenerateJournal() }}
-        onOpenRest={() => setRestOpen(true)}
-        onOpenPrepare={() => setPrepareOpen(true)}
+        onOpenRest={() => {
+          if (multiplayerSyncBlocked) { setError(actionBlockedReason); return }
+          setRestOpen(true)
+        }}
+        onOpenPrepare={() => {
+          if (multiplayerSyncBlocked) { setError(actionBlockedReason); return }
+          setPrepareOpen(true)
+        }}
         onOpenCharacter={() => navigate(`/character/${player.id}?sessionId=${sessionId}`)}
       />
 

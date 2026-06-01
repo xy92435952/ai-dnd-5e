@@ -824,6 +824,9 @@ describe('Adventure render smoke', () => {
 
     expect(screen.getByRole('button', { name: /发送/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /跳过本轮/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /存档/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /休息/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /备法/ })).toBeDisabled()
     expect(actionMock).not.toHaveBeenCalled()
     expect(wsSendMock).not.toHaveBeenCalled()
 
