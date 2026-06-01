@@ -390,6 +390,84 @@ async def test_incapacitating_condition_blocks_reaction(
     assert "stunned" in response.text
 
 
+async def test_incapacitating_condition_blocks_pending_attack_confirmation(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    pending_attack_id = "pending-stunned-attack"
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["stunned"]
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+            "pending_attack": {
+                "pending_attack_id": pending_attack_id,
+                "hit": True,
+            },
+        }
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/damage-roll",
+        headers=headers,
+        json={"pending_attack_id": pending_attack_id, "damage_values": [4]},
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    assert "stunned" in response.text
+
+    await db_session.refresh(dying_combat)
+    turn_state = dying_combat.turn_states[sample_character.id]
+    assert turn_state["pending_attack"]["pending_attack_id"] == pending_attack_id
+
+
+async def test_incapacitating_condition_blocks_pending_spell_confirmation(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    pending_spell_id = "pending-paralyzed-spell"
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["paralyzed"]
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+            "pending_spell": {
+                "pending_spell_id": pending_spell_id,
+                "spell_name": "fire-bolt",
+            },
+        }
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/spell-confirm",
+        headers=headers,
+        json={"pending_spell_id": pending_spell_id, "damage_values": [4]},
+    )
+
+    assert response.status_code == 400
+    assert "cannot act" in response.text
+    assert "paralyzed" in response.text
+
+    await db_session.refresh(dying_combat)
+    turn_state = dying_combat.turn_states[sample_character.id]
+    assert turn_state["pending_spell"]["pending_spell_id"] == pending_spell_id
+
+
 async def test_zero_hp_character_cannot_make_exploration_skill_check(
     client, db_session, sample_session, sample_character, sample_user, dying_combat,
 ):
