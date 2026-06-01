@@ -83,6 +83,18 @@ def parse_spell_range_ft(spell_range: int | str | None) -> int:
     return int(spell_range or 0)
 
 
+def parse_spell_range_tiles(spell_range: int | str | None) -> int:
+    """Return spell range in grid tiles.
+
+    Local spell data stores numeric ranges as grid tiles; imported/string ranges
+    are usually authored in feet, so strings are converted to 5ft tiles.
+    """
+    if isinstance(spell_range, str):
+        range_ft = parse_spell_range_ft(spell_range)
+        return max(range_ft // 5, 1) if range_ft > 0 else 0
+    return max(0, int(spell_range or 0))
+
+
 def validate_spell_range(
     *,
     target_ids: list[str],
@@ -90,14 +102,13 @@ def validate_spell_range(
     caster_id: str,
     spell_range_ft: int | str | None,
 ) -> None:
-    parsed_range = parse_spell_range_ft(spell_range_ft)
-    if parsed_range <= 0 or not target_ids:
+    spell_range_tiles = parse_spell_range_tiles(spell_range_ft)
+    if spell_range_tiles <= 0 or not target_ids:
         return
 
     caster_position = positions.get(str(caster_id))
-    spell_range_tiles = max(parsed_range // 5, 1)
     for target_id in target_ids:
         target_position = positions.get(str(target_id))
         distance = chebyshev_distance(caster_position, target_position)
         if distance > spell_range_tiles:
-            raise HTTPException(400, f"目标超出法术射程（距离{distance*5}ft，射程{parsed_range}ft）")
+            raise HTTPException(400, f"目标超出法术射程（距离{distance*5}ft，射程{spell_range_tiles*5}ft）")
