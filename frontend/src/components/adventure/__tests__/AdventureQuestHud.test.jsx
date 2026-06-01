@@ -71,7 +71,7 @@ describe('AdventureQuestHud', () => {
     expect(bondSignal).toHaveTextContent('好感 +6')
     expect(bondSignal).toHaveTextContent('追踪失踪徽章')
     fireEvent.click(bondSignal)
-    expect(onOpenJournal).toHaveBeenCalledTimes(1)
+    expect(onOpenJournal).toHaveBeenCalledWith('companions')
     expect(screen.getByText('最近')).toBeInTheDocument()
 
     const recent = screen.getByText('最近').parentElement

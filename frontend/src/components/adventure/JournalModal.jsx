@@ -6,9 +6,11 @@
  *   room       - 多人房间快照，用于分队地点
  *   text       - 当前日志文本（可为空）
  *   loading    - 生成中标志
+ *   initialSection - 打开后优先定位的卷宗区域
  *   onGenerate - () => void 重新生成
  *   onClose    - () => void
  */
+import { useEffect, useRef } from 'react'
 import Overlay from './Overlay'
 import { JournalIcon } from '../Icons'
 import { extractNarrative, splitCompanionReactions } from '../../utils/dialogue'
@@ -402,9 +404,14 @@ function EmptyLine({ children }) {
   return <p style={{ margin: 0, color: 'var(--parchment-dark)', fontSize: 12, fontStyle: 'italic' }}>{children}</p>
 }
 
-function Section({ title, count, children }) {
+function Section({ title, count, children, sectionRef, sectionKey }) {
   return (
-    <section className="journal-section">
+    <section
+      ref={sectionRef}
+      className="journal-section"
+      data-journal-section={sectionKey}
+      tabIndex={sectionRef ? -1 : undefined}
+    >
       <h4>
         <span>{title}</span>
         <b>{count}</b>
@@ -418,8 +425,21 @@ function Pill({ children, tone = 'default' }) {
   return <span className={`journal-pill ${tone}`}>{children}</span>
 }
 
-export default function JournalModal({ session, room, text, loading, onGenerate, onClose }) {
+export default function JournalModal({ session, room, text, loading, initialSection = '', onGenerate, onClose }) {
   const journal = buildJournalSections(session, room)
+  const companionsSectionRef = useRef(null)
+
+  useEffect(() => {
+    if (initialSection !== 'companions') return
+    const target = companionsSectionRef.current
+    if (!target) return
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'start' })
+    }
+    if (typeof target.focus === 'function') {
+      target.focus({ preventScroll: true })
+    }
+  }, [initialSection])
 
   return (
     <Overlay onClose={onClose}>
@@ -499,7 +519,7 @@ export default function JournalModal({ session, room, text, loading, onGenerate,
           )}
         </Section>
 
-        <Section title="队友" count={journal.companions.length}>
+        <Section title="队友" count={journal.companions.length} sectionRef={companionsSectionRef} sectionKey="companions">
           {journal.companions.length === 0 ? <EmptyLine>暂无队友档案</EmptyLine> : journal.companions.map(companion => (
             <article key={companion.id} className="journal-card companion">
               <div className="journal-card-head">

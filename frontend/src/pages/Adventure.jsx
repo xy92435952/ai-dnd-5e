@@ -78,6 +78,7 @@ export default function Adventure() {
   const [checkpointOpen, setCheckpointOpen] = useState(false)
   const [lootOpen, setLootOpen] = useState(false)
   const [mapOpen, setMapOpen] = useState(false)
+  const [journalFocus, setJournalFocus] = useState('')
   const [encounterSelectingId, setEncounterSelectingId] = useState('')
 
   const { userId: myUserId } = useUser()
@@ -240,6 +241,12 @@ export default function Adventure() {
     actionBlockedReason,
   })
 
+  const handleOpenJournal = useCallback((focus = '') => {
+    setJournalFocus(focus)
+    setJournalOpen(true)
+    if (!journalText) handleGenerateJournal()
+  }, [handleGenerateJournal, journalText, setJournalOpen])
+
   // 打字机效果 + 空格推进 + advanceDialogue 全部抽到 useDialogueFlow
 
   const {
@@ -320,8 +327,12 @@ export default function Adventure() {
           room={room}
           text={journalText}
           loading={journalLoading}
+          initialSection={journalFocus}
           onGenerate={handleGenerateJournal}
-          onClose={() => setJournalOpen(false)}
+          onClose={() => {
+            setJournalOpen(false)
+            setJournalFocus('')
+          }}
         />
       )}
       {lootOpen && (
@@ -414,7 +425,7 @@ export default function Adventure() {
           setCheckpointOpen(true)
         }}
         onShowHistory={() => setShowHistory(true)}
-        onOpenJournal={() => { setJournalOpen(true); if (!journalText) handleGenerateJournal() }}
+        onOpenJournal={() => handleOpenJournal()}
         onOpenRest={() => {
           if (multiplayerSyncBlocked) { setError(actionBlockedReason); return }
           setRestOpen(true)
@@ -500,7 +511,7 @@ export default function Adventure() {
           companionSignals={companionSignals}
           locationGraph={locationGraph}
           onOpenCharacter={(id) => navigate(`/character/${id}?sessionId=${sessionId}`)}
-          onOpenJournal={() => setJournalOpen(true)}
+          onOpenJournal={handleOpenJournal}
           onOpenMap={() => setMapOpen(true)}
           onOpenLoot={() => setLootOpen(true)}
         />

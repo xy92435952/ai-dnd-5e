@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import JournalModal from '../JournalModal'
 
 function makeSession() {
@@ -216,6 +216,37 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('最近反应')).toBeInTheDocument()
     expect(within(dossier).getByText('我压住左侧通道，先别追太深。')).toBeInTheDocument()
     expect(within(dossier).queryByText('我盯着后门，别让他们绕过来。')).not.toBeInTheDocument()
+  })
+
+  it('focuses the companion section when opened from a bond signal', async () => {
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(() => {})
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+    const scrollIntoView = vi.fn()
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+
+    render(
+      <JournalModal
+        session={makeSession()}
+        text=""
+        loading={false}
+        initialSection="companions"
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const companionSection = screen.getByText('队友').closest('section')
+    expect(companionSection).toHaveAttribute('data-journal-section', 'companions')
+    expect(companionSection).toHaveAttribute('tabindex', '-1')
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }))
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+
+    focusSpy.mockRestore()
+    if (originalScrollIntoView) {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView
+    } else {
+      delete HTMLElement.prototype.scrollIntoView
+    }
   })
 
   it('keeps generated journal controls available', () => {

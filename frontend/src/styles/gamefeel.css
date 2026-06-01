@@ -922,6 +922,11 @@ button.companion-signal-item:focus-visible {
   border: 1px solid rgba(213,184,121,.22);
   border-radius: 6px;
   background: rgba(26,18,8,.42);
+  scroll-margin-top: 10px;
+}
+.journal-section:focus-visible {
+  outline: 1px solid rgba(240,208,96,.45);
+  outline-offset: 3px;
 }
 .journal-section h4 {
   display: flex;

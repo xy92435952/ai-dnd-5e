@@ -51,7 +51,7 @@ function CompanionSignalChip({ signal, onOpenJournal }) {
         className={`companion-signal-item ${signal.tone}`}
         title={signal.title}
         aria-label={`打开卷宗查看${signal.name}羁绊`}
-        onClick={onOpenJournal}
+        onClick={() => onOpenJournal('companions')}
       >
         {content}
       </button>
