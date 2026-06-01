@@ -78,6 +78,8 @@ async def handle_ai_attack_action(
         player=player,
         companions_alive=companions_alive,
         combat_service=svc,
+        actor=e if is_enemy else None,
+        positions=positions,
     )
 
     target_id = None

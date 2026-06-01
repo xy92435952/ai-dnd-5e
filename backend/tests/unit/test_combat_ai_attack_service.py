@@ -75,6 +75,81 @@ def test_enemy_ai_target_fallback_uses_full_party_lowest_hp():
     assert target == {"id": "guest-char", "name": "Guest", "hp_current": 5}
 
 
+def test_striker_role_pressures_concentrating_low_ac_target():
+    target = choose_ai_attack_target(
+        decided_target_id=None,
+        enemies_alive=[],
+        all_characters=[
+            {
+                "id": "frontline",
+                "name": "Frontline",
+                "hp_current": 8,
+                "hp_max": 30,
+                "ac": 18,
+            },
+            {
+                "id": "wizard",
+                "name": "Wizard",
+                "hp_current": 10,
+                "hp_max": 18,
+                "ac": 12,
+                "concentration": {"spell_name": "web"},
+            },
+        ],
+        actor_is_enemy=True,
+        player=FakeCharacter(),
+        companions_alive=[],
+        combat_service=FakeCombatService(),
+        actor={"id": "orc-raider", "tactical_role": "striker"},
+        positions={},
+    )
+
+    assert target["id"] == "wizard"
+
+
+def test_skirmisher_role_pressures_isolated_backline_target():
+    target = choose_ai_attack_target(
+        decided_target_id=None,
+        enemies_alive=[],
+        all_characters=[
+            {
+                "id": "fighter",
+                "name": "Fighter",
+                "hp_current": 6,
+                "hp_max": 30,
+                "ac": 17,
+            },
+            {
+                "id": "cleric",
+                "name": "Cleric",
+                "hp_current": 24,
+                "hp_max": 24,
+                "ac": 16,
+            },
+            {
+                "id": "archer",
+                "name": "Archer",
+                "hp_current": 9,
+                "hp_max": 18,
+                "ac": 12,
+            },
+        ],
+        actor_is_enemy=True,
+        player=FakeCharacter(),
+        companions_alive=[],
+        combat_service=FakeCombatService(),
+        actor={"id": "knife-dancer", "tactical_role": "skirmisher"},
+        positions={
+            "knife-dancer": {"x": 0, "y": 0},
+            "fighter": {"x": 2, "y": 1},
+            "cleric": {"x": 2, "y": 2},
+            "archer": {"x": 6, "y": 5},
+        },
+    )
+
+    assert target["id"] == "archer"
+
+
 def test_infer_ai_is_ranged_from_character_equipment_or_enemy_actions():
     archer = FakeCharacter(equipment={"weapons": [{"properties": ["ranged"]}]})
     assert infer_ai_is_ranged(archer=archer, enemies=[], actor_id="ally-1") is True
