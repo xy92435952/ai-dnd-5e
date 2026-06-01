@@ -169,7 +169,14 @@ describe('CombatHudSkillBar', () => {
           { k: 'atk', label: '攻击', glyph: 'A', cost: '动作', key: '1', kind: 'attack', available: true },
         ]}
         session={{ player: { derived: { attack_bonus: 5 } } }}
-        entities={{ 'enemy-1': { id: 'enemy-1', ac: 13 } }}
+        entities={{
+          'enemy-1': {
+            id: 'enemy-1',
+            ac: 13,
+            conditions: ['restrained'],
+            condition_durations: { restrained: 2 },
+          },
+        }}
         selectedTarget="enemy-1"
         prediction={{
           hit_rate: 0.7,
@@ -217,5 +224,13 @@ describe('CombatHudSkillBar', () => {
     expect(within(preview).getByText('劣势')).toHaveAttribute('title', '掷两个 d20，取较低结果。')
     expect(within(preview).getByText('3/4 掩护 +5 AC')).toBeInTheDocument()
     expect(within(preview).getByText('有效 AC 18')).toBeInTheDocument()
+    expect(within(preview).getByText('速度 0')).toHaveAttribute(
+      'title',
+      '移动速度降为 0。 来源：束缚 (2轮)。',
+    )
+    expect(within(preview).getByText('受击优势')).toHaveAttribute(
+      'title',
+      '攻击此生物具有优势。 来源：束缚 (2轮)。',
+    )
   })
 })

@@ -3,6 +3,7 @@ import { JuiceAudio } from '../../juice'
 import { SKILL_INFO } from '../../data/combat'
 import { buildCombatPreviewRows, getSkillUnavailableReason } from '../../utils/combat'
 import { buildCombatRuleTags } from '../../utils/combatRuleTags'
+import { buildConditionImpactTags } from '../../utils/conditionRules'
 
 const SKILL_KIND_LABELS = {
   attack: '攻击',
@@ -163,6 +164,16 @@ function buildAttackPreviewSummary({ prediction = null, target = null, ruleTags 
   }
 
   for (const tag of ruleTags.slice(0, 4)) {
+    chips.push(tag)
+  }
+
+  const conditionTags = buildConditionImpactTags(target.conditions || [], target.condition_durations || {})
+    .map(tag => ({
+      ...tag,
+      key: `condition-${tag.key}`,
+    }))
+  const remainingSlots = Math.max(0, 6 - chips.length)
+  for (const tag of conditionTags.slice(0, remainingSlots)) {
     chips.push(tag)
   }
 
