@@ -216,6 +216,9 @@ function routeFromEdge(edge, nodeId, nodeById) {
     requiresKey: edge.requiresKey,
     dc: edge.dc,
     checkType: edge.checkType,
+    destinationEncounterCount: destination.encounterCount || 0,
+    destinationEncounterNames: Array.isArray(destination.encounterNames) ? destination.encounterNames : [],
+    destinationActiveEncounter: asArray(destination.encounters).some(encounter => encounter?.selected),
   }
   return {
     ...route,

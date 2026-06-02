@@ -2734,6 +2734,11 @@ button.companion-signal-item:focus-visible {
   background: rgba(240,208,96,.08);
   color: var(--gold);
 }
+.location-map-route-summary span.danger {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(138,26,26,.13);
+  color: var(--blood-light);
+}
 .location-map-route-summary b {
   color: var(--arcane-light);
   font-size: 10px;
@@ -2799,6 +2804,15 @@ button.companion-signal-item:focus-visible {
 }
 .location-map-route-list li.locked b {
   color: #f09090;
+}
+.location-map-route-list b.warn {
+  color: var(--gold);
+}
+.location-map-route-list b.danger {
+  color: var(--blood-light);
+}
+.location-map-route-list li.locked b.danger {
+  color: var(--gold);
 }
 .location-map-encounters {
   display: flex;

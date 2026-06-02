@@ -250,6 +250,7 @@ describe('locationGraph', () => {
         { id: 'armory', name: 'Armory', discovered: true, encounter_template_ids: ['enc_armory'] },
         { id: 'vault', name: 'Vault', visited: false, encounter_template_ids: ['enc_vault'] },
       ],
+      edges: [{ id: 'yard-armory', from: 'yard', to: 'armory', type: 'route' }],
       encounter_templates: [
         {
           id: 'enc_armory',
@@ -272,6 +273,12 @@ describe('locationGraph', () => {
     expect(map.nodes.find(node => node.id === 'armory')).toMatchObject({
       encounterCount: 1,
       encounterNames: ['Armory Ambush'],
+    })
+    expect(map.currentNode.routes[0]).toMatchObject({
+      destinationId: 'armory',
+      destinationEncounterCount: 1,
+      destinationEncounterNames: ['Armory Ambush'],
+      destinationActiveEncounter: false,
     })
     expect(map.nodes.find(node => node.id === 'vault')).toBeUndefined()
   })

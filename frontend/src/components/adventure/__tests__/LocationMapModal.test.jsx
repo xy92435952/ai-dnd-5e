@@ -240,6 +240,13 @@ describe('LocationMapModal', () => {
       ],
     }} onClose={() => {}} />)
 
+    const routeSummary = screen.getByLabelText('Exit summary')
+    expect(within(routeSummary).getByText('encounter route')).toBeInTheDocument()
+    const routeList = screen.getByRole('list')
+    expect(within(routeList).getByText('Armory')).toBeInTheDocument()
+    expect(within(routeList).getByText('Armory Ambush')).toBeInTheDocument()
+    expect(within(routeList).getByText('encounter 1')).toHaveClass('danger')
+
     fireEvent.click(screen.getByRole('button', { name: 'Armory unvisited' }))
 
     const encounters = screen.getByLabelText('Selected encounter templates')

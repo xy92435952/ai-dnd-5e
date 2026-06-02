@@ -30,11 +30,14 @@ function DetailPills({ values, empty = 'None' }) {
 
 function routeBadges(route) {
   const badges = []
-  if (route.locked) badges.push('locked')
-  if (route.oneWay) badges.push('one-way')
-  if (route.requiresKey) badges.push(`key: ${route.requiresKey}`)
-  if (route.dc != null) badges.push(`${route.checkType || 'check'} DC ${route.dc}`)
-  if (!badges.length && route.label) badges.push(route.label)
+  const push = (label, tone = '') => badges.push({ label, tone })
+  if (route.locked) push('locked', 'warn')
+  if (route.oneWay) push('one-way')
+  if (route.requiresKey) push(`key: ${route.requiresKey}`, 'warn')
+  if (route.dc != null) push(`${route.checkType || 'check'} DC ${route.dc}`, 'warn')
+  if (route.destinationActiveEncounter) push('active encounter', 'danger')
+  else if (route.destinationEncounterCount > 0) push(`encounter ${route.destinationEncounterCount}`, 'danger')
+  if (!badges.length && route.label) push(route.label)
   return badges
 }
 
@@ -43,12 +46,14 @@ function RouteSummary({ routes }) {
   const gated = routes.filter(route => route.locked || route.tone === 'gated').length
   const oneWay = routes.filter(route => route.oneWay).length
   const unvisited = routes.filter(route => !route.destinationVisited).length
+  const encounters = routes.filter(route => route.destinationEncounterCount > 0).length
   return (
     <div className="location-map-route-summary" aria-label="Exit summary">
       <span><b>{routes.length}</b> exits</span>
       {gated > 0 && <span className="warn"><b>{gated}</b> gated</span>}
       {oneWay > 0 && <span><b>{oneWay}</b> one-way</span>}
       {unvisited > 0 && <span><b>{unvisited}</b> new</span>}
+      {encounters > 0 && <span className="danger"><b>{encounters}</b> encounter route</span>}
     </div>
   )
 }
@@ -64,10 +69,11 @@ function RouteList({ routes }) {
             <div className="location-map-route-main">
               <span>{route.destinationName}</span>
               {route.guidance && <em>{route.guidance}</em>}
+              {route.destinationEncounterNames.length > 0 && <em>{route.destinationEncounterNames.join(' / ')}</em>}
               {route.actionHint && <small>{route.actionHint}</small>}
             </div>
             <div className="location-map-route-meta">
-              {routeBadges(route).map(badge => <b key={badge}>{badge}</b>)}
+              {routeBadges(route).map(badge => <b key={badge.label} className={badge.tone || ''}>{badge.label}</b>)}
             </div>
           </li>
         ))}
