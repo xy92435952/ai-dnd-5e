@@ -43,6 +43,39 @@ describe('CombatHudCombatLog', () => {
     expect(container.querySelector('.combat-log-summary-count')).toHaveTextContent('8/9')
   })
 
+  it('surfaces AoE and multi-target impact chips in the latest combat summary', () => {
+    render(
+      <CombatHudCombatLog
+        logs={[
+          {
+            id: 'fireball-1',
+            role: 'player',
+            content: 'Fireball blossoms across the chamber.',
+            log_type: 'combat',
+            impact_summary: [
+              { key: 'targets', label: '影响 3 个', tone: 'info', title: 'Goblin、Cultist、Companion' },
+              { key: 'damage', label: '总伤害 37', tone: 'bad', title: 'Goblin、Cultist、Companion' },
+              { key: 'allies', label: '友方 1', tone: 'warning', title: 'Companion' },
+              { key: 'save-failed', label: '豁免失败 2', tone: 'bad', title: 'Goblin、Cultist' },
+            ],
+            state_changes: [
+              'Goblin HP 20 -> 0',
+              'Cultist HP 16 -> 2',
+              'Companion HP 24 -> 16',
+            ],
+          },
+        ]}
+      />,
+    )
+
+    const summary = screen.getByLabelText('最近战报摘要')
+    const impacts = within(summary).getByLabelText('影响摘要')
+    expect(within(impacts).getByText('影响 3 个')).toHaveClass('info')
+    expect(within(impacts).getByText('总伤害 37')).toHaveClass('bad')
+    expect(within(impacts).getByText('友方 1')).toHaveClass('warning')
+    expect(within(impacts).getByText('豁免失败 2')).toHaveClass('bad')
+  })
+
   it('renders combat logs as structured rules, dice, narration, and state rows', () => {
     render(
       <CombatHudCombatLog

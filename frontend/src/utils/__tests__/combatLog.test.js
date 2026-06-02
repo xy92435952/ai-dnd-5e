@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildCombatLogView, buildCombatStateChangeSummary } from '../combatLog'
+import {
+  buildCombatLogImpactSummary,
+  buildCombatLogView,
+  buildCombatResultImpactSummary,
+  buildCombatStateChangeSummary,
+} from '../combatLog'
 
 describe('combatLog', () => {
   it('separates attack rules, dice, narration, and hp state changes', () => {
@@ -234,6 +239,63 @@ describe('combatLog', () => {
       },
     })).toEqual([
       '游击撤步 10ft：5,2 -> 5,0',
+    ])
+  })
+
+  it('summarizes multi-target result impacts without double-counting duplicated AoE payloads', () => {
+    const targetResults = [
+      {
+        target_id: 'goblin-1',
+        target_name: 'Goblin',
+        is_enemy: true,
+        damage: 12,
+        new_hp: 0,
+        save: { success: false },
+      },
+      {
+        target_id: 'ally-1',
+        target_name: 'Companion',
+        is_enemy: false,
+        damage: 6,
+        new_hp: 8,
+        save: { success: true },
+      },
+    ]
+
+    expect(buildCombatResultImpactSummary({
+      aoe_results: targetResults,
+      target_results: targetResults,
+    })).toEqual([
+      { key: 'targets', label: '影响 2 个', tone: 'info', title: 'Goblin、Companion' },
+      { key: 'enemies', label: '敌方 1', tone: 'good', title: 'Goblin' },
+      { key: 'allies', label: '友方 1', tone: 'warning', title: 'Companion' },
+      { key: 'damage', label: '总伤害 18', tone: 'bad', title: 'Goblin、Companion' },
+      { key: 'save-failed', label: '豁免失败 1', tone: 'bad', title: 'Goblin、Companion' },
+      { key: 'save-succeeded', label: '成功 1', tone: 'good', title: 'Goblin、Companion' },
+      { key: 'downed', label: '倒下 1', tone: 'bad', title: 'Goblin' },
+    ])
+  })
+
+  it('infers compact impact chips from multi-target HP state rows when result payloads are absent', () => {
+    expect(buildCombatLogImpactSummary({
+      state_changes: [
+        'Goblin HP 12 -> 0',
+        'Companion HP 14 -> 8',
+        '动作已用',
+      ],
+    })).toEqual([
+      {
+        key: 'hp-updates',
+        label: 'HP变化 2 项',
+        tone: 'info',
+        title: 'Goblin HP 12 -> 0；Companion HP 14 -> 8',
+      },
+      {
+        key: 'downed',
+        label: '倒下 1',
+        tone: 'bad',
+        title: 'Goblin HP 12 -> 0',
+      },
     ])
   })
 })

@@ -300,6 +300,7 @@ function hpAfterFrom(result = {}) {
   return result.target_state?.hp_current
     ?? result.target_state?.new_hp
     ?? result.target_state?.hp_after
+    ?? result.new_hp
     ?? result.hp_after
     ?? result.hp_current
     ?? result.target_new_hp
@@ -369,6 +370,211 @@ function summarizeSkirmisherReposition(reposition = null) {
   return compact(['游击撤步', distance]).join(' ') + route
 }
 
+function resultGroupsFrom(result = {}) {
+  return [
+    result.aoe_results,
+    result.target_results,
+    result.resurrection_results,
+  ]
+}
+
+function resultTargetKey(item = {}) {
+  return String(
+    item.target_id
+    || item.character_id
+    || item.id
+    || item.target_name
+    || item.character_name
+    || item.name
+    || '',
+  )
+}
+
+function uniqueResultTargets(result = {}) {
+  const seen = new Map()
+  resultGroupsFrom(result).forEach(group => {
+    if (!Array.isArray(group)) return
+    group.forEach(item => {
+      if (!item || typeof item !== 'object') return
+      const key = resultTargetKey(item) || `target-${seen.size}`
+      seen.set(key, { ...(seen.get(key) || {}), ...item })
+    })
+  })
+
+  if (result.target_state && typeof result.target_state === 'object') {
+    const key = resultTargetKey(result.target_state) || resultTargetKey(result) || `target-${seen.size}`
+    seen.set(key, { ...(seen.get(key) || {}), ...result.target_state })
+  } else if (hpAfterFrom(result) !== null || result.damage !== undefined || result.heal !== undefined) {
+    const key = resultTargetKey(result) || `target-${seen.size}`
+    seen.set(key, { ...(seen.get(key) || {}), ...result })
+  }
+
+  return [...seen.values()]
+}
+
+function targetNamesTitle(items = []) {
+  return items
+    .map(item => targetLabelFrom(item))
+    .filter(Boolean)
+    .join('、')
+}
+
+function saveSuccessFromTarget(item = {}) {
+  const save = item.save || item.save_result || item.saving_throw
+  if (!save || typeof save !== 'object' || save.success === undefined) return null
+  return Boolean(save.success)
+}
+
+function sideFromTarget(item = {}) {
+  const raw = String(item.side || item.target_side || item.allegiance || '').toLowerCase()
+  if (['enemy', 'foe', 'hostile'].includes(raw)) return 'enemy'
+  if (['ally', 'friend', 'friendly', 'self', 'player', 'companion'].includes(raw)) return 'ally'
+  if (item.is_enemy === true) return 'enemy'
+  if (item.is_enemy === false || item.is_ally === true || item.is_player === true || item.is_companion === true) return 'ally'
+  return ''
+}
+
+function numberSum(items = [], field) {
+  return items.reduce((sum, item) => {
+    const value = asNumber(item?.[field])
+    return value === null ? sum : sum + value
+  }, 0)
+}
+
+function normalizeImpactSummary(items = []) {
+  const seen = new Set()
+  return compact(items.map((item, index) => {
+    if (typeof item === 'string') {
+      return { key: `impact-${index}`, label: item, tone: '', title: item }
+    }
+    if (!item || typeof item !== 'object' || !item.label) return null
+    return {
+      key: item.key || `impact-${index}`,
+      label: item.label,
+      tone: item.tone || '',
+      title: item.title || item.label,
+    }
+  })).filter(item => {
+    const key = `${item.key}:${item.label}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export function buildCombatResultImpactSummary(result = {}) {
+  if (!result || typeof result !== 'object') return []
+
+  const targets = uniqueResultTargets(result)
+  if (targets.length <= 1) return []
+
+  const chips = []
+  const title = targetNamesTitle(targets)
+  chips.push({
+    key: 'targets',
+    label: `影响 ${targets.length} 个`,
+    tone: 'info',
+    title,
+  })
+
+  const enemies = targets.filter(item => sideFromTarget(item) === 'enemy')
+  const allies = targets.filter(item => sideFromTarget(item) === 'ally')
+  if (enemies.length > 0 || allies.length > 0) {
+    if (enemies.length > 0) {
+      chips.push({
+        key: 'enemies',
+        label: `敌方 ${enemies.length}`,
+        tone: 'good',
+        title: targetNamesTitle(enemies),
+      })
+    }
+    if (allies.length > 0) {
+      chips.push({
+        key: 'allies',
+        label: `友方 ${allies.length}`,
+        tone: 'warning',
+        title: targetNamesTitle(allies),
+      })
+    }
+  }
+
+  const damage = numberSum(targets, 'damage')
+  if (damage > 0) {
+    chips.push({
+      key: 'damage',
+      label: `总伤害 ${damage}`,
+      tone: 'bad',
+      title,
+    })
+  }
+
+  const heal = numberSum(targets, 'heal')
+  if (heal > 0) {
+    chips.push({
+      key: 'heal',
+      label: `治疗 ${heal}`,
+      tone: 'good',
+      title,
+    })
+  }
+
+  const saves = targets.map(saveSuccessFromTarget).filter(value => value !== null)
+  if (saves.length > 0) {
+    const failed = saves.filter(success => !success).length
+    const succeeded = saves.length - failed
+    if (failed > 0) chips.push({ key: 'save-failed', label: `豁免失败 ${failed}`, tone: 'bad', title })
+    if (succeeded > 0) chips.push({ key: 'save-succeeded', label: `成功 ${succeeded}`, tone: 'good', title })
+  }
+
+  const downed = targets.filter(item => {
+    const hp = hpAfterFrom(item)
+    return hp !== null && hp <= 0
+  }).length
+  if (downed > 0) {
+    chips.push({
+      key: 'downed',
+      label: `倒下 ${downed}`,
+      tone: 'bad',
+      title: targetNamesTitle(targets.filter(item => {
+        const hp = hpAfterFrom(item)
+        return hp !== null && hp <= 0
+      })),
+    })
+  }
+
+  return normalizeImpactSummary(chips)
+}
+
+export function buildCombatLogImpactSummary(log = {}) {
+  if (Array.isArray(log.impact_summary) && log.impact_summary.length > 0) {
+    return normalizeImpactSummary(log.impact_summary)
+  }
+
+  const result = log.result || log.action_result
+  const fromResult = buildCombatResultImpactSummary(result)
+  if (fromResult.length > 0) return fromResult
+
+  const state = normalizeStateChanges(log.state_changes)
+  const hpLines = state.filter(item => /\bHP\b/.test(String(item)) && /(?:->|→)/.test(String(item)))
+  if (hpLines.length <= 1) return []
+
+  const downed = hpLines.filter(item => /(?:->|→)\s*0(?:\D|$)/.test(String(item))).length
+  return normalizeImpactSummary([
+    {
+      key: 'hp-updates',
+      label: `HP变化 ${hpLines.length} 项`,
+      tone: 'info',
+      title: hpLines.join('；'),
+    },
+    downed > 0 ? {
+      key: 'downed',
+      label: `倒下 ${downed}`,
+      tone: 'bad',
+      title: hpLines.filter(item => /(?:->|→)\s*0(?:\D|$)/.test(String(item))).join('；'),
+    } : null,
+  ])
+}
+
 export function buildCombatStateChangeSummary(result = {}, options = {}) {
   if (!result || typeof result !== 'object') return []
 
@@ -382,12 +588,7 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
     ...summarizeReactionHpResult(result, options),
   ]
 
-  const resultGroups = [
-    result.aoe_results,
-    result.target_results,
-    result.resurrection_results,
-  ]
-  resultGroups.forEach(group => {
+  resultGroupsFrom(result).forEach(group => {
     if (!Array.isArray(group)) return
     group.forEach(item => {
       entries.push(...summarizeTargetResult(item))
@@ -449,6 +650,7 @@ export function buildCombatLogView(log = {}) {
   return {
     tone,
     feedback,
+    impact: buildCombatLogImpactSummary(log),
     roleLabel: resolveRoleLabel(log.role),
     sections: compact([
       rules.length ? { kind: 'rules', label: '规则', items: rules } : null,

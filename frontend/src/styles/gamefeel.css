@@ -5095,11 +5095,50 @@ button.companion-signal-item:focus-visible {
   gap: 3px;
   min-width: 0;
 }
+.combat-log-summary-impacts {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+}
 .combat-log-summary-sections i {
   padding: 2px 5px;
   border-radius: 999px;
   background: rgba(255,255,255,.045);
   font-size: 9px;
+}
+.combat-log-summary-impacts i {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid rgba(213,184,121,.28);
+  border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  color: var(--parchment-dark);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.combat-log-summary-impacts i.info {
+  border-color: rgba(95,216,232,.35);
+  background: rgba(47,169,196,.12);
+  color: var(--arcane-light, #5fd8e8);
+}
+.combat-log-summary-impacts i.good {
+  border-color: rgba(159,214,138,.45);
+  background: rgba(70,150,78,.13);
+  color: #b8f0a2;
+}
+.combat-log-summary-impacts i.warning {
+  border-color: rgba(240,208,96,.5);
+  background: rgba(240,208,96,.12);
+  color: var(--amber);
+}
+.combat-log-summary-impacts i.bad {
+  border-color: rgba(240,64,64,.52);
+  background: rgba(160,28,28,.18);
+  color: #ff9a8f;
 }
 .combat-log-summary-count {
   margin-left: auto;

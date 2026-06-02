@@ -10,7 +10,7 @@ import {
   spellRequiresAttackRoll,
 } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
-import { buildCombatStateChangeSummary } from '../utils/combatLog'
+import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
 
 export function useCombatSpellFlow({
   sessionId,
@@ -120,11 +120,13 @@ export function useCombatSpellFlow({
 
           if (confirmResult.turn_state) setTurnState(confirmResult.turn_state)
           setPlayerSpellSlots(confirmResult.remaining_slots || {})
+          const impactSummary = buildCombatResultImpactSummary(confirmResult)
           addLog({
             role: 'player',
             content: confirmResult.narration,
             log_type: 'combat',
             dice_result: confirmResult.dice_result || confirmResult.log_dice_result || null,
+            ...(impactSummary.length > 0 ? { impact_summary: impactSummary } : {}),
             state_changes: buildCombatStateChangeSummary(confirmResult, {
               targetName: targetDesc,
             }),

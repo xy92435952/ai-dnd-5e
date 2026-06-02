@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { applyActionResultEntityStates, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
 import { getPendingReactionPrompt } from '../utils/combatSession'
-import { buildCombatStateChangeSummary } from '../utils/combatLog'
+import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
 
 const AI_TURN_LIMIT = 20
 
@@ -93,6 +93,7 @@ export function useCombatAiTurns({
           }
         })
 
+        const impactSummary = buildCombatResultImpactSummary(result)
         addLog({
           role: result.actor_id?.startsWith('enemy') ? 'enemy' : `companion_${result.actor_name}`,
           content: result.narration,
@@ -100,6 +101,7 @@ export function useCombatAiTurns({
           dice_result: result.attack_result?.d20
             ? { attack: result.attack_result, damage: result.damage }
             : null,
+          ...(impactSummary.length > 0 ? { impact_summary: impactSummary } : {}),
           state_changes: buildCombatStateChangeSummary(result),
         })
 

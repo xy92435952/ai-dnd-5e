@@ -15,6 +15,13 @@ export default function CombatHudCombatLog({ logs, logsEndRef }) {
           {summary.feedback.map(item => (
             <span key={item.kind} className={`combat-log-summary-feedback ${item.kind}`}>{item.label}</span>
           ))}
+          {summary.impacts.length > 0 && (
+            <span className="combat-log-summary-impacts" aria-label="影响摘要">
+              {summary.impacts.map(item => (
+                <i key={item.key} className={item.tone || ''} title={item.title || item.label}>{item.label}</i>
+              ))}
+            </span>
+          )}
           {summary.headline && <em title={summary.headline}>战报 {summary.headline}</em>}
           {summary.sections.length > 0 && (
             <span className="combat-log-summary-sections" aria-label="战报结构">
@@ -49,6 +56,7 @@ function buildCombatLogSummary(visibleLogs = []) {
     tone: view.tone,
     roleLabel: view.roleLabel,
     feedback: view.feedback.slice(0, 3),
+    impacts: view.impact.slice(0, 5),
     headline,
     sections: view.sections.map(section => ({
       kind: section.kind,
