@@ -181,6 +181,8 @@ describe('buildSpellCastPlan', () => {
         type: 'damage',
         aoe: true,
         damage: '8d6',
+        save: 'dex',
+        half_on_save: true,
         desc: '20尺半径球形爆炸',
       },
       level: 3,
@@ -189,9 +191,27 @@ describe('buildSpellCastPlan', () => {
       aoeHover: '5_5',
       combat: {
         entities: {
-          'hero-1': { id: 'hero-1', name: '施法者', is_enemy: false, hp_current: 20 },
-          'enemy-1': { id: 'enemy-1', name: '训练假人', is_enemy: true, hp_current: 7 },
-          'ally-1': { id: 'ally-1', name: '同伴', is_enemy: false, hp_current: 10 },
+          'hero-1': {
+            id: 'hero-1',
+            name: '施法者',
+            is_enemy: false,
+            hp_current: 20,
+            derived: { spell_save_dc: 14, saving_throws: { dex: 2 } },
+          },
+          'enemy-1': {
+            id: 'enemy-1',
+            name: '训练假人',
+            is_enemy: true,
+            hp_current: 7,
+            derived: { saving_throws: { dex: 5 } },
+          },
+          'ally-1': {
+            id: 'ally-1',
+            name: '同伴',
+            is_enemy: false,
+            hp_current: 10,
+            derived: { saving_throws: { dex: -1 } },
+          },
           'down-1': { id: 'down-1', name: '倒地单位', is_enemy: true, hp_current: 0 },
         },
         entity_positions: {
@@ -216,6 +236,14 @@ describe('buildSpellCastPlan', () => {
       tone: 'ready',
     })
     expect(row(plan, '命中单位').value).toBe('3 个：施法者、训练假人、同伴')
+    expect(row(plan, '目标豁免')).toMatchObject({
+      value: '3 个目标 · 平均 45%通过 · 最高 60% / 最低 30%',
+      tone: 'warning',
+    })
+    expect(preflight(plan, 'rule')).toMatchObject({
+      value: '敏捷豁免 · DC 14 · 均 45%通过 · 成功减半',
+      tone: 'warning',
+    })
     expect(row(plan, '敌方')).toMatchObject({ value: '训练假人', tone: 'ready' })
     expect(row(plan, '友方')).toMatchObject({ value: '同伴', tone: 'warning' })
     expect(row(plan, '自身')).toMatchObject({ value: '施法者', tone: 'warning' })

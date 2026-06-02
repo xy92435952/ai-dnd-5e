@@ -207,6 +207,34 @@ export function buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId
   }
 }
 
+function buildSpellSaveDefenseGroupSummary({ spell, combat, playerId, targetIds = [] }) {
+  const summaries = targetIds
+    .map(targetId => ({
+      targetId,
+      name: entityName(combat, targetId),
+      summary: buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId }),
+    }))
+    .filter(item => item.summary)
+
+  if (!summaries.length) return null
+
+  const chances = summaries.map(item => item.summary.passChance)
+  const average = Math.round(chances.reduce((sum, value) => sum + value, 0) / chances.length)
+  const highest = Math.max(...chances)
+  const lowest = Math.min(...chances)
+  const countLabel = targetIds.length && summaries.length !== targetIds.length
+    ? `${summaries.length}/${targetIds.length} 个目标`
+    : `${summaries.length} 个目标`
+
+  return {
+    value: `${countLabel} · 平均 ${average}%通过 · 最高 ${highest}% / 最低 ${lowest}%`,
+    compactLabel: `均 ${average}%通过`,
+    passChance: average,
+    tone: highest >= 60 ? 'warning' : 'ready',
+    title: `范围目标豁免预估：${summaries.map(item => `${item.name}: ${item.summary.value}`).join(' / ')}。实际结算仍以后端骰子、条件和临时修正为准。`,
+  }
+}
+
 function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
   const summary = buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId })
   if (!summary) return null
@@ -228,12 +256,23 @@ function spellSaveDefenseRow({ spell, combat, playerId, targetId }) {
   }
 }
 
-function spellRulePreflight({ spell, combat, playerId, targetId }) {
+function spellSaveDefenseGroupRow({ spell, combat, playerId, targetIds }) {
+  const summary = buildSpellSaveDefenseGroupSummary({ spell, combat, playerId, targetIds })
+  if (!summary) return null
+
+  return {
+    label: '目标豁免',
+    value: summary.value,
+    tone: summary.tone,
+  }
+}
+
+function spellRulePreflight({ spell, combat, playerId, targetId, defenseSummary = null }) {
   const save = spellSaveAbility(spell)
   if (save) {
     const dc = spellSaveDcValue(spell, combat, playerId)
     const saveResult = spellHasHalfOnSave(spell) ? '成功减半' : '成功规避/减轻'
-    const defense = buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId })
+    const defense = defenseSummary || buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId })
     return {
       key: 'rule',
       label: '判定',
@@ -243,7 +282,7 @@ function spellRulePreflight({ spell, combat, playerId, targetId }) {
         defense?.compactLabel || '',
         saveResult,
       ].filter(Boolean).join(' · '),
-      tone: defense?.passChance >= 60 ? 'warning' : 'ready',
+      tone: defense?.tone === 'warning' || defense?.passChance >= 60 ? 'warning' : 'ready',
       title: defense?.title || '目标按此豁免或 DC 规则结算本次法术。',
     }
   }
@@ -615,7 +654,14 @@ export function buildSpellCastPlan({
     placementPreflight = aoePlacementPreflight({ aoePlacement, hasPlacement })
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
     targetPreflight = aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement })
-    rulePreflight = spellRulePreflight({ spell, combat, playerId, targetId: null })
+    const saveDefenseSummary = buildSpellSaveDefenseGroupSummary({ spell, combat, playerId, targetIds })
+    rulePreflight = spellRulePreflight({
+      spell,
+      combat,
+      playerId,
+      targetId: null,
+      defenseSummary: saveDefenseSummary,
+    })
     if (maxTargets) {
       aoeBreakdown.limit = maxTargets
       aoeBreakdown.excluded = excludedTargetIds.length
@@ -651,6 +697,8 @@ export function buildSpellCastPlan({
         : (aoeHover ? '0 个' : '待确认'),
       tone: targetIds.length ? 'ready' : 'warning',
     })
+    const saveDefenseRow = spellSaveDefenseGroupRow({ spell, combat, playerId, targetIds })
+    if (saveDefenseRow) rows.push(saveDefenseRow)
     if (aoeBreakdown.groups.enemy.length) {
       rows.push({
         label: '敌方',
