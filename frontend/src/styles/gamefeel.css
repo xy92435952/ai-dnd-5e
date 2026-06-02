@@ -2964,6 +2964,12 @@ button.companion-signal-item:focus-visible {
   border-color: rgba(213,184,121,.14);
   background: rgba(0,0,0,.16);
 }
+.location-encounter-handoff {
+  margin: 0;
+  padding: 5px 6px;
+  border-left: 2px solid rgba(240,208,96,.42);
+  background: rgba(240,208,96,.06);
+}
 .location-encounter-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

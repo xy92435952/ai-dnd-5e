@@ -216,11 +216,13 @@ describe('LocationMapModal', () => {
     expect(within(readiness).getByText('Env')).toBeInTheDocument()
     expect(within(readiness).getByText('heavy')).toBeInTheDocument()
     expect(within(readiness).getByText('Roster hidden')).toBeInTheDocument()
+    expect(within(encounters).getByText('Armed for the next combat at this location.')).toBeInTheDocument()
     expect(screen.queryByText('sparking conduit')).not.toBeInTheDocument()
     expect(screen.queryByText('Hidden plan')).not.toBeInTheDocument()
   })
 
   it('previews public encounters on a selected non-current visible location', () => {
+    const onSelectEncounter = vi.fn()
     render(<LocationMapModal graph={{
       current_location_id: 'yard',
       nodes: [
@@ -246,7 +248,7 @@ describe('LocationMapModal', () => {
           name: 'Vault Guardian',
         },
       ],
-    }} onClose={() => {}} />)
+    }} onSelectEncounter={onSelectEncounter} onClose={() => {}} />)
 
     const routeSummary = screen.getByLabelText('Exit summary')
     expect(within(routeSummary).getByText('encounter route')).toBeInTheDocument()
@@ -263,6 +265,12 @@ describe('LocationMapModal', () => {
     expect(within(encounters).getByText('Ready')).toBeInTheDocument()
     expect(within(encounters).getByText('Can be armed')).toBeInTheDocument()
     expect(within(encounters).getByText('1 known foe')).toBeInTheDocument()
+    expect(within(encounters).getByText('Travel here before arming.')).toBeInTheDocument()
+    const selectButton = within(encounters).getByRole('button', { name: 'Travel first' })
+    expect(selectButton).toBeDisabled()
+    expect(selectButton).toHaveAttribute('title', 'Travel to this location before setting this encounter active.')
+    fireEvent.click(selectButton)
+    expect(onSelectEncounter).not.toHaveBeenCalled()
     expect(screen.queryByText('Vault Guardian')).not.toBeInTheDocument()
   })
 

@@ -98,8 +98,20 @@ function TravelPlanSummary({ plan }) {
   )
 }
 
-function EncounterCard({ encounter, selecting, disabled = false, disabledReason = '', onSelectEncounter }) {
-  const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter && !disabled
+function EncounterCard({
+  encounter,
+  selecting,
+  nodeCurrent = false,
+  disabled = false,
+  disabledReason = '',
+  onSelectEncounter,
+}) {
+  const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter && !disabled && nodeCurrent
+  const locationSelectReason = 'Travel to this location before setting this encounter active.'
+  const selectTitle = disabled ? disabledReason : !nodeCurrent ? locationSelectReason : undefined
+  const handoff = encounter.selected
+    ? (nodeCurrent ? 'Armed for the next combat at this location.' : 'Armed away from your current location.')
+    : (nodeCurrent ? 'Ready at your current location.' : 'Travel here before arming.')
   return (
     <article className="location-encounter-card">
       <div className="location-encounter-card-head">
@@ -145,16 +157,17 @@ function EncounterCard({ encounter, selecting, disabled = false, disabledReason 
           <DetailPills values={encounter.rewardHints} />
         </div>
       </div>
+      <p className="location-map-muted location-encounter-handoff">{handoff}</p>
       {encounter.tactics && <p className="location-map-muted">{encounter.tactics}</p>}
       {onSelectEncounter && (
         <button
           type="button"
           className="btn-fantasy location-encounter-select"
           disabled={!canSelect || selecting}
-          title={disabled ? disabledReason : undefined}
+          title={selectTitle}
           onClick={() => onSelectEncounter(encounter.id)}
         >
-          {selecting ? 'Setting...' : encounter.selected ? 'Active' : 'Set active'}
+          {selecting ? 'Setting...' : encounter.selected ? 'Active' : !nodeCurrent ? 'Travel first' : 'Set active'}
         </button>
       )}
     </article>
@@ -284,6 +297,7 @@ export default function LocationMapModal({
                   key={encounter.id || encounter.name}
                   encounter={encounter}
                   selecting={String(selectingTemplateId) === String(encounter.id)}
+                  nodeCurrent={Boolean(selectedNode?.current)}
                   disabled={disabled}
                   disabledReason={blockReason}
                   onSelectEncounter={onSelectEncounter}
