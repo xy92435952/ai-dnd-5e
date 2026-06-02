@@ -16,10 +16,15 @@ describe('MultiplayerSessionStatusBar', () => {
     )
 
     expect(screen.getByText('DM 调度')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: '联机状态' })).toHaveStyle('box-sizing: border-box')
+    expect(screen.getByRole('status', { name: '联机状态' })).toHaveStyle('min-width: 0')
     expect(screen.getByText('切换镜头')).toBeInTheDocument()
     expect(screen.getByText('酒馆组已有待处理行动，玩家明确要求切镜头。')).toBeInTheDocument()
+    expect(screen.getByText('酒馆组已有待处理行动，玩家明确要求切镜头。')).toHaveStyle('overflow-wrap: anywhere')
     expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
+    expect(screen.getByText('当前镜头：酒馆组')).toHaveStyle('overflow-wrap: anywhere')
     expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toHaveStyle('overflow-wrap: anywhere')
     expect(screen.getByText('房间 123456')).toBeInTheDocument()
   })
 
