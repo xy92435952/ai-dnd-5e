@@ -267,6 +267,7 @@ export default function Combat() {
         isPlayerTurn={canActThisTurn && !combatSyncBlocked}
         syncBlocked={combatSyncBlocked}
         moveMode={moveMode}
+        helpMode={helpMode}
         isRanged={isRanged}
         selectedWeaponName={selectedWeaponName}
         onSessionChange={runtime.setSession}

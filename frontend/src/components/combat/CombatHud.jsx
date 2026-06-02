@@ -6,6 +6,7 @@ import CombatHudSlots from './CombatHudSlots'
 import CombatHudControls from './CombatHudControls'
 import CombatQuickInventory from './CombatQuickInventory'
 import CombatDeathSavePanel from './CombatDeathSavePanel'
+import CombatHudIntentSummary from './CombatHudIntentSummary'
 
 export default function CombatHud({
   session,
@@ -25,6 +26,7 @@ export default function CombatHud({
   isPlayerTurn,
   syncBlocked = false,
   moveMode,
+  helpMode,
   isRanged,
   selectedWeaponName,
   onSessionChange,
@@ -55,6 +57,21 @@ export default function CombatHud({
       </div>
 
       <div className="combat-hud-center">
+        <CombatHudIntentSummary
+          turnState={turnState}
+          skillBar={skillBar}
+          selectedTarget={selectedTarget}
+          entities={entities}
+          prediction={prediction}
+          isPlayerTurn={isPlayerTurn}
+          isProcessing={isProcessing}
+          syncBlocked={syncBlocked}
+          moveMode={moveMode}
+          helpMode={helpMode}
+          isRanged={isRanged}
+          selectedWeaponName={selectedWeaponName}
+        />
+
         <CombatHudSkillBar
           skillBar={skillBar}
           session={session}

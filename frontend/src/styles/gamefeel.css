@@ -4608,6 +4608,152 @@ button.companion-signal-item:focus-visible {
 .pip.used   { color: #3a3a3a; border-color: rgba(90,60,30,.4); box-shadow: none; opacity: .45; }
 
 /* 中央 · 技能快捷栏 */
+.combat-intent-summary {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(95,216,232,.18);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(11,18,24,.74), rgba(8,8,12,.62));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 8px 20px rgba(0,0,0,.18);
+}
+.combat-intent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.combat-intent-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+.combat-intent-status b {
+  flex: 0 0 auto;
+  color: var(--arcane-light, #5fd8e8);
+  font-family: var(--font-display);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.combat-intent-status em,
+.combat-intent-mode,
+.combat-intent-chip em,
+.combat-intent-target em {
+  color: var(--parchment-dark);
+  font-style: normal;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.combat-intent-status.ready b { color: #8aeaa0; }
+.combat-intent-status.warn b { color: var(--gold); }
+.combat-intent-status.blocked b,
+.combat-intent-status.processing b { color: #f09090; }
+.combat-intent-status.waiting b { color: var(--muted); }
+.combat-intent-mode {
+  flex: 0 1 auto;
+  max-width: 45%;
+  padding: 3px 7px;
+  border: 1px solid rgba(240,208,96,.22);
+  border-radius: 999px;
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combat-intent-economy,
+.combat-intent-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+.combat-intent-chip,
+.combat-intent-rules span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  background: rgba(255,255,255,.045);
+  font-family: var(--font-mono);
+  line-height: 1;
+  overflow: hidden;
+}
+.combat-intent-chip b,
+.combat-intent-target span {
+  flex: 0 0 auto;
+  color: rgba(230,218,190,.72);
+  font-size: 9px;
+  font-weight: 900;
+}
+.combat-intent-chip.ready {
+  border-color: rgba(138,234,160,.26);
+  background: rgba(138,234,160,.08);
+}
+.combat-intent-chip.ready em { color: #8aeaa0; }
+.combat-intent-chip.spent {
+  border-color: rgba(160,150,130,.16);
+  background: rgba(0,0,0,.14);
+}
+.combat-intent-chip.spent em { color: rgba(200,190,170,.5); }
+.combat-intent-target {
+  display: grid;
+  grid-template-columns: auto minmax(0, .75fr) minmax(0, 1.25fr);
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid rgba(127,232,248,.14);
+  border-radius: 5px;
+  background: rgba(127,232,248,.055);
+}
+.combat-intent-target b {
+  min-width: 0;
+  color: var(--parchment);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combat-intent-target.empty {
+  border-color: rgba(240,208,96,.18);
+  background: rgba(240,208,96,.055);
+}
+.combat-intent-target.empty b {
+  color: var(--gold);
+}
+.combat-intent-rules span {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combat-intent-rules span.good {
+  border-color: rgba(138,234,160,.28);
+  background: rgba(138,234,160,.08);
+  color: #8aeaa0;
+}
+.combat-intent-rules span.warning {
+  border-color: rgba(240,208,96,.34);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+}
+.combat-intent-rules span.bad,
+.combat-intent-rules span.danger {
+  border-color: rgba(240,64,64,.32);
+  background: rgba(240,64,64,.1);
+  color: #f09090;
+}
+
 .skill-bar {
   display: flex;
   gap: 6px;
@@ -4973,6 +5119,15 @@ button.companion-signal-item:focus-visible {
     padding: 8px 12px;
     font-size: 12px;
   }
+
+  .combat-intent-summary {
+    gap: 5px;
+    padding: 6px 8px;
+  }
+
+  .combat-intent-target {
+    padding: 4px 6px;
+  }
 }
 
 @media (max-width: 1120px) {
@@ -5024,6 +5179,19 @@ button.companion-signal-item:focus-visible {
   }
   .skill-rule-summary b {
     flex-basis: 100%;
+  }
+  .combat-intent-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .combat-intent-mode {
+    max-width: 100%;
+  }
+  .combat-intent-target {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .combat-intent-target em {
+    grid-column: 1 / -1;
   }
 }
 

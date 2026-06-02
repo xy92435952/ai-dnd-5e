@@ -80,6 +80,7 @@ describe('CombatHud', () => {
     expect(container.querySelector('.combat-hud-left')).toBeTruthy()
     expect(container.querySelector('.combat-hud-center')).toBeTruthy()
     expect(container.querySelector('.combat-hud-right')).toBeTruthy()
+    expect(container.querySelector('.combat-intent-summary')).toBeTruthy()
     expect(container.querySelector('.combat-turn-controls')).toBeTruthy()
     expect(container.querySelector('.combat-turn-action-grid')).toBeTruthy()
 
