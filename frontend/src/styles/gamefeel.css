@@ -2626,6 +2626,83 @@ button.companion-signal-item:focus-visible {
   font-size: 11px;
   line-height: 1.45;
 }
+.location-map-travel-plan {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 9px;
+  padding: 8px;
+  border: 1px solid rgba(127,232,248,.22);
+  border-radius: 5px;
+  background: rgba(2,8,12,.32);
+}
+.location-map-travel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.location-map-travel-head span {
+  min-width: 0;
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+.location-map-travel-head b {
+  flex: 0 0 auto;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.location-map-travel-plan p,
+.location-map-travel-plan em,
+.location-map-travel-plan small {
+  min-width: 0;
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.location-map-travel-plan p {
+  color: var(--parchment-dark);
+}
+.location-map-travel-plan em {
+  color: var(--parchment);
+  font-style: normal;
+}
+.location-map-travel-plan small {
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+}
+.location-map-travel-plan.current {
+  border-color: rgba(240,208,96,.28);
+  background: rgba(240,208,96,.07);
+}
+.location-map-travel-plan.current .location-map-travel-head span {
+  color: var(--gold);
+}
+.location-map-travel-plan.ready {
+  border-color: rgba(106,196,132,.32);
+  background: rgba(18,58,36,.24);
+}
+.location-map-travel-plan.ready .location-map-travel-head span {
+  color: var(--emerald-light);
+}
+.location-map-travel-plan.warn {
+  border-color: rgba(240,208,96,.34);
+  background: rgba(82,58,16,.24);
+}
+.location-map-travel-plan.warn .location-map-travel-head span,
+.location-map-travel-plan.warn small {
+  color: var(--gold);
+}
+.location-map-travel-plan.muted {
+  border-color: rgba(213,184,121,.16);
+  background: rgba(0,0,0,.18);
+}
 .location-map-route-list {
   margin: 0;
   padding: 0;

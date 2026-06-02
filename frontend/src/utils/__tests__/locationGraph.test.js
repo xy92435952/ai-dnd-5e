@@ -145,6 +145,66 @@ describe('locationGraph', () => {
     })])
   })
 
+  it('builds route-from-current plans without using hidden routes', () => {
+    const map = getLocationGraphMap({
+      current_location_id: 'gate',
+      nodes: [
+        { id: 'gate', name: 'Gatehouse', visited: true },
+        { id: 'yard', name: 'Training Yard', visited: true },
+        { id: 'armory', name: 'Armory', discovered: true },
+        { id: 'tower', name: 'Watchtower', discovered: true },
+        { id: 'secret', name: 'Secret Vault', discovered: true },
+      ],
+      edges: [
+        { id: 'gate-yard', from: 'gate', to: 'yard', type: 'route' },
+        {
+          id: 'yard-armory',
+          from: 'yard',
+          to: 'armory',
+          type: 'locked',
+          locked: true,
+          requires_key: 'Bronze Key',
+          check_type: 'thieves_tools',
+          dc: 15,
+        },
+        { id: 'tower-yard', from: 'tower', to: 'yard', type: 'stairs', one_way: true },
+        { id: 'yard-secret', from: 'yard', to: 'secret', type: 'hidden', hidden: true },
+      ],
+    })
+
+    expect(map.nodes.find(node => node.id === 'gate').travelPlan).toMatchObject({
+      status: 'current',
+      label: 'Current location',
+      steps: 0,
+      path: ['Gatehouse'],
+    })
+    expect(map.nodes.find(node => node.id === 'yard').travelPlan).toMatchObject({
+      status: 'reachable',
+      label: 'Reachable',
+      steps: 1,
+      path: ['Gatehouse', 'Training Yard'],
+      nextAction: 'Next: travel to Training Yard',
+    })
+    expect(map.nodes.find(node => node.id === 'armory').travelPlan).toMatchObject({
+      status: 'gated',
+      label: 'Gated route',
+      detail: 'Gated: needs Bronze Key or thieves tools DC 15',
+      steps: 2,
+      path: ['Gatehouse', 'Training Yard', 'Armory'],
+      nextAction: 'Next: use Bronze Key or try thieves tools DC 15',
+    })
+    expect(map.nodes.find(node => node.id === 'tower').travelPlan).toMatchObject({
+      status: 'unknown',
+      label: 'No known route',
+      path: [],
+    })
+    expect(map.nodes.find(node => node.id === 'secret').travelPlan).toMatchObject({
+      status: 'unknown',
+      label: 'No known route',
+      path: [],
+    })
+  })
+
   it('surfaces public encounter environment pressure as aggregate tags', () => {
     const map = getLocationGraphMap({
       current_location_id: 'yard',

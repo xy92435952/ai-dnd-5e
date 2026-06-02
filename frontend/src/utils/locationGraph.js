@@ -192,42 +192,136 @@ function routeTone(route) {
   return route.destinationVisited ? 'known' : 'new'
 }
 
+function routeFromEdge(edge, nodeId, nodeById) {
+  let destinationId = ''
+  let oneWayOut = false
+  if (String(edge.from) === String(nodeId)) {
+    destinationId = String(edge.to)
+    oneWayOut = Boolean(edge.oneWay)
+  } else if (String(edge.to) === String(nodeId) && !edge.oneWay) {
+    destinationId = String(edge.from)
+  }
+  if (!destinationId) return null
+  const destination = nodeById.get(destinationId)
+  if (!destination) return null
+  const route = {
+    id: edge.id,
+    destinationId,
+    destinationName: destination.name,
+    destinationVisited: Boolean(destination.visited),
+    label: edge.label,
+    type: edge.type,
+    locked: Boolean(edge.locked),
+    oneWay: oneWayOut,
+    requiresKey: edge.requiresKey,
+    dc: edge.dc,
+    checkType: edge.checkType,
+  }
+  return {
+    ...route,
+    tone: routeTone(route),
+    guidance: routeGuidance(route),
+    actionHint: routeActionHint(route),
+  }
+}
+
 function getNodeRoutes(nodeId, nodes, edges) {
   const nodeById = new Map(nodes.map(node => [String(node.id), node]))
   return edges
-    .map(edge => {
-      let destinationId = ''
-      let oneWayOut = false
-      if (String(edge.from) === String(nodeId)) {
-        destinationId = String(edge.to)
-        oneWayOut = Boolean(edge.oneWay)
-      } else if (String(edge.to) === String(nodeId) && !edge.oneWay) {
-        destinationId = String(edge.from)
-      }
-      if (!destinationId) return null
-      const destination = nodeById.get(destinationId)
-      if (!destination) return null
-      const route = {
-        id: edge.id,
-        destinationId,
-        destinationName: destination.name,
-        destinationVisited: Boolean(destination.visited),
-        label: edge.label,
-        type: edge.type,
-        locked: Boolean(edge.locked),
-        oneWay: oneWayOut,
-        requiresKey: edge.requiresKey,
-        dc: edge.dc,
-        checkType: edge.checkType,
-      }
-      return {
-        ...route,
-        tone: routeTone(route),
-        guidance: routeGuidance(route),
-        actionHint: routeActionHint(route),
-      }
-    })
+    .map(edge => routeFromEdge(edge, nodeId, nodeById))
     .filter(Boolean)
+}
+
+function routeIsGated(route = {}) {
+  return Boolean(route.locked || route.requiresKey || route.dc != null || route.tone === 'gated')
+}
+
+function findRoutePath(startId, targetId, nodes, edges, { allowGated = true } = {}) {
+  const start = String(startId)
+  const target = String(targetId)
+  if (!start || !target) return null
+  if (start === target) return []
+
+  const queue = [{ nodeId: start, path: [] }]
+  const seen = new Set([start])
+  while (queue.length > 0) {
+    const current = queue.shift()
+    const routes = getNodeRoutes(current.nodeId, nodes, edges)
+      .filter(route => allowGated || !routeIsGated(route))
+    for (const route of routes) {
+      const nextId = String(route.destinationId)
+      if (seen.has(nextId)) continue
+      const nextPath = [...current.path, route]
+      if (nextId === target) return nextPath
+      seen.add(nextId)
+      queue.push({ nodeId: nextId, path: nextPath })
+    }
+  }
+  return null
+}
+
+function pathNames(currentId, path = [], nodeById = new Map()) {
+  const names = [nodeById.get(String(currentId))?.name]
+  path.forEach(route => names.push(route.destinationName))
+  return names.filter(Boolean)
+}
+
+function travelPlanForNode(node, currentId, nodes, edges) {
+  const nodeById = new Map(nodes.map(item => [String(item.id), item]))
+  const targetId = String(node?.id || '')
+  const startId = String(currentId || '')
+  if (!targetId || !startId || targetId === startId) {
+    return {
+      status: 'current',
+      tone: 'current',
+      label: 'Current location',
+      detail: 'You are here.',
+      steps: 0,
+      path: pathNames(startId, [], nodeById),
+      nextAction: '',
+      blocker: null,
+    }
+  }
+
+  const openPath = findRoutePath(startId, targetId, nodes, edges, { allowGated: false })
+  if (openPath) {
+    return {
+      status: 'reachable',
+      tone: 'ready',
+      label: 'Reachable',
+      detail: `${openPath.length} step${openPath.length === 1 ? '' : 's'} from current.`,
+      steps: openPath.length,
+      path: pathNames(startId, openPath, nodeById),
+      nextAction: openPath[0]?.actionHint || '',
+      blocker: null,
+    }
+  }
+
+  const gatedPath = findRoutePath(startId, targetId, nodes, edges, { allowGated: true })
+  if (gatedPath) {
+    const blocker = gatedPath.find(routeIsGated) || gatedPath[0]
+    return {
+      status: 'gated',
+      tone: 'warn',
+      label: 'Gated route',
+      detail: blocker?.guidance || 'Known route needs a gate, key, or check.',
+      steps: gatedPath.length,
+      path: pathNames(startId, gatedPath, nodeById),
+      nextAction: blocker?.actionHint || gatedPath[0]?.actionHint || '',
+      blocker,
+    }
+  }
+
+  return {
+    status: 'unknown',
+    tone: 'muted',
+    label: 'No known route',
+    detail: 'No visible path from the current location.',
+    steps: null,
+    path: [],
+    nextAction: '',
+    blocker: null,
+  }
 }
 
 function mapNodePosition(index, total) {
@@ -329,15 +423,18 @@ export function getLocationGraphMap(graph) {
     routes: getNodeRoutes(node.id, nodes, edges),
   }))
 
-  const currentNode = nodesWithRoutes.find(node => node.current) || nodesWithRoutes[0]
+  const nodesWithTravelPlans = nodesWithRoutes.map(node => ({
+    ...node,
+    travelPlan: travelPlanForNode(node, currentId, nodesWithRoutes, edges),
+  }))
   const activeEncounter = activeEncounterView(nodesWithRoutes)
   return {
     currentId,
-    currentNode,
-    nodes: nodesWithRoutes,
+    currentNode: nodesWithTravelPlans.find(node => node.current) || nodesWithTravelPlans[0],
+    nodes: nodesWithTravelPlans,
     edges,
-    visitedCount: nodesWithRoutes.filter(node => node.visited).length || 1,
-    totalCount: nodesWithRoutes.length,
+    visitedCount: nodesWithTravelPlans.filter(node => node.visited).length || 1,
+    totalCount: nodesWithTravelPlans.length,
     encounterCount: templates.length,
     activeEncounter,
   }

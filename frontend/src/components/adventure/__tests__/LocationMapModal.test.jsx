@@ -81,6 +81,11 @@ describe('LocationMapModal', () => {
     expect(screen.getByRole('button', { name: 'Gatehouse visited' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Selected')).toBeInTheDocument()
     expect(screen.getByText('Stone entry.')).toBeInTheDocument()
+    const travel = screen.getByLabelText('Route from current')
+    expect(within(travel).getByText('Reachable')).toBeInTheDocument()
+    expect(within(travel).getByText('1 step')).toBeInTheDocument()
+    expect(within(travel).getByText('Training Yard -> Gatehouse')).toBeInTheDocument()
+    expect(within(travel).getByText('Next: travel to Gatehouse')).toBeInTheDocument()
   })
 
   it('shows selected-location exit gates without revealing hidden routes', () => {
@@ -117,6 +122,13 @@ describe('LocationMapModal', () => {
     expect(within(exitSummary).getByText('gated')).toBeInTheDocument()
     expect(within(exitSummary).getByText('new')).toBeInTheDocument()
     expect(screen.queryByText('Secret Vault')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Armory unvisited' }))
+    const travel = screen.getByLabelText('Route from current')
+    expect(within(travel).getByText('Gated route')).toBeInTheDocument()
+    expect(within(travel).getByText('Gated: needs Bronze Key or thieves tools DC 15')).toBeInTheDocument()
+    expect(within(travel).getByText('Training Yard -> Armory')).toBeInTheDocument()
+    expect(within(travel).getByText('Next: use Bronze Key or try thieves tools DC 15')).toBeInTheDocument()
   })
 
   it('does not surface hidden encounter selection controls', () => {

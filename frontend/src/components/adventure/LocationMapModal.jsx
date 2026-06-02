@@ -76,6 +76,22 @@ function RouteList({ routes }) {
   )
 }
 
+function TravelPlanSummary({ plan }) {
+  if (!plan) return null
+  const path = Array.isArray(plan.path) ? plan.path.filter(Boolean) : []
+  return (
+    <div className={`location-map-travel-plan ${plan.tone || ''}`} aria-label="Route from current">
+      <div className="location-map-travel-head">
+        <span>{plan.label}</span>
+        {plan.steps != null && <b>{plan.steps} step{plan.steps === 1 ? '' : 's'}</b>}
+      </div>
+      <p>{plan.detail}</p>
+      {path.length > 1 && <em>{path.join(' -> ')}</em>}
+      {plan.nextAction && <small>{plan.nextAction}</small>}
+    </div>
+  )
+}
+
 function EncounterCard({ encounter, selecting, disabled = false, disabledReason = '', onSelectEncounter }) {
   const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter && !disabled
   return (
@@ -228,6 +244,7 @@ export default function LocationMapModal({
               <h4>{selectedNode?.current ? 'Current' : 'Selected'}</h4>
               <strong>{selectedNode?.name}</strong>
               {selectedNode?.description && <p>{selectedNode.description}</p>}
+              <TravelPlanSummary plan={selectedNode?.travelPlan} />
               {selectedNode?.encounterCount > 0 && (
                 <p className="location-map-muted">{selectedNode.encounterCount} encounter template at this location.</p>
               )}
