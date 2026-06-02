@@ -2840,7 +2840,7 @@ button.companion-signal-item:focus-visible {
   flex-wrap: wrap;
   gap: 6px;
 }
-.location-map-encounters span {
+.location-map-encounters button {
   display: inline-flex;
   gap: 5px;
   max-width: 100%;
@@ -2852,9 +2852,21 @@ button.companion-signal-item:focus-visible {
   font-size: 10px;
   line-height: 1.35;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.location-map-encounters button.selected {
+  border-color: rgba(240,208,96,.48);
+  background: rgba(240,208,96,.1);
+}
+.location-map-encounters button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .location-map-encounters b {
   color: var(--blood-light);
+}
+.location-map-encounters button.selected b {
+  color: var(--gold);
 }
 .location-map-pill-list {
   display: flex;

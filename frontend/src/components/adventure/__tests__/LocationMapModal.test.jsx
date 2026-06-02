@@ -257,7 +257,12 @@ describe('LocationMapModal', () => {
     expect(within(routeList).getByText('Armory Ambush')).toBeInTheDocument()
     expect(within(routeList).getByText('encounter 1')).toHaveClass('danger')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Armory unvisited' }))
+    const mapped = screen.getByLabelText('Mapped encounters')
+    const mappedArmory = within(mapped).getByRole('button', { name: 'Focus Armory encounters' })
+    expect(mappedArmory).toHaveAttribute('title', 'Armory Ambush')
+    expect(mappedArmory).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(mappedArmory)
+    expect(within(mapped).getByRole('button', { name: 'Focus Armory encounters' })).toHaveAttribute('aria-pressed', 'true')
 
     const travel = screen.getByLabelText('Route from current')
     expect(within(travel).getByText('Encounter ahead: Armory Ambush')).toBeInTheDocument()

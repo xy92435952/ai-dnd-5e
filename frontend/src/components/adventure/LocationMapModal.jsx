@@ -310,10 +310,18 @@ export default function LocationMapModal({
           {map.nodes.some(node => node.encounterCount > 0) && (
             <div className="location-map-encounters" aria-label="Mapped encounters">
               {map.nodes.filter(node => node.encounterCount > 0).map(node => (
-                <span key={node.id}>
+                <button
+                  key={node.id}
+                  type="button"
+                  className={String(selectedNode?.id) === String(node.id) ? 'selected' : ''}
+                  aria-label={`Focus ${node.name} encounters`}
+                  aria-pressed={String(selectedNode?.id) === String(node.id)}
+                  title={node.encounterNames.join(' / ') || `${node.encounterCount} encounter`}
+                  onClick={() => setSelectedId(node.id)}
+                >
                   <b>{node.name}</b>
                   {node.encounterNames.length > 0 ? node.encounterNames.join(' / ') : `${node.encounterCount} encounter`}
-                </span>
+                </button>
               ))}
             </div>
           )}
