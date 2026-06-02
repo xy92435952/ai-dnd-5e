@@ -19,16 +19,7 @@ export default function AdventureBottomHud({
   onOpenLoot,
 }) {
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'auto 1fr auto',
-      gap: 12,
-      padding: '10px 20px 12px',
-      background: 'linear-gradient(180deg, transparent, rgba(10,6,4,.95) 40%, rgba(10,6,4,1) 100%)',
-      borderTop: '1px solid rgba(138,90,24,.5)',
-      boxShadow: 'inset 0 1px 0 rgba(240,208,96,.15)',
-      flexShrink: 0,
-    }}>
+    <div className="adventure-bottom-hud" role="region" aria-label="Adventure status">
       <AdventurePartyHud allMembers={allMembers} onOpenCharacter={onOpenCharacter} />
       <AdventureQuestHud
         questLine={questLine}
@@ -41,7 +32,7 @@ export default function AdventureBottomHud({
         onOpenJournal={onOpenJournal}
       />
 
-      <div style={{ display: 'flex', gap: 4 }}>
+      <div className="adventure-bottom-actions" aria-label="Adventure tools">
         <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenMap} disabled={!locationGraph}>Map</button>
         <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenLoot}>Loot</button>
         <button className="skill-chip" style={{ padding: '6px 12px', fontSize: 10 }} onClick={onOpenJournal}>☰ 卷宗</button>

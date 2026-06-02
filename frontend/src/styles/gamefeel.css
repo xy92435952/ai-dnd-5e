@@ -785,6 +785,50 @@ button.companion-signal-item:focus-visible {
   background: rgba(213,184,121,.08);
   color: var(--parchment-light);
 }
+.adventure-bottom-hud {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) minmax(0, 1fr) minmax(124px, auto);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  padding: 10px clamp(12px, 3vw, 20px) 12px;
+  background: linear-gradient(180deg, transparent, rgba(10,6,4,.95) 40%, rgba(10,6,4,1) 100%);
+  border-top: 1px solid rgba(138,90,24,.5);
+  box-shadow: inset 0 1px 0 rgba(240,208,96,.15);
+}
+.adventure-bottom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.adventure-bottom-actions > .skill-chip {
+  flex: 0 1 auto;
+  min-height: 30px;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.adventure-quest-hud {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(26,18,8,.8), rgba(10,6,4,.6));
+  border: 1px solid rgba(138,90,24,.4);
+  box-shadow: inset 0 1px 0 rgba(240,208,96,.12);
+}
+.adventure-quest-hud > * {
+  min-width: 0;
+}
 .quest-status-pill {
   flex: 0 0 auto;
   max-width: 56px;
@@ -903,6 +947,41 @@ button.companion-signal-item:focus-visible {
 .quest-recent-item.world {
   border-color: rgba(240,64,64,.46);
   background: rgba(138,26,26,.16);
+}
+
+@media (max-width: 900px) {
+  .adventure-bottom-hud {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px clamp(10px, 4vw, 16px) 10px;
+  }
+  .adventure-bottom-actions {
+    justify-content: flex-start;
+  }
+  .adventure-bottom-actions > .skill-chip {
+    flex: 1 1 82px;
+  }
+  .party-hud {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .adventure-quest-hud {
+    align-items: flex-start;
+    gap: 6px;
+    padding: 7px 8px;
+  }
+  .quest-outcome-snippet {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+  .quest-recent-item,
+  .companion-signal-item {
+    max-width: 100%;
+  }
 }
 
 .journal-dossier {

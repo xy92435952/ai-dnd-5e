@@ -94,14 +94,7 @@ export default function AdventureQuestHud({
       ].filter(Boolean).join('\n')
     : ''
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '6px 12px',
-      background: 'linear-gradient(180deg, rgba(26,18,8,.8), rgba(10,6,4,.6))',
-      border: '1px solid rgba(138,90,24,.4)',
-      boxShadow: 'inset 0 1px 0 rgba(240,208,96,.12)',
-      overflow: 'hidden',
-    }}>
+    <div className="adventure-quest-hud" role="group" aria-label="Quest and location status">
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>◆ 目标</span>
       <span
         title={questTitle}
