@@ -244,8 +244,8 @@ export default function Adventure() {
   const handleOpenJournal = useCallback((focus = '') => {
     setJournalFocus(focus)
     setJournalOpen(true)
-    if (!journalText) handleGenerateJournal()
-  }, [handleGenerateJournal, journalText, setJournalOpen])
+    if (!journalText && !multiplayerSyncBlocked) handleGenerateJournal()
+  }, [handleGenerateJournal, journalText, multiplayerSyncBlocked, setJournalOpen])
 
   // 打字机效果 + 空格推进 + advanceDialogue 全部抽到 useDialogueFlow
 

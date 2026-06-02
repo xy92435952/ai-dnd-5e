@@ -7,6 +7,7 @@ vi.mock('../../api/client', () => ({
     getSession: vi.fn().mockResolvedValue({ player: null, companions: [] }),
     rest: vi.fn(),
     saveCheckpoint: vi.fn(),
+    generateJournal: vi.fn(),
   },
   charactersApi: {
     prepareSpells: vi.fn(),
@@ -229,6 +230,23 @@ describe('useAdventureActions', () => {
     expect(deps.setPrepareOpen).not.toHaveBeenCalled()
     expect(checkpointError?.message).toBe('房间正在重新同步，请恢复连接后再发言。')
     expect(deps.setError).toHaveBeenCalledWith('房间正在重新同步，请恢复连接后再发言。')
+  })
+
+  it('blocks journal generation while multiplayer sync is unavailable', async () => {
+    gameApi.generateJournal.mockResolvedValue({ journal: '这段不应该生成。' })
+    const deps = makeDeps({
+      actionBlockedReason: '房间正在重新同步，请恢复连接后再发言。',
+    })
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleGenerateJournal()
+    })
+
+    expect(gameApi.generateJournal).not.toHaveBeenCalled()
+    expect(deps.setError).toHaveBeenCalledWith('房间正在重新同步，请恢复连接后再发言。')
+    expect(deps.setJournalLoading).not.toHaveBeenCalledWith(true)
+    expect(deps.setJournalText).toHaveBeenCalledWith(expect.any(Function))
   })
 
   it('formats detailed long rest rule results for the adventure log', () => {

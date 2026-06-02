@@ -22,6 +22,7 @@ const {
   aiTakeoverMock,
   selectEncounterTemplateMock,
   skillCheckMock,
+  generateJournalMock,
   rollDice3DMock,
   getSessionMock,
   roomsGetMock,
@@ -49,6 +50,7 @@ const {
   aiTakeoverMock: vi.fn(),
   selectEncounterTemplateMock: vi.fn(),
   skillCheckMock: vi.fn(),
+  generateJournalMock: vi.fn(),
   rollDice3DMock: vi.fn(),
   getSessionMock: vi.fn(),
   roomsGetMock: vi.fn(),
@@ -69,7 +71,7 @@ vi.mock('../../api/client', () => ({
     rest:       vi.fn(),
     saveCheckpoint:  vi.fn(),
     getCheckpoint:   vi.fn(),
-    generateJournal: vi.fn(),
+    generateJournal: generateJournalMock,
   },
   charactersApi: { prepareSpells: vi.fn() },
   roomsApi: {
@@ -903,6 +905,9 @@ describe('Adventure render smoke', () => {
     expect(screen.getByRole('button', { name: /存档/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /休息/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: /备法/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /日志/ }))
+    expect(await screen.findByText('冒险卷宗')).toBeInTheDocument()
+    expect(generateJournalMock).not.toHaveBeenCalled()
     expect(actionMock).not.toHaveBeenCalled()
     expect(wsSendMock).not.toHaveBeenCalled()
 

@@ -242,6 +242,11 @@ export function useAdventureActions({
   }, [actionBlockedReason, addLog, refreshCharacters, sessionId, setError, setIsLoading, setRestOpen])
 
   const handleGenerateJournal = useCallback(async () => {
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      setJournalText(prev => prev || '房间正在重新同步，恢复后可重新生成日志。')
+      return
+    }
     setJournalLoading(true)
     setJournalText('')
     try {
@@ -251,7 +256,7 @@ export function useAdventureActions({
     } finally {
       setJournalLoading(false)
     }
-  }, [sessionId, setJournalLoading, setJournalText])
+  }, [actionBlockedReason, sessionId, setError, setJournalLoading, setJournalText])
 
   const handlePrepareSpells = useCallback(async (prepared) => {
     if (actionBlockedReason) {
