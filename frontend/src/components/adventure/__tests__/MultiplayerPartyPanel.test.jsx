@@ -88,6 +88,8 @@ describe('MultiplayerPartyPanel', () => {
     expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('未确认：凯伦')
     expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('已确认：我')
     expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('继续草拟：凯伦')
+    expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('确认提示')
+    expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('等待凯伦确认当前分队计划。')
     expect(screen.getByText(/我守住后门。/)).toBeInTheDocument()
   })
 
@@ -119,7 +121,40 @@ describe('MultiplayerPartyPanel', () => {
     />)
 
     expect(screen.getByText('你已提交意图 · 点“我已确认”后 DM 才会处理')).toBeInTheDocument()
+    expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('确认提示')
+    expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('你提交了意图，但这轮分队计划仍是草拟状态；点“我已确认”后 DM 才会处理。')
     expect(screen.getByRole('button', { name: /我已确认/ })).not.toBeDisabled()
+  })
+
+  it('warns when a revised group intent resets everyone to drafting', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'alley',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me', 'u2'] },
+        ],
+        pending_actions_by_group: {
+          alley: [
+            { user_id: 'u2', display_name: '凯伦', text: '我改为守住楼梯。' },
+          ],
+        },
+        group_readiness: {
+          alley: { me: 'drafting', u2: 'drafting' },
+        },
+      }}
+      myUserId="me"
+      isMySpeakTurn={false}
+      isLoading={false}
+    />)
+
+    expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('需重新确认')
+    expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('分队计划已更新，全队确认被重置；请确认当前意图或继续补充。')
   })
 
   it('tells the active speaker how many group intents will be aggregated', () => {

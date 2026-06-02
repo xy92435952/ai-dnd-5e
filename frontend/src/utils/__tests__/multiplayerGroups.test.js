@@ -203,6 +203,9 @@ describe('multiplayer group helpers', () => {
       pendingCount: 2,
       readyCount: 1,
       memberCount: 2,
+      readinessReset: false,
+      readinessPrompt: '等待shadow确认当前分队计划。',
+      readinessPromptTone: 'pending',
       statusLabel: '你已提交意图 · 等当前发言者带给 DM',
       readinessLabel: '确认进度：1/2 已确认',
     })
@@ -214,6 +217,9 @@ describe('multiplayer group helpers', () => {
     })).toMatchObject({
       submittedMine: true,
       needsMyConfirmation: true,
+      readinessReset: false,
+      readinessPrompt: '你提交了意图，但这轮分队计划仍是草拟状态；点“我已确认”后 DM 才会处理。',
+      readinessPromptTone: 'urgent',
       statusLabel: '你是当前发言者 · DM 会汇总本分队 2 条意图',
       readinessLabel: '确认进度：1/2 已确认',
     })
@@ -234,6 +240,42 @@ describe('multiplayer group helpers', () => {
       isMySpeakTurn: false,
       groupId: 'alley',
     }).statusLabel).toBe('你的分队还没有待汇总意图')
+
+    const resetRoom = {
+      ...activeRoom,
+      pending_actions_by_group: {
+        tavern: [
+          { user_id: 'u2', display_name: '凯伦', text: '我改为守住楼梯。' },
+        ],
+      },
+      group_readiness: {
+        tavern: { u2: 'drafting', u3: 'drafting' },
+      },
+    }
+
+    expect(getGroupIntentFeedback({
+      room: resetRoom,
+      myUserId: 'u2',
+      isMySpeakTurn: false,
+    })).toMatchObject({
+      submittedMine: true,
+      needsMyConfirmation: true,
+      readinessReset: true,
+      readinessPrompt: '你提交了意图，但这轮分队计划仍是草拟状态；点“我已确认”后 DM 才会处理。',
+      readinessPromptTone: 'urgent',
+    })
+
+    expect(getGroupIntentFeedback({
+      room: resetRoom,
+      myUserId: 'u3',
+      isMySpeakTurn: false,
+    })).toMatchObject({
+      submittedMine: false,
+      needsMyConfirmation: false,
+      readinessReset: true,
+      readinessPrompt: '分队计划已更新，全队确认被重置；请确认当前意图或继续补充。',
+      readinessPromptTone: 'urgent',
+    })
   })
 
   it('breaks down ready and not-ready members by display name', () => {

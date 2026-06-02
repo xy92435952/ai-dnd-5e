@@ -63,6 +63,33 @@ export default function MultiplayerPartyPanel({
       borderColor: 'rgba(127,232,248,.18)',
     },
   ].filter(item => item.label)
+  const readinessPromptToneStyles = {
+    urgent: {
+      color: 'var(--amber)',
+      borderColor: 'rgba(240,208,96,.34)',
+      background: 'rgba(240,208,96,.08)',
+    },
+    pending: {
+      color: 'var(--parchment-dark)',
+      borderColor: 'rgba(127,232,248,.24)',
+      background: 'rgba(127,232,248,.06)',
+    },
+    waiting: {
+      color: 'var(--parchment-dark)',
+      borderColor: 'rgba(226,232,240,.2)',
+      background: 'rgba(226,232,240,.05)',
+    },
+    ready: {
+      color: 'var(--emerald-light)',
+      borderColor: 'rgba(91,214,138,.3)',
+      background: 'rgba(91,214,138,.07)',
+    },
+  }
+  const readinessPromptStyle = readinessPromptToneStyles[intentFeedback.readinessPromptTone]
+    || readinessPromptToneStyles.pending
+  const readinessPromptBadge = intentFeedback.readinessReset
+    ? '需重新确认'
+    : intentFeedback.readinessPromptTone === 'ready' ? '已就绪' : '确认提示'
   const controlsDisabled = busy || isLoading || syncBlocked
   const syncBlockLabel = syncBlockedReason || '房间正在重新同步，请恢复连接后再调整分队。'
 
@@ -190,6 +217,25 @@ export default function MultiplayerPartyPanel({
               {chip.label}
             </span>
           ))}
+        </div>
+      )}
+
+      {intentFeedback.readinessPrompt && (
+        <div
+          aria-label="分队确认提示"
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            padding: '5px 7px',
+            border: `1px solid ${readinessPromptStyle.borderColor}`,
+            background: readinessPromptStyle.background,
+            color: readinessPromptStyle.color,
+          }}
+        >
+          <strong style={{ color: readinessPromptStyle.color }}>{readinessPromptBadge}</strong>
+          <span>{intentFeedback.readinessPrompt}</span>
         </div>
       )}
 

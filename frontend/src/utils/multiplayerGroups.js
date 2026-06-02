@@ -134,18 +134,76 @@ export function getGroupStatusSummary(room, group) {
   }
 }
 
+function getReadinessPrompt({ pendingCount, memberCount, myStatus, needsMyConfirmation, readinessBreakdown }) {
+  if (pendingCount === 0 || memberCount === 0) {
+    return { readinessPrompt: '', readinessPromptTone: '', readinessReset: false }
+  }
+
+  const allReady = readinessBreakdown.readyCount === memberCount
+  const readinessReset = readinessBreakdown.readyCount === 0
+    && readinessBreakdown.draftingNames.length === memberCount
+
+  if (allReady) {
+    return { readinessPrompt: '本分队已全员确认，可以交给 DM 处理。', readinessPromptTone: 'ready', readinessReset }
+  }
+
+  if (needsMyConfirmation) {
+    return {
+      readinessPrompt: '你提交了意图，但这轮分队计划仍是草拟状态；点“我已确认”后 DM 才会处理。',
+      readinessPromptTone: 'urgent',
+      readinessReset,
+    }
+  }
+
+  if (myStatus === 'drafting') {
+    return {
+      readinessPrompt: readinessReset
+        ? '分队计划已更新，全队确认被重置；请确认当前意图或继续补充。'
+        : '你还没有确认当前分队计划；可以确认，或继续补充你的行动。',
+      readinessPromptTone: 'urgent',
+      readinessReset,
+    }
+  }
+
+  if (myStatus === 'waiting') {
+    return {
+      readinessPrompt: '你标记为等待补充；当前分队不会被视为全员确认。',
+      readinessPromptTone: 'waiting',
+      readinessReset,
+    }
+  }
+
+  if (readinessBreakdown.notReadyNames.length > 0) {
+    return {
+      readinessPrompt: `等待${readinessBreakdown.notReadyNames.join('、')}确认当前分队计划。`,
+      readinessPromptTone: 'pending',
+      readinessReset,
+    }
+  }
+
+  return { readinessPrompt: '', readinessPromptTone: '', readinessReset }
+}
+
 export function getGroupIntentFeedback({ room, myUserId, isMySpeakTurn = false, groupId = null }) {
   const group = groupId
     ? (room?.party_groups || []).find(item => item.id === groupId)
     : getMyGroup(room, myUserId)
   const pending = getGroupPendingActions(room, group)
   const memberStatuses = getGroupMemberStatuses(room, group)
+  const readinessBreakdown = getGroupReadinessBreakdown(room, group)
   const submittedMine = pending.some(action => action.user_id === myUserId)
   const pendingCount = pending.length
-  const readyCount = memberStatuses.filter(item => item.status === 'ready').length
+  const readyCount = readinessBreakdown.readyCount
   const memberCount = memberStatuses.length
   const myStatus = memberStatuses.find(item => item.userId === myUserId)?.status || 'drafting'
   const needsMyConfirmation = submittedMine && myStatus !== 'ready'
+  const { readinessPrompt, readinessPromptTone, readinessReset } = getReadinessPrompt({
+    pendingCount,
+    memberCount,
+    myStatus,
+    needsMyConfirmation,
+    readinessBreakdown,
+  })
 
   let statusLabel = ''
   if (isMySpeakTurn && pendingCount > 0) {
@@ -168,6 +226,9 @@ export function getGroupIntentFeedback({ room, myUserId, isMySpeakTurn = false, 
     needsMyConfirmation,
     readyCount,
     memberCount,
+    readinessReset,
+    readinessPrompt,
+    readinessPromptTone,
     statusLabel,
     readinessLabel: memberCount > 0 ? `确认进度：${readyCount}/${memberCount} 已确认` : '',
   }
