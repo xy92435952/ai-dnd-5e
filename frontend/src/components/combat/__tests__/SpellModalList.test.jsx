@@ -94,6 +94,14 @@ describe('SpellModalList', () => {
             desc: 'Make a ranged spell attack.',
           },
           {
+            name: 'Sacred Flame',
+            level: 0,
+            type: 'damage',
+            target_type: 'enemy',
+            damage: '1d8',
+            save: 'dex',
+          },
+          {
             name: 'Fireball',
             level: 3,
             type: 'damage',
@@ -107,13 +115,14 @@ describe('SpellModalList', () => {
             'hero-1': {
               id: 'hero-1',
               name: 'Cleric',
-              derived: { spell_attack_bonus: 6 },
+              derived: { spell_attack_bonus: 6, spell_save_dc: 14 },
             },
             'enemy-1': {
               id: 'enemy-1',
               name: 'Cultist',
               is_enemy: true,
               ac: 15,
+              derived: { saving_throws: { dex: 5 } },
               conditions: ['restrained'],
               condition_durations: { restrained: 2 },
             },
@@ -146,6 +155,11 @@ describe('SpellModalList', () => {
     )
     expect(within(guidingFit).getByText('受击优势')).toBeInTheDocument()
     expect(within(guidingFit).getByText('攻击劣势')).toBeInTheDocument()
+    const sacredFit = screen.getByLabelText('目标适配 Sacred Flame')
+    expect(within(sacredFit).getByText('9+ · 60%通过')).toHaveAttribute(
+      'title',
+      '目标豁免预估：敏捷豁免 +5 · d20 需 9+ · 约 60%通过。实际结算仍以后端骰子、条件和临时修正为准。',
+    )
     expect(within(screen.getByLabelText('目标适配 Fireball')).getByText('选落点')).toHaveAttribute(
       'title',
       '范围法术通过战场落点决定目标。',

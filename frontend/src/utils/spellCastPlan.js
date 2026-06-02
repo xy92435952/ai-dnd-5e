@@ -127,6 +127,32 @@ function spellAttackBonusValue(spell = {}, combat = null, playerId = null) {
   return readFiniteNumber(spell.spell_attack_bonus ?? spell.attack_bonus ?? derived.spell_attack_bonus)
 }
 
+function spellSaveDcValue(spell = {}, combat = null, playerId = null) {
+  const derived = casterDerived(combat, playerId)
+  return readFiniteNumber(spell.save_dc ?? spell.dc ?? derived.spell_save_dc)
+}
+
+function abilityKey(value) {
+  const key = String(value || '').trim().toLowerCase()
+  return ({
+    strength: 'str',
+    dexterity: 'dex',
+    constitution: 'con',
+    intelligence: 'int',
+    wisdom: 'wis',
+    charisma: 'cha',
+  })[key] || key
+}
+
+function targetSavingThrowBonus(entity = null, ability = '') {
+  if (!entity || !ability) return null
+  const key = abilityKey(ability)
+  const derived = entity.derived || {}
+  const saves = derived.saving_throws || entity.saving_throws || {}
+  const abilityMods = derived.ability_modifiers || entity.ability_modifiers || {}
+  return readFiniteNumber(saves[key] ?? abilityMods[key])
+}
+
 export function buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId }) {
   if (!spellRequiresAttackRoll(spell)) return null
   const target = entityById(combat, targetId)
@@ -158,6 +184,29 @@ export function buildSpellAttackDefenseSummary({ spell, combat, playerId, target
   }
 }
 
+export function buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId }) {
+  const save = spellSaveAbility(spell)
+  if (!save) return null
+  const dc = spellSaveDcValue(spell, combat, playerId)
+  if (dc === null) return null
+  const target = entityById(combat, targetId)
+  const saveBonus = targetSavingThrowBonus(target, save)
+  if (saveBonus === null) return null
+
+  const needed = dc - saveBonus
+  const successRolls = Math.max(0, Math.min(20, 21 - needed))
+  const passChance = Math.round((successRolls / 20) * 100)
+  const displayedNeeded = needed <= 1 ? '自动通过' : needed > 20 ? '无法通过' : `${needed}+`
+  const value = `${abilityLabel(save)}豁免 ${formatSignedNumber(saveBonus)} · d20 需 ${displayedNeeded} · 约 ${passChance}%通过`
+  return {
+    value,
+    compactLabel: `${displayedNeeded} · ${passChance}%通过`,
+    passChance,
+    tone: passChance >= 60 ? 'warning' : 'good',
+    title: `目标豁免预估：${value}。实际结算仍以后端骰子、条件和临时修正为准。`,
+  }
+}
+
 function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
   const summary = buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId })
   if (!summary) return null
@@ -168,22 +217,34 @@ function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
   }
 }
 
+function spellSaveDefenseRow({ spell, combat, playerId, targetId }) {
+  const summary = buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId })
+  if (!summary) return null
+
+  return {
+    label: '目标豁免',
+    value: summary.value,
+    tone: summary.tone,
+  }
+}
+
 function spellRulePreflight({ spell, combat, playerId, targetId }) {
   const save = spellSaveAbility(spell)
   if (save) {
-    const derived = casterDerived(combat, playerId)
-    const dc = readFiniteNumber(spell.save_dc ?? spell.dc ?? derived.spell_save_dc)
+    const dc = spellSaveDcValue(spell, combat, playerId)
     const saveResult = spellHasHalfOnSave(spell) ? '成功减半' : '成功规避/减轻'
+    const defense = buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId })
     return {
       key: 'rule',
       label: '判定',
       value: [
         `${abilityLabel(save)}豁免`,
         dc !== null ? `DC ${dc}` : '',
+        defense?.compactLabel || '',
         saveResult,
       ].filter(Boolean).join(' · '),
-      tone: 'ready',
-      title: '目标按此豁免或 DC 规则结算本次法术。',
+      tone: defense?.passChance >= 60 ? 'warning' : 'ready',
+      title: defense?.title || '目标按此豁免或 DC 规则结算本次法术。',
     }
   }
 
@@ -252,7 +313,7 @@ function buildRuleRows({ spell, combat, playerId, castLevel, baseLevel }) {
   const derived = casterDerived(combat, playerId)
   const save = spellSaveAbility(spell)
   if (save) {
-    const dc = readFiniteNumber(spell.save_dc ?? spell.dc ?? derived.spell_save_dc)
+    const dc = spellSaveDcValue(spell, combat, playerId)
     rows.push({
       label: '判定',
       value: [
@@ -635,8 +696,10 @@ export function buildSpellCastPlan({
       value: targetId ? entityName(combat, targetId) : `需要选择${targetKindLabel(spell)}`,
       tone: targetId ? 'ready' : 'warning',
     })
-    const defenseRow = spellAttackDefenseRow({ spell, combat, playerId, targetId })
-    if (defenseRow) rows.push(defenseRow)
+    const saveDefenseRow = spellSaveDefenseRow({ spell, combat, playerId, targetId })
+    if (saveDefenseRow) rows.push(saveDefenseRow)
+    const attackDefenseRow = spellAttackDefenseRow({ spell, combat, playerId, targetId })
+    if (attackDefenseRow) rows.push(attackDefenseRow)
   }
 
   rows.push({

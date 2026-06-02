@@ -88,7 +88,12 @@ describe('buildSpellCastPlan', () => {
       combat: {
         entities: {
           'hero-1': { id: 'hero-1', derived: { spell_save_dc: 14 } },
-          'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true },
+          'enemy-1': {
+            id: 'enemy-1',
+            name: 'Goblin',
+            is_enemy: true,
+            derived: { saving_throws: { dex: 5 } },
+          },
         },
       },
     })
@@ -96,8 +101,12 @@ describe('buildSpellCastPlan', () => {
     expect(row(plan, '判定').value).toBe('敏捷豁免 · DC 14 · 成功减半')
     expect(preflight(plan, 'rule')).toMatchObject({
       label: '判定',
-      value: '敏捷豁免 · DC 14 · 成功减半',
-      tone: 'ready',
+      value: '敏捷豁免 · DC 14 · 9+ · 60%通过 · 成功减半',
+      tone: 'warning',
+    })
+    expect(row(plan, '目标豁免')).toMatchObject({
+      value: '敏捷豁免 +5 · d20 需 9+ · 约 60%通过',
+      tone: 'warning',
     })
     expect(row(plan, '升环').value).toBe('+1 环 · 每环 1d6')
   })

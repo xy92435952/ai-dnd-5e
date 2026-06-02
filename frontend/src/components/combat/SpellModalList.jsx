@@ -1,7 +1,7 @@
 import React from 'react'
 import { SpellIcon, HeartIcon } from '../Icons'
 import { buildConditionImpactTags } from '../../utils/conditionRules'
-import { buildSpellAttackDefenseSummary } from '../../utils/spellCastPlan'
+import { buildSpellAttackDefenseSummary, buildSpellSaveDefenseSummary } from '../../utils/spellCastPlan'
 import { buildSpellRuleBadges, buildSpellRulePreview } from '../../utils/spellRuleBadges'
 
 export default function SpellModalList({
@@ -156,7 +156,8 @@ function buildSpellTargetFit(spell = {}, { combat = null, playerId = null, selec
 }
 
 function buildSelectedTargetDefenseFit(spell, { combat = null, playerId = null, selectedTarget = null } = {}) {
-  const summary = buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId: selectedTarget })
+  const summary = buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId: selectedTarget })
+    || buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId: selectedTarget })
   return summary
     ? [{
         key: 'target-defense',

@@ -288,6 +288,54 @@ describe('SpellModal', () => {
     expect(onResetAoeCenter).toHaveBeenCalled()
   })
 
+  it('shows selected target saving throw odds before confirming a save spell', async () => {
+    const onSpellHover = vi.fn()
+    const sacredFlame = {
+      name: 'Sacred Flame',
+      level: 0,
+      type: 'damage',
+      target_type: 'enemy',
+      damage: '1d8',
+      save: 'dex',
+    }
+
+    render(
+      <SpellModal
+        spells={[sacredFlame]}
+        cantrips={['Sacred Flame']}
+        slots={{}}
+        quickPick="Sacred Flame"
+        selectedTarget="enemy-1"
+        playerId="hero-1"
+        combat={{
+          entities: {
+            'hero-1': { id: 'hero-1', name: 'Cleric', derived: { spell_save_dc: 14 } },
+            'enemy-1': {
+              id: 'enemy-1',
+              name: 'Cultist',
+              is_enemy: true,
+              hp_current: 7,
+              derived: { saving_throws: { dex: 5 } },
+            },
+          },
+        }}
+        onCast={vi.fn()}
+        onClose={vi.fn()}
+        onSpellHover={onSpellHover}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(onSpellHover).toHaveBeenCalledWith(sacredFlame)
+    })
+
+    const plan = screen.getByLabelText('施法计划')
+    const preflight = screen.getByLabelText('施法预检')
+    expect(within(preflight).getByText('敏捷豁免 · DC 14 · 9+ · 60%通过 · 成功规避/减轻')).toBeInTheDocument()
+    expect(within(plan).getByText('目标豁免')).toBeInTheDocument()
+    expect(within(plan).getByText('敏捷豁免 +5 · d20 需 9+ · 约 60%通过')).toBeInTheDocument()
+  })
+
   it('blocks healing spells when an enemy is selected', () => {
     const onCast = vi.fn()
 
