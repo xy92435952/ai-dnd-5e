@@ -67,3 +67,4 @@ uvicorn.log
 .pytest_cache/
 backend/tests/_tmp_*
 backend/tests/**/.pytest_cache/
+.codegraph/
