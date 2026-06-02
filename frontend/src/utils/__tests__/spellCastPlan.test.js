@@ -94,6 +94,11 @@ describe('buildSpellCastPlan', () => {
     })
 
     expect(row(plan, '判定').value).toBe('敏捷豁免 · DC 14 · 成功减半')
+    expect(preflight(plan, 'rule')).toMatchObject({
+      label: '判定',
+      value: '敏捷豁免 · DC 14 · 成功减半',
+      tone: 'ready',
+    })
     expect(row(plan, '升环').value).toBe('+1 环 · 每环 1d6')
   })
 
@@ -120,6 +125,11 @@ describe('buildSpellCastPlan', () => {
     })
 
     expect(row(plan, '判定').value).toBe('法术攻击 +6')
+    expect(preflight(plan, 'rule')).toMatchObject({
+      label: '判定',
+      value: '法攻 +6 · AC 15 · 9+ · 60%',
+      tone: 'ready',
+    })
     expect(row(plan, '目标防御').value).toBe('AC 15 · d20 需 9+ · 约 60%')
     expect(row(plan, '维持').value).toBe('专注；受到伤害可能触发专注检定')
   })

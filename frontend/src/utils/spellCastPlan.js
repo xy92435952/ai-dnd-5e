@@ -168,6 +168,45 @@ function spellAttackDefenseRow({ spell, combat, playerId, targetId }) {
   }
 }
 
+function spellRulePreflight({ spell, combat, playerId, targetId }) {
+  const save = spellSaveAbility(spell)
+  if (save) {
+    const derived = casterDerived(combat, playerId)
+    const dc = readFiniteNumber(spell.save_dc ?? spell.dc ?? derived.spell_save_dc)
+    const saveResult = spellHasHalfOnSave(spell) ? '成功减半' : '成功规避/减轻'
+    return {
+      key: 'rule',
+      label: '判定',
+      value: [
+        `${abilityLabel(save)}豁免`,
+        dc !== null ? `DC ${dc}` : '',
+        saveResult,
+      ].filter(Boolean).join(' · '),
+      tone: 'ready',
+      title: '目标按此豁免或 DC 规则结算本次法术。',
+    }
+  }
+
+  if (spellRequiresAttackRoll(spell)) {
+    const attackBonus = formatSignedNumber(
+      spell.spell_attack_bonus ?? spell.attack_bonus ?? casterDerived(combat, playerId).spell_attack_bonus,
+    )
+    const defense = buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId })
+    return {
+      key: 'rule',
+      label: '判定',
+      value: [
+        `法攻${attackBonus ? ` ${attackBonus}` : ''}`,
+        defense?.compactLabel || '',
+      ].filter(Boolean).join(' · '),
+      tone: defense?.hitChance !== null && defense?.hitChance < 50 ? 'warning' : 'ready',
+      title: defense?.title || '本次法术需要进行法术攻击检定。',
+    }
+  }
+
+  return null
+}
+
 function spellSaveAbility(spell = {}) {
   return spell.save || spell.saving_throw || spell.save_ability || ''
 }
@@ -465,6 +504,7 @@ export function buildSpellCastPlan({
   let aoeBreakdown = null
   let aoePlacement = null
   let targetPreflight = null
+  let rulePreflight = null
   let targetImpactChips = []
   let warnings = []
 
@@ -500,6 +540,7 @@ export function buildSpellCastPlan({
     }
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
     targetPreflight = aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement })
+    rulePreflight = spellRulePreflight({ spell, combat, playerId, targetId: null })
     if (maxTargets) {
       aoeBreakdown.limit = maxTargets
       aoeBreakdown.excluded = excludedTargetIds.length
@@ -568,6 +609,7 @@ export function buildSpellCastPlan({
   } else {
     const targetId = nonAoeTargetId(spell, selectedTarget, playerId)
     targetImpactChips = buildTargetImpactChips(combat, targetId)
+    rulePreflight = spellRulePreflight({ spell, combat, playerId, targetId })
     targetPreflight = {
       key: 'target',
       label: '目标',
@@ -605,6 +647,7 @@ export function buildSpellCastPlan({
         value: cantrip ? '戏法' : slotPreflightLabel(slots, castLevel),
         tone: cantrip || slotRemaining(slots, castLevel) > 0 ? 'ready' : 'blocked',
       },
+      rulePreflight,
       targetPreflight,
     ].filter(Boolean),
     rows,
