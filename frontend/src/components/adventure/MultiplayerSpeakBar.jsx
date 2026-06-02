@@ -45,8 +45,14 @@ export default function MultiplayerSpeakBar({
           : ''
     : ''
   const myMember = (room.members || []).find(member => member.user_id === myUserId)
+  const speakerMember = (room.members || []).find(member => member.user_id === currentSpeakerUid)
   const myCharacterName = myMember?.character_name || player?.name || (myMember?.character_id ? '已绑定角色' : '未绑定角色')
   const speakerLabel = currentSpeakerName || '等待同步'
+  const speakerCharacterName = speakerMember?.character_name || (speakerMember?.character_id ? '已绑定角色' : '')
+  const speakerIdentity = speakerCharacterName ? `${speakerLabel} / ${speakerCharacterName}` : speakerLabel
+  const speakerStatusTitle = speakerCharacterName
+    ? `当前发言者：${speakerLabel}，角色：${speakerCharacterName}`
+    : '当前发言者状态'
 
   return (
     <div style={{
@@ -90,7 +96,7 @@ export default function MultiplayerSpeakBar({
           角色 {myCharacterName}
         </span>
         {currentSpeakerUid && (
-          <span title="当前发言者状态" style={{
+          <span title={speakerStatusTitle} style={{
             padding: '2px 7px',
             border: `1px solid ${speakerStatus.isOnline ? 'var(--emerald-light)' : 'var(--blood)'}`,
             color: speakerStatus.isOnline ? 'var(--emerald-light)' : '#ffaaaa',
@@ -99,7 +105,7 @@ export default function MultiplayerSpeakBar({
             fontFamily: 'var(--font-mono)',
             whiteSpace: 'nowrap',
           }}>
-            发言 {speakerLabel} · {speakerStatus.label}
+            发言 {speakerIdentity} · {speakerStatus.label}
           </span>
         )}
         {takeoverHint && (

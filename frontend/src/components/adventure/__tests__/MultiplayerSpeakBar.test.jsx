@@ -33,7 +33,8 @@ describe('MultiplayerSpeakBar', () => {
 
     expect(screen.getByText('同步在线')).toBeInTheDocument()
     expect(screen.getByText('角色 战士')).toBeInTheDocument()
-    expect(screen.getByText('发言 队友 · 离线')).toBeInTheDocument()
+    expect(screen.getByText('发言 队友 / 法师 · 离线')).toBeInTheDocument()
+    expect(screen.getByTitle('当前发言者：队友，角色：法师')).toBeInTheDocument()
     expect(screen.getByText('22秒后可代演')).toBeInTheDocument()
   })
 

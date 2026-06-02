@@ -470,7 +470,7 @@ describe('Adventure render smoke', () => {
 
     expect(await screen.findByText(/等待 队友 发言/)).toBeInTheDocument()
     expect(screen.getByText('同步在线')).toBeInTheDocument()
-    expect(screen.getByTitle('当前发言者状态')).toHaveTextContent('发言 队友 · 在线')
+    expect(screen.getByTitle('当前发言者：队友，角色：Ally')).toHaveTextContent('发言 队友 / Ally · 在线')
     expect(screen.getAllByText('后巷组').length).toBeGreaterThan(0)
     expect(screen.getByText(/我检查仓库门锁。/)).toBeInTheDocument()
     expect(screen.getByText(/我 · 已确认/)).toBeInTheDocument()
