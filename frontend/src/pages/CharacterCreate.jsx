@@ -354,18 +354,16 @@ export default function CharacterCreate() {
 
       {/* 顶部 · 标题 + 英雄预览卡 */}
       <div className="create-header">
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <div className="create-header-main">
           <button
             className="btn-ghost"
             style={{ fontSize: 12, padding: '6px 12px', alignSelf: 'flex-start', marginTop: 4 }}
             onClick={() => navigate('/')}
           >⬅ 返回</button>
-          <div>
+          <div className="create-header-copy">
             <div className="eyebrow">◈ 英雄铸造 · Character Forge ◈</div>
             <div
-              className="display-title"
-              style={{ fontSize: 22, letterSpacing: '.08em', marginTop: 2,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 420 }}
+              className="display-title create-module-title"
               title={module.name}
             >{module.name}</div>
             <p style={{ fontSize: 11, color: 'var(--parchment-dark)', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>

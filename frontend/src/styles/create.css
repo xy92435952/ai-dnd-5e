@@ -21,6 +21,25 @@
   padding-bottom: 14px;
   border-bottom: 1px solid rgba(138,90,24,.3);
 }
+.create-header-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.create-header-copy {
+  min-width: 0;
+}
+.create-module-title {
+  max-width: min(420px, 100%);
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--parchment);
+  font-size: 22px;
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .hero-preview {
   display: flex;
   align-items: center;
@@ -1167,4 +1186,59 @@
   .ability-grid, .skill-grid, .spell-grid { grid-template-columns: repeat(2, 1fr); }
   .fstyle-grid, .fh-stats { grid-template-columns: repeat(2, 1fr); }
   .companions-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .create-scene {
+    padding: 14px 14px 96px;
+  }
+  .create-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .create-header-main {
+    width: 100%;
+  }
+  .create-module-title {
+    display: -webkit-box;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .hero-preview {
+    align-self: stretch;
+    border-radius: 10px;
+    min-width: 0;
+  }
+  .create-steps {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 12px;
+  }
+  .create-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .create-nav .step-counter {
+    order: -1;
+    flex-basis: 100%;
+    text-align: center;
+    letter-spacing: .12em;
+  }
+  .create-nav .btn-ghost,
+  .create-nav .btn-gold {
+    flex: 1 1 130px;
+    max-width: 100%;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
 }
