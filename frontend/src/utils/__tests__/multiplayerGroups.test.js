@@ -4,6 +4,7 @@ import {
   getGroupMemberStatuses,
   getGroupPendingActions,
   getGroupIntentFeedback,
+  getGroupReadinessBreakdown,
   getMultiplayerTableStatus,
   getMyGroup,
   getNextReadyGroupSummary,
@@ -187,5 +188,30 @@ describe('multiplayer group helpers', () => {
       isMySpeakTurn: false,
       groupId: 'alley',
     }).statusLabel).toBe('你的分队还没有待汇总意图')
+  })
+
+  it('breaks down ready and not-ready members by display name', () => {
+    const activeRoom = {
+      ...room,
+      party_groups: [
+        { id: 'tavern', name: '酒馆组', location: '大厅', member_user_ids: ['me', 'u2', 'u3'] },
+      ],
+      group_readiness: {
+        tavern: { me: 'drafting', u2: 'ready', u3: 'waiting' },
+      },
+    }
+
+    expect(getGroupReadinessBreakdown(activeRoom, 'tavern')).toMatchObject({
+      readyCount: 1,
+      memberCount: 3,
+      readyNames: ['凯伦'],
+      waitingNames: ['shadow'],
+      draftingNames: ['我'],
+      notReadyNames: ['我', 'shadow'],
+      readyLabel: '已确认：凯伦',
+      waitingLabel: '等待补充：shadow',
+      draftingLabel: '继续草拟：我',
+      summaryLabel: '未确认：我、shadow',
+    })
   })
 })

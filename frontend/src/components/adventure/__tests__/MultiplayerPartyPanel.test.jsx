@@ -84,6 +84,9 @@ describe('MultiplayerPartyPanel', () => {
 
     expect(screen.getByText('你已提交意图 · 等当前发言者带给 DM')).toBeInTheDocument()
     expect(screen.getByText('确认进度：1/2 已确认')).toBeInTheDocument()
+    expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('未确认：凯伦')
+    expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('已确认：我')
+    expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('继续草拟：凯伦')
     expect(screen.getByText(/我守住后门。/)).toBeInTheDocument()
   })
 

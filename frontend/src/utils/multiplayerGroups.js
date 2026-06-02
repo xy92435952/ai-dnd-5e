@@ -47,6 +47,43 @@ export function getGroupMemberStatuses(room, group) {
   })
 }
 
+function formatMemberNames(items) {
+  return items.map(item => item.name).join('、')
+}
+
+export function getGroupReadinessBreakdown(room, groupOrId) {
+  const group = typeof groupOrId === 'string'
+    ? (room?.party_groups || []).find(item => item.id === groupOrId)
+    : groupOrId
+  const memberStatuses = getGroupMemberStatuses(room, group)
+  const readyMembers = memberStatuses.filter(item => item.status === 'ready')
+  const waitingMembers = memberStatuses.filter(item => item.status === 'waiting')
+  const draftingMembers = memberStatuses.filter(item => item.status === 'drafting')
+  const notReadyMembers = memberStatuses.filter(item => item.status !== 'ready')
+  const readyNames = readyMembers.map(item => item.name)
+  const waitingNames = waitingMembers.map(item => item.name)
+  const draftingNames = draftingMembers.map(item => item.name)
+  const notReadyNames = notReadyMembers.map(item => item.name)
+  const summaryLabel = memberStatuses.length === 0
+    ? ''
+    : notReadyNames.length ? `未确认：${formatMemberNames(notReadyMembers)}` : '全员已确认'
+
+  return {
+    group,
+    memberStatuses,
+    readyCount: readyMembers.length,
+    memberCount: memberStatuses.length,
+    readyNames,
+    waitingNames,
+    draftingNames,
+    notReadyNames,
+    readyLabel: readyNames.length ? `已确认：${formatMemberNames(readyMembers)}` : '',
+    waitingLabel: waitingNames.length ? `等待补充：${formatMemberNames(waitingMembers)}` : '',
+    draftingLabel: draftingNames.length ? `继续草拟：${formatMemberNames(draftingMembers)}` : '',
+    summaryLabel,
+  }
+}
+
 export function isGroupAllReady(room, group) {
   const members = group?.member_user_ids || []
   if (members.length === 0) return false

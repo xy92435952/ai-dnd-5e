@@ -4,6 +4,7 @@ import {
   getGroupMemberStatuses,
   getGroupPendingActions,
   getGroupIntentFeedback,
+  getGroupReadinessBreakdown,
   getMultiplayerTableStatus,
   getMyGroup,
   getReadinessLabel,
@@ -33,6 +34,35 @@ export default function MultiplayerPartyPanel({
   const memberStatuses = getGroupMemberStatuses(room, myGroup)
   const tableStatus = getMultiplayerTableStatus({ room, myUserId, isMySpeakTurn })
   const intentFeedback = getGroupIntentFeedback({ room, myUserId, isMySpeakTurn })
+  const readinessBreakdown = getGroupReadinessBreakdown(room, myGroup)
+  const showReadinessBreakdown = readinessBreakdown.memberCount > 1
+    && (pending.length > 0 || readinessBreakdown.readyCount > 0 || myReadiness !== 'drafting')
+  const readinessChips = [
+    {
+      key: 'summary',
+      label: readinessBreakdown.summaryLabel,
+      color: readinessBreakdown.notReadyNames.length ? 'var(--amber)' : 'var(--emerald-light)',
+      borderColor: readinessBreakdown.notReadyNames.length ? 'rgba(240,208,96,.28)' : 'rgba(91,214,138,.28)',
+    },
+    {
+      key: 'ready',
+      label: readinessBreakdown.readyLabel,
+      color: 'var(--emerald-light)',
+      borderColor: 'rgba(91,214,138,.24)',
+    },
+    {
+      key: 'waiting',
+      label: readinessBreakdown.waitingLabel,
+      color: 'var(--parchment-dark)',
+      borderColor: 'rgba(226,232,240,.18)',
+    },
+    {
+      key: 'drafting',
+      label: readinessBreakdown.draftingLabel,
+      color: 'var(--arcane-light)',
+      borderColor: 'rgba(127,232,248,.18)',
+    },
+  ].filter(item => item.label)
   const controlsDisabled = busy || isLoading || syncBlocked
   const syncBlockLabel = syncBlockedReason || '房间正在重新同步，请恢复连接后再调整分队。'
 
@@ -134,6 +164,34 @@ export default function MultiplayerPartyPanel({
           </span>
         )}
       </div>
+
+      {showReadinessBreakdown && (
+        <div
+          aria-label="分队确认详情"
+          style={{
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          {readinessChips.map(chip => (
+            <span
+              key={chip.key}
+              title={chip.label}
+              style={{
+                padding: '3px 7px',
+                border: `1px solid ${chip.borderColor}`,
+                background: 'rgba(255,255,255,.035)',
+                color: chip.color,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {syncBlocked && (
         <div className="multiplayer-sync-guard" role="status">
