@@ -153,6 +153,68 @@ function targetSavingThrowBonus(entity = null, ability = '') {
   return readFiniteNumber(saves[key] ?? abilityMods[key])
 }
 
+const SAVE_DISADVANTAGE_BY_ABILITY = {
+  dex: new Set(['restrained']),
+}
+
+const SAVE_AUTO_FAIL_BY_ABILITY = {
+  str: new Set(['paralyzed', 'stunned', 'unconscious', 'petrified']),
+  dex: new Set(['paralyzed', 'stunned', 'unconscious', 'petrified']),
+}
+
+const CONDITION_ALIASES = {
+  '束缚': 'restrained',
+  '束缚状态': 'restrained',
+  '受束缚': 'restrained',
+  '震慑': 'stunned',
+  '震慑状态': 'stunned',
+  '麻痹': 'paralyzed',
+  '麻痹状态': 'paralyzed',
+  '昏迷': 'unconscious',
+  '昏厥': 'unconscious',
+  '失去意识': 'unconscious',
+  '石化': 'petrified',
+}
+
+function conditionToken(condition) {
+  const raw = typeof condition === 'string'
+    ? condition
+    : condition?.name || condition?.condition || condition?.type || condition?.id || ''
+  const value = String(raw || '').trim().toLowerCase().replace(/[-\s]+/g, '_')
+  return CONDITION_ALIASES[value] || value
+}
+
+function exhaustionLevel(entity = null) {
+  const durations = entity?.condition_durations || entity?.conditionDurations || {}
+  const raw = durations.exhaustion_level
+    ?? durations.exhaustionLevel
+    ?? entity?.exhaustion_level
+    ?? entity?.exhaustionLevel
+  const level = Number(raw)
+  return Number.isFinite(level) ? Math.max(0, Math.min(6, Math.floor(level))) : 0
+}
+
+function targetSaveConditionContext(entity = null, ability = '') {
+  const key = abilityKey(ability)
+  const conditions = Array.isArray(entity?.conditions)
+    ? entity.conditions.map(conditionToken).filter(Boolean)
+    : []
+  const autoFail = SAVE_AUTO_FAIL_BY_ABILITY[key] || new Set()
+  const disadvantage = SAVE_DISADVANTAGE_BY_ABILITY[key] || new Set()
+  const disadvantageReasons = conditions.filter(condition => disadvantage.has(condition))
+  if (exhaustionLevel(entity) >= 3) disadvantageReasons.push('exhaustion')
+  return {
+    autoFailReasons: conditions.filter(condition => autoFail.has(condition)),
+    disadvantageReasons,
+  }
+}
+
+function d20SuccessChance(needed, { disadvantage = false } = {}) {
+  const singleRollChance = Math.max(0, Math.min(20, 21 - needed)) / 20
+  const chance = disadvantage ? singleRollChance * singleRollChance : singleRollChance
+  return Math.round(chance * 100)
+}
+
 export function buildSpellAttackDefenseSummary({ spell, combat, playerId, targetId }) {
   if (!spellRequiresAttackRoll(spell)) return null
   const target = entityById(combat, targetId)
@@ -194,13 +256,27 @@ export function buildSpellSaveDefenseSummary({ spell, combat, playerId, targetId
   if (saveBonus === null) return null
 
   const needed = dc - saveBonus
-  const successRolls = Math.max(0, Math.min(20, 21 - needed))
-  const passChance = Math.round((successRolls / 20) * 100)
-  const displayedNeeded = needed <= 1 ? '自动通过' : needed > 20 ? '无法通过' : `${needed}+`
-  const value = `${abilityLabel(save)}豁免 ${formatSignedNumber(saveBonus)} · d20 需 ${displayedNeeded} · 约 ${passChance}%通过`
+  const conditionContext = targetSaveConditionContext(target, save)
+  const autoFail = conditionContext.autoFailReasons.length > 0
+  const disadvantage = !autoFail && conditionContext.disadvantageReasons.length > 0
+  const passChance = autoFail ? 0 : d20SuccessChance(needed, { disadvantage })
+  const displayedNeeded = autoFail
+    ? '自动失败'
+    : needed <= 1
+      ? '自动通过'
+      : needed > 20
+        ? '无法通过'
+        : `${needed}+`
+  const conditionNote = disadvantage ? '劣势' : ''
+  const value = [
+    `${abilityLabel(save)}豁免 ${formatSignedNumber(saveBonus)}`,
+    autoFail ? displayedNeeded : `d20 需 ${displayedNeeded}`,
+    conditionNote,
+    `约 ${passChance}%通过`,
+  ].filter(Boolean).join(' · ')
   return {
     value,
-    compactLabel: `${displayedNeeded} · ${passChance}%通过`,
+    compactLabel: [displayedNeeded, conditionNote, `${passChance}%通过`].filter(Boolean).join(' · '),
     passChance,
     tone: passChance >= 60 ? 'warning' : 'good',
     title: `目标豁免预估：${value}。实际结算仍以后端骰子、条件和临时修正为准。`,

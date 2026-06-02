@@ -156,9 +156,9 @@ describe('SpellModalList', () => {
     expect(within(guidingFit).getByText('受击优势')).toBeInTheDocument()
     expect(within(guidingFit).getByText('攻击劣势')).toBeInTheDocument()
     const sacredFit = screen.getByLabelText('目标适配 Sacred Flame')
-    expect(within(sacredFit).getByText('9+ · 60%通过')).toHaveAttribute(
+    expect(within(sacredFit).getByText('9+ · 劣势 · 36%通过')).toHaveAttribute(
       'title',
-      '目标豁免预估：敏捷豁免 +5 · d20 需 9+ · 约 60%通过。实际结算仍以后端骰子、条件和临时修正为准。',
+      '目标豁免预估：敏捷豁免 +5 · d20 需 9+ · 劣势 · 约 36%通过。实际结算仍以后端骰子、条件和临时修正为准。',
     )
     expect(within(screen.getByLabelText('目标适配 Fireball')).getByText('选落点')).toHaveAttribute(
       'title',

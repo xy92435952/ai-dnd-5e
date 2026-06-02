@@ -111,6 +111,116 @@ describe('buildSpellCastPlan', () => {
     expect(row(plan, '升环').value).toBe('+1 环 · 每环 1d6')
   })
 
+  it('applies saving throw condition odds before casting save spells', () => {
+    const restrained = buildSpellCastPlan({
+      spell: {
+        name: 'Burning Hands',
+        level: 1,
+        type: 'damage',
+        damage: '3d6',
+        save: 'dex',
+        half_on_save: true,
+      },
+      level: 1,
+      slots: { '1st': 1 },
+      playerId: 'hero-1',
+      selectedTarget: 'enemy-1',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', derived: { spell_save_dc: 14 } },
+          'enemy-1': {
+            id: 'enemy-1',
+            name: 'Goblin',
+            is_enemy: true,
+            conditions: ['restrained'],
+            derived: { saving_throws: { dex: 5 } },
+          },
+        },
+      },
+    })
+    const stunned = buildSpellCastPlan({
+      spell: {
+        name: 'Burning Hands',
+        level: 1,
+        type: 'damage',
+        damage: '3d6',
+        save: 'dex',
+        half_on_save: true,
+      },
+      level: 1,
+      slots: { '1st': 1 },
+      playerId: 'hero-1',
+      selectedTarget: 'enemy-1',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', derived: { spell_save_dc: 14 } },
+          'enemy-1': {
+            id: 'enemy-1',
+            name: 'Goblin',
+            is_enemy: true,
+            conditions: ['stunned'],
+            derived: { saving_throws: { dex: 5 } },
+          },
+        },
+      },
+    })
+
+    expect(preflight(restrained, 'rule')).toMatchObject({
+      value: '敏捷豁免 · DC 14 · 9+ · 劣势 · 36%通过 · 成功减半',
+      tone: 'ready',
+    })
+    expect(row(restrained, '目标豁免')).toMatchObject({
+      value: '敏捷豁免 +5 · d20 需 9+ · 劣势 · 约 36%通过',
+      tone: 'good',
+    })
+    expect(preflight(stunned, 'rule')).toMatchObject({
+      value: '敏捷豁免 · DC 14 · 自动失败 · 0%通过 · 成功减半',
+      tone: 'ready',
+    })
+    expect(row(stunned, '目标豁免')).toMatchObject({
+      value: '敏捷豁免 +5 · 自动失败 · 约 0%通过',
+      tone: 'good',
+    })
+  })
+
+  it('applies exhaustion save disadvantage before casting save spells', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Thunderwave',
+        level: 1,
+        type: 'damage',
+        damage: '2d8',
+        save: 'con',
+        half_on_save: true,
+      },
+      level: 1,
+      slots: { '1st': 1 },
+      playerId: 'hero-1',
+      selectedTarget: 'enemy-1',
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', derived: { spell_save_dc: 14 } },
+          'enemy-1': {
+            id: 'enemy-1',
+            name: 'Exhausted Ogre',
+            is_enemy: true,
+            condition_durations: { exhaustion_level: 3 },
+            derived: { saving_throws: { con: 5 } },
+          },
+        },
+      },
+    })
+
+    expect(preflight(plan, 'rule')).toMatchObject({
+      value: '体质豁免 · DC 14 · 9+ · 劣势 · 36%通过 · 成功减半',
+      tone: 'ready',
+    })
+    expect(row(plan, '目标豁免')).toMatchObject({
+      value: '体质豁免 +5 · d20 需 9+ · 劣势 · 约 36%通过',
+      tone: 'good',
+    })
+  })
+
   it('surfaces spell attack bonus and concentration before casting', () => {
     const plan = buildSpellCastPlan({
       spell: {
