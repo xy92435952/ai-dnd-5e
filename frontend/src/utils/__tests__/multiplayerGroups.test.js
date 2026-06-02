@@ -7,6 +7,7 @@ import {
   getGroupReadinessBreakdown,
   getMultiplayerTableStatus,
   getMyGroup,
+  getNextReadyGroupInfo,
   getNextReadyGroupSummary,
   isGroupAllReady,
 } from '../multiplayerGroups'
@@ -50,6 +51,13 @@ describe('multiplayer group helpers', () => {
 
     expect(getGroupPendingActions(readyRoom, 'tavern')).toHaveLength(1)
     expect(isGroupAllReady(readyRoom, readyRoom.party_groups[1])).toBe(true)
+    expect(getNextReadyGroupInfo(readyRoom)).toMatchObject({
+      groupId: 'tavern',
+      groupLabel: '酒馆组',
+      pendingCount: 1,
+      isActive: true,
+      summaryLabel: '下一处理：酒馆组 · 1 条待处理 · 全员已确认',
+    })
     expect(getNextReadyGroupSummary(readyRoom)).toBe('下一处理：酒馆组 · 1 条待处理 · 全员已确认')
   })
 
@@ -81,6 +89,7 @@ describe('multiplayer group helpers', () => {
       myGroupLabel: '后巷组',
       aggregatedActionHint: '',
       nextReadySummary: '下一处理：酒馆组 · 1 条待处理 · 全员已确认',
+      processingHint: '当前镜头「酒馆组」已全员确认，等待当前发言者处理 1 条意图',
       tableReason: '多个分队都已确认，按当前行动分队先处理。',
       tableDecisionLabel: '处理当前分队',
       shouldShowNotice: true,
@@ -130,6 +139,43 @@ describe('multiplayer group helpers', () => {
       myUserId: 'me',
       isMySpeakTurn: true,
     }).aggregatedActionHint).toBe('DM 会在主行动中带上 2 条队友意图')
+
+    expect(getMultiplayerTableStatus({
+      room: {
+        ...readyRoom,
+        active_group_id: 'alley',
+        pending_actions_by_group: {
+          tavern: [
+            { user_id: 'u2', display_name: '凯伦', text: '我继续套话。' },
+          ],
+        },
+      },
+      myUserId: 'me',
+      isMySpeakTurn: false,
+    })).toMatchObject({
+      activeGroupLabel: '后巷组',
+      nextReadySummary: '已就绪：酒馆组 · 1 条待处理 · 全员已确认',
+      processingHint: '「酒馆组」已全员确认 1 条意图；当前镜头仍在「后巷组」',
+    })
+
+    expect(getMultiplayerTableStatus({
+      room: {
+        ...readyRoom,
+        active_group_id: 'tavern',
+        pending_actions_by_group: {
+          alley: [
+            { user_id: 'me', display_name: '我', text: '我守住后门。' },
+          ],
+        },
+      },
+      myUserId: 'me',
+      isMySpeakTurn: true,
+    })).toMatchObject({
+      activeGroupLabel: '酒馆组',
+      myGroupLabel: '后巷组',
+      myGroupIsActive: false,
+      processingHint: '你的主行动会汇总「后巷组」的 1 条意图；当前镜头仍在「酒馆组」',
+    })
   })
 
   it('summarizes my pending intent and group readiness feedback', () => {

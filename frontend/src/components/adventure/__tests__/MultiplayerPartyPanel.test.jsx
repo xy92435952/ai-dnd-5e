@@ -51,6 +51,7 @@ describe('MultiplayerPartyPanel', () => {
 
     expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
     expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(screen.getByLabelText('DM处理提示')).toHaveTextContent('当前镜头「酒馆组」已全员确认，等待当前发言者处理 1 条意图')
     expect(screen.queryByText('主持')).not.toBeInTheDocument()
   })
 
@@ -151,6 +152,40 @@ describe('MultiplayerPartyPanel', () => {
 
     expect(screen.getByText('你是当前发言者 · DM 会汇总本分队 2 条意图')).toBeInTheDocument()
     expect(screen.getByText('确认进度：2/2 已确认')).toBeInTheDocument()
+    expect(screen.getByLabelText('DM处理提示')).toHaveTextContent('你的主行动会汇总当前镜头「后巷组」的 2 条意图')
+  })
+
+  it('clarifies when my speaking group differs from the current camera', () => {
+    render(<MultiplayerPartyPanel
+      room={{
+        is_multiplayer: true,
+        session_id: 'sess-1',
+        active_group_id: 'tavern',
+        members: [
+          { user_id: 'me', display_name: '我' },
+          { user_id: 'u2', display_name: '凯伦' },
+        ],
+        party_groups: [
+          { id: 'alley', name: '后巷组', location: '酒馆后巷', member_user_ids: ['me'] },
+          { id: 'tavern', name: '酒馆组', location: '酒馆大厅', member_user_ids: ['u2'] },
+        ],
+        pending_actions_by_group: {
+          alley: [
+            { user_id: 'me', display_name: '我', text: '我守住后门。' },
+          ],
+        },
+        group_readiness: {
+          alley: { me: 'ready' },
+          tavern: { u2: 'drafting' },
+        },
+      }}
+      myUserId="me"
+      isMySpeakTurn
+      isLoading={false}
+    />)
+
+    expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
+    expect(screen.getByLabelText('DM处理提示')).toHaveTextContent('你的主行动会汇总「后巷组」的 1 条意图；当前镜头仍在「酒馆组」')
   })
 
   it('can submit an intent and confirm it in one explicit action', async () => {

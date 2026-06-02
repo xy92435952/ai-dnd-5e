@@ -91,17 +91,33 @@ export function isGroupAllReady(room, group) {
   return members.every(uid => readiness[uid] === 'ready')
 }
 
-export function getNextReadyGroupSummary(room) {
+function getGroupLabel(group) {
+  return group?.name || group?.id || ''
+}
+
+export function getNextReadyGroupInfo(room) {
   const groups = room?.party_groups || []
   const activeGroup = getActiveGroup(room)
   const candidate = groups.find(group => (
     getGroupPendingActions(room, group).length > 0 && isGroupAllReady(room, group)
   ))
-  if (!candidate) return ''
+  if (!candidate) return null
   const pendingCount = getGroupPendingActions(room, candidate).length
-  const name = candidate.name || candidate.id
-  const prefix = activeGroup?.id === candidate.id ? '下一处理' : '已就绪'
-  return `${prefix}：${name} · ${pendingCount} 条待处理 · 全员已确认`
+  const label = getGroupLabel(candidate)
+  const isActive = activeGroup?.id === candidate.id
+  const prefix = isActive ? '下一处理' : '已就绪'
+  return {
+    group: candidate,
+    groupId: candidate.id,
+    groupLabel: label,
+    pendingCount,
+    isActive,
+    summaryLabel: `${prefix}：${label} · ${pendingCount} 条待处理 · 全员已确认`,
+  }
+}
+
+export function getNextReadyGroupSummary(room) {
+  return getNextReadyGroupInfo(room)?.summaryLabel || ''
 }
 
 export function getGroupStatusSummary(room, group) {
@@ -192,22 +208,41 @@ export function getTableDecisionLabel(tableDecision) {
 export function getMultiplayerTableStatus({ room, myUserId, currentSeg = null, logs = [], isMySpeakTurn = false }) {
   const activeGroup = getActiveGroup(room)
   const myGroup = getMyGroup(room, myUserId)
-  const nextReadySummary = getNextReadyGroupSummary(room)
+  const nextReadyGroup = getNextReadyGroupInfo(room)
+  const nextReadySummary = nextReadyGroup?.summaryLabel || ''
   const tableReason = getLatestTableReason({ currentSeg, logs })
   const tableDecision = getLatestTableDecision({ currentSeg, logs })
   const tableDecisionLabel = getTableDecisionLabel(tableDecision)
   const myGroupPendingCount = getGroupPendingActions(room, myGroup).length
+  const activeGroupLabel = getGroupLabel(activeGroup)
+  const myGroupLabel = getGroupLabel(myGroup)
+  const myGroupIsActive = Boolean(activeGroup?.id && myGroup?.id && activeGroup.id === myGroup.id)
   const aggregatedActionHint = isMySpeakTurn && myGroupPendingCount > 0
     ? `DM 会在主行动中带上 ${myGroupPendingCount} 条队友意图`
     : ''
+  let processingHint = ''
+  if (isMySpeakTurn && myGroupPendingCount > 0) {
+    processingHint = myGroupIsActive
+      ? `你的主行动会汇总当前镜头「${myGroupLabel}」的 ${myGroupPendingCount} 条意图`
+      : activeGroupLabel
+        ? `你的主行动会汇总「${myGroupLabel}」的 ${myGroupPendingCount} 条意图；当前镜头仍在「${activeGroupLabel}」`
+        : `你的主行动会汇总「${myGroupLabel}」的 ${myGroupPendingCount} 条意图`
+  } else if (nextReadyGroup?.isActive) {
+    processingHint = `当前镜头「${nextReadyGroup.groupLabel}」已全员确认，等待当前发言者处理 ${nextReadyGroup.pendingCount} 条意图`
+  } else if (nextReadyGroup) {
+    processingHint = `「${nextReadyGroup.groupLabel}」已全员确认 ${nextReadyGroup.pendingCount} 条意图；当前镜头仍在「${activeGroupLabel || '未定'}」`
+  }
 
   return {
     activeGroup,
-    activeGroupLabel: activeGroup?.name || activeGroup?.id || '',
+    activeGroupLabel,
     myGroup,
-    myGroupLabel: myGroup?.name || myGroup?.id || '',
+    myGroupLabel,
     myGroupPendingCount,
+    myGroupIsActive,
     aggregatedActionHint,
+    processingHint,
+    nextReadyGroup,
     nextReadySummary,
     tableReason,
     tableDecision,

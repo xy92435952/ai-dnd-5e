@@ -218,6 +218,15 @@ export default function MultiplayerPartyPanel({
           {tableStatus.nextReadySummary && (
             <span style={{ color: 'var(--emerald-light)' }}>{tableStatus.nextReadySummary}</span>
           )}
+          {tableStatus.processingHint && (
+            <span
+              aria-label="DM处理提示"
+              title={tableStatus.processingHint}
+              style={{ color: 'var(--arcane-light)' }}
+            >
+              {tableStatus.processingHint}
+            </span>
+          )}
         </div>
       )}
 
