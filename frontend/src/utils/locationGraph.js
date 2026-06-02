@@ -31,7 +31,11 @@ export function getLocationGraphSummary(graph) {
     const locationMatches = String(template.location_id) === String(current.id)
     return idMatches || locationMatches
   })
-  const nextEncounter = encounterTemplates.find(template => template.status === 'available') || encounterTemplates[0] || null
+  const selectedTemplateId = String(graph?.selected_encounter_template_id || '')
+  const activeEncounter = encounterTemplates.find(template => (
+    template?.selected || (selectedTemplateId && String(template?.id) === selectedTemplateId)
+  )) || null
+  const nextEncounter = activeEncounter || encounterTemplates.find(template => template.status === 'available') || encounterTemplates[0] || null
 
   return {
     currentName: current.name || '当前位置',
@@ -43,6 +47,7 @@ export function getLocationGraphSummary(graph) {
     nextEncounterName: nextEncounter?.name || '',
     nextEncounterDifficulty: nextEncounter?.difficulty_hint || '',
     nextEncounterEnemies: Array.isArray(nextEncounter?.enemy_names) ? nextEncounter.enemy_names : [],
+    nextEncounterActive: Boolean(activeEncounter),
   }
 }
 

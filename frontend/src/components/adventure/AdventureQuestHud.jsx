@@ -93,6 +93,14 @@ export default function AdventureQuestHud({
         questLine.fail_forward ? `失败推进：${questLine.fail_forward}` : '',
       ].filter(Boolean).join('\n')
     : ''
+  const encounterHudTitle = locationSummary
+    ? [
+        locationSummary.nextEncounterActive ? 'Active encounter' : 'Encounter',
+        locationSummary.nextEncounterName,
+        locationSummary.nextEncounterDifficulty,
+        locationSummary.nextEncounterEnemies.join(' / '),
+      ].filter(Boolean).join('\n')
+    : ''
   return (
     <div className="adventure-quest-hud" role="group" aria-label="Quest and location status">
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>◆ 目标</span>
@@ -148,19 +156,10 @@ export default function AdventureQuestHud({
           </span>
           {locationSummary.encounterCount > 0 && (
             <span
-              title={[
-                locationSummary.nextEncounterName,
-                locationSummary.nextEncounterDifficulty,
-                locationSummary.nextEncounterEnemies.join(' / '),
-              ].filter(Boolean).join('\n')}
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 9,
-                color: 'var(--blood-light)',
-                whiteSpace: 'nowrap',
-              }}
+              className={`location-encounter-pill ${locationSummary.nextEncounterActive ? 'active' : ''}`}
+              title={encounterHudTitle}
             >
-              ENC {locationSummary.encounterCount}
+              {locationSummary.nextEncounterActive ? 'ACTIVE' : 'ENC'} {locationSummary.encounterCount}
             </span>
           )}
         </>

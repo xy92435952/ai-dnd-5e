@@ -32,6 +32,32 @@ describe('locationGraph', () => {
       nextEncounterName: '',
       nextEncounterDifficulty: '',
       nextEncounterEnemies: [],
+      nextEncounterActive: false,
+    })
+  })
+
+  it('summarizes an active current-location public encounter for the adventure hud', () => {
+    expect(getLocationGraphSummary({
+      current_location_id: 'yard',
+      selected_encounter_template_id: 'enc_yard',
+      nodes: [
+        { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
+      ],
+      encounter_templates: [{
+        id: 'enc_yard',
+        location_id: 'yard',
+        status: 'available',
+        public: true,
+        name: 'Construct Patrol',
+        difficulty_hint: 'moderate',
+        enemy_names: ['Clockwork Construct'],
+      }],
+    })).toMatchObject({
+      encounterCount: 1,
+      nextEncounterName: 'Construct Patrol',
+      nextEncounterDifficulty: 'moderate',
+      nextEncounterEnemies: ['Clockwork Construct'],
+      nextEncounterActive: true,
     })
   })
 

@@ -1653,6 +1653,23 @@ button.companion-signal-item:focus-visible {
   line-height: 1.35;
   white-space: nowrap;
 }
+.location-encounter-pill {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid rgba(240,64,64,.42);
+  border-radius: 3px;
+  color: var(--blood-light);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.location-encounter-pill.active {
+  border-color: rgba(240,208,96,.55);
+  background: rgba(240,208,96,.08);
+  color: var(--gold);
+  box-shadow: inset 0 0 0 1px rgba(240,208,96,.08);
+}
 .quest-outcome-snippet {
   min-width: 64px;
   max-width: 190px;

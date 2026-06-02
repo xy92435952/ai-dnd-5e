@@ -123,4 +123,36 @@ describe('AdventureQuestHud', () => {
     expect(bondSignal).toHaveTextContent('好感 -4')
     expect(bondSignal).toHaveTextContent('质疑鲁莽决定')
   })
+
+  it('shows an active encounter pill when the current location has an armed public template', () => {
+    render(
+      <AdventureQuestHud
+        questLine={null}
+        clues={[]}
+        locationGraph={{
+          current_location_id: 'yard',
+          selected_encounter_template_id: 'enc_yard',
+          nodes: [
+            { id: 'yard', name: 'Training Yard', visited: true, encounter_template_ids: ['enc_yard'] },
+          ],
+          encounter_templates: [{
+            id: 'enc_yard',
+            location_id: 'yard',
+            status: 'available',
+            public: true,
+            name: 'Construct Patrol',
+            difficulty_hint: 'moderate',
+            enemy_names: ['Clockwork Construct'],
+          }],
+        }}
+      />,
+    )
+
+    const activeEncounter = screen.getByText('ACTIVE 1')
+    expect(activeEncounter).toHaveClass('location-encounter-pill', 'active')
+    expect(activeEncounter).toHaveAttribute(
+      'title',
+      ['Active encounter', 'Construct Patrol', 'moderate', 'Clockwork Construct'].join('\n'),
+    )
+  })
 })
