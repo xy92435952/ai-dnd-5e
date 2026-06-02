@@ -120,14 +120,52 @@ export function getNextReadyGroupSummary(room) {
   return getNextReadyGroupInfo(room)?.summaryLabel || ''
 }
 
+function getGroupSummaryReadinessPrompt({ pendingCount, memberCount, readinessBreakdown }) {
+  if (pendingCount === 0 || memberCount === 0) {
+    return { readinessPrompt: '', readinessPromptTone: '', readinessReset: false }
+  }
+
+  const allReady = readinessBreakdown.readyCount === memberCount
+  const readinessReset = readinessBreakdown.readyCount === 0
+    && readinessBreakdown.draftingNames.length === memberCount
+
+  if (allReady) {
+    return { readinessPrompt: '全员已确认，等待 DM 处理。', readinessPromptTone: 'ready', readinessReset }
+  }
+
+  if (readinessReset) {
+    return { readinessPrompt: '分队计划已更新，全队确认被重置。', readinessPromptTone: 'urgent', readinessReset }
+  }
+
+  if (readinessBreakdown.notReadyNames.length > 0) {
+    return {
+      readinessPrompt: `等待确认：${readinessBreakdown.notReadyNames.join('、')}`,
+      readinessPromptTone: 'pending',
+      readinessReset,
+    }
+  }
+
+  return { readinessPrompt: '', readinessPromptTone: '', readinessReset }
+}
+
 export function getGroupStatusSummary(room, group) {
   const pendingCount = getGroupPendingActions(room, group).length
   const memberStatuses = getGroupMemberStatuses(room, group)
+  const readinessBreakdown = getGroupReadinessBreakdown(room, group)
   const allReady = isGroupAllReady(room, group)
+  const { readinessPrompt, readinessPromptTone, readinessReset } = getGroupSummaryReadinessPrompt({
+    pendingCount,
+    memberCount: memberStatuses.length,
+    readinessBreakdown,
+  })
   return {
     group,
     pendingCount,
     memberStatuses,
+    readinessBreakdown,
+    readinessPrompt,
+    readinessPromptTone,
+    readinessReset,
     allReady,
     isActive: group?.id === room?.active_group_id,
     membersLabel: memberStatuses.map(item => item.label).join(' / ') || '暂无成员',

@@ -5,6 +5,7 @@ import {
   getGroupPendingActions,
   getGroupIntentFeedback,
   getGroupReadinessBreakdown,
+  getGroupStatusSummary,
   getMultiplayerTableStatus,
   getMyGroup,
   getNextReadyGroupInfo,
@@ -39,6 +40,12 @@ describe('multiplayer group helpers', () => {
       '凯伦 · 已确认',
       'shadow · 等待中',
     ])
+    expect(getGroupStatusSummary(room, room.party_groups[1])).toMatchObject({
+      pendingCount: 1,
+      readinessPrompt: '等待确认：shadow',
+      readinessPromptTone: 'pending',
+      readinessReset: false,
+    })
   })
 
   it('summarizes ready pending groups for shared lobby and adventure hints', () => {

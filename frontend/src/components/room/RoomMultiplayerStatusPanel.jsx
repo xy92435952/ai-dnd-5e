@@ -7,6 +7,30 @@ import {
 import MultiplayerSessionStatusBar from '../multiplayer/MultiplayerSessionStatusBar'
 import WebSocketStatusPill from '../multiplayer/WebSocketStatusPill'
 
+const READINESS_PROMPT_TONES = {
+  urgent: {
+    color: 'var(--amber)',
+    borderColor: 'rgba(240,208,96,.34)',
+    background: 'rgba(240,208,96,.08)',
+  },
+  pending: {
+    color: 'var(--parchment-dark)',
+    borderColor: 'rgba(127,232,248,.24)',
+    background: 'rgba(127,232,248,.06)',
+  },
+  ready: {
+    color: 'var(--emerald-light)',
+    borderColor: 'rgba(91,214,138,.3)',
+    background: 'rgba(91,214,138,.07)',
+  },
+}
+
+function getReadinessPromptBadge(summary) {
+  if (summary.readinessReset) return '需重新确认'
+  if (summary.readinessPromptTone === 'ready') return '已就绪'
+  return '确认提示'
+}
+
 export default function RoomMultiplayerStatusPanel({
   room,
   claimedCount,
@@ -50,6 +74,8 @@ export default function RoomMultiplayerStatusPanel({
         {(room.party_groups || []).map(group => {
           const groupSummary = getGroupStatusSummary(room, group)
           const pending = getGroupPendingActions(room, group)
+          const readinessPromptTone = READINESS_PROMPT_TONES[groupSummary.readinessPromptTone]
+            || READINESS_PROMPT_TONES.pending
           return (
             <div key={group.id} style={{
               padding: 10,
@@ -83,6 +109,26 @@ export default function RoomMultiplayerStatusPanel({
               <div style={{ marginTop: 6, fontSize: 10, color: 'var(--arcane-light)', fontFamily: 'var(--font-mono)' }}>
                 {groupSummary.membersLabel}
               </div>
+              {groupSummary.readinessPrompt && (
+                <div
+                  aria-label={`${group.name || group.id}确认提示`}
+                  style={{
+                    marginTop: 7,
+                    padding: '4px 6px',
+                    border: `1px solid ${readinessPromptTone.borderColor}`,
+                    background: readinessPromptTone.background,
+                    color: readinessPromptTone.color,
+                    display: 'flex',
+                    gap: 6,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    fontSize: 10,
+                  }}
+                >
+                  <strong>{getReadinessPromptBadge(groupSummary)}</strong>
+                  <span>{groupSummary.readinessPrompt}</span>
+                </div>
+              )}
               {pending.length > 0 && (
                 <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
                   {pending.slice(0, 3).map((action, idx) => (

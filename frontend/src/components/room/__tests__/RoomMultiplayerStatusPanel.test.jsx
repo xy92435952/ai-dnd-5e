@@ -47,8 +47,35 @@ describe('RoomMultiplayerStatusPanel', () => {
     expect(screen.getByText('1/2 已认领角色')).toBeInTheDocument()
     expect(screen.getByText('当前焦点：后巷组')).toBeInTheDocument()
     expect(screen.getByText('下一处理：后巷组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('已就绪')
+    expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('全员已确认，等待 DM 处理。')
     expect(screen.getByText('同步在线')).toBeInTheDocument()
     expect(screen.getByText('房间 234567')).toBeInTheDocument()
+  })
+
+  it('shows a room-level reconfirmation hint when group readiness reset to drafting', () => {
+    render(
+      <RoomMultiplayerStatusPanel
+        room={{
+          ...room,
+          pending_actions_by_group: {
+            alley: [{ user_id: 'u2', display_name: '队友', text: '我改为守住楼梯。' }],
+          },
+          group_readiness: {
+            alley: { u2: 'drafting' },
+          },
+        }}
+        claimedCount={1}
+        memberCount={2}
+        busy={false}
+        wsConnected={true}
+        wsStatus={{ state: 'connected', label: '同步在线', detail: '实时同步已连接。' }}
+        onFocusGroup={vi.fn()}
+      />
+    )
+
+    expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('需重新确认')
+    expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('分队计划已更新，全队确认被重置。')
   })
 
   it('shows lobby websocket restart recovery state', () => {
