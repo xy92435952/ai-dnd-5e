@@ -41,37 +41,24 @@ export default function Login() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'grid', placeItems: 'center',
-      padding: 24,
-      position: 'relative', zIndex: 1,
-    }}>
+    <div className="login-page">
       {/* 局部装饰符文环（除背景层外的额外点缀） */}
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: .18 }}>
-        <div className="rune-ring" style={{ position: 'absolute', top: '10%', left: '-60px', width: 240, height: 240 }} />
-        <div className="rune-ring" style={{ position: 'absolute', bottom: '-80px', right: '5%', width: 320, height: 320, animationDuration: '90s' }} />
+      <div className="login-runes">
+        <div className="rune-ring login-rune login-rune-left" />
+        <div className="rune-ring login-rune login-rune-right" />
       </div>
 
-      <div className="panel-ornate" style={{
-        padding: '42px 48px',
-        width: 420, maxWidth: '92vw',
-        position: 'relative', textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 48, marginBottom: 8 }}>⚜</div>
-        <div className="display-title" style={{ fontSize: 26, letterSpacing: '.15em' }}>龙与编年史</div>
-        <div className="eyebrow" style={{ marginTop: 8 }}>✦ AI 地下城 · D&D 5e ✦</div>
-        <div style={{
-          fontFamily: 'var(--font-script)', fontStyle: 'italic',
-          fontSize: 13, color: 'var(--parchment-dark)',
-          margin: '14px 0 22px', lineHeight: 1.8,
-        }}>
+      <div className="panel-ornate login-card">
+        <div className="login-mark">⚜</div>
+        <div className="display-title login-title">龙与编年史</div>
+        <div className="eyebrow login-eyebrow">✦ AI 地下城 · D&D 5e ✦</div>
+        <div className="login-copy">
           "推开厚重的橡木门，<br />你的传奇将由此开启..."
         </div>
 
         <Divider>❧</Divider>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 18 }}>
+        <form onSubmit={handleSubmit} className="login-form">
           <input
             className="input-fantasy"
             type="text"
@@ -100,41 +87,29 @@ export default function Login() {
           )}
 
           {error && (
-            <div style={{
-              fontSize: 12, color: '#ffaaaa',
-              padding: '8px 10px',
-              background: 'rgba(139,32,32,0.25)',
-              border: '1px solid var(--blood)',
-              borderRadius: 6,
-              fontFamily: 'var(--font-mono)',
-            }}>
+            <div className="login-error">
               {error}
             </div>
           )}
 
           <button
             type="submit"
-            className="btn-gold"
+            className="btn-gold login-submit"
             disabled={loading}
-            style={{ padding: '14px', marginTop: 6, fontSize: 14, letterSpacing: '.2em' }}
           >
             {loading ? '✦ 启动符文中… ✦' : isRegister ? '✦ 创建英雄档案 ✦' : '✦ 进入传说 ✦'}
           </button>
 
           <button
             type="button"
-            className="btn-ghost"
+            className="btn-ghost login-toggle"
             onClick={() => { setIsRegister(!isRegister); setError('') }}
           >
             {isRegister ? '已有英雄档案？点击登录' : '创建新的英雄档案'}
           </button>
         </form>
 
-        <p style={{
-          textAlign: 'center', marginTop: 18,
-          fontSize: 11, color: 'var(--parchment-dark)', opacity: .55,
-          fontFamily: 'var(--font-mono)',
-        }}>
+        <p className="login-hint">
           测试账号：test / 123456
         </p>
       </div>
