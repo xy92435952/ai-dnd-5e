@@ -26,7 +26,7 @@ export default function RoomActionsPanel({
       : `${startReadyCount}/${memberCount} 位玩家已准备，等待全员确认`
 
   return (
-    <>
+    <div className="room-actions-panel">
       {syncBlocked && (
         <div
           role="status"
@@ -44,7 +44,7 @@ export default function RoomActionsPanel({
             onClick={onCreateChar}
             disabled={controlsDisabled}
             title={syncBlocked ? blockReason : '创建你的英雄'}
-            className="btn-gold"
+            className="btn-gold room-action-button"
             style={{ padding: '12px 32px', fontSize: 14 }}
           >
             ✦ 创建你的英雄 ✦
@@ -58,7 +58,7 @@ export default function RoomActionsPanel({
             onClick={() => onToggleStartReady?.(!isStartReady)}
             disabled={controlsDisabled}
             title={syncBlocked ? blockReason : isStartReady ? '取消准备' : '确认准备'}
-            className={isStartReady ? 'btn-ghost' : 'btn-gold'}
+            className={`${isStartReady ? 'btn-ghost' : 'btn-gold'} room-action-button`}
             style={{ padding: '10px 24px', fontSize: 12, letterSpacing: '.14em' }}
           >
             {isStartReady ? '✓ 已准备，取消' : '✦ 确认准备 ✦'}
@@ -72,7 +72,7 @@ export default function RoomActionsPanel({
             onClick={onFillAi}
             disabled={controlsDisabled}
             title={syncBlocked ? blockReason : '召唤 AI 队友补位'}
-            className="btn-ghost"
+            className="btn-ghost room-action-button"
             style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '.14em' }}
           >
             {busy ? '✦ 召唤中… ✦' : `✦ 召唤 ${slotsAvailable} 位 AI 队友 ✦`}
@@ -89,7 +89,7 @@ export default function RoomActionsPanel({
             onClick={onStart}
             disabled={!canStart || controlsDisabled}
             title={syncBlocked ? blockReason : canStart ? '开启冒险' : startHint}
-            className="btn-gold"
+            className="btn-gold room-action-button"
             style={{ padding: '12px 32px', fontSize: 14, letterSpacing: '.18em', opacity: canStart && !controlsDisabled ? 1 : .5 }}
           >
             {busy ? '✦ 启动中… ✦' : '✦ 开启冒险 ✦'}
@@ -109,10 +109,10 @@ export default function RoomActionsPanel({
       )}
 
       <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button onClick={onLeave} className="btn-ghost" style={{ fontSize: 12, color: '#ffaaaa', borderColor: 'var(--blood)' }}>
+        <button onClick={onLeave} className="btn-ghost room-action-button danger" style={{ fontSize: 12, color: '#ffaaaa', borderColor: 'var(--blood)' }}>
           ⎋ 离开房间
         </button>
       </div>
-    </>
+    </div>
   )
 }

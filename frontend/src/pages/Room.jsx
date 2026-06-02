@@ -190,24 +190,19 @@ export default function Room() {
   const slotsAvailable = Math.max(0, (room.max_players || 4) - memberCount - aiCompanions.length)
 
   return (
-    <div style={{ minHeight: '100vh', padding: 28, maxWidth: 900, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-      <div style={{ textAlign: 'center', marginBottom: 18 }}>
+    <div className="room-page">
+      <div className="room-page-header">
         <div className="eyebrow">✦ 多人房间 ✦</div>
         <div className="display-title" style={{ fontSize: 28, marginTop: 4 }}>{room.save_name || '冒险房间'}</div>
-        <div style={{
-          marginTop: 12, display: 'inline-flex', gap: 10, alignItems: 'center',
-          padding: '6px 16px',
-          background: 'rgba(10,6,2,.6)',
-          border: '1px solid var(--amber)',
-          borderRadius: 24,
-        }}>
+        <div className="room-code-pill">
           <span className="eyebrow" style={{ fontSize: 10 }}>房间码</span>
-          <span style={{
+          <span className="room-code-value" style={{
             fontFamily: 'var(--font-mono)', fontSize: 18,
             color: 'var(--amber)', fontWeight: 700, letterSpacing: '.3em',
           }}>{room.room_code || '—'}</span>
           <button
             onClick={copyCode}
+            className="room-code-copy"
             style={{
               background: 'transparent', border: 'none', color: 'var(--parchment-dark)',
               cursor: 'pointer', fontSize: 14, padding: '0 4px',

@@ -984,6 +984,119 @@ button.companion-signal-item:focus-visible {
   }
 }
 
+.room-page {
+  min-height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: clamp(14px, 4vw, 28px);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+}
+.room-page-header {
+  min-width: 0;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.room-code-pill {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 16px;
+  background: rgba(10,6,2,.6);
+  border: 1px solid var(--amber);
+  border-radius: 24px;
+}
+.room-code-value {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  overflow-wrap: anywhere;
+}
+.room-code-copy {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--parchment-dark);
+  cursor: pointer;
+  font-size: 14px;
+}
+.room-members-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 14px;
+  min-width: 0;
+  margin-top: 18px;
+}
+.room-member-card,
+.room-ai-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.room-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  min-width: 0;
+  margin-top: 12px;
+}
+.room-ai-card {
+  gap: 10px;
+}
+.room-member-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.room-actions-panel {
+  min-width: 0;
+}
+.room-action-button {
+  max-width: 100%;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+@media (max-width: 560px) {
+  .room-code-pill {
+    width: 100%;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .room-code-value {
+    font-size: 16px !important;
+    letter-spacing: .18em !important;
+  }
+  .room-member-card {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .room-member-actions {
+    flex-basis: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .room-member-actions .btn-ghost {
+    flex: 1 1 112px;
+  }
+}
+
 .journal-dossier {
   max-height: 34vh;
   overflow-y: auto;

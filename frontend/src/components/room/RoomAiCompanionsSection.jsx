@@ -8,12 +8,12 @@ export default function RoomAiCompanionsSection({ aiCompanions }) {
   return (
     <>
       <Divider>❧ AI 队友 ❧</Divider>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, marginTop: 12 }}>
+      <div className="room-ai-grid">
         {aiCompanions.map((companion) => (
           <div
             key={companion.id}
-            className="panel-ornate"
-            style={{ padding: 10, display: 'flex', gap: 10, alignItems: 'center', opacity: 0.92 }}
+            className="panel-ornate room-ai-card"
+            style={{ padding: 10, opacity: 0.92 }}
           >
             <Portrait cls={classKey(companion.char_class || 'fighter')} size="sm" />
             <div style={{ flex: 1, minWidth: 0 }}>

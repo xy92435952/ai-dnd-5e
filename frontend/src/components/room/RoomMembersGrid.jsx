@@ -12,7 +12,7 @@ export default function RoomMembersGrid({
   onKick,
 }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14, marginTop: 18 }}>
+    <div className="room-members-grid">
       {(members || []).map((member) => {
         const vote = (roomVotes || []).find(item => (
           item.type === 'kick'
@@ -30,12 +30,9 @@ export default function RoomMembersGrid({
         return (
           <div
             key={member.user_id}
-            className="panel-ornate"
+            className="panel-ornate room-member-card"
             style={{
               padding: 14,
-              display: 'flex',
-              gap: 14,
-              alignItems: 'center',
               opacity: member.is_online ? 1 : 0.5,
             }}
           >
@@ -76,7 +73,7 @@ export default function RoomMembersGrid({
               )}
             </div>
             {member.user_id !== myUserId && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="room-member-actions">
                 {isHost && (
                   <button
                     onClick={() => {
