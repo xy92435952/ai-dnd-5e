@@ -91,6 +91,32 @@ describe('CharacterSheet inventory integration', () => {
     })
   })
 
+  it('renders responsive sheet shell and major stat grids', async () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(characterFixture.name)
+
+    expect(container.querySelector('.character-sheet-page')).toBeInTheDocument()
+    expect(container.querySelector('.character-sheet-header')).toBeInTheDocument()
+    expect(container.querySelector('.character-sheet-header-title')).toBeInTheDocument()
+    expect(container.querySelector('.character-sheet-content')).toBeInTheDocument()
+    expect(container.querySelector('.character-sheet-identity-row')).toBeInTheDocument()
+    expect(container.querySelector('.character-sheet-identity-body')).toBeInTheDocument()
+    expect(container.querySelector('.character-sheet-core-grid')).toBeInTheDocument()
+    expect(container.querySelectorAll('.character-sheet-core-grid .panel')).toHaveLength(4)
+    expect(container.querySelector('.character-sheet-ability-grid')).toBeInTheDocument()
+    expect(container.querySelectorAll('.character-sheet-ability-grid .ability-card')).toHaveLength(6)
+    expect(container.querySelectorAll('.character-sheet-two-column-grid').length).toBeGreaterThanOrEqual(2)
+
+    cleanup()
+  })
+
   it('refreshes sheet stats after equipping an item', async () => {
     render(
       <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>

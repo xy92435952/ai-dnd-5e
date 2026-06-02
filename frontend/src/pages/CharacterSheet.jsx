@@ -109,35 +109,28 @@ export default function CharacterSheet() {
   const fmtMod = (v) => v >= 0 ? `+${v}` : `${v}`
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
+    <div className="character-sheet-page">
       {/* Header */}
-      <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 20px',
-        borderBottom: '1px solid var(--bark-light)',
-        background: 'rgba(10,6,2,.55)',
-        backdropFilter: 'blur(6px)',
-        flexShrink: 0,
-      }}>
-        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => navigate(-1)}>
+      <header className="character-sheet-header">
+        <button className="btn-ghost character-sheet-back" style={{ fontSize: 12 }} onClick={() => navigate(-1)}>
           ⬅ 返回
         </button>
-        <div className="display-title" style={{ fontSize: 16 }}>☙ 角色卡 ❧</div>
-        <div style={{ width: 80 }} />
+        <div className="display-title character-sheet-header-title">☙ 角色卡 ❧</div>
+        <div className="character-sheet-header-spacer" />
       </header>
 
       {/* Main content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+      <div className="character-sheet-content">
         {error && (
           <p style={{ color: '#ffaaaa', fontSize: 12, marginBottom: 12, padding: 8, background: 'rgba(139,32,32,.2)', border: '1px solid var(--blood)', borderRadius: 4 }}>{error}</p>
         )}
 
         {/* ── Identity Section ── */}
         <div className="panel-ornate" style={{ padding: 20, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div className="character-sheet-identity-row">
             <Portrait cls={classKey(char.char_class)} size="lg" />
-            <div style={{ flex: 1 }}>
-              <div className="display-title" style={{ fontSize: 24, marginBottom: 4 }}>{char.name}</div>
+            <div className="character-sheet-identity-body">
+              <div className="display-title character-sheet-name" style={{ fontSize: 24, marginBottom: 4 }}>{char.name}</div>
               <div className="eyebrow" style={{ marginBottom: 4 }}>
                 {char.race} · {char.char_class} · Lv{char.level}
                 {char.subclass && ` · ${char.subclass}`}
@@ -153,7 +146,7 @@ export default function CharacterSheet() {
         </div>
 
         {/* ── Core Stats Row ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+        <div className="character-sheet-core-grid">
           {/* HP */}
           <div className="panel" style={{ padding: 12, textAlign: 'center' }}>
             <p style={{ color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>
@@ -192,7 +185,7 @@ export default function CharacterSheet() {
         {/* ── Ability Scores ── */}
         <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
           <SectionTitle>能力值</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+          <div className="character-sheet-ability-grid">
             {Object.entries(ABILITY_LABELS).map(([key, label]) => {
               const score = scores[key] || 10
               const mod = mods[key] || 0
@@ -211,7 +204,7 @@ export default function CharacterSheet() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="character-sheet-two-column-grid">
           {/* ── Saving Throws ── */}
           <div className="panel" style={{ padding: 16 }}>
             <SectionTitle>豁免检定</SectionTitle>
@@ -282,7 +275,7 @@ export default function CharacterSheet() {
               <MagicIcon size={14} color="#8a5af6" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
               法术位
             </SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
+            <div className="character-sheet-spell-slot-grid">
               {Object.entries(slotsMax).map(([lvl, max]) => {
                 const cur = slotsCur[lvl] ?? max
                 return (
@@ -396,7 +389,7 @@ export default function CharacterSheet() {
         </div>
 
         {/* ── Languages & Tools ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="character-sheet-two-column-grid">
           <div className="panel" style={{ padding: 16 }}>
             <SectionTitle>语言</SectionTitle>
             {(char.languages || []).length > 0 ? (
