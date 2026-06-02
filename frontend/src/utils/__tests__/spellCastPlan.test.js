@@ -201,6 +201,11 @@ describe('buildSpellCastPlan', () => {
       canReset: false,
       label: '预览中 · 中心 5, 5；点击格子可锁定',
     })
+    expect(preflight(plan, 'placement')).toMatchObject({
+      label: '落点',
+      value: '预览中 · 中心 5, 5；点击格子可锁定',
+      tone: 'ready',
+    })
     expect(row(plan, '命中单位').value).toBe('3 个：施法者、训练假人、同伴')
     expect(row(plan, '敌方')).toMatchObject({ value: '训练假人', tone: 'ready' })
     expect(row(plan, '友方')).toMatchObject({ value: '同伴', tone: 'warning' })
@@ -260,6 +265,10 @@ describe('buildSpellCastPlan', () => {
 
     expect(row(plan, '区域').value).toBe('锥形区域 · 15 尺 · 方向点 5, 8')
     expect(row(plan, '放置').value).toBe('预览中 · 方向点 5, 8；点击格子可锁定')
+    expect(preflight(plan, 'placement')).toMatchObject({
+      value: '预览中 · 方向点 5, 8；点击格子可锁定',
+      tone: 'ready',
+    })
     expect(row(plan, '方向').value).toBe('南 · 从 Wizard 指向 5, 8')
   })
 
@@ -353,6 +362,43 @@ describe('buildSpellCastPlan', () => {
         tone: 'warning',
       },
     ])
+  })
+
+  it('warns in preflight when an AoE placement is not selected', () => {
+    const plan = buildSpellCastPlan({
+      spell: {
+        name: 'Fireball',
+        level: 3,
+        type: 'damage',
+        aoe: true,
+        damage: '8d6',
+      },
+      level: 3,
+      slots: { '3rd': 1 },
+      playerId: 'hero-1',
+      aoeHover: null,
+      combat: {
+        entities: {
+          'hero-1': { id: 'hero-1', name: 'Wizard', is_enemy: false, hp_current: 20 },
+          'enemy-1': { id: 'enemy-1', name: 'Goblin', is_enemy: true, hp_current: 7 },
+        },
+        entity_positions: {
+          'hero-1': { x: 1, y: 1 },
+          'enemy-1': { x: 1, y: 2 },
+        },
+      },
+    })
+
+    expect(row(plan, '放置')).toMatchObject({ value: '待确认', tone: 'warning' })
+    expect(preflight(plan, 'placement')).toMatchObject({
+      label: '落点',
+      value: '待确认',
+      tone: 'warning',
+    })
+    expect(preflight(plan, 'target')).toMatchObject({
+      value: '待确认落点',
+      tone: 'warning',
+    })
   })
 
   it('marks blocked casts with the player-facing reason', () => {

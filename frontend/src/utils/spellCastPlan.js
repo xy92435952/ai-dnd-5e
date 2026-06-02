@@ -414,6 +414,18 @@ function aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement }) {
   }
 }
 
+function aoePlacementPreflight({ aoePlacement, hasPlacement }) {
+  return {
+    key: 'placement',
+    label: '落点',
+    value: aoePlacement?.label || '待确认落点',
+    tone: hasPlacement ? 'ready' : 'warning',
+    title: hasPlacement
+      ? '当前范围落点或方向点已经可用于预览结算。'
+      : '先在战场上选择或锁定范围落点。',
+  }
+}
+
 function buildAoeWarnings({ spell, aoeBreakdown, hasPlacement, excludedNames = [] }) {
   const warnings = []
   if (!hasPlacement) {
@@ -505,6 +517,7 @@ export function buildSpellCastPlan({
   let aoePlacement = null
   let targetPreflight = null
   let rulePreflight = null
+  let placementPreflight = null
   let targetImpactChips = []
   let warnings = []
 
@@ -538,6 +551,7 @@ export function buildSpellCastPlan({
       canReset: Boolean(aoeLockedCenter),
       label: placementLabel({ template, aoeHover, aoeLockedCenter }),
     }
+    placementPreflight = aoePlacementPreflight({ aoePlacement, hasPlacement })
     aoeBreakdown = buildAoeBreakdown({ spell, combat, targetIds, playerId })
     targetPreflight = aoePreflightTarget({ aoeBreakdown, maxTargets, hasPlacement })
     rulePreflight = spellRulePreflight({ spell, combat, playerId, targetId: null })
@@ -648,6 +662,7 @@ export function buildSpellCastPlan({
         tone: cantrip || slotRemaining(slots, castLevel) > 0 ? 'ready' : 'blocked',
       },
       rulePreflight,
+      placementPreflight,
       targetPreflight,
     ].filter(Boolean),
     rows,
