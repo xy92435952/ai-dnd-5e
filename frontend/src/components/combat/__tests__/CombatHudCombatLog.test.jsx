@@ -3,6 +3,46 @@ import { render, screen, within } from '@testing-library/react'
 import CombatHudCombatLog from '../CombatHudCombatLog'
 
 describe('CombatHudCombatLog', () => {
+  it('renders a compact latest combat summary above the visible log entries', () => {
+    const { container } = render(
+      <CombatHudCombatLog
+        logs={[
+          ...Array.from({ length: 8 }, (_, index) => ({
+            id: `old-${index}`,
+            role: 'system',
+            content: `old log ${index}`,
+            log_type: 'system',
+          })),
+          {
+            id: 'latest-hit',
+            role: 'player',
+            content: 'Latest strike lands.',
+            log_type: 'combat',
+            dice_result: {
+              attack: {
+                d20: 17,
+                attack_bonus: 6,
+                attack_total: 23,
+                target_ac: 14,
+                hit: true,
+              },
+              damage: 9,
+            },
+            state_changes: ['Goblin HP 12 -> 3', 'Action spent'],
+          },
+        ]}
+      />,
+    )
+
+    const summary = container.querySelector('.combat-log-summary')
+    expect(summary).toBeTruthy()
+    expect(summary).toHaveClass('dmg')
+    expect(summary).toHaveTextContent('Latest strike lands.')
+    expect(container.querySelector('.combat-log-summary-feedback.hit')).toBeTruthy()
+    expect(container.querySelectorAll('.combat-log-summary-sections i').length).toBeGreaterThan(0)
+    expect(container.querySelector('.combat-log-summary-count')).toHaveTextContent('8/9')
+  })
+
   it('renders combat logs as structured rules, dice, narration, and state rows', () => {
     render(
       <CombatHudCombatLog
