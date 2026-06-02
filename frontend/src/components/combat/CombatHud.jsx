@@ -41,8 +41,8 @@ export default function CombatHud({
   onForceEndCombat,
 }) {
   return (
-    <div className="combat-hud" style={{ flexShrink: 0 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="combat-hud" role="region" aria-label="Combat command HUD">
+      <div className="combat-hud-left">
         <CombatHudPips turnState={turnState} />
         <CombatHudPortrait
           session={session}
@@ -54,7 +54,7 @@ export default function CombatHud({
         />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+      <div className="combat-hud-center">
         <CombatHudSkillBar
           skillBar={skillBar}
           session={session}
@@ -71,7 +71,7 @@ export default function CombatHud({
         <CombatHudCombatLog logs={logs} logsEndRef={logsEndRef} />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="combat-hud-right">
         <CombatHudSlots session={session} playerSpellSlots={playerSpellSlots} character={controlledCharacter} />
         <CombatDeathSavePanel
           character={controlledCharacter || session?.player}

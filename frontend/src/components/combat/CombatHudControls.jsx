@@ -29,7 +29,7 @@ export default function CombatHudControls({
   const weaponOptions = getAttackWeaponOptions(character, isRanged)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="combat-turn-controls">
       <button
         className="end-turn-mega"
         onClick={onEndTurn}
@@ -37,7 +37,7 @@ export default function CombatHudControls({
         title={disabledReason || '结束当前回合'}
       >{syncBlocked ? '☰ 同步中' : '☰ 结束回合'}</button>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+      <div className="combat-turn-action-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
         <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
           onClick={onToggleMove}
           disabled={actionDisabled}
