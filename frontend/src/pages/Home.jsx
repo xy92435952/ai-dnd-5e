@@ -97,13 +97,13 @@ export default function Home() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '24px 32px', maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
+    <div className="home-page">
+      <header className="home-header">
+        <div className="home-header-copy">
           <div className="eyebrow">❧ 英雄大厅 ❧</div>
-          <div className="display-title" style={{ fontSize: 32, marginTop: 4 }}>欢迎归来，{displayName}</div>
+          <div className="display-title home-title">欢迎归来，{displayName}</div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="home-header-actions">
           <button className="btn-ghost" onClick={() => navigate('/lobby')}>☰ 多人房间</button>
           <button className="btn-ghost" onClick={() => navigate('/gallery')}>❖ 职业图鉴</button>
           <button className="btn-ghost" onClick={handleLogout}>⎋ 退出</button>
@@ -114,7 +114,7 @@ export default function Home() {
 
       {/* 新手教程入口卡 —— 已完成 4 章则收为一条轻提示 */}
       {tutorialProgress < 4 ? (
-        <div style={{ margin: '18px 0 22px' }}>
+        <div className="home-tutorial-slot">
           <TutorialEntryCard
             progress={tutorialProgress}
             total={4}
@@ -122,18 +122,10 @@ export default function Home() {
           />
         </div>
       ) : (
-        <div style={{
-          margin: '14px 0',
-          padding: '8px 14px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'linear-gradient(180deg, rgba(96,232,144,.06), transparent)',
-          border: '1px solid rgba(96,232,144,.3)',
-          fontSize: 12, color: 'var(--parchment-dark)',
-          fontFamily: 'var(--font-mono)', letterSpacing: '.15em',
-        }}>
+        <div className="home-tutorial-complete">
           <span>✓ 启蒙圣所已完成 · 所有章节已解锁</span>
           <button
-            className="btn-ghost"
+            className="btn-ghost home-tutorial-replay"
             style={{ padding: '4px 10px', fontSize: 10 }}
             onClick={() => setTutorialOpen(true)}
           >重温教程</button>
@@ -141,13 +133,14 @@ export default function Home() {
       )}
 
       {/* 标签栏 */}
-      <div style={{ display: 'flex', gap: 0, margin: '20px 0 18px', borderBottom: '1px solid var(--bark-light)' }}>
+      <div className="home-tabs">
         {[
           { key: 'modules', label: '✦ 模组库' },
           { key: 'saves',   label: '❦ 存档档案' },
         ].map(t => (
           <button
             key={t.key}
+            className={`home-tab ${tab === t.key ? 'active' : ''}`}
             onClick={() => setTab(t.key)}
             style={{
               flex: 1, textAlign: 'center', padding: '10px 0', cursor: 'pointer',
@@ -204,7 +197,7 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+            <div className="home-module-grid">
               {modules.map((m, i) => (
                 <ModuleCard key={m.id} m={m} featured={i === 0}
                   onSelect={() => handleSelectModule(m)}
@@ -225,39 +218,33 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px,1fr))', gap: 12 }}>
+            <div className="home-save-grid">
               {sessions.map(s => (
-                <div key={s.id} className="panel" style={{
-                  padding: 14, display: 'flex', gap: 12, alignItems: 'center',
-                  cursor: 'pointer', transition: 'var(--transition)',
-                }} onClick={() => navigate(`/adventure/${s.id}`)}>
+                <div key={s.id} className="panel home-save-card" onClick={() => navigate(`/adventure/${s.id}`)}>
                   <Portrait cls={classKey(s.player_class)} size="sm" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontFamily: 'var(--font-heading)', fontSize: 13,
-                      color: 'var(--parchment)', fontWeight: 600,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
+                  <div className="home-save-body">
+                    <div className="home-save-title">
                       {s.save_name}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    <div className="home-save-subtitle">
                       {s.player_name ? `${s.player_name} · ${s.player_race} ${s.player_class}` : s.module_name}
                     </div>
-                    <div style={{ fontSize: 10, marginTop: 2 }}>
+                    <div className="home-save-meta">
                       {s.is_multiplayer && (
-                        <span style={{ color: 'var(--mana-light)', marginRight: 6 }}>
+                        <span className="home-save-room">
                           房间 {s.room_code || ''}
                         </span>
                       )}
-                      <span style={{ color: s.combat_active ? 'var(--blood-light)' : 'var(--amber)' }}>
+                      <span className={`home-save-status ${s.combat_active ? 'combat' : 'explore'}`}>
                         {s.combat_active ? '⚔ 战斗中' : '🗺 探索中'}
                       </span>
-                      <span style={{ color: 'var(--parchment-dark)', marginLeft: 6, opacity: 0.6 }}>
+                      <span className="home-save-date">
                         {s.updated_at ? new Date(s.updated_at).toLocaleString() : ''}
                       </span>
                     </div>
                   </div>
                   <button
+                    className="home-save-action"
                     onClick={(e) => handleDeleteSession(s, e)}
                     title={s.is_multiplayer ? '返回房间' : '删除存档'}
                     style={{
@@ -291,7 +278,7 @@ export default function Home() {
 function ModuleCard({ m, featured, onSelect, onDelete }) {
   const ready = m.parse_status === 'done'
   return (
-    <div className="panel-ornate" style={{
+    <div className={`panel-ornate home-module-card ${featured && ready ? 'is-featured' : ''}`} style={{
       padding: 18,
       minHeight: 180,
       position: 'relative', overflow: 'hidden',
@@ -307,7 +294,7 @@ function ModuleCard({ m, featured, onSelect, onDelete }) {
       )}
       <div>
         <div style={{ fontSize: 28, marginBottom: 8 }}>📜</div>
-        <div className="display-title" style={{ fontSize: 18, lineHeight: 1.3 }}>{m.name}</div>
+        <div className="display-title home-module-title" style={{ fontSize: 18, lineHeight: 1.3 }}>{m.name}</div>
         {m.setting && (
           <div style={{
             fontFamily: 'var(--font-script)', fontStyle: 'italic',
@@ -330,8 +317,8 @@ function ModuleCard({ m, featured, onSelect, onDelete }) {
         )}
       </div>
       {ready && (
-        <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
-          <button className="btn-gold" style={{ flex: 1, fontSize: 11, padding: '7px' }}>开始冒险 ►</button>
+        <div className="home-card-actions">
+          <button className="btn-gold">开始冒险 ►</button>
           <button
             className="btn-ghost"
             style={{ padding: '7px 10px', fontSize: 10, borderColor: 'var(--blood)' }}

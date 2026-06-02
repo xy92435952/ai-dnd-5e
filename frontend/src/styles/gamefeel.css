@@ -6,6 +6,220 @@
 /* ══════════════════════ 冒险 · CRPG 对话 ══════════════════════ */
 
 /* 剧场式叙事遮罩：上下黑边 */
+/* Home hub */
+.home-page {
+  min-height: 100vh;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 24px) clamp(14px, 4vw, 32px);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  min-width: 0;
+}
+.home-header-copy,
+.home-title {
+  min-width: 0;
+}
+.home-title {
+  margin-top: 4px;
+  font-size: 32px;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+.home-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  min-width: min(100%, 320px);
+}
+.home-header-actions > .btn-ghost,
+.home-card-actions > .btn-gold,
+.home-card-actions > .btn-ghost,
+.home-tutorial-replay {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.home-tutorial-slot {
+  margin: 18px 0 22px;
+}
+.home-tutorial-complete {
+  margin: 14px 0;
+  padding: 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  background: linear-gradient(180deg, rgba(96,232,144,.06), transparent);
+  border: 1px solid rgba(96,232,144,.3);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .15em;
+}
+.home-tutorial-complete span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.home-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 20px 0 18px;
+  border-bottom: 1px solid var(--bark-light);
+}
+.home-tab {
+  min-width: min(100%, 150px);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.home-module-grid,
+.home-save-grid {
+  display: grid;
+  min-width: 0;
+}
+.home-module-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+.home-save-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+.home-module-card {
+  min-width: 0;
+  box-sizing: border-box;
+}
+.home-module-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.home-module-card.is-featured .home-module-title {
+  padding-right: 70px;
+}
+.home-card-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.home-card-actions > .btn-gold {
+  flex: 1 1 150px;
+  padding: 7px;
+  font-size: 11px;
+}
+.home-card-actions > .btn-ghost {
+  flex: 0 1 auto;
+}
+.home-save-card {
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.home-save-card .portrait {
+  flex-shrink: 0;
+}
+.home-save-body {
+  flex: 1;
+  min-width: 0;
+}
+.home-save-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.home-save-subtitle {
+  margin-top: 2px;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.home-save-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  margin-top: 4px;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.home-save-room {
+  color: var(--mana-light);
+}
+.home-save-status.combat {
+  color: var(--blood-light);
+}
+.home-save-status.explore {
+  color: var(--amber);
+}
+.home-save-date {
+  min-width: 0;
+  color: var(--parchment-dark);
+  opacity: .6;
+  overflow-wrap: anywhere;
+}
+.home-save-action {
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .home-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .home-title {
+    font-size: 28px;
+  }
+  .home-header-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+  .home-header-actions > .btn-ghost {
+    flex: 1 1 140px;
+  }
+  .home-tutorial-complete {
+    align-items: flex-start;
+  }
+  .home-tutorial-replay {
+    flex: 1 1 120px;
+  }
+}
+
+@media (max-width: 420px) {
+  .home-title {
+    font-size: 24px;
+  }
+  .home-save-card {
+    align-items: flex-start;
+  }
+}
+
 .stage-letterbox {
   position: absolute; left: 0; right: 0;
   height: 36px;
