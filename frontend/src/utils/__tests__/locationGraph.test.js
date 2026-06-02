@@ -312,6 +312,7 @@ describe('locationGraph', () => {
       { key: 'environment', label: 'Env', detail: 'normal', tone: '' },
       { key: 'intel', label: 'Intel', detail: 'Roster hidden', tone: 'muted' },
     ])
+    expect(map.nodes.find(node => node.id === 'armory').travelPlan.encounterCue).toBe('Encounter ahead: Armory Ambush')
     expect(map.currentNode.routes[0]).toMatchObject({
       destinationId: 'armory',
       destinationEncounterCount: 1,

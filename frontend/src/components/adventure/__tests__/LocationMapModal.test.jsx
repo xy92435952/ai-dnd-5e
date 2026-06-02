@@ -259,6 +259,8 @@ describe('LocationMapModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Armory unvisited' }))
 
+    const travel = screen.getByLabelText('Route from current')
+    expect(within(travel).getByText('Encounter ahead: Armory Ambush')).toBeInTheDocument()
     const encounters = screen.getByLabelText('Selected encounter templates')
     expect(within(encounters).getByText('Armory Ambush')).toBeInTheDocument()
     expect(within(encounters).getByText('Animated Armor')).toBeInTheDocument()

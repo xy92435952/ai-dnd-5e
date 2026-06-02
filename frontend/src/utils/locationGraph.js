@@ -332,6 +332,23 @@ function travelPlanForNode(node, currentId, nodes, edges) {
   }
 }
 
+function encounterCueForNode(node = {}) {
+  const encounters = asArray(node.encounters)
+  const activeEncounter = encounters.find(encounter => encounter?.selected)
+  if (activeEncounter?.name) return `Active encounter: ${activeEncounter.name}`
+
+  const names = asArray(node.encounterNames).filter(Boolean)
+  if (names.length > 0) {
+    const shown = names.slice(0, 2).join(' / ')
+    const extra = names.length > 2 ? ` +${names.length - 2}` : ''
+    return `Encounter ahead: ${shown}${extra}`
+  }
+
+  const count = Number(node.encounterCount || 0)
+  if (count > 0) return `${count} encounter${count === 1 ? '' : 's'} ahead`
+  return ''
+}
+
 function mapNodePosition(index, total) {
   const columns = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(total))))
   const rows = Math.max(1, Math.ceil(total / columns))
@@ -466,10 +483,16 @@ export function getLocationGraphMap(graph) {
     routes: getNodeRoutes(node.id, nodes, edges),
   }))
 
-  const nodesWithTravelPlans = nodesWithRoutes.map(node => ({
-    ...node,
-    travelPlan: travelPlanForNode(node, currentId, nodesWithRoutes, edges),
-  }))
+  const nodesWithTravelPlans = nodesWithRoutes.map(node => {
+    const travelPlan = travelPlanForNode(node, currentId, nodesWithRoutes, edges)
+    return {
+      ...node,
+      travelPlan: {
+        ...travelPlan,
+        encounterCue: encounterCueForNode(node),
+      },
+    }
+  })
   const activeEncounter = activeEncounterView(nodesWithRoutes)
   return {
     currentId,

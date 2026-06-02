@@ -94,6 +94,7 @@ function TravelPlanSummary({ plan }) {
       <p>{plan.detail}</p>
       {path.length > 1 && <em>{path.join(' -> ')}</em>}
       {plan.nextAction && <small>{plan.nextAction}</small>}
+      {plan.encounterCue && <small className="encounter-cue">{plan.encounterCue}</small>}
     </div>
   )
 }

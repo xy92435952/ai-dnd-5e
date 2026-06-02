@@ -2694,6 +2694,10 @@ button.companion-signal-item:focus-visible {
   color: var(--arcane-light);
   font-family: var(--font-mono);
 }
+.location-map-travel-plan small.encounter-cue {
+  color: var(--blood-light);
+  text-transform: uppercase;
+}
 .location-map-travel-plan.current {
   border-color: rgba(240,208,96,.28);
   background: rgba(240,208,96,.07);
