@@ -23,46 +23,34 @@ const ALL_CLASSES = [
 export default function ClassGallery() {
   const nav = useNavigate()
   return (
-    <div style={{ minHeight: '100vh', padding: '32px 28px', position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+    <div className="class-gallery-page">
+      <div className="class-gallery-header">
         <div className="eyebrow">☙ 职业纹章图鉴 ❧</div>
-        <div className="display-title" style={{ fontSize: 30, marginTop: 4 }}>十二道英雄之路</div>
-        <div style={{
-          fontFamily: 'var(--font-script)', fontStyle: 'italic',
-          color: 'var(--parchment-dark)', marginTop: 6, fontSize: 13,
-        }}>
+        <div className="display-title class-gallery-title">十二道英雄之路</div>
+        <div className="class-gallery-copy">
           ~ 每个职业都有专属的纹章与配色 ~
         </div>
       </div>
 
       <Divider>⚜ Classes ⚜</Divider>
 
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-        gap: 16, maxWidth: 1100, margin: '20px auto 0',
-      }}>
+      <div className="class-gallery-grid">
         {ALL_CLASSES.map(c => (
-          <div key={c.key} className="panel-ornate" style={{
-            padding: '20px 14px', textAlign: 'center', transition: 'var(--transition)',
-          }}>
+          <div key={c.key} className="panel-ornate class-gallery-card">
             <Portrait cls={c.key} size="lg" style={{ margin: '0 auto 10px' }} />
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--parchment)', marginBottom: 3 }}>
+            <div className="class-gallery-class-name">
               {c.name}
             </div>
             <div className="eyebrow" style={{ fontSize: 9 }}>{c.key.toUpperCase()}</div>
-            <div style={{
-              fontFamily: 'var(--font-script)', fontSize: 12,
-              color: 'var(--parchment-dark)', fontStyle: 'italic',
-              marginTop: 6, lineHeight: 1.5,
-            }}>
+            <div className="class-gallery-desc">
               "{c.desc}"
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ textAlign: 'center', marginTop: 32 }}>
-        <button className="btn-ghost" onClick={() => nav('/')}>⬅ 返回主页</button>
+      <div className="class-gallery-footer">
+        <button className="btn-ghost class-gallery-back" onClick={() => nav('/')}>⬅ 返回主页</button>
       </div>
     </div>
   )
