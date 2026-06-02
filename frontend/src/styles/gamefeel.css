@@ -4000,6 +4000,18 @@ button.companion-signal-item:focus-visible {
     top: 140px;
     right: 12px;
     width: calc(100% - 24px);
+    max-height: max(118px, calc(100% - 188px));
+  }
+
+  .target-card-wrap {
+    top: 10px;
+    right: 12px;
+    width: calc(100% - 24px);
+    max-height: min(48vh, calc(100% - 86px));
+  }
+
+  .target-card-wrap.has-inspect {
+    width: calc(100% - 24px);
   }
 }
 .iso-battlefield {
@@ -5508,9 +5520,21 @@ button.companion-signal-item:focus-visible {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: min(270px, calc(100vw - 32px));
+  z-index: 5;
+  width: min(290px, calc(100vw - 32px));
+  max-height: calc(100% - 88px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+  pointer-events: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(240,208,96,.42) rgba(10,6,4,.28);
+}
+.target-card-wrap.has-inspect {
+  width: min(340px, calc(100vw - 32px));
 }
 .target-card {
+  box-sizing: border-box;
   padding: 10px 12px;
   background: linear-gradient(180deg, rgba(60,10,10,.5), rgba(20,6,4,.7));
   border: 1px solid rgba(196,40,40,.6);
@@ -5708,6 +5732,7 @@ button.companion-signal-item:focus-visible {
 .enemy-inspect-lines > div {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 8px;
   min-width: 0;
   font-family: var(--font-mono);
@@ -5726,6 +5751,10 @@ button.companion-signal-item:focus-visible {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.enemy-inspect-lines b {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .enemy-inspect-lines {
   display: flex;

@@ -63,6 +63,36 @@ describe('TargetCard', () => {
     expect(sheet).toHaveTextContent('Hold the gate line.')
   })
 
+  it('marks inspect-heavy target cards for scroll-safe battlefield overlay layout', () => {
+    const { container } = render(
+      <TargetCard
+        entity={{
+          id: 'enemy-scroll',
+          name: 'Verbose Tactician',
+          is_enemy: true,
+          hp_current: 35,
+          hp_max: 35,
+          ac: 15,
+          actions: [
+            { name: 'Long Tactical Sequence' },
+            { name: 'Second Option' },
+          ],
+          special_abilities: [
+            { name: 'Layered Defensive Routine' },
+            { name: 'Reactive Footwork' },
+          ],
+          tactics: 'Hold the choke point, punish isolated backliners, and retreat behind cover when bloodied.',
+          identified: true,
+        }}
+        prediction={null}
+      />,
+    )
+
+    const wrap = container.querySelector('.target-card-wrap')
+    expect(wrap).toHaveClass('has-inspect')
+    expect(container.querySelector('.enemy-inspect-sheet')).toHaveTextContent('Hold the choke point')
+  })
+
   it('offers perception and investigation inspect actions when provided', () => {
     const onInspect = vi.fn()
     render(

@@ -18,9 +18,10 @@ export default function TargetCard({
   const inspect = buildEnemyInspectModel(entity)
   const badges = buildTargetBadges(entity, prediction)
   const conditionImpactTags = buildConditionImpactTags(entity.conditions || [], entity.condition_durations || {})
+  const wrapClassName = inspect ? 'target-card-wrap has-inspect' : 'target-card-wrap'
 
   return (
-    <div className="target-card-wrap">
+    <div className={wrapClassName}>
       <div className="target-card">
         <div className="target-head">
           <span className="name">{entity.name}</span>
