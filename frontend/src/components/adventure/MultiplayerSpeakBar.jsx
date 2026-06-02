@@ -35,6 +35,15 @@ export default function MultiplayerSpeakBar({
   const takeoverButtonLabel = takeoverStatus.canTakeover
     ? 'AI 代演'
     : takeoverStatus.label || `玩家${speakerStatus.label}`
+  const takeoverHint = !isMySpeakTurn && currentSpeakerUid
+    ? !wsConnected && takeoverStatus.canTakeover
+      ? '同步恢复后可代演'
+      : takeoverStatus.canTakeover
+        ? 'AI 可接管'
+        : !speakerStatus.isOnline && takeoverStatus.secondsRemaining > 0
+          ? `${takeoverStatus.secondsRemaining}秒后可代演`
+          : ''
+    : ''
   const myMember = (room.members || []).find(member => member.user_id === myUserId)
   const myCharacterName = myMember?.character_name || player?.name || (myMember?.character_id ? '已绑定角色' : '未绑定角色')
   const speakerLabel = currentSpeakerName || '等待同步'
@@ -91,6 +100,19 @@ export default function MultiplayerSpeakBar({
             whiteSpace: 'nowrap',
           }}>
             发言 {speakerLabel} · {speakerStatus.label}
+          </span>
+        )}
+        {takeoverHint && (
+          <span title={takeoverStatus.label} style={{
+            padding: '2px 7px',
+            border: `1px solid ${takeoverStatus.canTakeover && wsConnected ? 'var(--arcane-light)' : 'rgba(240,208,96,.45)'}`,
+            color: takeoverStatus.canTakeover && wsConnected ? 'var(--arcane-light)' : 'var(--amber)',
+            borderRadius: 3,
+            fontSize: 10,
+            fontFamily: 'var(--font-mono)',
+            whiteSpace: 'nowrap',
+          }}>
+            {takeoverHint}
           </span>
         )}
         {isMySpeakTurn && currentSpeakerUid && (

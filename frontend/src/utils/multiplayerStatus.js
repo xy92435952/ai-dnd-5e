@@ -79,18 +79,21 @@ export function getAiTakeoverStatus({ room, currentSpeakerUid, isMySpeakTurn, th
   if (!member) {
     return { canTakeover: false, label: '等待发言者状态同步', secondsRemaining: thresholdSeconds }
   }
+  if (member.is_online) {
+    return { canTakeover: false, label: '发言者在线，暂不能代演', secondsRemaining: thresholdSeconds }
+  }
   if (!member.is_online && member.seconds_since_seen == null) {
     return { canTakeover: true, label: '玩家离线，可 AI 代演', secondsRemaining: 0 }
   }
   const secondsSinceSeen = Math.max(0, member?.seconds_since_seen ?? 0)
   const secondsRemaining = Math.max(0, thresholdSeconds - secondsSinceSeen)
-  const canTakeover = !member?.is_online && secondsRemaining === 0
+  const canTakeover = secondsRemaining === 0
   if (canTakeover) {
     return { canTakeover: true, label: '玩家离线，可 AI 代演', secondsRemaining: 0 }
   }
   return {
     canTakeover: false,
-    label: `${secondsSinceSeen}秒无动作，${secondsRemaining}秒后可代演`,
+    label: `离线 ${secondsSinceSeen}秒，${secondsRemaining}秒后可代演`,
     secondsRemaining,
   }
 }

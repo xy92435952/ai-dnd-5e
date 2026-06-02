@@ -34,6 +34,7 @@ describe('MultiplayerSpeakBar', () => {
     expect(screen.getByText('同步在线')).toBeInTheDocument()
     expect(screen.getByText('角色 战士')).toBeInTheDocument()
     expect(screen.getByText('发言 队友 · 离线')).toBeInTheDocument()
+    expect(screen.getByText('22秒后可代演')).toBeInTheDocument()
   })
 
   it('shows reconnecting status while websocket is disconnected', () => {
@@ -75,7 +76,7 @@ describe('MultiplayerSpeakBar', () => {
   it('keeps AI takeover disabled until the offline threshold is reached', () => {
     const { onAiTakeover } = renderBar()
 
-    const button = screen.getByRole('button', { name: /8秒无动作/ })
+    const button = screen.getByRole('button', { name: /离线 8秒/ })
     expect(button).toBeDisabled()
     fireEvent.click(button)
     expect(onAiTakeover).not.toHaveBeenCalled()
@@ -92,6 +93,7 @@ describe('MultiplayerSpeakBar', () => {
     })
 
     const button = screen.getByRole('button', { name: /AI 代演/ })
+    expect(screen.getByText('AI 可接管')).toBeInTheDocument()
     expect(button).toBeEnabled()
     fireEvent.click(button)
     expect(onAiTakeover).toHaveBeenCalledTimes(1)
@@ -115,6 +117,7 @@ describe('MultiplayerSpeakBar', () => {
     })
 
     const button = screen.getByRole('button', { name: /AI 代演/ })
+    expect(screen.getByText('同步恢复后可代演')).toBeInTheDocument()
     expect(button).toBeDisabled()
     expect(button).toHaveAttribute('title', '房间正在重新同步，请恢复连接后再使用 AI 代演')
     fireEvent.click(button)
