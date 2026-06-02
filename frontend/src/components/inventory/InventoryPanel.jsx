@@ -169,9 +169,9 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
   )
 
   const renderEquippable = (items, icon) => items.length > 0 && (
-    <div style={{ marginBottom: 12 }}>
+    <div className="inventory-section">
       <InventoryHeading icon={icon} label={CATEGORY_LABEL[items[0].category]} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="inventory-item-list">
         {items.map(item => (
           <InventoryRow
             key={item.key}
@@ -190,28 +190,23 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
   )
 
   return (
-    <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+    <div className="panel inventory-panel">
+      <div className="inventory-panel-header">
         <SectionTitle compact>装备与背包</SectionTitle>
         <button
           type="button"
-          className={shopOpen ? 'btn-gold' : 'btn-ghost'}
+          className={`${shopOpen ? 'btn-gold' : 'btn-ghost'} inventory-shop-toggle`}
           onClick={() => setShopOpen(v => !v)}
-          style={{ fontSize: 11, padding: '6px 12px', flexShrink: 0 }}
         >
           {shopOpen ? '收起商店' : '打开商店'}
         </button>
       </div>
 
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
-        padding: '8px 12px', background: 'rgba(201,168,76,0.08)',
-        borderRadius: 6, border: '1px solid var(--gold-dim)',
-      }}>
+      <div className="inventory-gold-strip">
         <span style={{ fontSize: 16 }}>&#x1F4B0;</span>
         <span style={{ color: 'var(--gold)', fontSize: 16, fontWeight: 700 }}>{equipment.gold ?? 0}</span>
         <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>gp</span>
-        {message && <span style={{ marginLeft: 'auto', color: 'var(--green-light)', fontSize: 11 }}>{message}</span>}
+        {message && <span className="inventory-message">{message}</span>}
       </div>
 
       {renderEquippable(sections.weapons, <SwordIcon size={11} color="var(--red-light)" />)}
@@ -219,9 +214,9 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
       {renderEquippable(sections.shield, <DefendIcon size={11} color="var(--blue-light)" />)}
 
       {sections.gear.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
+        <div className="inventory-section">
           <InventoryHeading label="杂物与消耗品" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="inventory-item-list">
             {sections.gear.map(item => (
               <InventoryGearRow
                 key={item.key}
@@ -239,7 +234,7 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
       )}
 
       {!(sections.weapons.length || sections.armor.length || sections.shield.length || sections.gear.length) && (
-        <p style={{ color: 'var(--text-dim)', fontSize: 12, textAlign: 'center', padding: 16 }}>
+        <p className="inventory-empty">
           暂无装备数据
         </p>
       )}
@@ -261,8 +256,8 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
 
 function InventoryHeading({ icon, label }) {
   return (
-    <p style={{ color: 'var(--parchment-dark)', fontSize: 11, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-      {icon && <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }}>{icon}</span>}
+    <p className="inventory-heading">
+      {icon && <span className="inventory-heading-icon">{icon}</span>}
       {label}
     </p>
   )
@@ -307,20 +302,18 @@ function InventoryRow({
 }) {
   const tone = item.category === 'weapon' ? 'var(--red-light)' : item.category === 'gear' ? 'var(--parchment-dark)' : 'var(--blue-light)'
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8,
-      padding: '8px 10px', borderRadius: 6,
+    <div className="inventory-row" style={{
       background: item.equipped ? 'rgba(201,168,76,0.08)' : 'rgba(10,6,2,0.18)',
       border: `1px solid ${item.equipped ? 'var(--gold-dim)' : 'var(--wood)'}`,
     }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--parchment)', fontSize: 12, fontWeight: 700 }}>{item.label}</span>
+      <div className="inventory-row-body">
+        <div className="inventory-row-title">
+          <span className="inventory-item-label">{item.label}</span>
           {item.equipped && <span className="tag tag-gold" style={{ fontSize: 9 }}>已装备</span>}
           {item.consumable && <span className="tag tag-info" style={{ fontSize: 9 }}>消耗品</span>}
           {item.quantity > 1 && <span className="tag" style={{ fontSize: 9 }}>x{item.quantity}</span>}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 3, color: 'var(--text-dim)', fontSize: 10 }}>
+        <div className="inventory-item-meta">
           {item.damage && <span style={{ color: tone }}>{item.damage}</span>}
           {item.ac != null && <span style={{ color: tone }}>AC {item.ac}</span>}
           {item.ammo != null && <span>弹药 {item.ammo}</span>}
@@ -329,9 +322,9 @@ function InventoryRow({
           {item.description && <span>{item.description}</span>}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div className="inventory-row-actions">
         {onAmmo && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+          <span className="inventory-ammo-actions">
             <button type="button" className="btn-ghost" disabled={busy || (item.ammo || 0) <= 0} onClick={() => onAmmo(-1)} style={{ fontSize: 10, padding: '4px 7px' }}>
               -1
             </button>
@@ -347,6 +340,7 @@ function InventoryRow({
         )}
         {onUseTarget && useTargets.length > 0 && (
           <select
+            className="inventory-row-select"
             aria-label={`用于 ${item.label}`}
             disabled={busy}
             defaultValue=""
@@ -378,6 +372,7 @@ function InventoryRow({
         )}
         {onTransfer && transferTargets.length > 0 && (
           <select
+            className="inventory-row-select"
             aria-label={`给予 ${item.label}`}
             disabled={busy}
             defaultValue=""
@@ -416,26 +411,18 @@ function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
   const items = shop[tab] || []
   const hasDynamicPricing = pricing && pricing.profile && pricing.profile !== 'standard'
   return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--wood)' }}>
+    <div className="inventory-shop-panel">
       {pricing && (
         <div
           aria-label="Shop pricing"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexWrap: 'wrap',
-            marginBottom: 10,
-            color: hasDynamicPricing ? 'var(--gold)' : 'var(--text-dim)',
-            fontSize: 10,
-          }}
+          className={`inventory-shop-pricing ${hasDynamicPricing ? 'dynamic' : ''}`}
         >
           <span>{pricing.label || '标准价格'}</span>
           <span>买入 x{pricing.buy_multiplier ?? 1}</span>
           <span>卖出 {Math.round((pricing.sell_rate ?? 0.5) * 100)}%</span>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+      <div className="inventory-shop-tabs">
         {tabItems.map(([key, label]) => (
           <button
             key={key}
@@ -448,21 +435,17 @@ function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
           </button>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 8 }}>
+      <div className="inventory-shop-grid">
         {items.map(item => {
           const affordable = (gold || 0) >= (item.cost || 0)
           return (
-            <div key={`${item.category}-${item.name}`} style={{
-              padding: 10, borderRadius: 6,
-              border: '1px solid var(--wood)',
-              background: 'rgba(10,6,2,0.22)',
-            }}>
-              <div style={{ color: 'var(--parchment)', fontSize: 12, fontWeight: 700 }}>{item.label}</div>
-              <div style={{ color: 'var(--text-dim)', fontSize: 10, marginTop: 4, minHeight: 28 }}>
+            <div key={`${item.category}-${item.name}`} className="inventory-shop-card">
+              <div className="inventory-shop-card-title">{item.label}</div>
+              <div className="inventory-shop-card-desc">
                 {item.description || item.damage || (item.ac != null ? `AC ${item.ac}` : CATEGORY_LABEL[item.category])}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+              <div className="inventory-shop-card-footer">
+                <span className="inventory-shop-price">
                   <span style={{ color: affordable ? 'var(--gold)' : 'var(--red-light)', fontSize: 11 }}>{item.cost || 0} gp</span>
                   {item.base_cost != null && item.base_cost !== item.cost && (
                     <span style={{ color: 'var(--text-dim)', fontSize: 9 }}>原价 {item.base_cost} gp</span>

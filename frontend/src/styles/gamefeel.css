@@ -466,6 +466,236 @@
   }
 }
 
+/* Inventory and shop panels */
+.inventory-panel {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.inventory-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.inventory-shop-toggle {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.inventory-gold-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  background: rgba(201,168,76,0.08);
+  min-width: 0;
+}
+.inventory-message {
+  margin-left: auto;
+  color: var(--green-light);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.inventory-section {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+.inventory-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.inventory-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin: 0 0 6px;
+  color: var(--parchment-dark);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.inventory-heading-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.inventory-empty {
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.inventory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.inventory-row-body {
+  min-width: 0;
+}
+.inventory-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.inventory-item-label {
+  min-width: 0;
+  color: var(--parchment);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.inventory-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  min-width: 0;
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.inventory-item-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.inventory-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.inventory-row-actions .btn-ghost {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.inventory-ammo-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.inventory-row-select {
+  min-width: 0;
+}
+.inventory-shop-panel {
+  min-width: 0;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--wood);
+}
+.inventory-shop-pricing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.inventory-shop-pricing.dynamic {
+  color: var(--gold);
+}
+.inventory-shop-pricing span {
+  overflow-wrap: anywhere;
+}
+.inventory-shop-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.inventory-shop-tabs .btn-gold,
+.inventory-shop-tabs .btn-ghost {
+  padding: 5px 10px;
+  font-size: 10px;
+  white-space: normal;
+}
+.inventory-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+.inventory-shop-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--wood);
+  border-radius: 6px;
+  background: rgba(10,6,2,0.22);
+}
+.inventory-shop-card-title {
+  color: var(--parchment);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.inventory-shop-card-desc {
+  min-height: 28px;
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.inventory-shop-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.inventory-shop-price {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 5px;
+  min-width: 0;
+}
+.inventory-shop-card-footer .btn-ghost {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .inventory-message {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  .inventory-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .inventory-row-actions {
+    justify-content: flex-start;
+  }
+  .inventory-row-select {
+    flex: 1 1 96px;
+  }
+}
+
 .stage-letterbox {
   position: absolute; left: 0; right: 0;
   height: 36px;

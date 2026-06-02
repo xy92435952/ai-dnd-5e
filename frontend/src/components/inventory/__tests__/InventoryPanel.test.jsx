@@ -20,6 +20,59 @@ describe('InventoryPanel', () => {
     vi.clearAllMocks()
   })
 
+  it('renders responsive inventory and shop layout hooks', async () => {
+    charactersApi.getShopInventory.mockResolvedValue({
+      pricing: {
+        profile: 'market',
+        label: 'Market pricing',
+        buy_multiplier: 0.9,
+        sell_rate: 0.55,
+      },
+      weapons: {},
+      armor: {},
+      gear: {
+        Torch: { zh: 'Torch', cost: 1, description: 'Portable light for narrow corridors' },
+      },
+    })
+
+    const { container } = render(
+      <InventoryPanel
+        character={{
+          id: 'char-1',
+          name: 'Tester',
+          hp_current: 8,
+          equipment: {
+            gold: 10,
+            weapons: [{ name: 'Longsword', zh: 'Longsword', damage: '1d8', equipped: false }],
+            gear: [{ name: 'Rope', zh: 'Rope', cost: 1 }],
+          },
+        }}
+        partyMembers={[{ id: 'ally-1', name: 'Ally' }]}
+      />,
+    )
+
+    expect(container.querySelector('.inventory-panel')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-panel-header')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-toggle')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-gold-strip')).toBeInTheDocument()
+    expect(container.querySelectorAll('.inventory-section').length).toBeGreaterThanOrEqual(2)
+    expect(container.querySelectorAll('.inventory-row').length).toBeGreaterThanOrEqual(2)
+    expect(container.querySelector('.inventory-row-actions')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-item-meta')).toBeInTheDocument()
+
+    fireEvent.click(container.querySelector('.inventory-shop-toggle'))
+
+    await waitFor(() => {
+      expect(charactersApi.getShopInventory).toHaveBeenCalledWith('char-1')
+    })
+    expect(container.querySelector('.inventory-shop-panel')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-pricing.dynamic')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-tabs')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-grid')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-card')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-card-footer')).toBeInTheDocument()
+  })
+
   it('equips weapons and merges returned equipment and derived stats', async () => {
     const onCharacterChange = vi.fn()
     charactersApi.equipItem.mockResolvedValue({
