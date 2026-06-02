@@ -340,14 +340,19 @@ function mapNodePosition(index, total) {
 
 function encounterView(template, selectedTemplateId = '') {
   const environmentPressure = template?.environment_pressure || template?.party_balance?.environment_pressure || {}
-  return {
+  const selected = Boolean(template?.selected || (selectedTemplateId && String(template?.id) === String(selectedTemplateId)))
+  const status = String(template?.status || 'available')
+  const enemyNames = asArray(template?.enemy_names).map(String)
+  const environmentPressureValue = String(environmentPressure?.pressure || '')
+  const difficulty = String(template?.difficulty_hint || '')
+  const view = {
     id: String(template?.id || template?.name || ''),
     name: String(template?.name || 'Encounter'),
-    status: String(template?.status || 'available'),
-    selected: Boolean(template?.selected || (selectedTemplateId && String(template?.id) === String(selectedTemplateId))),
-    difficulty: String(template?.difficulty_hint || ''),
+    status,
+    selected,
+    difficulty,
     xpBudget: template?.xp_budget ?? null,
-    enemyNames: asArray(template?.enemy_names).map(String),
+    enemyNames,
     enemyRoles: asArray(template?.enemy_roles).map(role => ({
       name: String(role?.name || ''),
       role: String(role?.role || ''),
@@ -358,9 +363,39 @@ function encounterView(template, selectedTemplateId = '') {
     hazards: asArray(template?.hazards).map(String),
     rewardHints: asArray(template?.reward_hints).map(String),
     tactics: String(template?.tactics || ''),
-    environmentPressure: String(environmentPressure?.pressure || ''),
+    environmentPressure: environmentPressureValue,
     environmentPressureTags: environmentPressureTags(environmentPressure),
   }
+  return {
+    ...view,
+    intel: encounterIntel(view),
+  }
+}
+
+function encounterIntel(encounter = {}) {
+  const status = encounter.selected ? 'active' : String(encounter.status || 'available')
+  const readiness = {
+    active: ['Active', 'Will seed combat', 'active'],
+    available: ['Ready', 'Can be armed', 'ready'],
+    triggered: ['Triggered', 'Already entered', 'muted'],
+    claimed: ['Claimed', 'Reward handled', 'muted'],
+  }[status] || [status || 'Status', 'Known template', '']
+
+  const pressure = encounter.environmentPressure || 'normal'
+  const pressureTone = ['heavy', 'deadly', 'severe'].includes(String(pressure).toLowerCase()) ? 'warn' : ''
+  const enemyCount = encounter.enemyNames?.length || 0
+
+  return [
+    { key: 'readiness', label: readiness[0], detail: readiness[1], tone: readiness[2] },
+    { key: 'risk', label: 'Risk', detail: encounter.difficulty || 'Unknown', tone: encounter.difficulty ? '' : 'muted' },
+    { key: 'environment', label: 'Env', detail: pressure, tone: pressureTone },
+    {
+      key: 'intel',
+      label: 'Intel',
+      detail: enemyCount > 0 ? `${enemyCount} known foe${enemyCount === 1 ? '' : 's'}` : 'Roster hidden',
+      tone: enemyCount > 0 ? 'ready' : 'muted',
+    },
+  ]
 }
 
 function environmentPressureTags(pressure = {}) {

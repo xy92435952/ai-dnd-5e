@@ -111,6 +111,16 @@ function EncounterCard({ encounter, selecting, disabled = false, disabledReason 
         {encounter.xpBudget != null && <span>{encounter.xpBudget} XP</span>}
         {encounter.environmentPressureTags.map(tag => <span key={tag}>{tag}</span>)}
       </div>
+      {encounter.intel?.length > 0 && (
+        <div className="location-encounter-intel" aria-label="Encounter readiness">
+          {encounter.intel.map(item => (
+            <span key={item.key} className={item.tone || ''}>
+              <b>{item.label}</b>
+              <em>{item.detail}</em>
+            </span>
+          ))}
+        </div>
+      )}
       <DetailPills values={encounter.enemyNames} empty="No enemies listed." />
       {encounter.enemyRoles.length > 0 && (
         <p className="location-map-muted">

@@ -232,6 +232,12 @@ describe('locationGraph', () => {
     expect(map.currentNode.encounters[0]).toMatchObject({
       environmentPressure: 'heavy',
       environmentPressureTags: ['Env heavy', 'hazards 1', 'objectives 1', 'terrain 2', 'cells 5'],
+      intel: [
+        { key: 'readiness', label: 'Active', detail: 'Will seed combat', tone: 'active' },
+        { key: 'risk', label: 'Risk', detail: 'Unknown', tone: 'muted' },
+        { key: 'environment', label: 'Env', detail: 'heavy', tone: 'warn' },
+        { key: 'intel', label: 'Intel', detail: 'Roster hidden', tone: 'muted' },
+      ],
     })
     expect(map.activeEncounter).toEqual({
       id: 'enc_yard',
@@ -274,6 +280,12 @@ describe('locationGraph', () => {
       encounterCount: 1,
       encounterNames: ['Armory Ambush'],
     })
+    expect(map.nodes.find(node => node.id === 'armory').encounters[0].intel).toEqual([
+      { key: 'readiness', label: 'Ready', detail: 'Can be armed', tone: 'ready' },
+      { key: 'risk', label: 'Risk', detail: 'Unknown', tone: 'muted' },
+      { key: 'environment', label: 'Env', detail: 'normal', tone: '' },
+      { key: 'intel', label: 'Intel', detail: 'Roster hidden', tone: 'muted' },
+    ])
     expect(map.currentNode.routes[0]).toMatchObject({
       destinationId: 'armory',
       destinationEncounterCount: 1,
