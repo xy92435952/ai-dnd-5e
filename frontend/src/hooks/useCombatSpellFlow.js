@@ -11,6 +11,47 @@ import {
 } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
+import { selectD20Roll } from '../utils/d20Roll'
+
+function buildSpellAttackD20Plan(prediction = null) {
+  const hasAdvantage = Boolean(prediction?.advantage)
+  const hasDisadvantage = Boolean(prediction?.disadvantage)
+  if (hasAdvantage && !hasDisadvantage) {
+    return { count: 2, mode: 'advantage', label: '法术攻击检定（优势）' }
+  }
+  if (hasDisadvantage && !hasAdvantage) {
+    return { count: 2, mode: 'disadvantage', label: '法术攻击检定（劣势）' }
+  }
+  return { count: 1, mode: 'normal', label: '法术攻击检定' }
+}
+
+function spellAttackIsRangedForPrediction(spell = {}) {
+  const text = `${spell.name || ''} ${spell.name_en || ''} ${spell.desc || ''} ${spell.description || ''}`.toLowerCase()
+  if (/melee spell attack|近战法术攻击|近战法术/.test(text)) return false
+  return true
+}
+
+async function refreshSpellAttackPredictionForRoll({
+  sessionId,
+  playerId,
+  targetId,
+  spell,
+  prediction,
+}) {
+  if (!targetId || typeof gameApi.predict !== 'function') return prediction
+
+  try {
+    return await gameApi.predict(
+      sessionId,
+      playerId,
+      targetId,
+      'atk',
+      spellAttackIsRangedForPrediction(spell),
+    ) || prediction
+  } catch {
+    return prediction
+  }
+}
 
 export function useCombatSpellFlow({
   sessionId,
@@ -31,6 +72,7 @@ export function useCombatSpellFlow({
   setCombatOver,
   showDice,
   combat,
+  prediction = null,
 }) {
   return useCallback(async (spell, level) => {
     if (!playerId || !canActThisTurn || isProcessing) return
@@ -63,15 +105,31 @@ export function useCombatSpellFlow({
     try {
       const needsSpellAttackRoll = spellRequiresAttackRoll(spell) && targetIds.length === 1
       let spellAttackD20 = null
+      let secondSpellAttackD20 = null
       if (needsSpellAttackRoll) {
-        const attackRoll = await rollDice3D(20)
-        spellAttackD20 = attackRoll.total
-        showDice({ faces: 20, result: spellAttackD20, label: 'Spell attack' })
+        const effectivePrediction = await refreshSpellAttackPredictionForRoll({
+          sessionId,
+          playerId,
+          targetId: targetIds[0],
+          spell,
+          prediction,
+        })
+        const d20Plan = buildSpellAttackD20Plan(effectivePrediction)
+        const attackRoll = await rollDice3D(20, d20Plan.count)
+        const selectedD20 = selectD20Roll(attackRoll, d20Plan.mode)
+        spellAttackD20 = selectedD20.d20
+        secondSpellAttackD20 = selectedD20.secondD20
+        showDice({
+          faces: 20,
+          result: selectedD20.selected ?? spellAttackD20,
+          label: d20Plan.label,
+          count: d20Plan.count,
+        })
       }
 
       const rollResult = await gameApi.spellRoll(
         sessionId, playerId, spell.name, level,
-        targetIds[0] || null, targetIds, getCombatTurnToken(combat), spellAttackD20,
+        targetIds[0] || null, targetIds, getCombatTurnToken(combat), spellAttackD20, secondSpellAttackD20,
       )
 
       if (rollResult.turn_state) setTurnState(rollResult.turn_state)
@@ -186,6 +244,7 @@ export function useCombatSpellFlow({
     isProcessing,
     playerId,
     processingRef,
+    prediction,
     selectedTarget,
     aoeHover,
     sessionId,

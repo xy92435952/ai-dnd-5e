@@ -21,6 +21,7 @@ export function useCombatFlowHandlers({
   controlledPlayerId = null,
   canActThisTurn = true,
   canDriveAiTurns = true,
+  prediction = null,
   onCombatEnded,
 }) {
   const {
@@ -162,6 +163,7 @@ export function useCombatFlowHandlers({
     setSelectedTarget,
     setSmitePrompt,
     setCombatOver,
+    prediction,
   })
 
   const handleCastSpell = useCombatSpellFlow({
@@ -183,6 +185,7 @@ export function useCombatFlowHandlers({
     setCombatOver,
     showDice,
     combat,
+    prediction,
   })
 
   const handleEndConcentration = useCallback(async () => {

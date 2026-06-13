@@ -163,6 +163,7 @@ export function useCombatRuntime({
     controlledPlayerId,
     canActThisTurn: derived.canActThisTurn,
     canDriveAiTurns,
+    prediction,
     onCombatEnded: handleCombatEnded,
   })
 

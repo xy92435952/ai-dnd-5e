@@ -11,6 +11,7 @@ import {
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 import { rollDice3D } from '../components/DiceRollerOverlay'
+import { selectD20Roll } from '../utils/d20Roll'
 
 function ignoreOptionalEffect(fn) {
   try {
@@ -20,19 +21,64 @@ function ignoreOptionalEffect(fn) {
   }
 }
 
+function buildAttackD20Plan(prediction = null) {
+  const hasAdvantage = Boolean(prediction?.advantage)
+  const hasDisadvantage = Boolean(prediction?.disadvantage)
+  if (hasAdvantage && !hasDisadvantage) {
+    return { count: 2, mode: 'advantage', label: '攻击检定（优势）' }
+  }
+  if (hasDisadvantage && !hasAdvantage) {
+    return { count: 2, mode: 'disadvantage', label: '攻击检定（劣势）' }
+  }
+  return { count: 1, mode: 'normal', label: '攻击检定' }
+}
+
+async function refreshAttackPredictionForRoll({
+  sessionId,
+  playerId,
+  selectedTarget,
+  isRanged,
+  prediction,
+}) {
+  if (typeof gameApi.predict !== 'function') return prediction
+
+  try {
+    return await gameApi.predict(sessionId, playerId, selectedTarget, 'atk', isRanged) || prediction
+  } catch {
+    return prediction
+  }
+}
+
 function buildAttackLogDice(atkResult, hit) {
+  const fallbackDisadvantageSources = atkResult.defender_interception
+    ? ['defender interception']
+    : []
+  const disadvantageSources = atkResult.disadvantage_sources || fallbackDisadvantageSources
+  const hasDisadvantage = Boolean(atkResult.disadvantage) || (
+    Boolean(atkResult.defender_interception) && !atkResult.advantage
+  )
+
   return {
     d20: atkResult.d20,
+    d20_rolls: atkResult.d20_rolls || null,
+    selected_d20: atkResult.selected_d20 || null,
+    other_roll: atkResult.other_roll || null,
+    d20_selection: atkResult.d20_selection || null,
     attack_bonus: atkResult.attack_bonus,
     attack_total: atkResult.attack_total,
     target_ac: atkResult.target_ac,
+    cover_bonus: atkResult.cover_bonus || 0,
     hit,
     is_crit: hit ? atkResult.is_crit : false,
     is_fumble: hit ? false : atkResult.is_fumble,
+    advantage: Boolean(atkResult.advantage),
+    disadvantage: hasDisadvantage,
+    advantage_sources: atkResult.advantage_sources || [],
+    disadvantage_sources: disadvantageSources,
+    roll_state: atkResult.roll_state,
     ...(atkResult.defender_interception
       ? {
           defender_interception: atkResult.defender_interception,
-          disadvantage: true,
         }
       : {}),
   }
@@ -58,6 +104,7 @@ export function useCombatAttackFlow({
   setSelectedTarget,
   setSmitePrompt,
   setCombatOver,
+  prediction = null,
 }) {
   return useCallback(async () => {
     if (!selectedTarget || !canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
@@ -65,12 +112,21 @@ export function useCombatAttackFlow({
     setIsProcessing(true)
     setError('')
     try {
-      const { total: d20 } = await rollDice3D(20)
-      showDice({ faces: 20, result: d20, label: '攻击检定' })
+      const effectivePrediction = await refreshAttackPredictionForRoll({
+        sessionId,
+        playerId,
+        selectedTarget,
+        isRanged,
+        prediction,
+      })
+      const d20Plan = buildAttackD20Plan(effectivePrediction)
+      const d20Roll = await rollDice3D(20, d20Plan.count)
+      const { d20, secondD20, selected } = selectD20Roll(d20Roll, d20Plan.mode)
+      showDice({ faces: 20, result: selected ?? d20, label: d20Plan.label, count: d20Plan.count })
 
       const atkResult = await gameApi.attackRoll(
         sessionId, playerId, selectedTarget,
-        isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat), selectedWeaponName || null,
+        isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat), selectedWeaponName || null, secondD20,
       )
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
@@ -181,6 +237,7 @@ export function useCombatAttackFlow({
     isRanged,
     playerId,
     processingRef,
+    prediction,
     selectedTarget,
     selectedWeaponName,
     sessionId,

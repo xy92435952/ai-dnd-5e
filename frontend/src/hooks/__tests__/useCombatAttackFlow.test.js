@@ -1,9 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { attackRollMock, damageRollMock, rollDice3DMock } = vi.hoisted(() => ({
+const { attackRollMock, damageRollMock, predictMock, rollDice3DMock } = vi.hoisted(() => ({
   attackRollMock: vi.fn(),
   damageRollMock: vi.fn(),
+  predictMock: vi.fn(),
   rollDice3DMock: vi.fn(),
 }))
 
@@ -11,6 +12,7 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     attackRoll: attackRollMock,
     damageRoll: damageRollMock,
+    predict: predictMock,
   },
 }))
 
@@ -32,6 +34,7 @@ import { useCombatAttackFlow } from '../useCombatAttackFlow'
 describe('useCombatAttackFlow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    predictMock.mockResolvedValue(null)
     rollDice3DMock.mockResolvedValue({ total: 14, rolls: [14] })
     attackRollMock.mockResolvedValue({
       d20: 14,
@@ -110,9 +113,201 @@ describe('useCombatAttackFlow', () => {
       14,
       '2:0:char-1',
       'Longbow',
+      null,
     )
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true, attacks_made: 1 })
     expect(deps.setSelectedTarget).toHaveBeenCalledWith(null)
+  })
+
+  it('rolls two d20s for advantage and forwards both raw dice', async () => {
+    rollDice3DMock.mockResolvedValueOnce({ total: 22, rolls: [4, 18] })
+    attackRollMock.mockResolvedValueOnce({
+      d20: 18,
+      d20_rolls: [4, 18],
+      selected_d20: 18,
+      other_roll: 4,
+      d20_selection: 'advantage',
+      attack_bonus: 5,
+      attack_total: 23,
+      target_ac: 12,
+      hit: false,
+      is_crit: false,
+      is_fumble: false,
+      advantage: true,
+      disadvantage: false,
+      roll_state: 'advantage',
+      advantage_sources: ['attacker helped'],
+      attacker_name: 'Hero',
+      target_name: 'Goblin',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8+3',
+      pending_attack_id: 'pending-adv',
+      turn_state: { action_used: true, attacks_made: 1 },
+      narration: 'Hero presses the opening.',
+    })
+    const { result, deps } = renderAttackFlow({
+      prediction: { advantage: true, disadvantage: false },
+    })
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(20, 2)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 20,
+      result: 18,
+      label: '攻击检定（优势）',
+      count: 2,
+    })
+    expect(attackRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'enemy-1',
+      'ranged',
+      false,
+      4,
+      '2:0:char-1',
+      'Longbow',
+      18,
+    )
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: {
+        attack: expect.objectContaining({
+          d20: 18,
+          d20_rolls: [4, 18],
+          selected_d20: 18,
+          other_roll: 4,
+          d20_selection: 'advantage',
+          advantage: true,
+          roll_state: 'advantage',
+        }),
+      },
+    }))
+  })
+
+  it('rolls two d20s for disadvantage and forwards both raw dice', async () => {
+    rollDice3DMock.mockResolvedValueOnce({ total: 22, rolls: [18, 4] })
+    attackRollMock.mockResolvedValueOnce({
+      d20: 4,
+      d20_rolls: [18, 4],
+      selected_d20: 4,
+      other_roll: 18,
+      d20_selection: 'disadvantage',
+      attack_bonus: 5,
+      attack_total: 9,
+      target_ac: 12,
+      hit: false,
+      is_crit: false,
+      is_fumble: false,
+      advantage: false,
+      disadvantage: true,
+      roll_state: 'disadvantage',
+      disadvantage_sources: ['attacker poisoned'],
+      attacker_name: 'Hero',
+      target_name: 'Goblin',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8+3',
+      pending_attack_id: 'pending-dis',
+      turn_state: { action_used: true, attacks_made: 1 },
+      narration: 'Hero struggles through the poison.',
+    })
+    const { result, deps } = renderAttackFlow({
+      prediction: { advantage: false, disadvantage: true },
+    })
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(20, 2)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 20,
+      result: 4,
+      label: '攻击检定（劣势）',
+      count: 2,
+    })
+    expect(attackRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'enemy-1',
+      'ranged',
+      false,
+      18,
+      '2:0:char-1',
+      'Longbow',
+      4,
+    )
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: {
+        attack: expect.objectContaining({
+          d20: 4,
+          d20_rolls: [18, 4],
+          selected_d20: 4,
+          other_roll: 18,
+          d20_selection: 'disadvantage',
+          disadvantage: true,
+          roll_state: 'disadvantage',
+        }),
+      },
+    }))
+  })
+
+  it('refreshes prediction before rolling so late hidden advantage uses two d20s', async () => {
+    predictMock.mockResolvedValueOnce({
+      advantage: true,
+      disadvantage: false,
+      advantage_sources: ['attacker hidden'],
+    })
+    rollDice3DMock.mockResolvedValueOnce({ total: 23, rolls: [7, 16] })
+    attackRollMock.mockResolvedValueOnce({
+      d20: 16,
+      d20_rolls: [7, 16],
+      selected_d20: 16,
+      other_roll: 7,
+      d20_selection: 'advantage',
+      attack_bonus: 5,
+      attack_total: 21,
+      target_ac: 12,
+      hit: false,
+      is_crit: false,
+      is_fumble: false,
+      advantage: true,
+      disadvantage: false,
+      roll_state: 'advantage',
+      advantage_sources: ['attacker hidden'],
+      attacker_name: 'Hero',
+      target_name: 'Goblin',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8+3',
+      pending_attack_id: 'pending-hidden',
+      turn_state: { action_used: true, attacks_made: 1 },
+      narration: 'Hero reveals their position.',
+    })
+    const { result } = renderAttackFlow({
+      prediction: { advantage: false, disadvantage: false },
+    })
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(predictMock).toHaveBeenCalledWith('sess-1', 'char-1', 'enemy-1', 'atk', true)
+    expect(rollDice3DMock).toHaveBeenCalledWith(20, 2)
+    expect(attackRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'enemy-1',
+      'ranged',
+      false,
+      7,
+      '2:0:char-1',
+      'Longbow',
+      16,
+    )
   })
 
   it('keeps defender interception metadata on the attack log', async () => {

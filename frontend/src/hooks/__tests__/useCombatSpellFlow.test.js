@@ -1,9 +1,10 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { spellRollMock, spellConfirmMock, rollDice3DMock } = vi.hoisted(() => ({
+const { spellRollMock, spellConfirmMock, predictMock, rollDice3DMock } = vi.hoisted(() => ({
   spellRollMock: vi.fn(),
   spellConfirmMock: vi.fn(),
+  predictMock: vi.fn(),
   rollDice3DMock: vi.fn(),
 }))
 
@@ -11,6 +12,7 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     spellRoll: spellRollMock,
     spellConfirm: spellConfirmMock,
+    predict: predictMock,
   },
 }))
 
@@ -24,6 +26,7 @@ describe('useCombatSpellFlow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    predictMock.mockResolvedValue(null)
     spellRollMock.mockResolvedValue({
       pending_spell_id: 'pending-spell-1',
       damage_dice: '2d6',
@@ -89,6 +92,7 @@ describe('useCombatSpellFlow', () => {
       'enemy-1',
       ['enemy-1'],
       '1:0:char-1',
+      null,
       null,
     )
     expect(addLog).toHaveBeenCalledWith({
@@ -180,7 +184,7 @@ describe('useCombatSpellFlow', () => {
       await result.current({ name: 'Fire Bolt', name_en: 'Fire Bolt', type: 'damage' }, 0)
     })
 
-    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20)
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20, 1)
     expect(spellRollMock).toHaveBeenCalledWith(
       'sess-1',
       'char-1',
@@ -190,6 +194,7 @@ describe('useCombatSpellFlow', () => {
       ['enemy-1'],
       '1:0:char-1',
       20,
+      null,
     )
 
     await act(async () => {
@@ -198,6 +203,190 @@ describe('useCombatSpellFlow', () => {
 
     expect(rollDice3DMock).toHaveBeenNthCalledWith(2, 10, 1)
     expect(spellConfirmMock).toHaveBeenCalledWith('sess-1', 'pending-fire-bolt', [8])
+  })
+
+  it('rolls two d20s for disadvantaged spell attacks and forwards both raw dice', async () => {
+    spellRollMock.mockResolvedValueOnce({
+      pending_spell_id: 'pending-fire-bolt-miss',
+      damage_dice: '1d10',
+      spell_attack_required: true,
+      hit: false,
+      is_crit: false,
+      attack_roll: {
+        d20: 4,
+        d20_rolls: [18, 4],
+        selected_d20: 4,
+        other_roll: 18,
+        d20_selection: 'disadvantage',
+        attack_bonus: 5,
+        attack_total: 9,
+        target_ac: 15,
+        hit: false,
+        is_crit: false,
+        is_fumble: false,
+        disadvantage: true,
+        roll_state: 'disadvantage',
+        disadvantage_sources: ['attacker poisoned'],
+      },
+      targets: [{ id: 'enemy-1', name: 'Training Dummy' }],
+      turn_state: { action_used: false },
+    })
+    rollDice3DMock.mockResolvedValueOnce({ total: 22, rolls: [18, 4] })
+    const processingRef = { current: false }
+    const showDice = vi.fn()
+    const addLog = vi.fn()
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'char-1',
+      selectedTarget: 'enemy-1',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog,
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice,
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'char-1', id: 'char-1' }],
+      },
+      prediction: { advantage: false, disadvantage: true },
+    }))
+
+    await act(async () => {
+      await result.current({ name: 'Fire Bolt', name_en: 'Fire Bolt', type: 'damage' }, 0)
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(20, 2)
+    expect(showDice).toHaveBeenCalledWith({
+      faces: 20,
+      result: 4,
+      label: '法术攻击检定（劣势）',
+      count: 2,
+    })
+    expect(spellRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'Fire Bolt',
+      0,
+      'enemy-1',
+      ['enemy-1'],
+      '1:0:char-1',
+      18,
+      4,
+    )
+    expect(addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: {
+        attack: expect.objectContaining({
+          d20: 4,
+          d20_rolls: [18, 4],
+          selected_d20: 4,
+          other_roll: 18,
+          d20_selection: 'disadvantage',
+          disadvantage: true,
+          roll_state: 'disadvantage',
+        }),
+      },
+    }))
+    expect(spellConfirmMock).toHaveBeenCalledWith('sess-1', 'pending-fire-bolt-miss', null)
+  })
+
+  it('refreshes prediction before spell attack rolls so hidden caster advantage uses two d20s', async () => {
+    predictMock.mockResolvedValueOnce({
+      advantage: true,
+      disadvantage: false,
+      advantage_sources: ['attacker hidden'],
+    })
+    spellRollMock.mockResolvedValueOnce({
+      pending_spell_id: 'pending-hidden-fire-bolt',
+      damage_dice: '1d10',
+      spell_attack_required: true,
+      hit: true,
+      is_crit: false,
+      attack_roll: {
+        d20: 16,
+        d20_rolls: [7, 16],
+        selected_d20: 16,
+        other_roll: 7,
+        d20_selection: 'advantage',
+        attack_bonus: 5,
+        attack_total: 21,
+        target_ac: 12,
+        hit: true,
+        is_crit: false,
+        advantage: true,
+        roll_state: 'advantage',
+        advantage_sources: ['attacker hidden'],
+      },
+      targets: [{ id: 'enemy-1', name: 'Reveal Witness' }],
+      turn_state: { action_used: true },
+    })
+    rollDice3DMock
+      .mockResolvedValueOnce({ total: 23, rolls: [7, 16] })
+      .mockResolvedValueOnce({ total: 6, rolls: [6] })
+
+    const processingRef = { current: false }
+    const showDice = vi.fn()
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'char-1',
+      selectedTarget: 'enemy-1',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice,
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'char-1', id: 'char-1' }],
+      },
+      prediction: null,
+    }))
+
+    await act(async () => {
+      await result.current({
+        name: 'Fire Bolt',
+        name_en: 'Fire Bolt',
+        type: 'damage',
+        desc: 'Make a ranged spell attack.',
+      }, 0)
+    })
+
+    expect(predictMock).toHaveBeenCalledWith('sess-1', 'char-1', 'enemy-1', 'atk', true)
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20, 2)
+    expect(showDice).toHaveBeenCalledWith({
+      faces: 20,
+      result: 16,
+      label: '法术攻击检定（优势）',
+      count: 2,
+    })
+    expect(spellRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'Fire Bolt',
+      0,
+      'enemy-1',
+      ['enemy-1'],
+      '1:0:char-1',
+      7,
+      16,
+    )
   })
 
   it('merges resurrection result state from spell confirmation', async () => {
@@ -346,6 +535,7 @@ describe('useCombatSpellFlow', () => {
       'wizard-1',
       ['wizard-1', 'goblin-1', 'goblin-2'],
       '2:0:wizard-1',
+      null,
       null,
     )
   })

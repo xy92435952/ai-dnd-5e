@@ -150,7 +150,7 @@ export const gameApi = {
       is_offhand:  isOffhand,
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null, weaponName = null) =>
+  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null, weaponName = null, secondD20Value = null) =>
     api.post(`/game/combat/${sessionId}/attack-roll`, {
       entity_id:   entityId,
       target_id:   targetId,
@@ -158,6 +158,7 @@ export const gameApi = {
       is_offhand:  isOffhand,
       ...(weaponName ? { weapon_name: weaponName } : {}),
       ...(d20Value != null ? { d20_value: d20Value } : {}),
+      ...(secondD20Value != null ? { second_d20_value: secondD20Value } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   damageRoll: (sessionId, pendingAttackId, damageValues = null) =>
@@ -191,7 +192,7 @@ export const gameApi = {
       target_ids: Array.isArray(targetIds) ? targetIds : (targetIds ? [targetIds] : []),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds, expectedTurnToken = null, d20Value = null) =>
+  spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds, expectedTurnToken = null, d20Value = null, secondD20Value = null) =>
     api.post(`/game/combat/${sessionId}/spell-roll`, {
       caster_id: casterId,
       spell_name: spellName,
@@ -199,6 +200,7 @@ export const gameApi = {
       target_id: targetId || null,
       target_ids: targetIds || [],
       ...(d20Value != null ? { d20_value: d20Value } : {}),
+      ...(secondD20Value != null ? { second_d20_value: secondD20Value } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   spellConfirm: (sessionId, pendingSpellId, damageValues = null) =>
