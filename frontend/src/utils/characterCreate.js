@@ -65,6 +65,50 @@ export function normalizeCharacterOptions(options = {}) {
   }
 }
 
+function spellName(spell) {
+  return typeof spell === 'string' ? spell : spell?.name
+}
+
+function uniqueSpellNames(spells = []) {
+  const seen = new Set()
+  const names = []
+  ;(spells || []).forEach((spell) => {
+    const name = spellName(spell)
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    names.push(name)
+  })
+  return names
+}
+
+function normalizeSubclassSpellKey(subclass) {
+  return String(subclass || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^the\s+/, '')
+    .replace(/\s+domain$/, '')
+}
+
+function subclassSpellDetailsForLevel(options = {}, subclass = '', level = 1) {
+  const detailsBySubclass = options?.subclass_bonus_spell_details || {}
+  const details = detailsBySubclass[subclass]
+    || detailsBySubclass[Object.keys(detailsBySubclass).find(
+      key => normalizeSubclassSpellKey(key) === normalizeSubclassSpellKey(subclass),
+    )]
+  if (!details) return []
+  if (Array.isArray(details)) return details
+
+  return Object.entries(details || {})
+    .filter(([threshold]) => Number(threshold) <= level)
+    .flatMap(([, spells]) => spells || [])
+}
+
+export function buildStartingSpellOptions(options = {}, classEnKey = '', subclass = '', level = 1) {
+  const classSpells = options?.class_spells?.[classEnKey] || options?.class_spell_details?.[classEnKey] || []
+  const subclassSpells = subclassSpellDetailsForLevel(options, subclass, Number(level) || 1)
+  return uniqueSpellNames([...classSpells, ...subclassSpells])
+}
+
 export function getStepLabels({ isSpellcaster, needsASI, isMultiplayerCreate }) {
   const steps = ['基础信息', '能力值', '技能熟练', '装备选择']
   if (isSpellcaster) steps.push('法术选择')
@@ -123,7 +167,12 @@ export function buildCharacterCreateModel({
   const cantripCount = options?.starting_cantrips_count?.[classEnKey] || 0
   const spellCount = options?.starting_spells_count?.[classEnKey] || 0
   const availableCantrips = options?.class_cantrips?.[classEnKey] || []
-  const availableSpells = options?.class_spells?.[classEnKey] || []
+  const availableSpells = buildStartingSpellOptions(
+    options,
+    classEnKey,
+    form?.subclass,
+    form?.level || 1,
+  )
 
   const hasFightingStyle = !!(
     options?.fighting_style_classes?.[classEnKey]
