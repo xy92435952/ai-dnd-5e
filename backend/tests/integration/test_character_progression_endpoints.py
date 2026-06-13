@@ -94,6 +94,59 @@ async def test_level_up_updates_class_resources_and_serializes_them(client, db_s
     assert fighter.class_resources == resources
 
 
+async def test_level_up_endpoint_applies_subclass_style_and_maneuver_choices(client, db_session, sample_user):
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived("Fighter", 2, ability_scores, None, race="Human")
+    fighter = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Battle Master Candidate",
+        race="Human",
+        char_class="Fighter",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        class_resources={"second_wind_used": True, "action_surge_used": True},
+        proficient_skills=[],
+        proficient_saves=["str", "con"],
+        is_player=True,
+    )
+    db_session.add(fighter)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{fighter.id}/level-up",
+        headers=headers,
+        json={
+            "use_average_hp": True,
+            "subclass_choice": "Battle Master",
+            "fighting_style_choice": "Defense",
+            "maneuver_choices": ["precision", "trip", "disarm"],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    data = payload["character"]
+    details = payload["level_up_details"]
+    assert data["level"] == 3
+    assert data["subclass"] == "Battle Master"
+    assert data["fighting_style"] == "Defense"
+    assert data["derived"]["subclass_effects"]["battle_master"] is True
+    assert data["class_resources"]["maneuvers_known"] == ["precision", "trip", "disarm"]
+    assert details["subclass"] == "Battle Master"
+    assert details["fighting_style"] == "Defense"
+    assert details["maneuver_choices"] == ["precision", "trip", "disarm"]
+
+    await db_session.refresh(fighter)
+    assert fighter.subclass == "Battle Master"
+    assert fighter.fighting_style == "Defense"
+    assert fighter.class_resources["maneuvers_known"] == ["precision", "trip", "disarm"]
+
+
 async def test_level_up_adds_requested_wizard_spell_learning(client, db_session, sample_user):
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")

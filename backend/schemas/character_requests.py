@@ -58,6 +58,9 @@ class LevelUpRequest(BaseModel):
     use_average_hp: bool = True
     ability_score_increases: Optional[dict] = None
     feat_choice: Optional[dict] = None
+    subclass_choice: Optional[str] = None
+    fighting_style_choice: Optional[str] = None
+    maneuver_choices: list[str] = []
     learned_spells: list[str] = []
     learned_cantrips: list[str] = []
     spell_replacements: list[SpellReplacementRequest] = []

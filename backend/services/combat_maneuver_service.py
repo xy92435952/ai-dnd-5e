@@ -62,7 +62,8 @@ async def resolve_maneuver(
     if sd_remaining <= 0:
         raise CombatManeuverError(400, "优势骰已耗尽（短休后恢复）")
 
-    valid_maneuvers = sub_effects.get("maneuvers", [])
+    known_maneuvers = class_resources.get("maneuvers_known") or class_resources.get("maneuvers") or []
+    valid_maneuvers = known_maneuvers or sub_effects.get("maneuvers", [])
     if maneuver_name not in valid_maneuvers:
         raise CombatManeuverError(400, f"无效战技: {maneuver_name}，可用: {valid_maneuvers}")
 

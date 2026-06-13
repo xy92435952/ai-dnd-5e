@@ -2552,6 +2552,17 @@
             ],
             "title": "Feat Choice"
           },
+          "fighting_style_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fighting Style Choice"
+          },
           "learned_cantrips": {
             "default": [],
             "items": {
@@ -2568,6 +2579,14 @@
             "title": "Learned Spells",
             "type": "array"
           },
+          "maneuver_choices": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Maneuver Choices",
+            "type": "array"
+          },
           "spell_replacements": {
             "default": [],
             "items": {
@@ -2575,6 +2594,17 @@
             },
             "title": "Spell Replacements",
             "type": "array"
+          },
+          "subclass_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subclass Choice"
           },
           "use_average_hp": {
             "default": true,

@@ -152,6 +152,71 @@ def test_build_level_up_update_expands_battle_master_superiority_dice_capacity()
     assert update["class_resources"]["action_surge_used"] is True
 
 
+def test_build_level_up_update_applies_battle_master_subclass_and_maneuvers():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived("Fighter", 2, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass_choice="Battle Master",
+        maneuver_choices=["precision", "trip", "disarm"],
+        class_resources={"second_wind_used": True, "action_surge_used": True},
+        race="Human",
+    )
+
+    assert update["new_level"] == 3
+    assert update["subclass"] == "Battle Master"
+    assert update["derived"]["subclass_effects"]["battle_master"] is True
+    assert update["class_resources"]["superiority_dice_remaining"] == 4
+    assert update["class_resources"]["maneuvers_known"] == ["precision", "trip", "disarm"]
+    assert update["maneuver_choices"] == ["precision", "trip", "disarm"]
+    assert update["class_resources"]["second_wind_used"] is True
+    assert update["class_resources"]["action_surge_used"] is True
+
+
+def test_build_level_up_update_applies_fighting_style_choice_at_unlock():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 14}
+    old_derived = calc_derived("Paladin", 1, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Paladin",
+        level=1,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        fighting_style_choice="Defense",
+        race="Human",
+    )
+
+    assert update["new_level"] == 2
+    assert update["fighting_style"] == "Defense"
+
+
+def test_build_level_up_update_rejects_subclass_choice_before_unlock():
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=1,
+            ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8},
+            derived={"hp_max": 20, "spell_slots_max": {}},
+            hp_current=20,
+            spell_slots={},
+            use_average_hp=True,
+            subclass_choice="Champion",
+        )
+
+    assert exc.value.status_code == 400
+    assert "unlock at level 3" in exc.value.detail
+
+
 def test_build_level_up_update_validates_asi_total_increase():
     with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
         character_leveling_service.build_level_up_update(

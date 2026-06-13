@@ -2581,6 +2581,8 @@ export interface components {
             feat_choice?: {
                 [key: string]: unknown;
             } | null;
+            /** Fighting Style Choice */
+            fighting_style_choice?: string | null;
             /**
              * Learned Cantrips
              * @default []
@@ -2592,10 +2594,17 @@ export interface components {
              */
             learned_spells: string[];
             /**
+             * Maneuver Choices
+             * @default []
+             */
+            maneuver_choices: string[];
+            /**
              * Spell Replacements
              * @default []
              */
             spell_replacements: components["schemas"]["SpellReplacementRequest"][];
+            /** Subclass Choice */
+            subclass_choice?: string | null;
             /**
              * Use Average Hp
              * @default true

@@ -264,6 +264,26 @@ FIGHTING_STYLE_CLASSES = {
     "Ranger":  {"level": 2, "styles": ["Archery", "Defense", "Dueling", "Two-Weapon Fighting"]},
 }
 
+BATTLE_MASTER_MANEUVERS = {
+    "precision": {"name": "Precision Attack", "desc": "Add superiority die to an attack roll."},
+    "trip": {"name": "Trip Attack", "desc": "Add damage and try to knock the target prone."},
+    "disarm": {"name": "Disarming Attack", "desc": "Add damage and try to make the target drop an item."},
+    "riposte": {"name": "Riposte", "desc": "Strike back when a melee attacker misses."},
+    "menacing": {"name": "Menacing Attack", "desc": "Add damage and try to frighten the target."},
+    "pushing": {"name": "Pushing Attack", "desc": "Add damage and push the target away."},
+    "goading": {"name": "Goading Attack", "desc": "Add damage and draw the target's attacks."},
+    "sweeping": {"name": "Sweeping Attack", "desc": "Carry part of the attack into a nearby target."},
+    "parry": {"name": "Parry", "desc": "Reduce incoming melee damage as a reaction."},
+    "commanders": {"name": "Commander's Strike", "desc": "Direct an ally to strike with their reaction."},
+}
+
+BATTLE_MASTER_MANEUVERS_KNOWN_BY_LEVEL = {
+    3: 3,
+    7: 5,
+    10: 7,
+    15: 9,
+}
+
 # ── 野兽形态表（Moon Druid Wild Shape）──────────────────────
 
 WILD_SHAPE_FORMS = {

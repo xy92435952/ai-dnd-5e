@@ -87,6 +87,9 @@ async def level_up_character(
             proficient_skills=char.proficient_skills,
             ability_score_increases=req.ability_score_increases,
             feat_choice=req.feat_choice,
+            subclass_choice=req.subclass_choice,
+            fighting_style_choice=req.fighting_style_choice,
+            maneuver_choices=req.maneuver_choices,
             learned_spells=req.learned_spells,
             learned_cantrips=req.learned_cantrips,
             spell_replacements=[
@@ -105,6 +108,8 @@ async def level_up_character(
 
     char.level = update["new_level"]
     char.ability_scores = update["ability_scores"]
+    char.subclass = update["subclass"]
+    char.fighting_style = update["fighting_style"]
     char.feats = update["feats"]
     char.derived = update["derived"]
     char.hp_current = update["hp_current"]
@@ -125,6 +130,8 @@ async def level_up_character(
             "new_level": update["new_level"],
             "hp_gain": update["hp_gain"],
             "is_asi_level": update["is_asi_level"],
+            "subclass": update["subclass"],
+            "fighting_style": update["fighting_style"],
             "new_spell_slots": update["new_spell_slots"],
             "class_resources": update["class_resources"],
             "known_spells": update["known_spells"],
@@ -132,6 +139,7 @@ async def level_up_character(
             "learned_spells": update["learned_spells"],
             "learned_cantrips": update["learned_cantrips"],
             "spell_replacements": update["spell_replacements"],
+            "maneuver_choices": update["maneuver_choices"],
             "preparation_type": update["preparation_type"],
         },
     }

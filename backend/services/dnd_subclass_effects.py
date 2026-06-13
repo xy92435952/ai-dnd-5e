@@ -1,6 +1,7 @@
 from typing import Any
 
 from services.dnd_character_rules import get_spell_slots
+from services.dnd_data import BATTLE_MASTER_MANEUVERS
 
 
 def apply_subclass_effects(
@@ -105,7 +106,7 @@ def apply_subclass_effects(
         sd_die = "d8" if level < 10 else ("d10" if level < 18 else "d12")
         subclass_effects["superiority_dice_max"] = sd_count
         subclass_effects["superiority_die"] = sd_die
-        subclass_effects["maneuvers"] = ["precision", "trip", "disarm", "riposte", "menacing", "pushing", "goading"]
+        subclass_effects["maneuvers"] = list(BATTLE_MASTER_MANEUVERS.keys())
 
     if cls_key == "Bard":
         subclass_effects["bardic_inspiration"] = True

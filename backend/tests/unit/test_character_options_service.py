@@ -24,6 +24,10 @@ def test_build_character_options_includes_spell_metadata_for_spellcasters():
     assert options["races"]
     assert options["class_skill_choices"]
     assert options["feats"]
+    assert options["subclass_unlock_levels"]["Fighter"] == 3
+    assert "Battle Master" in options["subclass_options"]["Fighter"]
+    assert "precision" in options["maneuvers"]
+    assert options["battle_master_maneuvers_known_by_level"][3] == 3
     assert options["starting_gear_packs"]["Explorer's Pack"][0] == {
         "name": "Backpack",
         "zh": "背包",

@@ -9,6 +9,8 @@ from services.dnd_rules import (
     BACKGROUNDS,
     BACKGROUND_EQUIPMENT,
     BACKGROUND_FEATURES,
+    BATTLE_MASTER_MANEUVERS,
+    BATTLE_MASTER_MANEUVERS_KNOWN_BY_LEVEL,
     CLASSES,
     CLASS_ARMOR_PROFICIENCY,
     CLASS_SAVE_PROFICIENCIES,
@@ -30,6 +32,7 @@ from services.dnd_rules import (
     get_cantrips_count,
     get_item_zh,
 )
+from services.dnd_subclass_progression import SUBCLASS_OPTIONS, SUBCLASS_UNLOCK_LEVELS
 
 
 def build_character_options(spell_service) -> dict:
@@ -81,7 +84,11 @@ def build_character_options(spell_service) -> dict:
         "all_languages": ALL_LANGUAGES,
         "spell_preparation_type": SPELL_PREPARATION_TYPE,
         "subclass_bonus_spells": SUBCLASS_BONUS_SPELLS,
+        "subclass_unlock_levels": SUBCLASS_UNLOCK_LEVELS,
+        "subclass_options": SUBCLASS_OPTIONS,
         "feats": FEATS,
+        "maneuvers": BATTLE_MASTER_MANEUVERS,
+        "battle_master_maneuvers_known_by_level": BATTLE_MASTER_MANEUVERS_KNOWN_BY_LEVEL,
         "asi_levels": ASI_LEVELS,
         "asi_levels_fighter": ASI_LEVELS_FIGHTER,
         "asi_levels_rogue": ASI_LEVELS_ROGUE,
