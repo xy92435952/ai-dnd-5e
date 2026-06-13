@@ -16,6 +16,7 @@ from services.dnd_rules import (
     get_temporary_hp,
     get_wild_shape_hp,
 )
+from services.combat_ai_control_service import user_can_drive_ai_combat
 from services.session_access_service import assert_character_in_session
 
 
@@ -119,6 +120,30 @@ async def assert_character_access(
     raise HTTPException(403, "无权访问该角色")
 
 
+async def assert_character_write_access(
+    character: Character,
+    user_id: str,
+    db: AsyncSession,
+) -> None:
+    """Ensure the current user may mutate a character sheet or inventory."""
+    if character.user_id:
+        if str(character.user_id) != str(user_id):
+            raise HTTPException(403, "Only the owning player can modify this character")
+        return
+
+    if character.session_id:
+        session = await get_session_or_404(character.session_id, db)
+        if not session.is_multiplayer and session.user_id == user_id:
+            return
+        if session.is_multiplayer:
+            await assert_session_access(session, user_id, db)
+            if await user_can_drive_ai_combat(db, session, user_id):
+                return
+            raise HTTPException(403, "Only the AI combat driver can modify AI-controlled characters")
+
+    raise HTTPException(403, "No permission to modify this character")
+
+
 def assert_module_access(module: Module, user_id: str) -> None:
     """Ensure the current user may use a parsed module."""
     if module.user_id and module.user_id != user_id:
@@ -187,6 +212,7 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "death_saves": char.death_saves,
         "life_state": get_life_state(char),
         "derived":    derived,
+        "concentration": char.concentration,
         "class_resources": char.class_resources or {},
     }
 
@@ -248,6 +274,10 @@ async def assert_can_act(
 
     char = await db.get(Character, entity_id)
     if char is None:
+        if session.is_multiplayer and session.combat_active:
+            if await user_can_drive_ai_combat(db, session, user_id):
+                return
+            raise HTTPException(403, "Only the AI combat driver can control AI-controlled combatants")
         return  # 让上层端点自己处理 404
 
     if not allow_incapacitated:
@@ -274,9 +304,11 @@ async def assert_can_act(
             except (IndexError, AttributeError):
                 pass
 
-    # AI 托管/降级角色可由房间成员触发；未认领的玩家角色不能被任意成员代控。
+    # AI companions and other non-player actors are controlled by the AI combat driver.
     if not char.is_player:
-        return
+        if await user_can_drive_ai_combat(db, session, user_id):
+            return
+        raise HTTPException(403, "Only the AI combat driver can control AI-controlled combatants")
     if char.user_id is None:
         raise HTTPException(403, "This player character has not been claimed")
 

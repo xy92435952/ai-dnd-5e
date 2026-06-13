@@ -18,6 +18,12 @@ def _target_id(target: Any) -> str | None:
     return str(value) if value is not None else None
 
 
+def _target_name(target: Any) -> str | None:
+    if isinstance(target, dict):
+        return target.get("name") or target.get("target_name")
+    return getattr(target, "name", None)
+
+
 def _conditions(target: Any) -> list[str]:
     if isinstance(target, dict):
         return list(target.get("conditions") or [])
@@ -203,6 +209,17 @@ def discard_condition_sources(target: Any, condition: str) -> None:
     _set_source_map(target, sources)
 
 
+def _concentration_effect_update(target: Any, removed_conditions: list[str], *, is_enemy: bool) -> dict[str, Any]:
+    return {
+        "target_id": _target_id(target),
+        "target_name": _target_name(target),
+        "is_enemy": is_enemy,
+        "removed_conditions": removed_conditions,
+        "conditions": _conditions(target),
+        "condition_durations": _durations(target),
+    }
+
+
 async def _session_characters(db, session) -> list[Any]:
     if not hasattr(session, "is_multiplayer"):
         return []
@@ -237,11 +254,7 @@ async def clear_concentration_effects_for_caster(
         )
         if target_removed:
             enemies_changed = True
-            removed.append({
-                "target_id": enemy.get("id"),
-                "is_enemy": True,
-                "conditions": target_removed,
-            })
+            removed.append(_concentration_effect_update(enemy, target_removed, is_enemy=True))
 
     if enemies_changed:
         state["enemies"] = enemies
@@ -258,11 +271,7 @@ async def clear_concentration_effects_for_caster(
             spell_name=spell_name,
         )
         if target_removed:
-            removed.append({
-                "target_id": getattr(character, "id", None),
-                "is_enemy": False,
-                "conditions": target_removed,
-            })
+            removed.append(_concentration_effect_update(character, target_removed, is_enemy=False))
 
     return removed
 

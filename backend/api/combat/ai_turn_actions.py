@@ -3,10 +3,12 @@ api.combat.ai_turn_actions — AI simple action branch handlers.
 """
 from api.combat._shared import _get_ts, _save_ts, _ai_move_toward
 from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
+from services.combat_ai_role_decision_service import tactical_decision_metadata
 from services.combat_movement_rules_service import (
     MovementRuleError,
     apply_stand_up_from_prone,
     validate_displacement_allowed,
+    validate_frightened_movement,
 )
 
 
@@ -27,8 +29,10 @@ async def handle_ai_simple_action(
     character=None,
     enemies: list | None = None,
     session_id: str | None = None,
+    decision: dict | None = None,
 ):
     """Handle dodge / dash / disengage actions and return a response dict when handled."""
+    tactical_decision = tactical_decision_metadata(decision)
     if decided_action == "dodge":
         ts_dodge = _get_ts(combat, actor_id)
         ts_dodge["action_used"] = True
@@ -37,15 +41,18 @@ async def handle_ai_simple_action(
         tick_logs = tick_ai_actor_conditions(
             session_id=session_id,
             session=session,
+            combat=combat,
             actor_name=actor_name,
             is_enemy=is_enemy,
             enemy=enemy,
             character=character,
             enemies=enemies,
         )
+        confusion_end_save = _first_tick_log_result(tick_logs, "confusion_end_save")
+        condition_end_saves = _tick_log_results(tick_logs, "condition_end_save")
         for log in tick_logs:
             db.add(log)
-        await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return {
             "actor_name": actor_name,
@@ -60,6 +67,10 @@ async def handle_ai_simple_action(
             "combat_over": False,
             "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
+            "confusion_end_save": confusion_end_save,
+            "condition_end_saves": condition_end_saves,
+            "tactical_decision": tactical_decision,
+            **advance_result,
         }
 
     if decided_action == "dash":
@@ -107,6 +118,22 @@ async def handle_ai_simple_action(
             except MovementRuleError:
                 dash_result = None
             if dash_result:
+                actor_condition_durations = (
+                    dict(enemy.get("condition_durations", {}) or {})
+                    if is_enemy and enemy
+                    else dict(getattr(character, "condition_durations", None) or {})
+                )
+                try:
+                    validate_frightened_movement(
+                        movement_conditions,
+                        actor_condition_durations,
+                        actor_pos,
+                        {"x": dash_result["x"], "y": dash_result["y"]},
+                        positions,
+                    )
+                except MovementRuleError:
+                    dash_result = None
+            if dash_result:
                 positions[str(actor_id)] = {"x": dash_result["x"], "y": dash_result["y"]}
                 combat.entity_positions = positions
                 dash_ts["movement_used"] += dash_result["steps"]
@@ -114,15 +141,18 @@ async def handle_ai_simple_action(
         tick_logs = tick_ai_actor_conditions(
             session_id=session_id,
             session=session,
+            combat=combat,
             actor_name=actor_name,
             is_enemy=is_enemy,
             enemy=enemy,
             character=character,
             enemies=enemies,
         )
+        confusion_end_save = _first_tick_log_result(tick_logs, "confusion_end_save")
+        condition_end_saves = _tick_log_results(tick_logs, "condition_end_save")
         for log in tick_logs:
             db.add(log)
-        await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return {
             "actor_name": actor_name,
@@ -137,6 +167,10 @@ async def handle_ai_simple_action(
             "combat_over": False,
             "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
+            "confusion_end_save": confusion_end_save,
+            "condition_end_saves": condition_end_saves,
+            "tactical_decision": tactical_decision,
+            **advance_result,
         }
 
     if decided_action == "disengage":
@@ -147,15 +181,18 @@ async def handle_ai_simple_action(
         tick_logs = tick_ai_actor_conditions(
             session_id=session_id,
             session=session,
+            combat=combat,
             actor_name=actor_name,
             is_enemy=is_enemy,
             enemy=enemy,
             character=character,
             enemies=enemies,
         )
+        confusion_end_save = _first_tick_log_result(tick_logs, "confusion_end_save")
+        condition_end_saves = _tick_log_results(tick_logs, "condition_end_save")
         for log in tick_logs:
             db.add(log)
-        await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return {
             "actor_name": actor_name,
@@ -170,6 +207,22 @@ async def handle_ai_simple_action(
             "combat_over": False,
             "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
+            "confusion_end_save": confusion_end_save,
+            "condition_end_saves": condition_end_saves,
+            "tactical_decision": tactical_decision,
+            **advance_result,
         }
 
     return None
+
+
+def _tick_log_results(tick_logs, result_type: str) -> list[dict]:
+    return [
+        log.dice_result for log in tick_logs
+        if isinstance(getattr(log, "dice_result", None), dict)
+        and log.dice_result.get("type") == result_type
+    ]
+
+
+def _first_tick_log_result(tick_logs, result_type: str) -> dict | None:
+    return next(iter(_tick_log_results(tick_logs, result_type)), None)

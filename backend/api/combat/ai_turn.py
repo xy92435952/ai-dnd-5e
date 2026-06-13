@@ -10,17 +10,19 @@ from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
-from models import CombatState, Module
+from models import CombatState, GameLog, Module
 from api.deps import assert_session_access, get_session_or_404, get_user_id
 
 from api.combat._shared import (
+    _assert_ai_combat_driver,
     _broadcast_combat,
     _calc_entity_turn_limits,
     _combat_turn_token,
+    _get_ts,
     _get_turn_advance_lock,
     _reset_ts,
 )
-from api.combat.ai_turn_utils import advance_ai_turn
+from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
 from api.combat.ai_turn_context import build_ai_turn_context
 from api.combat.ai_turn_actions import handle_ai_simple_action
 from api.combat.ai_turn_special import handle_ai_special_action
@@ -31,6 +33,12 @@ from schemas.ws_events import CombatUpdate
 from services.combat_legendary_action_service import refresh_legendary_actions_for_turn_start
 from services.combat_recharge_service import refresh_recharge_abilities_at_turn_start
 from services.combat_ai_role_decision_service import apply_tactical_role_decision
+from services.combat_confusion_service import (
+    apply_confusion_turn_start,
+    build_confusion_attack_log,
+    build_confusion_turn_log,
+    resolve_confusion_random_melee_attack,
+)
 from services.dnd_rules import get_incapacitating_reasons, is_incapacitated
 from services.module_content import get_module_content
 
@@ -58,9 +66,39 @@ async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) ->
             target_id=result.get("target_id"),
             target_new_hp=result.get("target_new_hp"),
             target_state=result.get("target_state"),
+            entity_positions=result.get("entity_positions"),
             player_targeted=result.get("player_targeted", False),
+            attack_result=result.get("attack_result"),
+            damage=result.get("damage"),
+            damage_roll=result.get("damage_roll"),
+            weapon_resource=result.get("weapon_resource"),
+            weapon_resources=result.get("weapon_resources") or [],
+            enemy_action=result.get("enemy_action"),
+            enemy_actions=result.get("enemy_actions") or [],
+            tactical_decision=result.get("tactical_decision"),
+            dice_result=result.get("dice_result"),
+            spell_result=result.get("spell_result"),
+            special_action=result.get("special_action"),
+            save=result.get("save"),
+            target_results=result.get("target_results") or [],
+            aoe_results=result.get("aoe_results") or [],
+            dc_source=result.get("dc_source"),
+            concentration_check=result.get("concentration_check"),
+            concentration_checks=result.get("concentration_checks") or [],
+            skirmisher_reposition=result.get("skirmisher_reposition"),
+            confusion_turn=result.get("confusion_turn"),
             player_can_react=result.get("player_can_react", False),
             reaction_prompt=result.get("reaction_prompt"),
+            lair_action_prompt=result.get("lair_action_prompt"),
+            legendary_action_prompt=result.get("legendary_action_prompt"),
+            ready_action_results=result.get("ready_action_results") or [],
+            opportunity_attacks=result.get("opportunity_attacks") or [],
+            expired_ready_action=result.get("expired_ready_action"),
+            ready_action_expired_log=result.get("ready_action_expired_log"),
+            confusion_end_save=result.get("confusion_end_save"),
+            condition_end_saves=result.get("condition_end_saves") or [],
+            turn_start_hazard=result.get("turn_start_hazard"),
+            turn_start_hazard_log=result.get("turn_start_hazard_log"),
         ),
         db=db,
     )
@@ -77,6 +115,7 @@ async def ai_combat_turn(
     """处理当前 AI 实体的回合（队友或敌人）"""
     session = await get_session_or_404(session_id, db)
     await assert_session_access(session, user_id, db)
+    await _assert_ai_combat_driver(db, session, user_id)
 
     async with _get_turn_advance_lock(session_id):
         return await _ai_combat_turn_locked(session_id, req, db, session)
@@ -123,7 +162,14 @@ async def _ai_combat_turn_locked(
 
     # ── 回合开始：重置施动者回合状态 ────────────────────────
     ai_atk_max, ai_move_max = await _calc_entity_turn_limits(db, session, actor_id)
-    _reset_ts(combat, actor_id, attacks_max=ai_atk_max, movement_max=ai_move_max)
+    current_turn_state = _get_ts(combat, actor_id)
+    current_confusion_turn = current_turn_state.get("confusion_turn") if isinstance(current_turn_state, dict) else None
+    confusion_already_started = (
+        isinstance(current_confusion_turn, dict)
+        and current_confusion_turn.get("turn_token") == current_token
+    )
+    if not confusion_already_started:
+        _reset_ts(combat, actor_id, attacks_max=ai_atk_max, movement_max=ai_move_max)
     if is_enemy:
         enemy = next((x for x in enemies if str(x.get("id")) == str(actor_id)), None)
         recharge_result = refresh_recharge_abilities_at_turn_start(enemy)
@@ -148,7 +194,7 @@ async def _ai_combat_turn_locked(
     # 已死亡：跳过
     if actor_hp <= 0:
         next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
-        await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return await _broadcast_ai_turn_result(session, combat, db, {
             "actor_name": actor_name, "narration": f"{actor_name} 已倒下，跳过回合。",
@@ -157,6 +203,7 @@ async def _ai_combat_turn_locked(
             "next_turn_index": next_index, "round_number": combat.round_number,
             "combat_over": False, "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
+            **advance_result,
         })
 
     # ── 计算下一回合索引（多处提前返回需要使用）────────────
@@ -178,7 +225,7 @@ async def _ai_combat_turn_locked(
     )
     if is_incapacitated(actor_rule_state):
         skipped_reasons = get_incapacitating_reasons(actor_rule_state)
-        await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
         await db.commit()
         return await _broadcast_ai_turn_result(session, combat, db, {
             "actor_name": actor_name,
@@ -193,6 +240,73 @@ async def _ai_combat_turn_locked(
             "combat_over": False,
             "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
+            **advance_result,
+        })
+
+    confusion_turn = apply_confusion_turn_start(combat, actor_id, actor_rule_state)
+    if confusion_turn and confusion_turn.get("outcome") != "act_normally":
+        had_confusion_attack = bool(confusion_turn.get("attack"))
+        confusion_attack = await resolve_confusion_random_melee_attack(
+            db,
+            session=session,
+            combat=combat,
+            entity_id=actor_id,
+            actor=e if is_enemy else achar,
+            enemies=enemies,
+            confusion_turn=confusion_turn,
+        )
+        if confusion_attack and not had_confusion_attack:
+            db.add(GameLog(
+                session_id=session_id,
+                role="system",
+                content=build_confusion_attack_log(actor_name, confusion_attack),
+                log_type="combat",
+                dice_result={"confusion_attack": confusion_attack},
+            ))
+        tick_logs = tick_ai_actor_conditions(
+            session_id=session_id,
+            session=session,
+            combat=combat,
+            actor_name=actor_name,
+            is_enemy=is_enemy,
+            enemy=e,
+            character=achar,
+            enemies=enemies,
+        )
+        confusion_end_save = next(
+            (
+                log.dice_result for log in tick_logs
+                if isinstance(log.dice_result, dict)
+                and log.dice_result.get("type") == "confusion_end_save"
+            ),
+            None,
+        )
+        condition_end_saves = [
+            log.dice_result for log in tick_logs
+            if isinstance(log.dice_result, dict)
+            and log.dice_result.get("type") == "condition_end_save"
+        ]
+        for log in tick_logs:
+            db.add(log)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
+        await db.commit()
+        return await _broadcast_ai_turn_result(session, combat, db, {
+            "actor_name": actor_name,
+            "narration": build_confusion_turn_log(actor_name, confusion_turn),
+            "actor_id": actor_id,
+            "attack_result": {},
+            "damage": 0,
+            "target_id": None,
+            "target_new_hp": None,
+            "next_turn_index": next_index,
+            "round_number": combat.round_number,
+            "combat_over": False,
+            "outcome": None,
+            "entity_positions": dict(combat.entity_positions or {}),
+            "confusion_end_save": confusion_end_save,
+            "condition_end_saves": condition_end_saves,
+            "confusion_turn": confusion_turn,
+            **advance_result,
         })
 
     _resume_reactor_id, _resume_ts, resume_spell = find_resumable_spell_reaction(combat, actor_id)
@@ -257,6 +371,7 @@ async def _ai_combat_turn_locked(
         character=achar,
         enemies=enemies,
         session_id=session_id,
+        decision=decision,
     )
     if simple_response is not None:
         return await _broadcast_ai_turn_result(session, combat, db, simple_response)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from services.combat_ai_spell_models import CONTROL_CONDITION_MAP, SLOT_KEYS
@@ -39,7 +40,32 @@ def apply_tactical_role_decision(
         )
     if role == "defender":
         return _defender_guard_decision(actor, decision, all_enemies, positions) or decision
+    if role == "striker":
+        return _striker_recharge_decision(actor, decision, all_characters, positions) or decision
     return decision
+
+
+def tactical_decision_metadata(decision: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return public metadata for deterministic tactical-role overrides."""
+    if not isinstance(decision, dict):
+        return None
+    role = decision.get("_tactical_role_override")
+    if not role:
+        return None
+
+    payload: dict[str, Any] = {
+        "role": str(role),
+        "reason": str(decision.get("reason") or ""),
+        "action_type": str(decision.get("action_type") or ""),
+    }
+    for key in ("action_name", "target_id", "spell_level"):
+        value = decision.get(key)
+        if value is not None and value != "":
+            payload[key] = value
+    spell_type = decision.get("_tactical_role_spell_type")
+    if spell_type:
+        payload["spell_type"] = spell_type
+    return payload
 
 
 def _healer_decision(
@@ -179,6 +205,51 @@ def _defender_guard_decision(
     return None
 
 
+def _striker_recharge_decision(
+    actor: dict[str, Any],
+    decision: dict[str, Any],
+    all_characters: list[dict[str, Any]],
+    positions: dict[str, Any],
+) -> dict[str, Any] | None:
+    if str(decision.get("action_type") or "").lower() not in {"attack", "dash", ""}:
+        return None
+
+    target = _best_hostile_damage_target(all_characters)
+    if not target:
+        return None
+
+    candidates = []
+    for ability in normalize_recharge_abilities(actor):
+        if not ability.get("available", True):
+            continue
+        if not ability.get("damage_dice"):
+            continue
+        if not _recharge_can_reach(actor, target, ability, positions):
+            continue
+        candidates.append((
+            -_damage_score(ability.get("damage_dice")),
+            str(ability.get("name") or ""),
+            ability,
+        ))
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: item[:2])
+    ability = candidates[0][2]
+    return _override(
+        decision,
+        action_type="special",
+        action_name=str(ability.get("name") or ""),
+        target_id=str(target.get("id")),
+        spell_level=None,
+        reason=(
+            "striker role: using available damage recharge ability "
+            f"{ability.get('name', 'special ability')}"
+        ),
+        role="striker",
+    )
+
+
 def _most_wounded_enemy_ally(
     actor: dict[str, Any],
     all_enemies: list[dict[str, Any]],
@@ -203,6 +274,23 @@ def _most_wounded_enemy_ally(
         return None
     candidates.sort(key=lambda item: item[:3])
     return candidates[0][3]
+
+
+def _best_hostile_damage_target(
+    all_characters: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    candidates = []
+    for character in all_characters:
+        hp = int(character.get("hp_current", 0) or 0)
+        if hp <= 0:
+            continue
+        hp_max = _hp_max(character)
+        ac = int(character.get("ac") or (character.get("derived") or {}).get("ac") or 10)
+        candidates.append((hp, -hp_max, ac, str(character.get("id")), character))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[:4])
+    return candidates[0][4]
 
 
 def _best_hostile_control_target(
@@ -320,6 +408,30 @@ def _spell_can_reach(
     return chebyshev_distance(actor_pos, target_pos) <= _spell_range_tiles(spell_data)
 
 
+def _recharge_can_reach(
+    actor: dict[str, Any],
+    target: dict[str, Any],
+    ability: dict[str, Any],
+    positions: dict[str, Any],
+) -> bool:
+    actor_pos = positions.get(str(actor.get("id")))
+    target_pos = positions.get(str(target.get("id")))
+    if not actor_pos or not target_pos:
+        return True
+    return chebyshev_distance(actor_pos, target_pos) <= _recharge_range_tiles(ability)
+
+
+def _recharge_range_tiles(ability: dict[str, Any]) -> int:
+    text = " ".join(
+        str(ability.get(key) or "")
+        for key in ("area", "targeting", "reach_or_range", "description", "extra_effects")
+    )
+    distances = [int(match) for match in re.findall(r"(\d+)\s*(?:ft|feet|foot)", text.lower())]
+    if distances:
+        return max(1, max(distances) // 5)
+    return 6
+
+
 def _spell_range_tiles(spell_data: dict[str, Any]) -> int:
     raw = spell_data.get("range")
     try:
@@ -342,6 +454,24 @@ def _offensive_control_condition(name: str, spell_data: dict[str, Any]) -> str |
     if spell_type == "control":
         return "controlled"
     return None
+
+
+def _damage_score(value: Any) -> float:
+    text = str(value or "").strip().lower().replace(" ", "")
+    if not text:
+        return 0.0
+    dice_total = 0.0
+
+    def replace_dice(match: re.Match) -> str:
+        nonlocal dice_total
+        count = int(match.group(1) or "1")
+        sides = int(match.group(2))
+        dice_total += count * (sides + 1) / 2
+        return " "
+
+    remainder = re.sub(r"(\d*)d(\d+)", replace_dice, text)
+    flat_total = sum(int(match) for match in re.findall(r"(?<!d)([+-]?\d+)", remainder))
+    return dice_total + flat_total
 
 
 def _is_control_recharge_ability(ability: dict[str, Any]) -> bool:

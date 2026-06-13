@@ -8,6 +8,7 @@ from models import Character, CombatState, GameLog, Module, Session
 from schemas.game_requests import CreateSessionRequest
 from schemas.game_responses import CreateSessionResponse, SessionDetail, SessionListItem
 from services.character_roster import CharacterRoster
+from services.campaign_visibility_service import public_campaign_state, public_game_state, public_log_entry
 from services.dm_styles import normalize_dm_style
 from services.game_opening_service import generate_opening
 from services.location_graph_service import (
@@ -18,6 +19,7 @@ from services.location_graph_service import (
 from services.loot_service import build_loot_pool_from_module, ensure_loot_state, public_loot_pool
 from services.module_content import get_first_scene_description, get_module_content
 from services.room_group_service import ensure_multiplayer_state
+from services.combat_thrown_recovery_service import public_thrown_recovery_pool
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -148,6 +150,10 @@ async def get_session(
     public_state = dict(game_state or {})
     public_state["location_graph"] = public_location_graph(public_state.get("location_graph"))
     public_state["loot_pool"] = public_loot_pool(public_state.get("loot_pool"))
+    public_state["thrown_weapon_recovery_pool"] = public_thrown_recovery_pool(
+        public_state.get("thrown_weapon_recovery_pool")
+    )
+    public_state = public_game_state(public_state, session.campaign_state)
     return {
         "session_id": session.id,
         "save_name": session.save_name,
@@ -158,8 +164,16 @@ async def get_session(
         "game_state": public_state,
         "player": char_brief(controlled_player) if controlled_player else None,
         "companions": companions,
-        "logs": [serialize_log(log) for log in logs if can_user_see_log(log, user_id)],
-        "campaign_state": session.campaign_state or {},
+        "logs": [
+            public_log_entry(
+                serialize_log(log),
+                session.campaign_state,
+                viewer_character_id=controlled_player.id if controlled_player else None,
+            )
+            for log in logs
+            if can_user_see_log(log, user_id)
+        ],
+        "campaign_state": public_campaign_state(session.campaign_state),
     }
 
 
