@@ -47,7 +47,10 @@ function renderControls(overrides = {}) {
     isRanged: false,
     selectedWeaponName: '',
     character: TEST_CHARACTER,
+    turnState: {},
     onEndTurn: vi.fn(),
+    onDelayTurn: vi.fn(),
+    onDelayAfterEntityChange: vi.fn(),
     onToggleMove: vi.fn(),
     onToggleRanged: vi.fn(),
     onSelectedWeaponChange: vi.fn(),
@@ -65,11 +68,13 @@ describe('CombatHudControls', () => {
     const props = renderControls()
 
     fireEvent.click(screen.getByRole('button', { name: /结束回合/ }))
+    fireEvent.click(screen.getByRole('button', { name: '延迟' }))
     fireEvent.click(screen.getByRole('button', { name: /移动/ }))
     fireEvent.click(screen.getByRole('button', { name: /远程/ }))
     fireEvent.change(screen.getByLabelText('攻击武器'), { target: { value: 'Javelin' } })
 
     expect(props.onEndTurn).toHaveBeenCalledTimes(1)
+    expect(props.onDelayTurn).toHaveBeenCalledWith(null)
     expect(props.onToggleMove).toHaveBeenCalledTimes(1)
     expect(props.onToggleRanged).toHaveBeenCalledTimes(1)
     expect(props.onSelectedWeaponChange).toHaveBeenCalledWith('Javelin')
@@ -79,11 +84,14 @@ describe('CombatHudControls', () => {
     const props = renderControls({ isPlayerTurn: false })
 
     const endTurn = screen.getByRole('button', { name: /结束回合/ })
+    const delay = screen.getByRole('button', { name: '延迟' })
     const move = screen.getByRole('button', { name: /移动/ })
     const ranged = screen.getByRole('button', { name: /远程/ })
 
     expect(endTurn).toBeDisabled()
     expect(endTurn).toHaveAttribute('title', '等待你的回合')
+    expect(delay).toBeDisabled()
+    expect(delay).toHaveAttribute('title', '等待你的回合')
     expect(move).toBeDisabled()
     expect(move).toHaveAttribute('title', '等待你的回合')
     expect(ranged).toBeDisabled()
@@ -91,10 +99,12 @@ describe('CombatHudControls', () => {
     expect(screen.getByText('等待你的回合')).toBeInTheDocument()
 
     fireEvent.click(endTurn)
+    fireEvent.click(delay)
     fireEvent.click(move)
     fireEvent.click(ranged)
 
     expect(props.onEndTurn).not.toHaveBeenCalled()
+    expect(props.onDelayTurn).not.toHaveBeenCalled()
     expect(props.onToggleMove).not.toHaveBeenCalled()
     expect(props.onToggleRanged).not.toHaveBeenCalled()
   })
@@ -129,5 +139,68 @@ describe('CombatHudControls', () => {
     expect(selector).toHaveValue('Longbow')
     expect(screen.getByRole('option', { name: '长弓 · 弹药 7' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /轻弩/ })).not.toBeInTheDocument()
+  })
+
+  it('submits delay placement after a selected later combatant', () => {
+    const props = renderControls({
+      delayTurnOptions: [
+        { value: 'enemy-1', label: 'Goblin Guard' },
+        { value: 'ally-1', label: 'Mara Quickstep' },
+      ],
+      delayAfterEntityId: 'enemy-1',
+    })
+
+    expect(screen.getByLabelText('延迟位置')).toHaveValue('enemy-1')
+    fireEvent.change(screen.getByLabelText('延迟位置'), { target: { value: 'ally-1' } })
+    fireEvent.click(screen.getByRole('button', { name: '延迟' }))
+
+    expect(props.onDelayAfterEntityChange).toHaveBeenCalledWith('ally-1')
+    expect(props.onDelayTurn).toHaveBeenCalledWith('enemy-1')
+  })
+
+  it('allows an AI driver to delay an AI-controlled turn without enabling player-only controls', () => {
+    const props = renderControls({
+      isPlayerTurn: false,
+      canDelayTurn: true,
+    })
+
+    const delay = screen.getByRole('button', { name: '延迟' })
+    const endTurn = screen.getByRole('button', { name: /结束回合/ })
+    const move = screen.getByRole('button', { name: /移动/ })
+
+    expect(delay).not.toBeDisabled()
+    expect(endTurn).toBeDisabled()
+    expect(move).toBeDisabled()
+
+    fireEvent.click(delay)
+    fireEvent.click(endTurn)
+    fireEvent.click(move)
+
+    expect(props.onDelayTurn).toHaveBeenCalledWith(null)
+    expect(props.onEndTurn).not.toHaveBeenCalled()
+    expect(props.onToggleMove).not.toHaveBeenCalled()
+  })
+
+  it('disables delay after the actor spent turn resources but keeps ending turn available', () => {
+    const props = renderControls({
+      turnState: {
+        action_used: true,
+        attacks_made: 1,
+      },
+    })
+
+    const delay = screen.getByRole('button', { name: '延迟' })
+    const endTurn = screen.getByRole('button', { name: /结束回合/ })
+
+    expect(delay).toBeDisabled()
+    expect(delay).toHaveAttribute('title', '已花费本回合动作，不能延迟')
+    expect(endTurn).not.toBeDisabled()
+    expect(screen.getByText('已花费本回合动作，不能延迟')).toBeInTheDocument()
+
+    fireEvent.click(delay)
+    fireEvent.click(endTurn)
+
+    expect(props.onDelayTurn).not.toHaveBeenCalled()
+    expect(props.onEndTurn).toHaveBeenCalledTimes(1)
   })
 })

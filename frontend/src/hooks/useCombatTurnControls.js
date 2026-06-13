@@ -2,6 +2,19 @@ import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
+import { formatDelayedTurnLog } from '../utils/turnLogs'
+
+function hasSpentDelayResources(combat, currentEntry) {
+  const actorId = currentEntry?.character_id || currentEntry?.id
+  if (!actorId) return false
+  const turnState = combat?.turn_states?.[actorId] || {}
+  return Boolean(
+    turnState.action_used
+    || turnState.bonus_action_used
+    || Number(turnState.movement_used || 0) > 0
+    || Number(turnState.attacks_made || 0) > 0
+  )
+}
 
 export function useCombatTurnControls({
   sessionId,
@@ -24,8 +37,13 @@ export function useCombatTurnControls({
   triggerAiTurn,
   canDriveAiTurns = true,
 }) {
-  const handleEndTurn = useCallback(async () => {
-    if (!canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
+  const handleTurnAdvance = useCallback(async (options = {}) => {
+    const delay = typeof options === 'boolean' ? options : Boolean(options.delay)
+    const afterEntityId = typeof options === 'object' ? options.afterEntityId || null : null
+    const currentEntry = combat?.turn_order?.[combat?.current_turn_index ?? 0]
+    const canDelayAiTurn = delay && canDriveAiTurns && currentEntry && currentEntry.is_player !== true
+    if (delay && hasSpentDelayResources(combat, currentEntry)) return
+    if (isProcessing || (!canDelayAiTurn && (!canActThisTurn || !isPlayerTurn(combat)))) return
     processingRef.current = true
     setIsProcessing(true)
     setMoveMode(false)
@@ -35,9 +53,23 @@ export function useCombatTurnControls({
     setLegendaryActionPrompt?.(null)
     try {
       const turnToken = getCombatTurnToken(combat)
-      const result = await gameApi.endTurn(sessionId, turnToken)
+      const result = delay
+        ? await gameApi.delayTurn(sessionId, turnToken, afterEntityId)
+        : await gameApi.endTurn(sessionId, turnToken)
       const lairPrompt = result.lair_action_prompt || null
       const legendaryPrompt = result.legendary_action_prompt || null
+
+      if (delay && result.turn_order_delayed && result.delayed_turn) {
+        addLog({
+          role: 'system',
+          content: formatDelayedTurnLog(result.delayed_turn),
+          log_type: 'combat',
+          dice_result: {
+            type: 'delay_turn',
+            ...result.delayed_turn,
+          },
+        })
+      }
 
       if (result.expired_conditions?.length) {
         result.expired_conditions.forEach(msg => addLog({ role: 'system', content: msg, log_type: 'system' }))
@@ -94,7 +126,7 @@ export function useCombatTurnControls({
         // Keep the locally advanced state when the refresh fails.
       }
     } catch (e) {
-      if ((e.message || '').includes('End turn token is stale')) {
+      if ((e.message || '').includes('token is stale')) {
         try {
           const fresh = await gameApi.getCombat(sessionId)
           if (fresh) setCombat(fresh)
@@ -131,5 +163,14 @@ export function useCombatTurnControls({
     triggerAiTurn,
   ])
 
-  return { handleEndTurn }
+  const handleEndTurn = useCallback(
+    () => handleTurnAdvance(false),
+    [handleTurnAdvance],
+  )
+  const handleDelayTurn = useCallback(
+    (afterEntityId = null) => handleTurnAdvance({ delay: true, afterEntityId }),
+    [handleTurnAdvance],
+  )
+
+  return { handleEndTurn, handleDelayTurn }
 }

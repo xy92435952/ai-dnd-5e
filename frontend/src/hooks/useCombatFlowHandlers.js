@@ -120,7 +120,7 @@ export function useCombatFlowHandlers({
     canDriveAiTurns,
   })
 
-  const { handleEndTurn } = useCombatTurnControls({
+  const { handleEndTurn, handleDelayTurn } = useCombatTurnControls({
     sessionId,
     combat,
     isProcessing,
@@ -401,6 +401,7 @@ export function useCombatFlowHandlers({
     isPlayerTurn,
     loadCombat,
     handleEndTurn,
+    handleDelayTurn,
     handleAttack,
     handleCastSpell,
     handleEndConcentration,

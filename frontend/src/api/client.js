@@ -223,6 +223,16 @@ export const gameApi = {
       `/game/combat/${sessionId}/end-turn`,
       expectedTurnToken ? { expected_turn_token: expectedTurnToken } : undefined,
     ),
+  delayTurn: (sessionId, expectedTurnToken = null, afterEntityId = null) => {
+    const payload = {
+      ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
+      ...(afterEntityId ? { after_entity_id: afterEntityId } : {}),
+    }
+    return api.post(
+      `/game/combat/${sessionId}/delay-turn`,
+      Object.keys(payload).length ? payload : undefined,
+    )
+  },
 
   // 神圣斩击 (Paladin Divine Smite)
   smite: (sessionId, slotLevel, targetIsUndead = false, damageValues = null, targetId = null, isCrit = null) =>

@@ -254,6 +254,7 @@ export function useCombatRuntime({
     wsStatus,
     combatSyncBlocked,
     combatSyncBlockedReason,
+    canDriveAiTurns,
     actions: {
       onSkillClick: guardCombatAction(onSkillClick),
       handleMoveTo: guardCombatAction(handleMoveTo),
@@ -261,6 +262,7 @@ export function useCombatRuntime({
       handleInspectTarget: guardCombatAction(handleInspectTarget),
       handleSpellHover,
       handleEndTurn: guardCombatAction(flow.handleEndTurn),
+      handleDelayTurn: guardCombatAction(flow.handleDelayTurn),
       handleCastSpell: guardCombatAction(flow.handleCastSpell),
       handleEndConcentration: guardCombatAction(flow.handleEndConcentration),
       handleDeathSave: guardCombatAction(flow.handleDeathSave),

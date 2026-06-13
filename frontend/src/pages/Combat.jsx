@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { useUser } from '../hooks/useUser'
@@ -88,6 +89,7 @@ export default function Combat() {
     wsConnected,
     wsStatus,
     combatSyncBlocked,
+    canDriveAiTurns,
     actions,
   } = runtime
   const {
@@ -120,6 +122,22 @@ export default function Combat() {
   const nextTurnChip = getNextInitiativeChip(initiativeChips)
   const nextTurnName = getInitiativeChipName(nextTurnChip)
   const nextTurnTone = nextTurnChip?.t?.is_enemy || nextTurnChip?.ent?.is_enemy ? 'enemy' : 'ally'
+  const canDelayTurn = (
+    canActThisTurn
+    || (canDriveAiTurns && currentTurnEntry && currentTurnEntry.is_player !== true)
+  )
+  const delayTurnOptions = useMemo(
+    () => buildDelayTurnOptions(combat, entities),
+    [combat, entities],
+  )
+  const [delayAfterEntityId, setDelayAfterEntityId] = useState('')
+
+  useEffect(() => {
+    if (!delayAfterEntityId) return
+    if (!delayTurnOptions.some(option => option.value === delayAfterEntityId)) {
+      setDelayAfterEntityId('')
+    }
+  }, [delayAfterEntityId, delayTurnOptions])
   const {
     onSkillClick,
     handleMoveTo,
@@ -127,6 +145,7 @@ export default function Combat() {
     handleInspectTarget,
     handleSpellHover,
     handleEndTurn,
+    handleDelayTurn,
     handleEndConcentration,
     handleCastSpell,
     handleDeathSave,
@@ -272,6 +291,9 @@ export default function Combat() {
         controlledCharacter={controlledCharacter}
         isProcessing={isProcessing}
         isPlayerTurn={canActThisTurn && !combatSyncBlocked}
+        canDelayTurn={canDelayTurn && !combatSyncBlocked}
+        delayTurnOptions={delayTurnOptions}
+        delayAfterEntityId={delayAfterEntityId}
         syncBlocked={combatSyncBlocked}
         moveMode={moveMode}
         helpMode={helpMode}
@@ -283,6 +305,8 @@ export default function Combat() {
         onSkillClick={onSkillClick}
         onDeathSave={handleDeathSave}
         onEndTurn={handleEndTurn}
+        onDelayTurn={handleDelayTurn}
+        onDelayAfterEntityChange={setDelayAfterEntityId}
         onEndConcentration={handleEndConcentration}
         onToggleMove={() => setMoveMode(m => !m)}
         onToggleRanged={() => setIsRanged(r => !r)}
@@ -350,4 +374,23 @@ function getNextInitiativeChip(chips = []) {
 function getInitiativeChipName(chip) {
   if (!chip) return ''
   return chip.ent?.name || chip.t?.name || ''
+}
+
+function getTurnEntryId(entry) {
+  return entry?.character_id || entry?.id || ''
+}
+
+function buildDelayTurnOptions(combat, entities = {}) {
+  const turnOrder = Array.isArray(combat?.turn_order) ? combat.turn_order : []
+  if (!turnOrder.length) return []
+  const currentIndex = Math.max(0, combat?.current_turn_index ?? 0)
+  return turnOrder
+    .slice(currentIndex + 1)
+    .map(entry => {
+      const value = getTurnEntryId(entry)
+      if (!value) return null
+      const label = entities?.[value]?.name || entry?.name || value
+      return { value: String(value), label }
+    })
+    .filter(Boolean)
 }

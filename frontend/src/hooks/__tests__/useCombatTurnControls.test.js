@@ -1,13 +1,15 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { endTurnMock, getCombatMock } = vi.hoisted(() => ({
+const { delayTurnMock, endTurnMock, getCombatMock } = vi.hoisted(() => ({
+  delayTurnMock: vi.fn(),
   endTurnMock: vi.fn(),
   getCombatMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
   gameApi: {
+    delayTurn: delayTurnMock,
     endTurn: endTurnMock,
     getCombat: getCombatMock,
   },
@@ -99,6 +101,177 @@ describe('useCombatTurnControls', () => {
     })
 
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false })
+  })
+
+  it('delays the current player turn to the round end and logs the placement', async () => {
+    delayTurnMock.mockResolvedValue({
+      next_turn_index: 0,
+      round_number: 1,
+      turn_order_delayed: true,
+      delayed_turn: {
+        actor_id: 'char-1',
+        actor_name: 'Delay Hero',
+        from_index: 0,
+        to_index: 2,
+        moved: true,
+      },
+    })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'ally-1', is_player: true },
+        { character_id: 'char-1', is_player: true },
+      ],
+    })
+
+    const { result, deps } = renderControls()
+
+    await act(async () => {
+      await result.current.handleDelayTurn()
+    })
+
+    expect(delayTurnMock).toHaveBeenCalledWith('sess-1', '1:0:char-1', null)
+    expect(endTurnMock).not.toHaveBeenCalled()
+    expect(deps.addLog).toHaveBeenCalledWith({
+      role: 'system',
+      content: 'Delay Hero 延迟行动，将回合移到本轮末尾。',
+      log_type: 'combat',
+      dice_result: expect.objectContaining({
+        type: 'delay_turn',
+        actor_id: 'char-1',
+        moved: true,
+      }),
+    })
+    expect(getCombatMock).toHaveBeenCalledWith('sess-1')
+  })
+
+  it('delays the current player turn after the selected later combatant', async () => {
+    delayTurnMock.mockResolvedValue({
+      next_turn_index: 0,
+      round_number: 1,
+      turn_order_delayed: true,
+      delayed_turn: {
+        actor_id: 'char-1',
+        actor_name: 'Delay Hero',
+        after_entity_id: 'enemy-1',
+        after_entity_name: 'Goblin Guard',
+        placement: 'after_target',
+        from_index: 0,
+        to_index: 1,
+        moved: true,
+      },
+    })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'char-1', is_player: true },
+      ],
+    })
+
+    const { result, deps } = renderControls()
+
+    await act(async () => {
+      await result.current.handleDelayTurn('enemy-1')
+    })
+
+    expect(delayTurnMock).toHaveBeenCalledWith('sess-1', '1:0:char-1', 'enemy-1')
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'Delay Hero 延迟行动，将回合移到 Goblin Guard 之后。',
+      dice_result: expect.objectContaining({
+        type: 'delay_turn',
+        after_entity_id: 'enemy-1',
+      }),
+    }))
+  })
+
+  it('does not delay after the current actor spent turn resources', async () => {
+    const { result, deps } = renderControls({
+      combat: {
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'char-1', is_player: true }],
+        turn_states: {
+          'char-1': {
+            action_used: true,
+            bonus_action_used: false,
+            movement_used: 0,
+            attacks_made: 1,
+          },
+        },
+      },
+    })
+
+    await act(async () => {
+      await result.current.handleDelayTurn()
+    })
+
+    expect(delayTurnMock).not.toHaveBeenCalled()
+    expect(deps.setIsProcessing).not.toHaveBeenCalled()
+  })
+
+  it('lets the ai combat driver delay an AI-controlled turn', async () => {
+    delayTurnMock.mockResolvedValue({
+      next_turn_index: 0,
+      round_number: 1,
+      turn_order_delayed: true,
+      delayed_turn: {
+        actor_id: 'enemy-1',
+        actor_name: 'Delay Enemy',
+        from_index: 0,
+        to_index: 1,
+        moved: true,
+      },
+    })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'char-1', is_player: true },
+        { character_id: 'enemy-1', is_player: false },
+      ],
+    })
+
+    const { result, deps } = renderControls({
+      canActThisTurn: false,
+      canDriveAiTurns: true,
+      isPlayerTurn: vi.fn(() => false),
+      combat: {
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      },
+    })
+
+    await act(async () => {
+      await result.current.handleDelayTurn()
+    })
+
+    expect(delayTurnMock).toHaveBeenCalledWith('sess-1', '1:0:enemy-1', null)
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'Delay Enemy 延迟行动，将回合移到本轮末尾。',
+      dice_result: expect.objectContaining({
+        type: 'delay_turn',
+        actor_id: 'enemy-1',
+      }),
+    }))
+  })
+
+  it('does not let a non-driver delay an AI-controlled turn', async () => {
+    const { result, deps } = renderControls({
+      canActThisTurn: false,
+      canDriveAiTurns: false,
+      isPlayerTurn: vi.fn(() => false),
+      combat: {
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      },
+    })
+
+    await act(async () => {
+      await result.current.handleDelayTurn()
+    })
+
+    expect(delayTurnMock).not.toHaveBeenCalled()
+    expect(deps.setIsProcessing).not.toHaveBeenCalled()
   })
 
   it('stores lair action prompts from end turn without auto-driving the next ai turn', async () => {

@@ -24,6 +24,9 @@ export default function CombatHud({
   controlledCharacter,
   isProcessing,
   isPlayerTurn,
+  canDelayTurn = isPlayerTurn,
+  delayTurnOptions = [],
+  delayAfterEntityId = '',
   syncBlocked = false,
   moveMode,
   helpMode,
@@ -35,6 +38,8 @@ export default function CombatHud({
   onSkillClick,
   onDeathSave,
   onEndTurn,
+  onDelayTurn,
+  onDelayAfterEntityChange,
   onEndConcentration,
   onToggleMove,
   onToggleRanged,
@@ -116,12 +121,18 @@ export default function CombatHud({
         <CombatHudControls
           isProcessing={isProcessing}
           isPlayerTurn={isPlayerTurn}
+          canDelayTurn={canDelayTurn}
+          delayTurnOptions={delayTurnOptions}
+          delayAfterEntityId={delayAfterEntityId}
           syncBlocked={syncBlocked}
           moveMode={moveMode}
           isRanged={isRanged}
           selectedWeaponName={selectedWeaponName}
           character={controlledCharacter || session?.player}
+          turnState={turnState}
           onEndTurn={onEndTurn}
+          onDelayTurn={onDelayTurn}
+          onDelayAfterEntityChange={onDelayAfterEntityChange}
           onToggleMove={onToggleMove}
           onToggleRanged={onToggleRanged}
           onSelectedWeaponChange={onSelectedWeaponChange}
