@@ -12,7 +12,10 @@ import InventoryPanel from '../components/inventory/InventoryPanel'
 import {
   buildLevelUpAbilityChoicePlan,
   buildLevelUpFeatChoicePlan,
+  buildLevelUpFightingStyleChoicePlan,
+  buildLevelUpManeuverChoicePlan,
   buildLevelUpSpellChoicePlan,
+  buildLevelUpSubclassChoicePlan,
 } from '../utils/levelUpSpellChoices'
 
 // ── 常量 ──────────────────────────────────────────────────
@@ -62,6 +65,9 @@ export default function CharacterSheet() {
     replacementNew: '',
     abilityIncreases: {},
     featName: '',
+    subclassName: '',
+    fightingStyleName: '',
+    maneuvers: [],
   })
   const [levelUpBusy, setLevelUpBusy] = useState(false)
   const [levelUpNotice, setLevelUpNotice] = useState('')
@@ -104,6 +110,18 @@ export default function CharacterSheet() {
     () => (char ? buildLevelUpFeatChoicePlan(char, characterOptions || {}) : null),
     [char, characterOptions],
   )
+  const levelUpSubclassPlan = useMemo(
+    () => (char ? buildLevelUpSubclassChoicePlan(char, characterOptions || {}) : null),
+    [char, characterOptions],
+  )
+  const levelUpFightingStylePlan = useMemo(
+    () => (char ? buildLevelUpFightingStyleChoicePlan(char, characterOptions || {}) : null),
+    [char, characterOptions],
+  )
+  const levelUpManeuverPlan = useMemo(
+    () => (char ? buildLevelUpManeuverChoicePlan(char, characterOptions || {}, levelUpSelections.subclassName) : null),
+    [char, characterOptions, levelUpSelections.subclassName],
+  )
 
   const resetLevelUpSelections = useCallback(() => {
     setLevelUpSelections({
@@ -113,6 +131,9 @@ export default function CharacterSheet() {
       replacementNew: '',
       abilityIncreases: {},
       featName: '',
+      subclassName: '',
+      fightingStyleName: '',
+      maneuvers: [],
     })
   }, [])
 
@@ -125,6 +146,17 @@ export default function CharacterSheet() {
       }
       if (current.length >= capacity) return prev
       return { ...prev, [key]: [...current, value] }
+    })
+  }, [])
+
+  const toggleLevelUpManeuver = useCallback((value, capacity) => {
+    setLevelUpSelections(prev => {
+      const current = prev.maneuvers || []
+      if (current.includes(value)) {
+        return { ...prev, maneuvers: current.filter(item => item !== value) }
+      }
+      if (current.length >= capacity) return prev
+      return { ...prev, maneuvers: [...current, value] }
     })
   }, [])
 
@@ -159,6 +191,9 @@ export default function CharacterSheet() {
     )
     if (levelUpSelections.featName) payload.feat_choice = { name: levelUpSelections.featName }
     else if (Object.keys(abilityIncreases).length) payload.ability_score_increases = abilityIncreases
+    if (levelUpSelections.subclassName) payload.subclass_choice = levelUpSelections.subclassName
+    if (levelUpSelections.fightingStyleName) payload.fighting_style_choice = levelUpSelections.fightingStyleName
+    if (levelUpSelections.maneuvers.length) payload.maneuver_choices = levelUpSelections.maneuvers
     if (levelUpSelections.spells.length) payload.learned_spells = levelUpSelections.spells
     if (levelUpSelections.cantrips.length) payload.learned_cantrips = levelUpSelections.cantrips
     if (levelUpSelections.replacementOld && levelUpSelections.replacementNew) {
@@ -380,8 +415,12 @@ export default function CharacterSheet() {
           spellPlan={levelUpSpellPlan}
           abilityPlan={levelUpAbilityPlan}
           featPlan={levelUpFeatPlan}
+          subclassPlan={levelUpSubclassPlan}
+          fightingStylePlan={levelUpFightingStylePlan}
+          maneuverPlan={levelUpManeuverPlan}
           selections={levelUpSelections}
           onToggleChoice={toggleLevelUpChoice}
+          onToggleManeuver={toggleLevelUpManeuver}
           onAdjustAbility={adjustLevelUpAbility}
           onSelectionChange={setLevelUpSelections}
           onLevelUp={handleLevelUp}
@@ -569,15 +608,19 @@ function LevelUpPanel({
   spellPlan,
   abilityPlan,
   featPlan,
+  subclassPlan,
+  fightingStylePlan,
+  maneuverPlan,
   selections,
   onToggleChoice,
+  onToggleManeuver,
   onAdjustAbility,
   onSelectionChange,
   onLevelUp,
   busy,
   notice,
 }) {
-  const plan = spellPlan || abilityPlan || featPlan
+  const plan = spellPlan || abilityPlan || featPlan || subclassPlan || fightingStylePlan || maneuverPlan
   if (!plan) return null
 
   const hasSpellChoices = (spellPlan?.spellOptions || []).length > 0 && spellPlan.spellCapacity > 0
@@ -585,14 +628,26 @@ function LevelUpPanel({
   const hasReplacementChoices = spellPlan?.canReplaceSpell && (spellPlan?.replacementNewOptions || []).length > 0
   const hasAbilityChoices = abilityPlan?.isAsiLevel && abilityPlan.abilityCapacity > 0
   const hasFeatChoices = featPlan?.isFeatChoiceLevel && (featPlan?.featOptions || []).length > 0
+  const hasSubclassChoices = subclassPlan?.isSubclassChoiceLevel && (subclassPlan?.subclassOptions || []).length > 0
+  const hasFightingStyleChoices = fightingStylePlan?.isFightingStyleChoiceLevel && (fightingStylePlan?.styleOptions || []).length > 0
+  const hasManeuverChoices = maneuverPlan?.isBattleMaster && maneuverPlan.requiredChoices > 0 && (maneuverPlan?.maneuverOptions || []).length > 0
   const selectedSpellCount = selections.spells.length
   const selectedCantripCount = selections.cantrips.length
+  const selectedManeuverCount = selections.maneuvers.length
   const selectedAbilityTotal = Object.values(selections.abilityIncreases || {})
     .reduce((sum, value) => sum + (Number(value) || 0), 0)
-  const hasProgressionChoices = hasSpellChoices || hasCantripChoices || hasReplacementChoices || hasAbilityChoices || hasFeatChoices
+  const hasProgressionChoices = hasSpellChoices || hasCantripChoices || hasReplacementChoices
+    || hasAbilityChoices || hasFeatChoices || hasSubclassChoices || hasFightingStyleChoices || hasManeuverChoices
   const hasCompletedAsiChoice = !hasAbilityChoices
     || Boolean(selections.featName)
     || selectedAbilityTotal === abilityPlan.abilityCapacity
+  const hasCompletedSubclassChoice = !hasSubclassChoices || Boolean(selections.subclassName)
+  const hasCompletedFightingStyleChoice = !hasFightingStyleChoices || Boolean(selections.fightingStyleName)
+  const hasCompletedManeuverChoice = !hasManeuverChoices || selectedManeuverCount === maneuverPlan.requiredChoices
+  const canSubmitLevelUp = hasCompletedAsiChoice
+    && hasCompletedSubclassChoice
+    && hasCompletedFightingStyleChoice
+    && hasCompletedManeuverChoice
   const selectedFeat = (featPlan?.featOptions || []).find(feat => feat.name === selections.featName)
 
   return (
@@ -612,12 +667,69 @@ function LevelUpPanel({
           type="button"
           className="btn-fantasy"
           onClick={onLevelUp}
-          disabled={busy || !hasCompletedAsiChoice}
+          disabled={busy || !canSubmitLevelUp}
           style={{ minWidth: 112 }}
         >
           {busy ? 'Leveling...' : 'Level Up'}
         </button>
       </div>
+
+      {hasSubclassChoices && (
+        <div style={{ marginTop: 10 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+            Subclass
+            <select
+              aria-label="Subclass choice"
+              value={selections.subclassName}
+              onChange={(event) => onSelectionChange(prev => ({
+                ...prev,
+                subclassName: event.target.value,
+                maneuvers: event.target.value === 'Battle Master' ? prev.maneuvers : [],
+              }))}
+              style={levelUpSelectStyle}
+            >
+              <option value="">Choose subclass</option>
+              {subclassPlan.subclassOptions.map(option => (
+                <option key={option.name} value={option.name}>{option.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {hasFightingStyleChoices && (
+        <div style={{ marginTop: 10 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+            Fighting Style
+            <select
+              aria-label="Fighting style choice"
+              value={selections.fightingStyleName}
+              onChange={(event) => onSelectionChange(prev => ({
+                ...prev,
+                fightingStyleName: event.target.value,
+              }))}
+              style={levelUpSelectStyle}
+            >
+              <option value="">Choose style</option>
+              {fightingStylePlan.styleOptions.map(style => (
+                <option key={style.name} value={style.name}>
+                  {style.zh ? `${style.name} - ${style.zh}` : style.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {hasManeuverChoices && (
+        <LevelUpChoiceGroup
+          title={`Maneuvers ${selectedManeuverCount}/${maneuverPlan.requiredChoices}`}
+          values={maneuverPlan.maneuverOptions.map(option => option.id)}
+          selected={selections.maneuvers}
+          onToggle={(value) => onToggleManeuver(value, maneuverPlan.requiredChoices)}
+          labelPrefix="Learn maneuver"
+        />
+      )}
 
       {hasAbilityChoices && (
         <div style={{ marginTop: 10 }}>

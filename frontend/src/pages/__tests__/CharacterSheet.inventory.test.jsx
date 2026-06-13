@@ -399,4 +399,89 @@ describe('CharacterSheet inventory integration', () => {
 
     cleanup()
   })
+
+  it('submits subclass, fighting style, and maneuver choices during level up', async () => {
+    const fighter = {
+      ...characterFixture,
+      level: 2,
+      subclass: '',
+      fighting_style: '',
+      class_resources: { second_wind_used: true, action_surge_used: true },
+    }
+    charactersGetMock.mockResolvedValue(fighter)
+    charactersOptionsMock.mockResolvedValue({
+      spell_preparation_type: { Fighter: null },
+      class_spell_details: {},
+      class_cantrips: {},
+      subclass_unlock_levels: { Fighter: 3 },
+      subclass_options: { Fighter: ['Champion', 'Battle Master'] },
+      fighting_styles: {
+        Defense: { desc: 'AC +1' },
+        Dueling: { desc: 'Damage +2' },
+      },
+      fighting_style_classes: {
+        Fighter: { level: 1, styles: ['Defense', 'Dueling'] },
+      },
+      maneuvers: {
+        precision: { name: 'Precision Attack' },
+        trip: { name: 'Trip Attack' },
+        disarm: { name: 'Disarming Attack' },
+        riposte: { name: 'Riposte' },
+      },
+      battle_master_maneuvers_known_by_level: { 3: 3, 7: 5 },
+    })
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...fighter,
+        level: 3,
+        subclass: 'Battle Master',
+        fighting_style: 'Defense',
+        class_resources: {
+          ...fighter.class_resources,
+          superiority_dice_remaining: 4,
+          maneuvers_known: ['precision', 'trip', 'disarm'],
+        },
+      },
+      level_up_details: {
+        subclass: 'Battle Master',
+        fighting_style: 'Defense',
+        maneuver_choices: ['precision', 'trip', 'disarm'],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(fighter.name)
+    const levelUpButton = screen.getByRole('button', { name: 'Level Up' })
+    expect(levelUpButton).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Subclass choice'), {
+      target: { value: 'Battle Master' },
+    })
+    fireEvent.change(screen.getByLabelText('Fighting style choice'), {
+      target: { value: 'Defense' },
+    })
+    fireEvent.click(await screen.findByLabelText('Learn maneuver precision'))
+    fireEvent.click(screen.getByLabelText('Learn maneuver trip'))
+    fireEvent.click(screen.getByLabelText('Learn maneuver disarm'))
+    expect(levelUpButton).not.toBeDisabled()
+    fireEvent.click(levelUpButton)
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        subclass_choice: 'Battle Master',
+        fighting_style_choice: 'Defense',
+        maneuver_choices: ['precision', 'trip', 'disarm'],
+      })
+    })
+
+    cleanup()
+  })
 })
