@@ -30,6 +30,14 @@ ALL_CLASSES = [
 ]
 
 
+class DummyCombat:
+    turn_order = []
+
+
+class DummySession:
+    is_multiplayer = True
+
+
 class TestEventShape:
     def test_all_classes_have_type_field(self):
         """每个事件类都应定义 `type: Literal[...]`。"""
@@ -118,14 +126,456 @@ class TestSampleEvents:
         assert d["type"] == "room_state_updated"
         assert d["room"]["session_id"] == "s1"
 
+    def test_combat_update_carries_reaction_and_control_payloads(self):
+        reaction_prompt = {
+            "trigger": "incoming_attack",
+            "reactor_character_id": "hero-1",
+            "options": [{"type": "shield"}],
+        }
+        lair_prompt = {
+            "trigger": "lair_action",
+            "actions": [{"id": "pulse"}],
+        }
+        legendary_action = {
+            "type": "legendary_action",
+            "actor_id": "dragon-1",
+            "action_id": "tail",
+        }
+
+        event = CombatUpdate(
+            combat={"current_turn_index": 0},
+            player_can_react=True,
+            reaction_prompt=reaction_prompt,
+            reaction_type="shield",
+            reaction_effect={"damage_prevented": 5, "hp_restored": 5},
+            target_state={"target_id": "hero-1", "target_name": "Smoke Sentinel", "hp_after": 9},
+            lair_action_prompt=lair_prompt,
+            legendary_action_prompt=None,
+            legendary_action=legendary_action,
+        )
+        data = event.model_dump(mode="json")
+
+        assert data["type"] == "combat_update"
+        assert data["player_can_react"] is True
+        assert data["reaction_prompt"] == reaction_prompt
+        assert data["reaction_type"] == "shield"
+        assert data["reaction_effect"] == {"damage_prevented": 5, "hp_restored": 5}
+        assert data["target_state"] == {"target_id": "hero-1", "target_name": "Smoke Sentinel", "hp_after": 9}
+        assert data["lair_action_prompt"] == lair_prompt
+        assert data["legendary_action_prompt"] is None
+        assert data["legendary_action"] == legendary_action
+
+    def test_condition_update_projection_redacts_nested_ready_action_failure_for_other_viewer(self):
+        from api.combat._shared import _project_combat_event_for_viewer
+
+        ready_action_failed = {
+            "type": "ready_action_failed",
+            "actor_id": "host-char",
+            "actor_name": "Ready Hero",
+            "target_id": "enemy-1",
+            "target_name": "Clockwork Sentry",
+            "spell_name": "Magic Missile",
+            "slot_key": "1st",
+            "reason": "concentration_lost",
+        }
+        dice_result = {
+            "type": "condition_update",
+            "condition": "paralyzed",
+            "target_id": "host-char",
+            "target_name": "Ready Hero",
+            "target_state": {
+                "target_id": "host-char",
+                "target_name": "Ready Hero",
+                "conditions": ["paralyzed"],
+                "ready_action_failed": ready_action_failed,
+            },
+        }
+
+        projected = _project_combat_event_for_viewer(
+            {
+                "type": "combat_update",
+                "actor_id": "host-char",
+                "actor_name": "Ready Hero",
+                "action": "condition_add",
+                "target_id": "host-char",
+                "target_name": "Ready Hero",
+                "target_state": dice_result["target_state"],
+                "dice_result": dice_result,
+                "special_action": dice_result,
+            },
+            viewer_character_id="guest-char",
+        )
+
+        redacted = {
+            "type": "ready_action_failed",
+            "redacted": True,
+            "visibility": "other_character",
+            "actor_id": "host-char",
+            "actor_name": "Ready Hero",
+        }
+        assert projected["target_state"]["ready_action_failed"] == redacted
+        assert projected["dice_result"]["target_state"]["ready_action_failed"] == redacted
+        assert projected["special_action"] == projected["dice_result"]
+        assert "Magic Missile" not in json.dumps(projected)
+        assert "enemy-1" not in json.dumps(projected)
+
+    def test_condition_update_projection_keeps_nested_ready_action_failure_for_actor(self):
+        from api.combat._shared import _project_combat_event_for_viewer
+
+        ready_action_failed = {
+            "type": "ready_action_failed",
+            "actor_id": "host-char",
+            "actor_name": "Ready Hero",
+            "target_id": "enemy-1",
+            "spell_name": "Magic Missile",
+            "reason": "concentration_lost",
+        }
+        target_state = {
+            "target_id": "host-char",
+            "target_name": "Ready Hero",
+            "conditions": ["paralyzed"],
+            "ready_action_failed": ready_action_failed,
+        }
+        dice_result = {
+            "type": "condition_update",
+            "target_id": "host-char",
+            "target_name": "Ready Hero",
+            "target_state": target_state,
+        }
+
+        projected = _project_combat_event_for_viewer(
+            {
+                "type": "combat_update",
+                "actor_id": "host-char",
+                "action": "condition_add",
+                "target_id": "host-char",
+                "target_state": target_state,
+                "dice_result": dice_result,
+                "special_action": dice_result,
+            },
+            viewer_character_id="host-char",
+        )
+
+        assert projected["target_state"]["ready_action_failed"]["spell_name"] == "Magic Missile"
+        assert projected["dice_result"]["target_state"]["ready_action_failed"]["target_id"] == "enemy-1"
+
+    def test_combat_update_carries_ai_turn_action_payload(self):
+        attack_result = {
+            "d20": 16,
+            "attack_total": 21,
+            "target_ac": 14,
+            "hit": True,
+        }
+        target_state = {
+            "target_id": "hero-1",
+            "target_name": "Smoke Sentinel",
+            "hp_after": 9,
+        }
+        tactical_decision = {
+            "role": "striker",
+            "reason": "focus wounded hero",
+        }
+
+        event = CombatUpdate(
+            actor_id="enemy-1",
+            actor_name="Goblin Guard",
+            narration="Goblin Guard slashes Smoke Sentinel.",
+            next_turn_index=1,
+            round_number=2,
+            target_id="hero-1",
+            target_name="Smoke Sentinel",
+            target_new_hp=9,
+            target_state=target_state,
+            player_targeted=True,
+            attack_result=attack_result,
+            damage=5,
+            total_damage=5,
+            damage_roll={"notation": "1d6+2", "rolls": [3], "total": 5},
+            damage_type="piercing",
+            damage_before_resistance=10,
+            damage_after_resistance=5,
+            resistance_applied=True,
+            resistance_sources=["piercing"],
+            crit_extra=0,
+            sneak_attack=False,
+            sneak_attack_damage=0,
+            extra_damage_notes=["target resisted piercing"],
+            defender_interception={"defender_name": "Shield Guard"},
+            weapon_resource={"weapon": "Shortbow", "ammo_remaining": 0},
+            tactical_decision=tactical_decision,
+        )
+        data = event.model_dump(mode="json")
+
+        assert data["type"] == "combat_update"
+        assert data["actor_id"] == "enemy-1"
+        assert data["actor_name"] == "Goblin Guard"
+        assert data["narration"] == "Goblin Guard slashes Smoke Sentinel."
+        assert data["next_turn_index"] == 1
+        assert data["round_number"] == 2
+        assert data["target_id"] == "hero-1"
+        assert data["target_name"] == "Smoke Sentinel"
+        assert data["target_new_hp"] == 9
+        assert data["target_state"] == target_state
+        assert data["player_targeted"] is True
+        assert data["attack_result"] == attack_result
+        assert data["damage"] == 5
+        assert data["total_damage"] == 5
+        assert data["damage_roll"] == {"notation": "1d6+2", "rolls": [3], "total": 5}
+        assert data["damage_type"] == "piercing"
+        assert data["damage_before_resistance"] == 10
+        assert data["damage_after_resistance"] == 5
+        assert data["resistance_applied"] is True
+        assert data["resistance_sources"] == ["piercing"]
+        assert data["crit_extra"] == 0
+        assert data["sneak_attack"] is False
+        assert data["sneak_attack_damage"] == 0
+        assert data["extra_damage_notes"] == ["target resisted piercing"]
+        assert data["defender_interception"] == {"defender_name": "Shield Guard"}
+        assert data["weapon_resource"] == {"weapon": "Shortbow", "ammo_remaining": 0}
+        assert data["tactical_decision"] == tactical_decision
+
+    def test_combat_update_carries_spell_confirm_payload(self):
+        spell_result = {
+            "dice": {"notation": "3d4+3", "rolls": [1, 2, 3], "total": 9},
+            "damage": 9,
+            "heal": 0,
+            "target_state": {"target_id": "enemy-1", "hp_after": 2},
+            "caster_state": {"target_id": "caster-1", "concentration": "Bless"},
+        }
+        concentration_update = {
+            "caster_id": "caster-1",
+            "spell_name": "Shield of Faith",
+            "ended": True,
+        }
+        resurrection_result = {
+            "target_id": "ally-1",
+            "hp_after": 1,
+            "revived": True,
+        }
+        wild_magic_check = {"d20": 1, "triggered": True}
+        wild_magic_surge = {"roll": 7, "effect": "glows brightly"}
+
+        event = CombatUpdate(
+            actor_id="caster-1",
+            actor_name="Spell Caster",
+            narration="Spell Caster releases a spell.",
+            action="spell",
+            target_id="enemy-1",
+            target_new_hp=2,
+            target_state={"target_id": "enemy-1", "hp_after": 2},
+            actor_state={"target_id": "caster-1", "concentration": "Bless"},
+            caster_state={"target_id": "caster-1", "concentration": "Bless"},
+            damage=9,
+            heal=0,
+            dice_result=spell_result,
+            spell_result=spell_result,
+            aoe_results=[{"target_id": "enemy-1", "damage": 9}],
+            resurrection_results=[resurrection_result],
+            concentration_effect_updates=[concentration_update],
+            remaining_slots={"1st": 0},
+            concentration_check={"spell_name": "Bless", "broke": False},
+            concentration_checks=[{"spell_name": "Bless", "broke": False}],
+            wild_magic_check=wild_magic_check,
+            wild_magic_surge=wild_magic_surge,
+        )
+        data = event.model_dump(mode="json")
+
+        assert data["type"] == "combat_update"
+        assert data["action"] == "spell"
+        assert data["actor_state"] == {"target_id": "caster-1", "concentration": "Bless"}
+        assert data["caster_state"] == {"target_id": "caster-1", "concentration": "Bless"}
+        assert data["damage"] == 9
+        assert data["heal"] == 0
+        assert data["dice_result"] == spell_result
+        assert data["spell_result"] == spell_result
+        assert data["aoe_results"] == [{"target_id": "enemy-1", "damage": 9}]
+        assert data["resurrection_results"] == [resurrection_result]
+        assert data["concentration_effect_updates"] == [concentration_update]
+        assert data["remaining_slots"] == {"1st": 0}
+        assert data["concentration_check"] == {"spell_name": "Bless", "broke": False}
+        assert data["concentration_checks"] == [{"spell_name": "Bless", "broke": False}]
+        assert data["wild_magic_check"] == wild_magic_check
+        assert data["wild_magic_surge"] == wild_magic_surge
+
+    @pytest.mark.asyncio
+    async def test_ai_turn_broadcast_carries_main_action_payload(self, monkeypatch):
+        import api.combat.ai_turn as ai_turn_module
+
+        captured = {}
+
+        async def fake_broadcast(session, combat, event, db=None):
+            captured["event"] = event
+
+        monkeypatch.setattr(ai_turn_module, "_broadcast_combat", fake_broadcast)
+        attack_result = {
+            "d20": 16,
+            "attack_total": 21,
+            "target_ac": 14,
+            "hit": True,
+        }
+        spell_result = {
+            "type": "ai_spell",
+            "spell_name": "Burning Hands",
+            "damage": 8,
+        }
+        special_action = {
+            "name": "Fire Breath",
+            "damage_type": "fire",
+        }
+        target_results = [{
+            "target_id": "hero-1",
+            "target_name": "Smoke Sentinel",
+            "damage": 8,
+        }]
+
+        result = await ai_turn_module._broadcast_ai_turn_result(
+            DummySession(),
+            DummyCombat(),
+            object(),
+            {
+                "actor_id": "enemy-1",
+                "actor_name": "Goblin Guard",
+                "narration": "Goblin Guard slashes Smoke Sentinel.",
+                "next_turn_index": 1,
+                "round_number": 2,
+                "target_id": "hero-1",
+                "target_new_hp": 9,
+                "target_state": {"target_id": "hero-1", "hp_after": 9},
+                "entity_positions": {"enemy-1": {"x": 4, "y": 5}},
+                "player_targeted": True,
+                "legendary_action_prompt": {
+                    "trigger": "legendary_action",
+                    "actor_id": "dragon-1",
+                    "actions": [{"id": "tail"}],
+                },
+                "attack_result": attack_result,
+                "damage": 5,
+                "damage_roll": {"notation": "1d6+2", "total": 5},
+                "weapon_resource": {"weapon": "Shortbow", "ammo_remaining": 0},
+                "weapon_resources": [{"weapon": "Shortbow", "ammo_remaining": 0}],
+                "enemy_action": {"name": "Shortbow"},
+                "enemy_actions": [{"name": "Move"}, {"name": "Shortbow"}],
+                "tactical_decision": {"role": "striker"},
+                "dice_result": spell_result,
+                "spell_result": spell_result,
+                "special_action": special_action,
+                "save": {"ability": "dex", "dc": 13, "success": False},
+                "target_results": target_results,
+                "aoe_results": target_results,
+                "dc_source": {"type": "monster_ability", "dc": 13},
+                "concentration_check": {"broke": True, "spell_name": "Bless"},
+                "concentration_checks": [{"broke": True, "spell_name": "Bless"}],
+                "skirmisher_reposition": {
+                    "from": {"x": 4, "y": 5},
+                    "to": {"x": 6, "y": 5},
+                    "steps": 2,
+                },
+                "confusion_turn": {"outcome": "move_randomly"},
+            },
+        )
+        data = captured["event"].model_dump(mode="json")
+
+        assert result["actor_id"] == "enemy-1"
+        assert data["type"] == "combat_update"
+        assert data["actor_id"] == "enemy-1"
+        assert data["narration"] == "Goblin Guard slashes Smoke Sentinel."
+        assert data["attack_result"] == attack_result
+        assert data["damage"] == 5
+        assert data["damage_roll"] == {"notation": "1d6+2", "total": 5}
+        assert data["weapon_resource"] == {"weapon": "Shortbow", "ammo_remaining": 0}
+        assert data["weapon_resources"] == [{"weapon": "Shortbow", "ammo_remaining": 0}]
+        assert data["enemy_action"] == {"name": "Shortbow"}
+        assert data["enemy_actions"] == [{"name": "Move"}, {"name": "Shortbow"}]
+        assert data["tactical_decision"] == {"role": "striker"}
+        assert data["dice_result"] == spell_result
+        assert data["spell_result"] == spell_result
+        assert data["special_action"] == special_action
+        assert data["save"] == {"ability": "dex", "dc": 13, "success": False}
+        assert data["target_results"] == target_results
+        assert data["aoe_results"] == target_results
+        assert data["dc_source"] == {"type": "monster_ability", "dc": 13}
+        assert data["legendary_action_prompt"] == {
+            "trigger": "legendary_action",
+            "actor_id": "dragon-1",
+            "actions": [{"id": "tail"}],
+        }
+        assert data["entity_positions"] == {"enemy-1": {"x": 4, "y": 5}}
+        assert data["concentration_check"] == {"broke": True, "spell_name": "Bless"}
+        assert data["concentration_checks"] == [{"broke": True, "spell_name": "Bless"}]
+        assert data["skirmisher_reposition"] == {
+            "from": {"x": 4, "y": 5},
+            "to": {"x": 6, "y": 5},
+            "steps": 2,
+        }
+        assert data["confusion_turn"] == {"outcome": "move_randomly"}
+
     def test_entity_moved_position(self):
-        e = EntityMoved(entity_id="g1", position={"x": 3, "y": 5})
+        movement = {
+            "type": "movement",
+            "entity_id": "g1",
+            "movement_cost": 2,
+            "movement_path": [{"x": 2, "y": 5}, {"x": 3, "y": 5}],
+        }
+        e = EntityMoved(
+            entity_id="g1",
+            position={"x": 3, "y": 5},
+            narration="Goblin moves.",
+            movement=movement,
+            dice_result=movement,
+            special_action=movement,
+        )
         d = e.model_dump(mode="json")
         assert d["position"] == {"x": 3, "y": 5}
+        assert d["narration"] == "Goblin moves."
+        assert d["movement"] == movement
+        assert d["dice_result"] == movement
+        assert d["special_action"] == movement
+
+    def test_entity_moved_carries_combat_over_outcome(self):
+        e = EntityMoved(
+            entity_id="hero-1",
+            position={"x": 4, "y": 5},
+            combat_over=True,
+            outcome="victory",
+        )
+        d = e.model_dump(mode="json")
+
+        assert d["type"] == "entity_moved"
+        assert d["combat_over"] is True
+        assert d["outcome"] == "victory"
 
     def test_turn_changed_requires_round_fields(self):
         with pytest.raises(Exception):
             TurnChanged()  # 缺 round_number / next_turn_index
+
+
+    def test_turn_changed_carries_control_prompts_and_delay_payload(self):
+        prompt = {
+            "trigger": "lair_action",
+            "timing": "initiative_count_20",
+            "actions": [{"id": "seismic-pulse", "name": "Seismic Pulse"}],
+        }
+        delayed_turn = {
+            "actor_id": "hero-1",
+            "after_entity_id": "goblin-1",
+            "moved": True,
+        }
+
+        event = TurnChanged(
+            round_number=1,
+            next_turn_index=0,
+            lair_action_prompt=prompt,
+            legendary_action_prompt=None,
+            turn_order_delayed=True,
+            delayed_turn=delayed_turn,
+        )
+        data = event.model_dump(mode="json")
+
+        assert data["type"] == "turn_changed"
+        assert data["lair_action_prompt"] == prompt
+        assert data["legendary_action_prompt"] is None
+        assert data["turn_order_delayed"] is True
+        assert data["delayed_turn"] == delayed_turn
 
 
 class TestRoundTrip:

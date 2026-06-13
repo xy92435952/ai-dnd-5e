@@ -263,6 +263,53 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
+  it('logs movement metadata carried by websocket movement updates', () => {
+    const { result, deps } = renderActions()
+    const movement = {
+      type: 'movement',
+      entity_id: 'guest-char',
+      entity_name: 'Scout Hero',
+      from: { x: 5, y: 5 },
+      to: { x: 6, y: 5 },
+      distance_ft: 5,
+      movement_cost: 2,
+      movement_path: [{ x: 6, y: 5 }],
+      difficult_terrain_extra: 1,
+      difficult_terrain_cells: [{ cell: '6_5', terrain: 'difficult', label: 'Mud slick', extra_cost: 1 }],
+      movement_used: 2,
+      movement_max: 6,
+      movement_remaining: 4,
+    }
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'entity_moved',
+        entity_id: 'guest-char',
+        position: { x: 6, y: 5 },
+        narration: 'Scout Hero moves 5 ft from (5,5) to (6,5), costing 2 movement.',
+        movement,
+        dice_result: movement,
+        special_action: movement,
+      })
+    })
+
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'system',
+      log_type: 'combat',
+      content: expect.stringContaining('Scout Hero moves 5 ft'),
+      dice_result: expect.objectContaining({
+        type: 'movement',
+        entity_id: 'guest-char',
+        movement_cost: 2,
+        difficult_terrain_extra: 1,
+      }),
+      state_changes: expect.arrayContaining([
+        expect.stringContaining('4/6'),
+      ]),
+    }))
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
   it('ends combat from websocket movement updates that carry combat_over', () => {
     const { result, deps } = renderActions()
 

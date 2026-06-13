@@ -254,6 +254,10 @@ class EntityMoved(_BaseEvent):
     current_entity_id: Optional[str] = None
     entity_id: str
     position: dict             # {"x": int, "y": int}
+    narration: Optional[str] = None
+    movement: Optional[dict[str, Any]] = None
+    dice_result: Optional[dict[str, Any]] = None
+    special_action: Optional[dict[str, Any]] = None
     combat_over: Optional[bool] = None
     outcome: Optional[str] = None
     ready_action_results: list[dict[str, Any]] = Field(default_factory=list)

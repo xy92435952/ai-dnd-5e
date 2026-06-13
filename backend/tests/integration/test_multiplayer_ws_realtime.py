@@ -6153,6 +6153,115 @@ async def test_multiplayer_enemy_inspect_combat_update_is_private_to_viewer(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_move_broadcasts_structured_movement_payload(
+    client,
+    db_session,
+    sample_module,
+):
+    """EntityMoved should carry the same movement payload as the acting HTTP response."""
+    import uuid as _uuid
+    from models import CombatState, Session
+    from services.ws_manager import ws_manager
+    from sqlalchemy.orm.attributes import flag_modified
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="mp_move_payload",
+    )
+    sid = room_data["session_id"]
+    host = room_data["host"]
+    guest = room_data["guest"]
+    host_char = room_data["host_char"]
+    guest_char = room_data["guest_char"]
+
+    session = await db_session.get(Session, sid)
+    session.combat_active = True
+    state = dict(session.game_state or {})
+    state["enemies"] = []
+    session.game_state = state
+    flag_modified(session, "game_state")
+
+    combat = CombatState(
+        id=str(_uuid.uuid4()),
+        session_id=sid,
+        grid_data={
+            "6_5": {"terrain": "difficult", "label": "Mud slick"},
+        },
+        entity_positions={
+            host_char.id: {"x": 5, "y": 5},
+            guest_char.id: {"x": 9, "y": 5},
+        },
+        turn_order=[
+            {"character_id": host_char.id, "name": host_char.name, "initiative": 14, "is_player": True, "is_enemy": False},
+            {"character_id": guest_char.id, "name": guest_char.name, "initiative": 12, "is_player": True, "is_enemy": False},
+        ],
+        current_turn_index=0,
+        round_number=1,
+        combat_log=[],
+        turn_states={
+            host_char.id: {
+                "action_used": False,
+                "bonus_action_used": False,
+                "reaction_used": False,
+                "movement_used": 0,
+                "movement_max": 6,
+                "base_movement_max": 6,
+            },
+            guest_char.id: {
+                "action_used": False,
+                "bonus_action_used": False,
+                "reaction_used": False,
+                "movement_used": 0,
+                "movement_max": 6,
+                "base_movement_max": 6,
+            },
+        },
+    )
+    db_session.add(combat)
+    await db_session.commit()
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    try:
+        await ws_manager.connect(sid, host["user_id"], host_ws)
+        await ws_manager.connect(sid, guest["user_id"], guest_ws)
+
+        response = await client.post(
+            f"/game/combat/{sid}/move",
+            headers=_h(host["token"]),
+            json={
+                "entity_id": host_char.id,
+                "to_x": 6,
+                "to_y": 5,
+                "expected_turn_token": f"1:0:{host_char.id}",
+            },
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["movement"] == body["dice_result"] == body["special_action"]
+
+        host_update = await _wait_for_event(host_ws, "entity_moved", timeout=2)
+        guest_update = await _wait_for_event(guest_ws, "entity_moved", timeout=2)
+
+        for event in (host_update, guest_update):
+            assert event["entity_id"] == host_char.id
+            assert event["position"] == {"x": 6, "y": 5}
+            assert event["movement"] == body["movement"]
+            assert event["dice_result"] == body["movement"]
+            assert event["special_action"] == body["movement"]
+            assert event["movement"]["type"] == "movement"
+            assert event["movement"]["movement_cost"] == 2
+            assert event["movement"]["difficult_terrain_cells"] == body["difficult_terrain_cells"]
+            assert "turn_state" not in event
+            assert event["combat"]["turn_states"][host_char.id]["movement_used"] == 2
+    finally:
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_combat_rejects_non_owner_player_character_actions(
     client,
     db_session,

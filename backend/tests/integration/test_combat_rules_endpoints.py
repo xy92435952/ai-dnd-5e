@@ -79,16 +79,23 @@ async def test_death_save_natural_20_revives_with_1hp(
     assert sample_character.hp_current == 1
     assert sample_character.death_saves is None
     data = r.json()
-    assert data["life_state"] == "alive"
-    assert data["target_state"] == {
+    expected_target_state = {
         "target_id": sample_character.id,
         "character_id": sample_character.id,
+        "target_name": sample_character.name,
+        "character_name": sample_character.name,
         "hp_current": 1,
         "new_hp": 1,
         "death_saves": None,
         "conditions": [],
         "life_state": "alive",
     }
+    assert data["type"] == "death_save"
+    assert data["life_state"] == "alive"
+    assert data["target_state"] == expected_target_state
+    assert data["dice_result"]["type"] == "death_save"
+    assert data["dice_result"]["target_state"] == expected_target_state
+    assert data["special_action"] == data["dice_result"]
 
 
 async def test_death_save_three_successes_stabilize(
@@ -109,9 +116,12 @@ async def test_death_save_three_successes_stabilize(
     ds = sample_character.death_saves or {}
     assert ds.get("stable") is True or sample_character.hp_current > 0
     data = r.json()
+    assert data["type"] == "death_save"
     assert data["life_state"] == "stable"
     assert data["target_state"]["life_state"] == "stable"
     assert data["target_state"]["death_saves"]["stable"] is True
+    assert data["dice_result"]["target_state"] == data["target_state"]
+    assert data["special_action"] == data["dice_result"]
 
 
 async def test_death_save_three_failures_kills(
@@ -334,6 +344,89 @@ async def test_incapacitating_condition_blocks_combat_action(
 
     assert response.status_code == 400
     assert "unconscious" in response.text
+
+
+async def test_charmed_character_cannot_attack_recorded_charmer(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["charmed"]
+    sample_character.condition_durations = {
+        "charmed": {"duration": 2, "source_id": "goblin-1"},
+    }
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+            "attacks_made": 0,
+        }
+    }
+    await db_session.commit()
+
+    attack_roll_response = await client.post(
+        f"/game/combat/{sample_session.id}/attack-roll",
+        headers=headers,
+        json={"entity_id": sample_character.id, "target_id": "goblin-1", "d20_value": 12},
+    )
+    assert attack_roll_response.status_code == 400
+    assert "charmed" in attack_roll_response.text
+
+    direct_response = await client.post(
+        f"/game/combat/{sample_session.id}/action",
+        headers=headers,
+        json={"action_text": "attack", "target_id": "goblin-1"},
+    )
+    assert direct_response.status_code == 400
+    assert "charmed" in direct_response.text
+
+    for action_type in ("shove", "grapple"):
+        grapple_response = await client.post(
+            f"/game/combat/{sample_session.id}/grapple-shove",
+            headers=headers,
+            json={"action_type": action_type, "target_id": "goblin-1"},
+        )
+        assert grapple_response.status_code == 400
+        assert "charmed" in grapple_response.text
+
+    spell_roll_response = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "火焰射线",
+            "spell_level": 0,
+            "target_id": "goblin-1",
+            "d20_value": 12,
+        },
+    )
+    assert spell_roll_response.status_code == 400
+    assert "charmed" in spell_roll_response.text
+
+    direct_spell_response = await client.post(
+        f"/game/combat/{sample_session.id}/spell",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "神圣烈焰",
+            "spell_level": 0,
+            "target_id": "goblin-1",
+        },
+    )
+    assert direct_spell_response.status_code == 400
+    assert "charmed" in direct_spell_response.text
+
+    await db_session.refresh(dying_combat)
+    turn_state = (dying_combat.turn_states or {}).get(sample_character.id) or {}
+    assert turn_state.get("pending_attack") is None
+    assert turn_state.get("pending_spell") is None
+    assert turn_state.get("attacks_made") == 0
+    assert turn_state.get("action_used") is False
 
 
 @pytest.mark.parametrize("action_text", ["dash", "disengage", "help", "dodge"])
@@ -752,3 +845,353 @@ async def test_move_out_of_melee_triggers_opportunity_attack(
         body = r.json()
         # 应当有 opportunity_attacks 字段（即使空数组也代表逻辑跑通）
         assert "opportunity_attacks" in body
+
+
+async def test_disengage_then_move_out_of_melee_does_not_trigger_opportunity_attack(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat,
+):
+    """Disengage suppresses opportunity attacks for later movement in the same turn."""
+    headers = await _auth_headers(client, sample_user)
+
+    action_response = await client.post(
+        f"/game/combat/{sample_session.id}/action",
+        headers=headers,
+        json={"action_text": "disengage"},
+    )
+    assert action_response.status_code == 200, action_response.text
+    action_body = action_response.json()
+    assert action_body["turn_state"]["disengaged"] is True
+    assert action_body["turn_state"]["action_used"] is True
+
+    move_response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 10, "to_y": 5},
+    )
+    assert move_response.status_code == 200, move_response.text
+    move_body = move_response.json()
+    assert move_body["opportunity_attacks"] == []
+    assert move_body["turn_state"]["disengaged"] is True
+
+    await db_session.refresh(melee_combat)
+    assert melee_combat.turn_states.get("goblin-1", {}).get("reaction_used") is not True
+
+
+async def test_move_into_difficult_terrain_costs_extra_movement(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat,
+):
+    """Entering a difficult terrain cell costs one extra movement square."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    melee_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 9, "y": 5},
+    }
+    melee_combat.grid_data = {
+        "6_5": {"terrain": "difficult", "label": "Mud slick"},
+    }
+    melee_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        },
+        "goblin-1": {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+        },
+    }
+    flag_modified(melee_combat, "entity_positions")
+    flag_modified(melee_combat, "grid_data")
+    flag_modified(melee_combat, "turn_states")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 6, "to_y": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["turn_state"]["movement_used"] == 2
+    assert body["movement_cost"] == 2
+    assert body["movement_steps"] == 1
+    assert body["difficult_terrain_extra"] == 1
+    assert body["difficult_terrain_cells"] == [{
+        "cell": "6_5",
+        "terrain": "difficult",
+        "label": "Mud slick",
+        "extra_cost": 1,
+    }]
+    assert body["movement"] == body["dice_result"] == body["special_action"]
+    assert body["movement"]["type"] == "movement"
+    assert body["movement"]["entity_id"] == sample_character.id
+    assert body["movement"]["entity_name"] == sample_character.name
+    assert body["movement"]["from"] == {"x": 5, "y": 5}
+    assert body["movement"]["to"] == {"x": 6, "y": 5}
+    assert body["movement"]["movement_cost"] == 2
+    assert body["movement"]["movement_remaining"] == 4
+    assert body["movement"]["difficult_terrain_cells"] == body["difficult_terrain_cells"]
+    assert "costing 2 movement" in body["narration"]
+    from models import GameLog
+    from sqlalchemy import select
+    log_result = await db_session.execute(
+        select(GameLog).where(GameLog.session_id == sample_session.id).order_by(GameLog.created_at)
+    )
+    movement_logs = [
+        log for log in log_result.scalars().all()
+        if (log.dice_result or {}).get("type") == "movement"
+    ]
+    assert movement_logs
+    assert movement_logs[-1].content == body["narration"]
+    assert movement_logs[-1].dice_result == body["movement"]
+
+    await db_session.refresh(melee_combat)
+    assert melee_combat.turn_states[sample_character.id]["movement_used"] == 2
+
+
+async def test_grappler_move_drags_grappled_target_and_costs_extra_movement(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat,
+):
+    """A creature dragging its grappled target moves both tokens and spends doubled movement."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    state = sample_session.game_state or {}
+    enemies = list(state.get("enemies") or [])
+    enemies[0]["conditions"] = ["grappled"]
+    enemies[0]["condition_durations"] = {"grappled": {"source_id": sample_character.id}}
+    state["enemies"] = enemies
+    sample_session.game_state = state
+    melee_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 6, "y": 5},
+    }
+    melee_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        },
+        "goblin-1": {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+        },
+    }
+    flag_modified(sample_session, "game_state")
+    flag_modified(melee_combat, "entity_positions")
+    flag_modified(melee_combat, "turn_states")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 7, "to_y": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["entity_positions"][sample_character.id] == {"x": 7, "y": 5}
+    assert body["entity_positions"]["goblin-1"] == {"x": 8, "y": 5}
+    assert body["turn_state"]["movement_used"] == 4
+    assert body["opportunity_attacks"] == []
+    assert body["grapple_drag"]["applied"] is True
+    assert body["grapple_drag"]["movement_cost"] == 4
+    assert body["grapple_drag"]["targets"][0] == {
+        "target_id": "goblin-1",
+        "target_name": enemies[0]["name"],
+        "from": {"x": 6, "y": 5},
+        "to": {"x": 8, "y": 5},
+        "distance_ft": 10,
+        "steps": 2,
+        "applied": True,
+    }
+
+    await db_session.refresh(melee_combat)
+    assert melee_combat.entity_positions[sample_character.id] == {"x": 7, "y": 5}
+    assert melee_combat.entity_positions["goblin-1"] == {"x": 8, "y": 5}
+    assert melee_combat.turn_states[sample_character.id]["movement_used"] == 4
+    assert melee_combat.turn_states["goblin-1"]["reaction_used"] is False
+
+
+async def test_sentinel_opportunity_hit_stops_movement(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat, monkeypatch,
+):
+    """A Sentinel-style opportunity hit sets the mover's speed to zero before they leave reach."""
+    from sqlalchemy.orm.attributes import flag_modified
+    from services import combat_opportunity_attack_service as opportunity
+    from services.combat_service import AttackResult
+
+    def hit_with_sentinel(*_args, **_kwargs):
+        return AttackResult(
+            attack_roll={
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+                "attack_total": 19,
+                "target_ac": 12,
+            },
+            damage=4,
+            damage_roll={"formula": "1d8", "rolls": [4], "total": 4},
+            narration="sentinel hit",
+        )
+
+    monkeypatch.setattr(opportunity.svc, "resolve_melee_attack", hit_with_sentinel)
+
+    sample_character.hp_current = 20
+    state = dict(sample_session.game_state or {})
+    enemies = list(state.get("enemies") or [])
+    enemies[0] = {
+        **enemies[0],
+        "name": "Sentinel Guard",
+        "traits": [{"name": "Sentinel", "effects": {"sentinel": True}}],
+        "derived": {**(enemies[0].get("derived") or {}), "attack_bonus": 4, "damage": "1d8"},
+    }
+    state["enemies"] = enemies
+    sample_session.game_state = state
+    melee_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        },
+        "goblin-1": {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+        },
+    }
+    flag_modified(sample_session, "game_state")
+    flag_modified(melee_combat, "turn_states")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 10, "to_y": 5},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["x"] == 5
+    assert body["y"] == 5
+    assert body["entity_positions"][sample_character.id] == {"x": 5, "y": 5}
+    assert body["movement_stop"] == {
+        "type": "sentinel",
+        "applied": True,
+        "attacker": "Sentinel Guard",
+        "target": sample_character.name,
+        "from": {"x": 5, "y": 5},
+        "attempted_to": {"x": 10, "y": 5},
+        "to": {"x": 5, "y": 5},
+        "movement_used_to_max": True,
+    }
+    assert body["opportunity_attacks"][0]["movement_stop"] == body["movement_stop"]
+    assert body["turn_state"]["movement_used"] == body["turn_state"]["movement_max"]
+
+    await db_session.refresh(melee_combat)
+    await db_session.refresh(sample_character)
+    assert melee_combat.entity_positions[sample_character.id] == {"x": 5, "y": 5}
+    assert melee_combat.turn_states[sample_character.id]["movement_used"] == 6
+    assert melee_combat.turn_states["goblin-1"]["reaction_used"] is True
+    assert sample_character.hp_current == 16
+
+
+async def test_frightened_character_cannot_move_closer_to_source(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat,
+):
+    """Frightened movement may not approach the recorded fear source."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    sample_character.conditions = ["frightened"]
+    sample_character.condition_durations = {
+        "frightened": {"duration": 2, "source_id": "goblin-1"},
+    }
+    melee_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 8, "y": 5},
+    }
+    melee_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        },
+    }
+    flag_modified(melee_combat, "entity_positions")
+    flag_modified(melee_combat, "turn_states")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 6, "to_y": 5},
+    )
+
+    assert response.status_code == 400
+    assert "source of fear" in response.text
+    await db_session.refresh(melee_combat)
+    assert melee_combat.entity_positions[sample_character.id] == {"x": 5, "y": 5}
+
+
+async def test_exhaustion_level_5_blocks_movement_even_with_stale_movement_budget(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat,
+):
+    """Exhaustion 5 reduces speed to 0 even if a stale turn_state still has movement."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    sample_character.conditions = ["exhaustion"]
+    sample_character.condition_durations = {"exhaustion_level": 5}
+    melee_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 8, "y": 5},
+    }
+    melee_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+        },
+    }
+    flag_modified(melee_combat, "entity_positions")
+    flag_modified(melee_combat, "turn_states")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 6, "to_y": 5},
+    )
+
+    assert response.status_code == 400
+    assert "speed is 0" in response.text
+    await db_session.refresh(melee_combat)
+    assert melee_combat.entity_positions[sample_character.id] == {"x": 5, "y": 5}

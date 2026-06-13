@@ -249,6 +249,10 @@ export interface EntityMoved {
   current_entity_id: string | null
   entity_id: string
   position: { x: number; y: number }
+  narration?: string | null
+  movement?: Record<string, unknown> | null
+  dice_result?: Record<string, unknown> | null
+  special_action?: Record<string, unknown> | null
   combat_over?: boolean | null
   outcome?: string | null
   ready_action_results?: Record<string, unknown>[]

@@ -213,7 +213,16 @@ async def _send_combat_payload(
             if _payload_has_ai_control_prompt(payload)
             else None
         )
-        for viewer_user_id in await ws_manager.online_users(session.id):
+        viewer_user_ids = await ws_manager.online_users(session.id)
+        if not viewer_user_ids:
+            if payload.get("combat") is None:
+                payload = {
+                    **payload,
+                    "combat": await _build_combat_snapshot(db, session, combat),
+                }
+            await broadcast_to_session(session, payload)
+            return
+        for viewer_user_id in viewer_user_ids:
             viewer_character_id = viewer_character_ids.get(str(viewer_user_id))
             viewer_payload = {
                 **payload,

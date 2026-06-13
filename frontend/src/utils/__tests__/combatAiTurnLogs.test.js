@@ -90,6 +90,23 @@ describe('combatAiTurnLogs', () => {
     })).toEqual(attackPrepare)
   })
 
+  it('preserves movement payloads from dice_result', () => {
+    const movement = {
+      type: 'movement',
+      entity_id: 'hero-1',
+      entity_name: 'Scout Hero',
+      from: { x: 5, y: 5 },
+      to: { x: 6, y: 5 },
+      movement_cost: 2,
+      movement_path: [{ x: 6, y: 5 }],
+    }
+
+    expect(buildAiTurnDiceResult({
+      dice_result: movement,
+      special_action: { type: 'movement' },
+    })).toEqual(movement)
+  })
+
   it('preserves persisted AI spell dice payloads', () => {
     expect(buildAiTurnDiceResult({
       dice_result: {
