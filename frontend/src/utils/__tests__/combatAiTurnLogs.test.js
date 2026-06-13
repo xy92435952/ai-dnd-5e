@@ -112,6 +112,27 @@ describe('combatAiTurnLogs', () => {
     })).toEqual(spellResult)
   })
 
+  it('preserves player spell-prepare payloads from dice_result', () => {
+    const spellPrepare = {
+      type: 'spell_prepare',
+      actor_id: 'host-char',
+      actor_name: 'Host Wizard',
+      spell_name: 'Magic Missile',
+      spell_level: 1,
+      spell_type: 'damage',
+      damage_dice: '3d4+3',
+      save_type: null,
+      save_dc: null,
+      target_count: 1,
+      spell_attack_required: false,
+    }
+
+    expect(buildAiTurnDiceResult({
+      dice_result: spellPrepare,
+      special_action: { type: 'spell_prepare' },
+    })).toEqual(spellPrepare)
+  })
+
   it('preserves player divine smite payloads from dice_result', () => {
     const smiteResult = {
       type: 'divine_smite',

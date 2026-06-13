@@ -2226,6 +2226,7 @@ async def test_multiplayer_spell_confirm_broadcasts_spell_result_details(
         combat_row.entity_positions = positions
         await db_session.commit()
 
+        prepare_start = len(guest_ws.sent)
         spell_roll = await client.post(
             f"/game/combat/{sid}/spell-roll",
             headers=_h(host["token"]),
@@ -2240,6 +2241,27 @@ async def test_multiplayer_spell_confirm_broadcasts_spell_result_details(
         roll_body = spell_roll.json()
         assert roll_body["pending_spell_id"]
         assert roll_body["damage_dice"] == "3d4+3"
+        assert roll_body["dice_result"]["type"] == "spell_prepare"
+        assert roll_body["special_action"] == roll_body["dice_result"]
+
+        prepare_update = await _wait_for_event(
+            guest_ws,
+            "combat_update",
+            timeout=2,
+            start_index=prepare_start,
+            predicate=lambda event: (event.get("dice_result") or {}).get("type") == "spell_prepare",
+        )
+        assert prepare_update["current_entity_id"] == host_char.id
+        assert prepare_update["actor_id"] == host_char.id
+        assert prepare_update["actor_name"] == host_char.name
+        assert prepare_update["action"] == "spell_roll"
+        assert prepare_update["narration"] == roll_body["narration"]
+        assert prepare_update["dice_result"] == roll_body["dice_result"]
+        assert prepare_update["special_action"] == roll_body["dice_result"]
+        assert prepare_update["dice_result"]["spell_name"] == "魔法飞弹"
+        assert prepare_update["dice_result"]["damage_dice"] == "3d4+3"
+        assert prepare_update["dice_result"]["target_count"] == 1
+        assert "turn_state" not in prepare_update
 
         before_count = len(guest_ws.sent)
         confirm = await client.post(

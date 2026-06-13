@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from models import CombatState
+from models import CombatState, GameLog
 
 pytestmark = pytest.mark.integration
 
@@ -9926,6 +9926,43 @@ async def test_spell_roll_then_confirm_applies_damage_and_consumes_slot(
     roll_data = spell_roll.json()
     assert roll_data["pending_spell_id"]
     assert roll_data["damage_dice"] == "3d4+3"
+    enemy_name = (sample_session.game_state or {})["enemies"][0]["name"]
+    assert roll_data["action"] == "spell_roll"
+    assert roll_data["narration"] == f"{sample_character.name} prepares 魔法飞弹 toward {enemy_name}."
+    assert roll_data["dice_result"] == {
+        "type": "spell_prepare",
+        "actor_id": sample_character.id,
+        "actor_name": sample_character.name,
+        "spell_name": "魔法飞弹",
+        "spell_level": 1,
+        "spell_type": "damage",
+        "damage_dice": "3d4+3",
+        "heal_dice": "",
+        "save_type": None,
+        "save_dc": None,
+        "is_cantrip": False,
+        "is_aoe": False,
+        "is_concentration": False,
+        "target_count": 1,
+        "spell_attack_required": False,
+        "attack_roll": None,
+        "hit": None,
+        "is_crit": None,
+    }
+    assert roll_data["special_action"] == roll_data["dice_result"]
+    assert "turn_state" not in roll_data["dice_result"]
+    spell_prepare_log = (
+        await db_session.execute(
+            select(GameLog).where(GameLog.session_id == sample_session.id)
+        )
+    ).scalars().all()
+    spell_prepare_log = [
+        log for log in spell_prepare_log
+        if isinstance(log.dice_result, dict) and log.dice_result.get("type") == "spell_prepare"
+    ]
+    assert len(spell_prepare_log) == 1
+    assert spell_prepare_log[0].content == roll_data["narration"]
+    assert spell_prepare_log[0].dice_result == roll_data["dice_result"]
 
     confirm = await client.post(
         f"/game/combat/{sample_session.id}/spell-confirm",

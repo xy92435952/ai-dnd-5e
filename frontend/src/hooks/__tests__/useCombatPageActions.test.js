@@ -665,6 +665,50 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
+  it('logs player spell-roll prepare combat_update payloads for observers', () => {
+    const { result, deps } = renderActions()
+    const spellPrepare = {
+      type: 'spell_prepare',
+      actor_id: 'host-char',
+      actor_name: 'Host Wizard',
+      spell_name: 'Magic Missile',
+      spell_level: 1,
+      spell_type: 'damage',
+      damage_dice: '3d4+3',
+      heal_dice: null,
+      save_type: null,
+      save_dc: null,
+      is_cantrip: false,
+      is_aoe: false,
+      is_concentration: false,
+      target_count: 1,
+      spell_attack_required: false,
+      attack_roll: null,
+      hit: null,
+      is_crit: null,
+    }
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        actor_id: 'host-char',
+        actor_name: 'Host Wizard',
+        narration: 'Host Wizard prepares Magic Missile toward Clockwork Sentry.',
+        action: 'spell_roll',
+        dice_result: spellPrepare,
+        special_action: spellPrepare,
+      })
+    })
+
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'companion_Host Wizard',
+      log_type: 'combat',
+      content: 'Host Wizard prepares Magic Missile toward Clockwork Sentry.',
+      dice_result: spellPrepare,
+    }))
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
   it('logs legacy direct spell combat_update payloads for observers', () => {
     const { result, deps } = renderActions()
     const spellResult = {

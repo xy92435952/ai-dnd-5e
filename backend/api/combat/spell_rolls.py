@@ -83,8 +83,10 @@ async def spell_roll(
             spell=spell,
             target_id=req.target_id,
             target_ids=req.target_ids,
+            aoe_center=req.aoe_center,
             enemies=list((session.game_state or {}).get("enemies", [])),
             d20_value=req.d20_value,
+            second_d20_value=req.second_d20_value,
             default_turn_state=_DEFAULT_TS,
             get_turn_state=_get_ts,
             consume_slot=spell_service.consume_slot,
@@ -93,6 +95,46 @@ async def spell_roll(
     except CombatSpellRollError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
 
+    spell_prepare_result = {
+        "type": "spell_prepare",
+        "actor_id": str(req.caster_id),
+        "actor_name": caster.name,
+        "spell_name": req.spell_name,
+        "spell_level": req.spell_level,
+        "spell_type": spell["type"],
+        "damage_dice": prepared.damage_dice,
+        "heal_dice": prepared.heal_dice,
+        "save_type": prepared.save_type,
+        "save_dc": prepared.spell_save_dc if prepared.save_type else None,
+        "is_cantrip": prepared.is_cantrip,
+        "is_aoe": prepared.is_aoe,
+        "is_concentration": prepared.is_concentration,
+        "target_count": len(prepared.targets),
+        "spell_attack_required": prepared.spell_attack_required,
+        "attack_roll": prepared.attack_roll_result,
+        "hit": prepared.attack_roll_result.get("hit") if prepared.attack_roll_result else None,
+        "is_crit": prepared.attack_roll_result.get("is_crit") if prepared.attack_roll_result else None,
+    }
+    if prepared.pending_spell.get("aoe_center") is not None:
+        spell_prepare_result["aoe_center"] = prepared.pending_spell["aoe_center"]
+    target_names = ", ".join(
+        str(target.get("name"))
+        for target in prepared.targets
+        if isinstance(target, dict) and target.get("name")
+    )
+    narration = (
+        f"{caster.name} prepares {req.spell_name} toward {target_names}."
+        if target_names
+        else f"{caster.name} prepares {req.spell_name}."
+    )
+
+    db.add(GameLog(
+        session_id=session_id,
+        role="player" if caster.is_player else f"companion_{caster.name}",
+        content=narration,
+        log_type="combat",
+        dice_result=spell_prepare_result,
+    ))
     await db.commit()
 
     await _broadcast_combat(
@@ -101,12 +143,17 @@ async def spell_roll(
         CombatUpdate(
             actor_id=str(req.caster_id),
             actor_name=caster.name,
+            narration=narration,
             action="spell_roll",
+            dice_result=spell_prepare_result,
+            special_action=spell_prepare_result,
         ),
         db=db,
     )
 
     return {
+        "action": "spell_roll",
+        "narration": narration,
         "spell_name": req.spell_name,
         "spell_level": req.spell_level,
         "spell_type": spell["type"],
@@ -124,6 +171,8 @@ async def spell_roll(
         "attack_roll": prepared.attack_roll_result,
         "hit": prepared.attack_roll_result.get("hit") if prepared.attack_roll_result else None,
         "is_crit": prepared.attack_roll_result.get("is_crit") if prepared.attack_roll_result else None,
+        "dice_result": spell_prepare_result,
+        "special_action": spell_prepare_result,
     }
 
 
@@ -218,6 +267,36 @@ async def spell_confirm(
     for wild_magic_log in confirmed.wild_magic_logs:
         db.add(wild_magic_log)
 
+    response_dice_result = dict(confirmed.log_dice_result or {})
+    response_dice_result.setdefault("total", confirmed.damage or confirmed.heal or 0)
+
+    response_payload = {
+        "narration": response_narration,
+        "damage": confirmed.damage,
+        "heal": confirmed.heal,
+        "target_id": confirmed.target_id,
+        "target_new_hp": confirmed.target_new_hp,
+        "target_state": confirmed.target_state,
+        "actor_state": confirmed.caster_state,
+        "caster_state": confirmed.caster_state,
+        "aoe_results": confirmed.aoe_results,
+        "resurrection_results": confirmed.resurrection_results,
+        "concentration_effect_updates": confirmed.concentration_effect_updates,
+        "remaining_slots": confirmed.remaining_slots,
+        "dice_detail": confirmed.dice_detail,
+        "dice_result": response_dice_result,
+        "log_dice_result": response_dice_result,
+        "turn_state": confirmed.turn_state,
+        "is_concentration": confirmed.is_concentration,
+        "is_aoe": confirmed.is_aoe,
+        "concentration_check": confirmed.concentration_check,
+        "concentration_checks": confirmed.concentration_checks,
+        "combat_over": confirmed.combat_over,
+        "outcome": confirmed.outcome,
+        "wild_magic_surge": confirmed.wild_magic_surge,
+        "wild_magic_check": confirmed.wild_magic_check,
+    }
+
     await db.commit()
     await _broadcast_combat(
         session,
@@ -230,30 +309,24 @@ async def spell_confirm(
             target_id=confirmed.target_id,
             target_new_hp=confirmed.target_new_hp,
             target_state=confirmed.target_state,
+            actor_state=confirmed.caster_state,
+            caster_state=confirmed.caster_state,
+            concentration_effect_updates=confirmed.concentration_effect_updates,
             resurrection_results=confirmed.resurrection_results,
+            damage=confirmed.damage,
+            heal=confirmed.heal,
+            dice_result=response_dice_result,
+            spell_result=response_dice_result,
+            aoe_results=confirmed.aoe_results,
+            remaining_slots=confirmed.remaining_slots,
+            concentration_check=confirmed.concentration_check,
+            concentration_checks=confirmed.concentration_checks,
+            wild_magic_surge=confirmed.wild_magic_surge,
+            wild_magic_check=confirmed.wild_magic_check,
             combat_over=confirmed.combat_over,
             outcome=confirmed.outcome,
         ),
         db=db,
     )
 
-    return {
-        "narration": response_narration,
-        "damage": confirmed.damage,
-        "heal": confirmed.heal,
-        "target_id": confirmed.target_id,
-        "target_new_hp": confirmed.target_new_hp,
-        "target_state": confirmed.target_state,
-        "aoe_results": confirmed.aoe_results,
-        "resurrection_results": confirmed.resurrection_results,
-        "remaining_slots": confirmed.remaining_slots,
-        "dice_detail": confirmed.dice_detail,
-        "dice_result": {"total": confirmed.damage or confirmed.heal or 0},
-        "turn_state": confirmed.turn_state,
-        "is_concentration": confirmed.is_concentration,
-        "is_aoe": confirmed.is_aoe,
-        "combat_over": confirmed.combat_over,
-        "outcome": confirmed.outcome,
-        "wild_magic_surge": confirmed.wild_magic_surge,
-        "wild_magic_check": confirmed.wild_magic_check,
-    }
+    return response_payload
