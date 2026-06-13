@@ -134,6 +134,25 @@ function eligibleLeveledSpellNames(spells = [], maxSpellLevel = 9) {
     .map(getSpellName))
 }
 
+function subclassSpellDetailsForLevel(options = {}, subclass = '', level = 1) {
+  const subclassKey = (subclass || '').trim()
+  if (!subclassKey) return []
+  const spellDetails = options?.subclass_bonus_spell_details?.[subclassKey]
+  if (!spellDetails) return []
+
+  if (Array.isArray(spellDetails)) return spellDetails
+
+  return Object.entries(spellDetails || {})
+    .filter(([threshold]) => Number(threshold) <= level)
+    .flatMap(([, spells]) => spells || [])
+}
+
+function classAndSubclassSpellDetails(character, options = {}, classKey, nextLevel) {
+  const classSpells = options?.class_spell_details?.[classKey] || options?.class_spells?.[classKey] || []
+  const subclassSpells = subclassSpellDetailsForLevel(options, character?.subclass, nextLevel)
+  return [...classSpells, ...subclassSpells]
+}
+
 function asiLevelsForClass(classKey, options = {}) {
   if (classKey === 'Fighter') return options?.asi_levels_fighter || ASI_LEVELS_FIGHTER
   if (classKey === 'Rogue') return options?.asi_levels_rogue || ASI_LEVELS_ROGUE
@@ -304,7 +323,7 @@ export function buildLevelUpSpellChoicePlan(character, options = {}) {
   const preparationType = options?.spell_preparation_type?.[classKey] || character?.preparation_type || ''
   const knownSpells = character?.known_spells || []
   const cantrips = character?.cantrips || []
-  const classSpells = options?.class_spell_details?.[classKey] || options?.class_spells?.[classKey] || []
+  const classSpells = classAndSubclassSpellDetails(character, options, classKey, nextLevel)
   const classCantrips = options?.class_cantrips?.[classKey] || []
   const nextSpellSlotsMax = options?.spell_slots_by_class_level?.[classKey]?.[nextLevel]
     || character?.next_level_spell_slots_max

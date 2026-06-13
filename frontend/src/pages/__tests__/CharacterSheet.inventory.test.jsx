@@ -307,6 +307,76 @@ describe('CharacterSheet inventory integration', () => {
     cleanup()
   })
 
+  it('submits subclass expanded spell choices during level up', async () => {
+    const warlock = {
+      ...characterFixture,
+      name: 'Fiend Warlock',
+      char_class: 'Warlock',
+      subclass: 'Fiend',
+      level: 2,
+      known_spells: ['Hellish Rebuke', 'Hex', 'Armor of Agathys'],
+      prepared_spells: ['Hellish Rebuke', 'Hex', 'Armor of Agathys'],
+      cantrips: ['Eldritch Blast'],
+      derived: {
+        ...characterFixture.derived,
+        spell_slots_max: { '1st': 2 },
+      },
+      spell_slots: { '1st': 1 },
+    }
+    charactersGetMock.mockResolvedValue(warlock)
+    charactersOptionsMock.mockResolvedValue({
+      spell_preparation_type: { Warlock: 'known' },
+      class_spell_details: {
+        Warlock: [
+          { name: 'Hellish Rebuke', level: 1 },
+          { name: 'Hex', level: 1 },
+          { name: 'Armor of Agathys', level: 1 },
+        ],
+      },
+      subclass_bonus_spell_details: {
+        Fiend: {
+          1: [
+            { name: 'Burning Hands', level: 1 },
+            { name: 'Command', level: 1 },
+          ],
+        },
+      },
+      class_cantrips: { Warlock: ['Eldritch Blast'] },
+    })
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...warlock,
+        level: 3,
+        known_spells: [...warlock.known_spells, 'Command'],
+        prepared_spells: [...warlock.known_spells, 'Command'],
+      },
+      level_up_details: {
+        learned_spells: ['Command'],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Fiend Warlock')
+    fireEvent.click(screen.getByLabelText('Learn Command'))
+    fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        learned_spells: ['Command'],
+      })
+    })
+
+    cleanup()
+  })
+
   it('submits ability score increases during level up', async () => {
     const fighter = {
       ...characterFixture,

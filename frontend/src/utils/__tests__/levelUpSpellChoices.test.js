@@ -99,6 +99,43 @@ describe('buildLevelUpSpellChoicePlan', () => {
     expect(increasingLevel.spellCapacity).toBe(1)
     expect(increasingLevel.spellOptions).toEqual(['Shield'])
   })
+
+  it('merges subclass expanded spell details into known-caster level-up options', () => {
+    const plan = buildLevelUpSpellChoicePlan({
+      char_class: 'Warlock',
+      subclass: 'Fiend',
+      level: 2,
+      known_spells: ['Hellish Rebuke', 'Hex', 'Armor of Agathys'],
+      cantrips: ['Eldritch Blast'],
+    }, {
+      spell_preparation_type: { Warlock: 'known' },
+      class_spell_details: {
+        Warlock: [
+          { name: 'Hellish Rebuke', level: 1 },
+          { name: 'Hex', level: 1 },
+          { name: 'Armor of Agathys', level: 1 },
+        ],
+      },
+      subclass_bonus_spell_details: {
+        Fiend: {
+          1: [
+            { name: 'Burning Hands', level: 1 },
+            { name: 'Command', level: 1 },
+          ],
+          3: [
+            { name: 'Scorching Ray', level: 2 },
+          ],
+        },
+      },
+      class_cantrips: { Warlock: ['Eldritch Blast'] },
+    })
+
+    expect(plan.nextLevel).toBe(3)
+    expect(plan.spellCapacity).toBe(1)
+    expect(plan.maxSpellLevel).toBe(2)
+    expect(plan.spellOptions).toEqual(['Burning Hands', 'Command', 'Scorching Ray'])
+    expect(plan.replacementNewOptions).toEqual(['Burning Hands', 'Command', 'Scorching Ray'])
+  })
 })
 
 describe('level-up martial and identity choice plans', () => {
