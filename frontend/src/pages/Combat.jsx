@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { gameApi } from '../api/client'
 import { useGameStore } from '../store/gameStore'
 import { useUser } from '../hooks/useUser'
 import { useCombatLog } from '../hooks/useCombatLog'
@@ -18,6 +19,11 @@ import CombatHud from '../components/combat/CombatHud'
 import CombatOverlays from '../components/combat/CombatOverlays'
 import { COMBAT_GRID, ignoreOptionalEffect } from '../utils/combatPage'
 import { buildCombatTacticalContext } from '../utils/combatTacticalContext'
+import {
+  formatThrownRecoverySummary,
+  getRecoverableThrownWeapons,
+  mergeThrownRecoveryResultIntoSession,
+} from '../utils/thrownRecovery'
 
 export default function Combat() {
   const { sessionId } = useParams()
@@ -50,6 +56,7 @@ export default function Combat() {
   const {
     logs,
     logsEndRef,
+    addLog,
   } = log
   const runtime = useCombatRuntime({
     sessionId,
@@ -66,6 +73,7 @@ export default function Combat() {
   })
   const {
     session,
+    setSession,
     playerClass,
     playerSubclass,
     playerLevel,
@@ -131,6 +139,14 @@ export default function Combat() {
     [combat, entities],
   )
   const [delayAfterEntityId, setDelayAfterEntityId] = useState('')
+  const recoveryCharacterId = effectivePlayerId || playerId
+  const [isRecoveringThrownWeapons, setIsRecoveringThrownWeapons] = useState(false)
+  const [lastRecoveredThrownWeapons, setLastRecoveredThrownWeapons] = useState([])
+  const [thrownRecoveryError, setThrownRecoveryError] = useState('')
+  const recoverableThrownWeapons = useMemo(
+    () => getRecoverableThrownWeapons(session, recoveryCharacterId),
+    [session, recoveryCharacterId],
+  )
 
   useEffect(() => {
     if (!delayAfterEntityId) return
@@ -138,6 +154,55 @@ export default function Combat() {
       setDelayAfterEntityId('')
     }
   }, [delayAfterEntityId, delayTurnOptions])
+
+  useEffect(() => {
+    if (!combatOver) {
+      setLastRecoveredThrownWeapons([])
+      setThrownRecoveryError('')
+      return undefined
+    }
+    let cancelled = false
+    gameApi.getSession(sessionId)
+      .then(data => {
+        if (!cancelled) setSession(data)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [combatOver, sessionId, setSession])
+
+  const handleRecoverThrownWeapons = useCallback(async () => {
+    if (!recoveryCharacterId || isRecoveringThrownWeapons) return
+    setIsRecoveringThrownWeapons(true)
+    setThrownRecoveryError('')
+    try {
+      const result = await gameApi.recoverThrownWeapons(sessionId, recoveryCharacterId)
+      setSession(prev => mergeThrownRecoveryResultIntoSession(prev, result))
+      const recovered = result?.recovered || []
+      setLastRecoveredThrownWeapons(recovered)
+      const summary = formatThrownRecoverySummary(recovered)
+      if (summary) {
+        addLog({
+          role: 'system',
+          content: `回收投掷武器：${summary}`,
+          log_type: 'system',
+          dice_result: result,
+        })
+      }
+    } catch (e) {
+      setThrownRecoveryError(e.message || '回收失败')
+    } finally {
+      setIsRecoveringThrownWeapons(false)
+    }
+  }, [
+    addLog,
+    isRecoveringThrownWeapons,
+    recoveryCharacterId,
+    sessionId,
+    setSession,
+  ])
+
   const {
     onSkillClick,
     handleMoveTo,
@@ -263,6 +328,10 @@ export default function Combat() {
         inspectBusy={isProcessing}
         floats={floats}
         combatOver={combatOver}
+        recoverableThrownWeapons={recoverableThrownWeapons}
+        recoveredThrownWeapons={lastRecoveredThrownWeapons}
+        isRecoveringThrownWeapons={isRecoveringThrownWeapons}
+        thrownRecoveryError={thrownRecoveryError}
         onSelectTarget={setSelectedTarget}
         onInspectTarget={handleInspectTarget}
         onHelpTarget={handleHelpTarget}
@@ -273,6 +342,7 @@ export default function Combat() {
           setAoeHover(key)
         }}
         onReturn={endCombatAndReturn}
+        onRecoverThrownWeapons={handleRecoverThrownWeapons}
       />
 
       <CombatHud

@@ -31,6 +31,10 @@ export default function CombatStage({
   inspectBusy,
   floats,
   combatOver,
+  recoverableThrownWeapons,
+  recoveredThrownWeapons,
+  isRecoveringThrownWeapons,
+  thrownRecoveryError,
   onSelectTarget,
   onInspectTarget,
   onHelpTarget,
@@ -38,6 +42,7 @@ export default function CombatStage({
   onAoeHover,
   onAoeLockCenter,
   onReturn,
+  onRecoverThrownWeapons,
 }) {
   const stageClassName = tacticalContext?.hasContext ? 'combat-stage has-tactical-context' : 'combat-stage'
 
@@ -100,7 +105,15 @@ export default function CombatStage({
         <span key={f.id} className={`float-text ${f.kind}`} style={{ left: `${f.x}%`, top: `${f.y}%` }}>{f.val}</span>
       ))}
 
-      <CombatOutcomeOverlay combatOver={combatOver} onReturn={onReturn} />
+      <CombatOutcomeOverlay
+        combatOver={combatOver}
+        recoverableThrownWeapons={recoverableThrownWeapons}
+        recoveredThrownWeapons={recoveredThrownWeapons}
+        isRecoveringThrownWeapons={isRecoveringThrownWeapons}
+        recoveryError={thrownRecoveryError}
+        onRecoverThrownWeapons={onRecoverThrownWeapons}
+        onReturn={onReturn}
+      />
     </div>
   )
 }

@@ -171,6 +171,10 @@ export const gameApi = {
       expectedTurnToken ? { expected_turn_token: expectedTurnToken } : undefined,
     ),
   endCombat:    (sessionId) => api.post(`/game/combat/${sessionId}/end`),
+  recoverThrownWeapons: (sessionId, characterId) =>
+    api.post(`/game/combat/${sessionId}/recover-thrown-weapons`, {
+      character_id: characterId,
+    }),
   move:         (sessionId, entityId, toX, toY, expectedTurnToken = null) =>
     api.post(`/game/combat/${sessionId}/move`, {
       entity_id: entityId,
