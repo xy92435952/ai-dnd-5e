@@ -4,6 +4,63 @@ from services.dnd_rules import calc_derived
 from services import character_leveling_service
 
 
+BASE_SCORES = {"str": 16, "dex": 14, "con": 14, "int": 12, "wis": 12, "cha": 14}
+
+
+def _advance_character_levels(
+    *,
+    char_class,
+    target_level,
+    subclass_choice=None,
+    fighting_style_choice=None,
+    initial_fighting_style=None,
+):
+    level = 1
+    subclass = None
+    fighting_style = initial_fighting_style
+    derived = calc_derived(
+        char_class,
+        level,
+        BASE_SCORES,
+        subclass,
+        fighting_style=fighting_style,
+        race="Human",
+    )
+    hp_current = derived["hp_max"]
+    spell_slots = dict(derived.get("spell_slots_max", {}))
+    class_resources = {}
+
+    while level < target_level:
+        payload = {
+            "char_class": char_class,
+            "level": level,
+            "ability_scores": BASE_SCORES,
+            "derived": derived,
+            "hp_current": hp_current,
+            "spell_slots": spell_slots,
+            "use_average_hp": True,
+            "subclass": subclass,
+            "fighting_style": fighting_style,
+            "class_resources": class_resources,
+            "race": "Human",
+        }
+        if subclass_choice and level + 1 == target_level:
+            payload["subclass_choice"] = subclass_choice
+        if fighting_style_choice and not fighting_style:
+            payload["fighting_style_choice"] = fighting_style_choice
+
+        update = character_leveling_service.build_level_up_update(**payload)
+        level = update["new_level"]
+        subclass = update["subclass"]
+        fighting_style = update["fighting_style"]
+        derived = update["derived"]
+        hp_current = update["hp_current"]
+        spell_slots = update["spell_slots"]
+        class_resources = update["class_resources"]
+
+    return update
+
+
 def test_build_level_up_update_adds_new_spell_slots_without_refilling_spent_slots():
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")
@@ -200,6 +257,82 @@ def test_build_level_up_update_applies_fighting_style_choice_at_unlock():
 
     assert update["new_level"] == 2
     assert update["fighting_style"] == "Defense"
+
+
+@pytest.mark.parametrize(
+    ("char_class", "target_level", "subclass_choice", "fighting_style_choice", "initial_style"),
+    [
+        ("Barbarian", 3, "Berserker", None, None),
+        ("Bard", 3, "Lore", None, None),
+        ("Druid", 2, "Moon", None, None),
+        ("Fighter", 3, "Champion", None, "Defense"),
+        ("Monk", 3, "Open Hand", None, None),
+        ("Paladin", 3, "Devotion", "Defense", None),
+        ("Ranger", 3, "Hunter", "Archery", None),
+        ("Rogue", 3, "Thief", None, None),
+        ("Wizard", 2, "Evocation", None, None),
+    ],
+)
+def test_supported_classes_progress_through_subclass_unlock_with_required_choices(
+    char_class,
+    target_level,
+    subclass_choice,
+    fighting_style_choice,
+    initial_style,
+):
+    update = _advance_character_levels(
+        char_class=char_class,
+        target_level=target_level,
+        subclass_choice=subclass_choice,
+        fighting_style_choice=fighting_style_choice,
+        initial_fighting_style=initial_style,
+    )
+
+    assert update["new_level"] == target_level
+    assert update["subclass"] == subclass_choice
+    if fighting_style_choice:
+        assert update["fighting_style"] == fighting_style_choice
+    if initial_style:
+        assert update["fighting_style"] == initial_style
+
+
+def test_build_level_up_update_adds_tracked_battle_master_maneuvers_at_later_threshold():
+    ability_scores = {"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        6,
+        ability_scores,
+        "Battle Master",
+        race="Human",
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=6,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Battle Master",
+        class_resources={
+            "superiority_dice_remaining": 1,
+            "maneuvers_known": ["precision", "trip", "disarm"],
+        },
+        maneuver_choices=["riposte", "menacing"],
+        race="Human",
+    )
+
+    assert update["new_level"] == 7
+    assert update["class_resources"]["maneuvers_known"] == [
+        "precision",
+        "trip",
+        "disarm",
+        "riposte",
+        "menacing",
+    ]
+    assert update["maneuver_choices"] == ["riposte", "menacing"]
+    assert update["class_resources"]["superiority_dice_remaining"] == 2
 
 
 def test_build_level_up_update_rejects_subclass_choice_before_unlock():
