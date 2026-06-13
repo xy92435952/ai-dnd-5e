@@ -104,6 +104,10 @@ export interface DMThinkingStart {
   type: 'dm_thinking_start'
   by_user_id: string
   action_text: string
+  redacted?: boolean
+  visibility?: 'other_group' | string
+  group_id?: string | null
+  started_at?: string
 }
 
 export interface DMResponded {
@@ -149,6 +153,82 @@ export interface CombatUpdate {
   type: 'combat_update'
   combat: unknown | null
   current_entity_id: string | null
+  combat_over?: boolean | null
+  outcome?: string | null
+  actor_id?: string | null
+  actor_name?: string | null
+  narration?: string | null
+  action?: string | null
+  reaction_type?: string | null
+  reaction_effect?: Record<string, unknown> | null
+  next_turn_index?: number | null
+  round_number?: number | null
+  target_id?: string | null
+  target_name?: string | null
+  target_new_hp?: number | null
+  target_state?: Record<string, unknown> | null
+  condition?: string | null
+  condition_action?: string | null
+  condition_result?: Record<string, unknown> | null
+  inspect_result?: Record<string, unknown> | null
+  actor_state?: Record<string, unknown> | null
+  caster_state?: Record<string, unknown> | null
+  entity_positions?: Record<string, unknown> | null
+  player_targeted?: boolean
+  attack_result?: Record<string, unknown> | null
+  damage?: number | null
+  heal?: number | null
+  total_damage?: number | null
+  damage_roll?: Record<string, unknown> | null
+  damage_type?: string | null
+  damage_before_resistance?: number | null
+  damage_after_resistance?: number | null
+  resistance_applied?: boolean | null
+  resistance_sources?: string[]
+  crit_extra?: number | null
+  sneak_attack?: boolean | null
+  sneak_attack_damage?: number | null
+  extra_damage_notes?: string[]
+  defender_interception?: Record<string, unknown> | null
+  weapon_resource?: Record<string, unknown> | null
+  weapon_resources?: Record<string, unknown>[]
+  enemy_action?: Record<string, unknown> | null
+  enemy_actions?: Record<string, unknown>[]
+  tactical_decision?: Record<string, unknown> | null
+  dice_result?: Record<string, unknown> | null
+  spell_result?: Record<string, unknown> | null
+  special_action?: Record<string, unknown> | null
+  ready_action?: Record<string, unknown> | null
+  save?: Record<string, unknown> | null
+  target_results?: Record<string, unknown>[]
+  aoe_results?: Record<string, unknown>[]
+  resurrection_results?: Record<string, unknown>[]
+  concentration_effect_updates?: Record<string, unknown>[]
+  concentration_started?: boolean | null
+  concentration_ended?: boolean | null
+  ready_action_failed?: Record<string, unknown> | null
+  remaining_slots?: Record<string, unknown> | null
+  dc_source?: Record<string, unknown> | null
+  concentration_check?: Record<string, unknown> | null
+  concentration_checks?: Record<string, unknown>[]
+  wild_magic_surge?: Record<string, unknown> | null
+  wild_magic_check?: Record<string, unknown> | null
+  skirmisher_reposition?: Record<string, unknown> | null
+  confusion_turn?: Record<string, unknown> | null
+  player_can_react?: boolean
+  reaction_prompt?: Record<string, unknown> | null
+  lair_action_prompt?: Record<string, unknown> | null
+  legendary_action_prompt?: Record<string, unknown> | null
+  lair_action?: Record<string, unknown> | null
+  legendary_action?: Record<string, unknown> | null
+  ready_action_results?: Record<string, unknown>[]
+  opportunity_attacks?: Record<string, unknown>[]
+  expired_ready_action?: Record<string, unknown> | null
+  ready_action_expired_log?: string | null
+  confusion_end_save?: Record<string, unknown> | null
+  condition_end_saves?: Record<string, unknown>[]
+  turn_start_hazard?: Record<string, unknown> | null
+  turn_start_hazard_log?: string | null
 }
 
 export interface TurnChanged {
@@ -157,6 +237,10 @@ export interface TurnChanged {
   current_entity_id: string | null
   round_number: number
   next_turn_index: number
+  lair_action_prompt?: Record<string, unknown> | null
+  legendary_action_prompt?: Record<string, unknown> | null
+  turn_order_delayed?: boolean
+  delayed_turn?: Record<string, unknown> | null
 }
 
 export interface EntityMoved {
@@ -165,6 +249,11 @@ export interface EntityMoved {
   current_entity_id: string | null
   entity_id: string
   position: { x: number; y: number }
+  combat_over?: boolean | null
+  outcome?: string | null
+  ready_action_results?: Record<string, unknown>[]
+  opportunity_attacks?: Record<string, unknown>[]
+  hazard_result?: Record<string, unknown> | null
 }
 
 // ─── 判别联合（tagged union） ────────────────────────────

@@ -111,6 +111,10 @@ class DMThinkingStart(_BaseEvent):
     """其他玩家提交行动，调 LLM 前广播一次，让所有人看到"DM 思考中"动画。"""
     type: Literal["dm_thinking_start"] = "dm_thinking_start"
     by_user_id: str
+    redacted: bool = False
+    visibility: Optional[str] = None
+    group_id: Optional[str] = None
+    started_at: Optional[str] = None
     action_text: str        # 简短预览（<= 80 字符）
 
 
@@ -152,6 +156,82 @@ class CombatUpdate(_BaseEvent):
     type: Literal["combat_update"] = "combat_update"
     combat: Optional[dict] = None              # serialize_combat() 的完整快照
     current_entity_id: Optional[str] = None    # 当前回合归属（前端判 owner 用）
+    combat_over: Optional[bool] = None
+    outcome: Optional[str] = None
+    actor_id: Optional[str] = None
+    actor_name: Optional[str] = None
+    narration: Optional[str] = None
+    action: Optional[str] = None
+    reaction_type: Optional[str] = None
+    reaction_effect: Optional[dict[str, Any]] = None
+    next_turn_index: Optional[int] = None
+    round_number: Optional[int] = None
+    target_id: Optional[str] = None
+    target_name: Optional[str] = None
+    target_new_hp: Optional[int] = None
+    target_state: Optional[dict[str, Any]] = None
+    condition: Optional[str] = None
+    condition_action: Optional[str] = None
+    condition_result: Optional[dict[str, Any]] = None
+    inspect_result: Optional[dict[str, Any]] = None
+    actor_state: Optional[dict[str, Any]] = None
+    caster_state: Optional[dict[str, Any]] = None
+    entity_positions: Optional[dict[str, Any]] = None
+    player_targeted: bool = False
+    attack_result: Optional[dict[str, Any]] = None
+    damage: Optional[int] = None
+    heal: Optional[int] = None
+    total_damage: Optional[int] = None
+    damage_roll: Optional[dict[str, Any]] = None
+    damage_type: Optional[str] = None
+    damage_before_resistance: Optional[int] = None
+    damage_after_resistance: Optional[int] = None
+    resistance_applied: Optional[bool] = None
+    resistance_sources: list[str] = Field(default_factory=list)
+    crit_extra: Optional[int] = None
+    sneak_attack: Optional[bool] = None
+    sneak_attack_damage: Optional[int] = None
+    extra_damage_notes: list[str] = Field(default_factory=list)
+    defender_interception: Optional[dict[str, Any]] = None
+    weapon_resource: Optional[dict[str, Any]] = None
+    weapon_resources: list[dict[str, Any]] = Field(default_factory=list)
+    enemy_action: Optional[dict[str, Any]] = None
+    enemy_actions: list[dict[str, Any]] = Field(default_factory=list)
+    tactical_decision: Optional[dict[str, Any]] = None
+    dice_result: Optional[dict[str, Any]] = None
+    spell_result: Optional[dict[str, Any]] = None
+    special_action: Optional[dict[str, Any]] = None
+    ready_action: Optional[dict[str, Any]] = None
+    save: Optional[dict[str, Any]] = None
+    target_results: list[dict[str, Any]] = Field(default_factory=list)
+    aoe_results: list[dict[str, Any]] = Field(default_factory=list)
+    resurrection_results: list[dict[str, Any]] = Field(default_factory=list)
+    concentration_effect_updates: list[dict[str, Any]] = Field(default_factory=list)
+    concentration_started: Optional[bool] = None
+    concentration_ended: Optional[bool] = None
+    ready_action_failed: Optional[dict[str, Any]] = None
+    remaining_slots: Optional[dict[str, Any]] = None
+    dc_source: Optional[dict[str, Any]] = None
+    concentration_check: Optional[dict[str, Any]] = None
+    concentration_checks: list[dict[str, Any]] = Field(default_factory=list)
+    wild_magic_surge: Optional[dict[str, Any]] = None
+    wild_magic_check: Optional[dict[str, Any]] = None
+    skirmisher_reposition: Optional[dict[str, Any]] = None
+    confusion_turn: Optional[dict[str, Any]] = None
+    player_can_react: bool = False
+    reaction_prompt: Optional[dict[str, Any]] = None
+    lair_action_prompt: Optional[dict[str, Any]] = None
+    legendary_action_prompt: Optional[dict[str, Any]] = None
+    lair_action: Optional[dict[str, Any]] = None
+    legendary_action: Optional[dict[str, Any]] = None
+    ready_action_results: list[dict[str, Any]] = Field(default_factory=list)
+    opportunity_attacks: list[dict[str, Any]] = Field(default_factory=list)
+    expired_ready_action: Optional[dict[str, Any]] = None
+    ready_action_expired_log: Optional[str] = None
+    confusion_end_save: Optional[dict[str, Any]] = None
+    condition_end_saves: list[dict[str, Any]] = Field(default_factory=list)
+    turn_start_hazard: Optional[dict[str, Any]] = None
+    turn_start_hazard_log: Optional[str] = None
 
 
 class TurnChanged(_BaseEvent):
@@ -161,6 +241,10 @@ class TurnChanged(_BaseEvent):
     current_entity_id: Optional[str] = None
     round_number: int
     next_turn_index: int
+    lair_action_prompt: Optional[dict[str, Any]] = None
+    legendary_action_prompt: Optional[dict[str, Any]] = None
+    turn_order_delayed: bool = False
+    delayed_turn: Optional[dict[str, Any]] = None
 
 
 class EntityMoved(_BaseEvent):
@@ -170,6 +254,11 @@ class EntityMoved(_BaseEvent):
     current_entity_id: Optional[str] = None
     entity_id: str
     position: dict             # {"x": int, "y": int}
+    combat_over: Optional[bool] = None
+    outcome: Optional[str] = None
+    ready_action_results: list[dict[str, Any]] = Field(default_factory=list)
+    opportunity_attacks: list[dict[str, Any]] = Field(default_factory=list)
+    hazard_result: Optional[dict[str, Any]] = None
 
 
 # ─── 判别联合类型（discriminator = "type"） ─────────────────────

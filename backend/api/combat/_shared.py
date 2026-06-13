@@ -6,9 +6,10 @@ api.combat._shared — 战斗模块的共享常量 / 单例 / 辅助函数。
 import asyncio
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Character, Session, CombatState
+from models import Character, Session, CombatState, SessionMember
 from api.deps import entity_snapshot, serialize_combat, broadcast_to_session
 from services.combat_service import CombatService
 from services.combat_concentration_service import do_concentration_check as _do_concentration_check
@@ -38,6 +39,10 @@ from services.combat_turn_limits_service import (
 )
 from services.enemy_inspect_service import build_enemy_inspect_snapshot
 from services.character_roster import CharacterRoster
+from services.combat_ai_control_service import (
+    ai_combat_driver_user_id,
+    user_can_drive_ai_combat,
+)
 
 svc = CombatService()
 _TURN_ADVANCE_LOCKS: dict[str, asyncio.Lock] = {}
@@ -142,7 +147,10 @@ async def _build_combat_snapshot(
     return {
         **serialize_combat(combat),
         "entities": entities,
-        "turn_states": combat.turn_states or {},
+        "turn_states": _project_turn_states_for_viewer(
+            combat.turn_states or {},
+            viewer_character_id=viewer_character_id,
+        ),
     }
 
 
@@ -173,7 +181,7 @@ async def _broadcast_combat(
 
     # 自动注入通用字段
     if combat is not None:
-        if payload.get("combat") is None:
+        if payload.get("combat") is None and db is None:
             payload["combat"] = (
                 await _build_combat_snapshot(db, session, combat)
                 if db is not None
@@ -186,5 +194,357 @@ async def _broadcast_combat(
             except (IndexError, AttributeError):
                 pass
 
+    await _send_combat_payload(session, combat, payload, db)
+
+
+async def _send_combat_payload(
+    session: Session,
+    combat: CombatState | None,
+    payload: dict,
+    db: AsyncSession | None,
+) -> None:
+    payload = _inject_current_entity_id(payload, combat)
+    if combat is not None and db is not None:
+        from services.ws_manager import ws_manager
+
+        viewer_character_ids = await _viewer_character_ids_by_user(db, session)
+        driver_user_id = (
+            await _ai_combat_driver_user_id(db, session)
+            if _payload_has_ai_control_prompt(payload)
+            else None
+        )
+        for viewer_user_id in await ws_manager.online_users(session.id):
+            viewer_character_id = viewer_character_ids.get(str(viewer_user_id))
+            viewer_payload = {
+                **payload,
+                "combat": await _build_combat_snapshot(
+                    db,
+                    session,
+                    combat,
+                    viewer_character_id=viewer_character_id,
+                ),
+            }
+            viewer_payload = _project_combat_event_for_viewer(
+                viewer_payload,
+                viewer_character_id=viewer_character_id,
+                viewer_can_drive_ai_combat=(
+                    driver_user_id is not None
+                    and str(driver_user_id) == str(viewer_user_id)
+                ),
+            )
+            await ws_manager.send_to_user(session.id, viewer_user_id, viewer_payload)
+        return
     await broadcast_to_session(session, payload)
+
+
+def _project_turn_states_for_viewer(
+    turn_states: dict,
+    *,
+    viewer_character_id: str | None,
+) -> dict:
+    private_keys = {
+        "pending_attack",
+        "pending_spell",
+        "pending_smite",
+        "pending_attack_reaction",
+        "pending_spell_reaction",
+        "resume_spell_reaction",
+    }
+    projected: dict = {}
+    for entity_id, state in dict(turn_states or {}).items():
+        if not isinstance(state, dict):
+            projected[entity_id] = state
+            continue
+        if viewer_character_id is not None and str(entity_id) == str(viewer_character_id):
+            projected[entity_id] = state
+            continue
+        public_state = {
+            key: value
+            for key, value in state.items()
+            if key not in private_keys
+        }
+        for key in ("ready_action", "ready_action_expired", "ready_action_failed"):
+            if key in public_state:
+                public_state[key] = _redacted_ready_action_payload(public_state.get(key), key)
+        projected[entity_id] = public_state
+    return projected
+
+
+def _redacted_ready_action_payload(value, kind: str) -> dict:
+    if not isinstance(value, dict):
+        return {
+            "type": kind,
+            "redacted": True,
+            "visibility": "other_character",
+        }
+    return {
+        "type": value.get("type") or kind,
+        "redacted": True,
+        "visibility": "other_character",
+        "actor_id": value.get("actor_id"),
+        "actor_name": value.get("actor_name"),
+    }
+
+
+def _inject_current_entity_id(payload: dict, combat: CombatState | None) -> dict:
+    if combat is None or payload.get("current_entity_id") is not None or not combat.turn_order:
+        return payload
+    try:
+        cur = combat.turn_order[combat.current_turn_index or 0]
+        if isinstance(cur, dict):
+            payload["current_entity_id"] = cur.get("character_id")
+    except (IndexError, AttributeError):
+        pass
+    return payload
+
+
+def _project_combat_event_for_viewer(
+    payload: dict,
+    *,
+    viewer_character_id: str | None,
+    viewer_can_drive_ai_combat: bool = True,
+) -> dict:
+    projected = payload
+    prompt = payload.get("reaction_prompt")
+    if prompt:
+        reactor_character_id = prompt.get("reactor_character_id") if isinstance(prompt, dict) else None
+        if reactor_character_id and not _viewer_matches_character(viewer_character_id, reactor_character_id):
+            projected = dict(projected)
+            projected["reaction_prompt"] = None
+            projected["player_can_react"] = False
+
+    actor_id = projected.get("actor_id")
+    if projected.get("action") == "ready_action" and not _viewer_matches_character(viewer_character_id, actor_id):
+        projected = dict(projected)
+        actor_name = projected.get("actor_name") or "A combatant"
+        projected["narration"] = f"{actor_name} readies an action."
+        projected["ready_action"] = _redacted_ready_action_payload(
+            projected.get("ready_action"),
+            "ready_action",
+        )
+        ready_dice = projected.get("dice_result")
+        if isinstance(ready_dice, dict) and ready_dice.get("type") == "ready_action_declared":
+            projected["dice_result"] = {
+                "type": "ready_action_declared",
+                "ready_action": _redacted_ready_action_payload(
+                    ready_dice.get("ready_action"),
+                    "ready_action",
+                ),
+            }
+            projected["special_action"] = projected["dice_result"]
+        elif projected.get("special_action"):
+            projected["special_action"] = None
+        projected["remaining_slots"] = None
+        projected["actor_state"] = None
+        projected["caster_state"] = None
+        projected["concentration_started"] = False
+        projected["concentration_spell_name"] = None
+        projected["concentration_effect_updates"] = []
+
+    expired_ready_action = projected.get("expired_ready_action")
+    if isinstance(expired_ready_action, dict):
+        expired_actor_id = expired_ready_action.get("actor_id")
+        if not _viewer_matches_character(viewer_character_id, expired_actor_id):
+            projected = dict(projected)
+            projected["expired_ready_action"] = _redacted_ready_action_payload(
+                expired_ready_action,
+                "ready_action_expired",
+            )
+            actor_name = expired_ready_action.get("actor_name") or "A combatant"
+            if projected.get("ready_action_expired_log"):
+                projected["ready_action_expired_log"] = f"{actor_name}'s readied action expires."
+
+    ready_action_failed = projected.get("ready_action_failed")
+    if isinstance(ready_action_failed, dict):
+        failed_actor_id = ready_action_failed.get("actor_id") or projected.get("actor_id")
+        if not _viewer_matches_character(viewer_character_id, failed_actor_id):
+            projected = dict(projected)
+            actor_name = ready_action_failed.get("actor_name") or projected.get("actor_name") or "A combatant"
+            projected["narration"] = f"{actor_name} ends concentration."
+            projected["ready_action_failed"] = _redacted_ready_action_payload(
+                ready_action_failed,
+                "ready_action_failed",
+            )
+            projected["concentration_spell_name"] = None
+            projected["actor_state"] = _redact_ready_action_failed_from_state(projected.get("actor_state"))
+            projected["caster_state"] = _redact_ready_action_failed_from_state(projected.get("caster_state"))
+            ready_dice = projected.get("dice_result")
+            if isinstance(ready_dice, dict):
+                projected["dice_result"] = _redact_ready_action_failed_from_dice(ready_dice)
+                projected["special_action"] = projected["dice_result"]
+            elif projected.get("special_action"):
+                projected["special_action"] = None
+
+    target_state = projected.get("target_state")
+    target_ready_action_failed = (
+        target_state.get("ready_action_failed")
+        if isinstance(target_state, dict)
+        else None
+    )
+    if isinstance(target_ready_action_failed, dict):
+        failed_actor_id = (
+            target_ready_action_failed.get("actor_id")
+            or projected.get("target_id")
+            or projected.get("actor_id")
+        )
+        if not _viewer_matches_character(viewer_character_id, failed_actor_id):
+            projected = dict(projected)
+            projected["target_state"] = _redact_ready_action_failed_from_state(target_state)
+            ready_dice = projected.get("dice_result")
+            if isinstance(ready_dice, dict):
+                projected["dice_result"] = _redact_ready_action_failed_from_dice(ready_dice)
+                projected["special_action"] = projected["dice_result"]
+            elif projected.get("special_action"):
+                projected["special_action"] = None
+
+    inspect_payload = projected.get("inspect_result")
+    if (
+        projected.get("action") == "enemy_inspect"
+        and isinstance(inspect_payload, dict)
+        and not _viewer_matches_character(viewer_character_id, inspect_payload.get("actor_id"))
+    ):
+        projected = dict(projected)
+        redacted_inspect = _redact_enemy_inspect_payload(inspect_payload)
+        projected["inspect_result"] = redacted_inspect
+        dice = projected.get("dice_result")
+        if isinstance(dice, dict) and dice.get("type") == "enemy_inspect":
+            projected["dice_result"] = _redact_enemy_inspect_payload(dice)
+        if isinstance(projected.get("special_action"), dict):
+            projected["special_action"] = redacted_inspect
+
+    if not viewer_can_drive_ai_combat and _payload_has_ai_control_prompt(projected):
+        projected = dict(projected)
+        projected["legendary_action_prompt"] = None
+        projected["lair_action_prompt"] = None
+    return projected
+
+
+def _redact_enemy_inspect_payload(value: dict) -> dict:
+    clean = {
+        "type": "enemy_inspect",
+        "redacted": True,
+        "visibility": "other_character",
+    }
+    for key in (
+        "actor_id",
+        "actor_name",
+        "target_id",
+        "target_name",
+        "skill",
+        "dc",
+        "success",
+    ):
+        if key in value:
+            clean[key] = value.get(key)
+    check = value.get("check")
+    if isinstance(check, dict):
+        clean["check"] = dict(check)
+    return clean
+
+
+def _redact_ready_action_failed_from_state(value):
+    if not isinstance(value, dict):
+        return value
+    state = dict(value)
+    if isinstance(state.get("ready_action_failed"), dict):
+        state["ready_action_failed"] = _redacted_ready_action_payload(
+            state["ready_action_failed"],
+            "ready_action_failed",
+        )
+    return state
+
+
+def _redact_ready_action_failed_from_dice(value):
+    dice = dict(value)
+    dice["concentration_spell_name"] = None
+    if isinstance(dice.get("ready_action_failed"), dict):
+        dice["ready_action_failed"] = _redacted_ready_action_payload(
+            dice["ready_action_failed"],
+            "ready_action_failed",
+        )
+    if isinstance(dice.get("actor_state"), dict):
+        dice["actor_state"] = _redact_ready_action_failed_from_state(dice["actor_state"])
+    if isinstance(dice.get("caster_state"), dict):
+        dice["caster_state"] = _redact_ready_action_failed_from_state(dice["caster_state"])
+    if isinstance(dice.get("target_state"), dict):
+        dice["target_state"] = _redact_ready_action_failed_from_state(dice["target_state"])
+    return dice
+
+
+async def _project_ai_control_prompts_for_user(
+    db: AsyncSession,
+    session: Session,
+    user_id: str | None,
+    payload: dict,
+) -> dict:
+    """Hide monster/lair control prompts from non-driver HTTP responses."""
+    if not _payload_has_ai_control_prompt(payload):
+        return payload
+    can_drive = await _user_can_drive_ai_combat(db, session, user_id)
+    if can_drive:
+        return payload
+    projected = dict(payload)
+    projected["legendary_action_prompt"] = None
+    projected["lair_action_prompt"] = None
+    return projected
+
+
+async def _assert_ai_combat_driver(
+    db: AsyncSession,
+    session: Session,
+    user_id: str,
+) -> None:
+    """Require the caller to be the multiplayer AI combat driver."""
+    if await _user_can_drive_ai_combat(db, session, user_id):
+        return
+    raise HTTPException(403, "Only the AI combat driver can control monster or lair actions")
+
+
+async def _user_can_drive_ai_combat(
+    db: AsyncSession,
+    session: Session,
+    user_id: str | None,
+) -> bool:
+    return await user_can_drive_ai_combat(db, session, user_id)
+
+
+async def _ai_combat_driver_user_id(
+    db: AsyncSession,
+    session: Session,
+) -> str | None:
+    """Mirror frontend getAiCombatTurnDriverUserId: online host, then first online/member."""
+    return await ai_combat_driver_user_id(db, session)
+
+
+def _payload_has_ai_control_prompt(payload: dict) -> bool:
+    return (
+        payload.get("legendary_action_prompt") is not None
+        or payload.get("lair_action_prompt") is not None
+    )
+
+
+def _viewer_matches_character(viewer_character_id: str | None, character_id: str | None) -> bool:
+    return (
+        viewer_character_id is not None
+        and character_id is not None
+        and str(viewer_character_id) == str(character_id)
+    )
+
+
+async def _viewer_character_ids_by_user(
+    db: AsyncSession,
+    session: Session,
+) -> dict[str, str | None]:
+    if session.is_multiplayer:
+        result = await db.execute(
+            select(SessionMember.user_id, SessionMember.character_id)
+            .where(SessionMember.session_id == session.id)
+        )
+        return {
+            str(user_id): str(character_id) if character_id else None
+            for user_id, character_id in result.all()
+        }
+    if session.user_id and session.player_character_id:
+        return {str(session.user_id): str(session.player_character_id)}
+    return {}
 

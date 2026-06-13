@@ -49,12 +49,13 @@ from api.combat._shared import (
     _DEFAULT_TS, svc,
     _get_ts, _save_ts, _reset_ts,
     _broadcast_combat, _calc_entity_turn_limits,
+    _project_ai_control_prompts_for_user,
     _chebyshev_dist, _check_attack_range, _ai_move_toward,
     _has_adjacent_enemy, _has_ally_adjacent_to,
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
     _chebyshev, _resolve_opportunity_attacks,
 )
-from api.combat.ai_turn_utils import advance_ai_turn
+from api.combat.ai_turn_utils import advance_ai_turn, build_deferred_lair_action_prompt
 from api.combat.schemas import (
     MoveRequest, ConditionRequest, CombatActionRequest, DeathSaveRequest,
     SmiteRequest, ClassFeatureRequest, ReactionRequest, GrappleShoveRequest,
@@ -180,20 +181,48 @@ async def use_reaction(
     narration = ""
     reaction_effect = {}
     reaction_target_name = ""
+    lair_action_prompt = None
+    legendary_action_prompt = None
 
     if req.reaction_type == "decline":
+        if pending_reaction:
+            lair_action_prompt = await build_deferred_lair_action_prompt(
+                combat,
+                session,
+                db,
+                combat.turn_order or [],
+                pending_reaction.get("deferred_lair_action"),
+            )
+            if lair_action_prompt:
+                legendary_action_prompt = None
         if pending_spell_reaction:
             ts["resume_spell_reaction"] = pending_spell_reaction
             ts.pop("pending_spell_reaction", None)
         ts.pop("pending_attack_reaction", None)
         _save_ts(combat, player_id, ts)
         await db.commit()
-        return {
+        if lair_action_prompt:
+            await _broadcast_combat(
+                session,
+                combat,
+                CombatUpdate(
+                    actor_id=str(player_id),
+                    actor_name=player.name,
+                    reaction_type=req.reaction_type,
+                    target_id=req.target_id,
+                    lair_action_prompt=lair_action_prompt,
+                    legendary_action_prompt=legendary_action_prompt,
+                ),
+                db=db,
+            )
+        return await _project_ai_control_prompts_for_user(db, session, user_id, {
             "action": "reaction_declined",
             "reaction_type": req.reaction_type,
             "narration": "",
             "turn_state": ts,
-        }
+            "lair_action_prompt": lair_action_prompt,
+            "legendary_action_prompt": legendary_action_prompt,
+        })
 
     if req.reaction_type == "shield":
         # Shield spell: AC+5 until next turn, costs 1st level slot
@@ -435,7 +464,9 @@ async def use_reaction(
             turn_order = combat.turn_order or []
             if turn_order:
                 next_index = ((combat.current_turn_index or 0) + 1) % max(len(turn_order), 1)
-                await advance_ai_turn(combat, session, db, turn_order, next_index)
+                advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
+                lair_action_prompt = advance_result.get("lair_action_prompt")
+                legendary_action_prompt = advance_result.get("legendary_action_prompt")
 
         caster_name = pending_spell_reaction.get("caster_name") or "caster"
         spell_name = pending_spell_reaction.get("spell_name") or "spell"
@@ -475,11 +506,30 @@ async def use_reaction(
     if vivid:
         narration = vivid
 
+    if not lair_action_prompt and pending_reaction:
+        lair_action_prompt = await build_deferred_lair_action_prompt(
+            combat,
+            session,
+            db,
+            combat.turn_order or [],
+            pending_reaction.get("deferred_lair_action"),
+        )
+        if lair_action_prompt:
+            legendary_action_prompt = None
+
+    reaction_result = {
+        "type": "reaction",
+        "reaction_type": req.reaction_type,
+        **reaction_effect,
+    }
+
     db.add(GameLog(
         session_id=session_id, role="player",
         content=narration, log_type="combat",
-        dice_result={"type": "reaction", "reaction_type": req.reaction_type, **reaction_effect},
+        dice_result=reaction_result,
     ))
+    target_state = build_character_target_state(player)
+    target_state["target_name"] = player.name
     await db.commit()
     await _broadcast_combat(
         session,
@@ -488,8 +538,18 @@ async def use_reaction(
             actor_id=str(player_id),
             actor_name=player.name,
             narration=narration,
+            action="reaction",
             reaction_type=req.reaction_type,
+            reaction_effect=reaction_effect,
             target_id=req.target_id,
+            target_name=reaction_target_name,
+            target_state=target_state,
+            actor_state=target_state,
+            remaining_slots=player.spell_slots or {},
+            dice_result=reaction_result,
+            special_action=reaction_result,
+            lair_action_prompt=lair_action_prompt,
+            legendary_action_prompt=legendary_action_prompt,
         ),
         db=db,
     )
@@ -499,10 +559,7 @@ async def use_reaction(
     if req.reaction_type == "hellish_rebuke":
         reaction_dice = {"faces": 10, "result": reaction_effect.get("damage_dealt", 0), "label": "地狱斥责 2d10", "count": 2}
 
-    target_state = build_character_target_state(player)
-    target_state["target_name"] = player.name
-
-    return {
+    return await _project_ai_control_prompts_for_user(db, session, user_id, {
         "action": "reaction",
         "reaction_type": req.reaction_type,
         "narration": narration,
@@ -510,8 +567,12 @@ async def use_reaction(
         "reaction_effect": reaction_effect,
         "target_state": target_state,
         "remaining_slots": player.spell_slots or {},
+        "dice_result": reaction_result,
+        "special_action": reaction_result,
         "dice_roll": reaction_dice,
-    }
+        "lair_action_prompt": lair_action_prompt,
+        "legendary_action_prompt": legendary_action_prompt,
+    })
 
 
 # ── 擒抱/推撞 (Grapple/Shove, P1-4) ────────────────────────

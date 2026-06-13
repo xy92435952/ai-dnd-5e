@@ -9,6 +9,9 @@ def test_build_reaction_prompt_surfaces_hp_snapshot_for_ui_preview():
         derived={"ac": 14},
         char_class="Wizard",
         level=3,
+        hp_current=0,
+        death_saves={"failures": 0, "successes": 0, "stable": False},
+        conditions=["unconscious"],
         known_spells=["Shield"],
         prepared_spells=[],
         spell_slots={"1st": 1},
@@ -20,6 +23,7 @@ def test_build_reaction_prompt_surfaces_hp_snapshot_for_ui_preview():
             "target_hp_before_damage": 12,
             "target_temporary_hp_before_damage": 2,
             "target_wild_shape_hp_before_damage": None,
+            "target_conditions_before_damage": [],
             "events": [
                 {
                     "hit": True,

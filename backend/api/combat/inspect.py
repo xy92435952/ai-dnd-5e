@@ -85,33 +85,58 @@ async def inspect_enemy(
 
     outcome = "success" if check.get("success") else "failed"
     target_name = inspected_enemy.get("name", "Enemy")
-    db.add(GameLog(
-        session_id=session_id,
-        role="system",
-        content=f"[Inspect] {character.name} inspected {target_name}: {check['total']} vs DC {dc} ({outcome})",
-        log_type="dice",
-        dice_result={
-            "skill": skill,
-            "dc": dc,
-            "target_id": req.target_id,
-            "target_name": target_name,
-            "revealed_stats": revealed_stats,
-            **check,
-        },
-    ))
-
-    await db.commit()
-    await db.refresh(session)
     combat_snapshot = await _build_combat_snapshot(
         db,
         session,
         combat,
         viewer_character_id=req.character_id,
     )
-    public_combat_snapshot = await _build_combat_snapshot(db, session, combat)
-    await _broadcast_combat(session, combat, CombatUpdate(combat=public_combat_snapshot), db=db)
+    actor_enemy_snapshot = combat_snapshot.get("entities", {}).get(str(req.target_id))
+    session.game_state = state
+    flag_modified(session, "game_state")
+    inspect_result = {
+        "type": "enemy_inspect",
+        "actor_id": character.id,
+        "actor_name": character.name,
+        "target_id": req.target_id,
+        "target_name": target_name,
+        "skill": skill,
+        "dc": dc,
+        "check": check,
+        "success": bool(check.get("success")),
+        "revealed_stats": revealed_stats,
+        "enemy": actor_enemy_snapshot,
+    }
+    narration = f"[Inspect] {character.name} inspected {target_name}: {check['total']} vs DC {dc} ({outcome})"
+    db.add(GameLog(
+        session_id=session_id,
+        role="system",
+        content=narration,
+        log_type="dice",
+        dice_result=inspect_result,
+    ))
+
+    await db.commit()
+    await db.refresh(session)
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            action="enemy_inspect",
+            actor_id=character.id,
+            actor_name=character.name,
+            narration=narration,
+            target_id=req.target_id,
+            target_name=target_name,
+            inspect_result=inspect_result,
+            dice_result=inspect_result,
+            special_action=inspect_result,
+        ),
+        db=db,
+    )
 
     return {
+        "action": "enemy_inspect",
         "target_id": req.target_id,
         "target_name": target_name,
         "skill": skill,
@@ -120,8 +145,11 @@ async def inspect_enemy(
         "success": bool(check.get("success")),
         "revealed_stats": revealed_stats,
         "turn_state": turn_state,
-        "enemy": combat_snapshot.get("entities", {}).get(str(req.target_id)),
+        "enemy": actor_enemy_snapshot,
         "combat": combat_snapshot,
+        "inspect_result": inspect_result,
+        "dice_result": inspect_result,
+        "special_action": inspect_result,
     }
 
 

@@ -9,7 +9,14 @@ from api.combat._shared import (
     _tick_conditions_char,
     _tick_conditions_enemy,
 )
-from models import GameLog
+from api.deps import entity_snapshot
+from models import Character, GameLog
+from services.character_roster import CharacterRoster
+from services.combat_legendary_action_service import (
+    build_lair_action_prompt,
+    build_legendary_action_prompt,
+    should_prompt_lair_action_for_turn_advance,
+)
 from services.combat_reaction_service import (
     calculate_absorb_elements_prevention,
     build_pending_spell_reaction,
@@ -21,23 +28,172 @@ from services.combat_reaction_service import (
     calculate_shield_prevention,
     calculate_uncanny_dodge_prevention,
 )
+from services.combat_action_rules_service import can_take_reaction
 from services.dnd_rules import _normalize_class
 from services.combat_hazard_service import (
     apply_turn_start_hazard,
     hazard_result_to_log_text,
 )
+from services.combat_confusion_service import (
+    apply_confusion_turn_start,
+    build_confusion_end_save_log,
+    build_confusion_attack_log,
+    build_confusion_turn_log,
+    resolve_confusion_end_of_turn_save,
+    resolve_confusion_random_melee_attack,
+)
+from services.combat_repeat_save_service import (
+    build_condition_end_save_log,
+    resolve_repeat_save_end_of_turn_saves,
+)
+from services.combat_ready_action_service import (
+    apply_ready_action_expiry_to_turn_state,
+    build_ready_action_expiry,
+    build_ready_action_expiry_log,
+    clear_expired_ready_spell_concentration_hold,
+)
 
 
-async def advance_ai_turn(combat, session, db, turn_order, next_index: int):
+def _actor_snapshot_for_attack_reaction(player, pending_reaction: dict):
+    if not pending_reaction or pending_reaction.get("trigger") != "incoming_attack":
+        return player
+    hp_before = pending_reaction.get("target_hp_before_damage")
+    if not isinstance(hp_before, int):
+        hp_before = getattr(player, "hp_current", 0)
+    return {
+        "hp_current": hp_before,
+        "death_saves": None,
+        "conditions": pending_reaction.get(
+            "target_conditions_before_damage",
+            getattr(player, "conditions", None) or [],
+        ),
+    }
+
+
+async def _build_lair_action_prompt_for_turn_advance(
+    combat,
+    session,
+    db,
+    turn_order,
+    *,
+    current_index: int,
+    next_index: int,
+    round_started: bool,
+    target_candidates: list[dict] | None = None,
+):
+    state = session.game_state or {}
+    enemies = list(state.get("enemies", []))
+    lair_timing_reached = should_prompt_lair_action_for_turn_advance(
+        turn_order,
+        current_index=current_index,
+        next_index=next_index,
+        round_started=round_started,
+    )
+    if not lair_timing_reached:
+        return None
+    if (
+        int(state.get("lair_action_prompted_round", 0) or 0) == int(combat.round_number or 0)
+        or int(state.get("lair_action_used_round", 0) or 0) == int(combat.round_number or 0)
+    ):
+        return None
+
+    if target_candidates is None:
+        roster = CharacterRoster(db, session)
+        target_candidates = [
+            entity_snapshot(character, is_enemy=False)
+            for character in await roster.party()
+            if character and int(character.hp_current or 0) > 0
+        ]
+    current = turn_order[current_index % len(turn_order)] if turn_order else {}
+    lair_action_prompt = build_lair_action_prompt(
+        state,
+        enemies,
+        round_number=int(combat.round_number or 1),
+        timing="initiative_count_20",
+        trigger_entity_id=current.get("character_id") if isinstance(current, dict) else None,
+        trigger_entity_name=current.get("name") if isinstance(current, dict) else None,
+        positions=dict(combat.entity_positions or {}),
+        target_candidates=target_candidates,
+    )
+    if lair_action_prompt:
+        state["lair_action_prompted_round"] = int(combat.round_number or 1)
+        state["enemies"] = enemies
+        session.game_state = dict(state)
+        flag_modified(session, "game_state")
+    return lair_action_prompt
+
+
+async def build_deferred_lair_action_prompt(combat, session, db, turn_order, context: dict | None):
+    if not context:
+        return None
+    try:
+        current_index = int(context.get("current_index"))
+        next_index = int(context.get("next_index"))
+    except (TypeError, ValueError):
+        return None
+    return await _build_lair_action_prompt_for_turn_advance(
+        combat,
+        session,
+        db,
+        turn_order,
+        current_index=current_index,
+        next_index=next_index,
+        round_started=bool(context.get("round_started")),
+    )
+
+
+async def advance_ai_turn(combat, session, db, turn_order, next_index: int, *, include_lair_prompt: bool = True):
     """Advance combat state to the next turn and reset the next actor's turn state."""
+    current_index = combat.current_turn_index or 0
+    round_started = next_index == 0
     combat.current_turn_index = next_index
-    if next_index == 0:
+    if round_started:
         combat.round_number += 1
     turn_start_hazard = None
+    turn_start_hazard_log = ""
+    expired_ready_action = None
+    ready_action_expired_log = ""
+    confusion_turn_result = None
     if turn_order:
-        next_entity_id = turn_order[next_index]["character_id"]
+        next_turn = turn_order[next_index]
+        next_entity_id = next_turn["character_id"]
+        expired_ready_action = build_ready_action_expiry(combat, str(next_entity_id))
         next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
+        confusion_actor = await _confusion_actor_for_turn(db, session, next_turn, str(next_entity_id))
+        confusion_turn_result = apply_confusion_turn_start(
+            combat,
+            str(next_entity_id),
+            confusion_actor,
+        )
+        if confusion_turn_result:
+            actor_name = next_turn.get("name") if isinstance(next_turn, dict) else str(next_entity_id)
+            db.add(GameLog(
+                session_id=session.id,
+                role="system",
+                content=build_confusion_turn_log(actor_name or str(next_entity_id), confusion_turn_result),
+                log_type="combat",
+                dice_result={"confusion": confusion_turn_result},
+            ))
+            state_for_confusion = session.game_state or {}
+            enemies_for_confusion = list(state_for_confusion.get("enemies", []) or [])
+            confusion_attack = await resolve_confusion_random_melee_attack(
+                db,
+                session=session,
+                combat=combat,
+                entity_id=str(next_entity_id),
+                actor=confusion_actor,
+                enemies=enemies_for_confusion,
+                confusion_turn=confusion_turn_result,
+            )
+            if confusion_attack:
+                db.add(GameLog(
+                    session_id=session.id,
+                    role="system",
+                    content=build_confusion_attack_log(actor_name or str(next_entity_id), confusion_attack),
+                    log_type="combat",
+                    dice_result={"confusion_attack": confusion_attack},
+                ))
         turn_start_hazard = await apply_turn_start_hazard(
             db=db,
             session=session,
@@ -46,6 +202,7 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int):
         )
         hazard_log = hazard_result_to_log_text(turn_start_hazard)
         if hazard_log:
+            turn_start_hazard_log = hazard_log
             db.add(GameLog(
                 session_id=session.id,
                 role="system",
@@ -53,13 +210,83 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int):
                 log_type="combat",
                 dice_result={"hazard": turn_start_hazard},
             ))
-    return turn_start_hazard
+        if expired_ready_action:
+            await clear_expired_ready_spell_concentration_hold(db, str(next_entity_id), expired_ready_action)
+            apply_ready_action_expiry_to_turn_state(combat, str(next_entity_id), expired_ready_action)
+            ready_log = build_ready_action_expiry_log(str(session.id), expired_ready_action)
+            ready_action_expired_log = ready_log.content
+            db.add(ready_log)
+
+    ai_control_target_candidates = None
+    current = turn_order[current_index % len(turn_order)] if turn_order else {}
+
+    async def get_ai_control_target_candidates():
+        nonlocal ai_control_target_candidates
+        if ai_control_target_candidates is None:
+            roster = CharacterRoster(db, session)
+            ai_control_target_candidates = [
+                entity_snapshot(character, is_enemy=False)
+                for character in await roster.party()
+                if character and int(character.hp_current or 0) > 0
+            ]
+        return ai_control_target_candidates
+
+    lair_action_prompt = None
+    legendary_action_prompt = None
+    if include_lair_prompt:
+        target_candidates = await get_ai_control_target_candidates()
+        lair_action_prompt = await _build_lair_action_prompt_for_turn_advance(
+            combat,
+            session,
+            db,
+            turn_order,
+            current_index=current_index,
+            next_index=next_index,
+            round_started=round_started,
+            target_candidates=target_candidates,
+        )
+
+        if not lair_action_prompt:
+            state = session.game_state or {}
+            enemies = list(state.get("enemies", []) or [])
+            legendary_action_prompt = build_legendary_action_prompt(
+                enemies,
+                trigger_entity_id=current.get("character_id") if isinstance(current, dict) else None,
+                trigger_entity_name=current.get("name") if isinstance(current, dict) else None,
+                positions=dict(combat.entity_positions or {}),
+                target_candidates=target_candidates,
+            )
+            if legendary_action_prompt:
+                state["enemies"] = enemies
+                session.game_state = dict(state)
+                flag_modified(session, "game_state")
+
+    return {
+        "turn_start_hazard": turn_start_hazard,
+        "turn_start_hazard_log": turn_start_hazard_log,
+        "expired_ready_action": expired_ready_action,
+        "ready_action_expired_log": ready_action_expired_log,
+        "confusion_turn": confusion_turn_result,
+        "lair_action_prompt": lair_action_prompt,
+        "legendary_action_prompt": legendary_action_prompt,
+    }
+
+
+async def _confusion_actor_for_turn(db, session, turn: dict | None, entity_id: str):
+    if isinstance(turn, dict) and turn.get("is_enemy"):
+        state = session.game_state or {}
+        return next(
+            (enemy for enemy in state.get("enemies", []) or [] if str(enemy.get("id")) == str(entity_id)),
+            None,
+        )
+    return await db.get(Character, entity_id)
 
 
 def tick_ai_actor_conditions(
     *,
     session_id: str,
     session,
+    combat=None,
     actor_name: str,
     is_enemy: bool,
     enemy,
@@ -69,6 +296,33 @@ def tick_ai_actor_conditions(
     """Tick the AI actor's own conditions at the end of its turn."""
     tick_logs: list[GameLog] = []
     if is_enemy and enemy:
+        confusion_end_save = resolve_confusion_end_of_turn_save(
+            enemy,
+            entity_id=str(enemy.get("id") or ""),
+            actor_name=actor_name,
+        )
+        if confusion_end_save:
+            tick_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=build_confusion_end_save_log(actor_name, confusion_end_save),
+                log_type="combat",
+                dice_result=confusion_end_save,
+            ))
+        condition_end_saves = resolve_repeat_save_end_of_turn_saves(
+            enemy,
+            entity_id=str(enemy.get("id") or ""),
+            actor_name=actor_name,
+            combat=combat,
+        )
+        for condition_end_save in condition_end_saves:
+            tick_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=build_condition_end_save_log(actor_name, condition_end_save),
+                log_type="combat",
+                dice_result=condition_end_save,
+            ))
         removed = _tick_conditions_enemy(enemy)
         for condition in removed:
             tick_logs.append(GameLog(
@@ -83,6 +337,33 @@ def tick_ai_actor_conditions(
             session.game_state = dict(state)
             flag_modified(session, "game_state")
     elif not is_enemy and character:
+        confusion_end_save = resolve_confusion_end_of_turn_save(
+            character,
+            entity_id=str(getattr(character, "id", "")),
+            actor_name=actor_name,
+        )
+        if confusion_end_save:
+            tick_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=build_confusion_end_save_log(actor_name, confusion_end_save),
+                log_type="combat",
+                dice_result=confusion_end_save,
+            ))
+        condition_end_saves = resolve_repeat_save_end_of_turn_saves(
+            character,
+            entity_id=str(getattr(character, "id", "")),
+            actor_name=actor_name,
+            combat=combat,
+        )
+        for condition_end_save in condition_end_saves:
+            tick_logs.append(GameLog(
+                session_id=session_id,
+                role="system",
+                content=build_condition_end_save_log(actor_name, condition_end_save),
+                log_type="combat",
+                dice_result=condition_end_save,
+            ))
         removed = _tick_conditions_char(character)
         for condition in removed:
             tick_logs.append(GameLog(
@@ -112,13 +393,15 @@ def build_reaction_prompt(
 
     if player_ts.get("reaction_used"):
         return True, False, None
+    pending_reaction = player_ts.get("pending_attack_reaction") or {}
+    if not can_take_reaction(_actor_snapshot_for_attack_reaction(player_check, pending_reaction)):
+        return True, False, None
 
     p_derived_r = player_check.derived or {}
     p_cls = _normalize_class(player_check.char_class)
     p_level = player_check.level or 1
     known_spells = set(player_check.known_spells or []) | set(player_check.prepared_spells or [])
     p_slots = dict(player_check.spell_slots or {})
-    pending_reaction = player_ts.get("pending_attack_reaction") or {}
     available_reactions = []
 
     if ("Shield" in known_spells or "shield" in known_spells) and p_slots.get("1st", 0) > 0:
@@ -234,6 +517,8 @@ def build_counterspell_prompt(
     if not player_check:
         return False, False, None
     if player_ts.get("reaction_used"):
+        return True, False, None
+    if not can_take_reaction(player_check):
         return True, False, None
     if not character_knows_counterspell(player_check):
         return True, False, None
