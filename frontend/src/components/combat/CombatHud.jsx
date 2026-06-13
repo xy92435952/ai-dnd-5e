@@ -35,6 +35,7 @@ export default function CombatHud({
   onSkillClick,
   onDeathSave,
   onEndTurn,
+  onEndConcentration,
   onToggleMove,
   onToggleRanged,
   onSelectedWeaponChange,
@@ -89,7 +90,13 @@ export default function CombatHud({
       </div>
 
       <div className="combat-hud-right">
-        <CombatHudSlots session={session} playerSpellSlots={playerSpellSlots} character={controlledCharacter} />
+        <CombatHudSlots
+          session={session}
+          playerSpellSlots={playerSpellSlots}
+          character={controlledCharacter}
+          disabled={isProcessing || syncBlocked}
+          onEndConcentration={onEndConcentration}
+        />
         <CombatDeathSavePanel
           character={controlledCharacter || session?.player}
           isPlayerTurn={isPlayerTurn}

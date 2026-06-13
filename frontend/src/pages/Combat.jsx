@@ -127,6 +127,7 @@ export default function Combat() {
     handleInspectTarget,
     handleSpellHover,
     handleEndTurn,
+    handleEndConcentration,
     handleCastSpell,
     handleDeathSave,
     handleSmite,
@@ -282,6 +283,7 @@ export default function Combat() {
         onSkillClick={onSkillClick}
         onDeathSave={handleDeathSave}
         onEndTurn={handleEndTurn}
+        onEndConcentration={handleEndConcentration}
         onToggleMove={() => setMoveMode(m => !m)}
         onToggleRanged={() => setIsRanged(r => !r)}
         onSelectedWeaponChange={setSelectedWeaponName}

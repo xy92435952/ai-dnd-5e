@@ -202,6 +202,10 @@ export const gameApi = {
       pending_spell_id: pendingSpellId,
       ...(damageValues ? { damage_values: damageValues } : {}),
     }),
+  endConcentration: (sessionId, characterId) =>
+    api.post(`/game/combat/${sessionId}/concentration/end`, {
+      character_id: characterId,
+    }),
   addCondition: (sessionId, entityId, condition, isEnemy = false, rounds = null) =>
     api.post(`/game/combat/${sessionId}/condition/add`, {
       entity_id: entityId, condition, is_enemy: isEnemy,

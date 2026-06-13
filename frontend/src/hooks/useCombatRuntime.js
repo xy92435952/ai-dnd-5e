@@ -262,6 +262,7 @@ export function useCombatRuntime({
       handleSpellHover,
       handleEndTurn: guardCombatAction(flow.handleEndTurn),
       handleCastSpell: guardCombatAction(flow.handleCastSpell),
+      handleEndConcentration: guardCombatAction(flow.handleEndConcentration),
       handleDeathSave: guardCombatAction(flow.handleDeathSave),
       handleSmite: guardCombatAction(flow.handleSmite),
       handleReaction: guardCombatAction(flow.handleReaction),

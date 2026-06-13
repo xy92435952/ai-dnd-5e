@@ -1,8 +1,27 @@
 import React from 'react'
 
-export default function CombatHudSlots({ session, playerSpellSlots, character = null }) {
+const READY_SPELL_CONCENTRATION_PREFIXES = ['准备法术: ', '准备法术：', 'Ready Spell: ']
+
+export function formatConcentrationLabel(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const prefix = READY_SPELL_CONCENTRATION_PREFIXES.find(item => text.startsWith(item))
+  if (!prefix) return text
+  const spellName = text.slice(prefix.length).trim()
+  return spellName ? `准备法术 ${spellName}` : '准备法术'
+}
+
+export default function CombatHudSlots({
+  session,
+  playerSpellSlots,
+  character = null,
+  disabled = false,
+  onEndConcentration,
+}) {
   const caster = character || session?.player
   const slotMax = caster?.derived?.spell_slots_max || session?.player?.derived?.spell_slots_max || {}
+  const canEndConcentration = Boolean(caster?.concentration && onEndConcentration && !disabled)
+  const concentrationLabel = formatConcentrationLabel(caster?.concentration)
   return (
     <div style={{
       padding: '8px 10px',
@@ -29,8 +48,44 @@ export default function CombatHudSlots({ session, playerSpellSlots, character = 
         })}
       </div>
       {caster?.concentration && (
-        <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(138,90,24,.3)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', letterSpacing: '.1em' }}>
-          专注 <span style={{ color: 'var(--flame)' }}>{caster.concentration}</span>
+        <div
+          style={{
+            marginTop: 8,
+            paddingTop: 6,
+            borderTop: '1px solid rgba(138,90,24,.3)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            color: 'var(--parchment-dark)',
+            letterSpacing: '.1em',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <span>
+            专注 <span style={{ color: 'var(--flame)' }}>{concentrationLabel}</span>
+          </span>
+          {onEndConcentration && (
+            <button
+              type="button"
+              onClick={onEndConcentration}
+              disabled={!canEndConcentration}
+              aria-label={`结束专注 ${concentrationLabel}`}
+              title={disabled ? '同步或结算完成后可结束专注' : `结束对 ${concentrationLabel} 的专注`}
+              style={{
+                border: '1px solid rgba(240,120,80,.55)',
+                background: canEndConcentration ? 'rgba(80,20,12,.65)' : 'rgba(80,64,48,.35)',
+                color: canEndConcentration ? 'var(--flame)' : 'var(--text-dim)',
+                fontFamily: 'inherit',
+                fontSize: 9,
+                padding: '2px 6px',
+                cursor: canEndConcentration ? 'pointer' : 'not-allowed',
+              }}
+            >
+              结束
+            </button>
+          )}
         </div>
       )}
     </div>

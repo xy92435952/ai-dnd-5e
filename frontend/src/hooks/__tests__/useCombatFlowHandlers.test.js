@@ -2,11 +2,13 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  endConcentrationMock,
   useLegendaryActionMock,
   useLairActionMock,
   getCombatMock,
   triggerAiTurnMock,
 } = vi.hoisted(() => ({
+  endConcentrationMock: vi.fn(),
   useLegendaryActionMock: vi.fn(),
   useLairActionMock: vi.fn(),
   getCombatMock: vi.fn(),
@@ -15,6 +17,7 @@ const {
 
 vi.mock('../../api/client', () => ({
   gameApi: {
+    endConcentration: endConcentrationMock,
     useLegendaryAction: useLegendaryActionMock,
     useLairAction: useLairActionMock,
     getCombat: getCombatMock,
@@ -141,6 +144,33 @@ describe('useCombatFlowHandlers', () => {
       })),
     }
   }
+
+  it('ends active concentration through the combat endpoint and logs the update', async () => {
+    endConcentrationMock.mockResolvedValue({
+      action: 'concentration_end',
+      actor_id: 'hero-1',
+      actor_name: 'Smoke Sentinel',
+      narration: 'Smoke Sentinel ends concentration on Web.',
+      target_state: {
+        target_id: 'hero-1',
+        target_name: 'Smoke Sentinel',
+        concentration: null,
+      },
+    })
+    const { result, page, log } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleEndConcentration()
+    })
+
+    expect(endConcentrationMock).toHaveBeenCalledWith('sess-1', 'hero-1')
+    expect(log.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'player',
+      content: 'Smoke Sentinel ends concentration on Web.',
+      log_type: 'combat',
+    }))
+    expect(page.setCombat).toHaveBeenCalledWith(expect.any(Function))
+  })
 
   it('uses the damaged target name, not the legendary actor, for attack hp state rows', async () => {
     useLegendaryActionMock.mockResolvedValue({

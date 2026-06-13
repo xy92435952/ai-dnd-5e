@@ -185,6 +185,38 @@ export function useCombatFlowHandlers({
     combat,
   })
 
+  const handleEndConcentration = useCallback(async () => {
+    if (!actorId || isProcessing || processingRef.current) return
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const result = await gameApi.endConcentration(sessionId, actorId)
+      setCombat(prev => applyActionResultEntityStates(prev, result))
+      addLog({
+        role: 'player',
+        content: result.narration || '结束专注',
+        log_type: 'combat',
+        dice_result: result,
+        state_changes: buildCombatStateChangeSummary(result),
+      })
+    } catch (e) {
+      setError(formatCombatError(e))
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }, [
+    actorId,
+    addLog,
+    isProcessing,
+    processingRef,
+    sessionId,
+    setCombat,
+    setError,
+    setIsProcessing,
+  ])
+
   const handleLegendaryAction = useCallback(async (actorId, actionId = null, targetId = null) => {
     if (!actorId || isProcessing || processingRef.current) return
     setLegendaryActionPrompt(null)
@@ -371,6 +403,7 @@ export function useCombatFlowHandlers({
     handleEndTurn,
     handleAttack,
     handleCastSpell,
+    handleEndConcentration,
     handleDeathSave,
     handleClassFeature,
     handleHealingPotion,
