@@ -16,12 +16,13 @@ from services.character_serializer import serialize_character
 from services.dnd_rules import (
     BACKGROUND_FEATURES,
     CLASS_SAVE_PROFICIENCIES,
-    SUBCLASS_BONUS_SPELLS,
     _normalize_class,
     apply_racial_bonuses,
     calc_derived,
     get_class_resource_defaults,
 )
+from services.spell_service import spell_service
+from services.subclass_spell_service import resolved_subclass_bonus_spell_details
 
 
 async def create_player_character(
@@ -92,12 +93,14 @@ async def create_player_character(
         proficient_skills=chosen_skills,
     )
 
-    bonus_spells = []
-    if req.subclass:
-        sub_spells = SUBCLASS_BONUS_SPELLS.get(req.subclass, {})
-        for spell_level, spells in sub_spells.items():
-            if req.level >= int(spell_level):
-                bonus_spells.extend(spells)
+    bonus_spells = [
+        spell["name"]
+        for spell in resolved_subclass_bonus_spell_details(
+            spell_service,
+            req.subclass,
+            level=req.level,
+        )
+    ]
 
     prepared = list(req.known_spells)
     for spell in bonus_spells:

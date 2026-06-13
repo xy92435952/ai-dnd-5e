@@ -65,6 +65,14 @@ def _class_cantrip_names(char_class):
     ]
 
 
+def _spell_name_by_english(name_en):
+    return next(
+        spell["name"]
+        for spell in spell_service.get_all()
+        if spell.get("name_en") == name_en
+    )
+
+
 async def test_level_up_adds_new_spell_slots_without_refilling_spent_slots(client, db_session, sample_user):
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")
@@ -430,6 +438,63 @@ async def test_level_up_endpoint_persists_higher_level_wizard_spellbook_and_cant
     assert wizard.cantrips == expected_cantrips
 
 
+async def test_level_up_endpoint_allows_subclass_expanded_known_spell_learning(
+    client,
+    db_session,
+    sample_user,
+):
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 18}
+    old_derived = calc_derived("Warlock", 2, ability_scores, "Fiend", race="Human")
+    known_spells = [
+        spell["name"]
+        for spell in spell_service.get_for_class("Warlock")
+        if 0 < spell.get("level", 0) <= 2
+    ][:3]
+    command_spell = _spell_name_by_english("Command")
+    assert command_spell not in known_spells
+    warlock = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Fiend Expanded Warlock",
+        race="Human",
+        char_class="Warlock",
+        subclass="Fiend",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots=dict(old_derived.get("spell_slots_max", {})),
+        known_spells=known_spells,
+        prepared_spells=known_spells,
+        cantrips=["Eldritch Blast"],
+        proficient_skills=[],
+        proficient_saves=["wis", "cha"],
+        is_player=True,
+    )
+    db_session.add(warlock)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{warlock.id}/level-up",
+        headers=headers,
+        json={"use_average_hp": True, "learned_spells": [command_spell]},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    data = payload["character"]
+    expected_spells = [*known_spells, command_spell]
+    assert data["level"] == 3
+    assert data["known_spells"] == expected_spells
+    assert data["prepared_spells"] == expected_spells
+    assert payload["level_up_details"]["learned_spells"] == [command_spell]
+
+    await db_session.refresh(warlock)
+    assert warlock.known_spells == expected_spells
+    assert warlock.prepared_spells == expected_spells
+
+
 async def test_level_up_replaces_known_caster_spell(client, db_session, sample_user):
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 16}
     old_derived = calc_derived("Sorcerer", 2, ability_scores, None, race="Human")
@@ -530,6 +595,56 @@ async def test_prepared_caster_can_prepare_spells_from_class_list(client, db_ses
 
     await db_session.refresh(cleric)
     assert cleric.prepared_spells == [cleric_spell]
+
+
+async def test_prepared_caster_can_prepare_subclass_bonus_spell(
+    client,
+    db_session,
+    sample_user,
+):
+    ability_scores = {"str": 14, "dex": 10, "con": 14, "int": 10, "wis": 16, "cha": 12}
+    derived = calc_derived("Cleric", 1, ability_scores, "War", race="Human")
+    divine_favor = _spell_name_by_english("Divine Favor")
+    assert divine_favor not in [
+        spell["name"]
+        for spell in spell_service.get_for_class("Cleric")
+        if spell.get("level", 0) > 0
+    ]
+    cleric = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="War Domain Prepared Cleric",
+        race="Human",
+        char_class="Cleric",
+        subclass="War",
+        level=1,
+        ability_scores=ability_scores,
+        derived=derived,
+        hp_current=derived["hp_max"],
+        spell_slots=dict(derived.get("spell_slots_max", {})),
+        known_spells=[],
+        prepared_spells=[],
+        proficient_skills=[],
+        proficient_saves=["wis", "cha"],
+        is_player=True,
+    )
+    db_session.add(cleric)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.patch(
+        f"/characters/{cleric.id}/prepared-spells",
+        headers=headers,
+        json={"prepared_spells": [divine_favor]},
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["prepared_spells"] == [divine_favor]
+    assert data["preparation_type"] == "prepared"
+
+    await db_session.refresh(cleric)
+    assert cleric.prepared_spells == [divine_favor]
 
 
 async def test_exhaustion_level_4_clamps_hp_and_serializes_effective_max(

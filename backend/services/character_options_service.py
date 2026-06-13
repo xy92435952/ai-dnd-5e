@@ -33,6 +33,7 @@ from services.dnd_rules import (
     get_item_zh,
 )
 from services.dnd_subclass_progression import SUBCLASS_OPTIONS, SUBCLASS_UNLOCK_LEVELS
+from services.subclass_spell_service import all_subclass_bonus_spell_details
 
 
 def build_character_options(spell_service) -> dict:
@@ -84,6 +85,7 @@ def build_character_options(spell_service) -> dict:
         "all_languages": ALL_LANGUAGES,
         "spell_preparation_type": SPELL_PREPARATION_TYPE,
         "subclass_bonus_spells": SUBCLASS_BONUS_SPELLS,
+        "subclass_bonus_spell_details": all_subclass_bonus_spell_details(spell_service),
         "subclass_unlock_levels": SUBCLASS_UNLOCK_LEVELS,
         "subclass_options": SUBCLASS_OPTIONS,
         "feats": FEATS,

@@ -6,6 +6,12 @@ from services.character_options_service import (
 
 
 class FakeSpellService:
+    def get_all(self):
+        return [
+            {"name": "burning-hands-zh", "name_en": "Burning Hands", "level": 1},
+            {"name": "command-zh", "name_en": "Command", "level": 1},
+        ]
+
     def get_cantrips_for_class(self, cls):
         return [{"name": f"{cls}-cantrip"}]
 
@@ -26,6 +32,10 @@ def test_build_character_options_includes_spell_metadata_for_spellcasters():
     assert options["feats"]
     assert options["subclass_unlock_levels"]["Fighter"] == 3
     assert "Battle Master" in options["subclass_options"]["Fighter"]
+    assert options["subclass_bonus_spell_details"]["Fiend"]["1"] == [
+        {"name": "burning-hands-zh", "name_en": "Burning Hands", "level": 1},
+        {"name": "command-zh", "name_en": "Command", "level": 1},
+    ]
     assert "precision" in options["maneuvers"]
     assert options["battle_master_maneuvers_known_by_level"][3] == 3
     assert options["starting_gear_packs"]["Explorer's Pack"][0] == {

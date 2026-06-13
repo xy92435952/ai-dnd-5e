@@ -15,6 +15,7 @@ from services.dnd_rules import (
     get_exhaustion_effects,
 )
 from services.spell_service import spell_service
+from services.subclass_spell_service import available_spells_with_subclass_bonus
 
 
 async def update_character_prepared_spells(
@@ -41,7 +42,12 @@ async def update_character_prepared_spells(
             char_class=cls_key,
             available_class_spells=[
                 spell["name"]
-                for spell in spell_service.get_for_class(cls_key)
+                for spell in available_spells_with_subclass_bonus(
+                    spell_service,
+                    cls_key,
+                    char.subclass,
+                    level=char.level,
+                )
                 if spell.get("level", 0) > 0
             ],
         )
@@ -96,7 +102,12 @@ async def level_up_character(
                 replacement.model_dump()
                 for replacement in req.spell_replacements
             ],
-            available_class_spells=spell_service.get_for_class(_normalize_class(char.char_class)),
+            available_class_spells=available_spells_with_subclass_bonus(
+                spell_service,
+                _normalize_class(char.char_class),
+                req.subclass_choice or char.subclass,
+                level=char.level + 1,
+            ),
             available_class_cantrips=[
                 spell["name"]
                 for spell in spell_service.get_cantrips_for_class(_normalize_class(char.char_class))
