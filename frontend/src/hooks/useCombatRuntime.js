@@ -51,6 +51,10 @@ export function useCombatRuntime({
     setManeuverModalOpen,
     reactionPrompt,
     setReactionPrompt,
+    legendaryActionPrompt,
+    setLegendaryActionPrompt,
+    lairActionPrompt,
+    setLairActionPrompt,
     session,
     setSession,
     setError,
@@ -87,6 +91,8 @@ export function useCombatRuntime({
     setCombat(null)
     setTurnState(null)
     setReactionPrompt(null)
+    setLegendaryActionPrompt(null)
+    setLairActionPrompt(null)
     setCombatOver(outcome)
     setMoveMode(false)
     setHelpMode(false)
@@ -107,6 +113,8 @@ export function useCombatRuntime({
     setIsProcessing,
     setMoveMode,
     setReactionPrompt,
+    setLegendaryActionPrompt,
+    setLairActionPrompt,
     setSelectedTarget,
     setTurnState,
   ])
@@ -236,6 +244,8 @@ export function useCombatRuntime({
     playerSubclassEffects,
     classResources,
     reactionPrompt,
+    legendaryActionPrompt,
+    lairActionPrompt,
     prediction,
     logs,
     logsEndRef,
@@ -256,6 +266,10 @@ export function useCombatRuntime({
       handleSmite: guardCombatAction(flow.handleSmite),
       handleReaction: guardCombatAction(flow.handleReaction),
       handleCancelReaction: guardCombatAction(flow.handleCancelReaction),
+      handleLegendaryAction: guardCombatAction(flow.handleLegendaryAction),
+      handleSkipLegendaryAction: guardCombatAction(flow.handleSkipLegendaryAction),
+      handleLairAction: guardCombatAction(flow.handleLairAction),
+      handleSkipLairAction: guardCombatAction(flow.handleSkipLairAction),
       handleManeuver: guardCombatAction(flow.handleManeuver),
       setSelectedTarget,
       setAoeHover,
@@ -265,6 +279,8 @@ export function useCombatRuntime({
       setSpellQuickPick,
       setManeuverModalOpen,
       setReactionPrompt,
+      setLegendaryActionPrompt,
+      setLairActionPrompt,
       clearAoePreview,
     },
   }

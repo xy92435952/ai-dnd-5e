@@ -153,6 +153,77 @@ describe('useCombatAiTurns', () => {
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
+  it('pauses the ai loop when a lair action prompt is returned', async () => {
+    const setLairActionPrompt = vi.fn()
+    const setLegendaryActionPrompt = vi.fn()
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    aiTurnMock.mockResolvedValue({
+      actor_id: 'enemy-1',
+      actor_name: 'Goblin Boss',
+      narration: 'Goblin Boss advances.',
+      attack_result: {},
+      next_turn_index: 0,
+      round_number: 2,
+      lair_action_prompt: {
+        source_id: 'lair-1',
+        source_name: 'Cracked Shrine',
+        actions: [{ id: 'pulse', name: 'Seismic Pulse' }],
+      },
+    })
+
+    const { result, deps } = renderAiTurns({ setLairActionPrompt, setLegendaryActionPrompt })
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(setLairActionPrompt).toHaveBeenCalledWith({
+      source_id: 'lair-1',
+      source_name: 'Cracked Shrine',
+      actions: [{ id: 'pulse', name: 'Seismic Pulse' }],
+    })
+    expect(setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.setCombatOver).not.toHaveBeenCalled()
+  })
+
+  it('pauses the ai loop when a legendary action prompt is returned', async () => {
+    const setLegendaryActionPrompt = vi.fn()
+    getCombatMock.mockResolvedValue({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+    })
+    aiTurnMock.mockResolvedValue({
+      actor_id: 'enemy-1',
+      actor_name: 'Dragon',
+      narration: 'Dragon ends its turn.',
+      attack_result: {},
+      next_turn_index: 0,
+      round_number: 1,
+      legendary_action_prompt: {
+        actor_id: 'dragon-1',
+        actor_name: 'Dragon',
+        actions: [{ id: 'tail', name: 'Tail Strike' }],
+      },
+    })
+
+    const { result } = renderAiTurns({ setLegendaryActionPrompt })
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(setLegendaryActionPrompt).toHaveBeenCalledWith({
+      actor_id: 'dragon-1',
+      actor_name: 'Dragon',
+      actions: [{ id: 'tail', name: 'Tail Strike' }],
+    })
+  })
+
   it('adds skirmisher reposition summaries to ai combat logs', async () => {
     getCombatMock
       .mockResolvedValueOnce({

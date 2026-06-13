@@ -21,6 +21,8 @@ export function useCombatSpecialActions({
   setClassResources,
   setCombat,
   setReactionPrompt,
+  setLairActionPrompt,
+  setLegendaryActionPrompt,
   setCombatOver,
   triggerAiTurn,
   showDice,
@@ -106,9 +108,15 @@ export function useCombatSpecialActions({
         return applyActionResultEntityStates(prev, result)
       })
       if (result.combat_over) setCombatOver(result.outcome)
+      if (result.lair_action_prompt) {
+        setLairActionPrompt?.(result.lair_action_prompt)
+        setLegendaryActionPrompt?.(null)
+      } else if (result.legendary_action_prompt) {
+        setLegendaryActionPrompt?.(result.legendary_action_prompt)
+      }
       processingRef.current = false
       setIsProcessing(false)
-      triggerAiTurn()
+      if (!result.lair_action_prompt && !result.legendary_action_prompt) triggerAiTurn()
     } catch (e) {
       setError(formatCombatError(e))
       processingRef.current = false
@@ -124,6 +132,8 @@ export function useCombatSpecialActions({
     setCombatOver,
     setError,
     setIsProcessing,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setPlayerSpellSlots,
     setReactionPrompt,
     setTurnState,
@@ -135,25 +145,35 @@ export function useCombatSpecialActions({
     setReactionPrompt(null)
     processingRef.current = true
     setIsProcessing(true)
+    let followupPrompt = null
     try {
-      await gameApi.useReaction(
+      const result = await gameApi.useReaction(
         sessionId,
         'decline',
         prompt.target_id || prompt.attacker_id || null,
         prompt.reactor_character_id || null,
       )
+      followupPrompt = result?.lair_action_prompt || result?.legendary_action_prompt || null
+      if (result?.lair_action_prompt) {
+        setLairActionPrompt?.(result.lair_action_prompt)
+        setLegendaryActionPrompt?.(null)
+      } else if (result?.legendary_action_prompt) {
+        setLegendaryActionPrompt?.(result.legendary_action_prompt)
+      }
     } catch (e) {
       setError(formatCombatError(e))
     } finally {
       processingRef.current = false
       setIsProcessing(false)
-      triggerAiTurn()
+      if (!followupPrompt) triggerAiTurn()
     }
   }, [
     processingRef,
     sessionId,
     setError,
     setIsProcessing,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setReactionPrompt,
     triggerAiTurn,
   ])

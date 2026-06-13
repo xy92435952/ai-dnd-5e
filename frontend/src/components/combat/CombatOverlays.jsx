@@ -2,6 +2,7 @@ import SpellModal from './SpellModal'
 import ManeuverModal from './ManeuverModal'
 import SmitePrompt from './SmitePrompt'
 import ReactionPrompt from './ReactionPrompt'
+import LegendaryActionPrompt from './LegendaryActionPrompt'
 
 export default function CombatOverlays({
   smitePrompt,
@@ -27,9 +28,15 @@ export default function CombatOverlays({
   onUseManeuver,
   onCloseManeuver,
   reactionPrompt,
+  lairActionPrompt,
+  legendaryActionPrompt,
   currentCharacterId,
   onReact,
   onCancelReaction,
+  onUseLairAction,
+  onSkipLairAction,
+  onUseLegendaryAction,
+  onSkipLegendaryAction,
   error,
 }) {
   return (
@@ -73,6 +80,19 @@ export default function CombatOverlays({
         currentCharacterId={currentCharacterId}
         onReact={onReact}
         onCancel={onCancelReaction}
+      />
+
+      <LegendaryActionPrompt
+        prompt={lairActionPrompt}
+        variant="lair"
+        onUse={onUseLairAction}
+        onSkip={onSkipLairAction}
+      />
+
+      <LegendaryActionPrompt
+        prompt={lairActionPrompt ? null : legendaryActionPrompt}
+        onUse={onUseLegendaryAction}
+        onSkip={onSkipLegendaryAction}
       />
 
       {error && (

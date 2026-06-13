@@ -18,6 +18,8 @@ export function useCombatTurnControls({
   setCombat,
   setTurnState,
   setCombatOver,
+  setLairActionPrompt = null,
+  setLegendaryActionPrompt = null,
   addLog,
   triggerAiTurn,
   canDriveAiTurns = true,
@@ -29,9 +31,13 @@ export function useCombatTurnControls({
     setMoveMode(false)
     setHelpMode(false)
     setError('')
+    setLairActionPrompt?.(null)
+    setLegendaryActionPrompt?.(null)
     try {
       const turnToken = getCombatTurnToken(combat)
       const result = await gameApi.endTurn(sessionId, turnToken)
+      const lairPrompt = result.lair_action_prompt || null
+      const legendaryPrompt = result.legendary_action_prompt || null
 
       if (result.expired_conditions?.length) {
         result.expired_conditions.forEach(msg => addLog({ role: 'system', content: msg, log_type: 'system' }))
@@ -51,9 +57,13 @@ export function useCombatTurnControls({
       }
 
       if (result.combat_over) {
+        setLairActionPrompt?.(null)
+        setLegendaryActionPrompt?.(null)
         setCombatOver(result.outcome)
         return
       }
+      if (lairPrompt) setLairActionPrompt?.(lairPrompt)
+      if (legendaryPrompt) setLegendaryActionPrompt?.(legendaryPrompt)
 
       setCombat(prev => {
         if (!prev) return prev
@@ -72,7 +82,9 @@ export function useCombatTurnControls({
         if (fresh) {
           setCombat(fresh)
           const nextEntry = fresh.turn_order?.[fresh.current_turn_index]
-          if (canDriveAiTurns && nextEntry && !nextEntry.is_player) {
+          if (lairPrompt || legendaryPrompt) {
+            if (nextEntry?.is_player) setTurnState(getPlayerTurnState(fresh, nextEntry.character_id))
+          } else if (canDriveAiTurns && nextEntry && !nextEntry.is_player) {
             aiTimer.current = setTimeout(() => triggerAiTurn(), 600)
           } else if (nextEntry?.is_player) {
             setTurnState(getPlayerTurnState(fresh, nextEntry.character_id))
@@ -112,6 +124,8 @@ export function useCombatTurnControls({
     setError,
     setHelpMode,
     setIsProcessing,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setMoveMode,
     setTurnState,
     triggerAiTurn,

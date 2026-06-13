@@ -253,6 +253,25 @@ export const gameApi = {
     }),
 
   // 擒抱/推撞 (Grapple/Shove)
+  useLegendaryAction: (sessionId, actorId, actionId = null, targetId = null) => {
+    const targetIds = Array.isArray(targetId) ? targetId.filter(Boolean) : []
+    return api.post(`/game/combat/${sessionId}/legendary-action`, {
+      actor_id: actorId,
+      ...(actionId ? { action_id: actionId } : {}),
+      ...(targetIds.length ? { target_ids: targetIds } : {}),
+      ...(!targetIds.length && targetId ? { target_id: targetId } : {}),
+    })
+  },
+  useLairAction: (sessionId, sourceId, actionId = null, targetId = null) => {
+    const targetIds = Array.isArray(targetId) ? targetId.filter(Boolean) : []
+    return api.post(`/game/combat/${sessionId}/lair-action`, {
+      ...(sourceId ? { source_id: sourceId } : {}),
+      ...(actionId ? { action_id: actionId } : {}),
+      ...(targetIds.length ? { target_ids: targetIds } : {}),
+      ...(!targetIds.length && targetId ? { target_id: targetId } : {}),
+    })
+  },
+
   grappleShove: (sessionId, actionType, targetId, shoveType = 'prone') =>
     api.post(`/game/combat/${sessionId}/grapple-shove`, {
       action_type: actionType,

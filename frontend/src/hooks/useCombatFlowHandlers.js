@@ -7,7 +7,10 @@ import { useCombatPlayerActions } from './useCombatPlayerActions'
 import { useCombatSpecialActions } from './useCombatSpecialActions'
 import { useCombatSpellFlow } from './useCombatSpellFlow'
 import { useCombatTurnControls } from './useCombatTurnControls'
-import { isPlayerCombatTurn } from '../utils/combat'
+import { gameApi } from '../api/client'
+import { applyActionResultEntityStates, getPlayerTurnState, isPlayerCombatTurn } from '../utils/combat'
+import { formatCombatError } from '../utils/combatErrors'
+import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
 export function useCombatFlowHandlers({
   sessionId,
@@ -42,6 +45,8 @@ export function useCombatFlowHandlers({
     setPlayerSubclassEffects,
     playerSubclassEffects,
     setReactionPrompt,
+    setLegendaryActionPrompt,
+    setLairActionPrompt,
     initiativeShown,
     setInitiativeShown,
     session,
@@ -72,10 +77,21 @@ export function useCombatFlowHandlers({
     setCombat,
     setTurnState,
     setReactionPrompt,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setCombatOver,
     addLog,
     showDice,
   })
+
+  const continueAfterLegendaryWindow = useCallback((combatState = combat) => {
+    const nextEntry = combatState?.turn_order?.[combatState.current_turn_index]
+    if (canDriveAiTurns && nextEntry && !nextEntry.is_player) {
+      aiTimer.current = setTimeout(() => triggerAiTurn(), 600)
+    } else if (nextEntry?.is_player) {
+      setTurnState(getPlayerTurnState(combatState, nextEntry.character_id))
+    }
+  }, [aiTimer, canDriveAiTurns, combat, setTurnState, triggerAiTurn])
 
   const { loadCombat } = useCombatLoader({
     sessionId,
@@ -119,6 +135,8 @@ export function useCombatFlowHandlers({
     setCombat,
     setTurnState,
     setCombatOver,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     addLog,
     triggerAiTurn,
     canDriveAiTurns,
@@ -166,6 +184,118 @@ export function useCombatFlowHandlers({
     showDice,
     combat,
   })
+
+  const handleLegendaryAction = useCallback(async (actorId, actionId = null, targetId = null) => {
+    if (!actorId || isProcessing || processingRef.current) return
+    setLegendaryActionPrompt(null)
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const result = await gameApi.useLegendaryAction(sessionId, actorId, actionId, targetId)
+      addLog({
+        role: 'system',
+        content: result.narration || result.log_msg || '传奇动作',
+        log_type: 'combat',
+        dice_result: result.dice_result || result.legendary_action || null,
+        state_changes: buildCombatStateChangeSummary(result),
+      })
+      setCombat(prev => applyActionResultEntityStates(prev, result))
+      if (result.player_can_react && result.reaction_prompt) {
+        setReactionPrompt(result.reaction_prompt)
+        if (result.combat) setCombat(result.combat)
+        return
+      }
+      try {
+        const fresh = await gameApi.getCombat(sessionId)
+        if (fresh) {
+          setCombat(fresh)
+          continueAfterLegendaryWindow(fresh)
+        } else {
+          continueAfterLegendaryWindow()
+        }
+      } catch {
+        continueAfterLegendaryWindow()
+      }
+    } catch (e) {
+      setError(formatCombatError(e))
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }, [
+    addLog,
+    continueAfterLegendaryWindow,
+    isProcessing,
+    processingRef,
+    sessionId,
+    setCombat,
+    setError,
+    setIsProcessing,
+    setLegendaryActionPrompt,
+    setReactionPrompt,
+  ])
+
+  const handleSkipLegendaryAction = useCallback(() => {
+    setLegendaryActionPrompt(null)
+    continueAfterLegendaryWindow()
+  }, [continueAfterLegendaryWindow, setLegendaryActionPrompt])
+
+  const handleLairAction = useCallback(async (sourceId, actionId = null, targetId = null) => {
+    if (isProcessing || processingRef.current) return
+    setLairActionPrompt(null)
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const result = await gameApi.useLairAction(sessionId, sourceId, actionId, targetId)
+      addLog({
+        role: 'system',
+        content: result.narration || result.log_msg || '巢穴动作',
+        log_type: 'combat',
+        dice_result: result.dice_result || result.lair_action || null,
+        state_changes: buildCombatStateChangeSummary(result),
+      })
+      setCombat(prev => applyActionResultEntityStates(prev, result))
+      if (result.player_can_react && result.reaction_prompt) {
+        setReactionPrompt(result.reaction_prompt)
+        if (result.combat) setCombat(result.combat)
+        return
+      }
+      try {
+        const fresh = await gameApi.getCombat(sessionId)
+        if (fresh) {
+          setCombat(fresh)
+          continueAfterLegendaryWindow(fresh)
+        } else {
+          continueAfterLegendaryWindow()
+        }
+      } catch {
+        continueAfterLegendaryWindow()
+      }
+    } catch (e) {
+      setError(formatCombatError(e))
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }, [
+    addLog,
+    continueAfterLegendaryWindow,
+    isProcessing,
+    processingRef,
+    sessionId,
+    setCombat,
+    setError,
+    setIsProcessing,
+    setLairActionPrompt,
+    setReactionPrompt,
+  ])
+
+  const handleSkipLairAction = useCallback(() => {
+    setLairActionPrompt(null)
+    continueAfterLegendaryWindow()
+  }, [continueAfterLegendaryWindow, setLairActionPrompt])
 
   const handleDeathSave = useCombatDeathSave({
     sessionId,
@@ -227,6 +357,8 @@ export function useCombatFlowHandlers({
     setClassResources,
     setCombat,
     setReactionPrompt,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setCombatOver,
     triggerAiTurn,
     showDice,
@@ -248,6 +380,10 @@ export function useCombatFlowHandlers({
     handleSmite,
     handleReaction,
     handleCancelReaction,
+    handleLegendaryAction,
+    handleSkipLegendaryAction,
+    handleLairAction,
+    handleSkipLairAction,
     handleManeuver,
   }
 }

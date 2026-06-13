@@ -14,6 +14,8 @@ export function useCombatAiTurns({
   setCombat,
   setTurnState,
   setReactionPrompt,
+  setLairActionPrompt,
+  setLegendaryActionPrompt,
   setCombatOver,
   addLog,
   showDice,
@@ -112,6 +114,17 @@ export function useCombatAiTurns({
           break
         }
 
+        if (result.lair_action_prompt) {
+          setLairActionPrompt?.(result.lair_action_prompt)
+          setLegendaryActionPrompt?.(null)
+          break
+        }
+
+        if (result.legendary_action_prompt) {
+          setLegendaryActionPrompt?.(result.legendary_action_prompt)
+          break
+        }
+
         if (result.combat_over) {
           setCombatOver(result.outcome)
           break
@@ -131,6 +144,8 @@ export function useCombatAiTurns({
     setCombat,
     setCombatOver,
     setIsProcessing,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setReactionPrompt,
     setTurnState,
     showDice,

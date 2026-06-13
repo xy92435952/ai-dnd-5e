@@ -101,6 +101,71 @@ describe('useCombatTurnControls', () => {
     expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: false })
   })
 
+  it('stores lair action prompts from end turn without auto-driving the next ai turn', async () => {
+    const setLairActionPrompt = vi.fn()
+    const setLegendaryActionPrompt = vi.fn()
+    const lairPrompt = {
+      source_id: 'lair-1',
+      source_name: 'Cracked Shrine',
+      actions: [{ id: 'pulse', name: 'Seismic Pulse' }],
+    }
+    endTurnMock.mockResolvedValue({
+      next_turn_index: 1,
+      round_number: 2,
+      lair_action_prompt: lairPrompt,
+    })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'char-1', is_player: true },
+        { character_id: 'enemy-1', is_player: false },
+      ],
+    })
+
+    const { result, deps, aiTimer } = renderControls({ setLairActionPrompt, setLegendaryActionPrompt })
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(setLairActionPrompt).toHaveBeenCalledWith(null)
+    expect(setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+    expect(setLairActionPrompt).toHaveBeenCalledWith(lairPrompt)
+    expect(aiTimer.current).toBeNull()
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
+  it('stores legendary action prompts from end turn without auto-driving the next ai turn', async () => {
+    const setLegendaryActionPrompt = vi.fn()
+    const legendaryPrompt = {
+      actor_id: 'dragon-1',
+      actor_name: 'Dragon',
+      actions: [{ id: 'tail', name: 'Tail Strike' }],
+    }
+    endTurnMock.mockResolvedValue({
+      next_turn_index: 1,
+      round_number: 1,
+      legendary_action_prompt: legendaryPrompt,
+    })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'char-1', is_player: true },
+        { character_id: 'enemy-1', is_player: false },
+      ],
+    })
+
+    const { result, deps, aiTimer } = renderControls({ setLegendaryActionPrompt })
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(setLegendaryActionPrompt).toHaveBeenCalledWith(legendaryPrompt)
+    expect(aiTimer.current).toBeNull()
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
   it('logs start-of-turn hazard damage returned by end turn', async () => {
     endTurnMock.mockResolvedValue({
       next_turn_index: 1,

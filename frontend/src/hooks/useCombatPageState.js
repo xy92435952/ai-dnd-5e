@@ -20,6 +20,8 @@ export function useCombatPageState() {
   const [playerSubclassEffects, setPlayerSubclassEffects] = useState({})
   const [maneuverModalOpen, setManeuverModalOpen] = useState(false)
   const [reactionPrompt, setReactionPrompt] = useState(null)
+  const [legendaryActionPrompt, setLegendaryActionPrompt] = useState(null)
+  const [lairActionPrompt, setLairActionPrompt] = useState(null)
   const [initiativeShown, setInitiativeShown] = useState(false)
   const [session, setSession] = useState(null)
 
@@ -46,6 +48,8 @@ export function useCombatPageState() {
     playerSubclassEffects, setPlayerSubclassEffects,
     maneuverModalOpen, setManeuverModalOpen,
     reactionPrompt, setReactionPrompt,
+    legendaryActionPrompt, setLegendaryActionPrompt,
+    lairActionPrompt, setLairActionPrompt,
     initiativeShown, setInitiativeShown,
     session, setSession,
     aiTimer,

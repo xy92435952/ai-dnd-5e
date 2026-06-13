@@ -81,6 +81,8 @@ export default function Combat() {
     playerSubclassEffects,
     classResources,
     reactionPrompt,
+    legendaryActionPrompt,
+    lairActionPrompt,
     prediction,
     derived,
     wsConnected,
@@ -130,6 +132,10 @@ export default function Combat() {
     handleSmite,
     handleReaction,
     handleCancelReaction,
+    handleLegendaryAction,
+    handleSkipLegendaryAction,
+    handleLairAction,
+    handleSkipLairAction,
     handleManeuver,
     setAoeHover,
     setAoeLockedCenter,
@@ -311,9 +317,15 @@ export default function Combat() {
         onUseManeuver={handleManeuver}
         onCloseManeuver={() => setManeuverModalOpen(false)}
         reactionPrompt={reactionPrompt}
+        lairActionPrompt={lairActionPrompt}
+        legendaryActionPrompt={legendaryActionPrompt}
         currentCharacterId={effectivePlayerId || playerId}
         onReact={handleReaction}
         onCancelReaction={handleCancelReaction}
+        onUseLairAction={handleLairAction}
+        onSkipLairAction={handleSkipLairAction}
+        onUseLegendaryAction={handleLegendaryAction}
+        onSkipLegendaryAction={handleSkipLegendaryAction}
         error={error}
       />
     </div>
