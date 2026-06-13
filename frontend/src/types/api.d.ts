@@ -2592,6 +2592,11 @@ export interface components {
              */
             learned_spells: string[];
             /**
+             * Spell Replacements
+             * @default []
+             */
+            spell_replacements: components["schemas"]["SpellReplacementRequest"][];
+            /**
              * Use Average Hp
              * @default true
              */
@@ -2612,6 +2617,13 @@ export interface components {
             };
         } & {
             [key: string]: unknown;
+        };
+        /** SpellReplacementRequest */
+        SpellReplacementRequest: {
+            /** New Spell */
+            new_spell: string;
+            /** Old Spell */
+            old_spell: string;
         };
         /** LoginRequest */
         LoginRequest: {

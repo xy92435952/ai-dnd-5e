@@ -326,3 +326,138 @@ def test_build_level_up_update_uses_known_caster_progression_capacity():
 
     assert update["new_level"] == 11
     assert update["known_spells"] == ["Hellish Rebuke", "Hex"]
+
+
+def test_build_level_up_update_replaces_known_caster_spell():
+    ability_scores = {"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16}
+    old_derived = calc_derived("Sorcerer", 2, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Sorcerer",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={"1st": 1},
+        use_average_hp=True,
+        known_spells=["Burning Hands", "Shield"],
+        cantrips=["Fire Bolt"],
+        spell_replacements=[{"old_spell": "Burning Hands", "new_spell": "Mage Armor"}],
+        available_class_spells=[
+            {"name": "Burning Hands", "level": 1},
+            {"name": "Shield", "level": 1},
+            {"name": "Mage Armor", "level": 1},
+        ],
+        available_class_cantrips=["Fire Bolt"],
+        race="Human",
+    )
+
+    assert update["new_level"] == 3
+    assert update["known_spells"] == ["Mage Armor", "Shield"]
+    assert update["spell_replacements"] == [
+        {"old_spell": "Burning Hands", "new_spell": "Mage Armor"}
+    ]
+
+
+def test_build_level_up_update_allows_known_spell_gain_and_replacement_together():
+    ability_scores = {"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16}
+    old_derived = calc_derived("Sorcerer", 2, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Sorcerer",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={"1st": 1},
+        use_average_hp=True,
+        known_spells=["Burning Hands", "Shield", "Mage Armor"],
+        cantrips=["Fire Bolt"],
+        learned_spells=["Shatter"],
+        spell_replacements=[{"old_spell": "Burning Hands", "new_spell": "Magic Missile"}],
+        available_class_spells=[
+            {"name": "Burning Hands", "level": 1},
+            {"name": "Shield", "level": 1},
+            {"name": "Mage Armor", "level": 1},
+            {"name": "Magic Missile", "level": 1},
+            {"name": "Shatter", "level": 2},
+        ],
+        available_class_cantrips=["Fire Bolt"],
+        race="Human",
+    )
+
+    assert update["known_spells"] == ["Magic Missile", "Shield", "Mage Armor", "Shatter"]
+    assert update["learned_spells"] == ["Shatter"]
+
+
+def test_build_level_up_update_rejects_invalid_spell_replacements():
+    ability_scores = {"str": 10, "dex": 12, "con": 14, "int": 10, "wis": 16, "cha": 10}
+    old_derived = calc_derived("Cleric", 2, ability_scores, None, race="Human")
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Cleric",
+            level=2,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=["Bless"],
+            cantrips=["Sacred Flame"],
+            spell_replacements=[{"old_spell": "Bless", "new_spell": "Cure Wounds"}],
+            available_class_spells=[
+                {"name": "Bless", "level": 1},
+                {"name": "Cure Wounds", "level": 1},
+            ],
+            available_class_cantrips=["Sacred Flame"],
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "cannot replace known spells" in exc.value.detail
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Sorcerer",
+            level=2,
+            ability_scores={"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16},
+            derived=calc_derived("Sorcerer", 2, {"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16}, None, race="Human"),
+            hp_current=14,
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=["Shield"],
+            cantrips=["Fire Bolt"],
+            spell_replacements=[{"old_spell": "Burning Hands", "new_spell": "Mage Armor"}],
+            available_class_spells=[
+                {"name": "Burning Hands", "level": 1},
+                {"name": "Shield", "level": 1},
+                {"name": "Mage Armor", "level": 1},
+            ],
+            available_class_cantrips=["Fire Bolt"],
+            race="Human",
+        )
+
+    assert "not currently known" in exc.value.detail
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Sorcerer",
+            level=2,
+            ability_scores={"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16},
+            derived=calc_derived("Sorcerer", 2, {"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16}, None, race="Human"),
+            hp_current=14,
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=["Burning Hands", "Shield"],
+            cantrips=["Fire Bolt"],
+            spell_replacements=[{"old_spell": "Burning Hands", "new_spell": "Shield"}],
+            available_class_spells=[
+                {"name": "Burning Hands", "level": 1},
+                {"name": "Shield", "level": 1},
+            ],
+            available_class_cantrips=["Fire Bolt"],
+            race="Human",
+        )
+
+    assert "already known" in exc.value.detail

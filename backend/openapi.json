@@ -2568,6 +2568,14 @@
             "title": "Learned Spells",
             "type": "array"
           },
+          "spell_replacements": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SpellReplacementRequest"
+            },
+            "title": "Spell Replacements",
+            "type": "array"
+          },
           "use_average_hp": {
             "default": true,
             "title": "Use Average Hp",
@@ -2595,6 +2603,24 @@
           "character"
         ],
         "title": "LevelUpResult",
+        "type": "object"
+      },
+      "SpellReplacementRequest": {
+        "properties": {
+          "new_spell": {
+            "title": "New Spell",
+            "type": "string"
+          },
+          "old_spell": {
+            "title": "Old Spell",
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_spell",
+          "new_spell"
+        ],
+        "title": "SpellReplacementRequest",
         "type": "object"
       },
       "LoginRequest": {

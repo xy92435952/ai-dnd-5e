@@ -89,6 +89,10 @@ async def level_up_character(
             feat_choice=req.feat_choice,
             learned_spells=req.learned_spells,
             learned_cantrips=req.learned_cantrips,
+            spell_replacements=[
+                replacement.model_dump()
+                for replacement in req.spell_replacements
+            ],
             available_class_spells=spell_service.get_for_class(_normalize_class(char.char_class)),
             available_class_cantrips=[
                 spell["name"]
@@ -127,6 +131,7 @@ async def level_up_character(
             "cantrips": update["cantrips"],
             "learned_spells": update["learned_spells"],
             "learned_cantrips": update["learned_cantrips"],
+            "spell_replacements": update["spell_replacements"],
             "preparation_type": update["preparation_type"],
         },
     }

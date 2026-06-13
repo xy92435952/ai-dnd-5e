@@ -49,12 +49,18 @@ class PreparedSpellsRequest(BaseModel):
     prepared_spells: list[str]
 
 
+class SpellReplacementRequest(BaseModel):
+    old_spell: str
+    new_spell: str
+
+
 class LevelUpRequest(BaseModel):
     use_average_hp: bool = True
     ability_score_increases: Optional[dict] = None
     feat_choice: Optional[dict] = None
     learned_spells: list[str] = []
     learned_cantrips: list[str] = []
+    spell_replacements: list[SpellReplacementRequest] = []
 
 
 class GoldRequest(BaseModel):

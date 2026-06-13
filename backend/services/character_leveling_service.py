@@ -89,6 +89,7 @@ def build_level_up_update(
     feat_choice: dict | None = None,
     learned_spells: list[str] | None = None,
     learned_cantrips: list[str] | None = None,
+    spell_replacements: list[dict] | None = None,
     available_class_spells: list | None = None,
     available_class_cantrips: list[str] | None = None,
     dice_roller: Callable[[str], dict] = roll_dice,
@@ -180,6 +181,7 @@ def build_level_up_update(
         cantrips=cantrips,
         learned_spells=learned_spells,
         learned_cantrips=learned_cantrips,
+        spell_replacements=spell_replacements,
         available_class_spells=available_class_spells,
         available_class_cantrips=available_class_cantrips,
     )
@@ -200,6 +202,7 @@ def build_level_up_update(
         "cantrips": spell_learning["cantrips"],
         "learned_spells": spell_learning["learned_spells"],
         "learned_cantrips": spell_learning["learned_cantrips"],
+        "spell_replacements": spell_learning["spell_replacements"],
         "preparation_type": spell_learning["preparation_type"],
     }
 
@@ -294,12 +297,14 @@ def _advance_spell_learning(
     cantrips: list[str] | None,
     learned_spells: list[str] | None,
     learned_cantrips: list[str] | None,
+    spell_replacements: list[dict] | None,
     available_class_spells: list | None,
     available_class_cantrips: list[str] | None,
 ) -> dict:
     preparation_type = SPELL_PREPARATION_TYPE.get(cls_key)
     requested_spells = _clean_choices(learned_spells)
     requested_cantrips = _clean_choices(learned_cantrips)
+    requested_replacements = _clean_replacements(spell_replacements)
     next_known_spells = list(known_spells or [])
     next_cantrips = list(cantrips or [])
 
@@ -333,17 +338,45 @@ def _advance_spell_learning(
     spell_levels = _available_spell_levels(available_class_spells)
     max_spell_level = _max_leveled_spell_rank(next_spell_slots_max)
     known_set = set(next_known_spells)
+
+    if requested_replacements:
+        if preparation_type != "known":
+            raise CharacterLevelingError(
+                400,
+                f"{cls_key} cannot replace known spells during level-up.",
+            )
+        if len(requested_replacements) > 1:
+            raise CharacterLevelingError(400, "Only one known spell replacement is allowed per level-up.")
+
+    for replacement in requested_replacements:
+        old_spell = replacement["old_spell"]
+        new_spell = replacement["new_spell"]
+        if old_spell == new_spell:
+            raise CharacterLevelingError(400, "Replacement spell must be different from the old spell.")
+        if old_spell not in known_set:
+            raise CharacterLevelingError(400, f"Spell '{old_spell}' is not currently known.")
+        if new_spell in known_set:
+            raise CharacterLevelingError(400, f"Spell '{new_spell}' is already known.")
+        _validate_leveled_class_spell(
+            spell_name=new_spell,
+            spell_levels=spell_levels,
+            max_spell_level=max_spell_level,
+        )
+        next_known_spells = [
+            new_spell if spell_name == old_spell else spell_name
+            for spell_name in next_known_spells
+        ]
+        known_set.remove(old_spell)
+        known_set.add(new_spell)
+
     for spell_name in requested_spells:
         if spell_name in known_set:
             raise CharacterLevelingError(400, f"Spell '{spell_name}' is already known.")
-        spell_level = spell_levels.get(spell_name)
-        if spell_level is None or spell_level <= 0:
-            raise CharacterLevelingError(400, f"Spell '{spell_name}' is not a class leveled spell.")
-        if max_spell_level <= 0 or spell_level > max_spell_level:
-            raise CharacterLevelingError(
-                400,
-                f"Spell '{spell_name}' requires level {spell_level}; max allowed is {max_spell_level}.",
-            )
+        _validate_leveled_class_spell(
+            spell_name=spell_name,
+            spell_levels=spell_levels,
+            max_spell_level=max_spell_level,
+        )
         next_known_spells.append(spell_name)
         known_set.add(spell_name)
 
@@ -362,6 +395,7 @@ def _advance_spell_learning(
         "cantrips": next_cantrips,
         "learned_spells": requested_spells,
         "learned_cantrips": requested_cantrips,
+        "spell_replacements": requested_replacements,
         "preparation_type": preparation_type,
     }
 
@@ -410,6 +444,22 @@ def _available_spell_levels(available_class_spells: list | None) -> dict[str, in
     return spell_levels
 
 
+def _validate_leveled_class_spell(
+    *,
+    spell_name: str,
+    spell_levels: dict[str, int | None],
+    max_spell_level: int,
+) -> None:
+    spell_level = spell_levels.get(spell_name)
+    if spell_level is None or spell_level <= 0:
+        raise CharacterLevelingError(400, f"Spell '{spell_name}' is not a class leveled spell.")
+    if max_spell_level <= 0 or spell_level > max_spell_level:
+        raise CharacterLevelingError(
+            400,
+            f"Spell '{spell_name}' requires level {spell_level}; max allowed is {max_spell_level}.",
+        )
+
+
 def _max_leveled_spell_rank(spell_slots_max: dict | None) -> int:
     max_rank = 0
     for slot_key, count in (spell_slots_max or {}).items():
@@ -432,6 +482,19 @@ def _parse_slot_level(slot_key: str) -> int:
 
 def _clean_choices(choices: list[str] | None) -> list[str]:
     return [str(choice).strip() for choice in choices or [] if str(choice).strip()]
+
+
+def _clean_replacements(replacements: list[dict] | None) -> list[dict]:
+    cleaned = []
+    for replacement in replacements or []:
+        if not isinstance(replacement, dict):
+            raise CharacterLevelingError(400, "Spell replacements must be objects.")
+        old_spell = str(replacement.get("old_spell", "")).strip()
+        new_spell = str(replacement.get("new_spell", "")).strip()
+        if not old_spell or not new_spell:
+            raise CharacterLevelingError(400, "Spell replacements require old_spell and new_spell.")
+        cleaned.append({"old_spell": old_spell, "new_spell": new_spell})
+    return cleaned
 
 
 def _reject_duplicate_choices(choices: list[str], label: str) -> None:

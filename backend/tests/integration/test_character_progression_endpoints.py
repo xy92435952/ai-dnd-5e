@@ -144,6 +144,63 @@ async def test_level_up_adds_requested_wizard_spell_learning(client, db_session,
     assert wizard.known_spells == [known_spell, *learned_spells]
 
 
+async def test_level_up_replaces_known_caster_spell(client, db_session, sample_user):
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 16}
+    old_derived = calc_derived("Sorcerer", 2, ability_scores, None, race="Human")
+    sorcerer_spells = [
+        spell
+        for spell in spell_service.get_for_class("Sorcerer")
+        if 0 < spell.get("level", 0) <= 2
+    ]
+    old_spell = sorcerer_spells[0]["name"]
+    kept_spell = sorcerer_spells[1]["name"]
+    new_spell = sorcerer_spells[2]["name"]
+    sorcerer = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Spell Swapping Sorcerer",
+        race="Human",
+        char_class="Sorcerer",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={"1st": 1},
+        known_spells=[old_spell, kept_spell],
+        prepared_spells=[old_spell, kept_spell],
+        cantrips=["Fire Bolt"],
+        proficient_skills=[],
+        proficient_saves=["con", "cha"],
+        is_player=True,
+    )
+    db_session.add(sorcerer)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{sorcerer.id}/level-up",
+        headers=headers,
+        json={
+            "use_average_hp": True,
+            "spell_replacements": [{"old_spell": old_spell, "new_spell": new_spell}],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    data = payload["character"]
+    assert data["level"] == 3
+    assert data["known_spells"] == [new_spell, kept_spell]
+    assert data["prepared_spells"] == [new_spell, kept_spell]
+    assert payload["level_up_details"]["spell_replacements"] == [
+        {"old_spell": old_spell, "new_spell": new_spell}
+    ]
+
+    await db_session.refresh(sorcerer)
+    assert sorcerer.known_spells == [new_spell, kept_spell]
+    assert sorcerer.prepared_spells == [new_spell, kept_spell]
+
+
 async def test_prepared_caster_can_prepare_spells_from_class_list(client, db_session, sample_user):
     ability_scores = {"str": 10, "dex": 12, "con": 14, "int": 10, "wis": 16, "cha": 10}
     derived = calc_derived("Cleric", 1, ability_scores, None, race="Human")
