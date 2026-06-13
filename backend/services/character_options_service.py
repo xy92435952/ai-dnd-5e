@@ -41,6 +41,14 @@ def build_character_options(spell_service) -> dict:
         cls: [spell["name"] for spell in spell_service.get_for_class(cls) if spell["level"] > 0]
         for cls in SPELLCASTER_CLASSES
     }
+    class_spell_details = {
+        cls: [
+            {"name": spell["name"], "level": spell["level"]}
+            for spell in spell_service.get_for_class(cls)
+            if spell["level"] > 0
+        ]
+        for cls in SPELLCASTER_CLASSES
+    }
     starting_cantrips_count = {
         cls: get_cantrips_count(cls, 1)
         for cls in SPELLCASTER_CLASSES
@@ -57,6 +65,7 @@ def build_character_options(spell_service) -> dict:
         "all_skills": ALL_SKILLS,
         "class_cantrips": class_cantrips,
         "class_spells": class_spells,
+        "class_spell_details": class_spell_details,
         "starting_cantrips_count": starting_cantrips_count,
         "starting_spells_count": STARTING_SPELLS_COUNT,
         "spellcaster_classes": SPELLCASTER_CLASSES,

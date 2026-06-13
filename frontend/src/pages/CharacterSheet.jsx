@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { charactersApi, gameApi } from '../api/client'
 import {
@@ -9,6 +9,7 @@ import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { Divider } from '../components/Ornaments'
 import InventoryPanel from '../components/inventory/InventoryPanel'
+import { buildLevelUpSpellChoicePlan } from '../utils/levelUpSpellChoices'
 
 // ── 常量 ──────────────────────────────────────────────────
 const ABILITY_LABELS = {
@@ -49,12 +50,25 @@ export default function CharacterSheet() {
 
   const [char, setChar] = useState(null)
   const [partyMembers, setPartyMembers] = useState([])
+  const [characterOptions, setCharacterOptions] = useState(null)
+  const [levelUpSelections, setLevelUpSelections] = useState({
+    spells: [],
+    cantrips: [],
+    replacementOld: '',
+    replacementNew: '',
+  })
+  const [levelUpBusy, setLevelUpBusy] = useState(false)
+  const [levelUpNotice, setLevelUpNotice] = useState('')
   const [error, setError] = useState('')
 
   const loadCharacter = useCallback(async () => {
     try {
-      const data = await charactersApi.get(characterId)
+      const [data, optionsData] = await Promise.all([
+        charactersApi.get(characterId),
+        charactersApi.options ? charactersApi.options().catch(() => null) : Promise.resolve(null),
+      ])
       setChar(data)
+      if (optionsData) setCharacterOptions(optionsData)
       const sessionId = searchParams.get('sessionId')
       if (sessionId) {
         const session = await gameApi.getSession(sessionId)
@@ -71,6 +85,60 @@ export default function CharacterSheet() {
   }, [characterId, searchParams])
 
   useEffect(() => { loadCharacter() }, [loadCharacter])
+
+  const levelUpSpellPlan = useMemo(
+    () => (char ? buildLevelUpSpellChoicePlan(char, characterOptions || {}) : null),
+    [char, characterOptions],
+  )
+
+  const resetLevelUpSelections = useCallback(() => {
+    setLevelUpSelections({
+      spells: [],
+      cantrips: [],
+      replacementOld: '',
+      replacementNew: '',
+    })
+  }, [])
+
+  const toggleLevelUpChoice = useCallback((kind, value, capacity) => {
+    const key = kind === 'cantrip' ? 'cantrips' : 'spells'
+    setLevelUpSelections(prev => {
+      const current = prev[key] || []
+      if (current.includes(value)) {
+        return { ...prev, [key]: current.filter(item => item !== value) }
+      }
+      if (current.length >= capacity) return prev
+      return { ...prev, [key]: [...current, value] }
+    })
+  }, [])
+
+  const handleLevelUp = useCallback(async () => {
+    if (!char || levelUpBusy) return
+    setLevelUpBusy(true)
+    setError('')
+    setLevelUpNotice('')
+
+    const payload = { use_average_hp: true }
+    if (levelUpSelections.spells.length) payload.learned_spells = levelUpSelections.spells
+    if (levelUpSelections.cantrips.length) payload.learned_cantrips = levelUpSelections.cantrips
+    if (levelUpSelections.replacementOld && levelUpSelections.replacementNew) {
+      payload.spell_replacements = [{
+        old_spell: levelUpSelections.replacementOld,
+        new_spell: levelUpSelections.replacementNew,
+      }]
+    }
+
+    try {
+      const result = await charactersApi.levelUp(char.id, payload)
+      if (result?.character) setChar(result.character)
+      resetLevelUpSelections()
+      setLevelUpNotice('Level up complete')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLevelUpBusy(false)
+    }
+  }, [char, levelUpBusy, levelUpSelections, resetLevelUpSelections])
 
   if (error && !char) {
     return (
@@ -268,6 +336,16 @@ export default function CharacterSheet() {
           onError={setError}
         />
 
+        <LevelUpPanel
+          plan={levelUpSpellPlan}
+          selections={levelUpSelections}
+          onToggleChoice={toggleLevelUpChoice}
+          onSelectionChange={setLevelUpSelections}
+          onLevelUp={handleLevelUp}
+          busy={levelUpBusy}
+          notice={levelUpNotice}
+        />
+
         {/* ── Spell Slots ── */}
         {Object.keys(slotsMax).length > 0 && (
           <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
@@ -443,6 +521,162 @@ export default function CharacterSheet() {
 }
 
 // ── Sub-components ────────────────────────────────────────
+
+function LevelUpPanel({
+  plan,
+  selections,
+  onToggleChoice,
+  onSelectionChange,
+  onLevelUp,
+  busy,
+  notice,
+}) {
+  if (!plan) return null
+
+  const hasSpellChoices = plan.spellOptions.length > 0 && plan.spellCapacity > 0
+  const hasCantripChoices = plan.cantripOptions.length > 0 && plan.cantripCapacity > 0
+  const hasReplacementChoices = plan.canReplaceSpell && plan.replacementNewOptions.length > 0
+  const selectedSpellCount = selections.spells.length
+  const selectedCantripCount = selections.cantrips.length
+
+  return (
+    <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+      <SectionTitle>Level Up</SectionTitle>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: hasSpellChoices || hasCantripChoices || hasReplacementChoices ? 12 : 0 }}>
+        <div>
+          <p style={{ color: 'var(--parchment)', fontSize: 14, fontWeight: 700, margin: 0 }}>
+            Lv{plan.currentLevel} -&gt; Lv{plan.nextLevel}
+          </p>
+          <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '3px 0 0' }}>
+            {plan.classKey || 'Class'}{plan.preparationType ? ` / ${plan.preparationType}` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-fantasy"
+          onClick={onLevelUp}
+          disabled={busy}
+          style={{ minWidth: 112 }}
+        >
+          {busy ? 'Leveling...' : 'Level Up'}
+        </button>
+      </div>
+
+      {hasSpellChoices && (
+        <LevelUpChoiceGroup
+          title={`Spells ${selectedSpellCount}/${plan.spellCapacity}`}
+          values={plan.spellOptions}
+          selected={selections.spells}
+          onToggle={(value) => onToggleChoice('spell', value, plan.spellCapacity)}
+          labelPrefix="Learn"
+        />
+      )}
+
+      {hasCantripChoices && (
+        <LevelUpChoiceGroup
+          title={`Cantrips ${selectedCantripCount}/${plan.cantripCapacity}`}
+          values={plan.cantripOptions}
+          selected={selections.cantrips}
+          onToggle={(value) => onToggleChoice('cantrip', value, plan.cantripCapacity)}
+          labelPrefix="Learn cantrip"
+        />
+      )}
+
+      {hasReplacementChoices && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+            Replace known spell
+            <select
+              aria-label="Replace known spell"
+              value={selections.replacementOld}
+              onChange={(event) => onSelectionChange(prev => ({
+                ...prev,
+                replacementOld: event.target.value,
+              }))}
+              style={levelUpSelectStyle}
+            >
+              <option value="">None</option>
+              {plan.replacementKnownOptions.map(spell => (
+                <option key={spell} value={spell}>{spell}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+            Replacement spell
+            <select
+              aria-label="Replacement spell"
+              value={selections.replacementNew}
+              onChange={(event) => onSelectionChange(prev => ({
+                ...prev,
+                replacementNew: event.target.value,
+              }))}
+              disabled={!selections.replacementOld}
+              style={levelUpSelectStyle}
+            >
+              <option value="">None</option>
+              {plan.replacementNewOptions.map(spell => (
+                <option key={spell} value={spell}>{spell}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {notice && (
+        <p role="status" style={{ color: 'var(--green-light)', fontSize: 12, margin: '10px 0 0' }}>
+          {notice}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function LevelUpChoiceGroup({ title, values, selected, onToggle, labelPrefix }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <p style={{ color: 'var(--gold-dim)', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
+        {title}
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {values.map(value => (
+          <label
+            key={value}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              minHeight: 28,
+              padding: '4px 9px',
+              borderRadius: 6,
+              border: '1px solid var(--wood-light)',
+              color: selected.includes(value) ? 'var(--gold)' : 'var(--parchment-dark)',
+              background: selected.includes(value) ? 'rgba(201,162,76,0.12)' : 'rgba(138,90,246,0.06)',
+              fontSize: 11,
+            }}
+          >
+            <input
+              aria-label={`${labelPrefix} ${value}`}
+              type="checkbox"
+              checked={selected.includes(value)}
+              onChange={() => onToggle(value)}
+            />
+            {value}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const levelUpSelectStyle = {
+  minHeight: 34,
+  borderRadius: 6,
+  border: '1px solid var(--wood-light)',
+  background: 'var(--bg)',
+  color: 'var(--parchment)',
+  padding: '4px 8px',
+}
 
 function SectionTitle({ children }) {
   return (

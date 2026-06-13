@@ -19,6 +19,7 @@ def test_build_character_options_includes_spell_metadata_for_spellcasters():
     assert "Wizard" in options["spellcaster_classes"]
     assert options["class_cantrips"]["Wizard"] == ["Wizard-cantrip"]
     assert options["class_spells"]["Wizard"] == ["Wizard-spell"]
+    assert options["class_spell_details"]["Wizard"] == [{"name": "Wizard-spell", "level": 1}]
     assert options["starting_cantrips_count"]["Wizard"] >= 0
     assert options["races"]
     assert options["class_skill_choices"]
