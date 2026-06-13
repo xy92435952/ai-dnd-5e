@@ -8972,7 +8972,7 @@ async def test_assassinate_action_hit_does_not_500(
 
 
 async def test_attack_roll_then_damage_roll_applies_damage(
-    client, sample_session, combat_state, sample_user, sample_character,
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
 ):
     """/attack-roll 命中后使用 /damage-roll 应扣减目标 HP 并清理 pending attack。"""
     headers = await _auth_headers(client, sample_user)
@@ -8991,6 +8991,30 @@ async def test_attack_roll_then_damage_roll_applies_damage(
     attack_data = attack.json()
     assert attack_data["hit"] is True
     assert attack_data["pending_attack_id"]
+    assert attack_data["action"] == "attack_roll"
+    assert attack_data["dice_result"]["type"] == "attack_prepare"
+    assert attack_data["dice_result"]["actor_id"] == sample_character.id
+    assert attack_data["dice_result"]["actor_name"] == sample_character.name
+    assert attack_data["dice_result"]["target_id"] == "goblin-1"
+    assert attack_data["dice_result"]["target_name"] == attack_data["target_name"]
+    assert attack_data["dice_result"]["attack"]["d20"] == 15
+    assert attack_data["dice_result"]["attack"]["hit"] is True
+    assert attack_data["dice_result"]["attack"]["target_conditions"] == []
+    assert attack_data["dice_result"]["damage_dice"] == attack_data["damage_dice"]
+    assert attack_data["special_action"] == attack_data["dice_result"]
+    assert "turn_state" not in attack_data["dice_result"]
+    attack_prepare_log = (
+        await db_session.execute(
+            select(GameLog).where(GameLog.session_id == sample_session.id)
+        )
+    ).scalars().all()
+    attack_prepare_log = [
+        log for log in attack_prepare_log
+        if isinstance(log.dice_result, dict) and log.dice_result.get("type") == "attack_prepare"
+    ]
+    assert len(attack_prepare_log) == 1
+    assert attack_prepare_log[0].content == attack_data["narration"]
+    assert attack_prepare_log[0].dice_result == attack_data["dice_result"]
 
     damage = await client.post(
         f"/game/combat/{sample_session.id}/damage-roll",

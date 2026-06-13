@@ -54,6 +54,7 @@ export function buildAiTurnDiceResult(result = {}) {
     || persistedDice?.type === 'condition_update'
     || persistedDice?.type === 'reaction'
     || persistedDice?.type === 'spell_prepare'
+    || persistedDice?.type === 'attack_prepare'
     || persistedDice?.type === 'enemy_inspect') {
     return {
       ...persistedDice,

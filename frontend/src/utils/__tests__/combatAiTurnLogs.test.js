@@ -64,6 +64,32 @@ describe('combatAiTurnLogs', () => {
     })
   })
 
+  it('preserves player attack-prepare payloads from dice_result', () => {
+    const attackPrepare = {
+      type: 'attack_prepare',
+      actor_id: 'host-char',
+      actor_name: 'Host Fighter',
+      target_id: 'enemy-1',
+      target_name: 'Clockwork Sentry',
+      action_type: 'melee',
+      attack: {
+        d20: 18,
+        attack_total: 23,
+        target_ac: 13,
+        hit: true,
+      },
+      hit: true,
+      is_crit: false,
+      damage_dice: '1d8+3',
+    }
+
+    expect(buildAiTurnDiceResult({
+      dice_result: attackPrepare,
+      special_action: { type: 'attack_prepare' },
+      attack_result: { d20: 1, hit: false },
+    })).toEqual(attackPrepare)
+  })
+
   it('preserves persisted AI spell dice payloads', () => {
     expect(buildAiTurnDiceResult({
       dice_result: {

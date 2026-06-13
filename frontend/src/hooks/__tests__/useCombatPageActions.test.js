@@ -489,6 +489,60 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
+  it('logs player attack-roll prepare combat_update payloads for observers', () => {
+    const { result, deps } = renderActions()
+    const attackPrepare = {
+      type: 'attack_prepare',
+      actor_id: 'host-char',
+      actor_name: 'Host Fighter',
+      target_id: 'enemy-1',
+      target_name: 'Clockwork Sentry',
+      action_type: 'melee',
+      is_offhand: false,
+      is_martial_arts: false,
+      attack: {
+        d20: 18,
+        attack_total: 23,
+        target_ac: 13,
+        hit: true,
+        is_crit: false,
+        is_fumble: false,
+        target_conditions: [],
+      },
+      hit: true,
+      is_crit: false,
+      is_fumble: false,
+      damage_dice: '1d8+3',
+      attacks_made: 1,
+      attacks_max: 1,
+      defender_interception: null,
+      weapon_resource: null,
+    }
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        actor_id: 'host-char',
+        actor_name: 'Host Fighter',
+        narration: 'Host Fighter attacks Clockwork Sentry and hits (23 vs AC13).',
+        action: 'attack_roll',
+        target_id: 'enemy-1',
+        target_name: 'Clockwork Sentry',
+        attack_result: attackPrepare.attack,
+        dice_result: attackPrepare,
+        special_action: attackPrepare,
+      })
+    })
+
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'companion_Host Fighter',
+      log_type: 'combat',
+      content: 'Host Fighter attacks Clockwork Sentry and hits (23 vs AC13).',
+      dice_result: attackPrepare,
+    }))
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
   it('logs player damage-roll combat_update payloads for observers', () => {
     const { result, deps } = renderActions()
 

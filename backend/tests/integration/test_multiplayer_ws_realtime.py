@@ -1881,7 +1881,7 @@ async def test_multiplayer_damage_roll_broadcasts_combat_update(
         combat_row.entity_positions = positions
         await db_session.commit()
 
-        before_count = len(guest_ws.sent)
+        prepare_start = len(guest_ws.sent)
         attack = await client.post(
             f"/game/combat/{sid}/attack-roll",
             headers=_h(host["token"]),
@@ -1893,13 +1893,38 @@ async def test_multiplayer_damage_roll_broadcasts_combat_update(
             },
         )
         assert attack.status_code == 200, attack.text
-        assert attack.json()["hit"] is True
+        attack_body = attack.json()
+        assert attack_body["hit"] is True
+        assert attack_body["dice_result"]["type"] == "attack_prepare"
+        assert attack_body["special_action"] == attack_body["dice_result"]
 
+        prepare_update = await _wait_for_event(
+            guest_ws,
+            "combat_update",
+            timeout=2,
+            start_index=prepare_start,
+            predicate=lambda event: (event.get("dice_result") or {}).get("type") == "attack_prepare",
+        )
+        assert prepare_update["current_entity_id"] == host_char.id
+        assert prepare_update["actor_id"] == host_char.id
+        assert prepare_update["actor_name"] == host_char.name
+        assert prepare_update["action"] == "attack_roll"
+        assert prepare_update["narration"] == attack_body["narration"]
+        assert prepare_update["target_id"] == enemy["id"]
+        assert prepare_update["target_name"] == enemy["name"]
+        assert prepare_update["attack_result"] == attack_body["dice_result"]["attack"]
+        assert prepare_update["dice_result"] == attack_body["dice_result"]
+        assert prepare_update["special_action"] == attack_body["dice_result"]
+        assert prepare_update["dice_result"]["hit"] is True
+        assert prepare_update["dice_result"]["damage_dice"] == attack_body["damage_dice"]
+        assert "turn_state" not in prepare_update
+
+        before_count = len(guest_ws.sent)
         damage = await client.post(
             f"/game/combat/{sid}/damage-roll",
             headers=_h(host["token"]),
             json={
-                "pending_attack_id": attack.json()["pending_attack_id"],
+                "pending_attack_id": attack_body["pending_attack_id"],
                 "damage_values": [4],
             },
         )
