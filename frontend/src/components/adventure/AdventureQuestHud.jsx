@@ -1,4 +1,5 @@
 import { getLocationGraphSummary } from '../../utils/locationGraph'
+import { filterPublicClues, filterPublicRecentUpdates } from '../../utils/clueVisibility'
 
 const RECENT_TYPE_LABELS = {
   quest: '任务',
@@ -77,6 +78,8 @@ export default function AdventureQuestHud({
   locationGraph = null,
   onOpenJournal,
 }) {
+  const visibleClues = filterPublicClues(clues)
+  const visibleRecentConsequences = filterPublicRecentUpdates(recentConsequences, clues)
   const locationSummary = getLocationGraphSummary(locationGraph)
   const questStatus = getQuestStatusMeta(questLine)
   const questDetail = getQuestDetail(questLine)
@@ -165,9 +168,9 @@ export default function AdventureQuestHud({
         </>
       )}
       <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>❖ 线索 {clues.length}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>❖ 线索 {visibleClues.length}</span>
       <div style={{ display: 'flex', gap: 6, overflow: 'hidden', minWidth: 0 }}>
-        {clues.map((c, i) => (
+        {visibleClues.map((c, i) => (
           <span key={i} style={{
             fontSize: 11,
             color: c.is_new ? 'var(--amber)' : 'var(--parchment-dark)',
@@ -226,12 +229,12 @@ export default function AdventureQuestHud({
           </div>
         </>
       )}
-      {recentConsequences.length > 0 && (
+      {visibleRecentConsequences.length > 0 && (
         <>
           <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>最近</span>
           <div className="quest-recent-list">
-            {recentConsequences.map((item, index) => {
+            {visibleRecentConsequences.map((item, index) => {
               const type = item.type || 'note'
               const typeLabel = RECENT_TYPE_LABELS[type] || '记录'
               const detail = item.detail ? `：${item.detail}` : ''

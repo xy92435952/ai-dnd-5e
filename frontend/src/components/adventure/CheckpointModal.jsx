@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Overlay from './Overlay'
 import { CheckpointIcon } from '../Icons'
 import { gameApi } from '../../api/client'
+import { filterPublicClues } from '../../utils/clueVisibility'
 
 function asObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
@@ -16,7 +17,7 @@ function countSummary(campaignState = {}) {
   return {
     quests: asArray(state.quest_log).filter(item => item?.quest).length,
     npcs: Object.keys(asObject(state.npc_registry)).length,
-    clues: asArray(state.clues).filter(item => item?.text).length,
+    clues: filterPublicClues(asArray(state.clues)).length,
     scenes: asArray(state.completed_scenes).filter(Boolean).length,
     flags: Object.values(asObject(state.world_flags)).filter(Boolean).length,
     decisions: asArray(state.key_decisions).filter(Boolean).length,
@@ -54,7 +55,7 @@ function buildPreviewItems(campaignState = {}) {
     .map(item => `${item.quest}${item.status ? ` · ${item.status}` : ''}`)
   const npcs = Object.entries(asObject(state.npc_registry))
     .map(([name, data]) => `${name}${data?.relationship ? ` · ${data.relationship}` : ''}`)
-  const clues = asArray(state.clues).filter(item => item?.text).map(item => item.text)
+  const clues = filterPublicClues(asArray(state.clues)).map(item => item.text)
   const flags = Object.entries(asObject(state.world_flags))
     .filter(([, value]) => value)
     .map(([key]) => key.replace(/[_-]+/g, ' '))

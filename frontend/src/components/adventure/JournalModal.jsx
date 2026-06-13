@@ -14,6 +14,7 @@ import { useEffect, useRef } from 'react'
 import Overlay from './Overlay'
 import { JournalIcon } from '../Icons'
 import { extractNarrative, splitCompanionReactions } from '../../utils/dialogue'
+import { filterPublicClues, filterPublicRecentUpdates } from '../../utils/clueVisibility'
 
 function cleanText(value) {
   return String(value || '').trim()
@@ -326,7 +327,12 @@ function buildJournalSections(session, room) {
   const campaign = asObject(session?.campaign_state)
   const gameState = asObject(session?.game_state)
   const sceneVibe = asObject(gameState.scene_vibe)
-  const recentUpdates = asArray(campaign.recent_updates).filter(Boolean)
+  const rawClues = asArray(campaign.clues)
+  const clues = filterPublicClues(rawClues)
+  const recentUpdates = filterPublicRecentUpdates(
+    asArray(campaign.recent_updates).filter(Boolean),
+    rawClues,
+  )
   const timeline = recentUpdates
     .slice(-12)
     .reverse()
@@ -336,7 +342,6 @@ function buildJournalSections(session, room) {
   const quests = asArray(campaign.quest_log)
     .filter(q => q?.quest)
     .map(q => buildQuestSummary(q, recentUpdates))
-  const clues = asArray(campaign.clues).filter(c => c?.text)
   const companions = asArray(session?.companions)
     .filter(companion => companion && cleanText(companion.name))
   const reactionsByCompanion = buildCompanionReactionMap(session, companions)

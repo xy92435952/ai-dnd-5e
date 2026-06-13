@@ -16,7 +16,10 @@ describe('AdventureQuestHud', () => {
           fail_forward: '错过月光窗口后仍可寻找铁匠旧钥匙',
           progressCount: 2,
         }}
-        clues={[{ text: '暗门在井底', category: 'location', is_new: true }]}
+        clues={[
+          { id: 'moonwell-door', text: '暗门在井底', category: 'location', is_new: true },
+          { id: 'hidden-vault', text: '隐藏金库', hidden: true },
+        ]}
         locationGraph={{
           current_location_id: 'well',
           nodes: [
@@ -50,6 +53,7 @@ describe('AdventureQuestHud', () => {
           { type: 'quest', label: '寻找矿工', detail: '矿工获救' },
           { type: 'companion', label: '艾琳', detail: '好感+6' },
           { type: 'clue', label: '暗门在井底', detail: 'location' },
+          { type: 'clue', clue_id: 'hidden-vault', label: '隐藏金库', detail: 'secret' },
           { type: 'decision', label: '信任铁匠', detail: '关键决定' },
         ]}
       />,
@@ -81,6 +85,7 @@ describe('AdventureQuestHud', () => {
     expect(within(recent).getByText(/艾琳：好感\+6/)).toHaveClass('quest-recent-item', 'companion')
     expect(within(recent).getByText('线索')).toBeInTheDocument()
     expect(within(recent).getByText(/暗门在井底：location/)).toHaveClass('quest-recent-item', 'clue')
+    expect(within(recent).queryByText(/隐藏金库/)).not.toBeInTheDocument()
     expect(within(recent).getByText('决定')).toBeInTheDocument()
     expect(within(recent).getByText(/信任铁匠：关键决定/)).toHaveClass('quest-recent-item', 'decision')
   })

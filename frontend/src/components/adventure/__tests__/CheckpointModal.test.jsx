@@ -21,7 +21,10 @@ describe('CheckpointModal', () => {
       campaign_state: {
         quest_log: [{ quest: '寻找失踪矿工', status: 'active' }],
         npc_registry: { 铁匠格雷: { relationship: '谨慎盟友' } },
-        clues: [{ text: '暗门在井底' }],
+        clues: [
+          { text: '暗门在井底' },
+          { text: '隐藏金库', hidden: true },
+        ],
         completed_scenes: ['矿洞入口'],
         world_flags: { mine_alarm_raised: true },
         key_decisions: ['信任铁匠格雷'],
@@ -49,6 +52,7 @@ describe('CheckpointModal', () => {
     expect(within(preview).getByText(/寻找失踪矿工/)).toBeInTheDocument()
     expect(within(preview).getByText(/铁匠格雷/)).toBeInTheDocument()
     expect(within(preview).getByText('暗门在井底')).toBeInTheDocument()
+    expect(within(preview).queryByText('隐藏金库')).not.toBeInTheDocument()
     expect(within(preview).getByText('mine alarm raised')).toBeInTheDocument()
   })
 

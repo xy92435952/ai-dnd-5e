@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { filterPublicClues, filterPublicRecentUpdates } from '../utils/clueVisibility'
 
 function cleanText(value) {
   return String(value || '').trim()
@@ -167,11 +168,18 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
       : []
   ), [session])
 
-  const recentConsequences = useMemo(() => (
+  const publicRecentUpdates = useMemo(() => (
     Array.isArray(session?.campaign_state?.recent_updates)
-      ? session.campaign_state.recent_updates.slice(-4).reverse()
+      ? filterPublicRecentUpdates(
+        session.campaign_state.recent_updates,
+        session?.campaign_state?.clues || [],
+      )
       : []
   ), [session])
+
+  const recentConsequences = useMemo(() => (
+    publicRecentUpdates.slice(-4).reverse()
+  ), [publicRecentUpdates])
 
   const questLine = useMemo(() => {
     const campaign = session?.campaign_state || {}
@@ -181,14 +189,12 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
     const selectedQuest = quests.find(q => String(q.status || '').toLowerCase() === 'active') || quests[quests.length - 1]
     if (!selectedQuest) return selectedQuest
 
-    const progressCount = Array.isArray(campaign.recent_updates)
-      ? campaign.recent_updates.filter(item => (
-        item?.type === 'quest' && cleanText(item.label) === cleanText(selectedQuest.quest)
-      )).length
-      : 0
+    const progressCount = publicRecentUpdates.filter(item => (
+      item?.type === 'quest' && cleanText(item.label) === cleanText(selectedQuest.quest)
+    )).length
 
     return { ...selectedQuest, progressCount }
-  }, [session])
+  }, [session, publicRecentUpdates])
 
   const companionSignals = useMemo(() => {
     const campaign = session?.campaign_state || {}
@@ -199,11 +205,15 @@ export function useAdventureDerivedState({ session, player, companions, logs }) 
       .slice(0, 3)
   }, [session, companions])
 
+  const clues = useMemo(() => (
+    filterPublicClues(session?.campaign_state?.clues || []).slice(-4)
+  ), [session])
+
   return {
     canPrepareSpells,
     sceneVibe: session?.game_state?.scene_vibe || {},
     locationGraph: session?.game_state?.location_graph || null,
-    clues: (session?.campaign_state?.clues || []).slice(-4),
+    clues,
     questLine,
     npcUpdates,
     keyDecisions,

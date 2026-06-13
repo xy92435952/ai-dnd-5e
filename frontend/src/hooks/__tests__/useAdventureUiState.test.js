@@ -36,7 +36,14 @@ describe('useAdventureDerivedState', () => {
       session: {
         game_state: { scene_vibe: { tone: 'tense' } },
         campaign_state: {
-          clues: ['a', 'b', 'c', 'd', 'e'],
+          clues: [
+            { id: 'a', text: 'a' },
+            { id: 'b', text: 'b' },
+            { id: 'c', text: 'c' },
+            { id: 'hidden-vault', text: '隐藏金库', hidden: true },
+            { id: 'moonwell-door', text: '暗门在井底', category: 'location' },
+            { id: 'e', text: 'e' },
+          ],
           quest_log: [
             { quest: '旧任务', status: 'completed' },
             { quest: '当前任务', status: 'active' },
@@ -51,6 +58,7 @@ describe('useAdventureDerivedState', () => {
             { type: 'npc', label: '铁匠', detail: '友好', at: '2' },
             { type: 'decision', label: '信任铁匠', detail: '关键决定', at: '3' },
             { type: 'clue', label: '暗门在井底', detail: 'location', at: '4' },
+            { type: 'clue', clue_id: 'hidden-vault', label: '隐藏金库', detail: 'secret', at: '4.5' },
             { type: 'world', label: 'smith_trusted', detail: '已触发', at: '5' },
           ],
           companion_bonds: {
@@ -78,7 +86,7 @@ describe('useAdventureDerivedState', () => {
 
     expect(result.current.canPrepareSpells).toBe(true)
     expect(result.current.sceneVibe).toEqual({ tone: 'tense' })
-    expect(result.current.clues).toEqual(['b', 'c', 'd', 'e'])
+    expect(result.current.clues.map(clue => clue.text)).toEqual(['b', 'c', '暗门在井底', 'e'])
     expect(result.current.questLine.quest).toBe('当前任务')
     expect(result.current.questLine.progressCount).toBe(1)
     expect(result.current.npcUpdates).toEqual([
