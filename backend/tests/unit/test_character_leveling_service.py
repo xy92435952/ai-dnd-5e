@@ -91,6 +91,7 @@ def test_build_level_up_update_adds_only_new_barbarian_rage_uses():
         spell_slots={},
         use_average_hp=True,
         class_resources={"rage_remaining": 0, "raging": False},
+        subclass_choice="Berserker",
         race="Human",
     )
 
@@ -112,6 +113,7 @@ def test_build_level_up_update_backfills_missing_resource_from_old_level_default
         spell_slots={},
         use_average_hp=True,
         class_resources={},
+        subclass_choice="Berserker",
         race="Human",
     )
 
@@ -215,6 +217,76 @@ def test_build_level_up_update_rejects_subclass_choice_before_unlock():
 
     assert exc.value.status_code == 400
     assert "unlock at level 3" in exc.value.detail
+
+
+def test_build_level_up_update_requires_subclass_choice_at_unlock():
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=2,
+            ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8},
+            derived={"hp_max": 22, "spell_slots_max": {}},
+            hp_current=22,
+            spell_slots={},
+            use_average_hp=True,
+        )
+
+    assert exc.value.status_code == 400
+    assert "must choose a subclass" in exc.value.detail
+
+
+def test_build_level_up_update_requires_fighting_style_choice_at_unlock():
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Paladin",
+            level=1,
+            ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 14},
+            derived={"hp_max": 12, "spell_slots_max": {}},
+            hp_current=12,
+            spell_slots={},
+            use_average_hp=True,
+        )
+
+    assert exc.value.status_code == 400
+    assert "must choose a fighting style" in exc.value.detail
+
+
+def test_build_level_up_update_requires_battle_master_maneuvers_at_unlock():
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=2,
+            ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8},
+            derived={"hp_max": 22, "spell_slots_max": {}},
+            hp_current=22,
+            spell_slots={},
+            use_average_hp=True,
+            subclass_choice="Battle Master",
+        )
+
+    assert exc.value.status_code == 400
+    assert "must choose 3 new maneuver" in exc.value.detail
+
+
+def test_build_level_up_update_requires_battle_master_maneuver_deficit_when_tracked():
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=6,
+            ability_scores={"str": 16, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8},
+            derived={"hp_max": 58, "spell_slots_max": {}},
+            hp_current=58,
+            spell_slots={},
+            use_average_hp=True,
+            subclass="Battle Master",
+            class_resources={
+                "superiority_dice_remaining": 1,
+                "maneuvers_known": ["precision", "trip", "disarm"],
+            },
+        )
+
+    assert exc.value.status_code == 400
+    assert "must choose 2 new maneuver" in exc.value.detail
 
 
 def test_build_level_up_update_validates_asi_total_increase():

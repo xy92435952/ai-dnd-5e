@@ -19,7 +19,11 @@ from services.dnd_rules import (
     get_effective_hp_max,
     roll_dice,
 )
-from services.dnd_subclass_progression import canonical_subclass_choice, subclass_unlock_level
+from services.dnd_subclass_progression import (
+    canonical_subclass_choice,
+    subclass_options_for_class,
+    subclass_unlock_level,
+)
 
 
 @dataclass
@@ -117,6 +121,7 @@ def build_level_up_update(
     )
     next_fighting_style = _resolve_fighting_style_choice(
         cls_key=cls_key,
+        old_level=old_level,
         new_level=new_level,
         current_fighting_style=fighting_style,
         fighting_style_choice=fighting_style_choice,
@@ -194,6 +199,7 @@ def build_level_up_update(
     )
     maneuver_learning = _advance_maneuver_choices(
         cls_key=cls_key,
+        old_level=old_level,
         new_level=new_level,
         subclass=next_subclass,
         current_resources=next_class_resources,
@@ -248,8 +254,17 @@ def _resolve_subclass_choice(
 ) -> str | None:
     current = (current_subclass or "").strip()
     requested = (subclass_choice or "").strip()
+    unlock_level = subclass_unlock_level(cls_key)
+    unlocked_this_level = old_level < unlock_level <= new_level
     if not requested:
-        return current or None
+        if current:
+            return current
+        if unlocked_this_level and subclass_options_for_class(cls_key):
+            raise CharacterLevelingError(
+                400,
+                f"{cls_key} must choose a subclass at level {unlock_level}.",
+            )
+        return None
 
     canonical = canonical_subclass_choice(cls_key, requested)
     if not canonical:
@@ -257,7 +272,6 @@ def _resolve_subclass_choice(
     if current and current.lower() != canonical.lower():
         raise CharacterLevelingError(400, f"{cls_key} subclass is already {current}.")
 
-    unlock_level = subclass_unlock_level(cls_key)
     if old_level < unlock_level and new_level < unlock_level:
         raise CharacterLevelingError(400, f"{cls_key} subclass choices unlock at level {unlock_level}.")
 
@@ -267,19 +281,28 @@ def _resolve_subclass_choice(
 def _resolve_fighting_style_choice(
     *,
     cls_key: str,
+    old_level: int,
     new_level: int,
     current_fighting_style: str | None,
     fighting_style_choice: str | None,
 ) -> str | None:
     current = (current_fighting_style or "").strip()
     requested = (fighting_style_choice or "").strip()
-    if not requested:
-        return current or None
-
     style_config = FIGHTING_STYLE_CLASSES.get(cls_key)
+    unlock_level = int(style_config.get("level", 0) or 0) if style_config else 0
+    if not requested:
+        if current:
+            return current
+        if style_config and old_level < unlock_level <= new_level:
+            raise CharacterLevelingError(
+                400,
+                f"{cls_key} must choose a fighting style at level {unlock_level}.",
+            )
+        return None
+
     if not style_config:
         raise CharacterLevelingError(400, f"{cls_key} cannot choose a fighting style.")
-    if new_level < int(style_config.get("level", 0) or 0):
+    if new_level < unlock_level:
         raise CharacterLevelingError(
             400,
             f"{cls_key} fighting style choices unlock at level {style_config['level']}.",
@@ -303,6 +326,7 @@ def _battle_master_maneuvers_known_for_level(level: int) -> int:
 def _advance_maneuver_choices(
     *,
     cls_key: str,
+    old_level: int,
     new_level: int,
     subclass: str | None,
     current_resources: dict | None,
@@ -310,9 +334,24 @@ def _advance_maneuver_choices(
 ) -> dict:
     requested = _clean_choices(maneuver_choices)
     resources = dict(current_resources or {})
+    has_explicit_maneuver_list = "maneuvers_known" in resources or "maneuvers" in resources
     existing = _clean_choices(resources.get("maneuvers_known") or resources.get("maneuvers") or [])
 
+    if cls_key != "Fighter" or (subclass or "").strip().lower() != "battle master":
+        if requested:
+            raise CharacterLevelingError(400, "Only Battle Master fighters can learn maneuvers.")
+        return {"class_resources": resources, "maneuver_choices": []}
+
+    required_total = _battle_master_maneuvers_known_for_level(new_level)
+    required_new = max(0, required_total - len(existing))
+    initial_maneuver_unlock = old_level < 3 <= new_level
+    must_choose = required_new > 0 and (initial_maneuver_unlock or has_explicit_maneuver_list)
     if not requested:
+        if must_choose:
+            raise CharacterLevelingError(
+                400,
+                f"Level {new_level} Battle Master must choose {required_new} new maneuver(s).",
+            )
         return {"class_resources": resources, "maneuver_choices": []}
 
     if cls_key != "Fighter" or (subclass or "").strip().lower() != "battle master":
@@ -327,8 +366,6 @@ def _advance_maneuver_choices(
     if already_known:
         raise CharacterLevelingError(400, f"Battle Master maneuver(s) already known: {', '.join(already_known)}.")
 
-    required_total = _battle_master_maneuvers_known_for_level(new_level)
-    required_new = max(0, required_total - len(existing))
     if len(requested) != required_new:
         raise CharacterLevelingError(
             400,
