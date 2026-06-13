@@ -3,7 +3,8 @@ import uuid
 import pytest
 
 from models import Character
-from services.dnd_rules import calc_derived
+from services.character_leveling_service import SPELLS_KNOWN
+from services.dnd_rules import calc_derived, get_cantrips_count
 from services.spell_service import spell_service
 
 pytestmark = pytest.mark.integration
@@ -16,6 +17,52 @@ async def _auth_headers(client, sample_user):
     })
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['token']}"}
+
+
+def _progression_count(table, level):
+    count = 0
+    for threshold, value in sorted(table.items()):
+        if level >= threshold:
+            count = value
+    return count
+
+
+def _max_spell_rank(spell_slots_max):
+    slot_levels = {
+        "1st": 1,
+        "2nd": 2,
+        "3rd": 3,
+        "4th": 4,
+        "5th": 5,
+        "6th": 6,
+        "7th": 7,
+        "8th": 8,
+        "9th": 9,
+    }
+    return max(
+        [
+            slot_levels.get(slot_key, 0)
+            for slot_key, count in (spell_slots_max or {}).items()
+            if int(count or 0) > 0
+        ]
+        or [0]
+    )
+
+
+def _legal_spell_names(char_class, max_level):
+    return [
+        spell["name"]
+        for spell in spell_service.get_for_class(char_class)
+        if 0 < spell.get("level", 0) <= max_level
+    ]
+
+
+def _class_cantrip_names(char_class):
+    return [
+        spell["name"]
+        for spell in spell_service.get_for_class(char_class)
+        if spell.get("level", 0) == 0
+    ]
 
 
 async def test_level_up_adds_new_spell_slots_without_refilling_spent_slots(client, db_session, sample_user):
@@ -232,6 +279,155 @@ async def test_level_up_adds_requested_wizard_spell_learning(client, db_session,
 
     await db_session.refresh(wizard)
     assert wizard.known_spells == [known_spell, *learned_spells]
+
+
+async def test_level_up_endpoint_persists_higher_level_known_caster_spell_and_cantrip_learning(
+    client,
+    db_session,
+    sample_user,
+):
+    ability_scores = {"str": 10, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 18}
+    old_level = 9
+    new_level = 10
+    old_derived = calc_derived("Bard", old_level, ability_scores, "Lore", race="Human")
+    new_derived = calc_derived("Bard", new_level, ability_scores, "Lore", race="Human")
+    old_known_count = _progression_count(SPELLS_KNOWN["Bard"], old_level)
+    new_known_count = _progression_count(SPELLS_KNOWN["Bard"], new_level)
+    old_cantrip_count = get_cantrips_count("Bard", old_level)
+    new_cantrip_count = get_cantrips_count("Bard", new_level)
+    legal_spells = _legal_spell_names(
+        "Bard",
+        _max_spell_rank(new_derived.get("spell_slots_max", {})),
+    )
+    cantrips = _class_cantrip_names("Bard")
+    known_spells = legal_spells[:old_known_count]
+    learned_spells = legal_spells[old_known_count:new_known_count]
+    known_cantrips = cantrips[:old_cantrip_count]
+    learned_cantrips = cantrips[old_cantrip_count:new_cantrip_count]
+    bard = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Higher Level Bard",
+        race="Human",
+        char_class="Bard",
+        subclass="Lore",
+        level=old_level,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots=dict(old_derived.get("spell_slots_max", {})),
+        known_spells=known_spells,
+        prepared_spells=known_spells,
+        cantrips=known_cantrips,
+        proficient_skills=[],
+        proficient_saves=["dex", "cha"],
+        is_player=True,
+    )
+    db_session.add(bard)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{bard.id}/level-up",
+        headers=headers,
+        json={
+            "use_average_hp": True,
+            "learned_spells": learned_spells,
+            "learned_cantrips": learned_cantrips,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    data = payload["character"]
+    expected_spells = [*known_spells, *learned_spells]
+    expected_cantrips = [*known_cantrips, *learned_cantrips]
+    assert data["level"] == new_level
+    assert data["known_spells"] == expected_spells
+    assert data["prepared_spells"] == expected_spells
+    assert data["cantrips"] == expected_cantrips
+    assert payload["level_up_details"]["learned_spells"] == learned_spells
+    assert payload["level_up_details"]["learned_cantrips"] == learned_cantrips
+    assert payload["level_up_details"]["preparation_type"] == "known"
+
+    await db_session.refresh(bard)
+    assert bard.known_spells == expected_spells
+    assert bard.prepared_spells == expected_spells
+    assert bard.cantrips == expected_cantrips
+
+
+async def test_level_up_endpoint_persists_higher_level_wizard_spellbook_and_cantrip_learning(
+    client,
+    db_session,
+    sample_user,
+):
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 18, "wis": 12, "cha": 10}
+    old_level = 9
+    new_level = 10
+    old_derived = calc_derived("Wizard", old_level, ability_scores, "Evocation", race="Human")
+    new_derived = calc_derived("Wizard", new_level, ability_scores, "Evocation", race="Human")
+    legal_spells = _legal_spell_names(
+        "Wizard",
+        _max_spell_rank(new_derived.get("spell_slots_max", {})),
+    )
+    cantrips = _class_cantrip_names("Wizard")
+    old_cantrip_count = get_cantrips_count("Wizard", old_level)
+    new_cantrip_count = get_cantrips_count("Wizard", new_level)
+    known_spells = legal_spells[:8]
+    learned_spells = legal_spells[8:10]
+    known_cantrips = cantrips[:old_cantrip_count]
+    learned_cantrips = cantrips[old_cantrip_count:new_cantrip_count]
+    prepared_spells = known_spells[:6]
+    wizard = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Higher Level Wizard",
+        race="Human",
+        char_class="Wizard",
+        subclass="Evocation",
+        level=old_level,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots=dict(old_derived.get("spell_slots_max", {})),
+        known_spells=known_spells,
+        prepared_spells=prepared_spells,
+        cantrips=known_cantrips,
+        proficient_skills=[],
+        proficient_saves=["int", "wis"],
+        is_player=True,
+    )
+    db_session.add(wizard)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{wizard.id}/level-up",
+        headers=headers,
+        json={
+            "use_average_hp": True,
+            "learned_spells": learned_spells,
+            "learned_cantrips": learned_cantrips,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    data = payload["character"]
+    expected_spells = [*known_spells, *learned_spells]
+    expected_cantrips = [*known_cantrips, *learned_cantrips]
+    assert data["level"] == new_level
+    assert data["known_spells"] == expected_spells
+    assert data["prepared_spells"] == prepared_spells
+    assert data["cantrips"] == expected_cantrips
+    assert payload["level_up_details"]["learned_spells"] == learned_spells
+    assert payload["level_up_details"]["learned_cantrips"] == learned_cantrips
+    assert payload["level_up_details"]["preparation_type"] == "spellbook"
+
+    await db_session.refresh(wizard)
+    assert wizard.known_spells == expected_spells
+    assert wizard.prepared_spells == prepared_spells
+    assert wizard.cantrips == expected_cantrips
 
 
 async def test_level_up_replaces_known_caster_spell(client, db_session, sample_user):
