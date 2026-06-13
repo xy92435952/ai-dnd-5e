@@ -222,6 +222,8 @@ describe('CharacterSheet inventory integration', () => {
 
     await screen.findByText('Spellbook Wizard')
     expect(screen.queryByLabelText('Learn Fireball')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Increase INT'))
+    fireEvent.click(screen.getByLabelText('Increase INT'))
     fireEvent.click(screen.getByLabelText('Learn Shield'))
     fireEvent.click(screen.getByLabelText('Learn Shatter'))
     fireEvent.click(screen.getByLabelText('Learn cantrip Ray of Frost'))
@@ -230,6 +232,7 @@ describe('CharacterSheet inventory integration', () => {
     await waitFor(() => {
       expect(levelUpMock).toHaveBeenCalledWith('char-1', {
         use_average_hp: true,
+        ability_score_increases: { int: 2 },
         learned_spells: ['Shield', 'Shatter'],
         learned_cantrips: ['Ray of Frost'],
       })
@@ -298,6 +301,99 @@ describe('CharacterSheet inventory integration', () => {
       expect(levelUpMock).toHaveBeenCalledWith('char-1', {
         use_average_hp: true,
         spell_replacements: [{ old_spell: 'Hellish Rebuke', new_spell: 'Hex' }],
+      })
+    })
+
+    cleanup()
+  })
+
+  it('submits ability score increases during level up', async () => {
+    const fighter = {
+      ...characterFixture,
+      level: 3,
+      ability_scores: { str: 16, dex: 14, con: 15, int: 10, wis: 12, cha: 8 },
+    }
+    charactersGetMock.mockResolvedValue(fighter)
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...fighter,
+        level: 4,
+        ability_scores: { ...fighter.ability_scores, str: 17, con: 16 },
+      },
+      level_up_details: {
+        ability_score_increases: { str: 1, con: 1 },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(fighter.name)
+    fireEvent.click(screen.getByLabelText('Increase STR'))
+    fireEvent.click(screen.getByLabelText('Increase CON'))
+    fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        ability_score_increases: { str: 1, con: 1 },
+      })
+    })
+
+    cleanup()
+  })
+
+  it('submits feat choice instead of ability score increases during level up', async () => {
+    const fighter = {
+      ...characterFixture,
+      level: 3,
+      feats: [{ name: 'Alert' }],
+    }
+    charactersGetMock.mockResolvedValue(fighter)
+    charactersOptionsMock.mockResolvedValue({
+      spell_preparation_type: { Fighter: null },
+      class_spell_details: {},
+      class_cantrips: {},
+      feats: {
+        Alert: { desc: '+5 initiative' },
+        Tough: { desc: '+2 HP per level' },
+      },
+    })
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...fighter,
+        level: 4,
+        feats: [...fighter.feats, { name: 'Tough' }],
+      },
+      level_up_details: {
+        feat_choice: { name: 'Tough' },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(fighter.name)
+    fireEvent.click(screen.getByLabelText('Increase STR'))
+    fireEvent.change(screen.getByLabelText('Feat choice'), {
+      target: { value: 'Tough' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        feat_choice: { name: 'Tough' },
       })
     })
 
