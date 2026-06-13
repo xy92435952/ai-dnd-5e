@@ -167,3 +167,162 @@ def test_build_level_up_update_validates_asi_total_increase():
 
     assert exc.value.status_code == 400
     assert "最多增加2点" in exc.value.detail
+
+
+def test_build_level_up_update_adds_requested_wizard_spellbook_spells():
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
+    old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Wizard",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={"1st": 1},
+        use_average_hp=True,
+        known_spells=["Magic Missile"],
+        cantrips=["Fire Bolt", "Mage Hand", "Light"],
+        learned_spells=["Shield", "Shatter"],
+        available_class_spells=[
+            {"name": "Magic Missile", "level": 1},
+            {"name": "Shield", "level": 1},
+            {"name": "Shatter", "level": 2},
+            {"name": "Fireball", "level": 3},
+        ],
+        available_class_cantrips=["Fire Bolt", "Mage Hand", "Light", "Ray of Frost"],
+        race="Human",
+    )
+
+    assert update["new_level"] == 3
+    assert update["known_spells"] == ["Magic Missile", "Shield", "Shatter"]
+    assert update["learned_spells"] == ["Shield", "Shatter"]
+    assert update["cantrips"] == ["Fire Bolt", "Mage Hand", "Light"]
+    assert update["preparation_type"] == "spellbook"
+
+
+def test_build_level_up_update_rejects_spells_above_next_level_slots():
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
+    old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Wizard",
+            level=2,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=["Magic Missile"],
+            cantrips=["Fire Bolt", "Mage Hand", "Light"],
+            learned_spells=["Fireball"],
+            available_class_spells=[
+                {"name": "Magic Missile", "level": 1},
+                {"name": "Fireball", "level": 3},
+            ],
+            available_class_cantrips=["Fire Bolt", "Mage Hand", "Light"],
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "max allowed is 2" in exc.value.detail
+
+
+def test_build_level_up_update_adds_cantrip_when_threshold_increases():
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
+    old_derived = calc_derived("Wizard", 3, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Wizard",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={"1st": 1, "2nd": 1},
+        use_average_hp=True,
+        known_spells=["Magic Missile"],
+        cantrips=["Fire Bolt", "Mage Hand", "Light"],
+        learned_cantrips=["Ray of Frost"],
+        available_class_spells=[{"name": "Shield", "level": 1}],
+        available_class_cantrips=["Fire Bolt", "Mage Hand", "Light", "Ray of Frost"],
+        race="Human",
+    )
+
+    assert update["new_level"] == 4
+    assert update["cantrips"] == ["Fire Bolt", "Mage Hand", "Light", "Ray of Frost"]
+    assert update["learned_cantrips"] == ["Ray of Frost"]
+
+
+def test_build_level_up_update_rejects_prepared_caster_leveled_spell_learning():
+    ability_scores = {"str": 10, "dex": 12, "con": 14, "int": 10, "wis": 16, "cha": 10}
+    old_derived = calc_derived("Cleric", 2, ability_scores, None, race="Human")
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Cleric",
+            level=2,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=[],
+            cantrips=["Sacred Flame", "Guidance", "Light"],
+            learned_spells=["Bless"],
+            available_class_spells=[{"name": "Bless", "level": 1}],
+            available_class_cantrips=["Sacred Flame", "Guidance", "Light"],
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "can learn 0 leveled spell" in exc.value.detail
+
+
+def test_build_level_up_update_uses_known_caster_progression_capacity():
+    ability_scores = {"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16}
+    old_derived = calc_derived("Warlock", 9, ability_scores, None, race="Human")
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Warlock",
+            level=9,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={"5th": 1},
+            use_average_hp=True,
+            known_spells=["Hellish Rebuke"],
+            cantrips=["Eldritch Blast"],
+            learned_spells=["Hex"],
+            available_class_spells=[
+                {"name": "Hellish Rebuke", "level": 1},
+                {"name": "Hex", "level": 1},
+            ],
+            available_class_cantrips=["Eldritch Blast"],
+            race="Human",
+        )
+
+    assert "can learn 0 leveled spell" in exc.value.detail
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Warlock",
+        level=10,
+        ability_scores=ability_scores,
+        derived=calc_derived("Warlock", 10, ability_scores, None, race="Human"),
+        hp_current=old_derived["hp_max"],
+        spell_slots={"5th": 1},
+        use_average_hp=True,
+        known_spells=["Hellish Rebuke"],
+        cantrips=["Eldritch Blast"],
+        learned_spells=["Hex"],
+        available_class_spells=[
+            {"name": "Hellish Rebuke", "level": 1},
+            {"name": "Hex", "level": 1},
+        ],
+        available_class_cantrips=["Eldritch Blast"],
+        race="Human",
+    )
+
+    assert update["new_level"] == 11
+    assert update["known_spells"] == ["Hellish Rebuke", "Hex"]

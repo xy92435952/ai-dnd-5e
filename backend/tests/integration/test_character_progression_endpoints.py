@@ -94,6 +94,56 @@ async def test_level_up_updates_class_resources_and_serializes_them(client, db_s
     assert fighter.class_resources == resources
 
 
+async def test_level_up_adds_requested_wizard_spell_learning(client, db_session, sample_user):
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
+    old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")
+    wizard_spells = [
+        spell
+        for spell in spell_service.get_for_class("Wizard")
+        if 0 < spell.get("level", 0) <= 2
+    ]
+    known_spell = wizard_spells[0]["name"]
+    learned_spells = [spell["name"] for spell in wizard_spells[1:3]]
+    wizard = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Spell Learning Wizard",
+        race="Human",
+        char_class="Wizard",
+        level=2,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={"1st": 1},
+        known_spells=[known_spell],
+        prepared_spells=[known_spell],
+        cantrips=["Fire Bolt", "Mage Hand", "Light"],
+        proficient_skills=[],
+        proficient_saves=["int", "wis"],
+        is_player=True,
+    )
+    db_session.add(wizard)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{wizard.id}/level-up",
+        headers=headers,
+        json={"use_average_hp": True, "learned_spells": learned_spells},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    data = payload["character"]
+    assert data["level"] == 3
+    assert data["known_spells"] == [known_spell, *learned_spells]
+    assert payload["level_up_details"]["learned_spells"] == learned_spells
+    assert payload["level_up_details"]["preparation_type"] == "spellbook"
+
+    await db_session.refresh(wizard)
+    assert wizard.known_spells == [known_spell, *learned_spells]
+
+
 async def test_prepared_caster_can_prepare_spells_from_class_list(client, db_session, sample_user):
     ability_scores = {"str": 10, "dex": 12, "con": 14, "int": 10, "wis": 16, "cha": 10}
     derived = calc_derived("Cleric", 1, ability_scores, None, race="Human")

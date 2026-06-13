@@ -2552,6 +2552,22 @@
             ],
             "title": "Feat Choice"
           },
+          "learned_cantrips": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Learned Cantrips",
+            "type": "array"
+          },
+          "learned_spells": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Learned Spells",
+            "type": "array"
+          },
           "use_average_hp": {
             "default": true,
             "title": "Use Average Hp",

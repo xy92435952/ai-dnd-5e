@@ -7,9 +7,11 @@ from services.dnd_rules import (
     ASI_LEVELS_ROGUE,
     FEATS,
     HIT_DICE,
+    SPELL_PREPARATION_TYPE,
     _normalize_class,
     ability_modifier,
     calc_derived,
+    get_cantrips_count,
     get_class_resource_defaults,
     get_effective_hp_max,
     roll_dice,
@@ -23,6 +25,38 @@ class CharacterLevelingError(Exception):
 
     def __str__(self) -> str:
         return self.detail
+
+
+SPELLS_KNOWN = {
+    "Bard": {
+        1: 4, 2: 5, 3: 6, 4: 7, 5: 8, 6: 9, 7: 10, 8: 11, 9: 12, 10: 14,
+        11: 15, 13: 16, 14: 18, 15: 19, 17: 20, 18: 22,
+    },
+    "Ranger": {
+        2: 2, 3: 3, 5: 4, 7: 5, 9: 6, 11: 7, 13: 8, 15: 9, 17: 10, 19: 11,
+    },
+    "Sorcerer": {
+        1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11,
+        11: 12, 13: 13, 15: 14, 17: 15,
+    },
+    "Warlock": {
+        1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 10,
+        11: 11, 12: 11, 13: 12, 14: 12, 15: 13, 16: 13, 17: 14, 18: 14,
+        19: 15, 20: 15,
+    },
+}
+
+SLOT_LEVELS = {
+    "1st": 1,
+    "2nd": 2,
+    "3rd": 3,
+    "4th": 4,
+    "5th": 5,
+    "6th": 6,
+    "7th": 7,
+    "8th": 8,
+    "9th": 9,
+}
 
 
 def get_asi_levels_for_class(cls_key: str) -> set[int]:
@@ -47,10 +81,16 @@ def build_level_up_update(
     feats: list | None = None,
     equipment: dict | None = None,
     class_resources: dict | None = None,
+    known_spells: list[str] | None = None,
+    cantrips: list[str] | None = None,
     race: str | None = None,
     proficient_skills: list[str] | None = None,
     ability_score_increases: dict | None = None,
     feat_choice: dict | None = None,
+    learned_spells: list[str] | None = None,
+    learned_cantrips: list[str] | None = None,
+    available_class_spells: list | None = None,
+    available_class_cantrips: list[str] | None = None,
     dice_roller: Callable[[str], dict] = roll_dice,
     condition_durations: dict | None = None,
 ) -> dict:
@@ -131,6 +171,18 @@ def build_level_up_update(
             derived=next_derived,
         ),
     )
+    spell_learning = _advance_spell_learning(
+        cls_key=cls_key,
+        old_level=old_level,
+        new_level=new_level,
+        next_spell_slots_max=next_derived.get("spell_slots_max", {}),
+        known_spells=known_spells,
+        cantrips=cantrips,
+        learned_spells=learned_spells,
+        learned_cantrips=learned_cantrips,
+        available_class_spells=available_class_spells,
+        available_class_cantrips=available_class_cantrips,
+    )
 
     return {
         "old_level": old_level,
@@ -144,6 +196,11 @@ def build_level_up_update(
         "spell_slots": next_spell_slots,
         "class_resources": next_class_resources,
         "new_spell_slots": next_derived.get("spell_slots_max", {}),
+        "known_spells": spell_learning["known_spells"],
+        "cantrips": spell_learning["cantrips"],
+        "learned_spells": spell_learning["learned_spells"],
+        "learned_cantrips": spell_learning["learned_cantrips"],
+        "preparation_type": spell_learning["preparation_type"],
     }
 
 
@@ -225,3 +282,158 @@ def _advance_class_resources(
         next_resources.setdefault(key, new_default)
 
     return next_resources
+
+
+def _advance_spell_learning(
+    *,
+    cls_key: str,
+    old_level: int,
+    new_level: int,
+    next_spell_slots_max: dict | None,
+    known_spells: list[str] | None,
+    cantrips: list[str] | None,
+    learned_spells: list[str] | None,
+    learned_cantrips: list[str] | None,
+    available_class_spells: list | None,
+    available_class_cantrips: list[str] | None,
+) -> dict:
+    preparation_type = SPELL_PREPARATION_TYPE.get(cls_key)
+    requested_spells = _clean_choices(learned_spells)
+    requested_cantrips = _clean_choices(learned_cantrips)
+    next_known_spells = list(known_spells or [])
+    next_cantrips = list(cantrips or [])
+
+    spell_capacity = _leveled_spell_learning_capacity(
+        cls_key=cls_key,
+        old_level=old_level,
+        new_level=new_level,
+        preparation_type=preparation_type,
+    )
+    cantrip_capacity = max(
+        0,
+        get_cantrips_count(cls_key, new_level) - get_cantrips_count(cls_key, old_level),
+    )
+
+    if len(requested_spells) > spell_capacity:
+        raise CharacterLevelingError(
+            400,
+            f"Level {new_level} {cls_key} can learn {spell_capacity} leveled spell(s); "
+            f"selected {len(requested_spells)}.",
+        )
+    if len(requested_cantrips) > cantrip_capacity:
+        raise CharacterLevelingError(
+            400,
+            f"Level {new_level} {cls_key} can learn {cantrip_capacity} cantrip(s); "
+            f"selected {len(requested_cantrips)}.",
+        )
+
+    _reject_duplicate_choices(requested_spells, "learned_spells")
+    _reject_duplicate_choices(requested_cantrips, "learned_cantrips")
+
+    spell_levels = _available_spell_levels(available_class_spells)
+    max_spell_level = _max_leveled_spell_rank(next_spell_slots_max)
+    known_set = set(next_known_spells)
+    for spell_name in requested_spells:
+        if spell_name in known_set:
+            raise CharacterLevelingError(400, f"Spell '{spell_name}' is already known.")
+        spell_level = spell_levels.get(spell_name)
+        if spell_level is None or spell_level <= 0:
+            raise CharacterLevelingError(400, f"Spell '{spell_name}' is not a class leveled spell.")
+        if max_spell_level <= 0 or spell_level > max_spell_level:
+            raise CharacterLevelingError(
+                400,
+                f"Spell '{spell_name}' requires level {spell_level}; max allowed is {max_spell_level}.",
+            )
+        next_known_spells.append(spell_name)
+        known_set.add(spell_name)
+
+    available_cantrips = set(available_class_cantrips or [])
+    cantrip_set = set(next_cantrips)
+    for cantrip_name in requested_cantrips:
+        if cantrip_name in cantrip_set:
+            raise CharacterLevelingError(400, f"Cantrip '{cantrip_name}' is already known.")
+        if cantrip_name not in available_cantrips:
+            raise CharacterLevelingError(400, f"Cantrip '{cantrip_name}' is not a class cantrip.")
+        next_cantrips.append(cantrip_name)
+        cantrip_set.add(cantrip_name)
+
+    return {
+        "known_spells": next_known_spells,
+        "cantrips": next_cantrips,
+        "learned_spells": requested_spells,
+        "learned_cantrips": requested_cantrips,
+        "preparation_type": preparation_type,
+    }
+
+
+def _leveled_spell_learning_capacity(
+    *,
+    cls_key: str,
+    old_level: int,
+    new_level: int,
+    preparation_type: str | None,
+) -> int:
+    if preparation_type == "spellbook" and cls_key == "Wizard":
+        return 2
+    if preparation_type == "known":
+        return max(
+            0,
+            _progression_count(SPELLS_KNOWN.get(cls_key, {}), new_level)
+            - _progression_count(SPELLS_KNOWN.get(cls_key, {}), old_level),
+        )
+    return 0
+
+
+def _progression_count(table: dict[int, int], level: int) -> int:
+    count = 0
+    for threshold, value in sorted(table.items()):
+        if level >= threshold:
+            count = value
+    return count
+
+
+def _available_spell_levels(available_class_spells: list | None) -> dict[str, int | None]:
+    spell_levels: dict[str, int | None] = {}
+    for spell in available_class_spells or []:
+        if isinstance(spell, str):
+            spell_levels[spell] = None
+            continue
+        if not isinstance(spell, dict):
+            continue
+        name = spell.get("name")
+        if not name:
+            continue
+        try:
+            spell_levels[name] = int(spell.get("level", 0))
+        except (TypeError, ValueError):
+            spell_levels[name] = None
+    return spell_levels
+
+
+def _max_leveled_spell_rank(spell_slots_max: dict | None) -> int:
+    max_rank = 0
+    for slot_key, count in (spell_slots_max or {}).items():
+        try:
+            slot_count = int(count or 0)
+        except (TypeError, ValueError):
+            slot_count = 0
+        if slot_count <= 0:
+            continue
+        max_rank = max(max_rank, SLOT_LEVELS.get(slot_key, _parse_slot_level(slot_key)))
+    return max_rank
+
+
+def _parse_slot_level(slot_key: str) -> int:
+    try:
+        return int(str(slot_key).strip().lower().replace("level", ""))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _clean_choices(choices: list[str] | None) -> list[str]:
+    return [str(choice).strip() for choice in choices or [] if str(choice).strip()]
+
+
+def _reject_duplicate_choices(choices: list[str], label: str) -> None:
+    if len(set(choices)) != len(choices):
+        raise CharacterLevelingError(400, f"Duplicate choices are not allowed in {label}.")

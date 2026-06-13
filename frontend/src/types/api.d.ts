@@ -2582,6 +2582,16 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Learned Cantrips
+             * @default []
+             */
+            learned_cantrips: string[];
+            /**
+             * Learned Spells
+             * @default []
+             */
+            learned_spells: string[];
+            /**
              * Use Average Hp
              * @default true
              */

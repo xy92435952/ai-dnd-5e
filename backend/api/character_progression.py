@@ -81,10 +81,19 @@ async def level_up_character(
             feats=char.feats,
             equipment=char.equipment,
             class_resources=char.class_resources,
+            known_spells=char.known_spells,
+            cantrips=char.cantrips,
             race=char.race,
             proficient_skills=char.proficient_skills,
             ability_score_increases=req.ability_score_increases,
             feat_choice=req.feat_choice,
+            learned_spells=req.learned_spells,
+            learned_cantrips=req.learned_cantrips,
+            available_class_spells=spell_service.get_for_class(_normalize_class(char.char_class)),
+            available_class_cantrips=[
+                spell["name"]
+                for spell in spell_service.get_cantrips_for_class(_normalize_class(char.char_class))
+            ],
             condition_durations=char.condition_durations,
         )
     except CharacterLevelingError as exc:
@@ -97,6 +106,10 @@ async def level_up_character(
     char.hp_current = update["hp_current"]
     char.spell_slots = update["spell_slots"]
     char.class_resources = update["class_resources"]
+    char.known_spells = update["known_spells"]
+    char.cantrips = update["cantrips"]
+    if update["preparation_type"] == "known":
+        char.prepared_spells = update["known_spells"]
     clamp_current_hp_to_effective_max(char)
 
     await db.commit()
@@ -110,6 +123,11 @@ async def level_up_character(
             "is_asi_level": update["is_asi_level"],
             "new_spell_slots": update["new_spell_slots"],
             "class_resources": update["class_resources"],
+            "known_spells": update["known_spells"],
+            "cantrips": update["cantrips"],
+            "learned_spells": update["learned_spells"],
+            "learned_cantrips": update["learned_cantrips"],
+            "preparation_type": update["preparation_type"],
         },
     }
 

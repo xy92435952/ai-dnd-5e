@@ -53,6 +53,8 @@ class LevelUpRequest(BaseModel):
     use_average_hp: bool = True
     ability_score_increases: Optional[dict] = None
     feat_choice: Optional[dict] = None
+    learned_spells: list[str] = []
+    learned_cantrips: list[str] = []
 
 
 class GoldRequest(BaseModel):
