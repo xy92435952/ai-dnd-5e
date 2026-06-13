@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, CombatState, Module, Session, SessionMember
+from services.loot_service import discover_loot_item
 
 pytestmark = pytest.mark.integration
 
@@ -447,6 +448,199 @@ async def test_user_cannot_mutate_another_users_character_inventory(
     await db_session.refresh(sample_character)
     assert sample_character.equipment["gold"] == 51
     assert sample_character.equipment["gear"] == []
+
+
+async def test_multiplayer_character_write_endpoints_are_owner_or_ai_driver_only(
+    client, db_session, sample_module,
+):
+    host = await _register(client, "write_boundary_host")
+    guest = await _register(client, "write_boundary_guest")
+    session_id = str(uuid.uuid4())
+    module_content = {
+        **(sample_module.parsed_content or {}),
+        "key_rewards": ["25 gp"],
+    }
+    sample_module.parsed_content = module_content
+    flag_modified(sample_module, "parsed_content")
+
+    def make_character(
+        *,
+        user_id: str | None,
+        name: str,
+        is_player: bool,
+        equipment: dict,
+    ) -> Character:
+        return Character(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            session_id=session_id,
+            name=name,
+            race="Human",
+            char_class="Fighter",
+            level=1,
+            ability_scores={"str": 14, "dex": 12, "con": 13, "int": 10, "wis": 10, "cha": 10},
+            derived={"hp_max": 12, "ac": 16, "initiative": 1},
+            hp_current=12,
+            proficient_skills=[],
+            proficient_saves=["str", "con"],
+            equipment=equipment,
+            is_player=is_player,
+        )
+
+    host_character = make_character(
+        user_id=host["user_id"],
+        name="write boundary host",
+        is_player=True,
+        equipment={"gold": 100, "gear": []},
+    )
+    host_character.hp_current = 0
+    host_character.death_saves = {"successes": 1, "failures": 1, "stable": False}
+    guest_character = make_character(
+        user_id=guest["user_id"],
+        name="write boundary guest",
+        is_player=True,
+        equipment={
+            "gold": 100,
+            "gear": [{"name": "Healer's Kit", "consumable": True, "uses": 3}],
+        },
+    )
+    ai_companion = make_character(
+        user_id=None,
+        name="write boundary ai",
+        is_player=False,
+        equipment={"gold": 100, "gear": []},
+    )
+    unclaimed_character = make_character(
+        user_id=None,
+        name="write boundary unclaimed",
+        is_player=True,
+        equipment={"gold": 100, "gear": []},
+    )
+    game_state = discover_loot_item(
+        {"multiplayer": {"current_speaker_user_id": host["user_id"]}},
+        module_content,
+        loot_id="loot_gold_0",
+    )
+    session = Session(
+        id=session_id,
+        user_id=host["user_id"],
+        module_id=sample_module.id,
+        player_character_id=host_character.id,
+        current_scene="write boundary",
+        session_history="",
+        game_state=game_state,
+        save_name="write boundary",
+        is_multiplayer=True,
+        room_code="WRITE1",
+        host_user_id=host["user_id"],
+        max_players=4,
+    )
+    db_session.add_all([
+        session,
+        SessionMember(
+            session_id=session_id,
+            user_id=host["user_id"],
+            role="host",
+            character_id=host_character.id,
+        ),
+        SessionMember(
+            session_id=session_id,
+            user_id=guest["user_id"],
+            role="player",
+            character_id=guest_character.id,
+        ),
+        host_character,
+        guest_character,
+        ai_companion,
+        unclaimed_character,
+    ])
+    await db_session.commit()
+
+    guest_headers = _h(guest["token"])
+    host_headers = _h(host["token"])
+
+    ai_buy_denied = await client.post(
+        f"/characters/{ai_companion.id}/shop/buy",
+        headers=guest_headers,
+        json={"item_name": "Healing Potion", "item_category": "gear", "quantity": 1},
+    )
+    assert ai_buy_denied.status_code == 403
+
+    target_use_denied = await client.post(
+        f"/characters/{guest_character.id}/use-item",
+        headers=guest_headers,
+        json={"item_name": "Healer's Kit", "target_character_id": host_character.id},
+    )
+    assert target_use_denied.status_code == 403
+
+    unclaimed_exhaustion_denied = await client.patch(
+        f"/characters/{unclaimed_character.id}/exhaustion",
+        headers=guest_headers,
+        json={"change": 1},
+    )
+    assert unclaimed_exhaustion_denied.status_code == 403
+
+    ai_loot_denied = await client.post(
+        f"/game/sessions/{session_id}/loot/claim",
+        headers=guest_headers,
+        json={"character_id": ai_companion.id, "loot_id": "loot_gold_0"},
+    )
+    assert ai_loot_denied.status_code == 403
+
+    await db_session.refresh(ai_companion)
+    await db_session.refresh(guest_character)
+    await db_session.refresh(host_character)
+    await db_session.refresh(unclaimed_character)
+    await db_session.refresh(session)
+    assert ai_companion.equipment["gold"] == 100
+    assert guest_character.equipment["gear"][0]["uses"] == 3
+    assert host_character.death_saves == {"successes": 1, "failures": 1, "stable": False}
+    assert unclaimed_character.condition_durations in (None, {})
+    assert session.game_state["loot_pool"]["items"][0]["status"] == "available"
+
+    own_buy = await client.post(
+        f"/characters/{guest_character.id}/shop/buy",
+        headers=guest_headers,
+        json={"item_name": "Healing Potion", "item_category": "gear", "quantity": 1},
+    )
+    assert own_buy.status_code == 200, own_buy.text
+
+    driver_ai_buy = await client.post(
+        f"/characters/{ai_companion.id}/shop/buy",
+        headers=host_headers,
+        json={"item_name": "Healing Potion", "item_category": "gear", "quantity": 1},
+    )
+    assert driver_ai_buy.status_code == 200, driver_ai_buy.text
+
+    driver_unclaimed_exhaustion = await client.patch(
+        f"/characters/{unclaimed_character.id}/exhaustion",
+        headers=host_headers,
+        json={"change": 1},
+    )
+    assert driver_unclaimed_exhaustion.status_code == 200, driver_unclaimed_exhaustion.text
+
+    driver_ai_loot = await client.post(
+        f"/game/sessions/{session_id}/loot/claim",
+        headers=host_headers,
+        json={"character_id": ai_companion.id, "loot_id": "loot_gold_0"},
+    )
+    assert driver_ai_loot.status_code == 200, driver_ai_loot.text
+
+    await db_session.refresh(guest_character)
+    await db_session.refresh(ai_companion)
+    await db_session.refresh(unclaimed_character)
+    await db_session.refresh(session)
+    assert guest_character.equipment["gold"] == 50
+    assert [item["name"] for item in guest_character.equipment["gear"]] == [
+        "Healer's Kit",
+        "Healing Potion",
+    ]
+    assert ai_companion.equipment["gold"] == 75
+    assert [item["name"] for item in ai_companion.equipment["gear"]] == ["Healing Potion"]
+    assert unclaimed_character.condition_durations["exhaustion_level"] == 1
+    loot = session.game_state["loot_pool"]["items"][0]
+    assert loot["status"] == "claimed"
+    assert loot["claimed_by_character_id"] == ai_companion.id
 
 
 async def test_user_cannot_start_singleplayer_session_with_another_users_character(

@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import assert_character_access
+from api.deps import assert_character_access, assert_character_write_access
 from models import Character
 from services.dnd_rules import calc_derived
 from services.inventory_service import (
@@ -35,12 +35,16 @@ async def load_character_or_404(
     character_id: str,
     *,
     user_id: str | None = None,
+    write: bool = False,
 ) -> Character:
     char = await db.get(Character, character_id)
     if not char:
         raise HTTPException(404, "角色不存在")
     if user_id is not None:
-        await assert_character_access(char, user_id, db)
+        if write:
+            await assert_character_write_access(char, user_id, db)
+        else:
+            await assert_character_access(char, user_id, db)
     return char
 
 
@@ -52,7 +56,7 @@ async def update_character_gold(
     reason: str,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
     try:
         result = update_inventory_gold(char.equipment, amount=amount, reason=reason)
     except InventoryError as exc:
@@ -75,7 +79,7 @@ async def update_character_ammo(
     change: int,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
     try:
         result = update_inventory_ammo(
             char.equipment,
@@ -103,7 +107,7 @@ async def update_character_equipment(
     equip: bool,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
     try:
         result = update_inventory_equipment(
             char.equipment,
@@ -134,7 +138,7 @@ async def update_character_equipment_bulk(
     equipment: dict,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
     char.equipment = equipment
     derived = recalculate_character_derived(char, equipment)
 

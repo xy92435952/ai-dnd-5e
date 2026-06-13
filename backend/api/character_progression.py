@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import assert_character_access
+from api.deps import assert_character_write_access
 from models import Character
 from schemas.character_requests import ExhaustionRequest, LevelUpRequest, PreparedSpellsRequest
 from services.character_leveling_service import CharacterLevelingError, build_level_up_update
@@ -29,7 +29,7 @@ async def update_character_prepared_spells(
         raise HTTPException(404, "角色不存在")
 
     if user_id is not None:
-        await assert_character_access(char, user_id, db)
+        await assert_character_write_access(char, user_id, db)
 
     cls_key = _normalize_class(char.char_class)
     try:
@@ -65,7 +65,7 @@ async def level_up_character(
         raise HTTPException(404, "角色不存在")
 
     if user_id is not None:
-        await assert_character_access(char, user_id, db)
+        await assert_character_write_access(char, user_id, db)
 
     try:
         update = build_level_up_update(
@@ -126,7 +126,7 @@ async def update_character_exhaustion(
         raise HTTPException(404, "角色不存在")
 
     if user_id is not None:
-        await assert_character_access(char, user_id, db)
+        await assert_character_write_access(char, user_id, db)
 
     conditions = list(char.conditions or [])
     durations = dict(char.condition_durations or {})

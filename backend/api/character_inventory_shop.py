@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import assert_character_access
+from api.deps import assert_character_write_access
 from models import Character, Session
 from services.inventory_service import (
     InventoryError,
@@ -28,7 +28,7 @@ async def buy_character_item(
     quantity: int,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
     price_context = await shop_pricing_for_character(db, char)
     if not is_item_in_stock(item_name, item_category, price_context):
         raise HTTPException(404, "当前地点商人不出售该物品")
@@ -57,7 +57,7 @@ async def sell_character_item(
     item_index: int,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
     price_context = await shop_pricing_for_character(db, char)
     try:
         result = sell_inventory_item(
@@ -98,7 +98,7 @@ async def transfer_character_item(
     if source.id == target.id:
         raise HTTPException(400, "不能把物品转交给自己")
     if user_id is not None:
-        await assert_character_access(source, user_id, db)
+        await assert_character_write_access(source, user_id, db)
     if not source.session_id or not target.session_id or source.session_id != target.session_id:
         raise HTTPException(400, "只能在同一队伍内转交物品")
 

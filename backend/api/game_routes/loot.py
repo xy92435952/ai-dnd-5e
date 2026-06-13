@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from api.deps import (
-    assert_character_access,
+    assert_character_write_access,
     assert_session_access,
     get_session_or_404,
     get_user_id,
@@ -46,7 +46,7 @@ async def claim_session_loot(
     character = await db.get(Character, req.character_id)
     if not character:
         raise HTTPException(404, "Character not found")
-    await assert_character_access(character, user_id, db)
+    await assert_character_write_access(character, user_id, db)
     await assert_character_in_session(character, session, db)
 
     module = await db.get(Module, session.module_id) if session.module_id else None

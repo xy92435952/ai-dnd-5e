@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.deps import assert_character_access
+from api.deps import assert_character_write_access
 from api.combat._shared import _get_ts, _save_ts
 from api.character_inventory_equipment import load_character_or_404
 from models import Character
@@ -25,7 +25,7 @@ async def use_character_item(
     use_in_combat: bool = False,
     user_id: str | None = None,
 ) -> dict:
-    char = await load_character_or_404(db, character_id, user_id=user_id)
+    char = await load_character_or_404(db, character_id, user_id=user_id, write=True)
 
     combat_action: CombatItemAction | None = None
     if use_in_combat:
@@ -60,7 +60,7 @@ async def use_character_item(
     if target is not None and target.id != char.id and user_id is not None:
         if not target.session_id or target.session_id != char.session_id:
             raise HTTPException(400, "Target character is not in the same party")
-        await assert_character_access(target, user_id, db)
+        await assert_character_write_access(target, user_id, db)
 
     try:
         result = apply_item_effect(
