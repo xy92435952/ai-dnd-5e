@@ -131,6 +131,39 @@ describe('useCombatPlayerActions', () => {
     }).entities['char-1'].hp_current).toBe(9)
   })
 
+  it('passes class feature params through to the API', async () => {
+    classFeatureMock.mockResolvedValueOnce({
+      narration: 'Lyra inspires Mara.',
+      turn_state: { bonus_action_used: true },
+      class_resources: { bardic_inspiration_remaining: 1 },
+      actor_state: {
+        target_id: 'char-1',
+        class_resources: { bardic_inspiration_remaining: 1 },
+      },
+      target_state: {
+        target_id: 'ally-1',
+        class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      },
+    })
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleClassFeature('bardic_inspiration', { target_id: 'ally-1' })
+    })
+
+    expect(rollDice3DMock).not.toHaveBeenCalled()
+    expect(classFeatureMock).toHaveBeenCalledWith('sess-1', 'bardic_inspiration', { target_id: 'ally-1' })
+    expect(deps.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
+    const combatUpdater = deps.setCombat.mock.calls[0][0]
+    const updated = combatUpdater({
+      entities: {
+        'char-1': { id: 'char-1', class_resources: {} },
+        'ally-1': { id: 'ally-1', class_resources: {} },
+      },
+    })
+    expect(updated.entities['ally-1'].class_resources.bardic_inspiration.die).toBe('d8')
+  })
+
   it('does not run class features when the current user does not control this turn', async () => {
     const { result, deps } = renderActions({ canActThisTurn: false })
 

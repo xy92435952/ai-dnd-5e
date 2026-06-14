@@ -68,19 +68,21 @@ export function useCombatPlayerActions({
     setTurnState,
   ])
 
-  const handleClassFeature = useCallback(async (featureName) => {
+  const handleClassFeature = useCallback(async (featureName, params = {}) => {
     if (!canActThisTurn || isProcessing) return
     processingRef.current = true
     setIsProcessing(true)
     setError('')
     try {
-      const featureDice = FEATURE_DICE[featureName]
+      const featureDice = featureName === 'bardic_inspiration' ? null : FEATURE_DICE[featureName]
       if (featureDice) {
         const { total } = await rollDice3D(featureDice.faces, featureDice.count)
         showDice({ faces: featureDice.faces, result: total, label: featureDice.label, count: featureDice.count })
       }
 
-      const result = await gameApi.classFeature(sessionId, featureName)
+      const result = Object.keys(params || {}).length
+        ? await gameApi.classFeature(sessionId, featureName, params)
+        : await gameApi.classFeature(sessionId, featureName)
       addLog({
         role: 'player',
         content: result.narration,
@@ -93,7 +95,7 @@ export function useCombatPlayerActions({
         let updated = applyPlayerHpUpdate(prev, playerId, result.hp_current)
         const temporaryHp = result.temporary_hp ?? result.class_resources?.temporary_hp
         if (temporaryHp !== undefined) {
-          updated = applyActionResultEntityStates(updated, {
+          updated = applyActionResultEntityStates(updated, result.target_state ? result : {
             target_state: {
               target_id: playerId,
               hp_current: result.hp_current,
@@ -101,6 +103,8 @@ export function useCombatPlayerActions({
               class_resources: result.class_resources,
             },
           })
+        } else {
+          updated = applyActionResultEntityStates(updated, result)
         }
         return updated
       })

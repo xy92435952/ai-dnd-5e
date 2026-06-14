@@ -11,6 +11,7 @@ from api.deps import (
     assert_can_act,
     assert_character_can_act,
     assert_optional_session_access,
+    entity_snapshot,
     get_optional_user_id,
     get_session_or_404,
 )
@@ -76,6 +77,15 @@ async def use_class_feature(
         if not player:
             raise HTTPException(404, "Player character not found")
 
+    target = None
+    if req.target_id:
+        target = await db.get(Character, req.target_id)
+        if not target:
+            raise HTTPException(404, "Target character not found")
+        if str(target.session_id) != str(session_id):
+            raise HTTPException(400, "Target character is not in this session.")
+        _assert_class_feature_target_in_combat(req.target_id, combat)
+
     turn_state = _get_ts(combat, player_id)
     try:
         result = resolve_combat_class_feature(
@@ -86,6 +96,8 @@ async def use_class_feature(
             turn_state=turn_state,
             combat_service=svc,
             roll_dice_fn=roll_dice,
+            target=target,
+            target_id=req.target_id,
         )
     except CombatClassFeatureError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
@@ -101,22 +113,51 @@ async def use_class_feature(
     if vivid:
         narration = vivid
 
+    target_character = result.target or player
+    actor_state = _class_feature_entity_state(player)
+    if target_character.id == player.id:
+        target_state = actor_state
+    else:
+        target_state = _class_feature_entity_state(target_character)
+    class_feature_payload = {
+        "type": "class_feature",
+        "feature": req.feature_name,
+        "narration": narration,
+        "actor_id": str(player_id),
+        "actor_name": player.name,
+        "target_id": str(target_character.id),
+        "target_name": target_character.name,
+        "target_state": target_state,
+        "actor_state": actor_state,
+        "turn_state": result.turn_state,
+        "class_resources": result.class_resources,
+    }
+    if result.dice_roll is not None:
+        class_feature_payload["dice_roll"] = result.dice_roll
+
     db.add(GameLog(
         session_id=session_id,
         role="player",
         content=narration,
         log_type="combat",
-        dice_result={"type": "class_feature", "feature": req.feature_name},
+        dice_result=class_feature_payload,
     ))
     await db.commit()
     await _broadcast_combat(
         session,
         combat,
         CombatUpdate(
+            action="class_feature",
             actor_id=str(player_id),
             actor_name=player.name,
             narration=narration,
             feature=req.feature_name,
+            target_id=str(target_character.id),
+            target_name=target_character.name,
+            target_state=target_state,
+            actor_state=actor_state,
+            dice_result=class_feature_payload,
+            special_action=class_feature_payload,
         ),
         db=db,
     )
@@ -131,4 +172,26 @@ async def use_class_feature(
         "temporary_hp": result.temporary_hp,
         "hp_max": result.hp_max,
         "dice_roll": result.dice_roll,
+        "target_id": str(target_character.id),
+        "target_name": target_character.name,
+        "target_state": target_state,
+        "actor_state": actor_state,
+        "dice_result": class_feature_payload,
+        "special_action": class_feature_payload,
     }
+
+
+def _assert_class_feature_target_in_combat(target_id: str, combat: CombatState) -> None:
+    combat_ids = set()
+    for entry in combat.turn_order or []:
+        if isinstance(entry, dict) and entry.get("character_id"):
+            combat_ids.add(str(entry["character_id"]))
+    combat_ids.update(str(entity_id) for entity_id in (combat.entity_positions or {}).keys())
+    if combat_ids and str(target_id) not in combat_ids:
+        raise HTTPException(400, "Target character is not in this combat.")
+
+
+def _class_feature_entity_state(character: Character) -> dict:
+    state = entity_snapshot(character)
+    state["target_id"] = str(character.id)
+    return state

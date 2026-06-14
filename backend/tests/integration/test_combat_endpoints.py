@@ -14,7 +14,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from models import CombatState, GameLog
+from models import Character, CombatState, GameLog
 
 pytestmark = pytest.mark.integration
 
@@ -1804,6 +1804,87 @@ async def test_step_of_the_wind_dash_class_feature_spends_ki_and_extends_movemen
     assert combat_state.turn_states[sample_character.id]["bonus_action_used"] is True
     assert combat_state.turn_states[sample_character.id]["movement_used"] == 6
     assert combat_state.turn_states[sample_character.id]["movement_max"] == 12
+
+
+async def test_bardic_inspiration_class_feature_grants_target_resource(
+    client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from api.combat import class_features
+
+    async def fake_narrate_action(**_kwargs):
+        return ""
+
+    monkeypatch.setattr(class_features, "narrate_action", fake_narrate_action)
+
+    ally = Character(
+        id=str(_uuid.uuid4()),
+        session_id=sample_session.id,
+        name="Mara Quickstep",
+        race="Human",
+        char_class="Rogue",
+        level=3,
+        background="Soldier",
+        ability_scores={"str": 10, "dex": 16, "con": 12, "int": 10, "wis": 12, "cha": 10},
+        derived={"hp_max": 18, "ac": 14, "ability_modifiers": {"cha": 0}},
+        hp_current=18,
+        is_player=False,
+        class_resources={},
+        conditions=[],
+        condition_durations={},
+    )
+    db_session.add(ally)
+
+    sample_character.char_class = "Bard"
+    sample_character.level = 5
+    sample_character.derived = {
+        "hp_max": 20,
+        "ability_modifiers": {"cha": 4},
+        "subclass_effects": {"inspiration_die": "d8"},
+    }
+    sample_character.class_resources = {"bardic_inspiration_remaining": 2}
+    combat_state.entity_positions = {
+        **(combat_state.entity_positions or {}),
+        ally.id: {"x": 4, "y": 5},
+    }
+    combat_state.turn_order = [
+        {"character_id": sample_character.id, "name": sample_character.name, "initiative": 18, "is_player": True, "is_enemy": False},
+        {"character_id": ally.id, "name": ally.name, "initiative": 14, "is_player": False, "is_enemy": False},
+        *list(combat_state.turn_order or [])[1:],
+    ]
+    flag_modified(combat_state, "entity_positions")
+    flag_modified(combat_state, "turn_order")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    r = await client.post(
+        f"/game/combat/{sample_session.id}/class-feature",
+        headers=headers,
+        json={"feature_name": "bardic_inspiration", "target_id": ally.id},
+    )
+
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["feature"] == "bardic_inspiration"
+    assert data["class_resources"]["bardic_inspiration_remaining"] == 1
+    assert data["turn_state"]["bonus_action_used"] is True
+    assert data["actor_state"]["class_resources"]["bardic_inspiration_remaining"] == 1
+    assert data["target_state"]["target_id"] == ally.id
+    assert data["target_state"]["class_resources"]["bardic_inspiration"] == {
+        "die": "d8",
+        "uses_remaining": 1,
+        "source_character_id": sample_character.id,
+        "source_character_name": sample_character.name,
+    }
+    assert data["dice_result"]["target_state"] == data["target_state"]
+    assert data["special_action"] == data["dice_result"]
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(ally)
+    await db_session.refresh(combat_state)
+    assert sample_character.class_resources["bardic_inspiration_remaining"] == 1
+    assert ally.class_resources["bardic_inspiration"]["die"] == "d8"
+    assert combat_state.turn_states[sample_character.id]["bonus_action_used"] is True
 
 
 async def test_martial_arts_attack_roll_uses_bonus_action_and_monk_die(

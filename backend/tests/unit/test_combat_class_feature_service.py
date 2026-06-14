@@ -185,6 +185,45 @@ def test_tides_of_chaos_marks_next_d20_advantage():
     assert "获得优势" in result.narration
 
 
+def test_bardic_inspiration_grants_die_to_target_and_spends_bonus_action():
+    bard = _character(
+        name="Lyra",
+        char_class="Bard",
+        level=5,
+        class_resources={"bardic_inspiration_remaining": 2},
+        derived={
+            "hp_max": 20,
+            "ability_modifiers": {"cha": 4},
+            "subclass_effects": {"inspiration_die": "d8"},
+        },
+    )
+    target = _character(name="Mara", class_resources={})
+
+    result = resolve_combat_class_feature(
+        feature="bardic_inspiration",
+        player=bard,
+        player_id="bard",
+        target=target,
+        target_id="target",
+        combat=_combat(),
+        turn_state=_turn_state(action_used=False, bonus_action_used=False),
+        combat_service=CombatService(),
+        roll_dice_fn=lambda *_args: (_ for _ in ()).throw(AssertionError("should not roll")),
+    )
+
+    assert result.class_resources["bardic_inspiration_remaining"] == 1
+    assert result.turn_state["bonus_action_used"] is True
+    assert result.target is target
+    assert target.class_resources["bardic_inspiration"] == {
+        "die": "d8",
+        "uses_remaining": 1,
+        "source_character_id": "bard",
+        "source_character_name": "Lyra",
+    }
+    assert result.dice_roll["faces"] == 8
+    assert result.dice_roll["granted"] is True
+
+
 def test_fighting_spirit_grants_real_temporary_hp():
     player = _character(
         char_class="Fighter",
@@ -204,9 +243,33 @@ def test_fighting_spirit_grants_real_temporary_hp():
     )
 
     assert result.class_resources["fighting_spirit_remaining"] == 0
+    assert result.turn_state["bonus_action_used"] is True
     assert result.class_resources["temporary_hp"] == 5
     assert result.class_resources["temporary_hp_source"] == "fighting_spirit"
     assert result.temporary_hp == 5
+
+
+def test_ki_flurry_rejects_when_bonus_action_is_spent():
+    player = _character(
+        char_class="Monk",
+        level=2,
+        class_resources={"ki_remaining": 1},
+    )
+
+    with pytest.raises(CombatClassFeatureError) as exc:
+        resolve_combat_class_feature(
+            feature="ki_flurry",
+            player=player,
+            player_id="hero",
+            combat=_combat(),
+            turn_state=_turn_state(bonus_action_used=True),
+            combat_service=CombatService(),
+            roll_dice_fn=lambda *_args: {"rolls": [12], "total": 12},
+        )
+
+    assert exc.value.status_code == 400
+    assert "Bonus action already used" in exc.value.detail
+    assert player.class_resources["ki_remaining"] == 1
 
 
 def test_symbiotic_entity_grants_real_temporary_hp_and_preserves_higher_existing_pool():

@@ -3,13 +3,23 @@ from types import SimpleNamespace
 from services.combat_skill_bar_service import build_skill_bar
 
 
-def _character(char_class, level=1, slots=None, resources=None, equipment=None):
+def _character(
+    char_class,
+    level=1,
+    slots=None,
+    resources=None,
+    equipment=None,
+    class_resources=None,
+    conditions=None,
+):
     return SimpleNamespace(
         char_class=char_class,
         level=level,
         spell_slots=slots or {},
         derived={"class_resources": resources or {}},
         equipment=equipment or {},
+        class_resources=class_resources or {},
+        conditions=conditions or [],
     )
 
 
@@ -76,6 +86,65 @@ def test_action_cost_skills_are_not_labeled_as_bonus_actions():
     assert slots["divine_sense"]["cost"] == "动作"
     assert slots["divine_sense"]["kind"] == "action"
     assert slots["pot_heal"]["kind"] == "item"
+
+
+def test_skill_bar_prefers_live_class_resources_over_derived_snapshot():
+    bar = build_skill_bar(_character(
+        "Fighter",
+        level=2,
+        resources={"second_wind_remaining": 1, "action_surge_remaining": 1},
+        class_resources={"second_wind_used": True, "action_surge_used": True},
+    ))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["action_surge"]["available"] is False
+    assert slots["second_wind"]["available"] is False
+
+
+def test_bard_skill_bar_exposes_bardic_inspiration_with_target_requirement():
+    bar = build_skill_bar(_character("Bard", resources={"bardic_inspiration_remaining": 2}))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["off_attack"]["key"] == "2"
+    assert slots["bardic_inspiration"]["key"] == "6"
+    assert slots["bardic_inspiration"]["kind"] == "bonus"
+    assert slots["bardic_inspiration"]["available"] is True
+    assert slots["bardic_inspiration"]["requires_target"] is True
+    assert slots["bardic_inspiration"]["target_type"] == "ally"
+
+
+def test_monk_skill_bar_exposes_ki_defense_and_step_of_the_wind():
+    bar = build_skill_bar(_character("Monk", level=2, resources={"ki_remaining": 1}))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["ki_flurry"]["key"] == "2"
+    assert slots["ki_patient_defense"]["key"] == "4"
+    assert slots["ki_step_of_the_wind_dash"]["key"] == "7"
+    assert slots["ki_step_of_the_wind_disengage"]["key"] == "8"
+    assert all(slots[key]["available"] is True for key in (
+        "ki_flurry",
+        "ki_patient_defense",
+        "ki_step_of_the_wind_dash",
+        "ki_step_of_the_wind_disengage",
+    ))
+
+
+def test_paladin_skill_bar_exposes_lay_on_hands_cure_when_conditioned():
+    poisoned = build_skill_bar(_character(
+        "Paladin",
+        level=3,
+        class_resources={"lay_on_hands_remaining": 10},
+        conditions=["poisoned"],
+    ))
+    diseased = build_skill_bar(_character(
+        "Paladin",
+        level=3,
+        class_resources={"lay_on_hands_remaining": 10},
+        conditions=["disease"],
+    ))
+
+    assert {slot["key"]: slot["k"] for slot in poisoned}["6"] == "lay_on_hands_cure_poison"
+    assert {slot["key"]: slot["k"] for slot in diseased}["6"] == "lay_on_hands_cure_disease"
 
 
 def test_wizard_shield_is_shown_as_reaction_prompt_not_active_cast():

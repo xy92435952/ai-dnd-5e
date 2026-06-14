@@ -96,6 +96,14 @@ describe('createCombatSkillClickHandler', () => {
     expect(fns.handleClassFeature).toHaveBeenNthCalledWith(5, 'cunning_action_hide')
   })
 
+  it('routes bardic inspiration with the selected target id', async () => {
+    const { handler, fns } = makeHandler()
+
+    await handler({ k: 'bardic_inspiration', available: true })
+
+    expect(fns.handleClassFeature).toHaveBeenCalledWith('bardic_inspiration', { target_id: 'enemy-1' })
+  })
+
   it('routes potion skills through the inventory use handler', async () => {
     const { handler, fns, api } = makeHandler()
 

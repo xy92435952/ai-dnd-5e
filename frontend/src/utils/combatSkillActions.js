@@ -119,6 +119,15 @@ export function createCombatSkillClickHandler({
         case 'lay':
           await handleClassFeature?.('lay_on_hands')
           break
+        case 'lay_on_hands_cure_poison':
+          await handleClassFeature?.('lay_on_hands_cure_poison')
+          break
+        case 'lay_on_hands_cure_disease':
+          await handleClassFeature?.('lay_on_hands_cure_disease')
+          break
+        case 'bardic_inspiration':
+          await handleClassFeature?.('bardic_inspiration', { target_id: getSelectedTarget() })
+          break
         case 'second_wind':
           await handleClassFeature?.('second_wind')
           break
@@ -143,6 +152,15 @@ export function createCombatSkillClickHandler({
           break
         case 'ki_flurry':
           await handleClassFeature?.('ki_flurry')
+          break
+        case 'ki_patient_defense':
+          await handleClassFeature?.('ki_patient_defense')
+          break
+        case 'ki_step_of_the_wind_dash':
+          await handleClassFeature?.('ki_step_of_the_wind_dash')
+          break
+        case 'ki_step_of_the_wind_disengage':
+          await handleClassFeature?.('ki_step_of_the_wind_disengage')
           break
         case 'divine_sense':
           await handleClassFeature?.('divine_sense')

@@ -14,7 +14,11 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     level = player.level or 1
     slots = player.spell_slots or {}
     has_slot_1 = slots.get("1st", 0) > 0
-    resources = derived.get("class_resources", {}) or {}
+    resources = {
+        **(derived.get("class_resources", {}) or {}),
+        **(getattr(player, "class_resources", None) or {}),
+    }
+    conditions = {str(condition).lower() for condition in (getattr(player, "conditions", None) or [])}
     offhand_error = get_two_weapon_fighting_error(player)
 
     bar: list[dict[str, Any]] = []
@@ -40,7 +44,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "dmg_hint": f"+{(level + 1) // 2}d6（优势或盟友相邻）",
         })
     elif cls == "Fighter":
-        action_surge_left = resources.get("action_surge_remaining", 1 if level >= 2 else 0)
+        action_surge_left = 0 if resources.get("action_surge_used") else resources.get("action_surge_remaining", 1 if level >= 2 else 0)
         bar.append({
             "k": "action_surge", "label": "行动激发", "glyph": "⚡",
             "cost": "免费", "key": "2", "kind": "bonus",
@@ -104,6 +108,14 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "available": False,
             "reason": "反应法术会在被攻击时自动提示" if has_slot_1 else "需要 1 环法术位",
         })
+    elif cls == "Monk" and level >= 2:
+        ki_left = resources.get("ki_remaining", 0)
+        bar.append({
+            "k": "ki_patient_defense", "label": "Patient Defense", "glyph": "PD",
+            "cost": "bonus/1 ki", "key": "4", "kind": "bonus",
+            "available": ki_left > 0,
+            "reason": None if ki_left > 0 else "Requires 1 ki",
+        })
     else:
         bar.append({
             "k": "dodge", "label": "闪避", "glyph": "⊙",
@@ -111,7 +123,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
         })
 
     if cls == "Paladin":
-        lay_left = resources.get("lay_on_hands_pool", level * 5)
+        lay_left = _lay_on_hands_remaining(resources, level)
         bar.append({
             "k": "lay", "label": "治疗魔掌", "glyph": "☩",
             "cost": "动作", "key": "5", "kind": "action",
@@ -128,7 +140,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "dmg_hint": "1d8 + 施法能力",
         })
     elif cls == "Fighter":
-        second_wind_left = resources.get("second_wind_remaining", 1)
+        second_wind_left = 0 if resources.get("second_wind_used") else resources.get("second_wind_remaining", 1)
         bar.append({
             "k": "second_wind", "label": "再接再厉", "glyph": "✚",
             "cost": "附赠", "key": "5", "kind": "bonus",
@@ -148,10 +160,31 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "k": "divine_sense", "label": "神性感知", "glyph": "◉",
             "cost": "动作", "key": "6", "kind": "action", "available": True,
         })
+        lay_left = _lay_on_hands_remaining(resources, level)
+        if lay_left >= 5 and "poisoned" in conditions:
+            bar[-1] = {
+                "k": "lay_on_hands_cure_poison", "label": "Cure Poison", "glyph": "LP",
+                "cost": "action/5 pool", "key": "6", "kind": "action", "available": True,
+            }
+        elif lay_left >= 5 and ("disease" in conditions or "diseased" in conditions):
+            bar[-1] = {
+                "k": "lay_on_hands_cure_disease", "label": "Cure Disease", "glyph": "LD",
+                "cost": "action/5 pool", "key": "6", "kind": "action", "available": True,
+            }
     elif cls == "Rogue" and level >= 2:
         bar.append({
             "k": "cunning_action_hide", "label": "狡诈隐匿", "glyph": "⊿",
             "cost": "附赠", "key": "6", "kind": "bonus", "available": True,
+        })
+    elif cls == "Bard":
+        inspiration_left = resources.get("bardic_inspiration_remaining", 0)
+        bar.append({
+            "k": "bardic_inspiration", "label": "Bardic Inspiration", "glyph": "BI",
+            "cost": "bonus", "key": "6", "kind": "bonus",
+            "available": inspiration_left > 0,
+            "reason": None if inspiration_left > 0 else "No uses remaining",
+            "requires_target": True,
+            "target_type": "ally",
         })
     elif cls == "Wizard" and level >= 2:
         bar.append({
@@ -165,7 +198,21 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
             "cost": "动作", "key": "6", "kind": "action", "available": True,
         })
 
-    if cls == "Rogue" and level >= 2:
+    if cls == "Monk" and level >= 2:
+        ki_left = resources.get("ki_remaining", 0)
+        bar.append({
+            "k": "ki_step_of_the_wind_dash", "label": "Step Dash", "glyph": "SD",
+            "cost": "bonus/1 ki", "key": "7", "kind": "bonus",
+            "available": ki_left > 0,
+            "reason": None if ki_left > 0 else "Requires 1 ki",
+        })
+        bar.append({
+            "k": "ki_step_of_the_wind_disengage", "label": "Step Disengage", "glyph": "SW",
+            "cost": "bonus/1 ki", "key": "8", "kind": "bonus",
+            "available": ki_left > 0,
+            "reason": None if ki_left > 0 else "Requires 1 ki",
+        })
+    elif cls == "Rogue" and level >= 2:
         bar.append({
             "k": "cunning_action_dash", "label": "狡诈冲刺", "glyph": "»",
             "cost": "附赠", "key": "7", "kind": "move", "available": True,
@@ -193,3 +240,7 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
     })
 
     return bar[:10]
+
+
+def _lay_on_hands_remaining(resources: dict[str, Any], level: int) -> int:
+    return resources.get("lay_on_hands_remaining", resources.get("lay_on_hands_pool", level * 5))
