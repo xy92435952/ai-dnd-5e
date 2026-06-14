@@ -52,7 +52,7 @@ def choose_skirmisher_reposition(
     if move_remaining <= 0:
         return None
 
-    can_leave_reach = bool(turn_state.get("disengaged")) or _has_no_opportunity_escape(actor)
+    can_leave_reach = bool(turn_state.get("disengaged")) or actor_ignores_opportunity_attacks(actor)
     current_distance = _nearest_party_distance(actor_pos, alive_party, positions)
     if current_distance <= 1 and not can_leave_reach:
         return None
@@ -189,7 +189,7 @@ def _position(positions: dict[str, Any], entity_id: str) -> dict[str, int] | Non
     return {"x": int(raw.get("x", 0)), "y": int(raw.get("y", 0))}
 
 
-def _has_no_opportunity_escape(actor: dict[str, Any]) -> bool:
+def actor_ignores_opportunity_attacks(actor: dict[str, Any]) -> bool:
     texts: list[str] = []
     for key in ("traits", "special_abilities", "actions", "features"):
         values = actor.get(key) or []

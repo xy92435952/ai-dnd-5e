@@ -487,6 +487,41 @@ async def test_prepare_direct_ranged_attack_against_distant_prone_target_has_dis
 
 
 @pytest.mark.asyncio
+async def test_prepare_direct_attack_uses_positions_override_for_ready_reach():
+    from services import combat_direct_attack_service as direct_attack
+
+    combat_service = FakeCombatService()
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+    combat.entity_positions["goblin-1"] = {"x": 4, "y": 0}
+
+    prepared = await direct_attack.prepare_direct_attack(
+        FakeDb(),
+        combat=combat,
+        player=FakeFighter(),
+        player_id="char-1",
+        target_id="goblin-1",
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 8,
+            "derived": {"ac": 15},
+            "conditions": [],
+        }],
+        is_ranged=False,
+        combat_service=combat_service,
+        save_turn_state_func=save_turn_state,
+        positions_override={
+            "char-1": {"x": 0, "y": 0},
+            "goblin-1": {"x": 1, "y": 0},
+        },
+    )
+
+    assert combat_service.last_attack_kwargs["distance"] == 1
+    assert prepared.attack_result["hit"] is True
+
+
+@pytest.mark.asyncio
 async def test_prepare_direct_ranged_attack_consumes_ammunition():
     from services import combat_direct_attack_service as direct_attack
 

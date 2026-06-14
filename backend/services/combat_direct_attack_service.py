@@ -68,6 +68,7 @@ async def prepare_direct_attack(
     get_turn_state_func: Callable[[Any, str], dict[str, Any]] = get_turn_state,
     save_turn_state_func: Callable[[Any, str, dict[str, Any]], None] = save_turn_state,
     has_ally_adjacent_to: Callable[[str, str, list[dict[str, Any]], dict[str, Any]], bool] | None = None,
+    positions_override: dict[str, Any] | None = None,
 ) -> PreparedDirectAttack:
     """Prepare and roll the legacy immediate-damage /action attack path."""
     turn_state = get_turn_state_func(combat, player_id)
@@ -117,7 +118,7 @@ async def prepare_direct_attack(
     weapon_resource_use = consume_attack_weapon_resource(player, is_ranged=is_ranged)
     weapon_resource = weapon_resource_use.to_dict() or None
 
-    positions = dict(combat.entity_positions or {})
+    positions = dict(positions_override or combat.entity_positions or {})
     attacker_pos = positions.get(str(player_id), {})
     target_pos = positions.get(str(resolved_target_id), {})
     target_distance = max(

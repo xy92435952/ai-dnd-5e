@@ -1940,6 +1940,7 @@ async def _resolve_ready_spell_attack(
         consume_slot=spell_service.consume_slot,
         calc_upcast_dice=spell_service.calc_upcast_dice,
         skip_turn_state_validation=True,
+        skip_slot_validation=slot_already_consumed,
         store_pending_spell_result=False,
     )
     pending_spell = dict(prepared.pending_spell)

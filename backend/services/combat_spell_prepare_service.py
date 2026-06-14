@@ -61,6 +61,9 @@ async def prepare_spell_roll(
     get_turn_state: Callable[[Any, str], dict[str, Any]],
     consume_slot: Callable[[dict, int], tuple[dict, str | None]],
     calc_upcast_dice: Callable[[str, int], str | None],
+    skip_turn_state_validation: bool = False,
+    skip_slot_validation: bool = False,
+    store_pending_spell_result: bool = True,
 ) -> PreparedSpellRoll:
     try:
         validate_can_take_action(caster)
@@ -70,13 +73,14 @@ async def prepare_spell_roll(
     is_cantrip = spell["level"] == 0
     action_cost = spell_action_cost(spell)
     spell_turn_state = get_turn_state(combat_obj, caster_id) if combat_obj else dict(default_turn_state)
-    spell_turn_state = validate_spell_turn_state(
-        spell_turn_state,
-        is_cantrip=is_cantrip,
-        action_cost=action_cost,
-    )
+    if not skip_turn_state_validation:
+        spell_turn_state = validate_spell_turn_state(
+            spell_turn_state,
+            is_cantrip=is_cantrip,
+            action_cost=action_cost,
+        )
 
-    if not is_cantrip:
+    if not is_cantrip and not skip_slot_validation:
         current_slots = dict(caster.spell_slots or {})
         _, slot_error = consume_slot(dict(current_slots), spell_level)
         if slot_error:
@@ -199,7 +203,7 @@ async def prepare_spell_roll(
         attack_roll=attack_roll_result,
     )
 
-    if combat_obj:
+    if combat_obj and store_pending_spell_result:
         store_pending_spell(combat_obj, caster_id, spell_turn_state, pending_spell)
 
     return PreparedSpellRoll(

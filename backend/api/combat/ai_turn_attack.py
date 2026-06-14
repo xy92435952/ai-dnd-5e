@@ -9,6 +9,7 @@ from api.combat._shared import (
     _get_ts, _save_ts, _ai_move_toward,
     _check_attack_range, _has_ally_adjacent_to,
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
+    _resolve_opportunity_attacks,
     svc,
 )
 from api.combat.ai_turn_utils import advance_ai_turn, build_reaction_prompt, tick_ai_actor_conditions
@@ -20,7 +21,10 @@ from services.combat_ai_attack_service import (
     target_conditions,
     pack_tactics_advantage,
 )
-from services.combat_ai_movement_service import choose_skirmisher_reposition
+from services.combat_ai_movement_service import (
+    actor_ignores_opportunity_attacks,
+    choose_skirmisher_reposition,
+)
 from services.combat_damage_bonus_service import apply_sustained_damage_effects
 from services.combat_concentration_effect_service import clear_concentration_effects_for_caster
 from services.combat_defender_reaction_service import apply_defender_interception
@@ -31,6 +35,10 @@ from services.combat_movement_rules_service import (
     validate_displacement_allowed,
 )
 from services.combat_narrator import narrate_batch
+from services.combat_ready_action_service import (
+    matching_ready_action_actor_ids_for_movement,
+    resolve_ready_actions_for_movement,
+)
 from services.combat_reaction_service import build_pending_attack_reaction
 from services.combat_temporary_hp_service import (
     apply_generic_temporary_hp_to_character,
@@ -90,6 +98,8 @@ async def handle_ai_attack_action(
     total_damage = 0
     all_narrations = []
     target_attack_events = []
+    ready_action_results = []
+    opportunity_attacks = []
     skirmisher_reposition = None
     state = session.game_state or {}
 
@@ -181,11 +191,62 @@ async def handle_ai_attack_action(
                 move_result = None
                 all_narrations.append(f"{actor_name} 的速度为 0，无法接近目标")
             if move_result:
+                old_pos = dict(ai_atk_pos)
                 new_pos = {"x": move_result["x"], "y": move_result["y"]}
+                ready_reaction_actor_ids = matching_ready_action_actor_ids_for_movement(
+                    combat,
+                    moving_id=str(actor_id),
+                    old_pos=old_pos,
+                    new_pos=new_pos,
+                )
+                move_opportunity_attacks = []
+                movement_stop = None
+                ignores_opportunity_attacks = bool(is_enemy and e and actor_ignores_opportunity_attacks(e))
+                if not actor_ts_pre.get("disengaged") and not ignores_opportunity_attacks:
+                    move_opportunity_attacks = await _resolve_opportunity_attacks(
+                        db=db,
+                        session=session,
+                        combat=combat,
+                        moving_id=str(actor_id),
+                        old_pos=old_pos,
+                        new_pos=new_pos,
+                        positions=positions,
+                        excluded_actor_ids=ready_reaction_actor_ids,
+                    )
+                    for opportunity in move_opportunity_attacks:
+                        if opportunity.get("log"):
+                            db.add(opportunity["log"])
+                    if move_opportunity_attacks:
+                        opportunity_attacks.extend(move_opportunity_attacks)
+                    movement_stop = _first_movement_stop(move_opportunity_attacks)
+                if movement_stop:
+                    new_pos = dict(movement_stop.get("to") or old_pos)
                 positions[str(actor_id)] = new_pos
                 combat.entity_positions = positions
-                actor_ts_pre["movement_used"] += move_result["steps"]
+                if movement_stop:
+                    actor_ts_pre["movement_used"] = max(
+                        int(actor_ts_pre.get("movement_used", 0) or 0),
+                        int(actor_ts_pre.get("movement_max", 0) or 0),
+                    )
+                else:
+                    actor_ts_pre["movement_used"] += move_result["steps"]
                 _save_ts(combat, actor_id, actor_ts_pre)
+                moved_distance = max(abs(old_pos["x"] - new_pos["x"]), abs(old_pos["y"] - new_pos["y"]))
+                if moved_distance > 0:
+                    move_ready_results = await resolve_ready_actions_for_movement(
+                        db=db,
+                        session=session,
+                        combat=combat,
+                        moving_id=str(actor_id),
+                        old_pos=old_pos,
+                        new_pos=new_pos,
+                        combat_service=svc,
+                        has_ally_adjacent_to=_has_ally_adjacent_to,
+                        resolve_opportunity_attacks=_resolve_opportunity_attacks,
+                    )
+                    if move_ready_results:
+                        ready_action_results.extend(move_ready_results)
+                        positions = dict(combat.entity_positions or positions)
                 all_narrations.append(f"🏃 {actor_name} 向目标移动了 {move_result['steps']*5}ft")
                 in_range, ai_dist, _ = _check_attack_range(new_pos, ai_tgt_pos, ai_is_ranged)
                 if in_range:
@@ -231,6 +292,8 @@ async def handle_ai_attack_action(
                 "combat_over": False,
                 "outcome": None,
                 "entity_positions": dict(combat.entity_positions or {}),
+                "ready_action_results": ready_action_results,
+                "opportunity_attacks": _flatten_opportunity_attacks(opportunity_attacks),
             }
 
         actor_ts = _get_ts(combat, actor_id)
@@ -624,4 +687,21 @@ async def handle_ai_attack_action(
         "combat_over": combat_over,
         "outcome": outcome,
         "entity_positions": dict(combat.entity_positions or {}),
+        "ready_action_results": ready_action_results,
+        "opportunity_attacks": _flatten_opportunity_attacks(opportunity_attacks),
     }
+
+
+def _first_movement_stop(opportunity_attacks: list[dict]) -> dict | None:
+    for opportunity in opportunity_attacks:
+        movement_stop = (opportunity.get("result") or {}).get("movement_stop")
+        if movement_stop:
+            return movement_stop
+    return None
+
+
+def _flatten_opportunity_attacks(opportunity_attacks: list[dict]) -> list[dict]:
+    return [
+        {"attacker": opportunity["attacker"], "target": opportunity["target"], **opportunity["result"]}
+        for opportunity in opportunity_attacks
+    ]

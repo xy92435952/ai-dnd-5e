@@ -90,13 +90,16 @@ async def confirm_pending_spell(
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, target_ids, enemies, session=session)
 
-    new_slots = consume_spell_slot_for_confirmation(
-        current_slots=caster.spell_slots,
-        spell_level=spell_level,
-        is_cantrip=is_cantrip,
-        consume_slot=spell_service_obj.consume_slot,
-    )
-    caster.spell_slots = new_slots
+    if pending.get("slot_already_consumed"):
+        new_slots = dict(caster.spell_slots or {})
+    else:
+        new_slots = consume_spell_slot_for_confirmation(
+            current_slots=caster.spell_slots,
+            spell_level=spell_level,
+            is_cantrip=is_cantrip,
+            consume_slot=spell_service_obj.consume_slot,
+        )
+        caster.spell_slots = new_slots
 
     if spell.get("concentration"):
         await set_concentration_with_cleanup(

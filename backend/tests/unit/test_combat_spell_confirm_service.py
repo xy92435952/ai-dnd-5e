@@ -126,6 +126,63 @@ async def test_confirm_pending_spell_consumes_slot_applies_damage_and_completes_
 
 
 @pytest.mark.asyncio
+async def test_confirm_pending_spell_preserves_preconsumed_ready_spell_slot(monkeypatch):
+    from services import combat_spell_confirm_service as confirm_service
+
+    async def fake_apply_effects(*_args, **_kwargs):
+        from services.combat_spell_application_service import SpellApplicationResult
+
+        return SpellApplicationResult(
+            result_damage=6,
+            dice_detail={"formula": "3d4+3", "total": 6},
+            target_new_hp=1,
+            enemies_changed=True,
+        )
+
+    monkeypatch.setattr(confirm_service, "apply_confirmed_spell_effects", fake_apply_effects)
+
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 0}
+    state = {"enemies": [{"id": "goblin-1", "hp_current": 7}]}
+
+    result = await confirm_service.confirm_pending_spell(
+        FakeDb(),
+        session_id="sess-1",
+        combat_obj=combat,
+        caster=caster,
+        caster_entity_id="caster-1",
+        pending={
+            "spell_name": "Magic Missile",
+            "spell_level": 1,
+            "target_ids": ["goblin-1"],
+            "is_cantrip": False,
+            "is_aoe": False,
+            "spell_type": "damage",
+            "action_cost": "action",
+            "slot_already_consumed": True,
+        },
+        spell={
+            "type": "damage",
+            "concentration": False,
+            "damage_type": "force",
+        },
+        state=state,
+        enemies=state["enemies"],
+        damage_values=None,
+        spell_service_obj=FakeSpellService(),
+        flag_modified_func=lambda *_args: None,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        complete_pending_spell_func=complete_pending_spell,
+    )
+
+    assert caster.spell_slots == {"1st": 0}
+    assert result.remaining_slots == {"1st": 0}
+    assert result.damage == 6
+    assert result.turn_state["action_used"] is True
+
+
+@pytest.mark.asyncio
 async def test_confirm_pending_spell_completes_bonus_action_cost(monkeypatch):
     from services import combat_spell_confirm_service as confirm_service
 

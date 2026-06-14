@@ -116,6 +116,9 @@ async def cast_direct_spell(
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     save_turn_state_func: Callable[[Any, str, dict[str, Any]], None] = save_turn_state,
     check_combat_outcome_func: Callable[..., Any] | None = check_and_cleanup_combat_outcome,
+    skip_turn_state_validation: bool = False,
+    skip_turn_state_consumption: bool = False,
+    skip_slot_consumption: bool = False,
 ) -> DirectSpellResult:
     spell = spell_service_obj.get(spell_name)
     if not spell:
@@ -133,14 +136,15 @@ async def cast_direct_spell(
     spell_turn_state = get_turn_state(combat_obj, caster_id) if combat_obj else dict(DEFAULT_TURN_STATE)
     is_cantrip = spell["level"] == 0
     action_cost = spell_action_cost(spell)
-    try:
-        validate_spell_turn_state(
-            spell_turn_state,
-            is_cantrip=is_cantrip,
-            action_cost=action_cost,
-        )
-    except CombatSpellRollError as exc:
-        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
+    if not skip_turn_state_validation:
+        try:
+            validate_spell_turn_state(
+                spell_turn_state,
+                is_cantrip=is_cantrip,
+                action_cost=action_cost,
+            )
+        except CombatSpellRollError as exc:
+            raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
 
     spell_context = build_spell_resolution_context(caster.derived)
     state = session.game_state or {}
@@ -182,16 +186,19 @@ async def cast_direct_spell(
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, resolved_target_ids, enemies, session=session)
 
-    try:
-        new_slots = consume_spell_slot_for_confirmation(
-            current_slots=caster.spell_slots,
-            spell_level=spell_level,
-            is_cantrip=is_cantrip,
-            consume_slot=spell_service_obj.consume_slot,
-        )
-    except CombatSpellResolutionError as exc:
-        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
-    caster.spell_slots = new_slots
+    if skip_slot_consumption:
+        new_slots = dict(caster.spell_slots or {})
+    else:
+        try:
+            new_slots = consume_spell_slot_for_confirmation(
+                current_slots=caster.spell_slots,
+                spell_level=spell_level,
+                is_cantrip=is_cantrip,
+                consume_slot=spell_service_obj.consume_slot,
+            )
+        except CombatSpellResolutionError as exc:
+            raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
+        caster.spell_slots = new_slots
 
     if spell.get("concentration"):
         await set_concentration_with_cleanup(
@@ -264,7 +271,7 @@ async def cast_direct_spell(
         condition_name=None,
     )
 
-    if combat_obj:
+    if combat_obj and not skip_turn_state_consumption:
         if action_cost == "bonus":
             spell_turn_state["bonus_action_used"] = True
         elif action_cost == "action":
