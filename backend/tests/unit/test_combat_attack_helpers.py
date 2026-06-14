@@ -6,6 +6,8 @@ contracts used by /action and /attack-roll.
 """
 import pytest
 
+from services.dnd_rules import calc_derived
+
 
 async def test_resolve_attack_target_defaults_to_first_alive_enemy(db_session):
     from api.combat.attack_targeting import resolve_attack_target
@@ -54,17 +56,20 @@ def test_apply_ranged_close_penalty_respects_crossbow_expert():
     assert atk_dis is True
     assert ranged_penalty is True
 
+    crossbow_expert_derived = calc_derived(
+        "Fighter",
+        4,
+        {"str": 12, "dex": 16, "con": 14, "int": 10, "wis": 10, "cha": 8},
+        feats=[{"name": "Crossbow Expert"}],
+        race="Human",
+    )
     atk_dis, ranged_penalty = apply_ranged_close_penalty(
         atk_dis=False,
         is_ranged=True,
         attacker_id="hero-1",
         enemies=enemies,
         positions=positions,
-        attacker_derived={
-            "feat_effects": {
-                "Crossbow Expert": {"crossbow_expert": True},
-            },
-        },
+        attacker_derived=crossbow_expert_derived,
     )
     assert atk_dis is False
     assert ranged_penalty is False
@@ -76,7 +81,27 @@ def test_choose_feat_power_attack_and_build_deriveds_for_sharpshooter():
         choose_feat_power_attack,
     )
 
+    sharpshooter_derived = calc_derived(
+        "Fighter",
+        4,
+        {"str": 12, "dex": 16, "con": 14, "int": 10, "wis": 10, "cha": 8},
+        feats=[{"name": "Sharpshooter"}],
+        race="Human",
+    )
+    sharpshooter_derived["ranged_attack_bonus"] = 9
+
     power = choose_feat_power_attack(
+        attacker_derived=sharpshooter_derived,
+        target_derived={"ac": 12},
+        cover_bonus=2,
+        is_ranged=True,
+    )
+
+    assert power.active is True
+    assert power.hit_penalty == 5
+    assert power.bonus_damage == 10
+
+    legacy_power = choose_feat_power_attack(
         attacker_derived={
             "ranged_attack_bonus": 9,
             "feat_effects": {"Sharpshooter": True},
@@ -86,9 +111,7 @@ def test_choose_feat_power_attack_and_build_deriveds_for_sharpshooter():
         is_ranged=True,
     )
 
-    assert power.active is True
-    assert power.hit_penalty == 5
-    assert power.bonus_damage == 10
+    assert legacy_power.active is True
 
     attacker, target = build_attack_deriveds(
         attacker_derived={"ranged_attack_bonus": 9},
@@ -102,15 +125,54 @@ def test_choose_feat_power_attack_and_build_deriveds_for_sharpshooter():
     assert target["ac"] == 14
 
 
+def test_choose_feat_power_attack_uses_great_weapon_master_effect():
+    from api.combat.attack_modifiers import choose_feat_power_attack
+
+    derived = calc_derived(
+        "Fighter",
+        4,
+        {"str": 18, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8},
+        feats=[{"name": "Great Weapon Master"}],
+        equipment={
+            "weapons": [{
+                "name": "Greatsword",
+                "damage": "2d6",
+                "type": "heavy two-handed",
+                "equipped": True,
+            }],
+        },
+        race="Human",
+    )
+    derived["attack_bonus"] = 9
+
+    power = choose_feat_power_attack(
+        attacker_derived=derived,
+        target_derived={"ac": 12},
+        cover_bonus=0,
+        is_ranged=False,
+    )
+
+    assert power.active is True
+    assert power.hit_penalty == 5
+    assert power.bonus_damage == 10
+
+
 def test_calculate_cover_info_explains_sharpshooter_bypass():
     from api.combat.attack_modifiers import calculate_cover_info
 
+    sharpshooter_derived = calc_derived(
+        "Fighter",
+        4,
+        {"str": 12, "dex": 16, "con": 14, "int": 10, "wis": 10, "cha": 8},
+        feats=[{"name": "Sharpshooter"}],
+        race="Human",
+    )
     info = calculate_cover_info(
         grid_data={"2_0": "wall"},
         positions={"hero": {"x": 0, "y": 0}, "goblin": {"x": 5, "y": 0}},
         attacker_id="hero",
         target_id="goblin",
-        attacker_derived={"feat_effects": {"Sharpshooter": True}},
+        attacker_derived=sharpshooter_derived,
         is_ranged=True,
     )
 
