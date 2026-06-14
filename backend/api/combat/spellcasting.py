@@ -37,6 +37,20 @@ async def cast_spell(
     """
     session = await get_session_or_404(session_id, db)
     await assert_can_act(session, user_id, req.caster_id, db)
+    if req.use_bardic_inspiration and session.is_multiplayer:
+        bardic_target_id = req.bardic_target_id
+        target_ids = list(req.target_ids or ([req.target_id] if req.target_id else []))
+        if bardic_target_id is None and len(target_ids) == 1:
+            bardic_target_id = target_ids[0]
+        if bardic_target_id is not None and str(bardic_target_id) != str(req.caster_id):
+            await assert_can_act(
+                session,
+                user_id,
+                str(bardic_target_id),
+                db,
+                require_current_turn=False,
+                allow_incapacitated=True,
+            )
 
     caster = await db.get(Character, req.caster_id)
     if not caster:
@@ -61,6 +75,9 @@ async def cast_spell(
             spell_level=req.spell_level,
             target_id=req.target_id,
             target_ids=req.target_ids,
+            use_bardic_inspiration=req.use_bardic_inspiration,
+            bardic_inspiration_roll=req.bardic_inspiration_roll,
+            bardic_target_id=req.bardic_target_id,
         )
     except CombatDirectSpellError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc

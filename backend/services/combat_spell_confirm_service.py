@@ -8,7 +8,10 @@ from models import GameLog
 from services.combat_pending_spell_service import complete_pending_spell
 from services.combat_concentration_effect_service import set_concentration_with_cleanup
 from services.combat_service import CombatService
-from services.combat_spell_application_service import apply_confirmed_spell_effects
+from services.combat_spell_application_service import (
+    apply_confirmed_spell_effects,
+    validate_bardic_spell_save_request,
+)
 from services.combat_spell_resolution_service import (
     build_spell_mechanical_narration,
     build_spell_resolution_context,
@@ -77,6 +80,9 @@ async def confirm_pending_spell(
     enemies: list[dict[str, Any]],
     damage_values: list[int] | None,
     session=None,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
+    bardic_target_id: str | None = None,
     spell_service_obj=spell_service,
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     roll_dice_func: Callable[[str], dict[str, Any]] = roll_dice,
@@ -100,6 +106,14 @@ async def confirm_pending_spell(
     await collect_spell_target_names(db, target_ids, enemies, session=session)
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, target_ids, enemies, session=session)
+    resolved_bardic_target_id = await validate_bardic_spell_save_request(
+        db,
+        target_ids=target_ids,
+        spell=spell,
+        use_bardic_inspiration=use_bardic_inspiration,
+        bardic_inspiration_roll=bardic_inspiration_roll,
+        bardic_target_id=bardic_target_id,
+    )
 
     spell_resource = None
     if pending.get("slot_already_consumed"):
@@ -148,6 +162,9 @@ async def confirm_pending_spell(
         is_crit=is_crit,
         attack_hit=attack_hit,
         attack_roll=attack_roll,
+        use_bardic_inspiration=use_bardic_inspiration,
+        bardic_inspiration_roll=bardic_inspiration_roll,
+        bardic_target_id=resolved_bardic_target_id,
         resolve_damage=spell_service_obj.resolve_damage,
         resolve_heal=spell_service_obj.resolve_heal,
     )
@@ -252,6 +269,11 @@ async def confirm_pending_spell(
             "damage": spell_application.result_damage,
             "heal": spell_application.result_heal,
             "aoe": spell_application.aoe_results,
+            "target_state": spell_application.target_state,
+            "save_result": (
+                (spell_application.target_state or {}).get("save")
+                or spell_application.save_detail
+            ),
             "resurrection": spell_application.resurrection_results,
             "attack": attack_roll,
         },

@@ -540,6 +540,103 @@ describe('useCombatSpellFlow', () => {
     )
   })
 
+  it('rolls and submits Bardic Inspiration for a selected spell-save target', async () => {
+    spellRollMock.mockResolvedValueOnce({
+      pending_spell_id: 'pending-sacred-flame',
+      damage_dice: '1d8',
+      targets: [{ id: 'ally-1', name: 'Bardic Target' }],
+      turn_state: { action_used: false },
+    })
+    spellConfirmMock.mockResolvedValueOnce({
+      target_id: 'ally-1',
+      target_new_hp: 12,
+      target_state: {
+        target_id: 'ally-1',
+        save: {
+          success: true,
+          bardic_inspiration: { spent: true, uses_remaining: 0 },
+        },
+        class_resources: {
+          bardic_inspiration: { die: 'd8', uses_remaining: 0 },
+        },
+      },
+      remaining_slots: {},
+      narration: 'Sacred Flame is resisted.',
+      turn_state: { action_used: true },
+      combat_over: false,
+    })
+    rollDice3DMock.mockReset()
+    rollDice3DMock
+      .mockResolvedValueOnce({ total: 5, rolls: [5] })
+      .mockResolvedValueOnce({ total: 4, rolls: [4] })
+    const setUseBardicSpellSave = vi.fn()
+    const showDice = vi.fn()
+    const processingRef = { current: false }
+
+    const { result } = renderHook(() => useCombatSpellFlow({
+      sessionId: 'sess-1',
+      playerId: 'cleric-1',
+      selectedTarget: 'ally-1',
+      isProcessing: false,
+      processingRef,
+      setIsProcessing: vi.fn(),
+      setSpellModalOpen: vi.fn(),
+      setError: vi.fn(),
+      setTurnState: vi.fn(),
+      setCombat: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      addLog: vi.fn(),
+      setSelectedTarget: vi.fn(),
+      setCombatOver: vi.fn(),
+      showDice,
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'cleric-1', id: 'cleric-1' }],
+        entities: {
+          'ally-1': {
+            id: 'ally-1',
+            is_enemy: false,
+            hp_current: 12,
+            class_resources: {
+              bardic_inspiration: { die: 'd8', uses_remaining: 1 },
+            },
+          },
+        },
+      },
+      useBardicSpellSave: true,
+      setUseBardicSpellSave,
+    }))
+
+    await act(async () => {
+      await result.current({
+        name: 'Sacred Flame',
+        type: 'damage',
+        damage: '1d8',
+        save: 'dex',
+      }, 0)
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200)
+    })
+
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 8, 1)
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(2, 8)
+    expect(showDice).toHaveBeenCalledWith({ faces: 8, result: 4, label: 'Bardic Inspiration d8', count: 1 })
+    expect(spellConfirmMock).toHaveBeenCalledWith(
+      'sess-1',
+      'pending-sacred-flame',
+      [5],
+      {
+        useBardicInspiration: true,
+        bardicInspirationRoll: 4,
+        bardicTargetId: 'ally-1',
+      },
+    )
+    expect(setUseBardicSpellSave).toHaveBeenCalledWith(false)
+  })
+
   it('blocks empty AoE ground points instead of sending an empty target list', async () => {
     const setError = vi.fn()
     const setIsProcessing = vi.fn()

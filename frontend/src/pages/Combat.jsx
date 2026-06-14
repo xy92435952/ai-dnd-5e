@@ -97,6 +97,8 @@ export default function Combat() {
     setUseBardicDeathSave,
     useBardicEndSave,
     setUseBardicEndSave,
+    useBardicSpellSave,
+    setUseBardicSpellSave,
     reactionPrompt,
     legendaryActionPrompt,
     lairActionPrompt,
@@ -424,7 +426,14 @@ export default function Combat() {
           setAoeHover(null)
         }}
         onCastSpell={handleCastSpell}
-        onCloseSpell={() => { setSpellModalOpen(false); setSpellQuickPick(null); clearAoePreview() }}
+        useBardicSpellSave={useBardicSpellSave}
+        onToggleBardicSpellSave={() => setUseBardicSpellSave(value => !value)}
+        onCloseSpell={() => {
+          setSpellModalOpen(false)
+          setSpellQuickPick(null)
+          setUseBardicSpellSave(false)
+          clearAoePreview()
+        }}
         onSpellHover={handleSpellHover}
         maneuverModalOpen={maneuverModalOpen}
         playerSubclassEffects={playerSubclassEffects}

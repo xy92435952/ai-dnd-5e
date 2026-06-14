@@ -24,6 +24,7 @@ import {
   spellNameMatches,
 } from '../../utils/combat'
 import { buildSpellCastPlan } from '../../utils/spellCastPlan'
+import { getBardicInspiration } from '../../utils/bardicInspiration'
 
 function isCantripSpell(spell, cantripNames) {
   return spell.level === 0 || (cantripNames || []).some(name => spellNameMatches(spell, name))
@@ -43,6 +44,8 @@ export default function SpellModal({
   onClose,
   onSpellHover,
   onResetAoeCenter,
+  useBardicSpellSave = false,
+  onToggleBardicSpellSave,
 }) {
   const [selectedSpell, setSelectedSpell] = useState(null)
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
@@ -81,6 +84,9 @@ export default function SpellModal({
     aoeHover,
   })
   const canCast = !castDisabledReason
+  const selectedTargetEntity = selectedTarget ? combat?.entities?.[selectedTarget] : null
+  const selectedTargetBardic = getBardicInspiration(selectedTargetEntity)
+  const showBardicSpellSave = Boolean(selectedSpell?.save && selectedTargetBardic)
   const castPlan = useMemo(() => buildSpellCastPlan({
     spell: selectedSpell,
     level,
@@ -135,6 +141,27 @@ export default function SpellModal({
         />
 
         <SpellCastPlan plan={castPlan} onResetAoeCenter={onResetAoeCenter} />
+
+        {showBardicSpellSave && (
+          <div aria-label="Bardic spell save" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              type="button"
+              aria-pressed={useBardicSpellSave}
+              onClick={onToggleBardicSpellSave}
+              style={{
+                border: '1px solid rgba(242, 209, 120, .45)',
+                background: useBardicSpellSave ? 'rgba(242, 209, 120, .18)' : 'rgba(255,255,255,.06)',
+                color: 'var(--text)',
+                borderRadius: 4,
+                padding: '5px 9px',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              Bardic {useBardicSpellSave ? 'ON' : 'OFF'} · {selectedTargetBardic.die}
+            </button>
+          </div>
+        )}
 
         <SpellModalActions
           canCast={canCast}

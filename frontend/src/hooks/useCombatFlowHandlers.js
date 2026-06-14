@@ -52,6 +52,8 @@ export function useCombatFlowHandlers({
     setUseBardicDeathSave,
     useBardicEndSave,
     setUseBardicEndSave,
+    useBardicSpellSave,
+    setUseBardicSpellSave,
     setPlayerSubclass,
     setPlayerSubclassEffects,
     playerSubclassEffects,
@@ -209,6 +211,8 @@ export function useCombatFlowHandlers({
     showDice,
     combat,
     prediction,
+    useBardicSpellSave,
+    setUseBardicSpellSave,
   })
 
   const handleEndConcentration = useCallback(async () => {

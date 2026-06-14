@@ -22,6 +22,8 @@ export default function CombatOverlays({
   onCastSpell,
   onCloseSpell,
   onSpellHover,
+  useBardicSpellSave,
+  onToggleBardicSpellSave,
   maneuverModalOpen,
   playerSubclassEffects,
   classResources,
@@ -63,6 +65,8 @@ export default function CombatOverlays({
           onClose={onCloseSpell}
           onSpellHover={onSpellHover}
           onResetAoeCenter={onResetAoeCenter}
+          useBardicSpellSave={useBardicSpellSave}
+          onToggleBardicSpellSave={onToggleBardicSpellSave}
         />
       )}
 

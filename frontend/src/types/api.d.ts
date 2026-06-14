@@ -540,7 +540,7 @@ export interface paths {
         put?: never;
         /**
          * Add Condition
-         * @description 向战斗实体添加状态条件（角色或敌人）
+         * @description Add a manual condition to a combat entity.
          */
         post: operations["add_condition_game_combat__session_id__condition_add_post"];
         delete?: never;
@@ -560,7 +560,7 @@ export interface paths {
         put?: never;
         /**
          * Remove Condition
-         * @description 从战斗实体移除状态条件
+         * @description Remove a manual condition from a combat entity.
          */
         post: operations["remove_condition_game_combat__session_id__condition_remove_post"];
         delete?: never;
@@ -661,6 +661,26 @@ export interface paths {
          *     - 重置下一实体的回合状态
          */
         post: operations["end_player_turn_game_combat__session_id__end_turn_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/combat/{session_id}/grapple-escape": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grapple Escape
+         * @description Escape an active grapple with a contested Athletics/Acrobatics check.
+         */
+        post: operations["grapple_escape_game_combat__session_id__grapple_escape_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -897,8 +917,7 @@ export interface paths {
         put?: never;
         /**
          * Divine Smite
-         * @description Paladin Divine Smite -- 成功命中后追加辐光伤害。
-         *     前端在攻击命中后弹出选择，玩家决定消耗法术位。
+         * @description Apply a Paladin Divine Smite from a trusted pending hit window.
          */
         post: operations["divine_smite_game_combat__session_id__smite_post"];
         delete?: never;
@@ -2693,6 +2712,13 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** GrappleEscapeRequest */
+        GrappleEscapeRequest: {
+            /** Skill */
+            skill?: string | null;
+            /** Source Id */
+            source_id?: string | null;
+        };
         /** GrappleShoveRequest */
         GrappleShoveRequest: {
             /** Action Type */
@@ -3548,10 +3574,19 @@ export interface components {
         };
         /** SpellConfirmRequest */
         SpellConfirmRequest: {
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
+            /** Bardic Target Id */
+            bardic_target_id?: string | null;
             /** Damage Values */
             damage_values?: number[] | null;
             /** Pending Spell Id */
             pending_spell_id: string;
+            /**
+             * Use Bardic Inspiration
+             * @default false
+             */
+            use_bardic_inspiration: boolean;
         };
         /** SpellReplacementRequest */
         SpellReplacementRequest: {
@@ -3564,6 +3599,10 @@ export interface components {
         SpellRequest: {
             /** Aoe Center */
             aoe_center?: string | null;
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
+            /** Bardic Target Id */
+            bardic_target_id?: string | null;
             /** Caster Id */
             caster_id: string;
             /** Expected Turn Token */
@@ -3579,6 +3618,11 @@ export interface components {
             target_id?: string | null;
             /** Target Ids */
             target_ids?: string[] | null;
+            /**
+             * Use Bardic Inspiration
+             * @default false
+             */
+            use_bardic_inspiration: boolean;
         };
         /** SpellRollRequest */
         SpellRollRequest: {
@@ -4766,6 +4810,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EndTurnResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grapple_escape_game_combat__session_id__grapple_escape_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrappleEscapeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombatActionResult"];
                 };
             };
             /** @description Validation Error */

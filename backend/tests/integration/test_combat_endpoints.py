@@ -10212,6 +10212,226 @@ async def test_spell_confirm_response_keeps_legendary_resistance_save_detail(
     assert sample_session.game_state["enemies"][0]["legendary_resistances_remaining"] == 0
 
 
+async def test_spell_confirm_spends_bardic_inspiration_on_character_spell_save(
+    client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services import combat_spell_effect_service
+
+    ally = Character(
+        id=str(_uuid.uuid4()),
+        user_id=sample_user.id,
+        session_id=sample_session.id,
+        name="Bardic Save Target",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        background="Soldier",
+        ability_scores={"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+        derived={"hp_max": 12, "ac": 12, "saving_throws": {"dex": 0}},
+        hp_current=12,
+        is_player=True,
+        class_resources={
+            "bardic_inspiration": {
+                "die": "d8",
+                "uses_remaining": 1,
+                "source_character_id": "bard-1",
+                "source_character_name": "Lyra",
+            },
+        },
+    )
+    db_session.add(ally)
+    combat_state.entity_positions = {
+        **(combat_state.entity_positions or {}),
+        ally.id: {"x": 5, "y": 6},
+    }
+    flag_modified(combat_state, "entity_positions")
+    sample_character.char_class = "Cleric"
+    sample_character.cantrips = ["神圣烈焰"]
+    sample_character.spell_slots = {}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "wis",
+        "spell_save_dc": 15,
+        "ability_modifiers": {"wis": 4},
+    }
+    monkeypatch.setattr(
+        combat_spell_effect_service,
+        "roll_saving_throw",
+        lambda _target, ability, dc: {
+            "ability": ability,
+            "d20": 11,
+            "modifier": 0,
+            "total": 11,
+            "dc": dc,
+            "success": False,
+        },
+    )
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    spell_roll = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "神圣烈焰",
+            "spell_level": 0,
+            "target_id": ally.id,
+        },
+    )
+    assert spell_roll.status_code == 200, spell_roll.text
+
+    confirm = await client.post(
+        f"/game/combat/{sample_session.id}/spell-confirm",
+        headers=headers,
+        json={
+            "pending_spell_id": spell_roll.json()["pending_spell_id"],
+            "damage_values": [7],
+            "use_bardic_inspiration": True,
+            "bardic_inspiration_roll": 4,
+            "bardic_target_id": ally.id,
+        },
+    )
+    assert confirm.status_code == 200, confirm.text
+    data = confirm.json()
+    save = data["target_state"]["save"]
+    assert save["success"] is True
+    assert save["total"] == 15
+    assert save["bardic_inspiration"] == {
+        "type": "bardic_inspiration",
+        "spent": True,
+        "context": "spell_save",
+        "die": "d8",
+        "roll": 4,
+        "uses_remaining": 0,
+        "source_character_id": "bard-1",
+        "source_character_name": "Lyra",
+        "total_before": 11,
+        "total_after": 15,
+    }
+    assert data["dice_result"]["target_state"]["save"] == save
+    assert data["dice_result"]["save_result"] == save
+    assert data["target_state"]["class_resources"]["bardic_inspiration"]["uses_remaining"] == 0
+
+    await db_session.refresh(ally)
+    assert ally.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+
+
+async def test_direct_spell_spends_bardic_inspiration_on_single_character_spell_save(
+    client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from services import combat_spell_effect_service
+
+    ally = Character(
+        id=str(_uuid.uuid4()),
+        user_id=sample_user.id,
+        session_id=sample_session.id,
+        name="Direct Bardic Save Target",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        background="Soldier",
+        ability_scores={"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+        derived={"hp_max": 12, "ac": 12, "saving_throws": {"dex": 0}},
+        hp_current=12,
+        is_player=True,
+        class_resources={
+            "bardic_inspiration": {
+                "die": "d8",
+                "uses_remaining": 1,
+                "source_character_id": "bard-1",
+                "source_character_name": "Lyra",
+            },
+        },
+    )
+    db_session.add(ally)
+    combat_state.entity_positions = {
+        **(combat_state.entity_positions or {}),
+        ally.id: {"x": 5, "y": 6},
+    }
+    flag_modified(combat_state, "entity_positions")
+    sample_character.char_class = "Cleric"
+    sample_character.cantrips = ["神圣烈焰"]
+    sample_character.spell_slots = {}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "wis",
+        "spell_save_dc": 15,
+        "ability_modifiers": {"wis": 4},
+    }
+    monkeypatch.setattr(
+        combat_spell_effect_service,
+        "roll_saving_throw",
+        lambda _target, ability, dc: {
+            "ability": ability,
+            "d20": 11,
+            "modifier": 0,
+            "total": 11,
+            "dc": dc,
+            "success": False,
+        },
+    )
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/spell",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "神圣烈焰",
+            "spell_level": 0,
+            "target_id": ally.id,
+            "use_bardic_inspiration": True,
+            "bardic_inspiration_roll": 4,
+        },
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    save = data["target_state"]["save"]
+    assert save["success"] is True
+    assert save["bardic_inspiration"]["context"] == "spell_save"
+    assert data["dice_result"]["save_result"] == save
+    assert data["target_state"]["class_resources"]["bardic_inspiration"]["uses_remaining"] == 0
+
+    await db_session.refresh(ally)
+    assert ally.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+
+
+async def test_spell_save_bardic_inspiration_rejects_enemy_target(
+    client, db_session, sample_session, sample_character, combat_state, sample_user,
+):
+    sample_character.char_class = "Cleric"
+    sample_character.cantrips = ["神圣烈焰"]
+    sample_character.spell_slots = {}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "wis",
+        "spell_save_dc": 15,
+        "ability_modifiers": {"wis": 4},
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/spell",
+        headers=headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": "神圣烈焰",
+            "spell_level": 0,
+            "target_id": "goblin-1",
+            "use_bardic_inspiration": True,
+            "bardic_inspiration_roll": 4,
+            "bardic_target_id": "goblin-1",
+        },
+    )
+    assert response.status_code == 400, response.text
+    assert "character target" in response.text
+
+
 async def test_spell_attack_roll_critical_hit_doubles_damage_dice(
     client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
 ):

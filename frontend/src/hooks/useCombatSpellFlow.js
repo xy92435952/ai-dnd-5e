@@ -13,6 +13,7 @@ import {
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
 import { selectD20Roll } from '../utils/d20Roll'
+import { getBardicInspiration } from '../utils/bardicInspiration'
 
 function buildSpellAttackD20Plan(prediction = null) {
   const hasAdvantage = Boolean(prediction?.advantage)
@@ -54,6 +55,53 @@ async function refreshSpellAttackPredictionForRoll({
   }
 }
 
+function getCombatEntity(combat, entityId) {
+  if (!entityId) return null
+  return combat?.entities?.[entityId]
+    || (combat?.player?.id === entityId ? combat.player : null)
+    || null
+}
+
+function spellHasSavingThrow(spell = {}) {
+  return Boolean(spell?.save || spell?.save_ability || spell?.saving_throw)
+}
+
+function resolveBardicSpellSaveTargetId({ targetIds = [], selectedTarget = null }) {
+  const normalizedTargets = (targetIds || []).map(String)
+  if (selectedTarget != null && normalizedTargets.includes(String(selectedTarget))) {
+    return String(selectedTarget)
+  }
+  return normalizedTargets.length === 1 ? normalizedTargets[0] : null
+}
+
+async function buildBardicSpellSaveOptions({
+  spell,
+  targetIds,
+  selectedTarget,
+  combat,
+  useBardicSpellSave,
+  setUseBardicSpellSave,
+  showDice,
+}) {
+  if (!useBardicSpellSave || !spellHasSavingThrow(spell)) return {}
+
+  const bardicTargetId = resolveBardicSpellSaveTargetId({ targetIds, selectedTarget })
+  const bardic = getBardicInspiration(getCombatEntity(combat, bardicTargetId))
+  if (!bardicTargetId || !bardic) {
+    setUseBardicSpellSave?.(false)
+    return {}
+  }
+
+  const bardicDice = await rollDice3D(bardic.faces)
+  const bardicRoll = bardicDice.total
+  showDice?.({ faces: bardic.faces, result: bardicRoll, label: `Bardic Inspiration ${bardic.die}`, count: 1 })
+  return {
+    useBardicInspiration: true,
+    bardicInspirationRoll: bardicRoll,
+    bardicTargetId,
+  }
+}
+
 export function useCombatSpellFlow({
   sessionId,
   playerId,
@@ -76,6 +124,8 @@ export function useCombatSpellFlow({
   showDice,
   combat,
   prediction = null,
+  useBardicSpellSave = false,
+  setUseBardicSpellSave = null,
 }) {
   return useCallback(async (spell, level) => {
     if (!playerId || !canActThisTurn || isProcessing) return
@@ -190,7 +240,20 @@ export function useCombatSpellFlow({
             showDice({ faces: diceFaces, result: spellTotal, label: spell.name, count: diceCount })
           }
 
-          const confirmResult = await gameApi.spellConfirm(sessionId, rollResult.pending_spell_id, spellRolls)
+          const bardicSpellSaveOptions = await buildBardicSpellSaveOptions({
+            spell,
+            targetIds,
+            selectedTarget,
+            combat,
+            useBardicSpellSave,
+            setUseBardicSpellSave,
+            showDice,
+          })
+          const confirmArgs = [sessionId, rollResult.pending_spell_id, spellRolls]
+          if (Object.keys(bardicSpellSaveOptions).length > 0) {
+            confirmArgs.push(bardicSpellSaveOptions)
+          }
+          const confirmResult = await gameApi.spellConfirm(...confirmArgs)
 
           setCombat(prev => applyActionResultEntityStates(prev, confirmResult))
 
@@ -202,6 +265,9 @@ export function useCombatSpellFlow({
               || confirmResult.actor_state?.class_resources
               || confirmResult.class_resources,
             )
+          }
+          if (confirmResult.target_state?.save?.bardic_inspiration?.spent) {
+            setUseBardicSpellSave?.(false)
           }
           const impactSummary = buildCombatResultImpactSummary(confirmResult)
           addLog({
@@ -284,5 +350,7 @@ export function useCombatSpellFlow({
     setSpellModalOpen,
     setTurnState,
     showDice,
+    setUseBardicSpellSave,
+    useBardicSpellSave,
   ])
 }

@@ -21,6 +21,99 @@ from services.combat_spell_damage_component_service import (
     resolve_spell_damage_components,
 )
 from services.combat_spell_resolution_service import resolve_spell_roll_amount
+from services.bardic_inspiration_service import (
+    BardicInspirationError,
+    get_bardic_inspiration_die,
+)
+
+
+async def validate_bardic_spell_save_request(
+    db,
+    *,
+    target_ids: list[str],
+    spell: dict[str, Any],
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
+    bardic_target_id: str | None = None,
+) -> str | None:
+    if not use_bardic_inspiration:
+        return None
+
+    if not spell.get("save"):
+        raise BardicInspirationError(
+            400,
+            "Bardic Inspiration can only be used on spell saving throws.",
+        )
+
+    resolved_target_id = _resolve_bardic_spell_save_target_id(
+        target_ids,
+        bardic_target_id=bardic_target_id,
+    )
+    if resolved_target_id is None:
+        raise BardicInspirationError(
+            400,
+            "Bardic Inspiration spell saves require bardic_target_id when multiple targets are affected.",
+        )
+
+    target_character = await db.get(Character, resolved_target_id)
+    if not target_character:
+        raise BardicInspirationError(
+            400,
+            "Bardic Inspiration spell saves can only be spent by a character target.",
+        )
+    die = get_bardic_inspiration_die(target_character)
+    if not die:
+        raise BardicInspirationError(400, "No Bardic Inspiration die available.")
+    if bardic_inspiration_roll is None:
+        raise BardicInspirationError(
+            400,
+            "Bardic Inspiration requires bardic_inspiration_roll.",
+        )
+    try:
+        roll = int(bardic_inspiration_roll)
+        faces = int(str(die).lstrip("dD"))
+    except (TypeError, ValueError) as exc:
+        raise BardicInspirationError(
+            400,
+            "bardic_inspiration_roll must be an integer.",
+        ) from exc
+    if roll < 1 or roll > faces:
+        raise BardicInspirationError(
+            400,
+            f"bardic_inspiration_roll must be between 1 and {faces}.",
+        )
+    return resolved_target_id
+
+
+def _resolve_bardic_spell_save_target_id(
+    target_ids: list[str],
+    *,
+    bardic_target_id: str | None,
+) -> str | None:
+    normalized_targets = [str(target_id) for target_id in target_ids or []]
+    if bardic_target_id is not None:
+        resolved = str(bardic_target_id)
+        if resolved not in normalized_targets:
+            raise BardicInspirationError(
+                400,
+                "bardic_target_id must match one of this spell's targets.",
+            )
+        return resolved
+    if len(normalized_targets) == 1:
+        return normalized_targets[0]
+    return None
+
+
+def _assert_bardic_spell_save_spent(
+    *,
+    use_bardic_inspiration: bool,
+    bardic_spend_state: dict[str, Any] | None,
+) -> None:
+    if use_bardic_inspiration and not (bardic_spend_state or {}).get("spent"):
+        raise BardicInspirationError(
+            400,
+            "Bardic Inspiration was requested but no eligible spell saving throw occurred.",
+        )
 
 
 @dataclass
@@ -58,10 +151,14 @@ async def apply_confirmed_spell_effects(
     attack_hit: bool | None = None,
     attack_roll: dict[str, Any] | None = None,
     session=None,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
+    bardic_target_id: str | None = None,
     resolve_damage: Callable[[str, int, int], tuple[int, dict]],
     resolve_heal: Callable[[str, int, int, bool], tuple[int, dict]],
 ) -> SpellApplicationResult:
     result = SpellApplicationResult()
+    bardic_spend_state: dict[str, Any] | None = {"spent": False} if use_bardic_inspiration else None
 
     if is_aoe:
         if spell_type == "damage":
@@ -91,6 +188,10 @@ async def apply_confirmed_spell_effects(
                     target_id,
                     save_ability=save_ability,
                     spell_save_dc=spell_save_dc,
+                    use_bardic_inspiration=use_bardic_inspiration,
+                    bardic_inspiration_roll=bardic_inspiration_roll,
+                    bardic_target_id=bardic_target_id,
+                    bardic_spend_state=bardic_spend_state,
                 )
                 target = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
                 if target is None:
@@ -151,6 +252,10 @@ async def apply_confirmed_spell_effects(
                     caster_id=caster_id,
                     spell_name=spell_name,
                     is_concentration=bool(spell.get("concentration")),
+                    use_bardic_inspiration=use_bardic_inspiration,
+                    bardic_inspiration_roll=bardic_inspiration_roll,
+                    bardic_target_id=bardic_target_id,
+                    bardic_spend_state=bardic_spend_state,
                 )
                 if result.save_detail is None and control_result.get("save_detail"):
                     result.save_detail = control_result["save_detail"]
@@ -177,6 +282,10 @@ async def apply_confirmed_spell_effects(
                 if applied:
                     result.aoe_results.append(applied)
 
+        _assert_bardic_spell_save_spent(
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_spend_state=bardic_spend_state,
+        )
         return result
 
     target_id = target_ids[0] if target_ids else None
@@ -188,6 +297,10 @@ async def apply_confirmed_spell_effects(
                 "is_crit": False,
                 "total": 0,
             }
+            _assert_bardic_spell_save_spent(
+                use_bardic_inspiration=use_bardic_inspiration,
+                bardic_spend_state=bardic_spend_state,
+            )
             return result
         result.result_damage, result.dice_detail = resolve_spell_roll_amount(
             spell_type=spell_type,
@@ -210,6 +323,10 @@ async def apply_confirmed_spell_effects(
             target_id,
             save_ability=save_ability,
             spell_save_dc=spell_save_dc,
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_inspiration_roll=bardic_inspiration_roll,
+            bardic_target_id=bardic_target_id,
+            bardic_spend_state=bardic_spend_state,
         )
         target = next((enemy for enemy in enemies if enemy.get("id") == target_id), None)
         if target is None:
@@ -308,6 +425,10 @@ async def apply_confirmed_spell_effects(
             caster_id=caster_id,
             spell_name=spell_name,
             is_concentration=bool(spell.get("concentration")),
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_inspiration_roll=bardic_inspiration_roll,
+            bardic_target_id=bardic_target_id,
+            bardic_spend_state=bardic_spend_state,
         )
         result.save_detail = control_result["save_detail"]
         result.target_state = control_result.get("target_state")
@@ -317,4 +438,8 @@ async def apply_confirmed_spell_effects(
             enemy["id"] == target_id for enemy in enemies
         )
 
+    _assert_bardic_spell_save_spent(
+        use_bardic_inspiration=use_bardic_inspiration,
+        bardic_spend_state=bardic_spend_state,
+    )
     return result

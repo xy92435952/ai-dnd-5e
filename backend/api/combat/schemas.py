@@ -112,6 +112,9 @@ class SpellRequest(BaseModel):
     target_id: Optional[str] = None
     target_ids: Optional[list[str]] = None
     aoe_center: Optional[str] = None
+    use_bardic_inspiration: bool = False
+    bardic_inspiration_roll: Optional[int] = None
+    bardic_target_id: Optional[str] = None
     expected_turn_token: Optional[str] = None
 
 
@@ -130,6 +133,9 @@ class SpellRollRequest(BaseModel):
 class SpellConfirmRequest(BaseModel):
     pending_spell_id: str
     damage_values: Optional[list[int]] = None  # Frontend 3D spell dice results
+    use_bardic_inspiration: bool = False
+    bardic_inspiration_roll: Optional[int] = None
+    bardic_target_id: Optional[str] = None
 
 
 class ManeuverRequest(BaseModel):

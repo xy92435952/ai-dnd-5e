@@ -26,6 +26,7 @@ from services.combat_spell_roll_service import (
 from services.combat_spell_resolution_service import (
     CombatSpellResolutionError,
 )
+from services.bardic_inspiration_service import BardicInspirationError
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.spell_service import spell_service
@@ -207,6 +208,20 @@ async def spell_confirm(
 
     # 多人联机：校验该用户有权操作 pending_spell 的施法者
     await assert_can_act(session, user_id, caster_entity_id, db)
+    if req.use_bardic_inspiration and session.is_multiplayer:
+        bardic_target_id = req.bardic_target_id
+        pending_targets = list(pending.get("target_ids") or [])
+        if bardic_target_id is None and len(pending_targets) == 1:
+            bardic_target_id = pending_targets[0]
+        if bardic_target_id is not None and str(bardic_target_id) != str(caster_entity_id):
+            await assert_can_act(
+                session,
+                user_id,
+                str(bardic_target_id),
+                db,
+                require_current_turn=False,
+                allow_incapacitated=True,
+            )
 
     caster = await db.get(Character, caster_entity_id)
     if not caster:
@@ -233,10 +248,15 @@ async def spell_confirm(
             enemies=list((session.game_state or {}).get("enemies", [])),
             damage_values=req.damage_values,
             session=session,
+            use_bardic_inspiration=req.use_bardic_inspiration,
+            bardic_inspiration_roll=req.bardic_inspiration_roll,
+            bardic_target_id=req.bardic_target_id,
             spell_service_obj=spell_service,
             check_combat_outcome_func=check_and_cleanup_combat_outcome,
         )
     except CombatSpellResolutionError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+    except BardicInspirationError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
 
     # LLM vivid narration for spells

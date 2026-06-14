@@ -25,6 +25,10 @@ from services.combat_temporary_hp_service import (
     apply_armor_of_agathys_to_character,
     is_armor_of_agathys,
 )
+from services.bardic_inspiration_service import (
+    apply_bardic_inspiration_to_saving_throw,
+    spend_bardic_inspiration,
+)
 from services.dnd_rules import (
     apply_character_damage,
     apply_character_healing,
@@ -329,6 +333,10 @@ async def roll_spell_save(
     *,
     save_ability: str | None,
     spell_save_dc: int,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
+    bardic_target_id: str | None = None,
+    bardic_spend_state: dict[str, Any] | None = None,
 ):
     """Roll a per-target spell save result, or return None for spells without saves."""
     if not save_ability:
@@ -344,7 +352,7 @@ async def roll_spell_save(
             reason="spell_save",
         )
     if target_character:
-        return roll_saving_throw(
+        save_detail = roll_saving_throw(
             {
                 "derived": target_character.derived or {},
                 "conditions": target_character.conditions or [],
@@ -353,7 +361,52 @@ async def roll_spell_save(
             save_ability,
             spell_save_dc,
         )
+        return _apply_bardic_to_spell_save_if_requested(
+            target_character,
+            target_id,
+            save_detail,
+            spell_save_dc=spell_save_dc,
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_inspiration_roll=bardic_inspiration_roll,
+            bardic_target_id=bardic_target_id,
+            bardic_spend_state=bardic_spend_state,
+        )
     return roll_saving_throw({}, save_ability, spell_save_dc)
+
+
+def _apply_bardic_to_spell_save_if_requested(
+    target_character: Character,
+    target_id: str,
+    save_detail: dict[str, Any],
+    *,
+    spell_save_dc: int,
+    use_bardic_inspiration: bool,
+    bardic_inspiration_roll: int | None,
+    bardic_target_id: str | None,
+    bardic_spend_state: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not use_bardic_inspiration:
+        return save_detail
+    if bardic_spend_state is not None and bardic_spend_state.get("spent"):
+        return save_detail
+    if bardic_target_id is not None and str(bardic_target_id) != str(target_id):
+        return save_detail
+
+    bardic_inspiration = spend_bardic_inspiration(
+        target_character,
+        bardic_roll=bardic_inspiration_roll,
+        context="spell_save",
+    )
+    updated = apply_bardic_inspiration_to_saving_throw(
+        save_detail,
+        bardic_inspiration=bardic_inspiration,
+        dc=spell_save_dc,
+    )
+    if bardic_spend_state is not None:
+        bardic_spend_state["spent"] = True
+        bardic_spend_state["target_id"] = str(target_id)
+        bardic_spend_state["bardic_inspiration"] = updated.get("bardic_inspiration")
+    return updated
 
 
 async def apply_spell_damage_to_target(
@@ -471,6 +524,7 @@ async def apply_spell_damage_to_target(
         "condition_durations": target_character.condition_durations or {},
         "life_state": get_life_state(target_character),
         "concentration": target_character.concentration,
+        "class_resources": target_character.class_resources or {},
         "save": save_result,
     }
     if damage_type:
@@ -582,6 +636,10 @@ async def apply_control_spell_to_target(
     caster_id: str | None = None,
     spell_name: str | None = None,
     is_concentration: bool = False,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
+    bardic_target_id: str | None = None,
+    bardic_spend_state: dict[str, Any] | None = None,
 ):
     """Resolve a control spell save and apply its condition if the target fails."""
     saved = False
@@ -592,25 +650,17 @@ async def apply_control_spell_to_target(
     target_character = None if target_enemy else await db.get(Character, target_id)
 
     if save_ability:
-        if target_enemy:
-            save_detail = roll_saving_throw(target_enemy, save_ability, spell_save_dc)
-            save_detail = maybe_use_legendary_resistance(
-                target_enemy,
-                save_detail,
-                reason="control_spell",
-            )
-        elif target_character:
-            save_detail = roll_saving_throw(
-                {
-                    "derived": target_character.derived or {},
-                    "conditions": target_character.conditions or [],
-                    "condition_durations": target_character.condition_durations or {},
-                },
-                save_ability,
-                spell_save_dc,
-            )
-        else:
-            save_detail = roll_saving_throw({}, save_ability, spell_save_dc)
+        save_detail = await roll_spell_save(
+            db,
+            enemies,
+            target_id,
+            save_ability=save_ability,
+            spell_save_dc=spell_save_dc,
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_inspiration_roll=bardic_inspiration_roll,
+            bardic_target_id=bardic_target_id,
+            bardic_spend_state=bardic_spend_state,
+        )
         saved = save_detail["success"]
 
     if not saved:
@@ -667,6 +717,7 @@ async def apply_control_spell_to_target(
                     "condition_durations": target_character.condition_durations or {},
                     "life_state": get_life_state(target_character),
                     "concentration": target_character.concentration,
+                    "class_resources": target_character.class_resources or {},
                 }
                 if target_character else None
             )

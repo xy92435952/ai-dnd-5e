@@ -187,13 +187,16 @@ export const gameApi = {
       to_y: toY,
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  castSpell: (sessionId, casterId, spellName, spellLevel, targetIds, expectedTurnToken = null) =>
+  castSpell: (sessionId, casterId, spellName, spellLevel, targetIds, expectedTurnToken = null, options = {}) =>
     api.post(`/game/combat/${sessionId}/spell`, {
       caster_id: casterId,
       spell_name: spellName,
       spell_level: spellLevel,
       target_id: Array.isArray(targetIds) ? targetIds[0] : targetIds,
       target_ids: Array.isArray(targetIds) ? targetIds : (targetIds ? [targetIds] : []),
+      ...(options.useBardicInspiration ? { use_bardic_inspiration: true } : {}),
+      ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
+      ...(options.bardicTargetId != null ? { bardic_target_id: options.bardicTargetId } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   spellRoll: (sessionId, casterId, spellName, spellLevel, targetId, targetIds, expectedTurnToken = null, d20Value = null, secondD20Value = null) =>
@@ -207,10 +210,13 @@ export const gameApi = {
       ...(secondD20Value != null ? { second_d20_value: secondD20Value } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  spellConfirm: (sessionId, pendingSpellId, damageValues = null) =>
+  spellConfirm: (sessionId, pendingSpellId, damageValues = null, options = {}) =>
     api.post(`/game/combat/${sessionId}/spell-confirm`, {
       pending_spell_id: pendingSpellId,
       ...(damageValues ? { damage_values: damageValues } : {}),
+      ...(options.useBardicInspiration ? { use_bardic_inspiration: true } : {}),
+      ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
+      ...(options.bardicTargetId != null ? { bardic_target_id: options.bardicTargetId } : {}),
     }),
   endConcentration: (sessionId, characterId) =>
     api.post(`/game/combat/${sessionId}/concentration/end`, {

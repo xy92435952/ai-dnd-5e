@@ -2553,6 +2553,34 @@
         "title": "GoldUpdateResult",
         "type": "object"
       },
+      "GrappleEscapeRequest": {
+        "properties": {
+          "skill": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          }
+        },
+        "title": "GrappleEscapeRequest",
+        "type": "object"
+      },
       "GrappleShoveRequest": {
         "properties": {
           "action_type": {
@@ -4500,6 +4528,28 @@
       },
       "SpellConfirmRequest": {
         "properties": {
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
+          "bardic_target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Target Id"
+          },
           "damage_values": {
             "anyOf": [
               {
@@ -4517,6 +4567,11 @@
           "pending_spell_id": {
             "title": "Pending Spell Id",
             "type": "string"
+          },
+          "use_bardic_inspiration": {
+            "default": false,
+            "title": "Use Bardic Inspiration",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4555,6 +4610,28 @@
               }
             ],
             "title": "Aoe Center"
+          },
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
+          "bardic_target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Target Id"
           },
           "caster_id": {
             "title": "Caster Id",
@@ -4604,6 +4681,11 @@
               }
             ],
             "title": "Target Ids"
+          },
+          "use_bardic_inspiration": {
+            "default": false,
+            "title": "Use Bardic Inspiration",
+            "type": "boolean"
           }
         },
         "required": [
@@ -6107,7 +6189,7 @@
     },
     "/game/combat/{session_id}/condition/add": {
       "post": {
-        "description": "向战斗实体添加状态条件（角色或敌人）",
+        "description": "Add a manual condition to a combat entity.",
         "operationId": "add_condition_game_combat__session_id__condition_add_post",
         "parameters": [
           {
@@ -6160,7 +6242,7 @@
     },
     "/game/combat/{session_id}/condition/remove": {
       "post": {
-        "description": "从战斗实体移除状态条件",
+        "description": "Remove a manual condition from a combat entity.",
         "operationId": "remove_condition_game_combat__session_id__condition_remove_post",
         "parameters": [
           {
@@ -6457,6 +6539,59 @@
           }
         },
         "summary": "End Player Turn",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/grapple-escape": {
+      "post": {
+        "description": "Escape an active grapple with a contested Athletics/Acrobatics check.",
+        "operationId": "grapple_escape_game_combat__session_id__grapple_escape_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrappleEscapeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Grapple Escape",
         "tags": [
           "combat"
         ]
@@ -7044,7 +7179,7 @@
     },
     "/game/combat/{session_id}/smite": {
       "post": {
-        "description": "Paladin Divine Smite -- 成功命中后追加辐光伤害。\n前端在攻击命中后弹出选择，玩家决定消耗法术位。",
+        "description": "Apply a Paladin Divine Smite from a trusted pending hit window.",
         "operationId": "divine_smite_game_combat__session_id__smite_post",
         "parameters": [
           {

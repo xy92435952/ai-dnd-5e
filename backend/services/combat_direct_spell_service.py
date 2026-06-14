@@ -12,7 +12,10 @@ from services.combat_charmed_service import (
 from services.combat_concentration_effect_service import set_concentration_with_cleanup
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.combat_service import CombatService
-from services.combat_spell_application_service import apply_confirmed_spell_effects
+from services.combat_spell_application_service import (
+    apply_confirmed_spell_effects,
+    validate_bardic_spell_save_request,
+)
 from services.combat_spell_effect_service import get_resurrection_spell_config, spell_applies_condition
 from services.combat_spell_resolution_service import (
     CombatSpellResolutionError,
@@ -39,6 +42,7 @@ from services.magic_initiate_spell_service import (
     consume_magic_initiate_spell_use,
     magic_initiate_spell_resource,
 )
+from services.bardic_inspiration_service import BardicInspirationError
 from services.spell_service import spell_service
 
 svc = CombatService()
@@ -86,6 +90,7 @@ class DirectSpellResult:
             "aoe": self.aoe_results,
             "target_id": self.target_id,
             "target_state": self.target_state,
+            "save_result": (self.target_state or {}).get("save"),
             "aoe_results": self.aoe_results,
             "resurrection_results": self.resurrection_results,
         }
@@ -144,6 +149,9 @@ async def cast_direct_spell(
     skip_turn_state_validation: bool = False,
     skip_turn_state_consumption: bool = False,
     skip_slot_consumption: bool = False,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
+    bardic_target_id: str | None = None,
 ) -> DirectSpellResult:
     spell = spell_service_obj.get(spell_name)
     if not spell:
@@ -211,6 +219,18 @@ async def cast_direct_spell(
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, resolved_target_ids, enemies, session=session)
 
+    try:
+        resolved_bardic_target_id = await validate_bardic_spell_save_request(
+            db,
+            target_ids=resolved_target_ids,
+            spell=spell,
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_inspiration_roll=bardic_inspiration_roll,
+            bardic_target_id=bardic_target_id,
+        )
+    except BardicInspirationError as exc:
+        raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
+
     spell_resource = None
     if skip_slot_consumption:
         new_slots = dict(caster.spell_slots or {})
@@ -265,24 +285,30 @@ async def cast_direct_spell(
         or spell_applies_condition(spell_type, spell_name, spell)
     )
     if should_apply_spell and (resolved_target_ids or is_aoe):
-        spell_application = await apply_confirmed_spell_effects(
-            db,
-            session_id=session_id,
-            caster_id=caster_id,
-            enemies=enemies,
-            target_ids=resolved_target_ids,
-            is_aoe=is_aoe,
-            spell_type=spell_type,
-            spell_name=spell_name,
-            spell_level=spell_level,
-            spell_mod=spell_context["spell_mod"],
-            bonus_healing=spell_context["bonus_healing"],
-            spell=spell,
-            damage_values=None,
-            spell_save_dc=spell_context["spell_save_dc"],
-            resolve_damage=spell_service_obj.resolve_damage,
-            resolve_heal=spell_service_obj.resolve_heal,
-        )
+        try:
+            spell_application = await apply_confirmed_spell_effects(
+                db,
+                session_id=session_id,
+                caster_id=caster_id,
+                enemies=enemies,
+                target_ids=resolved_target_ids,
+                is_aoe=is_aoe,
+                spell_type=spell_type,
+                spell_name=spell_name,
+                spell_level=spell_level,
+                spell_mod=spell_context["spell_mod"],
+                bonus_healing=spell_context["bonus_healing"],
+                spell=spell,
+                damage_values=None,
+                spell_save_dc=spell_context["spell_save_dc"],
+                use_bardic_inspiration=use_bardic_inspiration,
+                bardic_inspiration_roll=bardic_inspiration_roll,
+                bardic_target_id=resolved_bardic_target_id,
+                resolve_damage=spell_service_obj.resolve_damage,
+                resolve_heal=spell_service_obj.resolve_heal,
+            )
+        except BardicInspirationError as exc:
+            raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
         result_damage = spell_application.result_damage
         result_heal = spell_application.result_heal
         dice_detail = spell_application.dice_detail

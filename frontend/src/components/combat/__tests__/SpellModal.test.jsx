@@ -336,6 +336,54 @@ describe('SpellModal', () => {
     expect(within(plan).getByText('敏捷豁免 +5 · d20 需 9+ · 约 60%通过')).toBeInTheDocument()
   })
 
+  it('shows a Bardic spell-save toggle for selected save targets with an unused die', async () => {
+    const onToggleBardicSpellSave = vi.fn()
+    const sacredFlame = {
+      name: 'Sacred Flame',
+      level: 0,
+      type: 'damage',
+      target_type: 'enemy',
+      damage: '1d8',
+      save: 'dex',
+    }
+
+    render(
+      <SpellModal
+        spells={[sacredFlame]}
+        cantrips={['Sacred Flame']}
+        slots={{}}
+        quickPick="Sacred Flame"
+        selectedTarget="ally-1"
+        playerId="hero-1"
+        combat={{
+          entities: {
+            'hero-1': { id: 'hero-1', name: 'Cleric', derived: { spell_save_dc: 14 } },
+            'ally-1': {
+              id: 'ally-1',
+              name: 'Bardic Target',
+              is_enemy: false,
+              hp_current: 12,
+              derived: { saving_throws: { dex: 0 } },
+              class_resources: {
+                bardic_inspiration: { die: 'd8', uses_remaining: 1 },
+              },
+            },
+          },
+        }}
+        useBardicSpellSave
+        onToggleBardicSpellSave={onToggleBardicSpellSave}
+        onCast={vi.fn()}
+        onClose={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    const bardic = await screen.findByRole('button', { name: 'Bardic ON · d8' })
+    expect(bardic).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(bardic)
+    expect(onToggleBardicSpellSave).toHaveBeenCalledTimes(1)
+  })
+
   it('blocks healing spells when an enemy is selected', () => {
     const onCast = vi.fn()
 
