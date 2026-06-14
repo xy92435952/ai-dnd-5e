@@ -4,6 +4,7 @@ from typing import Any
 from models import Character
 from services.combat_service import CombatService
 from services.dnd_rules import _normalize_class, get_exhaustion_level, has_speed_zero_condition
+from services.feat_effect_service import get_feat_list_effect_value
 
 svc = CombatService()
 
@@ -16,7 +17,7 @@ async def calculate_entity_turn_limits(db, session, entity_id: str) -> tuple[int
         normalized_class = _normalize_class(char.char_class)
         level = char.level or 1
         attacks_max = svc.get_attack_count(derived, level, normalized_class)
-        speed = 30
+        speed = _character_base_speed(char)
         if char.equipment:
             pass
         return attacks_max, _movement_squares_for_speed(
@@ -39,11 +40,33 @@ async def calculate_entity_turn_limits(db, session, entity_id: str) -> tuple[int
     return 1, 6
 
 
+def _character_base_speed(char: Character | Any) -> int:
+    derived = getattr(char, "derived", None) or {}
+    speed = _parse_speed(derived.get("base_speed", 30))
+    mobile_bonus = _parse_int(
+        get_feat_list_effect_value(
+            getattr(char, "feats", None) or [],
+            "Mobile",
+            "speed_bonus",
+            0,
+        ),
+        0,
+    )
+    return speed + mobile_bonus * 5
+
+
 def _parse_speed(raw_speed: Any) -> int:
     if isinstance(raw_speed, str):
         match = re.search(r"(\d+)", raw_speed)
         return int(match.group(1)) if match else 30
     return int(raw_speed or 30)
+
+
+def _parse_int(raw_value: Any, default: int = 0) -> int:
+    try:
+        return int(raw_value if raw_value is not None else default)
+    except (TypeError, ValueError):
+        return default
 
 
 def _parse_attacks_max(enemy: dict[str, Any]) -> int:

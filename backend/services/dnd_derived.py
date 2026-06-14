@@ -48,6 +48,7 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
     prof = proficiency_bonus(level)
     hit_die = HIT_DICE.get(cls_key, 8)
     base_ac = BASE_AC.get(cls_key, 13)
+    base_speed = 30
 
     if cls_key == "Barbarian":
         base_ac = max(base_ac, 10 + dex_mod + con_mod)
@@ -132,6 +133,7 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
                 equipped_weapon_type = weapon.get("type", "")
 
     feat_effects = {}
+    movement_speed_bonus = 0
     if feats:
         for feat_entry in feats:
             fname = feat_entry.get("name", "") if isinstance(feat_entry, dict) else str(feat_entry)
@@ -142,6 +144,8 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
                     hp_max += effects["hp_per_level"] * level
                 if effects.get("concentration_advantage"):
                     subclass_effects["concentration_advantage"] = True
+                if effects.get("speed_bonus"):
+                    movement_speed_bonus += int(effects["speed_bonus"])
 
     initiative_val = dex_mod
     for fe in feat_effects.values():
@@ -157,6 +161,7 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
         proficient_skills or [],
         feats,
     )
+    movement_speed = base_speed + movement_speed_bonus * 5
 
     return {
         "hp_max": max(1, hp_max),
@@ -187,6 +192,9 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
         "armor_proficiencies": armor_proficiencies,
         "weapon_proficiencies": weapon_proficiencies,
         "feat_effects": feat_effects,
+        "base_speed": base_speed,
+        "movement_speed": movement_speed,
+        "movement_speed_squares": max(0, movement_speed // 5),
         "passive_perception": passive_perception,
         "darkvision": darkvision,
     }

@@ -850,6 +850,22 @@ class TestCalcDerived:
         }
         assert derived["passive_perception"] == 19
 
+    def test_mobile_derived_stats_expose_movement_speed_bonus(self):
+        scores = {"str": 10, "dex": 16, "con": 12, "int": 10, "wis": 12, "cha": 8}
+
+        derived = calc_derived(
+            "Rogue",
+            4,
+            scores,
+            feats=[{"name": "Mobile", "effects": {"speed_bonus": 99}}],
+            race="Human",
+        )
+
+        assert derived["feat_effects"]["Mobile"] == {"speed_bonus": 2, "mobile": True}
+        assert derived["base_speed"] == 30
+        assert derived["movement_speed"] == 40
+        assert derived["movement_speed_squares"] == 8
+
 
 class TestNormalizeClass:
     @pytest.mark.parametrize("given,expected", [
