@@ -45,6 +45,7 @@ def build_movement_cost_breakdown(
     to_pos: dict[str, Any] | None,
     *,
     base_cost: int | None = None,
+    ignore_difficult_terrain: bool = False,
 ) -> dict[str, Any]:
     path = build_movement_path_cells(from_pos, to_pos)
     base = max(0, int(base_cost if base_cost is not None else len(path) or 0))
@@ -61,16 +62,20 @@ def build_movement_cost_breakdown(
             "cell": key,
             "terrain": kind,
             "label": _terrain_label(value, kind),
-            "extra_cost": 1,
+            "extra_cost": 0 if ignore_difficult_terrain else 1,
         })
 
-    difficult_extra = sum(int(cell.get("extra_cost", 1) or 1) for cell in difficult_cells)
+    difficult_extra = sum(
+        int(cell["extra_cost"] if cell.get("extra_cost") is not None else 1)
+        for cell in difficult_cells
+    )
     return {
         "steps": len(path),
         "base_cost": base,
         "movement_cost": base + difficult_extra,
         "difficult_terrain_extra": difficult_extra,
         "difficult_terrain_cells": difficult_cells,
+        "ignores_difficult_terrain": bool(ignore_difficult_terrain and difficult_cells),
         "path": path,
     }
 

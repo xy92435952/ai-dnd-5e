@@ -45,7 +45,10 @@ export function buildDifficultTerrainMovePreview({
 
   const steps = path.length
   const baseCost = readMovementNumber(baseMovementCost, steps)
-  const difficultExtra = difficultCells.length
+  const ignoresDifficultTerrain = Boolean(
+    turnState?.mobile_ignores_difficult_terrain || turnState?.mobileIgnoresDifficultTerrain,
+  )
+  const difficultExtra = ignoresDifficultTerrain ? 0 : difficultCells.length
   const movementCost = baseCost + difficultExtra
   const movementMax = readMovementNumber(turnState?.movement_max, 6)
   const movementUsed = readMovementNumber(turnState?.movement_used, 0)
@@ -64,12 +67,21 @@ export function buildDifficultTerrainMovePreview({
   const blockedRemaining = reserved > 0
     ? `起身后剩余 ${effectiveRemaining} 格`
     : `当前剩余 ${effectiveRemaining} 格`
+  const notice = ignoresDifficultTerrain
+    ? `Mobile Dash 忽略困难地形额外消耗，此移动消耗 ${movementCost} 格（${remainingNotice}）`
+    : `困难地形${labelText ? ` ${labelText}${suffix}` : ''}：每格额外消耗 1 格，此移动消耗 ${movementCost} 格（${remainingNotice}）`
+  const blockedReason = movementCost > effectiveRemaining
+    ? (ignoresDifficultTerrain
+      ? `移动需要 ${movementCost} 格移动力，${blockedRemaining}`
+      : `困难地形需要 ${movementCost} 格移动力，${blockedRemaining}`)
+    : ''
 
   return {
     type: 'difficult_terrain',
     steps,
     baseCost,
     difficultExtra,
+    ignoresDifficultTerrain,
     movementCost,
     remaining,
     effectiveRemaining,
@@ -77,12 +89,10 @@ export function buildDifficultTerrainMovePreview({
       key: cell.key,
       terrain: normalizeTerrain(cell.detail?.terrain),
       label: cell.detail?.label || cell.key,
-      extraCost: 1,
+      extraCost: ignoresDifficultTerrain ? 0 : 1,
     })),
-    notice: `困难地形${labelText ? ` ${labelText}${suffix}` : ''}：每格额外消耗 1 格，此移动消耗 ${movementCost} 格（${remainingNotice}）`,
-    blockedReason: movementCost > effectiveRemaining
-      ? `困难地形需要 ${movementCost} 格移动力，${blockedRemaining}`
-      : '',
+    notice,
+    blockedReason,
   }
 }
 

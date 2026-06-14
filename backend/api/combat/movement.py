@@ -140,6 +140,7 @@ async def combat_move(
             cur,
             destination,
             base_cost=base_movement_cost,
+            ignore_difficult_terrain=bool(ts.get("mobile_ignores_difficult_terrain")),
         )
         movement_cost = int(movement_cost_breakdown.get("movement_cost", base_movement_cost) or base_movement_cost)
         remaining = ts["movement_max"] - ts["movement_used"]
@@ -326,6 +327,7 @@ async def combat_move(
         "movement_path":           (movement_cost_breakdown or {}).get("path", []),
         "difficult_terrain_extra": (movement_cost_breakdown or {}).get("difficult_terrain_extra", 0),
         "difficult_terrain_cells": (movement_cost_breakdown or {}).get("difficult_terrain_cells", []),
+        "ignores_difficult_terrain": (movement_cost_breakdown or {}).get("ignores_difficult_terrain", False),
         "grapple_drag":            grapple_drag,
         "ready_action_results":    ready_action_results,
         "opportunity_attacks":     [
@@ -455,6 +457,7 @@ def _build_movement_payload(
         "movement_path": list((movement_cost_breakdown or {}).get("path", [])),
         "difficult_terrain_extra": int((movement_cost_breakdown or {}).get("difficult_terrain_extra", 0) or 0),
         "difficult_terrain_cells": list((movement_cost_breakdown or {}).get("difficult_terrain_cells", [])),
+        "ignores_difficult_terrain": bool((movement_cost_breakdown or {}).get("ignores_difficult_terrain", False)),
         "movement_stop": movement_stop,
         "stood_up": bool(getattr(stand_result, "stood_up", False)),
         "stand_up_cost": int(getattr(stand_result, "movement_cost", 0) or 0),

@@ -121,6 +121,47 @@ async def test_mobile_target_does_not_make_opportunity_attack(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_excluded_actor_does_not_make_opportunity_attack(monkeypatch):
+    from services import combat_opportunity_attack_service as opportunity
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("excluded actor should not make an opportunity attack")
+
+    monkeypatch.setattr(opportunity.svc, "resolve_melee_attack", fail_if_called)
+
+    enemies = [{
+        "id": "goblin-1",
+        "name": "Goblin",
+        "hp_current": 7,
+        "conditions": [],
+        "derived": {"attack_bonus": 4, "hp_max": 7},
+    }]
+    moving_char = SimpleNamespace(
+        id="hero-1",
+        name="Hero",
+        hp_current=12,
+        conditions=[],
+        derived={"ac": 14, "hp_max": 12},
+    )
+
+    results = await opportunity.resolve_opportunity_attacks(
+        FakeDb({"hero-1": moving_char}),
+        session=_session(enemies),
+        combat=_combat(),
+        moving_id="hero-1",
+        old_pos={"x": 5, "y": 5},
+        new_pos={"x": 8, "y": 5},
+        positions={
+            "hero-1": {"x": 5, "y": 5},
+            "goblin-1": {"x": 6, "y": 5},
+        },
+        excluded_actor_ids=["goblin-1"],
+    )
+
+    assert results == []
+
+
+@pytest.mark.asyncio
 async def test_mobile_does_not_block_unattacked_opportunity_threat(monkeypatch):
     from services import combat_opportunity_attack_service as opportunity
 

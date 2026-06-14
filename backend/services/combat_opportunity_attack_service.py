@@ -33,6 +33,7 @@ async def resolve_opportunity_attacks(
     old_pos: dict[str, Any],
     new_pos: dict[str, Any],
     positions: dict[str, Any],
+    excluded_actor_ids: list[Any] | set[Any] | tuple[Any, ...] | None = None,
 ) -> list[dict[str, Any]]:
     """
     检查并解析因移动触发的借机攻击（Opportunity Attack，5e PHB p.195）。
@@ -46,6 +47,7 @@ async def resolve_opportunity_attacks(
     enemies = list(state.get("enemies", []))
     results = []
     is_enemy_moving = moving_id in {enemy["id"] for enemy in enemies}
+    excluded = {str(actor_id) for actor_id in (excluded_actor_ids or [])}
 
     if not is_enemy_moving:
         moving_char = await db.get(Character, moving_id)
@@ -54,6 +56,8 @@ async def resolve_opportunity_attacks(
         moving_turn_state = get_turn_state(combat, moving_id)
 
         for enemy in enemies:
+            if str(enemy.get("id")) in excluded:
+                continue
             if enemy.get("hp_current", 0) <= 0:
                 continue
             if not can_take_reaction(enemy):
@@ -176,6 +180,7 @@ async def resolve_opportunity_attacks(
             and player.hp_current > 0
             and can_take_reaction(player)
             and not mobile_blocks_opportunity_from(moving_turn_state, session.player_character_id)
+            and str(session.player_character_id) not in excluded
         ):
             player_position = positions.get(str(session.player_character_id))
             if (
@@ -261,9 +266,11 @@ async def resolve_opportunity_attacks(
 
         roster = CharacterRoster(db, session)
         for companion in await roster.companions_alive():
+            companion_id = companion.id
+            if str(companion_id) in excluded:
+                continue
             if not can_take_reaction(companion):
                 continue
-            companion_id = companion.id
             companion_position = positions.get(str(companion_id))
             if not companion_position:
                 continue

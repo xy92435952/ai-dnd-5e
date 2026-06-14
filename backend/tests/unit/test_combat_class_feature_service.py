@@ -124,6 +124,31 @@ def test_cunning_action_dash_adds_base_movement_not_current_total_again():
     assert result.turn_state["movement_max"] == 18
 
 
+def test_mobile_cunning_action_dash_ignores_difficult_terrain_for_turn():
+    player = _character(
+        char_class="Rogue",
+        level=4,
+        derived={
+            "hp_max": 20,
+            "ability_modifiers": {"wis": 2},
+            "feat_effects": {"Mobile": {"mobile": True}},
+        },
+    )
+
+    result = resolve_combat_class_feature(
+        feature="cunning_action_dash",
+        player=player,
+        player_id="hero",
+        combat=_combat(),
+        turn_state=_turn_state(movement_max=8, base_movement_max=8),
+        combat_service=CombatService(),
+        roll_dice_fn=lambda *_args: (_ for _ in ()).throw(AssertionError("should not roll")),
+    )
+
+    assert result.turn_state["movement_max"] == 16
+    assert result.turn_state["mobile_ignores_difficult_terrain"] is True
+
+
 def test_class_feature_rejects_incapacitated_actor():
     player = _character(conditions=["paralyzed"])
 

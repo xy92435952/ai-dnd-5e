@@ -3,6 +3,7 @@ from typing import Any
 
 from models import Session
 from services.combat_action_rules_service import validate_can_take_action
+from services.combat_turn_state_service import record_mobile_dash_difficult_terrain_ignore
 from services.game_combat_action_steps import (
     execute_attack_action as _execute_attack_action,
     execute_move_action as _execute_move_action,
@@ -171,6 +172,10 @@ def execute_parsed_combat_actions(
             turn_state["movement_max"] = (
                 turn_state["movement_max"]
                 + turn_state.get("base_movement_max", turn_state["movement_max"])
+            )
+            turn_state = record_mobile_dash_difficult_terrain_ignore(
+                turn_state,
+                actor_derived=player_derived,
             )
             save_turn_state(combat_state, player_id, turn_state)
             action_results.append("冲刺！移动力翻倍")

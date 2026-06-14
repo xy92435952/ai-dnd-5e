@@ -66,6 +66,16 @@ def mobile_blocks_opportunity_from(turn_state: dict[str, Any], attacker_id: Any)
     }
 
 
+def record_mobile_dash_difficult_terrain_ignore(
+    turn_state: dict[str, Any],
+    *,
+    actor_derived: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if has_feat_effect(actor_derived, "Mobile", "mobile"):
+        turn_state["mobile_ignores_difficult_terrain"] = True
+    return turn_state
+
+
 def reset_turn_state(
     combat,
     entity_id: str,

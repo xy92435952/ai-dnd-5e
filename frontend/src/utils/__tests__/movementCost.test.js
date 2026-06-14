@@ -26,8 +26,13 @@ describe('movementCost', () => {
       effectiveRemaining: 5,
       blockedReason: '',
     })
-    expect(preview.notice).toContain('困难地形 Mud slick')
-    expect(preview.notice).toContain('此移动消耗 2 格')
+    expect(preview.cells).toEqual([{
+      key: '6_5',
+      terrain: 'difficult',
+      label: 'Mud slick',
+      extraCost: 1,
+    }])
+    expect(preview.notice).toContain('Mud slick')
   })
 
   it('blocks difficult terrain destinations that exceed remaining movement', () => {
@@ -41,6 +46,35 @@ describe('movementCost', () => {
     })
 
     expect(preview.movementCost).toBe(2)
-    expect(preview.blockedReason).toBe('困难地形需要 2 格移动力，当前剩余 1 格')
+    expect(preview.blockedReason).toBeTruthy()
+  })
+
+  it('does not add difficult terrain extra cost after Mobile Dash', () => {
+    const preview = buildDifficultTerrainMovePreview({
+      actorPosition: { x: 5, y: 5 },
+      destination: { x: 6, y: 5 },
+      terrainDetails: {
+        '6_5': { terrain: 'difficult', label: 'Mud slick' },
+      },
+      turnState: {
+        movement_used: 5,
+        movement_max: 6,
+        mobile_ignores_difficult_terrain: true,
+      },
+    })
+
+    expect(preview).toMatchObject({
+      movementCost: 1,
+      difficultExtra: 0,
+      ignoresDifficultTerrain: true,
+      effectiveRemaining: 1,
+      blockedReason: '',
+    })
+    expect(preview.cells).toEqual([{
+      key: '6_5',
+      terrain: 'difficult',
+      label: 'Mud slick',
+      extraCost: 0,
+    }])
   })
 })

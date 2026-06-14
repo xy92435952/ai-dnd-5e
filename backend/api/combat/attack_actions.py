@@ -13,6 +13,7 @@ from services.dnd_rules import get_effective_hp_max
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_offhand_attack_service import resolve_offhand_attack
+from services.combat_turn_state_service import record_mobile_dash_difficult_terrain_ignore
 from services.session_access_service import assert_character_in_session
 
 
@@ -40,6 +41,10 @@ async def maybe_handle_pre_attack_action(
             raise HTTPException(400, "本回合行动已用尽")
         ts["action_used"] = True
         ts["movement_max"] = ts["movement_max"] + ts.get("base_movement_max", ts["movement_max"])
+        ts = record_mobile_dash_difficult_terrain_ignore(
+            ts,
+            actor_derived=(player.derived or {}) if player else {},
+        )
         _save_ts(combat, player_id, ts)
         db.add(GameLog(
             session_id=session_id, role="player",

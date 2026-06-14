@@ -958,6 +958,81 @@ async def test_move_into_difficult_terrain_costs_extra_movement(
     assert melee_combat.turn_states[sample_character.id]["movement_used"] == 2
 
 
+async def test_mobile_dash_ignores_difficult_terrain_extra_movement(
+    client, db_session, sample_session, sample_character, sample_user, melee_combat,
+):
+    """Mobile removes difficult-terrain extra cost after the character uses Dash."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "feat_effects": {"Mobile": {"mobile": True}},
+    }
+    melee_combat.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 9, "y": 5},
+    }
+    melee_combat.grid_data = {
+        "6_5": {"terrain": "difficult", "label": "Mud slick"},
+    }
+    melee_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 8,
+            "base_movement_max": 8,
+        },
+        "goblin-1": {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+        },
+    }
+    flag_modified(melee_combat, "entity_positions")
+    flag_modified(melee_combat, "grid_data")
+    flag_modified(melee_combat, "turn_states")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    dash_response = await client.post(
+        f"/game/combat/{sample_session.id}/action",
+        headers=headers,
+        json={"action_text": "dash"},
+    )
+    assert dash_response.status_code == 200, dash_response.text
+    dash_state = dash_response.json()["turn_state"]
+    assert dash_state["movement_max"] == 16
+    assert dash_state["mobile_ignores_difficult_terrain"] is True
+
+    move_response = await client.post(
+        f"/game/combat/{sample_session.id}/move",
+        headers=headers,
+        json={"entity_id": sample_character.id, "to_x": 6, "to_y": 5},
+    )
+    assert move_response.status_code == 200, move_response.text
+    body = move_response.json()
+    assert body["movement_cost"] == 1
+    assert body["turn_state"]["movement_used"] == 1
+    assert body["turn_state"]["mobile_ignores_difficult_terrain"] is True
+    assert body["difficult_terrain_extra"] == 0
+    assert body["ignores_difficult_terrain"] is True
+    assert body["difficult_terrain_cells"] == [{
+        "cell": "6_5",
+        "terrain": "difficult",
+        "label": "Mud slick",
+        "extra_cost": 0,
+    }]
+    assert body["movement"]["movement_cost"] == 1
+    assert body["movement"]["ignores_difficult_terrain"] is True
+
+    await db_session.refresh(melee_combat)
+    assert melee_combat.turn_states[sample_character.id]["movement_used"] == 1
+
+
 async def test_grappler_move_drags_grappled_target_and_costs_extra_movement(
     client, db_session, sample_session, sample_character, sample_user, melee_combat,
 ):

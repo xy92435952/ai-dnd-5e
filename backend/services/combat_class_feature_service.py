@@ -2,7 +2,10 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
-from services.combat_turn_state_service import save_turn_state
+from services.combat_turn_state_service import (
+    record_mobile_dash_difficult_terrain_ignore,
+    save_turn_state,
+)
 from services.dnd_rules import (
     WILD_SHAPE_FORMS,
     _normalize_class,
@@ -138,6 +141,10 @@ def resolve_combat_class_feature(
         turn_state["movement_max"] = (
             turn_state["movement_max"]
             + turn_state.get("base_movement_max", turn_state["movement_max"])
+        )
+        turn_state = record_mobile_dash_difficult_terrain_ignore(
+            turn_state,
+            actor_derived=derived,
         )
         save_turn_state(combat, player_id, turn_state)
         narration = f"💨 {player.name} 使用「灵巧动作-冲刺」！移动力翻倍！"
