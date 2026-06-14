@@ -679,6 +679,74 @@ def test_build_level_up_update_allows_ritual_caster_with_int_or_wis_13():
     assert update["derived"]["feat_effects"]["Ritual Caster"] == {"ritual_caster": True}
 
 
+def test_build_level_up_update_requires_resilient_ability_choice():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=3,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={},
+            use_average_hp=True,
+            subclass="Champion",
+            fighting_style="Defense",
+            feat_choice={"name": "Resilient"},
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "Resilient requires" in exc.value.detail
+
+
+def test_build_level_up_update_applies_resilient_ability_and_save_proficiency():
+    ability_scores = {"str": 16, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+        proficient_saves=["str", "con"],
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Champion",
+        fighting_style="Defense",
+        proficient_saves=["str", "con"],
+        feat_choice={"name": "Resilient", "ability": "dex", "effects": {"extra_save_prof": False}},
+        race="Human",
+    )
+
+    feat = update["feats"][0]
+    assert feat["name"] == "Resilient"
+    assert feat["ability"] == "dex"
+    assert feat["effects"] == {"extra_save_prof": True}
+    assert update["ability_scores"]["dex"] == 14
+    assert update["proficient_saves"] == ["str", "con", "dex"]
+    assert update["derived"]["ability_modifiers"]["dex"] == 2
+    assert update["derived"]["saving_throws"]["dex"] == 4
+    assert update["derived"]["feat_effects"]["Resilient"] == {"extra_save_prof": True}
+
+
 def test_build_level_up_update_adds_requested_wizard_spellbook_spells():
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")

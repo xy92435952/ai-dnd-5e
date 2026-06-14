@@ -1,5 +1,11 @@
 import React from 'react'
-import { getFeatPrerequisiteFailure } from '../../utils/characterCreate'
+import {
+  FEAT_ABILITY_OPTIONS,
+  featRequiresAbilityChoice,
+  getFeatPrerequisiteFailure,
+  getFeatSelectionFailure,
+  normalizeFeatAbility,
+} from '../../utils/characterCreate'
 
 export default function CharacterCreateStepFeats({ ctx }) {
   const {
@@ -27,6 +33,20 @@ export default function CharacterCreateStepFeats({ ctx }) {
       {Array.from({ length: asiCount }, (_, i) => {
         const feat = chosenFeats[i]
         const isASI = feat?.name === '__ASI__'
+        const featInfo = feat && !isASI ? ((options.feats || {})[feat.name] || {}) : {}
+        const requiresAbility = featRequiresAbilityChoice(feat)
+        const selectionFailure = feat && !isASI
+          ? getFeatSelectionFailure({
+            ...feat,
+            ...featInfo,
+            name: feat.name,
+          }, {
+            abilityScores: finalScores,
+            isSpellcaster,
+            knownSpells: chosenSpells,
+            cantrips: chosenCantrips,
+          })
+          : ''
         return (
           <div
             key={i}
@@ -70,7 +90,10 @@ export default function CharacterCreateStepFeats({ ctx }) {
                     .map(([name]) => name)
                   if (available.length > 0) {
                     const next = [...chosenFeats]
-                    next[i] = { name: available[0] }
+                    next[i] = {
+                      name: available[0],
+                      ...(featRequiresAbilityChoice({ name: available[0] }) ? { ability: FEAT_ABILITY_OPTIONS[0].value } : {}),
+                    }
                     setChosenFeats(next)
                   }
                 }}
@@ -86,7 +109,10 @@ export default function CharacterCreateStepFeats({ ctx }) {
                   style={{ marginBottom: '4px' }}
                   onChange={e => {
                     const next = [...chosenFeats]
-                    next[i] = { name: e.target.value }
+                    next[i] = {
+                      name: e.target.value,
+                      ...(featRequiresAbilityChoice({ name: e.target.value }) ? { ability: FEAT_ABILITY_OPTIONS[0].value } : {}),
+                    }
                     setChosenFeats(next)
                   }}
                 >
@@ -113,34 +139,36 @@ export default function CharacterCreateStepFeats({ ctx }) {
                     )
                   })}
                 </select>
-                {(options.feats || {})[feat.name]?.prereq && (
+                {requiresAbility && (
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                    Ability
+                    <select
+                      className="input-fantasy"
+                      value={normalizeFeatAbility(feat.ability)}
+                      onChange={e => {
+                        const next = [...chosenFeats]
+                        next[i] = { ...feat, ability: e.target.value }
+                        setChosenFeats(next)
+                      }}
+                    >
+                      {FEAT_ABILITY_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {featInfo?.prereq && (
                   <p style={{ fontSize: '0.65rem', color: 'var(--gold-dim)', marginTop: '4px' }}>
-                    Prerequisite: {(options.feats || {})[feat.name]?.prereq}
+                    Prerequisite: {featInfo.prereq}
                   </p>
                 )}
-                {getFeatPrerequisiteFailure({
-                  name: feat.name,
-                  ...((options.feats || {})[feat.name] || {}),
-                }, {
-                  abilityScores: finalScores,
-                  isSpellcaster,
-                  knownSpells: chosenSpells,
-                  cantrips: chosenCantrips,
-                }) && (
+                {selectionFailure && (
                   <p style={{ fontSize: '0.65rem', color: 'var(--red-light)', marginTop: '4px' }}>
-                    {getFeatPrerequisiteFailure({
-                      name: feat.name,
-                      ...((options.feats || {})[feat.name] || {}),
-                    }, {
-                      abilityScores: finalScores,
-                      isSpellcaster,
-                      knownSpells: chosenSpells,
-                      cantrips: chosenCantrips,
-                    })}
+                    {selectionFailure}
                   </p>
                 )}
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>
-                  {(options.feats || {})[feat.name]?.desc}
+                  {featInfo?.desc}
                 </p>
               </div>
             )}

@@ -199,7 +199,7 @@ async def test_create_character_rejects_ritual_caster_without_int_or_wis_13(
         "level": 1,
         "background": "Soldier",
         "alignment": "Neutral",
-        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 12, "wis": 12, "cha": 8},
+        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 11, "wis": 11, "cha": 8},
         "proficient_skills": ["运动", "感知"],
         "fighting_style": "Defense",
         "equipment_choice": 0,
@@ -208,6 +208,38 @@ async def test_create_character_rejects_ritual_caster_without_int_or_wis_13(
 
     assert response.status_code == 400, response.text
     assert "Ritual Caster requires" in response.json()["detail"]
+
+
+async def test_create_character_applies_resilient_ability_and_save_proficiency(
+    client, sample_user, sample_module,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Resilient Fighter",
+        "race": "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "background": "Soldier",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8},
+        "proficient_skills": ["运动", "感知"],
+        "fighting_style": "Defense",
+        "equipment_choice": 0,
+        "feats": [{"name": "Resilient", "ability": "wis"}],
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["feats"][0]["name"] == "Resilient"
+    assert data["feats"][0]["ability"] == "wis"
+    assert "wis" in data["proficient_saves"]
+    assert data["ability_scores"]["wis"] >= 13
+    assert data["derived"]["saving_throws"]["wis"] == (
+        data["derived"]["ability_modifiers"]["wis"]
+        + data["derived"]["proficiency_bonus"]
+    )
 
 
 async def test_create_character_with_narrative_fields(

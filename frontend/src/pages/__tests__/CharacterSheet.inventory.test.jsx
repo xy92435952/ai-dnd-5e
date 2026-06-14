@@ -540,6 +540,61 @@ describe('CharacterSheet inventory integration', () => {
     cleanup()
   })
 
+  it('submits Resilient feat ability choice during level up', async () => {
+    const fighter = {
+      ...characterFixture,
+      level: 3,
+      feats: [],
+    }
+    charactersGetMock.mockResolvedValue(fighter)
+    charactersOptionsMock.mockResolvedValue({
+      spell_preparation_type: { Fighter: null },
+      class_spell_details: {},
+      class_cantrips: {},
+      feats: {
+        Resilient: { prereq: 'Choose one ability', desc: 'Ability +1 and save proficiency' },
+      },
+    })
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...fighter,
+        level: 4,
+        ability_scores: { ...fighter.ability_scores, dex: 15 },
+        proficient_saves: [...fighter.proficient_saves, 'dex'],
+        feats: [{ name: 'Resilient', ability: 'dex' }],
+      },
+      level_up_details: {
+        feat_choice: { name: 'Resilient', ability: 'dex' },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(fighter.name)
+    fireEvent.change(screen.getByLabelText('Feat choice'), {
+      target: { value: 'Resilient' },
+    })
+    fireEvent.change(screen.getByLabelText('Feat ability choice'), {
+      target: { value: 'dex' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        feat_choice: { name: 'Resilient', ability: 'dex' },
+      })
+    })
+
+    cleanup()
+  })
+
   it('submits subclass, fighting style, and maneuver choices during level up', async () => {
     const fighter = {
       ...characterFixture,

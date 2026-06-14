@@ -111,6 +111,7 @@ export default function CharacterCreate() {
     chosenSkills,
     chosenCantrips,
     chosenSpells,
+    chosenFeats,
     isMultiplayerCreate,
   }), [
     form,
@@ -121,6 +122,7 @@ export default function CharacterCreate() {
     chosenSkills,
     chosenCantrips,
     chosenSpells,
+    chosenFeats,
     isMultiplayerCreate,
   ])
 
@@ -131,7 +133,7 @@ export default function CharacterCreate() {
     availableCantrips, availableSpells, hasFightingStyle, needsASI,
     asiLevels, asiCount, featStep, partyStep, styleStep,
     multiclassEnKey,
-    multiReqs, multiReqMet, step1Valid, step2Valid, step3Valid, step4Valid,
+    multiReqs, multiReqMet, step1Valid, step2Valid, step3Valid, step4Valid, stepFeatValid,
     showSubclass, subclassOptions, steps: STEPS,
   } = model
   const availableCantripsKey = availableCantrips.join('\u0000')
@@ -313,6 +315,7 @@ export default function CharacterCreate() {
     step2Valid,
     step3Valid,
     step4Valid,
+    stepFeatValid,
     showSubclass,
     subclassOptions,
     openModal,
@@ -536,7 +539,7 @@ export default function CharacterCreate() {
           // 多人：触发创建 + 认领到房间 + 返回房间页
           <button
             className="btn-gold"
-            disabled={saving || !step1Valid || !step2Valid || !step3Valid || !step4Valid}
+            disabled={saving || !step1Valid || !step2Valid || !step3Valid || !step4Valid || !stepFeatValid}
             onClick={handleSaveAndContinue}
             style={{ padding: '10px 20px', fontSize: 12, letterSpacing: '.12em' }}
           >{saving

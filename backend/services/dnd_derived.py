@@ -26,7 +26,8 @@ from services.dnd_subclass_effects import apply_subclass_effects
 
 def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: str = None,
                  fighting_style: str = None, feats: list = None, equipment: dict = None,
-                 race: str = None, proficient_skills: list = None) -> dict:
+                 race: str = None, proficient_skills: list = None,
+                 proficient_saves: list = None) -> dict:
     """计算角色的所有衍生属性（输入已含种族加值的最终能力值）"""
     cls_key = _normalize_class(char_class)
 
@@ -80,7 +81,8 @@ def calc_derived(char_class: str, level: int, ability_scores: dict, subclass: st
     attack_bonus_override = subclass_result["attack_bonus_override"]
     subclass_effects = subclass_result["subclass_effects"]
 
-    save_profs = CLASS_SAVE_PROFICIENCIES.get(cls_key, [])
+    save_profs = set(CLASS_SAVE_PROFICIENCIES.get(cls_key, []))
+    save_profs.update(proficient_saves or [])
     saving_throws = {}
     for key, mod in ability_modifiers.items():
         saving_throws[key] = mod + (prof if key in save_profs else 0)

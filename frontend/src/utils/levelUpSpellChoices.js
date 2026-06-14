@@ -1,4 +1,8 @@
-import { getClassEnKey, getFeatPrerequisiteFailure } from './characterCreate'
+import {
+  featRequiresAbilityChoice,
+  getClassEnKey,
+  getFeatPrerequisiteFailure,
+} from './characterCreate'
 
 const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
@@ -224,6 +228,7 @@ export function buildLevelUpFeatChoicePlan(character, options = {}) {
       .filter(feat => !existingFeatNames.has(feat.name))
       .map(feat => ({
         ...feat,
+        choiceType: featRequiresAbilityChoice(feat) ? 'ability' : null,
         unavailableReason: getFeatPrerequisiteFailure(feat, {
           abilityScores: character?.ability_scores,
           derived: character?.derived,

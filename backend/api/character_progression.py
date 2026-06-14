@@ -91,6 +91,7 @@ async def level_up_character(
             cantrips=char.cantrips,
             race=char.race,
             proficient_skills=char.proficient_skills,
+            proficient_saves=char.proficient_saves,
             ability_score_increases=req.ability_score_increases,
             feat_choice=req.feat_choice,
             subclass_choice=req.subclass_choice,
@@ -119,6 +120,7 @@ async def level_up_character(
 
     char.level = update["new_level"]
     char.ability_scores = update["ability_scores"]
+    char.proficient_saves = update["proficient_saves"]
     char.subclass = update["subclass"]
     char.fighting_style = update["fighting_style"]
     char.feats = update["feats"]

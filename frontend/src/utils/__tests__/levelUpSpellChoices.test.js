@@ -175,6 +175,7 @@ describe('level-up martial and identity choice plans', () => {
     expect(plan.featOptions).toEqual([{
       name: 'Tough',
       desc: '+2 HP per level',
+      choiceType: null,
       unavailableReason: '',
     }])
   })
@@ -189,6 +190,7 @@ describe('level-up martial and identity choice plans', () => {
     }, {
       feats: {
         'Ritual Caster': { prereq: 'Intelligence or Wisdom 13', desc: 'Cast rituals' },
+        Resilient: { prereq: 'Choose one ability', desc: 'Ability +1 and save proficiency' },
         Tough: { desc: '+2 HP per level' },
       },
     })
@@ -208,7 +210,15 @@ describe('level-up martial and identity choice plans', () => {
       name: 'Ritual Caster',
       prereq: 'Intelligence or Wisdom 13',
       desc: 'Cast rituals',
+      choiceType: null,
       unavailableReason: 'Requires INT or WIS 13+',
+    })
+    expect(blockedPlan.featOptions.find(feat => feat.name === 'Resilient')).toEqual({
+      name: 'Resilient',
+      prereq: 'Choose one ability',
+      desc: 'Ability +1 and save proficiency',
+      choiceType: 'ability',
+      unavailableReason: '',
     })
     expect(blockedPlan.featOptions.find(feat => feat.name === 'Tough').unavailableReason).toBe('')
     expect(allowedPlan.featOptions[0].unavailableReason).toBe('')

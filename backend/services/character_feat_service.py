@@ -6,6 +6,21 @@ from typing import Any
 
 from services.dnd_data import FEATS
 
+ABILITY_ALIASES = {
+    "str": "str",
+    "strength": "str",
+    "dex": "dex",
+    "dexterity": "dex",
+    "con": "con",
+    "constitution": "con",
+    "int": "int",
+    "intelligence": "int",
+    "wis": "wis",
+    "wisdom": "wis",
+    "cha": "cha",
+    "charisma": "cha",
+}
+
 
 @dataclass
 class CharacterFeatError(Exception):
@@ -33,7 +48,7 @@ def normalize_existing_feats(feats: list[Any] | None) -> list[dict]:
             continue
         seen.add(key)
         if canonical_name:
-            normalized.append(canonical_feat_entry(canonical_name))
+            normalized.append(canonical_feat_entry(feat))
         else:
             normalized.append(_safe_legacy_feat_entry(feat, name))
     return normalized
@@ -83,7 +98,36 @@ def canonical_feat_entry(feat: Any) -> dict:
     if not canonical_name:
         raise CharacterFeatError(400, f"Unknown feat: {name}")
     feat_data = deepcopy(FEATS[canonical_name])
-    return {"name": canonical_name, **feat_data}
+    entry = {"name": canonical_name, **feat_data}
+    if canonical_name == "Resilient":
+        ability = _feat_ability(feat)
+        if ability:
+            entry["ability"] = ability
+    return entry
+
+
+def resilient_ability_choices(feats: list[Any] | None) -> list[str]:
+    choices: list[str] = []
+    seen: set[str] = set()
+    for feat in feats or []:
+        if _canonical_feat_name(_feat_name(feat)) != "Resilient":
+            continue
+        ability = _feat_ability(feat)
+        if ability and ability not in seen:
+            choices.append(ability)
+            seen.add(ability)
+    return choices
+
+
+def apply_resilient_ability_bonuses(
+    ability_scores: dict,
+    feats: list[Any] | None,
+) -> dict:
+    next_scores = dict(ability_scores or {})
+    for ability in resilient_ability_choices(feats):
+        if ability in next_scores:
+            next_scores[ability] = min(20, int(next_scores.get(ability) or 0) + 1)
+    return next_scores
 
 
 def _normalize_new_feats(feats: list[Any], *, existing_feats: list[Any]) -> list[dict]:
@@ -99,10 +143,15 @@ def _normalize_new_feats(feats: list[Any], *, existing_feats: list[Any]) -> list
         canonical_name = _canonical_feat_name(name)
         if not canonical_name:
             raise CharacterFeatError(400, f"Unknown feat: {name}")
+        if canonical_name == "Resilient" and not _feat_ability(feat):
+            raise CharacterFeatError(
+                400,
+                "Resilient requires choosing one ability.",
+            )
         if canonical_name in seen:
             raise CharacterFeatError(400, f"Duplicate feat choice: {canonical_name}")
         seen.add(canonical_name)
-        normalized.append(canonical_feat_entry(canonical_name))
+        normalized.append(canonical_feat_entry(feat))
     return normalized
 
 
@@ -110,6 +159,19 @@ def _feat_name(feat: Any) -> str:
     if isinstance(feat, dict):
         return str(feat.get("name") or "").strip()
     return str(feat or "").strip()
+
+
+def _feat_ability(feat: Any) -> str:
+    if not isinstance(feat, dict):
+        return ""
+    raw = (
+        feat.get("ability")
+        or feat.get("ability_score")
+        or feat.get("saving_throw")
+        or feat.get("save")
+        or ""
+    )
+    return ABILITY_ALIASES.get(str(raw or "").strip().lower(), "")
 
 
 def _canonical_feat_name(name: str) -> str | None:

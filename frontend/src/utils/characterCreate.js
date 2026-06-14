@@ -9,6 +9,14 @@ export const POINT_BUY_TOTAL = 27
 export const SCORE_COSTS = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 }
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8]
 export const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+export const FEAT_ABILITY_OPTIONS = [
+  { value: 'str', label: 'STR' },
+  { value: 'dex', label: 'DEX' },
+  { value: 'con', label: 'CON' },
+  { value: 'int', label: 'INT' },
+  { value: 'wis', label: 'WIS' },
+  { value: 'cha', label: 'CHA' },
+]
 const FULL_CASTER_CLASSES = new Set(['Wizard', 'Cleric', 'Druid', 'Sorcerer', 'Bard'])
 const HALF_CASTER_CLASSES = new Set(['Paladin', 'Ranger'])
 const PACT_CASTER_CLASSES = new Set(['Warlock'])
@@ -41,6 +49,25 @@ export function getRaceEnKey(race) {
   return Object.keys(RACE_INFO).find((k) => k === race || RACE_INFO[k]?.zh === race) || ''
 }
 
+export function normalizeFeatAbility(value) {
+  const key = String(value || '').trim().toLowerCase()
+  const aliases = {
+    strength: 'str',
+    dexterity: 'dex',
+    constitution: 'con',
+    intelligence: 'int',
+    wisdom: 'wis',
+    charisma: 'cha',
+  }
+  const normalized = aliases[key] || key
+  return ABILITY_KEYS.includes(normalized) ? normalized : ''
+}
+
+export function featRequiresAbilityChoice(feat) {
+  const featName = typeof feat === 'string' ? feat : feat?.name
+  return String(featName || '').trim().toLowerCase() === 'resilient'
+}
+
 export function getFeatPrerequisiteFailure(feat, context = {}) {
   const featName = typeof feat === 'string' ? feat : feat?.name
   const prereq = String((typeof feat === 'string' ? '' : feat?.prereq) || '')
@@ -69,6 +96,15 @@ export function getFeatPrerequisiteFailure(feat, context = {}) {
     }
   }
 
+  return ''
+}
+
+export function getFeatSelectionFailure(feat, context = {}) {
+  const prerequisiteFailure = getFeatPrerequisiteFailure(feat, context)
+  if (prerequisiteFailure) return prerequisiteFailure
+  if (featRequiresAbilityChoice(feat) && !normalizeFeatAbility(feat?.ability)) {
+    return 'Choose one ability'
+  }
   return ''
 }
 
@@ -229,6 +265,7 @@ export function buildCharacterCreateModel({
   chosenSkills,
   chosenCantrips,
   chosenSpells,
+  chosenFeats,
   isMultiplayerCreate = false,
 }) {
   const classEnKey = getClassEnKey(form?.char_class)
@@ -310,6 +347,20 @@ export function buildCharacterCreateModel({
   const step3Valid = (chosenSkills || []).length === skillConfig.count
   const step4Valid = choicesAreValid(chosenCantrips, availableCantrips, cantripCount)
     && choicesAreValid(chosenSpells, availableSpells, spellCount)
+  const stepFeatValid = (chosenFeats || []).every((feat) => {
+    if (!feat || feat.name === '__ASI__') return true
+    const info = options?.feats?.[feat.name] || {}
+    return !getFeatSelectionFailure({
+      ...feat,
+      ...info,
+      name: feat.name,
+    }, {
+      abilityScores: finalScores,
+      isSpellcaster,
+      knownSpells: chosenSpells,
+      cantrips: chosenCantrips,
+    })
+  })
 
   const showSubclass = !!(classInfo && (form?.level || 1) >= classInfo.subclass_unlock)
   const subclassOptions = classInfo?.subclasses || []
@@ -351,6 +402,7 @@ export function buildCharacterCreateModel({
     step2Valid,
     step3Valid,
     step4Valid,
+    stepFeatValid,
     showSubclass,
     subclassOptions,
     steps,

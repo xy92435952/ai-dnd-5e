@@ -355,6 +355,62 @@ async def test_level_up_endpoint_rejects_ritual_caster_without_int_or_wis_13(cli
     assert "Ritual Caster requires" in response.json()["detail"]
 
 
+async def test_level_up_endpoint_applies_resilient_ability_and_save_proficiency(client, db_session, sample_user):
+    ability_scores = {"str": 16, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+        proficient_saves=["str", "con"],
+    )
+    fighter = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Resilient Fighter",
+        race="Human",
+        char_class="Fighter",
+        subclass="Champion",
+        fighting_style="Defense",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        class_resources={"second_wind_used": True, "action_surge_used": True},
+        proficient_skills=[],
+        proficient_saves=["str", "con"],
+        feats=[],
+        is_player=True,
+    )
+    db_session.add(fighter)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{fighter.id}/level-up",
+        headers=headers,
+        json={
+            "use_average_hp": True,
+            "feat_choice": {"name": "Resilient", "ability": "dex"},
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["character"]
+    assert data["ability_scores"]["dex"] == 14
+    assert data["feats"][0]["name"] == "Resilient"
+    assert data["feats"][0]["ability"] == "dex"
+    assert data["proficient_saves"] == ["str", "con", "dex"]
+    assert data["derived"]["saving_throws"]["dex"] == 4
+
+    await db_session.refresh(fighter)
+    assert fighter.ability_scores["dex"] == 14
+    assert fighter.proficient_saves == ["str", "con", "dex"]
+
+
 async def test_level_up_adds_requested_wizard_spell_learning(client, db_session, sample_user):
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")

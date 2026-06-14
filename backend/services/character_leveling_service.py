@@ -24,10 +24,13 @@ from services.dnd_subclass_progression import (
     subclass_options_for_class,
     subclass_unlock_level,
 )
+from services.dnd_data import CLASS_SAVE_PROFICIENCIES
 from services.character_feat_service import (
+    apply_resilient_ability_bonuses,
     CharacterFeatError,
     normalize_existing_feats,
     normalize_level_up_feat_choice,
+    resilient_ability_choices,
     validate_feat_prerequisites,
 )
 
@@ -99,6 +102,7 @@ def build_level_up_update(
     cantrips: list[str] | None = None,
     race: str | None = None,
     proficient_skills: list[str] | None = None,
+    proficient_saves: list[str] | None = None,
     ability_score_increases: dict | None = None,
     feat_choice: dict | None = None,
     subclass_choice: str | None = None,
@@ -168,6 +172,13 @@ def build_level_up_update(
                 if ability in next_scores:
                     next_scores[ability] = min(20, next_scores[ability] + increase)
 
+    if selected_feat_choice:
+        next_scores = apply_resilient_ability_bonuses(next_scores, [selected_feat_choice])
+    next_save_profs = list(dict.fromkeys([
+        *(proficient_saves or CLASS_SAVE_PROFICIENCIES.get(cls_key, [])),
+        *resilient_ability_choices(next_feats),
+    ]))
+
     old_derived = dict(derived or {})
     next_derived = calc_derived(
         char_class,
@@ -179,6 +190,7 @@ def build_level_up_update(
         equipment=equipment or None,
         race=race,
         proficient_skills=proficient_skills or [],
+        proficient_saves=next_save_profs,
     )
 
     new_hp_current = min(
@@ -253,6 +265,7 @@ def build_level_up_update(
         "hp_gain": hp_gain,
         "is_asi_level": new_level in asi_levels,
         "ability_scores": next_scores,
+        "proficient_saves": next_save_profs,
         "subclass": next_subclass,
         "fighting_style": next_fighting_style,
         "feats": next_feats,

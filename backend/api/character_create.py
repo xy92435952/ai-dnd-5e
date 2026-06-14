@@ -13,8 +13,10 @@ from services.character_creation_service import (
     normalize_fighting_style,
 )
 from services.character_feat_service import (
+    apply_resilient_ability_bonuses,
     CharacterFeatError,
     normalize_starting_feats,
+    resilient_ability_choices,
     validate_feat_prerequisites,
 )
 from services.character_serializer import serialize_character
@@ -94,7 +96,11 @@ async def create_player_character(
     except CharacterFeatError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
 
-    save_profs = CLASS_SAVE_PROFICIENCIES.get(cls_key, [])
+    final_scores = apply_resilient_ability_bonuses(final_scores, feats)
+    save_profs = list(dict.fromkeys([
+        *CLASS_SAVE_PROFICIENCIES.get(cls_key, []),
+        *resilient_ability_choices(feats),
+    ]))
     derived = calc_derived(
         req.char_class,
         req.level,
@@ -105,6 +111,7 @@ async def create_player_character(
         equipment=equipment_data or None,
         race=req.race,
         proficient_skills=chosen_skills,
+        proficient_saves=save_profs,
     )
 
     try:
@@ -138,7 +145,7 @@ async def create_player_character(
     try:
         validate_feat_prerequisites(
             feats,
-            ability_scores=req.ability_scores,
+            ability_scores=final_scores,
             derived=derived,
             known_spells=spell_choices["known_spells"],
             cantrips=spell_choices["cantrips"],

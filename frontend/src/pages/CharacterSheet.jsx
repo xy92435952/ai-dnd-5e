@@ -17,6 +17,11 @@ import {
   buildLevelUpSpellChoicePlan,
   buildLevelUpSubclassChoicePlan,
 } from '../utils/levelUpSpellChoices'
+import {
+  FEAT_ABILITY_OPTIONS,
+  featRequiresAbilityChoice,
+  normalizeFeatAbility,
+} from '../utils/characterCreate'
 
 // ── 常量 ──────────────────────────────────────────────────
 const ABILITY_LABELS = {
@@ -86,6 +91,7 @@ export default function CharacterSheet() {
     replacementNew: '',
     abilityIncreases: {},
     featName: '',
+    featAbility: '',
     subclassName: '',
     fightingStyleName: '',
     maneuvers: [],
@@ -152,6 +158,7 @@ export default function CharacterSheet() {
       replacementNew: '',
       abilityIncreases: {},
       featName: '',
+      featAbility: '',
       subclassName: '',
       fightingStyleName: '',
       maneuvers: [],
@@ -197,7 +204,7 @@ export default function CharacterSheet() {
       const nextIncreases = { ...current }
       if (nextValue > 0) nextIncreases[ability] = nextValue
       else delete nextIncreases[ability]
-      return { ...prev, abilityIncreases: nextIncreases, featName: '' }
+      return { ...prev, abilityIncreases: nextIncreases, featName: '', featAbility: '' }
     })
   }, [levelUpAbilityPlan])
 
@@ -212,7 +219,12 @@ export default function CharacterSheet() {
       Object.entries(levelUpSelections.abilityIncreases || {})
         .filter(([, value]) => Number(value) > 0),
     )
-    if (levelUpSelections.featName) payload.feat_choice = { name: levelUpSelections.featName }
+    if (levelUpSelections.featName) {
+      payload.feat_choice = { name: levelUpSelections.featName }
+      if (featRequiresAbilityChoice(payload.feat_choice)) {
+        payload.feat_choice.ability = normalizeFeatAbility(levelUpSelections.featAbility)
+      }
+    }
     else if (Object.keys(abilityIncreases).length) payload.ability_score_increases = abilityIncreases
     if (levelUpSelections.subclassName) payload.subclass_choice = levelUpSelections.subclassName
     if (levelUpSelections.fightingStyleName) payload.fighting_style_choice = levelUpSelections.fightingStyleName
@@ -666,10 +678,16 @@ function LevelUpPanel({
   const selectedAbilityTotal = Object.values(selections.abilityIncreases || {})
     .reduce((sum, value) => sum + (Number(value) || 0), 0)
   const selectedFeat = (featPlan?.featOptions || []).find(feat => feat.name === selections.featName)
+  const selectedFeatRequiresAbility = featRequiresAbilityChoice(selectedFeat || { name: selections.featName })
   const hasProgressionChoices = hasSpellChoices || hasCantripChoices || hasReplacementChoices
     || hasAbilityChoices || hasFeatChoices || hasSubclassChoices || hasFightingStyleChoices || hasManeuverChoices
   const hasCompletedAsiChoice = !hasAbilityChoices
-    || Boolean(selections.featName && selectedFeat && !selectedFeat.unavailableReason)
+    || Boolean(
+      selections.featName
+      && selectedFeat
+      && !selectedFeat.unavailableReason
+      && (!selectedFeatRequiresAbility || normalizeFeatAbility(selections.featAbility))
+    )
     || selectedAbilityTotal === abilityPlan.abilityCapacity
   const hasCompletedSubclassChoice = !hasSubclassChoices || Boolean(selections.subclassName)
   const hasCompletedFightingStyleChoice = !hasFightingStyleChoices || Boolean(selections.fightingStyleName)
@@ -841,6 +859,9 @@ function LevelUpPanel({
               onChange={(event) => onSelectionChange(prev => ({
                 ...prev,
                 featName: event.target.value,
+                featAbility: featRequiresAbilityChoice({ name: event.target.value })
+                  ? FEAT_ABILITY_OPTIONS[0].value
+                  : '',
                 abilityIncreases: {},
               }))}
               style={levelUpSelectStyle}
@@ -863,6 +884,24 @@ function LevelUpPanel({
             <p style={{ color: 'var(--red-light)', fontSize: 10, margin: '6px 0 0' }}>
               {selectedFeat.unavailableReason}
             </p>
+          )}
+          {selectedFeatRequiresAbility && (
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11, marginTop: 8 }}>
+              Ability
+              <select
+                aria-label="Feat ability choice"
+                value={normalizeFeatAbility(selections.featAbility)}
+                onChange={(event) => onSelectionChange(prev => ({
+                  ...prev,
+                  featAbility: event.target.value,
+                }))}
+                style={levelUpSelectStyle}
+              >
+                {FEAT_ABILITY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
           )}
           {selectedFeat?.desc && (
             <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '6px 0 0' }}>

@@ -7,11 +7,14 @@ import {
   applyRacialBonuses,
   buildCharacterCreateModel,
   buildStandardScores,
+  featRequiresAbilityChoice,
   formatHitDieLabel,
   getClassEnKey,
   getFeatPrerequisiteFailure,
+  getFeatSelectionFailure,
   getHitDieValue,
   getRaceEnKey,
+  normalizeFeatAbility,
   normalizeCharacterOptions,
   pruneUnavailableChoices,
 } from '../characterCreate'
@@ -142,6 +145,24 @@ describe('characterCreate helpers', () => {
     })).toBe('Requires spellcasting')
   })
 
+  it('requires an ability choice for Resilient selections', () => {
+    expect(featRequiresAbilityChoice({ name: 'Resilient' })).toBe(true)
+    expect(normalizeFeatAbility('Dexterity')).toBe('dex')
+    expect(getFeatSelectionFailure({
+      name: 'Resilient',
+      prereq: 'Choose one ability',
+    }, {
+      abilityScores: makeScores({ dex: 13 }),
+    })).toBe('Choose one ability')
+    expect(getFeatSelectionFailure({
+      name: 'Resilient',
+      ability: 'wis',
+      prereq: 'Choose one ability',
+    }, {
+      abilityScores: makeScores({ wis: 13 }),
+    })).toBe('')
+  })
+
   it('parses and formats hit dice from SRD class metadata', () => {
     expect(getHitDieValue('d10')).toBe(10)
     expect(getHitDieValue(12)).toBe(12)
@@ -162,6 +183,7 @@ describe('characterCreate helpers', () => {
       chosenSkills: ['运动', '察觉'],
       chosenCantrips: [],
       chosenSpells: [],
+      chosenFeats: [],
       isMultiplayerCreate: false,
     })
 
@@ -193,7 +215,36 @@ describe('characterCreate helpers', () => {
     expect(model.step2Valid).toBe(true)
     expect(model.step3Valid).toBe(true)
     expect(model.step4Valid).toBe(true)
+    expect(model.stepFeatValid).toBe(true)
     expect(model.showSubclass).toBe(true)
+  })
+
+  it('marks the feat step invalid when Resilient is missing its ability choice', () => {
+    const options = makeOptions({
+      feats: {
+        Resilient: { prereq: 'Choose one ability', desc: 'Ability +1 and save proficiency' },
+      },
+    })
+    const basePayload = {
+      form: makeForm(),
+      options,
+      scoreMethod: 'pointbuy',
+      scores: makeScores({ dex: 13 }),
+      standardAssigned: {},
+      chosenSkills: ['杩愬姩', '瀵熻'],
+      chosenCantrips: [],
+      chosenSpells: [],
+      isMultiplayerCreate: false,
+    }
+
+    expect(buildCharacterCreateModel({
+      ...basePayload,
+      chosenFeats: [{ name: 'Resilient' }],
+    }).stepFeatValid).toBe(false)
+    expect(buildCharacterCreateModel({
+      ...basePayload,
+      chosenFeats: [{ name: 'Resilient', ability: 'dex' }],
+    }).stepFeatValid).toBe(true)
   })
 
   it('merges current-level subclass expanded spells into starting spell choices', () => {
