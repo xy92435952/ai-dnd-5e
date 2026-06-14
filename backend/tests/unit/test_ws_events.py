@@ -259,6 +259,148 @@ class TestSampleEvents:
         assert projected["target_state"]["ready_action_failed"]["spell_name"] == "Magic Missile"
         assert projected["dice_result"]["target_state"]["ready_action_failed"]["target_id"] == "enemy-1"
 
+    def test_ready_action_result_projection_redacts_trigger_details_for_other_viewer(self):
+        from api.combat._shared import _project_combat_event_for_viewer
+
+        ready_result = {
+            "type": "ready_action",
+            "action_type": "spell",
+            "applied": True,
+            "trigger": "target_moves",
+            "trigger_match": "leaves_reach",
+            "condition_text": "When the guest crosses the hidden sigil, cast Magic Missile.",
+            "actor_id": "host-char",
+            "actor_name": "Ready Hero",
+            "target_id": "guest-char",
+            "target_name": "Guest",
+            "spell_name": "Magic Missile",
+            "damage": 8,
+            "slot_already_consumed": True,
+            "slot_key": "1st",
+            "slots_remaining": 0,
+            "movement_stop": {"applied": True, "to": {"x": 4, "y": 5}},
+            "turn_state": {
+                "reaction_used": True,
+                "ready_action_resolved": {
+                    "trigger": "target_moves",
+                    "trigger_match": "leaves_reach",
+                    "condition_text": "When the guest crosses the hidden sigil, cast Magic Missile.",
+                    "slot_key": "1st",
+                    "damage": 8,
+                },
+                "ready_action_failed": {
+                    "type": "ready_action_failed",
+                    "actor_id": "host-char",
+                    "actor_name": "Ready Hero",
+                    "target_id": "guest-char",
+                    "condition_text": "When the guest crosses the hidden sigil, cast Magic Missile.",
+                },
+            },
+        }
+
+        projected = _project_combat_event_for_viewer(
+            {
+                "type": "entity_moved",
+                "entity_id": "guest-char",
+                "position": {"x": 4, "y": 5},
+                "ready_action_results": [ready_result],
+            },
+            viewer_character_id="guest-char",
+        )
+
+        result = projected["ready_action_results"][0]
+        assert result["actor_id"] == "host-char"
+        assert result["actor_name"] == "Ready Hero"
+        assert result["spell_name"] == "Magic Missile"
+        assert result["damage"] == 8
+        assert result["movement_stop"] == {"applied": True, "to": {"x": 4, "y": 5}}
+        assert result["turn_state"]["ready_action_resolved"]["damage"] == 8
+        assert result["turn_state"]["ready_action_failed"] == {
+            "type": "ready_action_failed",
+            "redacted": True,
+            "visibility": "other_character",
+            "actor_id": "host-char",
+            "actor_name": "Ready Hero",
+        }
+        payload = json.dumps(result)
+        assert "hidden sigil" not in payload
+        assert "condition_text" not in payload
+        assert "trigger_match" not in payload
+        assert "slot_key" not in payload
+        assert "slots_remaining" not in payload
+
+    def test_ready_action_result_projection_keeps_trigger_details_for_actor(self):
+        from api.combat._shared import _project_combat_event_for_viewer
+
+        ready_result = {
+            "type": "ready_action",
+            "action_type": "spell",
+            "applied": True,
+            "trigger": "target_moves",
+            "trigger_match": "leaves_reach",
+            "condition_text": "When the guest crosses the hidden sigil, cast Magic Missile.",
+            "actor_id": "host-char",
+            "actor_name": "Ready Hero",
+            "target_id": "guest-char",
+            "spell_name": "Magic Missile",
+            "slot_already_consumed": True,
+            "slot_key": "1st",
+            "slots_remaining": 0,
+            "turn_state": {
+                "ready_action_resolved": {
+                    "condition_text": "When the guest crosses the hidden sigil, cast Magic Missile.",
+                    "slot_key": "1st",
+                },
+            },
+        }
+
+        projected = _project_combat_event_for_viewer(
+            {
+                "type": "entity_moved",
+                "entity_id": "guest-char",
+                "position": {"x": 4, "y": 5},
+                "ready_action_results": [ready_result],
+            },
+            viewer_character_id="host-char",
+        )
+
+        result = projected["ready_action_results"][0]
+        assert result["condition_text"] == "When the guest crosses the hidden sigil, cast Magic Missile."
+        assert result["trigger_match"] == "leaves_reach"
+        assert result["slot_key"] == "1st"
+        assert result["turn_state"]["ready_action_resolved"]["condition_text"] == "When the guest crosses the hidden sigil, cast Magic Missile."
+
+    def test_turn_state_projection_redacts_ready_action_resolved_for_other_viewer(self):
+        from api.combat._shared import _project_turn_states_for_viewer
+
+        turn_states = {
+            "host-char": {
+                "reaction_used": True,
+                "ready_action_resolved": {
+                    "trigger": "target_moves",
+                    "trigger_match": "leaves_reach",
+                    "condition_text": "When the guest crosses the hidden sigil, cast Magic Missile.",
+                    "slot_already_consumed": True,
+                    "slot_key": "1st",
+                    "slots_remaining": 0,
+                    "spell_name": "Magic Missile",
+                    "damage": 8,
+                },
+            },
+        }
+
+        projected = _project_turn_states_for_viewer(turn_states, viewer_character_id="guest-char")
+        resolved = projected["host-char"]["ready_action_resolved"]
+        assert resolved == {
+            "spell_name": "Magic Missile",
+            "damage": 8,
+        }
+        assert "hidden sigil" not in json.dumps(projected)
+
+        own = _project_turn_states_for_viewer(turn_states, viewer_character_id="host-char")
+        assert own["host-char"]["ready_action_resolved"]["condition_text"] == "When the guest crosses the hidden sigil, cast Magic Missile."
+        assert own["host-char"]["ready_action_resolved"]["slot_key"] == "1st"
+
     def test_combat_update_carries_ai_turn_action_payload(self):
         attack_result = {
             "d20": 16,

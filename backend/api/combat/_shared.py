@@ -275,6 +275,10 @@ def _project_turn_states_for_viewer(
         for key in ("ready_action", "ready_action_expired", "ready_action_failed"):
             if key in public_state:
                 public_state[key] = _redacted_ready_action_payload(public_state.get(key), key)
+        if "ready_action_resolved" in public_state:
+            public_state["ready_action_resolved"] = _redact_ready_action_result_payload(
+                public_state.get("ready_action_resolved")
+            )
         projected[entity_id] = public_state
     return projected
 
@@ -293,6 +297,31 @@ def _redacted_ready_action_payload(value, kind: str) -> dict:
         "actor_id": value.get("actor_id"),
         "actor_name": value.get("actor_name"),
     }
+
+
+def _redact_ready_action_result_payload(value):
+    private_keys = {
+        "condition_text",
+        "trigger",
+        "trigger_match",
+        "slot_already_consumed",
+        "slot_key",
+        "slots_remaining",
+        "concentration_spell_name",
+    }
+    if isinstance(value, dict):
+        clean = {}
+        for key, child in value.items():
+            if key in private_keys:
+                continue
+            if key in {"ready_action", "ready_action_expired", "ready_action_failed"} and isinstance(child, dict):
+                clean[key] = _redacted_ready_action_payload(child, key)
+                continue
+            clean[key] = _redact_ready_action_result_payload(child)
+        return clean
+    if isinstance(value, list):
+        return [_redact_ready_action_result_payload(item) for item in value]
+    return value
 
 
 def _inject_current_entity_id(payload: dict, combat: CombatState | None) -> dict:
@@ -405,6 +434,24 @@ def _project_combat_event_for_viewer(
                 projected["special_action"] = projected["dice_result"]
             elif projected.get("special_action"):
                 projected["special_action"] = None
+
+    ready_action_results = projected.get("ready_action_results")
+    if isinstance(ready_action_results, list):
+        clean_results = []
+        changed = False
+        for result in ready_action_results:
+            if not isinstance(result, dict):
+                clean_results.append(result)
+                continue
+            result_actor_id = result.get("actor_id")
+            if result_actor_id and not _viewer_matches_character(viewer_character_id, result_actor_id):
+                clean_results.append(_redact_ready_action_result_payload(result))
+                changed = True
+            else:
+                clean_results.append(result)
+        if changed:
+            projected = dict(projected)
+            projected["ready_action_results"] = clean_results
 
     inspect_payload = projected.get("inspect_result")
     if (
