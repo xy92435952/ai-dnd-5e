@@ -42,6 +42,9 @@ export function useCombatFlowHandlers({
     setPlayerClass,
     setPlayerLevel,
     setClassResources,
+    classResources,
+    useLuckyAttack,
+    setUseLuckyAttack,
     setPlayerSubclass,
     setPlayerSubclassEffects,
     playerSubclassEffects,
@@ -164,6 +167,10 @@ export function useCombatFlowHandlers({
     setSmitePrompt,
     setCombatOver,
     prediction,
+    classResources,
+    useLuckyAttack,
+    setUseLuckyAttack,
+    setClassResources,
   })
 
   const handleCastSpell = useCombatSpellFlow({

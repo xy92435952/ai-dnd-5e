@@ -47,6 +47,7 @@ import MultiplayerTableNotice from '../components/adventure/MultiplayerTableNoti
 import MultiplayerTimelinePanel from '../components/adventure/MultiplayerTimelinePanel'
 import { buildDialogueQueue as buildDialogueQueueFromText } from '../utils/dialogue'
 import { getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
+import { updateLuckyPointsRemaining } from '../utils/lucky'
 
 export default function Adventure() {
   const { sessionId } = useParams()
@@ -144,6 +145,13 @@ export default function Adventure() {
     onLoaded: handleSessionLoaded,
     onError: (e) => setError(e.message),
   })
+  const handleLuckySpent = useCallback((remaining) => {
+    setPlayer(prev => updateLuckyPointsRemaining(prev, remaining))
+    setSession(prev => prev ? {
+      ...prev,
+      player: updateLuckyPointsRemaining(prev.player, remaining),
+    } : prev)
+  }, [setPlayer, setSession])
 
   // 5. 多人 room 状态（只在 session 明确为多人时加载，单人 Demo 不产生 403 噪音）
   const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId, {
@@ -156,6 +164,7 @@ export default function Adventure() {
     playerId: player?.id,
     player,
     addLog,
+    onLuckySpent: handleLuckySpent,
   })
 
   // 7. 把 DM 响应拼成剧场队列（HTTP 响应和 WS dm_responded 都用这个）

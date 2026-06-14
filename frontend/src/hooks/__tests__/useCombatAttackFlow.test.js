@@ -119,6 +119,84 @@ describe('useCombatAttackFlow', () => {
     expect(deps.setSelectedTarget).toHaveBeenCalledWith(null)
   })
 
+  it('spends Lucky on the next attack roll when enabled', async () => {
+    const setUseLuckyAttack = vi.fn()
+    const setClassResources = vi.fn()
+    rollDice3DMock
+      .mockResolvedValueOnce({ total: 2, rolls: [2] })
+      .mockResolvedValueOnce({ total: 18, rolls: [18] })
+    attackRollMock.mockResolvedValueOnce({
+      d20: 18,
+      attack_bonus: 5,
+      attack_total: 23,
+      target_ac: 12,
+      hit: false,
+      is_crit: false,
+      is_fumble: false,
+      attacker_name: 'Hero',
+      target_name: 'Goblin',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8+3',
+      pending_attack_id: 'pending-lucky',
+      turn_state: { action_used: true, attacks_made: 1 },
+      narration: 'Hero misses after spending luck.',
+      lucky: {
+        spent: true,
+        d20_before: 2,
+        d20_after: 18,
+        lucky_points_remaining: 0,
+      },
+    })
+    const { result, deps } = renderAttackFlow({
+      classResources: { lucky_points_remaining: 1 },
+      useLuckyAttack: true,
+      setUseLuckyAttack,
+      setClassResources,
+    })
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20, 1)
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(2, 20)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 20,
+      result: 18,
+      label: 'Lucky reroll',
+      count: 1,
+    })
+    expect(attackRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'enemy-1',
+      'ranged',
+      false,
+      2,
+      '2:0:char-1',
+      'Longbow',
+      null,
+      { useLucky: true, luckyD20Value: 18 },
+    )
+    expect(setUseLuckyAttack).toHaveBeenCalledWith(false)
+    expect(setClassResources).toHaveBeenCalledWith(expect.any(Function))
+    expect(setClassResources.mock.calls[0][0]({ lucky_points_remaining: 1 })).toEqual({
+      lucky_points_remaining: 0,
+    })
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: {
+        attack: expect.objectContaining({
+          lucky: expect.objectContaining({
+            spent: true,
+            d20_before: 2,
+            d20_after: 18,
+          }),
+        }),
+      },
+    }))
+  })
+
   it('rolls two d20s for advantage and forwards both raw dice', async () => {
     rollDice3DMock.mockResolvedValueOnce({ total: 22, rolls: [4, 18] })
     attackRollMock.mockResolvedValueOnce({

@@ -95,6 +95,54 @@ describe('useSkillCheck', () => {
     expect(result.current.checkRolling).toBe(false)
   })
 
+  it('rollPending 开启 Lucky 时额外掷 d20 并提交消费字段', async () => {
+    const onLuckySpent = vi.fn()
+    rollDice3D
+      .mockResolvedValueOnce({ total: 2, rolls: [2] })
+      .mockResolvedValueOnce({ total: 18, rolls: [18] })
+    gameApi.skillCheck.mockResolvedValue({
+      d20: 18,
+      modifier: 4,
+      total: 22,
+      success: true,
+      proficient: true,
+      lucky: {
+        spent: true,
+        d20_before: 2,
+        d20_after: 18,
+        lucky_points_remaining: 0,
+      },
+    })
+
+    const { result, addLog } = createHook({
+      player: { class_resources: { lucky_points_remaining: 1 } },
+      onLuckySpent,
+    })
+    act(() => { result.current.setPendingCheck({ check_type: '运动', dc: 15, use_lucky: true }) })
+
+    await act(async () => { await result.current.rollPending() })
+
+    expect(rollDice3D).toHaveBeenNthCalledWith(1, 20, 1)
+    expect(rollDice3D).toHaveBeenNthCalledWith(2, 20)
+    expect(gameApi.skillCheck).toHaveBeenCalledWith({
+      session_id:   'sess-1',
+      character_id: 'char-1',
+      skill:        '运动',
+      dc:           15,
+      d20_value:    2,
+      second_d20_value: null,
+      use_lucky: true,
+      lucky_d20_value: 18,
+    })
+    expect(onLuckySpent).toHaveBeenCalledWith(0)
+    expect(addLog).toHaveBeenCalledWith(
+      'dice',
+      expect.stringContaining('Lucky 2->18'),
+      'dice',
+      expect.objectContaining({ dice_result: expect.any(Object) }),
+    )
+  })
+
   it('自然 20：触发 crit 音效', async () => {
     rollDice3D.mockResolvedValue({ total: 20 })
     gameApi.skillCheck.mockResolvedValue({

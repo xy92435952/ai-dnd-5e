@@ -22,6 +22,7 @@ import { useGameStore } from '../store/gameStore'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
+import { getLuckyPointsRemaining } from '../utils/lucky'
 
 function needsSecondD20(check) {
   return Boolean(check?.advantage || check?.disadvantage)
@@ -49,7 +50,13 @@ function formatD20Roll(result) {
   return `${d20}/${result.other_roll}`
 }
 
-export function useSkillCheck({ sessionId, playerId, player = null, addLog }) {
+function formatLuckyDetail(result) {
+  const lucky = result?.lucky
+  if (!lucky?.spent) return ''
+  return ` [Lucky ${lucky.d20_before}->${lucky.d20_after} · ${lucky.lucky_points_remaining}]`
+}
+
+export function useSkillCheck({ sessionId, playerId, player = null, addLog, onLuckySpent = null }) {
   const showDice = useGameStore(s => s.showDice)
 
   const [pendingCheck, setPendingCheck] = useState(null)
@@ -77,6 +84,13 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog }) {
         label: `${pendingCheck.check_type}检定`,
         count: hasAdvantageState ? 2 : 1,
       })
+      const useLucky = Boolean(pendingCheck.use_lucky) && getLuckyPointsRemaining(player) > 0
+      let luckyD20 = null
+      if (useLucky) {
+        const luckyRoll = await rollDice3D(20)
+        luckyD20 = luckyRoll.total
+        showDice({ faces: 20, result: luckyD20, label: 'Lucky reroll', count: 1 })
+      }
 
       const result = await gameApi.skillCheck({
         session_id:   sessionId,
@@ -85,7 +99,11 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog }) {
         dc:           pendingCheck.dc,
         d20_value:    d20,
         second_d20_value: secondD20,
+        ...(useLucky ? { use_lucky: true, lucky_d20_value: luckyD20 } : {}),
       })
+      if (result.lucky?.spent && typeof onLuckySpent === 'function') {
+        onLuckySpent(result.lucky.lucky_points_remaining)
+      }
 
       const summary =
         `${pendingCheck.check_type}检定 (DC ${pendingCheck.dc})：` +
@@ -93,6 +111,7 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog }) {
         `${result.proficient ? ' [熟练]' : ''}` +
         `${result.disadvantage ? ' [劣势]' : ''}` +
         `${result.advantage ? ' [优势]' : ''}` +
+        `${formatLuckyDetail(result)}` +
         ` = ${result.total} → ` +
         `${result.success ? '✅ 成功' : '❌ 失败'}`
       addLog('dice', summary, 'dice', { dice_result: result })
@@ -120,7 +139,7 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog }) {
     } finally {
       setCheckRolling(false)
     }
-  }, [pendingCheck, checkRolling, sessionId, playerId, player, addLog, showDice])
+  }, [pendingCheck, checkRolling, sessionId, playerId, player, addLog, onLuckySpent, showDice])
 
   return {
     pendingCheck,

@@ -1,5 +1,6 @@
 import React from 'react'
 import { getAttackWeaponOptions } from '../../utils/combatWeapons'
+import { getLuckyPointsRemaining } from '../../utils/lucky'
 
 function getTurnControlReason({ isProcessing, isPlayerTurn, syncBlocked }) {
   if (syncBlocked) return '等待战斗同步恢复'
@@ -25,6 +26,8 @@ export default function CombatHudControls({
   moveMode,
   isRanged,
   selectedWeaponName = '',
+  classResources = {},
+  useLuckyAttack = false,
   character,
   turnState,
   onEndTurn,
@@ -35,6 +38,7 @@ export default function CombatHudControls({
   onToggleMove,
   onToggleRanged,
   onSelectedWeaponChange,
+  onToggleLuckyAttack,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -45,6 +49,8 @@ export default function CombatHudControls({
   const actionDisabled = Boolean(disabledReason)
   const delayDisabled = Boolean(delayDisabledReason)
   const weaponOptions = getAttackWeaponOptions(character, isRanged)
+  const luckyRemaining = getLuckyPointsRemaining(classResources)
+  const canToggleLuckyAttack = luckyRemaining > 0 && !actionDisabled && typeof onToggleLuckyAttack === 'function'
   const hasDelayTargets = delayTurnOptions.length > 0
   const delayTitle = hasDelayTargets
     ? '按所选位置延迟当前回合'
@@ -104,6 +110,18 @@ export default function CombatHudControls({
           title={disabledReason || '切换远程攻击'}>
           {isRanged ? '✓ 远程' : '⊙ 远程'}
         </button>
+        {luckyRemaining > 0 && (
+          <button
+            className={useLuckyAttack ? 'btn-gold' : 'btn-ghost'}
+            style={{ fontSize: 10, padding: '5px 8px' }}
+            onClick={onToggleLuckyAttack}
+            disabled={!canToggleLuckyAttack}
+            aria-pressed={Boolean(useLuckyAttack)}
+            title={disabledReason || `Lucky points remaining: ${luckyRemaining}`}
+          >
+            Lucky {useLuckyAttack ? 'ON' : 'OFF'} · {luckyRemaining}
+          </button>
+        )}
         <select
           aria-label="攻击武器"
           value={weaponOptions.some(weapon => weapon.name === selectedWeaponName) ? selectedWeaponName : ''}

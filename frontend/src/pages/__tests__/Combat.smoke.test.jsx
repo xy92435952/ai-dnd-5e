@@ -714,7 +714,7 @@ describe('Combat render smoke', () => {
     fireEvent.click(getAttackSlot())
 
     await waitFor(() => {
-      expect(attackRollMock).toHaveBeenCalledWith('sess-1', 'guest-char', 'enemy-1', 'melee', false, 10, '2:1:guest-char', null)
+      expect(attackRollMock).toHaveBeenCalledWith('sess-1', 'guest-char', 'enemy-1', 'melee', false, 10, '2:1:guest-char', null, null)
     })
 
     await waitFor(() => {

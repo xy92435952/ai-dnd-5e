@@ -32,6 +32,8 @@ export default function CombatHud({
   helpMode,
   isRanged,
   selectedWeaponName,
+  classResources = {},
+  useLuckyAttack = false,
   onSessionChange,
   onTurnStateChange,
   onError,
@@ -44,6 +46,7 @@ export default function CombatHud({
   onToggleMove,
   onToggleRanged,
   onSelectedWeaponChange,
+  onToggleLuckyAttack,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -128,6 +131,8 @@ export default function CombatHud({
           moveMode={moveMode}
           isRanged={isRanged}
           selectedWeaponName={selectedWeaponName}
+          classResources={classResources}
+          useLuckyAttack={useLuckyAttack}
           character={controlledCharacter || session?.player}
           turnState={turnState}
           onEndTurn={onEndTurn}
@@ -136,6 +141,7 @@ export default function CombatHud({
           onToggleMove={onToggleMove}
           onToggleRanged={onToggleRanged}
           onSelectedWeaponChange={onSelectedWeaponChange}
+          onToggleLuckyAttack={onToggleLuckyAttack}
           onOpenCharacter={onOpenCharacter}
           onReturnAdventure={onReturnAdventure}
           onForceEndCombat={onForceEndCombat}

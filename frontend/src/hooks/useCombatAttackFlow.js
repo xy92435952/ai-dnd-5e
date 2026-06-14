@@ -12,6 +12,7 @@ import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { selectD20Roll } from '../utils/d20Roll'
+import { getLuckyPointsRemaining } from '../utils/lucky'
 
 function ignoreOptionalEffect(fn) {
   try {
@@ -76,6 +77,7 @@ function buildAttackLogDice(atkResult, hit) {
     advantage_sources: atkResult.advantage_sources || [],
     disadvantage_sources: disadvantageSources,
     roll_state: atkResult.roll_state,
+    ...(atkResult.lucky ? { lucky: atkResult.lucky } : {}),
     ...(atkResult.defender_interception
       ? {
           defender_interception: atkResult.defender_interception,
@@ -105,6 +107,10 @@ export function useCombatAttackFlow({
   setSmitePrompt,
   setCombatOver,
   prediction = null,
+  classResources = {},
+  useLuckyAttack = false,
+  setUseLuckyAttack = null,
+  setClassResources = null,
 }) {
   return useCallback(async () => {
     if (!selectedTarget || !canActThisTurn || !isPlayerTurn(combat) || isProcessing) return
@@ -123,11 +129,31 @@ export function useCombatAttackFlow({
       const d20Roll = await rollDice3D(20, d20Plan.count)
       const { d20, secondD20, selected } = selectD20Roll(d20Roll, d20Plan.mode)
       showDice({ faces: 20, result: selected ?? d20, label: d20Plan.label, count: d20Plan.count })
+      const luckyEnabled = Boolean(useLuckyAttack) && getLuckyPointsRemaining(classResources) > 0
+      let luckyD20 = null
+      if (luckyEnabled) {
+        const luckyRoll = await rollDice3D(20)
+        luckyD20 = luckyRoll.total
+        showDice({ faces: 20, result: luckyD20, label: 'Lucky reroll', count: 1 })
+      } else if (useLuckyAttack && typeof setUseLuckyAttack === 'function') {
+        setUseLuckyAttack(false)
+      }
 
-      const atkResult = await gameApi.attackRoll(
+      const attackArgs = [
         sessionId, playerId, selectedTarget,
         isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat), selectedWeaponName || null, secondD20,
-      )
+      ]
+      if (luckyEnabled) attackArgs.push({ useLucky: true, luckyD20Value: luckyD20 })
+      const atkResult = await gameApi.attackRoll(...attackArgs)
+      if (atkResult.lucky?.spent) {
+        if (typeof setClassResources === 'function') {
+          setClassResources(prev => ({
+            ...(prev || {}),
+            lucky_points_remaining: atkResult.lucky.lucky_points_remaining,
+          }))
+        }
+        if (typeof setUseLuckyAttack === 'function') setUseLuckyAttack(false)
+      }
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
       if (atkResult.weapon_resource) {
@@ -230,6 +256,7 @@ export function useCombatAttackFlow({
     }
   }, [
     addLog,
+    classResources,
     combat,
     canActThisTurn,
     isPlayerTurn,
@@ -244,10 +271,13 @@ export function useCombatAttackFlow({
     setCombat,
     setCombatOver,
     setError,
+    setClassResources,
     setIsProcessing,
     setSelectedTarget,
     setSmitePrompt,
     setTurnState,
+    setUseLuckyAttack,
     showDice,
+    useLuckyAttack,
   ])
 }

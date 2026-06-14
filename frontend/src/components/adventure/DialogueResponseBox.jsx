@@ -28,6 +28,8 @@ export default function DialogueResponseBox({
         checkRolling={checkRolling}
         onDiceRoll={onDiceRoll}
         disabled={disabled}
+        player={player}
+        onToggleLucky={() => setPendingCheck(prev => prev ? { ...prev, use_lucky: !prev.use_lucky } : prev)}
       />
     )
   }

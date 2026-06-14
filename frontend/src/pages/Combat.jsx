@@ -89,6 +89,8 @@ export default function Combat() {
     maneuverModalOpen,
     playerSubclassEffects,
     classResources,
+    useLuckyAttack,
+    setUseLuckyAttack,
     reactionPrompt,
     legendaryActionPrompt,
     lairActionPrompt,
@@ -381,6 +383,9 @@ export default function Combat() {
         onToggleMove={() => setMoveMode(m => !m)}
         onToggleRanged={() => setIsRanged(r => !r)}
         onSelectedWeaponChange={setSelectedWeaponName}
+        classResources={classResources}
+        useLuckyAttack={useLuckyAttack}
+        onToggleLuckyAttack={() => setUseLuckyAttack(value => !value)}
         onOpenCharacter={() => playerId && navigate(`/character/${playerId}?sessionId=${sessionId}`)}
         onReturnAdventure={returnToAdventure}
         onForceEndCombat={forceEndCombat}

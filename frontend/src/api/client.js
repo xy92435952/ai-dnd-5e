@@ -97,7 +97,7 @@ export const gameApi = {
 
   /**
    * 技能检定（本地掷骰，联动 needs_check）
-   * @param {{session_id:string, character_id:string, skill:string, dc:number, d20_value?:number}} data
+   * @param {{session_id:string, character_id:string, skill:string, dc:number, d20_value?:number, second_d20_value?:number|null, use_lucky?:boolean, lucky_d20_value?:number|null}} data
    * @returns {Promise<SkillCheckResult>}
    */
   skillCheck: (data) => api.post('/game/skill-check', data),
@@ -150,7 +150,7 @@ export const gameApi = {
       is_offhand:  isOffhand,
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
-  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null, weaponName = null, secondD20Value = null) =>
+  attackRoll: (sessionId, entityId, targetId, actionType = 'melee', isOffhand = false, d20Value = null, expectedTurnToken = null, weaponName = null, secondD20Value = null, options = {}) =>
     api.post(`/game/combat/${sessionId}/attack-roll`, {
       entity_id:   entityId,
       target_id:   targetId,
@@ -159,6 +159,8 @@ export const gameApi = {
       ...(weaponName ? { weapon_name: weaponName } : {}),
       ...(d20Value != null ? { d20_value: d20Value } : {}),
       ...(secondD20Value != null ? { second_d20_value: secondD20Value } : {}),
+      ...(options.useLucky ? { use_lucky: true } : {}),
+      ...(options.luckyD20Value != null ? { lucky_d20_value: options.luckyD20Value } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   damageRoll: (sessionId, pendingAttackId, damageValues = null) =>

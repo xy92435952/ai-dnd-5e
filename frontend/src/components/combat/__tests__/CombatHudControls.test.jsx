@@ -54,6 +54,7 @@ function renderControls(overrides = {}) {
     onToggleMove: vi.fn(),
     onToggleRanged: vi.fn(),
     onSelectedWeaponChange: vi.fn(),
+    onToggleLuckyAttack: vi.fn(),
     onOpenCharacter: vi.fn(),
     onReturnAdventure: vi.fn(),
     onForceEndCombat: vi.fn(),
@@ -139,6 +140,19 @@ describe('CombatHudControls', () => {
     expect(selector).toHaveValue('Longbow')
     expect(screen.getByRole('option', { name: '长弓 · 弹药 7' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /轻弩/ })).not.toBeInTheDocument()
+  })
+
+  it('renders a Lucky attack toggle when points remain', () => {
+    const props = renderControls({
+      classResources: { lucky_points_remaining: 2 },
+      useLuckyAttack: true,
+    })
+
+    const lucky = screen.getByRole('button', { name: 'Lucky ON · 2' })
+    expect(lucky).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(lucky)
+    expect(props.onToggleLuckyAttack).toHaveBeenCalledTimes(1)
   })
 
   it('submits delay placement after a selected later combatant', () => {
