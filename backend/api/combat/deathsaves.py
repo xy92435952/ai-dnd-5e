@@ -108,12 +108,25 @@ async def death_saving_throw(
             result = {"d20": d20, "outcome": "failure", "failures": saves["failures"], "dead": False}
         char.death_saves = saves
 
+    target_state = _build_death_save_target_state(char, req.character_id)
+    dice_result = {
+        "type": "death_save",
+        **result,
+        "character_id": req.character_id,
+        "character_name": char.name,
+        "target_name": char.name,
+        "hp_current": char.hp_current,
+        "death_saves": char.death_saves,
+        "life_state": target_state["life_state"],
+        "target_state": target_state,
+    }
+
     db.add(GameLog(
         session_id=session_id,
         role="system",
         content=msg,
         log_type="dice",
-        dice_result=result,
+        dice_result=dice_result,
     ))
     await db.commit()
 
@@ -127,27 +140,40 @@ async def death_saving_throw(
                 actor_id=str(req.character_id),
                 actor_name=char.name,
                 narration=msg,
-                death_save=result,
+                action="death_save",
+                target_id=str(req.character_id),
+                target_name=char.name,
+                target_state=target_state,
+                death_save=dice_result,
+                dice_result=dice_result,
+                special_action=dice_result,
             ),
             db=db,
         )
 
-    target_state = {
-        "target_id": req.character_id,
-        "character_id": req.character_id,
-        "hp_current": char.hp_current,
-        "new_hp": char.hp_current,
-        "death_saves": char.death_saves,
-        "conditions": char.conditions or [],
-        "life_state": get_life_state(char),
-    }
-
     return {
+        "type": "death_save",
         "character_id": req.character_id,
         "character_name": char.name,
         "death_saves": char.death_saves,
         "hp_current": char.hp_current,
         "life_state": get_life_state(char),
         "target_state": target_state,
+        "dice_result": dice_result,
+        "special_action": dice_result,
         **result,
+    }
+
+
+def _build_death_save_target_state(char: Character, character_id: str) -> dict:
+    return {
+        "target_id": character_id,
+        "character_id": character_id,
+        "target_name": char.name,
+        "character_name": char.name,
+        "hp_current": char.hp_current,
+        "new_hp": char.hp_current,
+        "death_saves": char.death_saves,
+        "conditions": char.conditions or [],
+        "life_state": get_life_state(char),
     }

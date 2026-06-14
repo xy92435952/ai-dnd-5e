@@ -5,6 +5,10 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from services.character_roster import CharacterRoster
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_charmed_service import (
+    CHARMED_HARMFUL_SPELL_ERROR,
+    charmed_harmful_spell_target_id,
+)
 from services.combat_concentration_effect_service import set_concentration_with_cleanup
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.combat_service import CombatService
@@ -156,6 +160,15 @@ async def cast_direct_spell(
     )
     if spell_type == "damage" and not is_aoe and not resolved_target_ids:
         raise CombatDirectSpellError(400, "请选择一个法术目标")
+    blocked_charmer_id = charmed_harmful_spell_target_id(
+        getattr(caster, "conditions", None) or [],
+        getattr(caster, "condition_durations", None) or {},
+        spell_name=spell_name,
+        spell=spell,
+        target_ids=resolved_target_ids,
+    )
+    if blocked_charmer_id:
+        raise CombatDirectSpellError(400, CHARMED_HARMFUL_SPELL_ERROR)
     await collect_spell_target_names(db, resolved_target_ids, enemies, session=session)
     positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
     validate_spell_range(

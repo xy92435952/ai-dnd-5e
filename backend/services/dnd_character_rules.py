@@ -560,7 +560,10 @@ def get_saving_throw_auto_fail_reasons(character: dict | object | None, ability:
 
 def has_speed_zero_condition(character: dict | object | None) -> bool:
     """Return whether current conditions reduce a creature's speed to 0."""
-    return any(condition in SPEED_ZERO_CONDITIONS for condition in _condition_list(character))
+    return (
+        any(condition in SPEED_ZERO_CONDITIONS for condition in _condition_list(character))
+        or has_exhaustion_effect(character, "speed_zero")
+    )
 
 
 def _set_death_saves(character: object, death_saves: dict) -> None:

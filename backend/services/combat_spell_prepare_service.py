@@ -2,6 +2,10 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_charmed_service import (
+    CHARMED_HARMFUL_SPELL_ERROR,
+    charmed_harmful_spell_target_id,
+)
 from services.combat_pending_spell_service import build_pending_spell, store_pending_spell
 from services.combat_spell_roll_service import (
     CombatSpellRollError,
@@ -49,8 +53,10 @@ async def prepare_spell_roll(
     spell: dict[str, Any],
     target_id: str | None,
     target_ids: list[str] | None,
+    aoe_center: dict[str, Any] | None = None,
     enemies: list[dict[str, Any]],
     d20_value: int | None = None,
+    second_d20_value: int | None = None,
     default_turn_state: dict[str, Any],
     get_turn_state: Callable[[Any, str], dict[str, Any]],
     consume_slot: Callable[[dict, int], tuple[dict, str | None]],
@@ -85,6 +91,15 @@ async def prepare_spell_roll(
     raw_ids = collect_spell_target_ids(effective_target_id, effective_target_ids, enemies, is_aoe=is_aoe)
     if spell.get("type") == "damage" and not is_aoe and not raw_ids:
         raise CombatSpellRollError(400, "请选择一个法术目标")
+    blocked_charmer_id = charmed_harmful_spell_target_id(
+        getattr(caster, "conditions", None) or [],
+        getattr(caster, "condition_durations", None) or {},
+        spell_name=spell_name,
+        spell=spell,
+        target_ids=raw_ids,
+    )
+    if blocked_charmer_id:
+        raise CombatSpellRollError(400, CHARMED_HARMFUL_SPELL_ERROR)
     target_names = await collect_spell_target_names(db, raw_ids, enemies, session=session)
 
     positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
@@ -178,6 +193,7 @@ async def prepare_spell_roll(
         target_ids=raw_ids,
         is_cantrip=is_cantrip,
         is_aoe=is_aoe,
+        aoe_center=aoe_center,
         spell_type=spell["type"],
         action_cost=action_cost,
         attack_roll=attack_roll_result,

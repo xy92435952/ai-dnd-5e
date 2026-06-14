@@ -29,6 +29,10 @@ class DamageExtraResult:
     sneak_attack_applied: bool = False
     sneak_attack_damage: int = 0
     sneak_attack_dice: str = ""
+    damage_before_resistance: int | None = None
+    damage_after_resistance: int | None = None
+    resistance_applied: bool = False
+    resistance_sources: tuple[str, ...] = ()
 
 
 SUSTAINED_DAMAGE_EFFECTS = (
@@ -465,6 +469,17 @@ def resolve_damage_extras(
         enemies=enemies,
         apply_damage_with_resistance=apply_damage_with_resistance,
     )
+    resistance_applied = final_damage != sneak.damage
+    resistance_sources = (
+        _target_resistance_sources(
+            damage_type=damage_type,
+            target_id=target_id,
+            target_is_enemy=target_is_enemy,
+            enemies=enemies,
+        )
+        if resistance_applied
+        else ()
+    )
     sustained = apply_sustained_damage_effects(
         damage=final_damage,
         extra_damage_notes=sneak.extra_damage_notes,
@@ -495,4 +510,29 @@ def resolve_damage_extras(
         sneak_attack_applied=sneak.sneak_attack_applied,
         sneak_attack_damage=sneak.sneak_attack_damage,
         sneak_attack_dice=sneak.sneak_attack_dice,
+        damage_before_resistance=sneak.damage,
+        damage_after_resistance=final_damage,
+        resistance_applied=resistance_applied,
+        resistance_sources=resistance_sources,
     )
+
+
+def _target_resistance_sources(
+    *,
+    damage_type: str,
+    target_id: str,
+    target_is_enemy: bool,
+    enemies: list[dict[str, Any]],
+) -> tuple[str, ...]:
+    if not target_is_enemy or not damage_type:
+        return ()
+    enemy_data = next((enemy for enemy in enemies if enemy.get("id") == target_id), {})
+    normalized_type = str(damage_type).strip().lower()
+    for key in ("resistances", "immunities", "vulnerabilities"):
+        values = {
+            str(value).strip().lower()
+            for value in (enemy_data.get(key) or [])
+        }
+        if normalized_type in values:
+            return (damage_type,)
+    return (damage_type,)

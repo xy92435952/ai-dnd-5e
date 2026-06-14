@@ -29,25 +29,49 @@ def validate_attack_turn_state(turn_state: dict, *, max_attacks: int, is_offhand
     return turn_state
 
 
-def apply_d20_override(attack_roll: dict, *, d20_value: int | None, crit_threshold: int) -> dict:
+def apply_d20_override(
+    attack_roll: dict,
+    *,
+    d20_value: int | None,
+    crit_threshold: int,
+    second_d20_value: int | None = None,
+    roll_state: str = "normal",
+) -> dict:
     if d20_value is None:
         return attack_roll
 
+    selected_d20 = d20_value
+    d20_metadata = {}
+    if second_d20_value is not None and roll_state in {"advantage", "disadvantage"}:
+        d20_rolls = [d20_value, second_d20_value]
+        if roll_state == "advantage":
+            selected_d20 = max(d20_rolls)
+        else:
+            selected_d20 = min(d20_rolls)
+        other_roll = second_d20_value if selected_d20 == d20_value else d20_value
+        d20_metadata = {
+            "d20_rolls": d20_rolls,
+            "selected_d20": selected_d20,
+            "other_roll": other_roll,
+            "d20_selection": roll_state,
+        }
+
     attack_bonus = attack_roll["attack_bonus"]
     condition_modifier = attack_roll.get("condition_modifier", 0) or 0
-    attack_total = d20_value + attack_bonus + condition_modifier
+    attack_total = selected_d20 + attack_bonus + condition_modifier
     target_ac = attack_roll["target_ac"]
-    is_crit = d20_value >= crit_threshold
-    is_fumble = d20_value == 1
+    is_crit = selected_d20 >= crit_threshold
+    is_fumble = selected_d20 == 1
     hit = (not is_fumble) and (is_crit or attack_total >= target_ac)
 
     return {
         **attack_roll,
-        "d20": d20_value,
+        "d20": selected_d20,
         "attack_total": attack_total,
         "hit": hit,
         "is_crit": is_crit,
         "is_fumble": is_fumble,
+        **d20_metadata,
     }
 
 
@@ -68,6 +92,9 @@ def build_pending_attack(
     feat_power_bonus_damage: int,
     advantage: bool,
     disadvantage: bool,
+    advantage_sources: list[str] | None = None,
+    disadvantage_sources: list[str] | None = None,
+    roll_state: str = "normal",
     is_raging: bool,
     target_conditions: list[str] | None = None,
     damage_dice: str,
@@ -93,6 +120,9 @@ def build_pending_attack(
         "feat_power_bonus_dmg": feat_power_bonus_damage,
         "advantage": advantage,
         "disadvantage": disadvantage,
+        "advantage_sources": advantage_sources or [],
+        "disadvantage_sources": disadvantage_sources or [],
+        "roll_state": roll_state,
         "is_raging": is_raging,
         "target_conditions": target_conditions or [],
         "damage_dice": damage_dice,

@@ -12,6 +12,7 @@ from services.combat_action_rules_service import CombatActionRuleError, validate
 from services.combat_ammunition_service import consume_attack_weapon_resource
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_attack_targeting_service import get_target_conditions, resolve_attack_target
+from services.combat_charmed_service import CHARMED_ATTACK_ERROR, is_charmed_by_target
 from services.combat_damage_bonus_service import (
     apply_absorb_elements_damage_rider,
     apply_sustained_damage_effects,
@@ -94,6 +95,12 @@ async def prepare_direct_attack(
     target_derived = target.derived
     target_name = target.name
     resolved_target_id = target.id
+    if is_charmed_by_target(
+        getattr(player, "conditions", None) or [],
+        getattr(player, "condition_durations", None) or {},
+        resolved_target_id,
+    ):
+        raise CombatAttackRollError(400, CHARMED_ATTACK_ERROR)
 
     player_conditions = list(player.conditions or []) if player else []
     target_conditions = await get_target_conditions(db, target, enemies)

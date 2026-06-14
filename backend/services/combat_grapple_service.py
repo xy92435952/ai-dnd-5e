@@ -5,6 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_charmed_service import CHARMED_ATTACK_ERROR, is_charmed_by_target
 from services.combat_narrator import narrate_action
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
@@ -84,6 +85,13 @@ async def resolve_grapple_shove(
     target = await _resolve_grapple_target(db, session=session, enemies=enemies, target_id=target_id)
     if not target:
         raise CombatGrappleError(404, "目标不存在")
+
+    if is_charmed_by_target(
+        getattr(player, "conditions", None) or [],
+        getattr(player, "condition_durations", None) or {},
+        target_id,
+    ):
+        raise CombatGrappleError(400, CHARMED_ATTACK_ERROR)
 
     if action_type == "grapple":
         check_result = combat_service.resolve_grapple(

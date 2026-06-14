@@ -12,6 +12,7 @@ def build_pending_spell(
     target_ids: list[str],
     is_cantrip: bool,
     is_aoe: bool,
+    aoe_center: dict[str, Any] | None = None,
     spell_type: str,
     action_cost: str = "action",
     attack_roll: dict[str, Any] | None = None,
@@ -27,6 +28,8 @@ def build_pending_spell(
         "spell_type": spell_type,
         "action_cost": action_cost,
     }
+    if aoe_center is not None:
+        pending["aoe_center"] = aoe_center
     if attack_roll is not None:
         pending["attack_roll"] = attack_roll
         pending["hit"] = bool(attack_roll.get("hit"))

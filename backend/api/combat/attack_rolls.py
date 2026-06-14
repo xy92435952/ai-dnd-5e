@@ -1,6 +1,8 @@
 """
 api.combat.attack_rolls — two-step attack and damage roll endpoints.
 """
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -360,6 +362,7 @@ async def damage_roll(
         role        = "player",
         content     = narration,
         log_type    = "combat",
+        created_at  = datetime.utcnow(),
         dice_result = {
             "attack": attack_log_result,
             "damage": damage_resolution.damage_roll_result,

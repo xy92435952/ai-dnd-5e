@@ -56,6 +56,10 @@ class AttackDamageResolution:
     dueling_bonus: int
     rage_bonus: int
     feat_power_bonus_dmg: int
+    damage_before_resistance: int
+    damage_after_resistance: int
+    resistance_applied: bool
+    resistance_sources: tuple[str, ...]
 
 
 def find_pending_attack(turn_states: dict[str, Any], pending_attack_id: str):
@@ -173,6 +177,18 @@ async def resolve_pending_attack_damage(
         dueling_bonus=dueling_bonus,
         rage_bonus=rage_bonus,
         feat_power_bonus_dmg=feat_power_bonus_dmg,
+        damage_before_resistance=(
+            damage_extras.damage_before_resistance
+            if damage_extras.damage_before_resistance is not None
+            else damage
+        ),
+        damage_after_resistance=(
+            damage_extras.damage_after_resistance
+            if damage_extras.damage_after_resistance is not None
+            else damage_extras.damage
+        ),
+        resistance_applied=damage_extras.resistance_applied,
+        resistance_sources=damage_extras.resistance_sources,
     )
 
 async def apply_attack_damage_to_target(
