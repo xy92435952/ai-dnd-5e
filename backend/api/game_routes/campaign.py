@@ -8,6 +8,7 @@ from database import get_db
 from models import GameLog, Module
 from schemas.game_responses import RestResponse
 from services.character_roster import CharacterRoster
+from services.bardic_inspiration_service import BARDIC_RESOURCE_KEY
 from services.dnd_rules import (
     HIT_DICE,
     _normalize_class,
@@ -425,6 +426,7 @@ def _apply_short_rest_to_character(
 
 def _restore_short_rest_class_resources(character, class_resources: dict) -> tuple[bool, dict]:
     cls_key = _normalize_class(character.char_class)
+    changed = _expire_granted_bardic_inspiration(class_resources)
     if cls_key == "Fighter":
         class_resources["second_wind_used"] = False
         if character.level >= 2:
@@ -459,12 +461,19 @@ def _restore_short_rest_class_resources(character, class_resources: dict) -> tup
 
     if cls_key == "Wizard":
         slots_restored = _restore_wizard_arcane_recovery(character, class_resources)
-        return bool(slots_restored), slots_restored
+        return changed or bool(slots_restored), slots_restored
 
     if cls_key == "Warlock":
-        return False, {}
+        return changed, {}
 
-    return False, {}
+    return changed, {}
+
+
+def _expire_granted_bardic_inspiration(class_resources: dict) -> bool:
+    if BARDIC_RESOURCE_KEY not in class_resources:
+        return False
+    class_resources.pop(BARDIC_RESOURCE_KEY, None)
+    return True
 
 
 def _restore_druid_natural_recovery(character) -> dict:

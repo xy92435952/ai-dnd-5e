@@ -1060,6 +1060,36 @@ async def test_long_rest_restores_magic_initiate_spell_use(
     assert sample_character.class_resources["magic_initiate_spell_uses_remaining"] == 1
 
 
+async def test_long_rest_expires_unused_granted_bardic_inspiration(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.class_resources = {
+        "bardic_inspiration": {
+            "die": "d8",
+            "uses_remaining": 1,
+            "source_character_id": "bard-1",
+            "source_character_name": "Lyra",
+        },
+        "second_wind_used": True,
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "long"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert "bardic_inspiration" not in char_result["class_resources"]
+
+    await db_session.refresh(sample_character)
+    assert "bardic_inspiration" not in sample_character.class_resources
+
+
 async def test_interrupted_long_rest_grants_no_recovery(
     client, db_session, sample_session, sample_character, sample_user,
 ):
@@ -1194,6 +1224,40 @@ async def test_short_rest_consumes_hit_die(
     assert sample_character.hp_current > 3
     # 生命骰被消耗
     assert sample_character.hit_dice_remaining == 0
+
+
+async def test_short_rest_expires_unused_granted_bardic_inspiration(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.hp_current = sample_character.derived["hp_max"]
+    sample_character.hit_dice_remaining = 1
+    sample_character.class_resources = {
+        "bardic_inspiration": {
+            "die": "d8",
+            "uses_remaining": 1,
+            "source_character_id": "bard-1",
+            "source_character_name": "Lyra",
+        },
+        "lucky_points_remaining": 2,
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "short"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert "bardic_inspiration" not in char_result["class_resources"]
+    assert char_result["class_resources"]["lucky_points_remaining"] == 2
+
+    await db_session.refresh(sample_character)
+    assert "bardic_inspiration" not in sample_character.class_resources
+    assert sample_character.class_resources["lucky_points_remaining"] == 2
 
 
 async def test_short_rest_wizard_arcane_recovery_restores_expended_slot_once(
