@@ -177,6 +177,11 @@ def build_level_up_update(
 
     if selected_feat_choice:
         next_scores = apply_resilient_ability_bonuses(next_scores, [selected_feat_choice])
+    next_scores = _apply_level_capstone_ability_scores(
+        cls_key=cls_key,
+        new_level=new_level,
+        ability_scores=next_scores,
+    )
     next_save_profs = list(dict.fromkeys([
         *(proficient_saves or CLASS_SAVE_PROFICIENCIES.get(cls_key, [])),
         *resilient_ability_choices(next_feats),
@@ -287,6 +292,19 @@ def build_level_up_update(
         "maneuver_choices": maneuver_learning["maneuver_choices"],
         "preparation_type": spell_learning["preparation_type"],
     }
+
+
+def _apply_level_capstone_ability_scores(
+    *,
+    cls_key: str,
+    new_level: int,
+    ability_scores: dict,
+) -> dict:
+    next_scores = dict(ability_scores or {})
+    if cls_key == "Barbarian" and new_level >= 20:
+        for ability in ("str", "con"):
+            next_scores[ability] = min(24, int(next_scores.get(ability, 10) or 10) + 4)
+    return next_scores
 
 
 def _resolve_subclass_choice(
@@ -428,15 +446,50 @@ def _advance_spell_slots(
     old_slots_max: dict | None,
     new_slots_max: dict | None,
 ) -> dict:
-    next_slots = dict(current_slots or {})
+    next_slots = {
+        slot_key: value
+        for slot_key, value in (current_slots or {}).items()
+        if slot_key in (new_slots_max or {})
+    }
     old_max = old_slots_max or {}
 
     for slot_key, max_value in (new_slots_max or {}).items():
-        current_value = next_slots.get(slot_key, 0)
-        gained = max(0, max_value - old_max.get(slot_key, 0))
+        current_value = next_slots.get(slot_key)
+        comparable_old_max = old_max.get(slot_key, 0)
+        if current_value is None:
+            migrated_slot = _remaining_slots_from_removed_slot_level(
+                current_slots=current_slots,
+                old_slots_max=old_max,
+                new_slots_max=new_slots_max,
+            )
+            if migrated_slot is None:
+                current_value = 0
+            else:
+                current_value, comparable_old_max = migrated_slot
+        gained = max(0, max_value - comparable_old_max)
         next_slots[slot_key] = min(max_value, current_value + gained)
 
     return next_slots
+
+
+def _remaining_slots_from_removed_slot_level(
+    *,
+    current_slots: dict | None,
+    old_slots_max: dict | None,
+    new_slots_max: dict | None,
+) -> tuple[int, int] | None:
+    removed_keys = set((current_slots or {}).keys()) - set((new_slots_max or {}).keys())
+    if len(removed_keys) != 1 or len(new_slots_max or {}) != 1:
+        return None
+    removed_key = next(iter(removed_keys))
+    if removed_key not in (old_slots_max or {}):
+        return None
+    try:
+        remaining = max(0, int((current_slots or {}).get(removed_key, 0) or 0))
+        old_capacity = max(0, int((old_slots_max or {}).get(removed_key, 0) or 0))
+        return remaining, old_capacity
+    except (TypeError, ValueError):
+        return None
 
 
 def _class_resource_defaults_for_level(
@@ -489,6 +542,9 @@ def _advance_class_resources(
         if isinstance(new_default, int):
             current_value = next_resources.get(key, old_defaults.get(key, 0))
             old_value = old_defaults.get(key, 0)
+            if new_default >= 999:
+                next_resources[key] = new_default
+                continue
             gained = max(0, new_default - old_value)
             try:
                 next_value = int(current_value or 0) + gained

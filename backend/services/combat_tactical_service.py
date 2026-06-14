@@ -32,7 +32,7 @@ def get_cover_bonus(grid_data: dict, attacker_pos: dict, target_pos: dict) -> in
 
 def get_cover_analysis(grid_data: dict, attacker_pos: dict, target_pos: dict) -> dict:
     if not grid_data or not attacker_pos or not target_pos:
-        return {"bonus": 0, "obstacle_weight": 0, "cells": []}
+        return {"bonus": 0, "obstacle_weight": 0, "cells": [], "blocks_target": False}
 
     ax, ay = attacker_pos.get("x", 0), attacker_pos.get("y", 0)
     tx, ty = target_pos.get("x", 0), target_pos.get("y", 0)
@@ -41,10 +41,11 @@ def get_cover_analysis(grid_data: dict, attacker_pos: dict, target_pos: dict) ->
     dy = ty - ay
     steps = max(abs(dx), abs(dy))
     if steps == 0:
-        return {"bonus": 0, "obstacle_weight": 0, "cells": []}
+        return {"bonus": 0, "obstacle_weight": 0, "cells": [], "blocks_target": False}
 
     obstacles = 0
     cells = []
+    blocks_target = False
     for i in range(1, steps):
         cx = ax + round(dx * i / steps)
         cy = ay + round(dy * i / steps)
@@ -52,6 +53,7 @@ def get_cover_analysis(grid_data: dict, attacker_pos: dict, target_pos: dict) ->
         terrain = terrain_kind(grid_data.get(f"{cx}_{cy}", ""))
         if terrain in TOTAL_COVER_TERRAIN:
             obstacles += 2
+            blocks_target = True
             cells.append({"cell": cell, "terrain": terrain, "weight": 2})
         elif terrain in WALL_TERRAIN:
             obstacles += 1
@@ -71,6 +73,8 @@ def get_cover_analysis(grid_data: dict, attacker_pos: dict, target_pos: dict) ->
         "bonus": bonus,
         "obstacle_weight": obstacles,
         "cells": cells,
+        "blocks_target": blocks_target,
+        **({"blocked_by": "total_cover"} if blocks_target else {}),
     }
 
 

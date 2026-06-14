@@ -50,6 +50,10 @@ class AiSpellResolution:
     spell_attack_required: bool = False
     damage: int = 0
     heal: int = 0
+    dice_detail: dict[str, Any] | None = None
+    damage_type: str | None = None
+    save_result: dict[str, Any] | None = None
+    aoe_results: list[dict[str, Any]] | None = None
     target_new_hp: int | None = None
     target_state: dict[str, Any] | None = None
     target_name: str = ""

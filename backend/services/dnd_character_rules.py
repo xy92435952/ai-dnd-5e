@@ -825,7 +825,7 @@ def get_class_resource_defaults(char_class: str, level: int, subclass: str = Non
             resources["war_priest_remaining"] = max(1, 1)  # WIS mod, default 1
     # Druid resources
     elif cls_key == "Druid":
-        resources["wild_shape_remaining"] = 2  # 2 uses, replenish on short rest
+        resources["wild_shape_remaining"] = 999 if level >= 20 else 2
     # Sorcerer resources
     elif cls_key == "Sorcerer":
         if subclass and ("wild" in subclass.lower() or "野蛮" in subclass.lower()):

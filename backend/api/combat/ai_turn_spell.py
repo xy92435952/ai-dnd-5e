@@ -17,6 +17,61 @@ from services.spell_service import spell_service
 svc = CombatService()
 
 
+def _compact_dict(data: dict) -> dict:
+    return {
+        key: value
+        for key, value in data.items()
+        if value is not None and value != [] and value != {}
+    }
+
+
+def _build_ai_spell_dice_result(spell_resolution, tactical_decision: dict | None = None) -> dict:
+    spell_data = spell_resolution.spell_data or {}
+    damage_type = getattr(spell_resolution, "damage_type", None)
+    dice_detail = getattr(spell_resolution, "dice_detail", None)
+    save_result = getattr(spell_resolution, "save_result", None)
+    aoe_results = getattr(spell_resolution, "aoe_results", None)
+    spell = _compact_dict({
+        "name": spell_resolution.spell_name,
+        "spell_name": spell_resolution.spell_name,
+        "level": spell_resolution.spell_level,
+        "spell_level": spell_resolution.spell_level,
+        "is_cantrip": spell_resolution.is_cantrip,
+        "type": spell_data.get("type"),
+        "damage_dice": spell_data.get("damage") or spell_data.get("damage_dice"),
+        "damage_type": damage_type or spell_data.get("damage_type"),
+        "save": spell_data.get("save"),
+        "is_aoe": bool(spell_data.get("aoe")),
+        "concentration": (
+            bool(spell_data.get("concentration"))
+            if spell_data.get("concentration") is not None
+            else None
+        ),
+    })
+    return _compact_dict({
+        "type": "ai_spell",
+        "spell": spell,
+        "dice": dice_detail,
+        "attack": spell_resolution.attack_roll,
+        "damage": spell_resolution.damage,
+        "heal": spell_resolution.heal,
+        "damage_roll": (
+            dice_detail
+            if spell_resolution.damage or spell_resolution.heal
+            else None
+        ),
+        "damage_type": damage_type,
+        "target_state": spell_resolution.target_state,
+        "save_result": (
+            save_result
+            or (spell_resolution.target_state or {}).get("save")
+        ),
+        "aoe": aoe_results,
+        "target_results": aoe_results,
+        "tactical_decision": tactical_decision,
+    })
+
+
 async def _counterspell_reactor_candidates(db, session, target_id: str | None):
     roster = CharacterRoster(db, session)
     party = await roster.allies_alive()
@@ -210,6 +265,7 @@ async def handle_ai_spell_action(
     )
     if spell_resolution is None:
         return None
+    spell_dice_result = _build_ai_spell_dice_result(spell_resolution, decision)
 
     ai_class = _normalize_class(achar.char_class) if achar else actor_name
     attack_roll = spell_resolution.attack_roll or {}
@@ -243,6 +299,7 @@ async def handle_ai_spell_action(
         role="enemy" if is_enemy else f"companion_{actor_name}",
         content=narration,
         log_type="combat",
+        dice_result=spell_dice_result,
     ))
     tick_logs = tick_ai_actor_conditions(
         session_id=session_id,
@@ -282,6 +339,8 @@ async def handle_ai_spell_action(
         "target_id": str(spell_resolution.spell_target) if spell_resolution.spell_target else None,
         "target_new_hp": spell_resolution.target_new_hp,
         "target_state": spell_resolution.target_state,
+        "spell_result": spell_dice_result,
+        "dice_result": spell_dice_result,
         "next_turn_index": next_index,
         "round_number": combat.round_number,
         "combat_over": combat_over,
