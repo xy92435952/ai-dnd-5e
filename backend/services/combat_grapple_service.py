@@ -159,18 +159,36 @@ async def resolve_grapple_shove(
     if vivid:
         narration = vivid
 
+    target_state = _target_state(target, target_id)
+    condition_result = _condition_result_for_action(
+        action_type=action_type,
+        shove_type=shove_type,
+        success=check_result["success"],
+    )
     log_dice_result = {
         "type": action_type,
         "success": check_result["success"],
         "attacker_roll": check_result["attacker_roll"],
         "target_roll": check_result["target_roll"],
+        "target_id": target_id,
+        "target_name": target["name"],
+        "target_state": target_state,
+        "condition_result": condition_result,
     }
     payload = {
         "action": action_type,
         "success": check_result["success"],
         "narration": narration,
+        "actor_id": str(player_id),
+        "actor_name": player.name,
         "attacker_roll": check_result["attacker_roll"],
         "target_roll": check_result["target_roll"],
+        "target_id": target_id,
+        "target_name": target["name"],
+        "target_state": target_state,
+        "condition_result": condition_result,
+        "dice_result": log_dice_result,
+        "special_action": log_dice_result,
         "turn_state": turn_state,
         "combat_over": False,
         "outcome": None,
@@ -187,6 +205,7 @@ async def _resolve_grapple_target(db, *, session, enemies: list[dict[str, Any]],
     if target_character:
         await assert_character_in_session(target_character, session, db)
         return {
+            "id": target_id,
             "name": target_character.name,
             "derived": target_character.derived or {},
             "skills": target_character.proficient_skills or [],
@@ -201,6 +220,7 @@ async def _resolve_grapple_target(db, *, session, enemies: list[dict[str, Any]],
     if not target_enemy:
         return None
     return {
+        "id": target_id,
         "name": target_enemy["name"],
         "derived": target_enemy.get("derived", {}),
         "skills": [],
@@ -209,6 +229,50 @@ async def _resolve_grapple_target(db, *, session, enemies: list[dict[str, Any]],
         "is_enemy": True,
         "enemy": target_enemy,
         "character": None,
+    }
+
+
+def _condition_result_for_action(*, action_type: str, shove_type: str, success: bool) -> dict[str, Any]:
+    if action_type == "grapple":
+        return {
+            "condition": "grappled",
+            "applied": bool(success),
+            "removed": False,
+        }
+    if action_type == "shove" and shove_type == "prone":
+        return {
+            "condition": "prone",
+            "applied": bool(success),
+            "removed": False,
+        }
+    return {
+        "condition": None,
+        "applied": bool(success),
+        "removed": False,
+    }
+
+
+def _target_state(target: dict[str, Any], target_id: str) -> dict[str, Any]:
+    if target.get("enemy"):
+        enemy = target["enemy"]
+        return {
+            "target_id": target_id,
+            "target_name": target["name"],
+            "hp_current": enemy.get("hp_current"),
+            "hp_max": enemy.get("hp_max", (enemy.get("derived") or {}).get("hp_max")),
+            "conditions": list(enemy.get("conditions") or []),
+            "condition_durations": dict(enemy.get("condition_durations") or {}),
+            "is_enemy": True,
+        }
+    character = target.get("character")
+    return {
+        "target_id": target_id,
+        "target_name": target["name"],
+        "hp_current": getattr(character, "hp_current", None) if character else None,
+        "hp_max": (getattr(character, "derived", None) or {}).get("hp_max") if character else None,
+        "conditions": list(getattr(character, "conditions", None) or []) if character else [],
+        "condition_durations": dict(getattr(character, "condition_durations", None) or {}) if character else {},
+        "is_enemy": False,
     }
 
 

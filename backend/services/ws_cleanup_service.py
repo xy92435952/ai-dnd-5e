@@ -5,10 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, Session, SessionMember
-from schemas.ws_events import MemberOffline, RoomDissolved
+from schemas.ws_events import MemberOffline, RoomDissolved, RoomStateUpdated
 from services import room_group_state_utils
 from services.room_audit_service import add_room_audit_log
 from services.room_lifecycle_service import is_game_started
+from services.room_info_service import get_room_info
 from services.room_member_service import list_members, list_stale_members, mark_offline
 from services.ws_manager import ws_manager
 
@@ -37,10 +38,12 @@ async def cleanup_stale_ws_connections(
     for session_id, user_id in unique_stale_members:
         await mark_offline(db, session_id, user_id)
         offline_members = await list_members(db, session_id)
+        room_info = await get_room_info(db, session_id)
         await ws_manager.broadcast(
             session_id,
             MemberOffline(user_id=user_id, members=offline_members),
         )
+        await ws_manager.broadcast(session_id, RoomStateUpdated(room=room_info))
 
     return unique_stale_members
 

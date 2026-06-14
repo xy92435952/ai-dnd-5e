@@ -85,6 +85,8 @@ async def resolve_maneuver(
         "superiority_die": sd_die,
         "dice_remaining": sd_remaining - 1,
         "actor": actor_char.name,
+        "actor_id": actor_id,
+        "actor_name": actor_char.name,
         "target": target_name,
     }
 
@@ -104,12 +106,30 @@ async def resolve_maneuver(
         session.game_state = game_state
         flag_modified_func(session, "game_state")
 
-    log_dice_result = dict(payload)
+    target_state = _target_state(target)
+    log_dice_result = {
+        "type": "maneuver",
+        "maneuver": maneuver_name,
+        "target_id": target_id,
+        "target_name": target_name,
+        "target_state": target_state,
+        **dict(payload),
+    }
     payload["dice_roll"] = {
         "faces": _superiority_die_faces(sd_die),
         "result": sd_value,
         "label": f"战技·{maneuver_name}",
     }
+    payload.update({
+        "action": "maneuver",
+        "type": "maneuver",
+        "target_id": target_id,
+        "target_name": target_name,
+        "target_state": target_state,
+        "class_resources": class_resources,
+        "dice_result": log_dice_result,
+        "special_action": log_dice_result,
+    })
     payload["narration"] = msg
 
     return ManeuverResolution(
@@ -125,6 +145,7 @@ async def _resolve_maneuver_target(db, *, session, enemies: list[dict[str, Any]]
             return {
                 "enemy": enemy,
                 "character": None,
+                "id": target_id,
                 "name": enemy.get("name", "Enemy"),
                 "is_enemy": True,
             }
@@ -135,7 +156,32 @@ async def _resolve_maneuver_target(db, *, session, enemies: list[dict[str, Any]]
     return {
         "enemy": None,
         "character": target_char,
+        "id": target_id,
         "name": target_char.name if target_char else "Unknown",
+        "is_enemy": False,
+    }
+
+
+def _target_state(target: dict[str, Any]) -> dict[str, Any]:
+    if target.get("enemy"):
+        enemy = target["enemy"]
+        return {
+            "target_id": str(target.get("id")),
+            "target_name": target.get("name"),
+            "hp_current": enemy.get("hp_current"),
+            "hp_max": enemy.get("hp_max", (enemy.get("derived") or {}).get("hp_max")),
+            "conditions": list(enemy.get("conditions") or []),
+            "condition_durations": dict(enemy.get("condition_durations") or {}),
+            "is_enemy": True,
+        }
+    character = target.get("character")
+    return {
+        "target_id": str(target.get("id")),
+        "target_name": target.get("name"),
+        "hp_current": getattr(character, "hp_current", None) if character else None,
+        "hp_max": (getattr(character, "derived", None) or {}).get("hp_max") if character else None,
+        "conditions": list(getattr(character, "conditions", None) or []) if character else [],
+        "condition_durations": dict(getattr(character, "condition_durations", None) or {}) if character else {},
         "is_enemy": False,
     }
 

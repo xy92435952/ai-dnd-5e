@@ -171,7 +171,7 @@ async def _end_player_turn_locked(
     if current_cid:
         if current.get("is_player") is not True:
             await assert_session_access(session, user_id, db)
-            await _assert_ai_combat_driver(db, session, user_id)
+            raise HTTPException(400, "AI-controlled turns must be advanced through /ai-turn")
         else:
             await assert_can_act(
                 session,

@@ -63,9 +63,17 @@ async def use_maneuver(
         session,
         combat,
         CombatUpdate(
+            actor_id=result.payload.get("actor_id"),
+            actor_name=result.payload.get("actor"),
             narration=result.narration,
+            action="maneuver",
             maneuver=req.maneuver_name,
-            target_id=req.target_id,
+            target_id=result.payload.get("target_id"),
+            target_name=result.payload.get("target_name"),
+            target_state=result.payload.get("target_state"),
+            dice_result=result.payload.get("dice_result"),
+            special_action=result.payload.get("special_action"),
+            class_resources=result.payload.get("class_resources"),
         ),
         db=db,
     )

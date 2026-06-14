@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models import CombatState, GameLog
 from api.deps import assert_session_access, broadcast_to_session, get_session_or_404, get_user_id
-from api.combat._shared import _release_turn_advance_lock
+from api.combat._shared import _assert_ai_combat_driver, _release_turn_advance_lock
 from schemas.combat_responses import EndTurnResult
 from schemas.ws_events import CombatUpdate
 
@@ -23,6 +23,7 @@ async def end_combat(
 ):
     session = await get_session_or_404(session_id, db)
     await assert_session_access(session, user_id, db)
+    await _assert_ai_combat_driver(db, session, user_id)
     session.combat_active = False
     combat_result = await db.execute(select(CombatState).where(CombatState.session_id == session_id))
     combat = combat_result.scalars().first()

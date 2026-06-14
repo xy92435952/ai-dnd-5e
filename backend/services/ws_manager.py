@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 from typing import Iterable, Optional
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
@@ -140,21 +140,28 @@ class WSManager:
 
         # 拷贝快照避免广播过程中字典被改
         async with self._lock:
-            targets = list(self.rooms.get(session_id, set()))
-            user_map = {ws: meta for ws, meta in self.ws_meta.items() if meta[0] == session_id}
+            room_sockets = set(self.rooms.get(session_id, set()))
+            targets = [
+                (ws, (sid, uid))
+                for (sid, uid), ws in self.user_ws.items()
+                if sid == session_id and ws in room_sockets
+            ]
+            seen = {ws for ws, _meta in targets}
+            targets.extend(
+                (ws, self.ws_meta.get(ws))
+                for ws in room_sockets
+                if ws not in seen
+            )
 
-        send_tasks = []
-        for ws in targets:
-            meta = user_map.get(ws)
+        sent_count = 0
+        for ws, meta in targets:
             if exclude_user_id:
                 if meta and meta[1] == exclude_user_id:
                     continue
             event_for_user = self._event_for_user(event, meta[1]) if meta else event
-            send_tasks.append(self._send_broadcast(ws, event_for_user))
-        if not send_tasks:
-            return 0
-        results = await asyncio.gather(*send_tasks)
-        return sum(1 for sent in results if sent)
+            if await self._send_broadcast(ws, event_for_user):
+                sent_count += 1
+        return sent_count
 
     async def _send_broadcast(self, ws: WebSocket, event) -> bool:
         try:
@@ -166,6 +173,10 @@ class WSManager:
         except asyncio.TimeoutError:
             logger.warning("WS broadcast timed out for one connection")
             asyncio.create_task(self._silent_disconnect(ws))
+            return False
+        except WebSocketDisconnect:
+            logger.info("WS broadcast hit a disconnected socket")
+            await self.disconnect(ws)
             return False
         except Exception as e:
             logger.warning(f"WS broadcast failed for one connection: {e}")
@@ -186,6 +197,9 @@ class WSManager:
         try:
             await ws.send_json(event)
             return True
+        except WebSocketDisconnect:
+            await self.disconnect(ws)
+            return False
         except Exception:
             asyncio.create_task(self._silent_disconnect(ws))
             return False
@@ -196,6 +210,10 @@ class WSManager:
                 uid for (sid, uid) in self.user_ws.keys()
                 if sid == session_id
             ]
+
+    async def is_current_connection(self, session_id: str, user_id: str, ws: WebSocket) -> bool:
+        async with self._lock:
+            return self.user_ws.get((session_id, user_id)) is ws
 
     def _event_for_user(self, event, user_id: str):
         if not isinstance(event, dict):

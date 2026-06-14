@@ -79,13 +79,19 @@ class DirectSpellResult:
     @property
     def log_dice_result(self) -> dict[str, Any]:
         return {
+            "type": "spell",
             "dice": self.dice_detail,
             "damage": self.damage,
             "heal": self.heal,
             "aoe": self.aoe_results,
+            "target_id": self.target_id,
+            "target_state": self.target_state,
+            "aoe_results": self.aoe_results,
+            "resurrection_results": self.resurrection_results,
         }
 
     def to_response(self) -> dict[str, Any]:
+        spell_result = self.log_dice_result
         return {
             "narration": self.narration,
             "damage": self.damage,
@@ -97,12 +103,15 @@ class DirectSpellResult:
             "resurrection_results": self.resurrection_results,
             "remaining_slots": self.remaining_slots,
             "dice_detail": self.dice_detail,
-            "dice_result": {"total": self.damage or self.heal or 0},
+            "dice_result": spell_result,
+            "spell_result": spell_result,
             "turn_state": self.turn_state,
             "next_turn_index": self.next_turn_index,
             "round_number": self.round_number,
             "is_concentration": self.is_concentration,
             "is_aoe": self.is_aoe,
+            "concentration_check": None,
+            "concentration_checks": [],
             "combat_over": self.combat_over,
             "outcome": self.outcome,
             "actor_state": self.caster_state,

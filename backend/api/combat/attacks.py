@@ -26,6 +26,7 @@ from services.combat_direct_attack_service import (
     consume_direct_attack_turn,
     prepare_direct_attack,
 )
+from services.combat_smite_target_service import target_gets_divine_smite_extra_damage
 from services.combat_turn_state_service import record_mobile_opportunity_safe_target
 
 from api.combat._shared import (
@@ -233,8 +234,31 @@ async def combat_action(
         enemies=enemies,
         check_combat_over=svc.check_combat_over,
     )
+    can_smite = (
+        attack_result_dict["hit"]
+        and prepared.player_class in ("Paladin",)
+        and not combat_over
+    )
+    if can_smite:
+        target_enemy = next(
+            (enemy for enemy in enemies if str(enemy.get("id")) == str(prepared.target_id)),
+            None,
+        )
+        ts["pending_smite"] = {
+            "target_id": prepared.target_id,
+            "target_name": prepared.target_name,
+            "is_crit": bool(attack_result_dict.get("is_crit")),
+            "source": "direct_attack",
+            "used": False,
+            "target_is_undead_or_fiend": target_gets_divine_smite_extra_damage(target_enemy),
+        }
+        _save_ts(combat, player_id, ts)
+    else:
+        ts.pop("pending_smite", None)
+        _save_ts(combat, player_id, ts)
 
     await db.commit()
+    damage_type = prepared.player_derived.get("damage_type") or "weapon"
     await _broadcast_combat(
         session,
         combat,
@@ -244,7 +268,20 @@ async def combat_action(
             narration=narration,
             action="attack",
             target_id=prepared.target_id,
+            target_name=prepared.target_name,
             target_new_hp=target_new_hp,
+            target_state=target_state,
+            attack_result=attack_result_dict,
+            damage=damage,
+            total_damage=damage,
+            damage_roll=prepared.damage_roll,
+            damage_type=damage_type,
+            sneak_attack=prepared.sneak_attack_applied,
+            sneak_attack_damage=prepared.sneak_attack_damage,
+            extra_damage_notes=extra_damage_notes,
+            weapon_resource=prepared.weapon_resource,
+            defender_interception=prepared.defender_interception,
+            concentration_check=conc_log.dice_result if conc_log else None,
             combat_over=combat_over,
             outcome=outcome,
         ),
@@ -255,7 +292,11 @@ async def combat_action(
         "narration":            narration,
         "attack_result":        attack_result_dict,
         "damage":               damage,
+        "total_damage":         damage,
+        "damage_roll":          prepared.damage_roll,
+        "damage_type":          damage_type,
         "target_id":            prepared.target_id,
+        "target_name":          prepared.target_name,
         "target_new_hp":        target_new_hp,
         "target_state":         target_state,
         "ranged_penalty":       prepared.ranged_penalty,
