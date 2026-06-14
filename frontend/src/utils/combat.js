@@ -408,6 +408,10 @@ export function applyActionResultEntityStates(combat, result = {}) {
   updated = applyEntityStateUpdates(updated, result.aoe_results || [])
   updated = applyEntityStateUpdates(updated, result.target_results || [])
   updated = applyEntityStateUpdates(updated, result.resurrection_results || [])
+  if (result.actor_state) updated = applyEntityStateUpdate(updated, result.actor_state)
+  if (result.caster_state && result.caster_state !== result.actor_state) {
+    updated = applyEntityStateUpdate(updated, result.caster_state)
+  }
   return updated
 }
 
@@ -860,8 +864,14 @@ export function getPlayerAvailableSpells({
   knownSpells = [],
   cantrips = [],
   playerClass = '',
+  feats = [],
 }) {
-  const known = new Set([...(knownSpells || []), ...(cantrips || [])].map(normalizeSpellKey))
+  const magicInitiateNames = getMagicInitiateSpellNames(feats)
+  const known = new Set([
+    ...(knownSpells || []),
+    ...(cantrips || []),
+    ...magicInitiateNames,
+  ].map(normalizeSpellKey))
   if (known.size > 0) {
     return spells.filter(s => known.has(normalizeSpellKey(s.name)) || known.has(normalizeSpellKey(s.name_en)))
   }
@@ -882,6 +892,68 @@ export function normalizeSpellKey(value) {
 export function spellNameMatches(spell, targetName) {
   const target = normalizeSpellKey(targetName)
   return !!target && [spell?.name, spell?.name_en].some(name => normalizeSpellKey(name) === target)
+}
+
+export const MAGIC_INITIATE_RESOURCE_KEY = 'magic_initiate_spell_uses_remaining'
+
+export function getMagicInitiateSpellNames(feats = []) {
+  const names = []
+  for (const feat of feats || []) {
+    if (!isMagicInitiateFeat(feat)) continue
+    const cantrips = Array.isArray(feat?.cantrips)
+      ? feat.cantrips
+      : Array.isArray(feat?.learned_cantrips)
+        ? feat.learned_cantrips
+        : []
+    names.push(...cantrips)
+    const spell = feat?.spell
+      || feat?.first_level_spell
+      || feat?.known_spell
+      || feat?.learned_spell
+      || feat?.magic_initiate_spell
+      || ''
+    if (spell) names.push(spell)
+  }
+  return names.filter(Boolean)
+}
+
+export function getMagicInitiateSpellCastInfo({
+  spell,
+  character = null,
+  feats = null,
+  classResources = null,
+  castLevel = spell?.level ?? 0,
+} = {}) {
+  const effectiveFeats = feats || character?.feats || []
+  const resources = classResources || character?.class_resources || {}
+  const matches = isMagicInitiateLeveledSpell(spell, effectiveFeats, castLevel)
+  const rawRemaining = Number(resources?.[MAGIC_INITIATE_RESOURCE_KEY] || 0)
+  const remaining = Number.isFinite(rawRemaining) ? Math.max(0, rawRemaining) : 0
+  return {
+    matches,
+    remaining,
+    canUse: matches && remaining > 0,
+  }
+}
+
+export function isMagicInitiateLeveledSpell(spell, feats = [], castLevel = spell?.level ?? 0) {
+  if (!spell || Number(spell.level || 0) !== 1 || Number(castLevel || 0) !== 1) return false
+  return (feats || []).some(feat => {
+    if (!isMagicInitiateFeat(feat)) return false
+    const chosenSpell = feat?.spell
+      || feat?.first_level_spell
+      || feat?.known_spell
+      || feat?.learned_spell
+      || feat?.magic_initiate_spell
+      || ''
+    return spellNameMatches(spell, chosenSpell)
+  })
+}
+
+function isMagicInitiateFeat(feat) {
+  const name = typeof feat === 'string' ? feat : feat?.name
+  const key = String(name || '').trim().toLowerCase()
+  return key === 'magic initiate' || key === '魔法学徒'
 }
 
 const AUTO_HIT_DAMAGE_SPELL_KEYS = new Set([

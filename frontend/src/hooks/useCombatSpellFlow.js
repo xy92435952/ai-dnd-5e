@@ -5,6 +5,7 @@ import {
   applyActionResultEntityStates,
   collectSpellCastTargetIds,
   getCombatTurnToken,
+  getMagicInitiateSpellCastInfo,
   getSpellCastDisabledReason,
   parseDiceNotation,
   spellRequiresAttackRoll,
@@ -67,6 +68,8 @@ export function useCombatSpellFlow({
   setTurnState,
   setCombat,
   setPlayerSpellSlots,
+  playerSpellSlots = null,
+  setClassResources,
   addLog,
   setSelectedTarget,
   setCombatOver,
@@ -76,9 +79,17 @@ export function useCombatSpellFlow({
 }) {
   return useCallback(async (spell, level) => {
     if (!playerId || !canActThisTurn || isProcessing) return
+    const slotLabel = (lvl) => ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'][lvl-1] || `${lvl}th`
+    const caster = (playerId ? combat?.entities?.[playerId] : null) || combat?.player || null
+    const available = playerSpellSlots
+      ? (lvl) => (playerSpellSlots?.[slotLabel(lvl)] || 0) + (
+        getMagicInitiateSpellCastInfo({ spell, character: caster, castLevel: lvl }).canUse ? 1 : 0
+      )
+      : null
     const blockedReason = getSpellCastDisabledReason({
       spell,
       level,
+      available,
       selectedTarget,
       playerId,
       combat,
@@ -147,6 +158,13 @@ export function useCombatSpellFlow({
         const confirmResult = await gameApi.spellConfirm(sessionId, rollResult.pending_spell_id, null)
         if (confirmResult.turn_state) setTurnState(confirmResult.turn_state)
         setPlayerSpellSlots(confirmResult.remaining_slots || {})
+        if (confirmResult.caster_state?.class_resources || confirmResult.actor_state?.class_resources || confirmResult.class_resources) {
+          setClassResources?.(
+            confirmResult.caster_state?.class_resources
+            || confirmResult.actor_state?.class_resources
+            || confirmResult.class_resources,
+          )
+        }
         setSelectedTarget(null)
         processingRef.current = false
         setIsProcessing(false)
@@ -178,6 +196,13 @@ export function useCombatSpellFlow({
 
           if (confirmResult.turn_state) setTurnState(confirmResult.turn_state)
           setPlayerSpellSlots(confirmResult.remaining_slots || {})
+          if (confirmResult.caster_state?.class_resources || confirmResult.actor_state?.class_resources || confirmResult.class_resources) {
+            setClassResources?.(
+              confirmResult.caster_state?.class_resources
+              || confirmResult.actor_state?.class_resources
+              || confirmResult.class_resources,
+            )
+          }
           const impactSummary = buildCombatResultImpactSummary(confirmResult)
           addLog({
             role: 'player',
@@ -243,6 +268,7 @@ export function useCombatSpellFlow({
     combat,
     isProcessing,
     playerId,
+    playerSpellSlots,
     processingRef,
     prediction,
     selectedTarget,
@@ -251,6 +277,7 @@ export function useCombatSpellFlow({
     setCombat,
     setCombatOver,
     setError,
+    setClassResources,
     setIsProcessing,
     setPlayerSpellSlots,
     setSelectedTarget,

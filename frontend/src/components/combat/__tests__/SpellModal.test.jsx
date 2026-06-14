@@ -374,4 +374,42 @@ describe('SpellModal', () => {
     fireEvent.click(cast)
     expect(onCast).not.toHaveBeenCalled()
   })
+
+  it('enables a Magic Initiate spell without ordinary spell slots', () => {
+    const onCast = vi.fn()
+    const shield = {
+      name: 'Shield',
+      level: 1,
+      type: 'utility',
+    }
+
+    render(
+      <SpellModal
+        spells={[shield]}
+        cantrips={[]}
+        slots={{ '1st': 0 }}
+        playerId="hero-1"
+        combat={{
+          entities: {
+            'hero-1': {
+              id: 'hero-1',
+              feats: [{ name: 'Magic Initiate', spell: 'Shield' }],
+              class_resources: { magic_initiate_spell_uses_remaining: 1 },
+            },
+          },
+        }}
+        onCast={onCast}
+        onClose={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    const firstLevelTab = screen.getByRole('button', { name: /1\s*环\s*\(1\)/ })
+    expect(firstLevelTab).not.toBeDisabled()
+    fireEvent.click(firstLevelTab)
+    fireEvent.click(screen.getByText('Shield'))
+    fireEvent.click(screen.getByRole('button', { name: /施放/ }))
+
+    expect(onCast).toHaveBeenCalledWith(shield, 1)
+  })
 })

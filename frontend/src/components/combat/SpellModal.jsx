@@ -18,7 +18,11 @@ import SpellModalTabs from './SpellModalTabs'
 import SpellModalList from './SpellModalList'
 import SpellModalActions from './SpellModalActions'
 import SpellCastPlan from './SpellCastPlan'
-import { getSpellCastDisabledReason, spellNameMatches } from '../../utils/combat'
+import {
+  getMagicInitiateSpellCastInfo,
+  getSpellCastDisabledReason,
+  spellNameMatches,
+} from '../../utils/combat'
 import { buildSpellCastPlan } from '../../utils/spellCastPlan'
 
 function isCantripSpell(spell, cantripNames) {
@@ -44,12 +48,18 @@ export default function SpellModal({
   const [level, setLevel] = useState(0)  // 0 = 戏法标签页
 
   const slotLabel = (lvl) => ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th'][lvl-1] || `${lvl}th`
-  const available = (lvl) => slots?.[slotLabel(lvl)] || 0
+  const caster = (playerId ? combat?.entities?.[playerId] : combat?.player) || null
+  const slotAvailable = (lvl) => slots?.[slotLabel(lvl)] || 0
+  const magicInitiateAvailable = (lvl) => spells.some(spell =>
+    getMagicInitiateSpellCastInfo({ spell, character: caster, castLevel: lvl }).canUse)
+  const tabAvailable = (lvl) => slotAvailable(lvl) + (magicInitiateAvailable(lvl) ? 1 : 0)
+  const selectedAvailable = (lvl) => slotAvailable(lvl) + (
+    getMagicInitiateSpellCastInfo({ spell: selectedSpell, character: caster, castLevel: lvl }).canUse ? 1 : 0
+  )
 
   const cantripList = spells.filter(spell => isCantripSpell(spell, cantrips))
   const spellList   = spells.filter(s => s.level > 0 && !isCantripSpell(s, cantrips))
   const shownSpells = level === 0 ? cantripList : spellList.filter(s => s.level <= level)
-  const caster = (playerId ? combat?.entities?.[playerId] : combat?.player) || null
 
   useEffect(() => {
     if (!quickPick) return
@@ -64,7 +74,7 @@ export default function SpellModal({
     spell: selectedSpell,
     level,
     cantrips,
-    available,
+    available: selectedAvailable,
     selectedTarget,
     playerId,
     combat,
@@ -108,7 +118,7 @@ export default function SpellModal({
           setSelectedSpell={setSelectedSpell}
           cantripCount={cantripList.length}
           spellList={spellList}
-          available={available}
+          available={tabAvailable}
         />
 
         <SpellModalList

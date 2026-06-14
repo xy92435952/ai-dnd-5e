@@ -18,6 +18,8 @@ class FakeCaster:
     conditions = []
     death_saves = {}
     spell_slots = {"1st": 1}
+    feats = []
+    class_resources = {}
     derived = {
         "spell_save_dc": 14,
         "spell_ability": "int",
@@ -64,6 +66,72 @@ async def test_prepare_spell_roll_builds_cantrip_preview_without_consuming_slot(
     assert prepared.pending_spell["action_cost"] == "action"
     assert prepared.spell_attack_required is True
     assert prepared.attack_roll_result["d20"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_prepare_spell_roll_marks_magic_initiate_resource_without_slot():
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 0}
+    caster.feats = [{"name": "Magic Initiate", "spell": "Shield"}]
+    caster.class_resources = {"magic_initiate_spell_uses_remaining": 1}
+
+    prepared = await prepare_spell_roll(
+        FakeDb(),
+        combat_obj=None,
+        session=None,
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="Shield",
+        spell_level=1,
+        spell={
+            "name_en": "Shield",
+            "level": 1,
+            "type": "utility",
+            "aoe": False,
+            "range": 0,
+        },
+        target_id=None,
+        target_ids=None,
+        enemies=[],
+        default_turn_state=DEFAULT_TURN_STATE,
+        get_turn_state=lambda *_args: DEFAULT_TURN_STATE,
+        consume_slot=lambda *_args: (_ for _ in ()).throw(AssertionError("Magic Initiate should satisfy validation")),
+        calc_upcast_dice=lambda *_args: None,
+    )
+
+    assert prepared.pending_spell["resource_source"] == "magic_initiate"
+    assert prepared.pending_spell["resource_key"] == "magic_initiate_spell_uses_remaining"
+    assert caster.spell_slots == {"1st": 0}
+
+
+@pytest.mark.asyncio
+async def test_prepare_spell_roll_rejects_spent_magic_initiate_without_slot():
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 0}
+    caster.feats = [{"name": "Magic Initiate", "spell": "Shield"}]
+    caster.class_resources = {"magic_initiate_spell_uses_remaining": 0}
+
+    with pytest.raises(CombatSpellRollError) as exc:
+        await prepare_spell_roll(
+            FakeDb(),
+            combat_obj=None,
+            session=None,
+            caster=caster,
+            caster_id="caster-1",
+            spell_name="Shield",
+            spell_level=1,
+            spell={"name_en": "Shield", "level": 1, "type": "utility", "aoe": False},
+            target_id=None,
+            target_ids=None,
+            enemies=[],
+            default_turn_state=DEFAULT_TURN_STATE,
+            get_turn_state=lambda *_args: DEFAULT_TURN_STATE,
+            consume_slot=lambda slots, level: (slots, "No 1st-level spell slots available"),
+            calc_upcast_dice=lambda *_args: None,
+        )
+
+    assert exc.value.status_code == 400
+    assert "No 1st-level spell slots" in exc.value.detail
 
 
 @pytest.mark.asyncio

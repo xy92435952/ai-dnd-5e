@@ -33,6 +33,12 @@ from services.combat_spell_target_service import (
 )
 from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.combat_turn_state_service import DEFAULT_TURN_STATE, get_turn_state, save_turn_state
+from services.magic_initiate_spell_service import (
+    MagicInitiateSpellError,
+    build_magic_initiate_resource_result,
+    consume_magic_initiate_spell_use,
+    magic_initiate_spell_resource,
+)
 from services.spell_service import spell_service
 
 svc = CombatService()
@@ -67,6 +73,8 @@ class DirectSpellResult:
     combat_over: bool
     outcome: str | None
     concentration_logs: list[Any] = field(default_factory=list)
+    caster_state: dict[str, Any] | None = None
+    spell_resource: dict[str, Any] | None = None
 
     @property
     def log_dice_result(self) -> dict[str, Any]:
@@ -97,6 +105,14 @@ class DirectSpellResult:
             "is_aoe": self.is_aoe,
             "combat_over": self.combat_over,
             "outcome": self.outcome,
+            "actor_state": self.caster_state,
+            "caster_state": self.caster_state,
+            "class_resources": (
+                self.caster_state.get("class_resources")
+                if isinstance(self.caster_state, dict)
+                else None
+            ),
+            "spell_resource": self.spell_resource,
         }
 
 
@@ -186,19 +202,34 @@ async def cast_direct_spell(
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, resolved_target_ids, enemies, session=session)
 
+    spell_resource = None
     if skip_slot_consumption:
         new_slots = dict(caster.spell_slots or {})
     else:
-        try:
-            new_slots = consume_spell_slot_for_confirmation(
-                current_slots=caster.spell_slots,
-                spell_level=spell_level,
-                is_cantrip=is_cantrip,
-                consume_slot=spell_service_obj.consume_slot,
-            )
-        except CombatSpellResolutionError as exc:
-            raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
-        caster.spell_slots = new_slots
+        magic_initiate_resource = magic_initiate_spell_resource(
+            caster,
+            spell_name=spell_name,
+            spell=spell,
+            spell_level=spell_level,
+        )
+        if magic_initiate_resource and magic_initiate_resource.get("uses_remaining", 0) > 0:
+            try:
+                consume_magic_initiate_spell_use(caster, flag_modified_func=flag_modified_func)
+            except MagicInitiateSpellError as exc:
+                raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
+            new_slots = dict(caster.spell_slots or {})
+            spell_resource = build_magic_initiate_resource_result(caster)
+        else:
+            try:
+                new_slots = consume_spell_slot_for_confirmation(
+                    current_slots=caster.spell_slots,
+                    spell_level=spell_level,
+                    is_cantrip=is_cantrip,
+                    consume_slot=spell_service_obj.consume_slot,
+                )
+            except CombatSpellResolutionError as exc:
+                raise CombatDirectSpellError(exc.status_code, exc.detail) from exc
+            caster.spell_slots = new_slots
 
     if spell.get("concentration"):
         await set_concentration_with_cleanup(
@@ -305,7 +336,24 @@ async def cast_direct_spell(
         combat_over=combat_over,
         outcome=outcome,
         concentration_logs=concentration_logs,
+        caster_state=_build_caster_state(
+            caster,
+            caster_id=caster_id,
+            spell_slots=new_slots,
+        ),
+        spell_resource=spell_resource,
     )
+
+
+def _build_caster_state(caster, *, caster_id: str, spell_slots: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "target_id": str(caster_id),
+        "entity_id": str(caster_id),
+        "target_name": getattr(caster, "name", ""),
+        "spell_slots": spell_slots,
+        "class_resources": dict(getattr(caster, "class_resources", None) or {}),
+        "concentration": getattr(caster, "concentration", None),
+    }
 
 
 def _resolve_direct_spell_targets(

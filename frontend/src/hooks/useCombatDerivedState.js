@@ -34,6 +34,8 @@ export function useCombatDerivedState({
   viewHeight,
 }) {
   const { entity_positions: entityPositions = {}, entities = {} } = combat || {}
+  const effectivePlayerId = room && myCharacterId ? myCharacterId : playerId
+  const controlledCharacter = effectivePlayerId ? entities[effectivePlayerId] : null
 
   const isMyTurnMP = useMemo(() =>
     isMyCombatTurn({ room, combat, myCharacterId }),
@@ -46,17 +48,20 @@ export function useCombatDerivedState({
   const playerAvailableSpells = useMemo(() =>
     getPlayerAvailableSpells({
       spells,
-      knownSpells: playerKnownSpells,
-      cantrips: playerCantrips,
-      playerClass,
+      knownSpells: [
+        ...(controlledCharacter?.known_spells || playerKnownSpells || []),
+        ...(controlledCharacter?.prepared_spells || []),
+      ],
+      cantrips: controlledCharacter?.cantrips || playerCantrips,
+      playerClass: controlledCharacter?.char_class || playerClass,
+      feats: controlledCharacter?.feats || [],
     }),
-  [spells, playerKnownSpells, playerCantrips, playerClass])
+  [spells, controlledCharacter, playerKnownSpells, playerCantrips, playerClass])
 
   const threatCells = useMemo(() =>
     buildThreatCells({ showThreat: showThreat && !!combat, entityPositions, entities }),
   [showThreat, combat, entityPositions, entities])
 
-  const effectivePlayerId = room && myCharacterId ? myCharacterId : playerId
   const playerPos = effectivePlayerId ? entityPositions[effectivePlayerId] : null
 
   const aoeCells = useMemo(() =>
@@ -75,7 +80,6 @@ export function useCombatDerivedState({
   const canActThisTurn = canActInCombatTurn({ room, combat, myCharacterId })
   const { walls, hazards, objectives, terrainDetails } = buildGridTerrainSets(combat?.grid_data || {})
   const selectedTargetEntity = selectedTarget ? entities[selectedTarget] : null
-  const controlledCharacter = effectivePlayerId ? entities[effectivePlayerId] : null
   const initiativeChips = buildInitiativeChips({
     turnOrder: combat?.turn_order || [],
     currentTurnIndex: combat?.current_turn_index ?? 0,

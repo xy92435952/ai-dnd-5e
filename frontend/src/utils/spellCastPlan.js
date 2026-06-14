@@ -2,6 +2,7 @@ import {
   aoeRadiusCells,
   collectSpellCastTargetIds,
   getAoeTemplateType,
+  getMagicInitiateSpellCastInfo,
   getSpellMaxTargets,
   spellNameMatches,
 } from './combat'
@@ -110,6 +111,10 @@ function slotCostLabel(slots, level) {
 
 function slotPreflightLabel(slots, level) {
   return `${level} 环 · ${slotRemaining(slots, level)} -> ${slotAfterCast(slots, level)}`
+}
+
+function magicInitiateCostLabel(remaining) {
+  return `Magic Initiate (${remaining} -> ${Math.max(0, remaining - 1)})`
 }
 
 function formatSignedNumber(value) {
@@ -678,12 +683,17 @@ export function buildSpellCastPlan({
   const cantrip = isCantripSpell(spell, cantrips)
   const baseLevel = asLevel(spell.level, 0)
   const castLevel = cantrip ? 0 : Math.max(asLevel(level, baseLevel || 1), baseLevel || 1)
+  const caster = (playerId ? combat?.entities?.[playerId] : null) || combat?.player || null
+  const magicInitiate = getMagicInitiateSpellCastInfo({ spell, character: caster, castLevel })
+  const usesMagicInitiate = !cantrip && magicInitiate.canUse
   const rows = [
     {
       label: '消耗',
       value: cantrip
         ? '戏法，无需法术位'
-        : slotCostLabel(slots, castLevel),
+        : usesMagicInitiate
+          ? magicInitiateCostLabel(magicInitiate.remaining)
+          : slotCostLabel(slots, castLevel),
     },
     { label: '效果', value: effectLabel(spell) },
   ]
@@ -845,8 +855,12 @@ export function buildSpellCastPlan({
       {
         key: 'cost',
         label: '消耗',
-        value: cantrip ? '戏法' : slotPreflightLabel(slots, castLevel),
-        tone: cantrip || slotRemaining(slots, castLevel) > 0 ? 'ready' : 'blocked',
+        value: cantrip
+          ? '戏法'
+          : usesMagicInitiate
+            ? magicInitiateCostLabel(magicInitiate.remaining)
+            : slotPreflightLabel(slots, castLevel),
+        tone: cantrip || usesMagicInitiate || slotRemaining(slots, castLevel) > 0 ? 'ready' : 'blocked',
       },
       rulePreflight,
       placementPreflight,

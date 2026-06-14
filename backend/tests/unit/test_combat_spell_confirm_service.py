@@ -13,6 +13,7 @@ class FakeCaster:
     }
     spell_slots = {"1st": 1}
     concentration = None
+    feats = []
 
 
 class FakeCombat:
@@ -123,6 +124,66 @@ async def test_confirm_pending_spell_consumes_slot_applies_damage_and_completes_
     assert result.turn_state["action_used"] is True
     assert "pending_spell" not in result.turn_state
     assert result.is_concentration is True
+
+
+@pytest.mark.asyncio
+async def test_confirm_pending_magic_initiate_spell_consumes_feat_resource_not_slot(monkeypatch):
+    from services import combat_spell_confirm_service as confirm_service
+
+    async def fake_apply_effects(*_args, **_kwargs):
+        from services.combat_spell_application_service import SpellApplicationResult
+
+        return SpellApplicationResult()
+
+    class NoSlotSpellService(FakeSpellService):
+        def consume_slot(self, *_args):
+            raise AssertionError("Magic Initiate resource should replace slot consumption")
+
+    monkeypatch.setattr(confirm_service, "apply_confirmed_spell_effects", fake_apply_effects)
+
+    combat = FakeCombat()
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 0}
+    caster.feats = [{"name": "Magic Initiate", "spell": "Shield"}]
+    caster.class_resources = {"magic_initiate_spell_uses_remaining": 1}
+
+    result = await confirm_service.confirm_pending_spell(
+        FakeDb({"caster-1": caster}),
+        session_id="sess-1",
+        combat_obj=combat,
+        caster=caster,
+        caster_entity_id="caster-1",
+        pending={
+            "spell_name": "Shield",
+            "spell_level": 1,
+            "target_ids": [],
+            "is_cantrip": False,
+            "is_aoe": False,
+            "spell_type": "utility",
+            "action_cost": "action",
+            "resource_source": "magic_initiate",
+            "resource_key": "magic_initiate_spell_uses_remaining",
+        },
+        spell={"name_en": "Shield", "level": 1, "type": "utility"},
+        state={"enemies": []},
+        enemies=[],
+        damage_values=None,
+        spell_service_obj=NoSlotSpellService(),
+        flag_modified_func=lambda *_args: None,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+        complete_pending_spell_func=complete_pending_spell,
+    )
+
+    assert caster.spell_slots == {"1st": 0}
+    assert caster.class_resources["magic_initiate_spell_uses_remaining"] == 0
+    assert result.remaining_slots == {"1st": 0}
+    assert result.spell_resource == {
+        "resource_source": "magic_initiate",
+        "resource_key": "magic_initiate_spell_uses_remaining",
+        "uses_remaining": 0,
+    }
+    assert result.caster_state["class_resources"]["magic_initiate_spell_uses_remaining"] == 0
+    assert result.turn_state["action_used"] is True
 
 
 @pytest.mark.asyncio

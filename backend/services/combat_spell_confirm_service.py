@@ -21,6 +21,12 @@ from services.combat_wild_magic_service import (
     resolve_wild_magic_for_spell,
 )
 from services.dnd_rules import _normalize_class, roll_dice, roll_wild_magic_surge
+from services.magic_initiate_spell_service import (
+    MAGIC_INITIATE_RESOURCE_SOURCE,
+    MagicInitiateSpellError,
+    build_magic_initiate_resource_result,
+    consume_magic_initiate_spell_use,
+)
 from services.spell_service import spell_service
 
 svc = CombatService()
@@ -51,6 +57,11 @@ class ConfirmedSpellResult:
     log_dice_result: dict[str, Any]
     concentration_logs: list[Any] = field(default_factory=list)
     wild_magic_logs: list[GameLog] = field(default_factory=list)
+    caster_state: dict[str, Any] | None = None
+    concentration_effect_updates: list[dict[str, Any]] = field(default_factory=list)
+    concentration_check: dict[str, Any] | None = None
+    concentration_checks: list[dict[str, Any]] = field(default_factory=list)
+    spell_resource: dict[str, Any] | None = None
 
 
 async def confirm_pending_spell(
@@ -90,8 +101,16 @@ async def confirm_pending_spell(
     if spell_type == "heal":
         await validate_ordinary_healing_targets(db, target_ids, enemies, session=session)
 
+    spell_resource = None
     if pending.get("slot_already_consumed"):
         new_slots = dict(caster.spell_slots or {})
+    elif pending.get("resource_source") == MAGIC_INITIATE_RESOURCE_SOURCE:
+        try:
+            consume_magic_initiate_spell_use(caster, flag_modified_func=flag_modified_func)
+        except MagicInitiateSpellError as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
+        new_slots = dict(caster.spell_slots or {})
+        spell_resource = build_magic_initiate_resource_result(caster)
     else:
         new_slots = consume_spell_slot_for_confirmation(
             current_slots=caster.spell_slots,
@@ -238,8 +257,25 @@ async def confirm_pending_spell(
         },
         concentration_logs=spell_application.concentration_logs,
         wild_magic_logs=wild_magic_logs,
+        caster_state=_build_caster_state(
+            caster,
+            caster_entity_id=caster_entity_id,
+            spell_slots=new_slots,
+        ),
+        spell_resource=spell_resource,
     )
 
 
 def spell_actor_class(caster) -> str:
     return _normalize_class(caster.char_class)
+
+
+def _build_caster_state(caster, *, caster_entity_id: str, spell_slots: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "target_id": str(caster_entity_id),
+        "entity_id": str(caster_entity_id),
+        "target_name": getattr(caster, "name", ""),
+        "spell_slots": spell_slots,
+        "class_resources": dict(getattr(caster, "class_resources", None) or {}),
+        "concentration": getattr(caster, "concentration", None),
+    }

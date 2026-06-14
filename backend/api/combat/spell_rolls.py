@@ -279,6 +279,12 @@ async def spell_confirm(
         "target_state": confirmed.target_state,
         "actor_state": confirmed.caster_state,
         "caster_state": confirmed.caster_state,
+        "class_resources": (
+            confirmed.caster_state.get("class_resources")
+            if isinstance(confirmed.caster_state, dict)
+            else None
+        ),
+        "spell_resource": confirmed.spell_resource,
         "aoe_results": confirmed.aoe_results,
         "resurrection_results": confirmed.resurrection_results,
         "concentration_effect_updates": confirmed.concentration_effect_updates,
@@ -319,6 +325,7 @@ async def spell_confirm(
             spell_result=response_dice_result,
             aoe_results=confirmed.aoe_results,
             remaining_slots=confirmed.remaining_slots,
+            spell_resource=confirmed.spell_resource,
             concentration_check=confirmed.concentration_check,
             concentration_checks=confirmed.concentration_checks,
             wild_magic_surge=confirmed.wild_magic_surge,

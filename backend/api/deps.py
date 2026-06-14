@@ -214,6 +214,11 @@ def entity_snapshot(char: Character, is_enemy: bool = False) -> dict:
         "derived":    derived,
         "concentration": char.concentration,
         "class_resources": char.class_resources or {},
+        "char_class": char.char_class,
+        "feats": char.feats or [],
+        "known_spells": char.known_spells or [],
+        "prepared_spells": char.prepared_spells or [],
+        "cantrips": char.cantrips or [],
     }
 
 

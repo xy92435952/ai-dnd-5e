@@ -971,6 +971,35 @@ async def test_long_rest_restores_lucky_feat_points(
     assert sample_character.class_resources["lucky_points_remaining"] == 3
 
 
+async def test_long_rest_restores_magic_initiate_spell_use(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.feats = [{
+        "name": "Magic Initiate",
+        "spellcasting_class": "Wizard",
+        "cantrips": ["Mage Hand", "Light"],
+        "spell": "Shield",
+        "effects": {"magic_initiate": True},
+    }]
+    sample_character.class_resources = {"magic_initiate_spell_uses_remaining": 0}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "long"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert char_result["class_resources"]["magic_initiate_spell_uses_remaining"] == 1
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["magic_initiate_spell_uses_remaining"] == 1
+
+
 async def test_interrupted_long_rest_grants_no_recovery(
     client, db_session, sample_session, sample_character, sample_user,
 ):

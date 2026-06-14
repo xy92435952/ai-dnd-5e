@@ -23,6 +23,7 @@ from services.combat_spell_target_service import (
 )
 from services.combat_temporary_hp_service import is_armor_of_agathys
 from services.dnd_rules import roll_attack
+from services.magic_initiate_spell_service import magic_initiate_spell_resource
 
 
 @dataclass
@@ -80,7 +81,21 @@ async def prepare_spell_roll(
             action_cost=action_cost,
         )
 
+    magic_initiate_resource = None
+    use_magic_initiate_resource = False
     if not is_cantrip and not skip_slot_validation:
+        magic_initiate_resource = magic_initiate_spell_resource(
+            caster,
+            spell_name=spell_name,
+            spell=spell,
+            spell_level=spell_level,
+        )
+        use_magic_initiate_resource = bool(
+            magic_initiate_resource
+            and magic_initiate_resource.get("uses_remaining", 0) > 0
+        )
+
+    if not is_cantrip and not skip_slot_validation and not use_magic_initiate_resource:
         current_slots = dict(caster.spell_slots or {})
         _, slot_error = consume_slot(dict(current_slots), spell_level)
         if slot_error:
@@ -201,6 +216,16 @@ async def prepare_spell_roll(
         spell_type=spell["type"],
         action_cost=action_cost,
         attack_roll=attack_roll_result,
+        resource_source=(
+            magic_initiate_resource.get("resource_source")
+            if use_magic_initiate_resource and magic_initiate_resource
+            else None
+        ),
+        resource_key=(
+            magic_initiate_resource.get("resource_key")
+            if use_magic_initiate_resource and magic_initiate_resource
+            else None
+        ),
     )
 
     if combat_obj and store_pending_spell_result:

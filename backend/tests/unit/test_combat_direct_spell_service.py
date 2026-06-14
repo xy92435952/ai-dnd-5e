@@ -19,6 +19,8 @@ class FakeCaster:
     death_saves = {}
     concentration = None
     spell_slots = {"1st": 1}
+    feats = []
+    class_resources = {}
     derived = {
         "spell_ability": "int",
         "ability_modifiers": {"int": 3},
@@ -142,6 +144,57 @@ async def test_cast_direct_spell_defaults_empty_aoe_damage_to_alive_enemies():
     assert result.remaining_slots == {"1st": 0}
     assert result.is_aoe is True
     assert result.is_concentration is True
+
+
+@pytest.mark.asyncio
+async def test_cast_direct_magic_initiate_spell_consumes_feat_resource_not_slot():
+    from services.combat_direct_spell_service import cast_direct_spell
+
+    class MagicInitiateSpellService(FakeSpellService):
+        def get(self, name):
+            return {
+                "name": name,
+                "name_en": "Shield",
+                "level": 1,
+                "type": "utility",
+                "aoe": False,
+                "concentration": False,
+            }
+
+        def consume_slot(self, *_args):
+            raise AssertionError("Magic Initiate resource should replace slot consumption")
+
+    caster = FakeCaster()
+    caster.spell_slots = {"1st": 0}
+    caster.feats = [{"name": "Magic Initiate", "spell": "Shield"}]
+    caster.class_resources = {"magic_initiate_spell_uses_remaining": 1}
+
+    result = await cast_direct_spell(
+        FakeDb(),
+        session_id="sess-1",
+        session=FakeSession(),
+        combat_obj=FakeCombat(),
+        caster=caster,
+        caster_id="caster-1",
+        spell_name="Shield",
+        spell_level=1,
+        target_id=None,
+        target_ids=[],
+        spell_service_obj=MagicInitiateSpellService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        check_combat_outcome_func=lambda *_args, **_kwargs: (False, None),
+    )
+
+    assert caster.spell_slots == {"1st": 0}
+    assert caster.class_resources["magic_initiate_spell_uses_remaining"] == 0
+    assert result.remaining_slots == {"1st": 0}
+    assert result.spell_resource == {
+        "resource_source": "magic_initiate",
+        "resource_key": "magic_initiate_spell_uses_remaining",
+        "uses_remaining": 0,
+    }
+    assert result.caster_state["class_resources"]["magic_initiate_spell_uses_remaining"] == 0
 
 
 @pytest.mark.asyncio

@@ -16,6 +16,8 @@ def build_pending_spell(
     spell_type: str,
     action_cost: str = "action",
     attack_roll: dict[str, Any] | None = None,
+    resource_source: str | None = None,
+    resource_key: str | None = None,
 ) -> dict[str, Any]:
     pending = {
         "pending_spell_id": str(uuid.uuid4()),
@@ -34,6 +36,10 @@ def build_pending_spell(
         pending["attack_roll"] = attack_roll
         pending["hit"] = bool(attack_roll.get("hit"))
         pending["is_crit"] = bool(attack_roll.get("is_crit"))
+    if resource_source:
+        pending["resource_source"] = resource_source
+    if resource_key:
+        pending["resource_key"] = resource_key
     return pending
 
 

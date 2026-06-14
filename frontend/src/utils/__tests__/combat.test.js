@@ -29,6 +29,7 @@ import {
   getCombatLifeState,
   getCurrentTurnLabel,
   getEquippedWeaponResourceSummary,
+  getMagicInitiateSpellCastInfo,
   getSkillUnavailableReason,
   getPlayerAvailableSpells,
   getPlayerTurnState,
@@ -374,6 +375,35 @@ describe('combat grid helpers', () => {
     expect(spellNameMatches(spells[0], 'fire_bolt')).toBe(true)
   })
 
+  it('getPlayerAvailableSpells includes Magic Initiate feat cantrips and spell', () => {
+    const spells = [
+      { name: 'Mage Hand', level: 0, classes: ['Wizard'] },
+      { name: 'Light', level: 0, classes: ['Cleric'] },
+      { name: 'Shield', level: 1, classes: ['Wizard'] },
+      { name: 'Cure Wounds', level: 1, classes: ['Cleric'] },
+    ]
+    const feats = [{
+      name: 'Magic Initiate',
+      cantrips: ['Mage Hand', 'Light'],
+      spell: 'Shield',
+    }]
+
+    expect(getPlayerAvailableSpells({ spells, feats }).map(s => s.name))
+      .toEqual(['Mage Hand', 'Light', 'Shield'])
+    expect(getMagicInitiateSpellCastInfo({
+      spell: spells[2],
+      character: {
+        feats,
+        class_resources: { magic_initiate_spell_uses_remaining: 1 },
+      },
+      castLevel: 1,
+    })).toMatchObject({
+      matches: true,
+      remaining: 1,
+      canUse: true,
+    })
+  })
+
   it('getPlayerAvailableSpells 没有已知列表时按中英文职业过滤', () => {
     const spells = [
       { name: 'Bless', classes: ['Cleric', 'Paladin'] },
@@ -477,6 +507,10 @@ describe('combat grid helpers', () => {
           conditions: ['unconscious'],
           life_state: 'dead',
         },
+        hero: {
+          id: 'hero',
+          class_resources: { magic_initiate_spell_uses_remaining: 1 },
+        },
       },
     }
 
@@ -498,6 +532,11 @@ describe('combat grid helpers', () => {
       resurrection_results: [
         { target_id: 'cleric', resurrected: true, new_hp: 1, death_saves: null, conditions: [], life_state: 'alive' },
       ],
+      caster_state: {
+        target_id: 'hero',
+        entity_id: 'hero',
+        class_resources: { magic_initiate_spell_uses_remaining: 0 },
+      },
     })
 
     expect(updated.entities.enemy.life_state).toBe('dying')
@@ -513,6 +552,7 @@ describe('combat grid helpers', () => {
       conditions: [],
       life_state: 'alive',
     })
+    expect(updated.entities.hero.class_resources.magic_initiate_spell_uses_remaining).toBe(0)
   })
 
   it('formats and applies weapon resource updates from attack rolls', () => {
