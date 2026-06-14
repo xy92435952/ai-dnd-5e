@@ -517,6 +517,19 @@ def _advance_spell_learning(
             )
         if len(requested_replacements) > 1:
             raise CharacterLevelingError(400, "Only one known spell replacement is allowed per level-up.")
+        replacement_old_spells = {replacement["old_spell"] for replacement in requested_replacements}
+        replacement_new_spells = {replacement["new_spell"] for replacement in requested_replacements}
+        requested_spell_set = set(requested_spells)
+        if replacement_old_spells & requested_spell_set:
+            raise CharacterLevelingError(
+                400,
+                "A replaced spell cannot also be learned again in the same level-up.",
+            )
+        if replacement_new_spells & requested_spell_set:
+            raise CharacterLevelingError(
+                400,
+                "Replacement spells cannot also be selected as learned spells.",
+            )
 
     for replacement in requested_replacements:
         old_spell = replacement["old_spell"]

@@ -893,3 +893,55 @@ def test_build_level_up_update_rejects_invalid_spell_replacements():
         )
 
     assert "already known" in exc.value.detail
+
+    sorcerer_scores = {"str": 8, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 16}
+    sorcerer_derived = calc_derived("Sorcerer", 2, sorcerer_scores, None, race="Human")
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Sorcerer",
+            level=2,
+            ability_scores=sorcerer_scores,
+            derived=sorcerer_derived,
+            hp_current=14,
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=["Burning Hands", "Shield", "Mage Armor"],
+            cantrips=["Fire Bolt"],
+            learned_spells=["Burning Hands"],
+            spell_replacements=[{"old_spell": "Burning Hands", "new_spell": "Magic Missile"}],
+            available_class_spells=[
+                {"name": "Burning Hands", "level": 1},
+                {"name": "Shield", "level": 1},
+                {"name": "Mage Armor", "level": 1},
+                {"name": "Magic Missile", "level": 1},
+            ],
+            available_class_cantrips=["Fire Bolt"],
+            race="Human",
+        )
+
+    assert "cannot also be learned again" in exc.value.detail
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Sorcerer",
+            level=2,
+            ability_scores=sorcerer_scores,
+            derived=sorcerer_derived,
+            hp_current=14,
+            spell_slots={"1st": 1},
+            use_average_hp=True,
+            known_spells=["Burning Hands", "Shield", "Mage Armor"],
+            cantrips=["Fire Bolt"],
+            learned_spells=["Magic Missile"],
+            spell_replacements=[{"old_spell": "Burning Hands", "new_spell": "Magic Missile"}],
+            available_class_spells=[
+                {"name": "Burning Hands", "level": 1},
+                {"name": "Shield", "level": 1},
+                {"name": "Mage Armor", "level": 1},
+                {"name": "Magic Missile", "level": 1},
+            ],
+            available_class_cantrips=["Fire Bolt"],
+            race="Human",
+        )
+
+    assert "cannot also be selected as learned spells" in exc.value.detail
