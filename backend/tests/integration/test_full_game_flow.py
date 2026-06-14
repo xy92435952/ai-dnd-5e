@@ -848,6 +848,66 @@ async def test_skill_check_lucky_spends_point_and_logs_metadata(
     assert log.dice_result["d20"] == 18
 
 
+async def test_skill_check_bardic_inspiration_spends_die_and_logs_metadata(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    from sqlalchemy import select
+
+    from models import GameLog
+
+    headers = await _auth_headers(client, sample_user)
+    sample_character.class_resources = {
+        "bardic_inspiration": {
+            "die": "d8",
+            "uses_remaining": 1,
+            "source_character_id": "bard-1",
+            "source_character_name": "Lyra",
+        },
+    }
+    await db_session.commit()
+    skill = sample_character.proficient_skills[0]
+
+    response = await client.post("/game/skill-check", headers=headers, json={
+        "session_id": sample_session.id,
+        "character_id": sample_character.id,
+        "skill": skill,
+        "dc": 20,
+        "d20_value": 10,
+        "use_bardic_inspiration": True,
+        "bardic_inspiration_roll": 5,
+    })
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["d20"] == 10
+    assert result["total"] == 20
+    assert result["success"] is True
+    assert result["bardic_inspiration"] == {
+        "type": "bardic_inspiration",
+        "spent": True,
+        "context": "skill_check",
+        "die": "d8",
+        "roll": 5,
+        "uses_remaining": 0,
+        "source_character_id": "bard-1",
+        "source_character_name": "Lyra",
+        "total_before": 15,
+        "total_after": 20,
+    }
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+
+    logs = await db_session.execute(
+        select(GameLog)
+        .where(GameLog.session_id == sample_session.id, GameLog.log_type == "dice")
+        .order_by(GameLog.created_at.desc())
+    )
+    log = logs.scalars().first()
+    assert log.dice_result["bardic_inspiration"] == result["bardic_inspiration"]
+    assert log.dice_result["total"] == 20
+
+
 async def test_skill_check_lucky_rejects_no_remaining_points_without_logging(
     client, db_session, sample_session, sample_character, sample_user,
 ):

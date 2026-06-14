@@ -93,6 +93,8 @@ class AttackRollRequest(BaseModel):
     second_d20_value: Optional[int] = None  # Advantage/disadvantage second d20
     use_lucky: bool = False
     lucky_d20_value: Optional[int] = None
+    use_bardic_inspiration: bool = False
+    bardic_inspiration_roll: Optional[int] = None
     expected_turn_token: Optional[str] = None
 
 

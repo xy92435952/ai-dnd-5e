@@ -6,6 +6,11 @@ from database import get_db
 from models import Character, GameLog
 from schemas.game_requests import SkillCheckRequest
 from schemas.game_responses import SkillCheckResult
+from services.bardic_inspiration_service import (
+    BardicInspirationError,
+    apply_bardic_inspiration_to_skill_check,
+    spend_bardic_inspiration,
+)
 from services.dnd_rules import roll_skill_check
 from services.lucky_feat_service import (
     LuckyFeatError,
@@ -79,6 +84,20 @@ async def skill_check(
         except LuckyFeatError as exc:
             raise HTTPException(exc.status_code, exc.detail) from exc
         result = apply_lucky_to_skill_check(result, lucky=lucky, dc=req.dc)
+    if req.use_bardic_inspiration:
+        try:
+            bardic_inspiration = spend_bardic_inspiration(
+                character,
+                bardic_roll=req.bardic_inspiration_roll,
+                context="skill_check",
+            )
+        except BardicInspirationError as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
+        result = apply_bardic_inspiration_to_skill_check(
+            result,
+            bardic_inspiration=bardic_inspiration,
+            dc=req.dc,
+        )
 
     db.add(GameLog(
         session_id=req.session_id,

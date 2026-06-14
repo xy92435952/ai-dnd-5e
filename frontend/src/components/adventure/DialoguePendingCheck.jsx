@@ -1,4 +1,5 @@
 import { getLuckyPointsRemaining } from '../../utils/lucky'
+import { getBardicInspiration } from '../../utils/bardicInspiration'
 
 export default function DialoguePendingCheck({
   pendingCheck,
@@ -7,10 +8,14 @@ export default function DialoguePendingCheck({
   disabled = false,
   player = null,
   onToggleLucky = null,
+  onToggleBardicInspiration = null,
 }) {
   const luckyRemaining = getLuckyPointsRemaining(player)
   const luckyActive = Boolean(pendingCheck.use_lucky)
   const canToggleLucky = luckyRemaining > 0 && !checkRolling && !disabled && typeof onToggleLucky === 'function'
+  const bardic = getBardicInspiration(player)
+  const bardicActive = Boolean(pendingCheck.use_bardic_inspiration)
+  const canToggleBardic = Boolean(bardic) && !checkRolling && !disabled && typeof onToggleBardicInspiration === 'function'
 
   return (
     <div style={{ padding: 16, textAlign: 'center' }}>
@@ -29,6 +34,19 @@ export default function DialoguePendingCheck({
           style={{ marginTop: 8, marginRight: 8, padding: '8px 14px', letterSpacing: '.08em' }}
         >
           Lucky {luckyActive ? 'ON' : 'OFF'} · {luckyRemaining}
+        </button>
+      )}
+      {bardic && (
+        <button
+          type="button"
+          className={bardicActive ? 'btn-gold' : 'btn-ghost'}
+          aria-pressed={bardicActive}
+          onClick={onToggleBardicInspiration}
+          disabled={!canToggleBardic}
+          title={`Bardic Inspiration ${bardic.die}`}
+          style={{ marginTop: 8, marginRight: 8, padding: '8px 14px', letterSpacing: '.08em' }}
+        >
+          Bardic {bardicActive ? 'ON' : 'OFF'} · {bardic.die}
         </button>
       )}
       <button className="btn-gold" onClick={onDiceRoll} disabled={checkRolling || disabled} style={{ marginTop: 10, padding: '10px 24px', letterSpacing: '.2em' }}>

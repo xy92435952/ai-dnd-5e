@@ -488,6 +488,77 @@ async def test_attack_roll_lucky_spends_point_and_stores_pending_attack(
     assert pending["attack_roll"]["lucky"] == data["lucky"]
 
 
+async def test_attack_roll_bardic_inspiration_spends_die_and_stores_pending_attack(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = []
+    sample_character.class_resources = {
+        "bardic_inspiration": {
+            "die": "d8",
+            "uses_remaining": 1,
+            "source_character_id": "bard-1",
+            "source_character_name": "Lyra",
+        },
+    }
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+            "attacks_made": 0,
+        }
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/attack-roll",
+        headers=headers,
+        json={
+            "entity_id": sample_character.id,
+            "target_id": "goblin-1",
+            "d20_value": 6,
+            "use_bardic_inspiration": True,
+            "bardic_inspiration_roll": 2,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["d20"] == 6
+    assert data["hit"] is True
+    assert data["attack_total"] == 13
+    assert data["roll_modifiers"] == [{"source": "bardic_inspiration", "value": 2, "die": "d8"}]
+    assert data["bardic_inspiration"] == {
+        "type": "bardic_inspiration",
+        "spent": True,
+        "context": "attack_roll",
+        "die": "d8",
+        "roll": 2,
+        "uses_remaining": 0,
+        "source_character_id": "bard-1",
+        "source_character_name": "Lyra",
+        "total_before": 11,
+        "total_after": 13,
+    }
+    assert data["dice_result"]["attack"]["bardic_inspiration"] == data["bardic_inspiration"]
+    assert data["special_action"]["bardic_inspiration"] == data["bardic_inspiration"]
+    assert data["class_resources"]["bardic_inspiration"]["uses_remaining"] == 0
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+
+    await db_session.refresh(dying_combat)
+    pending = dying_combat.turn_states[sample_character.id]["pending_attack"]
+    assert pending["attack_roll"]["attack_total"] == 13
+    assert pending["attack_roll"]["bardic_inspiration"] == data["bardic_inspiration"]
+
+
 @pytest.mark.parametrize("action_text", ["dash", "disengage", "help", "dodge"])
 async def test_incapacitating_condition_blocks_basic_combat_actions(
     action_text, client, db_session, sample_session, sample_character, sample_user, dying_combat,

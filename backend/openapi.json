@@ -191,6 +191,17 @@
             "title": "Action Type",
             "type": "string"
           },
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
           "d20_value": {
             "anyOf": [
               {
@@ -247,6 +258,11 @@
           "target_id": {
             "title": "Target Id",
             "type": "string"
+          },
+          "use_bardic_inspiration": {
+            "default": false,
+            "title": "Use Bardic Inspiration",
+            "type": "boolean"
           },
           "use_lucky": {
             "default": false,
@@ -4262,6 +4278,17 @@
       },
       "SkillCheckRequest": {
         "properties": {
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
           "character_id": {
             "title": "Character Id",
             "type": "string"
@@ -4310,6 +4337,11 @@
           "skill": {
             "title": "Skill",
             "type": "string"
+          },
+          "use_bardic_inspiration": {
+            "default": false,
+            "title": "Use Bardic Inspiration",
+            "type": "boolean"
           },
           "use_lucky": {
             "default": false,

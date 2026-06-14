@@ -34,6 +34,11 @@ from services.combat_turn_state_service import (
     save_turn_state,
 )
 from services.combat_two_weapon_service import validate_two_weapon_fighting_equipment
+from services.bardic_inspiration_service import (
+    BardicInspirationError,
+    apply_bardic_inspiration_to_attack_roll,
+    spend_bardic_inspiration,
+)
 from services.dnd_rules import _normalize_class, roll_attack, should_auto_crit_melee_target
 from services.lucky_feat_service import (
     LuckyFeatError,
@@ -79,6 +84,8 @@ async def prepare_attack_roll(
     second_d20_value: int | None = None,
     use_lucky: bool = False,
     lucky_d20_value: int | None = None,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
     enemies: list[dict[str, Any]],
     weapon_name: str | None = None,
     combat_service: CombatService = svc,
@@ -269,6 +276,19 @@ async def prepare_attack_roll(
             attack_roll_result,
             lucky=lucky,
             crit_threshold=crit_threshold,
+        )
+    if use_bardic_inspiration:
+        try:
+            bardic_inspiration = spend_bardic_inspiration(
+                player,
+                bardic_roll=bardic_inspiration_roll,
+                context="attack_roll",
+            )
+        except BardicInspirationError as exc:
+            raise CombatAttackRollError(exc.status_code, exc.detail) from exc
+        attack_roll_result = apply_bardic_inspiration_to_attack_roll(
+            attack_roll_result,
+            bardic_inspiration=bardic_inspiration,
         )
     attack_roll_result = {
         **attack_roll_result,

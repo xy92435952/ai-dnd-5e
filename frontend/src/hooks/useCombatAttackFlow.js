@@ -13,6 +13,7 @@ import { buildCombatStateChangeSummary } from '../utils/combatLog'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { selectD20Roll } from '../utils/d20Roll'
 import { getLuckyPointsRemaining } from '../utils/lucky'
+import { getBardicInspiration } from '../utils/bardicInspiration'
 
 function ignoreOptionalEffect(fn) {
   try {
@@ -78,6 +79,7 @@ function buildAttackLogDice(atkResult, hit) {
     disadvantage_sources: disadvantageSources,
     roll_state: atkResult.roll_state,
     ...(atkResult.lucky ? { lucky: atkResult.lucky } : {}),
+    ...(atkResult.bardic_inspiration ? { bardic_inspiration: atkResult.bardic_inspiration } : {}),
     ...(atkResult.defender_interception
       ? {
           defender_interception: atkResult.defender_interception,
@@ -110,6 +112,8 @@ export function useCombatAttackFlow({
   classResources = {},
   useLuckyAttack = false,
   setUseLuckyAttack = null,
+  useBardicAttack = false,
+  setUseBardicAttack = null,
   setClassResources = null,
 }) {
   return useCallback(async () => {
@@ -138,12 +142,26 @@ export function useCombatAttackFlow({
       } else if (useLuckyAttack && typeof setUseLuckyAttack === 'function') {
         setUseLuckyAttack(false)
       }
+      const bardic = getBardicInspiration(classResources)
+      const bardicEnabled = Boolean(useBardicAttack) && Boolean(bardic)
+      let bardicRoll = null
+      if (bardicEnabled) {
+        const bardicDice = await rollDice3D(bardic.faces)
+        bardicRoll = bardicDice.total
+        showDice({ faces: bardic.faces, result: bardicRoll, label: `Bardic Inspiration ${bardic.die}`, count: 1 })
+      } else if (useBardicAttack && typeof setUseBardicAttack === 'function') {
+        setUseBardicAttack(false)
+      }
 
       const attackArgs = [
         sessionId, playerId, selectedTarget,
         isRanged ? 'ranged' : 'melee', false, d20, getCombatTurnToken(combat), selectedWeaponName || null, secondD20,
       ]
-      if (luckyEnabled) attackArgs.push({ useLucky: true, luckyD20Value: luckyD20 })
+      const attackOptions = {
+        ...(luckyEnabled ? { useLucky: true, luckyD20Value: luckyD20 } : {}),
+        ...(bardicEnabled ? { useBardicInspiration: true, bardicInspirationRoll: bardicRoll } : {}),
+      }
+      if (Object.keys(attackOptions).length) attackArgs.push(attackOptions)
       const atkResult = await gameApi.attackRoll(...attackArgs)
       if (atkResult.lucky?.spent) {
         if (typeof setClassResources === 'function') {
@@ -153,6 +171,20 @@ export function useCombatAttackFlow({
           }))
         }
         if (typeof setUseLuckyAttack === 'function') setUseLuckyAttack(false)
+      }
+      if (atkResult.bardic_inspiration?.spent) {
+        if (typeof setClassResources === 'function') {
+          setClassResources(prev => ({
+            ...(prev || {}),
+            ...(atkResult.class_resources || {}),
+            bardic_inspiration: {
+              ...((prev || {}).bardic_inspiration || {}),
+              ...((atkResult.class_resources || {}).bardic_inspiration || {}),
+              uses_remaining: atkResult.bardic_inspiration.uses_remaining,
+            },
+          }))
+        }
+        if (typeof setUseBardicAttack === 'function') setUseBardicAttack(false)
       }
 
       if (atkResult.turn_state) setTurnState(atkResult.turn_state)
@@ -276,8 +308,10 @@ export function useCombatAttackFlow({
     setSelectedTarget,
     setSmitePrompt,
     setTurnState,
+    setUseBardicAttack,
     setUseLuckyAttack,
     showDice,
+    useBardicAttack,
     useLuckyAttack,
   ])
 }

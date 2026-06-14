@@ -34,6 +34,7 @@ export default function CombatHud({
   selectedWeaponName,
   classResources = {},
   useLuckyAttack = false,
+  useBardicAttack = false,
   onSessionChange,
   onTurnStateChange,
   onError,
@@ -47,6 +48,7 @@ export default function CombatHud({
   onToggleRanged,
   onSelectedWeaponChange,
   onToggleLuckyAttack,
+  onToggleBardicAttack,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -133,6 +135,7 @@ export default function CombatHud({
           selectedWeaponName={selectedWeaponName}
           classResources={classResources}
           useLuckyAttack={useLuckyAttack}
+          useBardicAttack={useBardicAttack}
           character={controlledCharacter || session?.player}
           turnState={turnState}
           onEndTurn={onEndTurn}
@@ -142,6 +145,7 @@ export default function CombatHud({
           onToggleRanged={onToggleRanged}
           onSelectedWeaponChange={onSelectedWeaponChange}
           onToggleLuckyAttack={onToggleLuckyAttack}
+          onToggleBardicAttack={onToggleBardicAttack}
           onOpenCharacter={onOpenCharacter}
           onReturnAdventure={onReturnAdventure}
           onForceEndCombat={onForceEndCombat}

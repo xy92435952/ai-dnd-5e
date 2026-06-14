@@ -36,4 +36,18 @@ describe('DialoguePendingCheck', () => {
 
     expect(screen.queryByRole('button', { name: /Lucky/ })).not.toBeInTheDocument()
   })
+
+  it('shows and toggles Bardic Inspiration when an unused die is available', () => {
+    const props = renderPendingCheck({
+      pendingCheck: { check_type: 'Athletics', dc: 15, use_bardic_inspiration: true },
+      player: { class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } } },
+      onToggleBardicInspiration: vi.fn(),
+    })
+
+    const bardic = screen.getByRole('button', { name: 'Bardic ON · d8' })
+    expect(bardic).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(bardic)
+    expect(props.onToggleBardicInspiration).toHaveBeenCalledTimes(1)
+  })
 })

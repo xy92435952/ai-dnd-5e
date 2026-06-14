@@ -27,6 +27,8 @@ class SkillCheckRequest(BaseModel):
     second_d20_value: Optional[int] = None
     use_lucky: bool = False
     lucky_d20_value: Optional[int] = None
+    use_bardic_inspiration: bool = False
+    bardic_inspiration_roll: Optional[int] = None
 
 
 class AITakeoverRequest(BaseModel):

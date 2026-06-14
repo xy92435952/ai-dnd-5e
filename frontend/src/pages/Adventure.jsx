@@ -48,6 +48,7 @@ import MultiplayerTimelinePanel from '../components/adventure/MultiplayerTimelin
 import { buildDialogueQueue as buildDialogueQueueFromText } from '../utils/dialogue'
 import { getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
 import { updateLuckyPointsRemaining } from '../utils/lucky'
+import { updateBardicInspirationUses } from '../utils/bardicInspiration'
 
 export default function Adventure() {
   const { sessionId } = useParams()
@@ -152,6 +153,13 @@ export default function Adventure() {
       player: updateLuckyPointsRemaining(prev.player, remaining),
     } : prev)
   }, [setPlayer, setSession])
+  const handleBardicInspirationSpent = useCallback((remaining) => {
+    setPlayer(prev => updateBardicInspirationUses(prev, remaining))
+    setSession(prev => prev ? {
+      ...prev,
+      player: updateBardicInspirationUses(prev.player, remaining),
+    } : prev)
+  }, [setPlayer, setSession])
 
   // 5. 多人 room 状态（只在 session 明确为多人时加载，单人 Demo 不产生 403 噪音）
   const { room, setRoom, refreshRoom } = useAdventureRoom(sessionId, {
@@ -165,6 +173,7 @@ export default function Adventure() {
     player,
     addLog,
     onLuckySpent: handleLuckySpent,
+    onBardicInspirationSpent: handleBardicInspirationSpent,
   })
 
   // 7. 把 DM 响应拼成剧场队列（HTTP 响应和 WS dm_responded 都用这个）

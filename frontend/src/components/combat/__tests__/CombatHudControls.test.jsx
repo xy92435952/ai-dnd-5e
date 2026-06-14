@@ -155,6 +155,20 @@ describe('CombatHudControls', () => {
     expect(props.onToggleLuckyAttack).toHaveBeenCalledTimes(1)
   })
 
+  it('renders a Bardic Inspiration attack toggle when an unused die is available', () => {
+    const props = renderControls({
+      classResources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      useBardicAttack: true,
+      onToggleBardicAttack: vi.fn(),
+    })
+
+    const bardic = screen.getByRole('button', { name: 'Bardic ON · d8' })
+    expect(bardic).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(bardic)
+    expect(props.onToggleBardicAttack).toHaveBeenCalledTimes(1)
+  })
+
   it('submits delay placement after a selected later combatant', () => {
     const props = renderControls({
       delayTurnOptions: [

@@ -1644,6 +1644,8 @@ export interface components {
              * @default melee
              */
             action_type: string;
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
             /** D20 Value */
             d20_value?: number | null;
             /** Entity Id */
@@ -1661,6 +1663,11 @@ export interface components {
             second_d20_value?: number | null;
             /** Target Id */
             target_id: string;
+            /**
+             * Use Bardic Inspiration
+             * @default false
+             */
+            use_bardic_inspiration: boolean;
             /**
              * Use Lucky
              * @default false
@@ -3446,6 +3453,8 @@ export interface components {
         };
         /** SkillCheckRequest */
         SkillCheckRequest: {
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
             /** Character Id */
             character_id: string;
             /** D20 Value */
@@ -3460,6 +3469,11 @@ export interface components {
             session_id: string;
             /** Skill */
             skill: string;
+            /**
+             * Use Bardic Inspiration
+             * @default false
+             */
+            use_bardic_inspiration: boolean;
             /**
              * Use Lucky
              * @default false

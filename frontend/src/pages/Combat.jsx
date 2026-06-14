@@ -91,6 +91,8 @@ export default function Combat() {
     classResources,
     useLuckyAttack,
     setUseLuckyAttack,
+    useBardicAttack,
+    setUseBardicAttack,
     reactionPrompt,
     legendaryActionPrompt,
     lairActionPrompt,
@@ -387,7 +389,9 @@ export default function Combat() {
         onSelectedWeaponChange={setSelectedWeaponName}
         classResources={classResources}
         useLuckyAttack={useLuckyAttack}
+        useBardicAttack={useBardicAttack}
         onToggleLuckyAttack={() => setUseLuckyAttack(value => !value)}
+        onToggleBardicAttack={() => setUseBardicAttack(value => !value)}
         onOpenCharacter={() => playerId && navigate(`/character/${playerId}?sessionId=${sessionId}`)}
         onReturnAdventure={returnToAdventure}
         onForceEndCombat={forceEndCombat}

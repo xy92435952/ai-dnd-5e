@@ -46,6 +46,8 @@ export function useCombatFlowHandlers({
     classResources,
     useLuckyAttack,
     setUseLuckyAttack,
+    useBardicAttack,
+    setUseBardicAttack,
     setPlayerSubclass,
     setPlayerSubclassEffects,
     playerSubclassEffects,
@@ -171,6 +173,8 @@ export function useCombatFlowHandlers({
     classResources,
     useLuckyAttack,
     setUseLuckyAttack,
+    useBardicAttack,
+    setUseBardicAttack,
     setClassResources,
   })
 

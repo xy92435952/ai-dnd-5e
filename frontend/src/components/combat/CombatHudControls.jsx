@@ -1,6 +1,7 @@
 import React from 'react'
 import { getAttackWeaponOptions } from '../../utils/combatWeapons'
 import { getLuckyPointsRemaining } from '../../utils/lucky'
+import { getBardicInspiration } from '../../utils/bardicInspiration'
 
 function getTurnControlReason({ isProcessing, isPlayerTurn, syncBlocked }) {
   if (syncBlocked) return '等待战斗同步恢复'
@@ -28,6 +29,7 @@ export default function CombatHudControls({
   selectedWeaponName = '',
   classResources = {},
   useLuckyAttack = false,
+  useBardicAttack = false,
   character,
   turnState,
   onEndTurn,
@@ -39,6 +41,7 @@ export default function CombatHudControls({
   onToggleRanged,
   onSelectedWeaponChange,
   onToggleLuckyAttack,
+  onToggleBardicAttack,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -51,6 +54,8 @@ export default function CombatHudControls({
   const weaponOptions = getAttackWeaponOptions(character, isRanged)
   const luckyRemaining = getLuckyPointsRemaining(classResources)
   const canToggleLuckyAttack = luckyRemaining > 0 && !actionDisabled && typeof onToggleLuckyAttack === 'function'
+  const bardic = getBardicInspiration(classResources)
+  const canToggleBardicAttack = Boolean(bardic) && !actionDisabled && typeof onToggleBardicAttack === 'function'
   const hasDelayTargets = delayTurnOptions.length > 0
   const delayTitle = hasDelayTargets
     ? '按所选位置延迟当前回合'
@@ -120,6 +125,18 @@ export default function CombatHudControls({
             title={disabledReason || `Lucky points remaining: ${luckyRemaining}`}
           >
             Lucky {useLuckyAttack ? 'ON' : 'OFF'} · {luckyRemaining}
+          </button>
+        )}
+        {bardic && (
+          <button
+            className={useBardicAttack ? 'btn-gold' : 'btn-ghost'}
+            style={{ fontSize: 10, padding: '5px 8px' }}
+            onClick={onToggleBardicAttack}
+            disabled={!canToggleBardicAttack}
+            aria-pressed={Boolean(useBardicAttack)}
+            title={disabledReason || `Bardic Inspiration ${bardic.die}`}
+          >
+            Bardic {useBardicAttack ? 'ON' : 'OFF'} · {bardic.die}
           </button>
         )}
         <select

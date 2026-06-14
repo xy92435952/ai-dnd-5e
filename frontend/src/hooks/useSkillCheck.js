@@ -23,6 +23,7 @@ import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { JuiceAudio, shake as JuiceShake } from '../juice'
 import { getLuckyPointsRemaining } from '../utils/lucky'
+import { getBardicInspiration } from '../utils/bardicInspiration'
 
 function needsSecondD20(check) {
   return Boolean(check?.advantage || check?.disadvantage)
@@ -56,7 +57,20 @@ function formatLuckyDetail(result) {
   return ` [Lucky ${lucky.d20_before}->${lucky.d20_after} · ${lucky.lucky_points_remaining}]`
 }
 
-export function useSkillCheck({ sessionId, playerId, player = null, addLog, onLuckySpent = null }) {
+function formatBardicDetail(result) {
+  const bardic = result?.bardic_inspiration
+  if (!bardic?.spent) return ''
+  return ` [Bardic ${bardic.die || ''}+${bardic.roll} · ${bardic.uses_remaining}]`
+}
+
+export function useSkillCheck({
+  sessionId,
+  playerId,
+  player = null,
+  addLog,
+  onLuckySpent = null,
+  onBardicInspirationSpent = null,
+}) {
   const showDice = useGameStore(s => s.showDice)
 
   const [pendingCheck, setPendingCheck] = useState(null)
@@ -91,6 +105,14 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog, onLu
         luckyD20 = luckyRoll.total
         showDice({ faces: 20, result: luckyD20, label: 'Lucky reroll', count: 1 })
       }
+      const bardic = getBardicInspiration(player)
+      const useBardic = Boolean(pendingCheck.use_bardic_inspiration) && Boolean(bardic)
+      let bardicRoll = null
+      if (useBardic) {
+        const bardicDice = await rollDice3D(bardic.faces)
+        bardicRoll = bardicDice.total
+        showDice({ faces: bardic.faces, result: bardicRoll, label: `Bardic Inspiration ${bardic.die}`, count: 1 })
+      }
 
       const result = await gameApi.skillCheck({
         session_id:   sessionId,
@@ -100,9 +122,13 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog, onLu
         d20_value:    d20,
         second_d20_value: secondD20,
         ...(useLucky ? { use_lucky: true, lucky_d20_value: luckyD20 } : {}),
+        ...(useBardic ? { use_bardic_inspiration: true, bardic_inspiration_roll: bardicRoll } : {}),
       })
       if (result.lucky?.spent && typeof onLuckySpent === 'function') {
         onLuckySpent(result.lucky.lucky_points_remaining)
+      }
+      if (result.bardic_inspiration?.spent && typeof onBardicInspirationSpent === 'function') {
+        onBardicInspirationSpent(result.bardic_inspiration.uses_remaining)
       }
 
       const summary =
@@ -112,6 +138,7 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog, onLu
         `${result.disadvantage ? ' [劣势]' : ''}` +
         `${result.advantage ? ' [优势]' : ''}` +
         `${formatLuckyDetail(result)}` +
+        `${formatBardicDetail(result)}` +
         ` = ${result.total} → ` +
         `${result.success ? '✅ 成功' : '❌ 失败'}`
       addLog('dice', summary, 'dice', { dice_result: result })
@@ -139,7 +166,17 @@ export function useSkillCheck({ sessionId, playerId, player = null, addLog, onLu
     } finally {
       setCheckRolling(false)
     }
-  }, [pendingCheck, checkRolling, sessionId, playerId, player, addLog, onLuckySpent, showDice])
+  }, [
+    pendingCheck,
+    checkRolling,
+    sessionId,
+    playerId,
+    player,
+    addLog,
+    onLuckySpent,
+    onBardicInspirationSpent,
+    showDice,
+  ])
 
   return {
     pendingCheck,

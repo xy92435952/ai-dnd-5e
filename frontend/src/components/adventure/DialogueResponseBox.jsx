@@ -30,6 +30,7 @@ export default function DialogueResponseBox({
         disabled={disabled}
         player={player}
         onToggleLucky={() => setPendingCheck(prev => prev ? { ...prev, use_lucky: !prev.use_lucky } : prev)}
+        onToggleBardicInspiration={() => setPendingCheck(prev => prev ? { ...prev, use_bardic_inspiration: !prev.use_bardic_inspiration } : prev)}
       />
     )
   }

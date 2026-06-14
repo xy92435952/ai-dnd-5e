@@ -161,6 +161,8 @@ export const gameApi = {
       ...(secondD20Value != null ? { second_d20_value: secondD20Value } : {}),
       ...(options.useLucky ? { use_lucky: true } : {}),
       ...(options.luckyD20Value != null ? { lucky_d20_value: options.luckyD20Value } : {}),
+      ...(options.useBardicInspiration ? { use_bardic_inspiration: true } : {}),
+      ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
       ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
     }),
   damageRoll: (sessionId, pendingAttackId, damageValues = null) =>

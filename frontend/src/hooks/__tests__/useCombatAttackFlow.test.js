@@ -197,6 +197,90 @@ describe('useCombatAttackFlow', () => {
     }))
   })
 
+  it('spends Bardic Inspiration on the next attack roll when enabled', async () => {
+    const setUseBardicAttack = vi.fn()
+    const setClassResources = vi.fn()
+    rollDice3DMock
+      .mockResolvedValueOnce({ total: 6, rolls: [6] })
+      .mockResolvedValueOnce({ total: 2, rolls: [2] })
+    attackRollMock.mockResolvedValueOnce({
+      d20: 6,
+      attack_bonus: 5,
+      attack_total: 13,
+      target_ac: 12,
+      hit: true,
+      is_crit: false,
+      is_fumble: false,
+      attacker_name: 'Hero',
+      target_name: 'Goblin',
+      attacks_made: 1,
+      attacks_max: 1,
+      damage_dice: '1d8+3',
+      pending_attack_id: 'pending-bardic',
+      turn_state: { action_used: true, attacks_made: 1 },
+      narration: 'Hero hits with inspiration.',
+      class_resources: {
+        bardic_inspiration: {
+          die: 'd8',
+          uses_remaining: 0,
+        },
+      },
+      bardic_inspiration: {
+        spent: true,
+        die: 'd8',
+        roll: 2,
+        uses_remaining: 0,
+      },
+    })
+    const { result, deps } = renderAttackFlow({
+      classResources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      useBardicAttack: true,
+      setUseBardicAttack,
+      setClassResources,
+    })
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20, 1)
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(2, 8)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 2,
+      label: 'Bardic Inspiration d8',
+      count: 1,
+    })
+    expect(attackRollMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      'enemy-1',
+      'ranged',
+      false,
+      6,
+      '2:0:char-1',
+      'Longbow',
+      null,
+      { useBardicInspiration: true, bardicInspirationRoll: 2 },
+    )
+    expect(setUseBardicAttack).toHaveBeenCalledWith(false)
+    expect(setClassResources).toHaveBeenCalledWith(expect.any(Function))
+    expect(setClassResources.mock.calls[0][0]({ bardic_inspiration: { die: 'd8', uses_remaining: 1 } })).toEqual({
+      bardic_inspiration: { die: 'd8', uses_remaining: 0 },
+    })
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: {
+        attack: expect.objectContaining({
+          bardic_inspiration: expect.objectContaining({
+            spent: true,
+            die: 'd8',
+            roll: 2,
+          }),
+        }),
+      },
+    }))
+  })
+
   it('rolls two d20s for advantage and forwards both raw dice', async () => {
     rollDice3DMock.mockResolvedValueOnce({ total: 22, rolls: [4, 18] })
     attackRollMock.mockResolvedValueOnce({
