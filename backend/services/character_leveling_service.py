@@ -28,6 +28,7 @@ from services.character_feat_service import (
     CharacterFeatError,
     normalize_existing_feats,
     normalize_level_up_feat_choice,
+    validate_feat_prerequisites,
 )
 
 
@@ -143,6 +144,7 @@ def build_level_up_update(
 
     asi_levels = get_asi_levels_for_class(cls_key)
     next_feats = normalize_existing_feats(feats)
+    selected_feat_choice = None
 
     if new_level in asi_levels:
         if feat_choice:
@@ -157,6 +159,7 @@ def build_level_up_update(
             if feat_name not in FEATS:
                 raise CharacterLevelingError(400, f"未知专长：{feat_name}")
             next_feats.append(feat_choice)
+            selected_feat_choice = feat_choice
         elif ability_score_increases:
             total_increase = sum(ability_score_increases.values())
             if total_increase > 2:
@@ -231,6 +234,17 @@ def build_level_up_update(
         available_class_spells=available_class_spells,
         available_class_cantrips=available_class_cantrips,
     )
+    if selected_feat_choice:
+        try:
+            validate_feat_prerequisites(
+                [selected_feat_choice],
+                derived=next_derived,
+                known_spells=spell_learning["known_spells"],
+                cantrips=spell_learning["cantrips"],
+                spell_slots=next_spell_slots,
+            )
+        except CharacterFeatError as exc:
+            raise CharacterLevelingError(exc.status_code, exc.detail) from exc
 
     return {
         "old_level": old_level,

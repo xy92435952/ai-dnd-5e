@@ -162,6 +162,30 @@ async def test_create_character_rejects_unknown_starting_feat(
     assert "Unknown feat: Always First" in response.json()["detail"]
 
 
+async def test_create_character_rejects_war_caster_without_spellcasting(
+    client, sample_user, sample_module,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "War Caster Fighter",
+        "race": "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "background": "Soldier",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8},
+        "proficient_skills": ["运动", "感知"],
+        "fighting_style": "Defense",
+        "equipment_choice": 0,
+        "feats": [{"name": "War Caster"}],
+    })
+
+    assert response.status_code == 400, response.text
+    assert "War Caster requires" in response.json()["detail"]
+
+
 async def test_create_character_with_narrative_fields(
     client, db_session, sample_user, sample_module,
 ):

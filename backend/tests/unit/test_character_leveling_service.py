@@ -562,6 +562,61 @@ def test_build_level_up_update_rejects_duplicate_feat_choice():
     assert "Duplicate feat choice: Alert" in exc.value.detail
 
 
+def test_build_level_up_update_enforces_war_caster_spellcasting_prerequisite():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=3,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={},
+            use_average_hp=True,
+            subclass="Champion",
+            fighting_style="Defense",
+            feat_choice={"name": "War Caster"},
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "War Caster requires" in exc.value.detail
+
+
+def test_build_level_up_update_allows_war_caster_for_spellcaster():
+    ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
+    old_derived = calc_derived("Wizard", 3, ability_scores, None, race="Human")
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Wizard",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots=dict(old_derived.get("spell_slots_max", {})),
+        use_average_hp=True,
+        known_spells=["Magic Missile"],
+        cantrips=["Fire Bolt"],
+        feat_choice={"name": "War Caster", "effects": {"concentration_advantage": False}},
+        race="Human",
+    )
+
+    feat = update["feats"][0]
+    assert feat["name"] == "War Caster"
+    assert feat["prereq"] == "Spellcasting"
+    assert feat["effects"] == {"concentration_advantage": True}
+    assert update["derived"]["feat_effects"]["War Caster"] == {"concentration_advantage": True}
+
+
 def test_build_level_up_update_adds_requested_wizard_spellbook_spells():
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")

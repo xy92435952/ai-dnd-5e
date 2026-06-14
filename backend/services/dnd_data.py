@@ -568,7 +568,7 @@ ASI_LEVELS_ROGUE = [4, 8, 10, 12, 16, 19]        # Rogue 额外 10
 FEATS = {
     "Alert":               {"zh": "警觉", "desc": "+5先攻，不会被突袭，隐藏的攻击者不对你有优势", "effects": {"initiative_bonus": 5, "no_surprise": True}},
     "Tough":               {"zh": "坚韧", "desc": "HP每级+2（含追溯）", "effects": {"hp_per_level": 2}},
-    "War Caster":          {"zh": "战争施法者", "desc": "专注豁免优势，持法器可施法，借机攻击可用法术", "effects": {"concentration_advantage": True}},
+    "War Caster":          {"zh": "战争施法者", "desc": "专注豁免优势，持法器可施法，借机攻击可用法术", "effects": {"concentration_advantage": True}, "prereq": "Spellcasting"},
     "Great Weapon Master": {"zh": "巨武器大师", "desc": "重武器攻击-5命中+10伤害（可选），暴击/击杀后附赠攻击", "effects": {"gwm": True}},
     "Sharpshooter":        {"zh": "神射手", "desc": "远程-5命中+10伤害（可选），无视半/3/4掩体，射程不劣势", "effects": {"sharpshooter": True}},
     "Sentinel":            {"zh": "哨兵", "desc": "借机攻击命中目标速度归零，敌人攻击盟友时可借机攻击", "effects": {"sentinel": True}},

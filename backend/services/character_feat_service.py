@@ -48,6 +48,29 @@ def normalize_level_up_feat_choice(
     return normalized[0]
 
 
+def validate_feat_prerequisites(
+    feats: list[Any] | None,
+    *,
+    derived: dict | None = None,
+    known_spells: list[str] | None = None,
+    cantrips: list[str] | None = None,
+    spell_slots: dict | None = None,
+) -> None:
+    """Validate prerequisites for newly selected canonical feat entries."""
+    for feat in feats or []:
+        name = _canonical_feat_name(_feat_name(feat))
+        if name == "War Caster" and not _can_cast_at_least_one_spell(
+            derived=derived,
+            known_spells=known_spells,
+            cantrips=cantrips,
+            spell_slots=spell_slots,
+        ):
+            raise CharacterFeatError(
+                400,
+                "War Caster requires the ability to cast at least one spell.",
+            )
+
+
 def canonical_feat_entry(feat: Any) -> dict:
     name = _feat_name(feat)
     canonical_name = _canonical_feat_name(name)
@@ -94,6 +117,28 @@ def _canonical_feat_name(name: str) -> str | None:
         if zh and zh == target:
             return feat_name
     return None
+
+
+def _can_cast_at_least_one_spell(
+    *,
+    derived: dict | None,
+    known_spells: list[str] | None,
+    cantrips: list[str] | None,
+    spell_slots: dict | None,
+) -> bool:
+    if known_spells or cantrips:
+        return True
+
+    derived_data = derived or {}
+    spell_slots_max = derived_data.get("spell_slots_max") or {}
+    for slots in (spell_slots or {}, spell_slots_max):
+        for value in slots.values():
+            try:
+                if int(value or 0) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+    return False
 
 
 def _safe_legacy_feat_entry(feat: Any, name: str) -> dict:

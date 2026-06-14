@@ -15,6 +15,7 @@ from services.character_creation_service import (
 from services.character_feat_service import (
     CharacterFeatError,
     normalize_starting_feats,
+    validate_feat_prerequisites,
 )
 from services.character_serializer import serialize_character
 from services.character_starting_spell_service import (
@@ -134,6 +135,17 @@ async def create_player_character(
             prepared.append(spell)
 
     spell_slots = dict(derived.get("spell_slots_max", {}))
+    try:
+        validate_feat_prerequisites(
+            feats,
+            derived=derived,
+            known_spells=spell_choices["known_spells"],
+            cantrips=spell_choices["cantrips"],
+            spell_slots=spell_slots,
+        )
+    except CharacterFeatError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+
     class_resources = get_class_resource_defaults(cls_key, req.level, subclass=req.subclass)
 
     character = Character(
