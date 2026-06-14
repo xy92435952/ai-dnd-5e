@@ -3,6 +3,7 @@ import pytest
 from services.bardic_inspiration_service import (
     BardicInspirationError,
     apply_bardic_inspiration_to_attack_roll,
+    apply_bardic_inspiration_to_saving_throw,
     apply_bardic_inspiration_to_skill_check,
     spend_bardic_inspiration,
 )
@@ -119,3 +120,27 @@ def test_apply_bardic_inspiration_to_attack_roll_recomputes_hit_without_changing
     assert updated["is_crit"] is False
     assert updated["is_fumble"] is False
     assert updated["roll_modifiers"] == [{"source": "bardic_inspiration", "value": 4, "die": "d8"}]
+
+
+def test_apply_bardic_inspiration_to_saving_throw_recomputes_success():
+    save = {
+        "d20": 6,
+        "total": 6,
+        "success": False,
+    }
+    bardic = {
+        "type": "bardic_inspiration",
+        "spent": True,
+        "context": "death_save",
+        "die": "d8",
+        "roll": 4,
+        "uses_remaining": 0,
+    }
+
+    updated = apply_bardic_inspiration_to_saving_throw(save, bardic_inspiration=bardic, dc=10)
+
+    assert updated["total"] == 10
+    assert updated["success"] is True
+    assert updated["d20"] == 6
+    assert updated["bardic_inspiration"]["total_before"] == 6
+    assert updated["bardic_inspiration"]["total_after"] == 10

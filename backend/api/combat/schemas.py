@@ -32,6 +32,8 @@ class CombatActionRequest(BaseModel):
 class DeathSaveRequest(BaseModel):
     character_id: str
     d20_value: Optional[int] = None  # Frontend 3D dice result
+    use_bardic_inspiration: bool = False
+    bardic_inspiration_roll: Optional[int] = None
 
 
 class RecoverThrownWeaponsRequest(BaseModel):

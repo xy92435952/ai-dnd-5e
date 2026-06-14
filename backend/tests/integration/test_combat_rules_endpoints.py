@@ -179,6 +179,61 @@ async def test_death_save_natural_1_counts_two_failures(
     assert ds.get("failures", 0) == 2
 
 
+async def test_death_save_bardic_inspiration_can_turn_failure_into_success(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.class_resources = {
+        "bardic_inspiration": {
+            "die": "d8",
+            "uses_remaining": 1,
+            "source_character_id": "bard-1",
+            "source_character_name": "Lyra",
+        },
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/death-save",
+        headers=headers,
+        json={
+            "character_id": sample_character.id,
+            "d20_value": 6,
+            "use_bardic_inspiration": True,
+            "bardic_inspiration_roll": 4,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["d20"] == 6
+    assert data["total"] == 10
+    assert data["save_succeeded"] is True
+    assert data["outcome"] == "success"
+    assert data["death_saves"]["successes"] == 1
+    assert data["bardic_inspiration"] == {
+        "type": "bardic_inspiration",
+        "spent": True,
+        "context": "death_save",
+        "die": "d8",
+        "roll": 4,
+        "uses_remaining": 0,
+        "source_character_id": "bard-1",
+        "source_character_name": "Lyra",
+        "total_before": 6,
+        "total_after": 10,
+    }
+    assert data["dice_result"]["bardic_inspiration"] == data["bardic_inspiration"]
+    assert data["special_action"]["bardic_inspiration"] == data["bardic_inspiration"]
+    assert data["class_resources"]["bardic_inspiration"]["uses_remaining"] == 0
+    assert data["target_state"]["class_resources"]["bardic_inspiration"]["uses_remaining"] == 0
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+    assert sample_character.death_saves["successes"] == 1
+    assert sample_character.death_saves.get("failures", 0) == 0
+
+
 @pytest.mark.parametrize("life_state", ["dying", "stable", "dead"])
 async def test_zero_hp_character_cannot_take_combat_actions(
     life_state, client, db_session, sample_session, sample_character, sample_user, dying_combat,

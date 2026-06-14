@@ -13,6 +13,11 @@ from database import get_db
 from models import Character, CombatState, GameLog
 from schemas.combat_responses import DeathSaveResult
 from schemas.ws_events import CombatUpdate
+from services.bardic_inspiration_service import (
+    BardicInspirationError,
+    apply_bardic_inspiration_to_saving_throw,
+    spend_bardic_inspiration,
+)
 from services.dnd_rules import (
     apply_character_healing,
     default_death_saves,
@@ -53,6 +58,23 @@ async def death_saving_throw(
         raise HTTPException(400, "Character is already stable")
 
     d20 = req.d20_value if req.d20_value is not None else random.randint(1, 20)
+    save_roll = {"d20": d20, "total": d20, "success": d20 >= 10}
+    if req.use_bardic_inspiration:
+        try:
+            bardic_inspiration = spend_bardic_inspiration(
+                char,
+                bardic_roll=req.bardic_inspiration_roll,
+                context="death_save",
+            )
+        except BardicInspirationError as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
+        save_roll = apply_bardic_inspiration_to_saving_throw(
+            save_roll,
+            bardic_inspiration=bardic_inspiration,
+            dc=10,
+        )
+    total = int(save_roll.get("total") or d20)
+    save_succeeded = bool(save_roll.get("success"))
 
     if d20 == 20:
         apply_character_healing(char, 1)
@@ -60,6 +82,8 @@ async def death_saving_throw(
         msg = f"{char.name} rolled a natural 20 and regains 1 HP."
         result = {
             "d20": d20,
+            "total": total,
+            "save_succeeded": True,
             "outcome": "revive",
             "hp": char.hp_current,
             "hp_current": char.hp_current,
@@ -72,17 +96,33 @@ async def death_saving_throw(
         char.death_saves = saves
         if saves["failures"] >= 3:
             msg = f"{char.name} rolled a natural 1 and dies after three failed death saves."
-            result = {"d20": d20, "outcome": "dead", "failures": saves["failures"], "dead": True}
+            result = {
+                "d20": d20,
+                "total": total,
+                "save_succeeded": False,
+                "outcome": "dead",
+                "failures": saves["failures"],
+                "dead": True,
+            }
         else:
             msg = f"{char.name} rolled a natural 1: two failed death saves ({saves['failures']}/3)."
-            result = {"d20": d20, "outcome": "failure", "failures": saves["failures"], "dead": False}
-    elif d20 >= 10:
+            result = {
+                "d20": d20,
+                "total": total,
+                "save_succeeded": False,
+                "outcome": "failure",
+                "failures": saves["failures"],
+                "dead": False,
+            }
+    elif save_succeeded:
         saves["successes"] = min(3, saves.get("successes", 0) + 1)
         if saves["successes"] >= 3:
             saves["stable"] = True
             msg = f"{char.name} has three successful death saves and is stable."
             result = {
                 "d20": d20,
+                "total": total,
+                "save_succeeded": True,
                 "outcome": "stable",
                 "successes": saves["successes"],
                 "stable": True,
@@ -92,6 +132,8 @@ async def death_saving_throw(
             msg = f"{char.name} succeeds on a death save ({saves['successes']}/3)."
             result = {
                 "d20": d20,
+                "total": total,
+                "save_succeeded": True,
                 "outcome": "success",
                 "successes": saves["successes"],
                 "stable": False,
@@ -102,21 +144,37 @@ async def death_saving_throw(
         saves["failures"] = min(3, saves.get("failures", 0) + 1)
         if saves["failures"] >= 3:
             msg = f"{char.name} has three failed death saves and dies."
-            result = {"d20": d20, "outcome": "dead", "failures": saves["failures"], "dead": True}
+            result = {
+                "d20": d20,
+                "total": total,
+                "save_succeeded": False,
+                "outcome": "dead",
+                "failures": saves["failures"],
+                "dead": True,
+            }
         else:
             msg = f"{char.name} fails a death save ({saves['failures']}/3)."
-            result = {"d20": d20, "outcome": "failure", "failures": saves["failures"], "dead": False}
+            result = {
+                "d20": d20,
+                "total": total,
+                "save_succeeded": False,
+                "outcome": "failure",
+                "failures": saves["failures"],
+                "dead": False,
+            }
         char.death_saves = saves
 
     target_state = _build_death_save_target_state(char, req.character_id)
     dice_result = {
         "type": "death_save",
         **result,
+        **({"bardic_inspiration": save_roll["bardic_inspiration"]} if save_roll.get("bardic_inspiration") else {}),
         "character_id": req.character_id,
         "character_name": char.name,
         "target_name": char.name,
         "hp_current": char.hp_current,
         "death_saves": char.death_saves,
+        "class_resources": char.class_resources or {},
         "life_state": target_state["life_state"],
         "target_state": target_state,
     }
@@ -158,15 +216,17 @@ async def death_saving_throw(
         "death_saves": char.death_saves,
         "hp_current": char.hp_current,
         "life_state": get_life_state(char),
+        "class_resources": char.class_resources or {},
         "target_state": target_state,
         "dice_result": dice_result,
         "special_action": dice_result,
+        **({"bardic_inspiration": save_roll["bardic_inspiration"]} if save_roll.get("bardic_inspiration") else {}),
         **result,
     }
 
 
 def _build_death_save_target_state(char: Character, character_id: str) -> dict:
-    return {
+    state = {
         "target_id": character_id,
         "character_id": character_id,
         "target_name": char.name,
@@ -177,3 +237,6 @@ def _build_death_save_target_state(char: Character, character_id: str) -> dict:
         "conditions": char.conditions or [],
         "life_state": get_life_state(char),
     }
+    if char.class_resources:
+        state["class_resources"] = char.class_resources
+    return state

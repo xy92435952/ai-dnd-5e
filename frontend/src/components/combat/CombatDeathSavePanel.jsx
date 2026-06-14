@@ -1,4 +1,5 @@
 import { getCombatLifeState } from '../../utils/combat'
+import { getBardicInspiration } from '../../utils/bardicInspiration'
 
 function DeathSaveDots({ count = 0, tone }) {
   return (
@@ -24,6 +25,9 @@ export default function CombatDeathSavePanel({
   isPlayerTurn,
   isProcessing,
   syncBlocked = false,
+  classResources = {},
+  useBardicDeathSave = false,
+  onToggleBardicDeathSave = null,
   onDeathSave,
 }) {
   const lifeState = getCombatLifeState(character)
@@ -33,6 +37,8 @@ export default function CombatDeathSavePanel({
   const successes = saves.successes || 0
   const failures = saves.failures || 0
   const canRoll = lifeState === 'dying' && isPlayerTurn && !isProcessing && !syncBlocked
+  const bardic = getBardicInspiration(classResources || character)
+  const canToggleBardic = Boolean(bardic) && canRoll && typeof onToggleBardicDeathSave === 'function'
   const title = lifeState === 'stable' ? '已稳定' : '濒死豁免'
   const disabledReason = lifeState === 'stable'
     ? '角色已稳定'
@@ -83,6 +89,19 @@ export default function CombatDeathSavePanel({
       >
         {syncBlocked ? '同步中' : lifeState === 'stable' ? '无需检定' : '掷死亡豁免'}
       </button>
+      {bardic && lifeState === 'dying' && (
+        <button
+          type="button"
+          className={useBardicDeathSave ? 'btn-gold' : 'btn-ghost'}
+          onClick={onToggleBardicDeathSave}
+          disabled={!canToggleBardic}
+          aria-pressed={Boolean(useBardicDeathSave)}
+          title={disabledReason || `Bardic Inspiration ${bardic.die}`}
+          style={{ fontSize: 10, padding: '5px 8px' }}
+        >
+          Bardic {useBardicDeathSave ? 'ON' : 'OFF'} · {bardic.die}
+        </button>
+      )}
       <div style={{ color: 'var(--parchment-dark)', fontSize: 10 }}>{hint}</div>
     </div>
   )

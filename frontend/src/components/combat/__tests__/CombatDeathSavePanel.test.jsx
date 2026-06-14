@@ -25,6 +25,31 @@ describe('CombatDeathSavePanel', () => {
     expect(onDeathSave).toHaveBeenCalledTimes(1)
   })
 
+  it('shows and toggles Bardic Inspiration for dying characters with an unused die', () => {
+    const onToggleBardicDeathSave = vi.fn()
+    render(
+      <CombatDeathSavePanel
+        character={{
+          hp_current: 0,
+          life_state: 'dying',
+          death_saves: { successes: 0, failures: 1, stable: false },
+        }}
+        isPlayerTurn
+        isProcessing={false}
+        classResources={{ bardic_inspiration: { die: 'd8', uses_remaining: 1 } }}
+        useBardicDeathSave
+        onToggleBardicDeathSave={onToggleBardicDeathSave}
+        onDeathSave={vi.fn()}
+      />,
+    )
+
+    const bardic = screen.getByRole('button', { name: 'Bardic ON · d8' })
+    expect(bardic).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(bardic)
+    expect(onToggleBardicDeathSave).toHaveBeenCalledTimes(1)
+  })
+
   it('shows stable status without allowing another roll', () => {
     render(
       <CombatDeathSavePanel

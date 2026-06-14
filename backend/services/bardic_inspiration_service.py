@@ -105,6 +105,26 @@ def apply_bardic_inspiration_to_attack_roll(
     }
 
 
+def apply_bardic_inspiration_to_saving_throw(
+    save_result: dict[str, Any],
+    *,
+    bardic_inspiration: dict[str, Any],
+    dc: int,
+) -> dict[str, Any]:
+    total_before = int(save_result.get("total") or save_result.get("d20") or 0)
+    total = total_before + int(bardic_inspiration["roll"])
+    return {
+        **save_result,
+        "total": total,
+        "success": total >= dc,
+        "bardic_inspiration": {
+            **bardic_inspiration,
+            "total_before": total_before,
+            "total_after": total,
+        },
+    }
+
+
 def get_bardic_inspiration_die(character_or_resources: Any = None) -> str | None:
     resources = getattr(character_or_resources, "class_resources", None)
     if resources is None and isinstance(character_or_resources, dict):

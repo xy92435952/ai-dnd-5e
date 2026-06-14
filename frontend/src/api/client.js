@@ -223,10 +223,12 @@ export const gameApi = {
     }),
   removeCondition: (sessionId, entityId, condition, isEnemy = false) =>
     api.post(`/game/combat/${sessionId}/condition/remove`, { entity_id: entityId, condition, is_enemy: isEnemy }),
-  deathSave: (sessionId, characterId, d20Value = null) =>
+  deathSave: (sessionId, characterId, d20Value = null, options = {}) =>
     api.post(`/game/combat/${sessionId}/death-save`, {
       character_id: characterId,
       ...(d20Value != null ? { d20_value: d20Value } : {}),
+      ...(options.useBardicInspiration ? { use_bardic_inspiration: true } : {}),
+      ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
     }),
   endTurn: (sessionId, expectedTurnToken = null) =>
     api.post(

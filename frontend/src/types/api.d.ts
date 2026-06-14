@@ -2393,10 +2393,17 @@ export interface components {
         };
         /** DeathSaveRequest */
         DeathSaveRequest: {
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
             /** Character Id */
             character_id: string;
             /** D20 Value */
             d20_value?: number | null;
+            /**
+             * Use Bardic Inspiration
+             * @default false
+             */
+            use_bardic_inspiration: boolean;
         };
         /**
          * DeathSaveResult

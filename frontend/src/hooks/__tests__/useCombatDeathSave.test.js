@@ -114,6 +114,88 @@ describe('useCombatDeathSave', () => {
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
+  it('spends Bardic Inspiration on a death save when enabled', async () => {
+    const setClassResources = vi.fn()
+    const setUseBardicDeathSave = vi.fn()
+    rollDice3DMock
+      .mockResolvedValueOnce({ total: 6, rolls: [6] })
+      .mockResolvedValueOnce({ total: 4, rolls: [4] })
+    deathSaveMock.mockResolvedValueOnce({
+      character_id: 'char-1',
+      character_name: 'Tester',
+      d20: 6,
+      total: 10,
+      save_succeeded: true,
+      outcome: 'success',
+      hp_current: 0,
+      death_saves: { successes: 1, failures: 0, stable: false },
+      class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 0 } },
+      bardic_inspiration: {
+        spent: true,
+        die: 'd8',
+        roll: 4,
+        uses_remaining: 0,
+      },
+      life_state: 'dying',
+      target_state: {
+        target_id: 'char-1',
+        hp_current: 0,
+        death_saves: { successes: 1, failures: 0, stable: false },
+        conditions: ['unconscious'],
+        class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 0 } },
+        life_state: 'dying',
+      },
+    })
+    const { result, deps } = renderDeathSave({
+      classResources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      useBardicDeathSave: true,
+      setUseBardicDeathSave,
+      setClassResources,
+    })
+
+    await act(async () => {
+      await result.current()
+    })
+
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(1, 20)
+    expect(rollDice3DMock).toHaveBeenNthCalledWith(2, 8)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 4,
+      label: 'Bardic Inspiration d8',
+      count: 1,
+    })
+    expect(deathSaveMock).toHaveBeenCalledWith(
+      'sess-1',
+      'char-1',
+      6,
+      { useBardicInspiration: true, bardicInspirationRoll: 4 },
+    )
+    expect(setUseBardicDeathSave).toHaveBeenCalledWith(false)
+    expect(setClassResources).toHaveBeenCalledWith(expect.any(Function))
+    expect(setClassResources.mock.calls[0][0]({ bardic_inspiration: { die: 'd8', uses_remaining: 1 } })).toEqual({
+      bardic_inspiration: { die: 'd8', uses_remaining: 0 },
+    })
+
+    const sessionUpdater = deps.setSession.mock.calls[0][0]
+    expect(sessionUpdater({
+      player: {
+        id: 'char-1',
+        hp_current: 0,
+        death_saves: { successes: 0, failures: 0, stable: false },
+        class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      },
+    }).player.class_resources.bardic_inspiration.uses_remaining).toBe(0)
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      dice_result: expect.objectContaining({
+        type: 'death_save',
+        d20: 6,
+        total: 10,
+        bardic_inspiration: expect.objectContaining({ spent: true, roll: 4 }),
+      }),
+    }))
+  })
+
   it('does nothing when the current user cannot act this turn', async () => {
     const { result, deps } = renderDeathSave({ canActThisTurn: false })
 

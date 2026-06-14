@@ -1870,6 +1870,17 @@
       },
       "DeathSaveRequest": {
         "properties": {
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
           "character_id": {
             "title": "Character Id",
             "type": "string"
@@ -1884,6 +1895,11 @@
               }
             ],
             "title": "D20 Value"
+          },
+          "use_bardic_inspiration": {
+            "default": false,
+            "title": "Use Bardic Inspiration",
+            "type": "boolean"
           }
         },
         "required": [

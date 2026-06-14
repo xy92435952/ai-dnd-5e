@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates } from '../utils/combat'
+import { getBardicInspiration } from '../utils/bardicInspiration'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
@@ -17,6 +18,10 @@ export function useCombatDeathSave({
   setSession,
   showDice,
   addLog,
+  classResources = {},
+  useBardicDeathSave = false,
+  setUseBardicDeathSave = null,
+  setClassResources = null,
 }) {
   return useCallback(async () => {
     if (!playerId || !canActThisTurn || isProcessing) return
@@ -28,7 +33,36 @@ export function useCombatDeathSave({
       const { total: d20 } = await rollDice3D(20)
       showDice({ faces: 20, result: d20, label: '死亡豁免' })
 
-      const result = await gameApi.deathSave(sessionId, playerId, d20)
+      const bardic = getBardicInspiration(classResources)
+      const bardicEnabled = Boolean(useBardicDeathSave) && Boolean(bardic)
+      let bardicRoll = null
+      if (bardicEnabled) {
+        const bardicDice = await rollDice3D(bardic.faces)
+        bardicRoll = bardicDice.total
+        showDice({ faces: bardic.faces, result: bardicRoll, label: `Bardic Inspiration ${bardic.die}`, count: 1 })
+      } else if (useBardicDeathSave && typeof setUseBardicDeathSave === 'function') {
+        setUseBardicDeathSave(false)
+      }
+
+      const deathSaveArgs = [sessionId, playerId, d20]
+      if (bardicEnabled) {
+        deathSaveArgs.push({ useBardicInspiration: true, bardicInspirationRoll: bardicRoll })
+      }
+      const result = await gameApi.deathSave(...deathSaveArgs)
+      if (result.bardic_inspiration?.spent) {
+        if (typeof setClassResources === 'function') {
+          setClassResources(prev => ({
+            ...(prev || {}),
+            ...(result.class_resources || {}),
+            bardic_inspiration: {
+              ...((prev || {}).bardic_inspiration || {}),
+              ...((result.class_resources || {}).bardic_inspiration || {}),
+              uses_remaining: result.bardic_inspiration.uses_remaining,
+            },
+          }))
+        }
+        if (typeof setUseBardicDeathSave === 'function') setUseBardicDeathSave(false)
+      }
       setCombat(prev => applyActionResultEntityStates(prev, result))
       setSession?.(prev => {
         if (!prev?.player || prev.player.id !== playerId) return prev
@@ -45,6 +79,7 @@ export function useCombatDeathSave({
             hp_current: targetState.hp_current ?? result.hp_current ?? prev.player.hp_current,
             death_saves: nextDeathSaves,
             conditions: targetState.conditions ?? prev.player.conditions,
+            class_resources: targetState.class_resources ?? result.class_resources ?? prev.player.class_resources,
             life_state: targetState.life_state ?? result.life_state ?? prev.player.life_state,
           },
         }
@@ -62,7 +97,13 @@ export function useCombatDeathSave({
         role: 'system',
         content: label,
         log_type: 'dice',
-        dice_result: { type: 'death_save', d20: result.d20, outcome: result.outcome },
+        dice_result: {
+          type: 'death_save',
+          d20: result.d20,
+          outcome: result.outcome,
+          ...(result.total != null ? { total: result.total } : {}),
+          ...(result.bardic_inspiration ? { bardic_inspiration: result.bardic_inspiration } : {}),
+        },
         state_changes: buildCombatStateChangeSummary(result, {
           targetName: result.character_name || '角色',
         }),
@@ -76,14 +117,18 @@ export function useCombatDeathSave({
   }, [
     addLog,
     canActThisTurn,
+    classResources,
     isProcessing,
     playerId,
     processingRef,
     sessionId,
+    setClassResources,
     setCombat,
     setError,
     setIsProcessing,
     setSession,
+    setUseBardicDeathSave,
     showDice,
+    useBardicDeathSave,
   ])
 }

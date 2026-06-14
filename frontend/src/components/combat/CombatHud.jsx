@@ -35,6 +35,7 @@ export default function CombatHud({
   classResources = {},
   useLuckyAttack = false,
   useBardicAttack = false,
+  useBardicDeathSave = false,
   onSessionChange,
   onTurnStateChange,
   onError,
@@ -49,6 +50,7 @@ export default function CombatHud({
   onSelectedWeaponChange,
   onToggleLuckyAttack,
   onToggleBardicAttack,
+  onToggleBardicDeathSave,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -112,6 +114,9 @@ export default function CombatHud({
           isPlayerTurn={isPlayerTurn}
           isProcessing={isProcessing}
           syncBlocked={syncBlocked}
+          classResources={classResources}
+          useBardicDeathSave={useBardicDeathSave}
+          onToggleBardicDeathSave={onToggleBardicDeathSave}
           onDeathSave={onDeathSave}
         />
         <CombatQuickInventory

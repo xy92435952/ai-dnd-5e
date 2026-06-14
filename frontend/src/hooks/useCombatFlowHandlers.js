@@ -48,6 +48,8 @@ export function useCombatFlowHandlers({
     setUseLuckyAttack,
     useBardicAttack,
     setUseBardicAttack,
+    useBardicDeathSave,
+    setUseBardicDeathSave,
     setPlayerSubclass,
     setPlayerSubclassEffects,
     playerSubclassEffects,
@@ -358,6 +360,10 @@ export function useCombatFlowHandlers({
     setSession,
     showDice,
     addLog,
+    classResources,
+    useBardicDeathSave,
+    setUseBardicDeathSave,
+    setClassResources,
   })
 
   const {
