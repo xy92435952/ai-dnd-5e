@@ -307,6 +307,72 @@ describe('CharacterSheet inventory integration', () => {
     cleanup()
   })
 
+  it('does not submit a replacement spell that is also learned during level up', async () => {
+    const warlock = {
+      ...characterFixture,
+      name: 'Growing Warlock',
+      char_class: 'Warlock',
+      level: 10,
+      known_spells: ['Hellish Rebuke'],
+      prepared_spells: ['Hellish Rebuke'],
+      cantrips: ['Eldritch Blast'],
+      derived: {
+        ...characterFixture.derived,
+        spell_slots_max: { '5th': 2 },
+      },
+      spell_slots: { '5th': 1 },
+    }
+    charactersGetMock.mockResolvedValue(warlock)
+    charactersOptionsMock.mockResolvedValue({
+      spell_preparation_type: { Warlock: 'known' },
+      class_spell_details: {
+        Warlock: [
+          { name: 'Hellish Rebuke', level: 1 },
+          { name: 'Hex', level: 1 },
+        ],
+      },
+      class_cantrips: { Warlock: ['Eldritch Blast'] },
+    })
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...warlock,
+        level: 11,
+        known_spells: ['Hellish Rebuke', 'Hex'],
+        prepared_spells: ['Hellish Rebuke', 'Hex'],
+      },
+      level_up_details: {
+        learned_spells: ['Hex'],
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Growing Warlock')
+    fireEvent.change(screen.getByLabelText('Replace known spell'), {
+      target: { value: 'Hellish Rebuke' },
+    })
+    fireEvent.change(screen.getByLabelText('Replacement spell'), {
+      target: { value: 'Hex' },
+    })
+    fireEvent.click(screen.getByLabelText('Learn Hex'))
+    fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        learned_spells: ['Hex'],
+      })
+    })
+
+    cleanup()
+  })
+
   it('submits subclass expanded spell choices during level up', async () => {
     const warlock = {
       ...characterFixture,

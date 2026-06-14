@@ -145,7 +145,9 @@ export default function CharacterSheet() {
         return { ...prev, [key]: current.filter(item => item !== value) }
       }
       if (current.length >= capacity) return prev
-      return { ...prev, [key]: [...current, value] }
+      const next = { ...prev, [key]: [...current, value] }
+      if (kind === 'spell' && next.replacementNew === value) next.replacementNew = ''
+      return next
     })
   }, [])
 
@@ -196,7 +198,10 @@ export default function CharacterSheet() {
     if (levelUpSelections.maneuvers.length) payload.maneuver_choices = levelUpSelections.maneuvers
     if (levelUpSelections.spells.length) payload.learned_spells = levelUpSelections.spells
     if (levelUpSelections.cantrips.length) payload.learned_cantrips = levelUpSelections.cantrips
-    if (levelUpSelections.replacementOld && levelUpSelections.replacementNew) {
+    const selectedLearnedSpells = new Set(levelUpSelections.spells || [])
+    const hasReplacementOverlap = selectedLearnedSpells.has(levelUpSelections.replacementOld)
+      || selectedLearnedSpells.has(levelUpSelections.replacementNew)
+    if (levelUpSelections.replacementOld && levelUpSelections.replacementNew && !hasReplacementOverlap) {
       payload.spell_replacements = [{
         old_spell: levelUpSelections.replacementOld,
         new_spell: levelUpSelections.replacementNew,
@@ -625,7 +630,10 @@ function LevelUpPanel({
 
   const hasSpellChoices = (spellPlan?.spellOptions || []).length > 0 && spellPlan.spellCapacity > 0
   const hasCantripChoices = (spellPlan?.cantripOptions || []).length > 0 && spellPlan.cantripCapacity > 0
-  const hasReplacementChoices = spellPlan?.canReplaceSpell && (spellPlan?.replacementNewOptions || []).length > 0
+  const selectedLearnedSpells = new Set(selections.spells || [])
+  const replacementNewOptions = (spellPlan?.replacementNewOptions || [])
+    .filter(spell => !selectedLearnedSpells.has(spell))
+  const hasReplacementChoices = spellPlan?.canReplaceSpell && replacementNewOptions.length > 0
   const hasAbilityChoices = abilityPlan?.isAsiLevel && abilityPlan.abilityCapacity > 0
   const hasFeatChoices = featPlan?.isFeatChoiceLevel && (featPlan?.featOptions || []).length > 0
   const hasSubclassChoices = subclassPlan?.isSubclassChoiceLevel && (subclassPlan?.subclassOptions || []).length > 0
@@ -878,7 +886,7 @@ function LevelUpPanel({
               style={levelUpSelectStyle}
             >
               <option value="">None</option>
-              {spellPlan.replacementNewOptions.map(spell => (
+              {replacementNewOptions.map(spell => (
                 <option key={spell} value={spell}>{spell}</option>
               ))}
             </select>
