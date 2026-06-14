@@ -26,6 +26,7 @@ export default function CombatStage({
   aoeHover,
   aoeLockedCenter,
   playerId,
+  turnState,
   prediction,
   canInspectTarget,
   inspectBusy,
@@ -72,6 +73,7 @@ export default function CombatStage({
         aoeHover={aoeHover}
         aoeLockedCenter={aoeLockedCenter}
         playerId={playerId}
+        turnState={turnState}
         onSelectTarget={onSelectTarget}
         onHelpTarget={onHelpTarget}
         onMoveTo={onMoveTo}
@@ -91,6 +93,7 @@ export default function CombatStage({
         helpMode={helpMode}
         aoePreview={aoePreview}
         aoeLockedCenter={aoeLockedCenter}
+        prediction={prediction}
       />
 
       <TargetCard

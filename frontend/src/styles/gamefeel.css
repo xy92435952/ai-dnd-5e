@@ -4165,6 +4165,7 @@ button.companion-signal-item:focus-visible {
   font-size: .62rem;
 }
 .battlefield-legend-item.cover i { background: #6f5132; }
+.battlefield-legend-item.cover-path i { background: #f0d060; }
 .battlefield-legend-item.hazard i { background: #f05028; }
 .battlefield-legend-item.objective i { background: #7fe8f8; }
 .battlefield-legend-item.threat i { background: #f04040; }
@@ -4333,6 +4334,10 @@ button.companion-signal-item:focus-visible {
 .iso-cell.path {
   background: radial-gradient(circle, rgba(127,232,248,.3), transparent 70%);
   border: 1px solid rgba(127,232,248,.6);
+}
+.iso-cell.cover-path {
+  outline: 2px solid rgba(240,208,96,.72);
+  outline-offset: -3px;
 }
 .iso-cell.target {
   background: radial-gradient(circle, rgba(240,208,96,.4) 20%, rgba(240,208,96,.1) 80%);

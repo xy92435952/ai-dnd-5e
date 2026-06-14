@@ -8,6 +8,8 @@ export default function AdventureTopBar({
   canPrepareSpells,
   syncBlocked = false,
   syncBlockedReason = '',
+  sharedMutationBlocked = false,
+  sharedMutationBlockedReason = '',
   onHome,
   onCheckpoint,
   onShowHistory,
@@ -16,8 +18,11 @@ export default function AdventureTopBar({
   onOpenPrepare,
   onOpenCharacter,
 }) {
-  const mutationDisabled = isLoading || syncBlocked
-  const mutationTitle = syncBlocked ? syncBlockedReason || '房间正在重新同步，请恢复连接后再操作。' : undefined
+  const syncTitle = syncBlocked ? syncBlockedReason || '房间正在重新同步，请恢复连接后再操作。' : undefined
+  const sharedTitle = sharedMutationBlocked ? sharedMutationBlockedReason || 'Only the current speaker can change shared campaign state.' : undefined
+  const sharedMutationDisabled = isLoading || syncBlocked || sharedMutationBlocked
+  const personalMutationDisabled = isLoading || syncBlocked
+  const sharedMutationTitle = sharedTitle || syncTitle
 
   return (
     <div style={{
@@ -38,8 +43,8 @@ export default function AdventureTopBar({
           className="btn-ghost"
           style={{ padding: '4px 10px', fontSize: 10 }}
           onClick={onCheckpoint}
-          disabled={mutationDisabled}
-          title={mutationTitle || '保存战役 checkpoint'}
+          disabled={sharedMutationDisabled}
+          title={sharedMutationTitle || '保存战役 checkpoint'}
         >
           ● 存档
         </button>
@@ -66,8 +71,8 @@ export default function AdventureTopBar({
           className="btn-ghost"
           style={{ padding: '4px 10px', fontSize: 10 }}
           onClick={onOpenRest}
-          disabled={mutationDisabled}
-          title={mutationTitle || '短休或长休'}
+          disabled={sharedMutationDisabled}
+          title={sharedMutationTitle || '短休或长休'}
         >
           ☾ 休息
         </button>
@@ -76,8 +81,8 @@ export default function AdventureTopBar({
             className="btn-ghost"
             style={{ padding: '4px 10px', fontSize: 10 }}
             onClick={onOpenPrepare}
-            disabled={mutationDisabled}
-            title={mutationTitle || '准备法术'}
+            disabled={personalMutationDisabled}
+            title={syncTitle || '准备法术'}
           >
             ✧ 备法
           </button>

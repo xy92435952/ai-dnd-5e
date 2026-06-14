@@ -2,6 +2,11 @@ import IsoBattlefieldCell from './IsoBattlefieldCell'
 import IsoUnit from './IsoUnit'
 import { isCombatEntityDead } from '../../utils/combat'
 import { buildCombatRuleTags } from '../../utils/combatRuleTags'
+import {
+  buildConditionFrightenedMoveBlockedReason,
+  buildConditionSpeedLockReason,
+  buildConditionStandUpMoveNotice,
+} from '../../utils/conditionRules'
 
 export default function IsoBattlefield({
   viewWidth,
@@ -24,6 +29,7 @@ export default function IsoBattlefield({
   aoeHover,
   aoeLockedCenter,
   playerId,
+  turnState = {},
   onSelectTarget,
   onHelpTarget = () => {},
   onMoveTo,
@@ -66,11 +72,27 @@ export default function IsoBattlefield({
       prediction,
       entity: ent,
     })
+    const coverPathHint = buildCoverPathHintForCell(key, prediction)
+    const movementState = moveMode && !isWall && !ent
+      ? buildMovementCellState({
+          x,
+          y,
+          terrainDetail,
+          terrainDetails,
+          entityPositions,
+          entities,
+          currentTurnCharacterId,
+          playerId,
+          turnState,
+        })
+      : null
     const interactive = Boolean(ent && !isWall) || Boolean(moveMode && !isWall) || Boolean(aoePreview && !isWall)
     const disabledReason = isWall
-      ? wallDisabledReason(terrainDetail)
+      ? joinTitleParts([wallDisabledReason(terrainDetail), coverPathHint])
+      : movementState?.disabledReason
+        ? movementState.disabledReason
       : !ent && !moveMode && !aoePreview
-        ? emptyCellReason(terrainDetail)
+        ? joinTitleParts([emptyCellReason(terrainDetail), coverPathHint])
         : ''
     const title = ent
       ? helpMode && !ent.is_enemy && entId !== playerId
@@ -79,13 +101,13 @@ export default function IsoBattlefield({
       : aoePreview && !isWall
         ? withTerrainHint(buildAoeCellTitle({ template: aoeTemplate, locked: aoeLockedCenter === key, x, y, impact: aoeImpact }), terrainDetail)
       : moveMode && !isWall
-        ? withTerrainHint(`移动到 ${x}, ${y}`, terrainDetail)
+        ? movementState?.title || withTerrainHint(`移动到 ${x}, ${y}`, terrainDetail)
         : ''
 
     return (
       <IsoBattlefieldCell
         key={key}
-        className={`iso-cell ${klass}${isThreat ? ' threat' : ''}${isAoeRing ? ` aoe${aoeTemplateClass}` : ''}${isAoeCenter ? ' aoe-center' : ''}`}
+        className={`iso-cell ${klass}${coverPathHint ? ' cover-path' : ''}${isThreat ? ' threat' : ''}${isAoeRing ? ` aoe${aoeTemplateClass}` : ''}${isAoeCenter ? ' aoe-center' : ''}`}
         gridKey={key}
         interactive={interactive}
         disabledReason={disabledReason}
@@ -132,6 +154,180 @@ export default function IsoBattlefield({
       </div>
     </div>
   )
+}
+
+function buildMovementCellState({
+  x,
+  y,
+  terrainDetail,
+  terrainDetails = {},
+  entityPositions = {},
+  entities = {},
+  currentTurnCharacterId,
+  playerId,
+  turnState = {},
+}) {
+  const actorId = String(currentTurnCharacterId || playerId || '')
+  const actor = entities?.[actorId] || entities?.[playerId] || null
+  const conditions = actor?.conditions || []
+  const durations = actor?.condition_durations || {}
+  const speedLock = buildConditionSpeedLockReason(conditions, durations)
+  if (speedLock) {
+    return { disabledReason: speedLock, title: speedLock }
+  }
+
+  const destination = { x, y }
+  const actorPosition = positionFrom(entityPositions?.[actorId] || entityPositions?.[playerId])
+  const remaining = movementRemaining(turnState)
+  const standUp = buildConditionStandUpMoveNotice({ conditions, durations, turnState })
+  if (standUp?.blocksMovement) {
+    return { disabledReason: standUp.reason, title: standUp.reason }
+  }
+
+  const frightenedBlock = actorPosition
+    ? buildConditionFrightenedMoveBlockedReason({
+        conditions,
+        durations,
+        from: actorPosition,
+        to: destination,
+        entityPositions,
+      })
+    : ''
+  if (frightenedBlock) {
+    return { disabledReason: frightenedBlock, title: frightenedBlock }
+  }
+
+  const path = actorPosition ? movementPath(actorPosition, destination) : []
+  const baseCost = path.length
+  const difficultExtra = difficultTerrainExtra(path, terrainDetails)
+  const dragged = findDraggedEntity({ actorId, entities })
+  const dragCost = dragged ? baseCost * 2 : null
+  const normalCost = baseCost + difficultExtra
+  const totalCost = dragged ? dragCost : normalCost
+
+  if (dragged && dragCost > remaining) {
+    const reason = `拖拽 ${dragged.name} 需要 ${dragCost} 格移动力，当前剩余 ${remaining} 格`
+    return { disabledReason: reason, title: reason }
+  }
+
+  if (!dragged && difficultExtra > 0 && normalCost > remaining) {
+    const reason = `困难地形需要 ${normalCost} 格移动力，当前剩余 ${remaining} 格`
+    return { disabledReason: reason, title: reason }
+  }
+
+  const titleParts = [`移动到 ${x}, ${y}`]
+  if (standUp?.title) titleParts.push(standUp.title)
+  if (dragged && dragCost > 0) {
+    titleParts.push(`拖拽 ${dragged.name}：移动消耗翻倍，此移动消耗 ${dragCost} 格（剩余 ${remaining} 格）`)
+  } else if (difficultExtra > 0) {
+    titleParts.push(`困难地形${labelSuffix(terrainDetail).replace(':', '')}，此移动消耗 ${normalCost} 格`)
+  } else {
+    const terrain = terrainHint(terrainDetail)
+    if (terrain) titleParts.push(terrain)
+  }
+
+  return {
+    disabledReason: '',
+    title: joinTitleParts(titleParts),
+    totalCost,
+  }
+}
+
+function buildCoverPathHintForCell(key, prediction) {
+  const cell = coverPathCells(prediction).find(item => item.key === key)
+  if (!cell) return ''
+  const coverTag = buildCombatRuleTags(prediction, {}).find(tag => String(tag.key || '').startsWith('cover-'))
+  if (!coverTag) return ''
+  return `掩护路径 ${cell.terrain || 'cover'}：${coverTag.label}`
+}
+
+function coverPathCells(prediction) {
+  const cells = prediction?.cover_detail?.cells || prediction?.coverDetail?.cells || []
+  if (!Array.isArray(cells)) return []
+  return cells.map(cell => {
+    if (typeof cell === 'string') return { key: cell, terrain: '' }
+    if (!cell || typeof cell !== 'object') return null
+    return {
+      key: String(cell.cell || cell.key || ''),
+      terrain: String(cell.terrain || cell.type || cell.kind || ''),
+    }
+  }).filter(cell => cell?.key)
+}
+
+function movementRemaining(turnState = {}) {
+  const max = readMovementNumber(turnState?.movement_max, 6)
+  const used = readMovementNumber(turnState?.movement_used, 0)
+  return Math.max(0, max - used)
+}
+
+function movementPath(from, to) {
+  const start = positionFrom(from)
+  const end = positionFrom(to)
+  if (!start || !end) return []
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const steps = Math.max(Math.abs(dx), Math.abs(dy))
+  if (steps <= 0) return []
+  return Array.from({ length: steps }, (_, index) => {
+    const step = index + 1
+    return {
+      x: start.x + Math.round((dx * step) / steps),
+      y: start.y + Math.round((dy * step) / steps),
+    }
+  })
+}
+
+function difficultTerrainExtra(path, terrainDetails = {}) {
+  return path.filter(pos => {
+    const detail = terrainDetails?.[`${pos.x}_${pos.y}`]
+    const terrain = String(detail?.terrain || '').toLowerCase()
+    return terrain === 'difficult' || terrain === 'difficult_terrain'
+  }).length
+}
+
+function findDraggedEntity({ actorId, entities = {} }) {
+  for (const [entityId, entity] of Object.entries(entities || {})) {
+    if (String(entityId) === String(actorId)) continue
+    if (!Array.isArray(entity?.conditions) || !entity.conditions.some(condition => normalizeCondition(condition) === 'grappled')) continue
+    const sourceIds = conditionSourceIds(entity.condition_durations?.grappled)
+    if (sourceIds.has(String(actorId))) {
+      return { id: entityId, name: entity.name || entityId }
+    }
+  }
+  return null
+}
+
+function conditionSourceIds(entry) {
+  const ids = new Set()
+  if (!entry) return ids
+  if (typeof entry === 'object' && !Array.isArray(entry)) {
+    ;['source_id', 'sourceId', 'source', 'grappler_id', 'grapplerId'].forEach(key => {
+      if (entry[key] != null) ids.add(String(entry[key]))
+    })
+    const list = entry.source_ids || entry.sourceIds
+    if (Array.isArray(list)) list.forEach(value => ids.add(String(value)))
+  } else {
+    ids.add(String(entry))
+  }
+  return ids
+}
+
+function normalizeCondition(condition) {
+  return String(condition?.name || condition?.condition || condition || '').trim().toLowerCase().replace(/[-\s]+/g, '_')
+}
+
+function positionFrom(value) {
+  if (!value || typeof value !== 'object') return null
+  const x = Number(value.x)
+  const y = Number(value.y)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  return { x, y }
+}
+
+function readMovementNumber(value, fallback = 0) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return fallback
+  return Math.max(0, Math.floor(number))
 }
 
 function buildAoeCellTitle({ template, locked, x, y, impact = '' }) {

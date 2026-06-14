@@ -71,6 +71,54 @@ async function ensureDiceBox() {
 let _pendingRollResolve = null
 let _pendingRollConfig = null
 
+export function normalizeDiceRollResult(results, faces = 20, count = 1) {
+  const diceCount = Math.max(1, Math.min(Number(count) || 1, 10))
+  const dieFaces = Math.max(1, Number(faces) || 20)
+  const rolls = []
+
+  for (const group of Array.isArray(results) ? results : []) {
+    const childRolls = extractRollValues(group?.rollsArray)
+    if (childRolls.length) {
+      rolls.push(...childRolls)
+      continue
+    }
+
+    const nestedRolls = extractRollValues(group?.rolls)
+    if (nestedRolls.length) {
+      rolls.push(...nestedRolls)
+      continue
+    }
+
+    if (group?.value != null) {
+      const value = Number(group.value)
+      if (Number.isFinite(value)) rolls.push(value)
+    }
+  }
+
+  while (rolls.length < diceCount) {
+    rolls.push(Math.floor(Math.random() * dieFaces) + 1)
+  }
+
+  const boundedRolls = rolls
+    .slice(0, diceCount)
+    .map(value => Math.max(1, Math.min(dieFaces, Math.floor(Number(value) || 1))))
+  return {
+    total: boundedRolls.reduce((sum, value) => sum + value, 0),
+    rolls: boundedRolls,
+  }
+}
+
+function extractRollValues(value) {
+  const items = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object'
+      ? Object.values(value)
+      : []
+  return items
+    .map(item => Number(item?.value ?? item?.roll ?? item))
+    .filter(number => Number.isFinite(number))
+}
+
 /**
  * 掷骰子并返回物理结果
  * 流程：显示"点击投掷"提示 → 玩家点击 → 3D 骰子飞出 → 物理落定 → 返回结果
@@ -105,30 +153,11 @@ async function _executeRoll(faces, count) {
 
     const rollPromise = new Promise(resolve => {
       box._onSettled = (results) => {
-        if (results && results.length > 0) {
-          const allRolls = []
-          let total = 0
-          for (const group of results) {
-            if (group.rolls) {
-              for (const r of group.rolls) {
-                allRolls.push(r.value)
-                total += r.value
-              }
-            } else if (group.value != null) {
-              allRolls.push(group.value)
-              total += group.value
-            }
-          }
-          resolve({ total, rolls: allRolls })
-        } else {
-          const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * faces) + 1)
-          resolve({ total: rolls.reduce((a, b) => a + b, 0), rolls })
-        }
+        resolve(normalizeDiceRollResult(results, faces, diceCount))
       }
       // 安全超时
       setTimeout(() => {
-        const rolls = Array.from({ length: diceCount }, () => Math.floor(Math.random() * faces) + 1)
-        resolve({ total: rolls.reduce((a, b) => a + b, 0), rolls })
+        resolve(normalizeDiceRollResult(null, faces, diceCount))
       }, 8000)
     })
 

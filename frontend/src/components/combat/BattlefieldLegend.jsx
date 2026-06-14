@@ -1,3 +1,5 @@
+import { buildCombatRuleTags } from '../../utils/combatRuleTags'
+
 export default function BattlefieldLegend({
   walls = new Set(),
   hazards = new Set(),
@@ -8,8 +10,11 @@ export default function BattlefieldLegend({
   helpMode = false,
   aoePreview = null,
   aoeLockedCenter = null,
+  prediction = null,
 }) {
+  const coverPathItem = buildCoverPathLegendItem(prediction)
   const items = [
+    coverPathItem,
     walls.size > 0 && { key: 'cover', label: '掩护', count: walls.size },
     hazards.size > 0 && { key: 'hazard', label: '危险', count: hazards.size },
     objectives.size > 0 && { key: 'objective', label: '目标点', count: objectives.size },
@@ -28,7 +33,7 @@ export default function BattlefieldLegend({
   return (
     <aside className="battlefield-legend" aria-label="战场图例">
       {items.map(item => (
-        <span key={item.key} className={`battlefield-legend-item ${item.key}`}>
+        <span key={item.key} className={`battlefield-legend-item ${item.key}`} title={item.title || undefined}>
           <i aria-hidden="true" />
           <b>{item.label}</b>
           {item.count ? <em>{item.count}</em> : null}
@@ -36,6 +41,18 @@ export default function BattlefieldLegend({
       ))}
     </aside>
   )
+}
+
+function buildCoverPathLegendItem(prediction) {
+  const cells = prediction?.cover_detail?.cells || prediction?.coverDetail?.cells || []
+  if (!Array.isArray(cells) || cells.length === 0) return null
+  const coverTag = buildCombatRuleTags(prediction, {}).find(tag => String(tag.key || '').startsWith('cover-'))
+  if (!coverTag) return null
+  return {
+    key: 'cover-path',
+    label: `${coverTag.label} 路径`,
+    title: coverTag.title,
+  }
 }
 
 function buildAoeLegendLabel({ aoePreview, aoeCells, aoeLockedCenter }) {
