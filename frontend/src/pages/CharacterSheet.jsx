@@ -9,6 +9,7 @@ import Portrait from '../components/Portrait'
 import { classKey } from '../components/Crests'
 import { Divider } from '../components/Ornaments'
 import InventoryPanel from '../components/inventory/InventoryPanel'
+import MagicInitiateChoiceFields from '../components/feats/MagicInitiateChoiceFields'
 import {
   buildLevelUpAbilityChoicePlan,
   buildLevelUpFeatChoicePlan,
@@ -19,7 +20,10 @@ import {
 } from '../utils/levelUpSpellChoices'
 import {
   FEAT_ABILITY_OPTIONS,
+  buildDefaultMagicInitiateChoice,
   featRequiresAbilityChoice,
+  featRequiresMagicInitiateChoices,
+  getMagicInitiateSelectionFailure,
   normalizeFeatAbility,
 } from '../utils/characterCreate'
 
@@ -92,6 +96,9 @@ export default function CharacterSheet() {
     abilityIncreases: {},
     featName: '',
     featAbility: '',
+    magicInitiateClass: '',
+    magicInitiateCantrips: [],
+    magicInitiateSpell: '',
     subclassName: '',
     fightingStyleName: '',
     maneuvers: [],
@@ -159,6 +166,9 @@ export default function CharacterSheet() {
       abilityIncreases: {},
       featName: '',
       featAbility: '',
+      magicInitiateClass: '',
+      magicInitiateCantrips: [],
+      magicInitiateSpell: '',
       subclassName: '',
       fightingStyleName: '',
       maneuvers: [],
@@ -204,7 +214,15 @@ export default function CharacterSheet() {
       const nextIncreases = { ...current }
       if (nextValue > 0) nextIncreases[ability] = nextValue
       else delete nextIncreases[ability]
-      return { ...prev, abilityIncreases: nextIncreases, featName: '', featAbility: '' }
+      return {
+        ...prev,
+        abilityIncreases: nextIncreases,
+        featName: '',
+        featAbility: '',
+        magicInitiateClass: '',
+        magicInitiateCantrips: [],
+        magicInitiateSpell: '',
+      }
     })
   }, [levelUpAbilityPlan])
 
@@ -223,6 +241,11 @@ export default function CharacterSheet() {
       payload.feat_choice = { name: levelUpSelections.featName }
       if (featRequiresAbilityChoice(payload.feat_choice)) {
         payload.feat_choice.ability = normalizeFeatAbility(levelUpSelections.featAbility)
+      }
+      if (featRequiresMagicInitiateChoices(payload.feat_choice)) {
+        payload.feat_choice.spellcasting_class = levelUpSelections.magicInitiateClass
+        payload.feat_choice.cantrips = levelUpSelections.magicInitiateCantrips
+        payload.feat_choice.spell = levelUpSelections.magicInitiateSpell
       }
     }
     else if (Object.keys(abilityIncreases).length) payload.ability_score_increases = abilityIncreases
@@ -679,6 +702,15 @@ function LevelUpPanel({
     .reduce((sum, value) => sum + (Number(value) || 0), 0)
   const selectedFeat = (featPlan?.featOptions || []).find(feat => feat.name === selections.featName)
   const selectedFeatRequiresAbility = featRequiresAbilityChoice(selectedFeat || { name: selections.featName })
+  const selectedFeatRequiresMagicInitiate = featRequiresMagicInitiateChoices(selectedFeat || { name: selections.featName })
+  const selectedFeatMagicInitiateFailure = selectedFeatRequiresMagicInitiate
+    ? getMagicInitiateSelectionFailure({
+      name: selections.featName,
+      spellcasting_class: selections.magicInitiateClass,
+      cantrips: selections.magicInitiateCantrips,
+      spell: selections.magicInitiateSpell,
+    }, featPlan?.magicInitiateSpellOptions || {})
+    : ''
   const hasProgressionChoices = hasSpellChoices || hasCantripChoices || hasReplacementChoices
     || hasAbilityChoices || hasFeatChoices || hasSubclassChoices || hasFightingStyleChoices || hasManeuverChoices
   const hasCompletedAsiChoice = !hasAbilityChoices
@@ -687,6 +719,7 @@ function LevelUpPanel({
       && selectedFeat
       && !selectedFeat.unavailableReason
       && (!selectedFeatRequiresAbility || normalizeFeatAbility(selections.featAbility))
+      && !selectedFeatMagicInitiateFailure
     )
     || selectedAbilityTotal === abilityPlan.abilityCapacity
   const hasCompletedSubclassChoice = !hasSubclassChoices || Boolean(selections.subclassName)
@@ -856,14 +889,22 @@ function LevelUpPanel({
             <select
               aria-label="Feat choice"
               value={selections.featName}
-              onChange={(event) => onSelectionChange(prev => ({
-                ...prev,
-                featName: event.target.value,
-                featAbility: featRequiresAbilityChoice({ name: event.target.value })
-                  ? FEAT_ABILITY_OPTIONS[0].value
-                  : '',
-                abilityIncreases: {},
-              }))}
+              onChange={(event) => {
+                const magicInitiateChoice = featRequiresMagicInitiateChoices({ name: event.target.value })
+                  ? buildDefaultMagicInitiateChoice(featPlan?.magicInitiateSpellOptions || {})
+                  : { spellcasting_class: '', cantrips: [], spell: '' }
+                onSelectionChange(prev => ({
+                  ...prev,
+                  featName: event.target.value,
+                  featAbility: featRequiresAbilityChoice({ name: event.target.value })
+                    ? FEAT_ABILITY_OPTIONS[0].value
+                    : '',
+                  magicInitiateClass: magicInitiateChoice.spellcasting_class,
+                  magicInitiateCantrips: magicInitiateChoice.cantrips,
+                  magicInitiateSpell: magicInitiateChoice.spell,
+                  abilityIncreases: {},
+                }))
+              }}
               style={levelUpSelectStyle}
             >
               <option value="">No feat</option>
@@ -902,6 +943,30 @@ function LevelUpPanel({
                 ))}
               </select>
             </label>
+          )}
+          {selectedFeatRequiresMagicInitiate && (
+            <>
+              <MagicInitiateChoiceFields
+                value={{
+                  spellcasting_class: selections.magicInitiateClass,
+                  cantrips: selections.magicInitiateCantrips,
+                  spell: selections.magicInitiateSpell,
+                }}
+                options={featPlan?.magicInitiateSpellOptions || {}}
+                onChange={(choice) => onSelectionChange(prev => ({
+                  ...prev,
+                  magicInitiateClass: choice.spellcasting_class,
+                  magicInitiateCantrips: choice.cantrips,
+                  magicInitiateSpell: choice.spell,
+                }))}
+                selectStyle={levelUpSelectStyle}
+              />
+              {selectedFeatMagicInitiateFailure && (
+                <p style={{ color: 'var(--red-light)', fontSize: 10, margin: '6px 0 0' }}>
+                  {selectedFeatMagicInitiateFailure}
+                </p>
+              )}
+            </>
           )}
           {selectedFeat?.desc && (
             <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '6px 0 0' }}>

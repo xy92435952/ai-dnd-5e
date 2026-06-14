@@ -1968,6 +1968,13 @@ export interface components {
              */
             classes: unknown[];
             /**
+             * Magic Initiate Spell Options
+             * @default {}
+             */
+            magic_initiate_spell_options: {
+                [key: string]: unknown;
+            };
+            /**
              * Races
              * @default []
              */

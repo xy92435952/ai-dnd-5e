@@ -7,6 +7,7 @@ import {
   applyRacialBonuses,
   buildCharacterCreateModel,
   buildStandardScores,
+  featRequiresMagicInitiateChoices,
   featRequiresAbilityChoice,
   formatHitDieLabel,
   getClassEnKey,
@@ -18,6 +19,28 @@ import {
   normalizeCharacterOptions,
   pruneUnavailableChoices,
 } from '../characterCreate'
+
+const MAGIC_INITIATE_OPTIONS = {
+  Wizard: {
+    cantrips: [
+      { name: 'Mage Hand', name_en: 'Mage Hand' },
+      { name: 'Light', name_en: 'Light' },
+    ],
+    spells: [
+      { name: 'Shield', name_en: 'Shield' },
+      { name: 'Magic Missile', name_en: 'Magic Missile' },
+    ],
+  },
+  Cleric: {
+    cantrips: [
+      { name: 'Guidance', name_en: 'Guidance' },
+      { name: 'Sacred Flame', name_en: 'Sacred Flame' },
+    ],
+    spells: [
+      { name: 'Bless', name_en: 'Bless' },
+    ],
+  },
+}
 
 function makeOptions(overrides = {}) {
   return normalizeCharacterOptions({
@@ -163,6 +186,47 @@ describe('characterCreate helpers', () => {
     })).toBe('')
   })
 
+  it('requires complete Magic Initiate spell choices from one class list', () => {
+    expect(featRequiresMagicInitiateChoices({ name: 'Magic Initiate' })).toBe(true)
+    expect(getFeatSelectionFailure({
+      name: 'Magic Initiate',
+    }, {
+      magicInitiateSpellOptions: MAGIC_INITIATE_OPTIONS,
+    })).toBe('Choose spellcasting class')
+    expect(getFeatSelectionFailure({
+      name: 'Magic Initiate',
+      spellcasting_class: 'Wizard',
+      cantrips: ['Mage Hand', 'Mage Hand'],
+      spell: 'Shield',
+    }, {
+      magicInitiateSpellOptions: MAGIC_INITIATE_OPTIONS,
+    })).toBe('Choose two different cantrips')
+    expect(getFeatSelectionFailure({
+      name: 'Magic Initiate',
+      spellcasting_class: 'Wizard',
+      cantrips: ['Mage Hand', 'Guidance'],
+      spell: 'Shield',
+    }, {
+      magicInitiateSpellOptions: MAGIC_INITIATE_OPTIONS,
+    })).toBe('Choose cantrips from that class')
+    expect(getFeatSelectionFailure({
+      name: 'Magic Initiate',
+      spellcasting_class: 'Wizard',
+      cantrips: ['Mage Hand', 'Light'],
+      spell: 'Bless',
+    }, {
+      magicInitiateSpellOptions: MAGIC_INITIATE_OPTIONS,
+    })).toBe('Choose a spell from that class')
+    expect(getFeatSelectionFailure({
+      name: 'Magic Initiate',
+      spellcasting_class: 'Wizard',
+      cantrips: ['Mage Hand', 'Light'],
+      spell: 'Shield',
+    }, {
+      magicInitiateSpellOptions: MAGIC_INITIATE_OPTIONS,
+    })).toBe('')
+  })
+
   it('parses and formats hit dice from SRD class metadata', () => {
     expect(getHitDieValue('d10')).toBe(10)
     expect(getHitDieValue(12)).toBe(12)
@@ -244,6 +308,49 @@ describe('characterCreate helpers', () => {
     expect(buildCharacterCreateModel({
       ...basePayload,
       chosenFeats: [{ name: 'Resilient', ability: 'dex' }],
+    }).stepFeatValid).toBe(true)
+  })
+
+  it('marks the feat step invalid until Magic Initiate subchoices are complete and legal', () => {
+    const options = makeOptions({
+      feats: {
+        'Magic Initiate': { desc: 'Learn two cantrips and one 1st-level spell' },
+      },
+      magic_initiate_spell_options: MAGIC_INITIATE_OPTIONS,
+    })
+    const basePayload = {
+      form: makeForm(),
+      options,
+      scoreMethod: 'pointbuy',
+      scores: makeScores({ dex: 13 }),
+      standardAssigned: {},
+      chosenSkills: ['Athletics', 'Perception'],
+      chosenCantrips: [],
+      chosenSpells: [],
+      isMultiplayerCreate: false,
+    }
+
+    expect(buildCharacterCreateModel({
+      ...basePayload,
+      chosenFeats: [{ name: 'Magic Initiate' }],
+    }).stepFeatValid).toBe(false)
+    expect(buildCharacterCreateModel({
+      ...basePayload,
+      chosenFeats: [{
+        name: 'Magic Initiate',
+        spellcasting_class: 'Wizard',
+        cantrips: ['Mage Hand', 'Guidance'],
+        spell: 'Shield',
+      }],
+    }).stepFeatValid).toBe(false)
+    expect(buildCharacterCreateModel({
+      ...basePayload,
+      chosenFeats: [{
+        name: 'Magic Initiate',
+        spellcasting_class: 'Wizard',
+        cantrips: ['Mage Hand', 'Light'],
+        spell: 'Shield',
+      }],
     }).stepFeatValid).toBe(true)
   })
 

@@ -1,4 +1,5 @@
 import {
+  featRequiresMagicInitiateChoices,
   featRequiresAbilityChoice,
   getClassEnKey,
   getFeatPrerequisiteFailure,
@@ -190,6 +191,12 @@ function normalizeManeuverOptions(maneuvers = {}) {
   }))
 }
 
+function featChoiceType(feat) {
+  if (featRequiresAbilityChoice(feat)) return 'ability'
+  if (featRequiresMagicInitiateChoices(feat)) return 'magic_initiate'
+  return null
+}
+
 export function buildLevelUpAbilityChoicePlan(character, options = {}) {
   const classKey = getClassEnKey(character?.char_class)
   const currentLevel = Number(character?.level) || 1
@@ -228,7 +235,7 @@ export function buildLevelUpFeatChoicePlan(character, options = {}) {
       .filter(feat => !existingFeatNames.has(feat.name))
       .map(feat => ({
         ...feat,
-        choiceType: featRequiresAbilityChoice(feat) ? 'ability' : null,
+        choiceType: featChoiceType(feat),
         unavailableReason: getFeatPrerequisiteFailure(feat, {
           abilityScores: character?.ability_scores,
           derived: character?.derived,
@@ -245,6 +252,7 @@ export function buildLevelUpFeatChoicePlan(character, options = {}) {
     nextLevel: abilityPlan.nextLevel,
     isFeatChoiceLevel: abilityPlan.isAsiLevel,
     featOptions,
+    magicInitiateSpellOptions: options?.magic_initiate_spell_options || {},
     needsChoices: abilityPlan.isAsiLevel && featOptions.length > 0,
   }
 }

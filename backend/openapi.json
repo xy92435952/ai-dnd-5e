@@ -835,6 +835,12 @@
             "title": "Classes",
             "type": "array"
           },
+          "magic_initiate_spell_options": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Magic Initiate Spell Options",
+            "type": "object"
+          },
           "races": {
             "default": [],
             "items": {},

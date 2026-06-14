@@ -32,6 +32,7 @@ from services.dnd_rules import (
     get_cantrips_count,
     get_item_zh,
 )
+from services.character_feat_service import magic_initiate_spell_options
 from services.dnd_subclass_progression import SUBCLASS_OPTIONS, SUBCLASS_UNLOCK_LEVELS
 from services.subclass_spell_service import all_subclass_bonus_spell_details
 
@@ -89,6 +90,7 @@ def build_character_options(spell_service) -> dict:
         "subclass_unlock_levels": SUBCLASS_UNLOCK_LEVELS,
         "subclass_options": SUBCLASS_OPTIONS,
         "feats": FEATS,
+        "magic_initiate_spell_options": magic_initiate_spell_options(spell_service),
         "maneuvers": BATTLE_MASTER_MANEUVERS,
         "battle_master_maneuvers_known_by_level": BATTLE_MASTER_MANEUVERS_KNOWN_BY_LEVEL,
         "asi_levels": ASI_LEVELS,

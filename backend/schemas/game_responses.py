@@ -272,6 +272,7 @@ class CharacterOptionsResponse(BaseModel):
     alignments:  list[Any] = []
     all_skills:  list[Any] = []
     spellcaster_classes: list[Any] = []
+    magic_initiate_spell_options: dict[str, Any] = {}
 
 
 # ─── 完整角色详情（GET /characters/{id} + POST /characters/create） ─

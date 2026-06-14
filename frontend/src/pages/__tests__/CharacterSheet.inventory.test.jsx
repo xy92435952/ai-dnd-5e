@@ -595,6 +595,88 @@ describe('CharacterSheet inventory integration', () => {
     cleanup()
   })
 
+  it('submits Magic Initiate feat spell choices during level up', async () => {
+    const fighter = {
+      ...characterFixture,
+      level: 3,
+      feats: [],
+    }
+    charactersGetMock.mockResolvedValue(fighter)
+    charactersOptionsMock.mockResolvedValue({
+      spell_preparation_type: { Fighter: null },
+      class_spell_details: {},
+      class_cantrips: {},
+      feats: {
+        'Magic Initiate': { desc: 'Learn limited magic' },
+      },
+      magic_initiate_spell_options: {
+        Wizard: {
+          cantrips: [
+            { name: 'Mage Hand', name_en: 'Mage Hand' },
+            { name: 'Light', name_en: 'Light' },
+          ],
+          spells: [
+            { name: 'Shield', name_en: 'Shield' },
+          ],
+        },
+      },
+    })
+    levelUpMock.mockResolvedValue({
+      character: {
+        ...fighter,
+        level: 4,
+        feats: [{
+          name: 'Magic Initiate',
+          spellcasting_class: 'Wizard',
+          cantrips: ['Mage Hand', 'Light'],
+          spell: 'Shield',
+        }],
+      },
+      level_up_details: {
+        feat_choice: {
+          name: 'Magic Initiate',
+          spellcasting_class: 'Wizard',
+          cantrips: ['Mage Hand', 'Light'],
+          spell: 'Shield',
+        },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText(fighter.name)
+    fireEvent.change(screen.getByLabelText('Feat choice'), {
+      target: { value: 'Magic Initiate' },
+    })
+    expect(screen.getByRole('button', { name: 'Level Up' })).toBeDisabled()
+    fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Mage Hand'))
+    fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Light'))
+    fireEvent.change(screen.getByLabelText('Magic Initiate spell'), {
+      target: { value: 'Shield' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
+
+    await waitFor(() => {
+      expect(levelUpMock).toHaveBeenCalledWith('char-1', {
+        use_average_hp: true,
+        feat_choice: {
+          name: 'Magic Initiate',
+          spellcasting_class: 'Wizard',
+          cantrips: ['Mage Hand', 'Light'],
+          spell: 'Shield',
+        },
+      })
+    })
+
+    cleanup()
+  })
+
   it('submits subclass, fighting style, and maneuver choices during level up', async () => {
     const fighter = {
       ...characterFixture,

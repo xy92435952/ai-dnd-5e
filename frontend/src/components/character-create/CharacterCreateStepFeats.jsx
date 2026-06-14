@@ -1,11 +1,22 @@
 import React from 'react'
 import {
   FEAT_ABILITY_OPTIONS,
+  buildDefaultMagicInitiateChoice,
   featRequiresAbilityChoice,
+  featRequiresMagicInitiateChoices,
   getFeatPrerequisiteFailure,
   getFeatSelectionFailure,
   normalizeFeatAbility,
 } from '../../utils/characterCreate'
+import MagicInitiateChoiceFields from '../feats/MagicInitiateChoiceFields'
+
+function buildFeatSelection(name, magicInitiateSpellOptions = {}) {
+  return {
+    name,
+    ...(featRequiresAbilityChoice({ name }) ? { ability: FEAT_ABILITY_OPTIONS[0].value } : {}),
+    ...(featRequiresMagicInitiateChoices({ name }) ? buildDefaultMagicInitiateChoice(magicInitiateSpellOptions) : {}),
+  }
+}
 
 export default function CharacterCreateStepFeats({ ctx }) {
   const {
@@ -35,6 +46,8 @@ export default function CharacterCreateStepFeats({ ctx }) {
         const isASI = feat?.name === '__ASI__'
         const featInfo = feat && !isASI ? ((options.feats || {})[feat.name] || {}) : {}
         const requiresAbility = featRequiresAbilityChoice(feat)
+        const requiresMagicInitiate = featRequiresMagicInitiateChoices(feat)
+        const magicInitiateSpellOptions = options?.magic_initiate_spell_options || {}
         const selectionFailure = feat && !isASI
           ? getFeatSelectionFailure({
             ...feat,
@@ -45,6 +58,7 @@ export default function CharacterCreateStepFeats({ ctx }) {
             isSpellcaster,
             knownSpells: chosenSpells,
             cantrips: chosenCantrips,
+            magicInitiateSpellOptions,
           })
           : ''
         return (
@@ -90,10 +104,7 @@ export default function CharacterCreateStepFeats({ ctx }) {
                     .map(([name]) => name)
                   if (available.length > 0) {
                     const next = [...chosenFeats]
-                    next[i] = {
-                      name: available[0],
-                      ...(featRequiresAbilityChoice({ name: available[0] }) ? { ability: FEAT_ABILITY_OPTIONS[0].value } : {}),
-                    }
+                    next[i] = buildFeatSelection(available[0], magicInitiateSpellOptions)
                     setChosenFeats(next)
                   }
                 }}
@@ -109,10 +120,7 @@ export default function CharacterCreateStepFeats({ ctx }) {
                   style={{ marginBottom: '4px' }}
                   onChange={e => {
                     const next = [...chosenFeats]
-                    next[i] = {
-                      name: e.target.value,
-                      ...(featRequiresAbilityChoice({ name: e.target.value }) ? { ability: FEAT_ABILITY_OPTIONS[0].value } : {}),
-                    }
+                    next[i] = buildFeatSelection(e.target.value, magicInitiateSpellOptions)
                     setChosenFeats(next)
                   }}
                 >
@@ -156,6 +164,18 @@ export default function CharacterCreateStepFeats({ ctx }) {
                       ))}
                     </select>
                   </label>
+                )}
+                {requiresMagicInitiate && (
+                  <MagicInitiateChoiceFields
+                    value={feat}
+                    options={magicInitiateSpellOptions}
+                    onChange={(choice) => {
+                      const next = [...chosenFeats]
+                      next[i] = { ...feat, ...choice }
+                      setChosenFeats(next)
+                    }}
+                    selectClassName="input-fantasy"
+                  />
                 )}
                 {featInfo?.prereq && (
                   <p style={{ fontSize: '0.65rem', color: 'var(--gold-dim)', marginTop: '4px' }}>

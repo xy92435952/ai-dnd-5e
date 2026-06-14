@@ -224,6 +224,33 @@ describe('level-up martial and identity choice plans', () => {
     expect(allowedPlan.featOptions[0].unavailableReason).toBe('')
   })
 
+  it('marks Magic Initiate as a feat with spell subchoices', () => {
+    const magicInitiateSpellOptions = {
+      Wizard: {
+        cantrips: [{ name: 'Mage Hand' }, { name: 'Light' }],
+        spells: [{ name: 'Shield' }],
+      },
+    }
+    const plan = buildLevelUpFeatChoicePlan({
+      char_class: 'Fighter',
+      level: 3,
+      feats: [],
+    }, {
+      feats: {
+        'Magic Initiate': { desc: 'Learn limited magic' },
+      },
+      magic_initiate_spell_options: magicInitiateSpellOptions,
+    })
+
+    expect(plan.magicInitiateSpellOptions).toBe(magicInitiateSpellOptions)
+    expect(plan.featOptions[0]).toEqual({
+      name: 'Magic Initiate',
+      desc: 'Learn limited magic',
+      choiceType: 'magic_initiate',
+      unavailableReason: '',
+    })
+  })
+
   it('offers subclass and fighting-style choices at their unlock levels', () => {
     const subclassPlan = buildLevelUpSubclassChoicePlan({
       char_class: 'Fighter',

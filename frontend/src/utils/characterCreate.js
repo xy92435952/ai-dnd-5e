@@ -68,6 +68,110 @@ export function featRequiresAbilityChoice(feat) {
   return String(featName || '').trim().toLowerCase() === 'resilient'
 }
 
+export function featRequiresMagicInitiateChoices(feat) {
+  const featName = typeof feat === 'string' ? feat : feat?.name
+  return String(featName || '').trim().toLowerCase() === 'magic initiate'
+}
+
+export function getMagicInitiateSpellOptionName(spell) {
+  return typeof spell === 'string' ? spell : (spell?.name || spell?.name_en || '')
+}
+
+export function formatMagicInitiateSpellOption(spell) {
+  if (typeof spell === 'string') return spell
+  const primary = spell?.name || spell?.name_en || ''
+  const secondary = spell?.name_en && spell.name_en !== primary ? spell.name_en : ''
+  return secondary ? `${primary} - ${secondary}` : primary
+}
+
+export function getMagicInitiateClassOptions(magicInitiateSpellOptions = {}) {
+  return Object.keys(magicInitiateSpellOptions || {}).filter((className) => {
+    const options = magicInitiateSpellOptions[className] || {}
+    return (options.cantrips || []).length > 0 && (options.spells || []).length > 0
+  })
+}
+
+export function getMagicInitiateSpellOptions(magicInitiateSpellOptions = {}, spellcastingClass = '') {
+  const classOptions = (magicInitiateSpellOptions || {})[spellcastingClass] || {}
+  return {
+    cantrips: classOptions.cantrips || [],
+    spells: classOptions.spells || [],
+  }
+}
+
+export function buildDefaultMagicInitiateChoice(magicInitiateSpellOptions = {}) {
+  return {
+    spellcasting_class: getMagicInitiateClassOptions(magicInitiateSpellOptions)[0] || '',
+    cantrips: [],
+    spell: '',
+  }
+}
+
+function getMagicInitiateClassValue(feat) {
+  return String(
+    feat?.spellcasting_class
+    || feat?.spell_class
+    || feat?.class_name
+    || feat?.class
+    || '',
+  ).trim()
+}
+
+function getMagicInitiateCantripValues(feat) {
+  const raw = feat?.cantrips || feat?.learned_cantrips || feat?.magic_initiate_cantrips || []
+  const values = Array.isArray(raw) ? raw : [raw]
+  return values.map(value => String(value || '').trim()).filter(Boolean)
+}
+
+function getMagicInitiateSpellValue(feat) {
+  return String(
+    feat?.spell
+    || feat?.first_level_spell
+    || feat?.known_spell
+    || feat?.learned_spell
+    || feat?.magic_initiate_spell
+    || '',
+  ).trim()
+}
+
+function magicInitiateOptionAliases(spell) {
+  if (typeof spell === 'string') return [spell]
+  return [spell?.name, spell?.name_en].filter(Boolean)
+}
+
+function magicInitiateHasOption(spells = [], choice = '') {
+  const key = String(choice || '').trim().toLowerCase()
+  if (!key) return false
+  return (spells || []).some((spell) => (
+    magicInitiateOptionAliases(spell).some(alias => String(alias || '').trim().toLowerCase() === key)
+  ))
+}
+
+export function getMagicInitiateSelectionFailure(feat, magicInitiateSpellOptions = {}) {
+  const classOptions = getMagicInitiateClassOptions(magicInitiateSpellOptions)
+  if (!classOptions.length) return 'Magic Initiate options unavailable'
+
+  const spellcastingClass = getMagicInitiateClassValue(feat)
+  if (!spellcastingClass) return 'Choose spellcasting class'
+  if (!classOptions.includes(spellcastingClass)) return 'Choose a valid Magic Initiate class'
+
+  const options = getMagicInitiateSpellOptions(magicInitiateSpellOptions, spellcastingClass)
+  const cantrips = getMagicInitiateCantripValues(feat)
+  if (cantrips.length !== 2) return 'Choose two cantrips'
+  if (new Set(cantrips.map(cantrip => cantrip.toLowerCase())).size !== 2) {
+    return 'Choose two different cantrips'
+  }
+  if (!cantrips.every(cantrip => magicInitiateHasOption(options.cantrips, cantrip))) {
+    return 'Choose cantrips from that class'
+  }
+
+  const spell = getMagicInitiateSpellValue(feat)
+  if (!spell) return 'Choose one 1st-level spell'
+  if (!magicInitiateHasOption(options.spells, spell)) return 'Choose a spell from that class'
+
+  return ''
+}
+
 export function getFeatPrerequisiteFailure(feat, context = {}) {
   const featName = typeof feat === 'string' ? feat : feat?.name
   const prereq = String((typeof feat === 'string' ? '' : feat?.prereq) || '')
@@ -104,6 +208,15 @@ export function getFeatSelectionFailure(feat, context = {}) {
   if (prerequisiteFailure) return prerequisiteFailure
   if (featRequiresAbilityChoice(feat) && !normalizeFeatAbility(feat?.ability)) {
     return 'Choose one ability'
+  }
+  if (featRequiresMagicInitiateChoices(feat)) {
+    return getMagicInitiateSelectionFailure(
+      feat,
+      context.magicInitiateSpellOptions
+        || context.magic_initiate_spell_options
+        || context.options?.magic_initiate_spell_options
+        || {},
+    )
   }
   return ''
 }
@@ -359,6 +472,7 @@ export function buildCharacterCreateModel({
       isSpellcaster,
       knownSpells: chosenSpells,
       cantrips: chosenCantrips,
+      magicInitiateSpellOptions: options?.magic_initiate_spell_options,
     })
   })
 
