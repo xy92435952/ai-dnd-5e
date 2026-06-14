@@ -299,6 +299,94 @@ async def test_create_warlock_allows_subclass_expanded_starting_spell(client, sa
     assert command_spell in data["prepared_spells"]
 
 
+async def test_create_rejects_duplicate_starting_cantrip(client, sample_user, sample_module):
+    headers = await _auth_headers(client, sample_user)
+    fire_bolt = _spell_name_by_english("Fire Bolt")
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Duplicate Cantrip Wizard",
+        "race": "Elf",
+        "char_class": "Wizard",
+        "level": 1,
+        "background": "Sage",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 8, "dex": 13, "con": 14, "int": 15, "wis": 12, "cha": 10},
+        "cantrips": [
+            fire_bolt,
+            fire_bolt,
+            _spell_name_by_english("Mage Hand"),
+        ],
+        "known_spells": [
+            _spell_name_by_english("Magic Missile"),
+            _spell_name_by_english("Shield"),
+            _spell_name_by_english("Mage Armor"),
+            _spell_name_by_english("Detect Magic"),
+            _spell_name_by_english("Sleep"),
+            _spell_name_by_english("Burning Hands"),
+        ],
+    })
+
+    assert response.status_code == 400, response.text
+    detail = response.json()["detail"]
+    assert "Duplicate choices" in detail
+    assert "cantrips" in detail
+
+
+async def test_create_rejects_missing_starting_spell_count(client, sample_user, sample_module):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Underprepared Wizard",
+        "race": "Elf",
+        "char_class": "Wizard",
+        "level": 1,
+        "background": "Sage",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 8, "dex": 13, "con": 14, "int": 15, "wis": 12, "cha": 10},
+        "cantrips": [
+            _spell_name_by_english("Fire Bolt"),
+            _spell_name_by_english("Mage Hand"),
+            _spell_name_by_english("Prestidigitation"),
+        ],
+        "known_spells": [
+            _spell_name_by_english("Magic Missile"),
+            _spell_name_by_english("Shield"),
+            _spell_name_by_english("Mage Armor"),
+            _spell_name_by_english("Detect Magic"),
+            _spell_name_by_english("Sleep"),
+        ],
+    })
+
+    assert response.status_code == 400, response.text
+    detail = response.json()["detail"]
+    assert "Wizard requires 6 starting spells" in detail
+    assert "selected 5" in detail
+
+
+async def test_create_rejects_starting_spells_for_non_caster(client, sample_user, sample_module):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Spell Curious Fighter",
+        "race": "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "background": "Soldier",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8},
+        "fighting_style": "Defense",
+        "equipment_choice": 0,
+        "cantrips": [_spell_name_by_english("Fire Bolt")],
+        "known_spells": [],
+    })
+
+    assert response.status_code == 400, response.text
+    assert "Fighter does not choose starting spells" in response.json()["detail"]
+
+
 # ─── Session 生命周期 ───────────────────────────────────
 
 async def test_session_create_writes_opening_log_and_binds_player(
