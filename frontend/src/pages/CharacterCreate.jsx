@@ -20,6 +20,7 @@ import {
   SCORE_COSTS,
   buildCharacterCreateModel,
   normalizeCharacterOptions,
+  pruneUnavailableChoices,
 } from '../utils/characterCreate'
 
 // ── 主组件 ────────────────────────────────────────────────
@@ -133,6 +134,22 @@ export default function CharacterCreate() {
     multiReqs, multiReqMet, step1Valid, step2Valid, step3Valid, step4Valid,
     showSubclass, subclassOptions, steps: STEPS,
   } = model
+  const availableCantripsKey = availableCantrips.join('\u0000')
+  const availableSpellsKey = availableSpells.join('\u0000')
+
+  useEffect(() => {
+    setChosenCantrips((prev) => {
+      const next = pruneUnavailableChoices(prev, availableCantrips, cantripCount)
+      return next.length === prev.length && next.every((item, index) => item === prev[index]) ? prev : next
+    })
+  }, [availableCantripsKey, cantripCount])
+
+  useEffect(() => {
+    setChosenSpells((prev) => {
+      const next = pruneUnavailableChoices(prev, availableSpells, spellCount)
+      return next.length === prev.length && next.every((item, index) => item === prev[index]) ? prev : next
+    })
+  }, [availableSpellsKey, spellCount])
 
   const adjustScore = (ab, delta) => {
     const cur = scores[ab], next = cur + delta

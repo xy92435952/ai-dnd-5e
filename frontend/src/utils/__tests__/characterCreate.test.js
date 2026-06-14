@@ -12,6 +12,7 @@ import {
   getHitDieValue,
   getRaceEnKey,
   normalizeCharacterOptions,
+  pruneUnavailableChoices,
 } from '../characterCreate'
 
 function makeOptions(overrides = {}) {
@@ -218,5 +219,51 @@ describe('characterCreate helpers', () => {
     expect(model.availableSpells).not.toContain('Scorching Ray')
     expect(model.availableSpells).not.toContain('Misty Step')
     expect(model.step4Valid).toBe(true)
+  })
+
+  it('rejects and prunes stale starting spell choices after subclass options change', () => {
+    const options = makeOptions({
+      spellcaster_classes: ['Warlock'],
+      starting_cantrips_count: { Warlock: 2 },
+      starting_spells_count: { Warlock: 2 },
+      class_cantrips: { Warlock: ['Eldritch Blast', 'Mage Hand'] },
+      class_spell_details: {
+        Warlock: [
+          { name: 'Hex', level: 1 },
+          { name: 'Armor of Agathys', level: 1 },
+        ],
+      },
+      subclass_bonus_spell_details: {
+        'The Fiend': {
+          1: [{ name: 'Command', level: 1 }],
+        },
+        'The Great Old One': {
+          1: [{ name: 'Dissonant Whispers', level: 1 }],
+        },
+      },
+    })
+
+    const model = buildCharacterCreateModel({
+      form: makeForm({
+        char_class: 'Warlock',
+        subclass: 'Great Old One',
+        level: 1,
+      }),
+      options,
+      scoreMethod: 'pointbuy',
+      scores: makeScores(),
+      standardAssigned: {},
+      chosenSkills: [],
+      chosenCantrips: ['Eldritch Blast', 'Mage Hand'],
+      chosenSpells: ['Hex', 'Command'],
+      isMultiplayerCreate: false,
+    })
+
+    expect(model.availableSpells).toEqual(['Hex', 'Armor of Agathys', 'Dissonant Whispers'])
+    expect(model.step4Valid).toBe(false)
+    expect(pruneUnavailableChoices(['Hex', 'Command', 'Hex', 'Armor of Agathys'], model.availableSpells, 2)).toEqual([
+      'Hex',
+      'Armor of Agathys',
+    ])
   })
 })

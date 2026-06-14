@@ -151,6 +151,25 @@ function isAvailableAtSpellLevel(spell, maxSpellLevel) {
   return level === null || (level > 0 && level <= maxSpellLevel)
 }
 
+export function pruneUnavailableChoices(choices = [], available = [], limit = Infinity) {
+  const availableSet = new Set(available || [])
+  const seen = new Set()
+  const pruned = []
+  for (const choice of choices || []) {
+    if (!availableSet.has(choice) || seen.has(choice)) continue
+    seen.add(choice)
+    pruned.push(choice)
+    if (pruned.length >= limit) break
+  }
+  return pruned
+}
+
+function choicesAreValid(choices = [], available = [], expectedCount = 0) {
+  const selected = (choices || []).filter(Boolean)
+  if (selected.length !== expectedCount) return false
+  return pruneUnavailableChoices(selected, available, expectedCount).length === expectedCount
+}
+
 export function buildStartingSpellOptions(options = {}, classEnKey = '', subclass = '', level = 1) {
   const characterLevel = Number(level) || 1
   const maxSpellLevel = maxSpellLevelForClassLevel(classEnKey, characterLevel)
@@ -258,8 +277,8 @@ export function buildCharacterCreateModel({
     ? true
     : Object.keys(standardAssigned || {}).length === 6
   const step3Valid = (chosenSkills || []).length === skillConfig.count
-  const step4Valid = (chosenCantrips || []).length === cantripCount
-    && (chosenSpells || []).length === spellCount
+  const step4Valid = choicesAreValid(chosenCantrips, availableCantrips, cantripCount)
+    && choicesAreValid(chosenSpells, availableSpells, spellCount)
 
   const showSubclass = !!(classInfo && (form?.level || 1) >= classInfo.subclass_unlock)
   const subclassOptions = classInfo?.subclasses || []
