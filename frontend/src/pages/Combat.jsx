@@ -149,6 +149,7 @@ export default function Combat() {
     () => getRecoverableThrownWeapons(session, recoveryCharacterId),
     [session, recoveryCharacterId],
   )
+  const hasCombatSnapshot = Boolean(combat)
 
   useEffect(() => {
     if (!delayAfterEntityId) return
@@ -163,6 +164,7 @@ export default function Combat() {
       setThrownRecoveryError('')
       return undefined
     }
+    if (!hasCombatSnapshot) return undefined
     let cancelled = false
     gameApi.getSession(sessionId)
       .then(data => {
@@ -172,7 +174,7 @@ export default function Combat() {
     return () => {
       cancelled = true
     }
-  }, [combatOver, sessionId, setSession])
+  }, [combatOver, hasCombatSnapshot, sessionId, setSession])
 
   const handleRecoverThrownWeapons = useCallback(async () => {
     if (!recoveryCharacterId || isRecoveringThrownWeapons) return
