@@ -23,7 +23,11 @@ from services.combat_defender_reaction_service import apply_defender_interceptio
 from services.combat_grid_service import check_attack_range
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
 from services.combat_service import CombatService
-from services.combat_turn_state_service import get_turn_state, save_turn_state
+from services.combat_turn_state_service import (
+    get_turn_state,
+    record_mobile_opportunity_safe_target,
+    save_turn_state,
+)
 from services.combat_two_weapon_service import validate_two_weapon_fighting_equipment
 from services.dnd_rules import _normalize_class, roll_attack, should_auto_crit_melee_target
 
@@ -250,6 +254,12 @@ async def prepare_attack_roll(
         max_attacks=max_attacks,
         is_offhand=is_offhand,
         pending_attack=pending_attack,
+    )
+    turn_state = record_mobile_opportunity_safe_target(
+        turn_state,
+        resolved_target_id,
+        attacker_derived=player_derived,
+        is_ranged=is_ranged,
     )
     save_turn_state_func(combat, player_id, turn_state)
 

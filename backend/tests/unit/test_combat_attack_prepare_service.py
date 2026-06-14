@@ -58,6 +58,27 @@ def fixed_roll_attack(**_kwargs):
     }
 
 
+def fixed_miss_attack(**_kwargs):
+    return {
+        "d20": 4,
+        "attack_bonus": 5,
+        "attack_total": 9,
+        "target_ac": 12,
+        "hit": False,
+        "is_crit": False,
+        "is_fumble": False,
+    }
+
+
+def mobile_player():
+    player = FakePlayer()
+    player.derived = {
+        **FakePlayer.derived,
+        "feat_effects": {"Mobile": {"mobile": True}},
+    }
+    return player
+
+
 def ranged_player(*, ammo=5):
     player = FakePlayer()
     player.derived = {
@@ -162,6 +183,38 @@ async def test_prepare_attack_roll_consumes_help_advantage_and_stores_pending_at
     assert prepared.turn_state["action_used"] is True
     assert prepared.pending_attack["pending_attack_id"] == prepared.pending_attack_id
     assert combat.turn_states["char-1"]["pending_attack"]["advantage"] is True
+
+
+@pytest.mark.asyncio
+async def test_prepare_attack_roll_records_mobile_melee_target_even_on_miss():
+    from services.combat_attack_prepare_service import prepare_attack_roll
+
+    combat = FakeCombat()
+    combat.turn_states["char-1"]["being_helped"] = False
+
+    prepared = await prepare_attack_roll(
+        FakeDb(),
+        combat=combat,
+        session=None,
+        player=mobile_player(),
+        player_id="char-1",
+        target_id="goblin-1",
+        action_type="melee",
+        is_offhand=False,
+        d20_value=None,
+        enemies=[{
+            "id": "goblin-1",
+            "name": "Goblin",
+            "hp_current": 7,
+            "derived": {"ac": 12},
+            "conditions": [],
+        }],
+        roll_attack_func=fixed_miss_attack,
+        save_turn_state_func=save_turn_state,
+    )
+
+    assert prepared.attack_roll_result["hit"] is False
+    assert combat.turn_states["char-1"]["mobile_opportunity_safe_targets"] == ["goblin-1"]
 
 
 @pytest.mark.asyncio

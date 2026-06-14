@@ -26,6 +26,7 @@ from services.combat_direct_attack_service import (
     consume_direct_attack_turn,
     prepare_direct_attack,
 )
+from services.combat_turn_state_service import record_mobile_opportunity_safe_target
 
 from api.combat._shared import (
     _assert_expected_turn_token,
@@ -196,6 +197,12 @@ async def combat_action(
 
     # 更新攻击计数
     ts = consume_direct_attack_turn(prepared.turn_state, attacks_max=prepared.attacks_max)
+    ts = record_mobile_opportunity_safe_target(
+        ts,
+        prepared.target_id,
+        attacker_derived=prepared.player_derived,
+        is_ranged=req.is_ranged,
+    )
     if attack_result_dict["hit"]:
         ts["last_attack_target"] = prepared.target_id
         ts["last_attack_is_crit"] = bool(attack_result_dict.get("is_crit"))

@@ -2,6 +2,8 @@ from typing import Any
 
 from sqlalchemy.orm.attributes import flag_modified
 
+from services.feat_effect_service import has_feat_effect
+
 
 DEFAULT_TURN_STATE: dict[str, Any] = {
     "action_used": False,
@@ -28,6 +30,40 @@ def save_turn_state(combat, entity_id: str, turn_state: dict[str, Any]) -> None:
     states[str(entity_id)] = turn_state
     combat.turn_states = states
     flag_modified(combat, "turn_states")
+
+
+def record_mobile_opportunity_safe_target(
+    turn_state: dict[str, Any],
+    target_id: Any,
+    *,
+    attacker_derived: dict[str, Any] | None,
+    is_ranged: bool,
+) -> dict[str, Any]:
+    if is_ranged or target_id is None:
+        return turn_state
+    if not has_feat_effect(attacker_derived, "Mobile", "mobile"):
+        return turn_state
+
+    target_key = str(target_id)
+    safe_targets = [
+        str(existing)
+        for existing in (turn_state.get("mobile_opportunity_safe_targets") or [])
+        if existing is not None
+    ]
+    if target_key not in safe_targets:
+        safe_targets.append(target_key)
+    turn_state["mobile_opportunity_safe_targets"] = safe_targets
+    return turn_state
+
+
+def mobile_blocks_opportunity_from(turn_state: dict[str, Any], attacker_id: Any) -> bool:
+    if attacker_id is None:
+        return False
+    return str(attacker_id) in {
+        str(existing)
+        for existing in (turn_state.get("mobile_opportunity_safe_targets") or [])
+        if existing is not None
+    }
 
 
 def reset_turn_state(

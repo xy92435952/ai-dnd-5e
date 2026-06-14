@@ -15,7 +15,11 @@ from services.combat_temporary_hp_service import (
     apply_armor_of_agathys_retaliation_to_enemy,
     get_armor_of_agathys_retaliation_damage,
 )
-from services.combat_turn_state_service import get_turn_state, save_turn_state
+from services.combat_turn_state_service import (
+    get_turn_state,
+    mobile_blocks_opportunity_from,
+    save_turn_state,
+)
 from services.dnd_rules import apply_character_damage
 
 svc = CombatService()
@@ -47,6 +51,7 @@ async def resolve_opportunity_attacks(
         moving_char = await db.get(Character, moving_id)
         if not moving_char:
             return results
+        moving_turn_state = get_turn_state(combat, moving_id)
 
         for enemy in enemies:
             if enemy.get("hp_current", 0) <= 0:
@@ -57,6 +62,8 @@ async def resolve_opportunity_attacks(
             if not enemy_position:
                 continue
             if chebyshev_distance(enemy_position, old_pos) <= 1 and chebyshev_distance(enemy_position, new_pos) > 1:
+                if mobile_blocks_opportunity_from(moving_turn_state, enemy["id"]):
+                    continue
                 enemy_turn_state = get_turn_state(combat, enemy["id"])
                 if enemy_turn_state.get("reaction_used"):
                     continue
@@ -161,9 +168,15 @@ async def resolve_opportunity_attacks(
         moving_enemy = next((enemy for enemy in enemies if enemy["id"] == moving_id), None)
         if not moving_enemy:
             return results
+        moving_turn_state = get_turn_state(combat, moving_id)
 
         player = await db.get(Character, session.player_character_id)
-        if player and player.hp_current > 0 and can_take_reaction(player):
+        if (
+            player
+            and player.hp_current > 0
+            and can_take_reaction(player)
+            and not mobile_blocks_opportunity_from(moving_turn_state, session.player_character_id)
+        ):
             player_position = positions.get(str(session.player_character_id))
             if (
                 player_position
@@ -258,6 +271,8 @@ async def resolve_opportunity_attacks(
                 chebyshev_distance(companion_position, old_pos) <= 1
                 and chebyshev_distance(companion_position, new_pos) > 1
             ):
+                if mobile_blocks_opportunity_from(moving_turn_state, companion_id):
+                    continue
                 companion_turn_state = get_turn_state(combat, companion_id)
                 if companion_turn_state.get("reaction_used"):
                     continue
