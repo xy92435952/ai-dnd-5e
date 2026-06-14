@@ -550,18 +550,26 @@ describe('CharacterSheet inventory integration', () => {
       class_spell_details: {},
       class_cantrips: {},
       subclass_unlock_levels: { Fighter: 3 },
-      subclass_options: { Fighter: ['Champion', 'Battle Master'] },
+      subclass_options: {
+        Fighter: [
+          'Champion',
+          {
+            name: 'Battle Master',
+            desc: 'Battle Master turns superiority dice into tactical techniques.',
+          },
+        ],
+      },
       fighting_styles: {
-        Defense: { desc: 'AC +1' },
+        Defense: { desc: 'AC +1 while wearing armor.' },
         Dueling: { desc: 'Damage +2' },
       },
       fighting_style_classes: {
         Fighter: { level: 1, styles: ['Defense', 'Dueling'] },
       },
       maneuvers: {
-        precision: { name: 'Precision Attack' },
-        trip: { name: 'Trip Attack' },
-        disarm: { name: 'Disarming Attack' },
+        precision: { name: 'Precision Attack', desc: 'Add superiority die to an attack roll.' },
+        trip: { name: 'Trip Attack', desc: 'Knock a target prone after a weapon hit.' },
+        disarm: { name: 'Disarming Attack', desc: 'Force a target to drop one held item.' },
         riposte: { name: 'Riposte' },
       },
       battle_master_maneuvers_known_by_level: { 3: 3, 7: 5 },
@@ -600,12 +608,15 @@ describe('CharacterSheet inventory integration', () => {
     fireEvent.change(screen.getByLabelText('Subclass choice'), {
       target: { value: 'Battle Master' },
     })
+    expect(screen.getByText('Battle Master turns superiority dice into tactical techniques.')).toBeInTheDocument()
+    expect(await screen.findByText('Add superiority die to an attack roll.')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Fighting style choice'), {
       target: { value: 'Defense' },
     })
-    fireEvent.click(await screen.findByLabelText('Learn maneuver precision'))
-    fireEvent.click(screen.getByLabelText('Learn maneuver trip'))
-    fireEvent.click(screen.getByLabelText('Learn maneuver disarm'))
+    expect(screen.getByText('AC +1 while wearing armor.')).toBeInTheDocument()
+    fireEvent.click(await screen.findByLabelText('Learn maneuver Precision Attack'))
+    fireEvent.click(screen.getByLabelText('Learn maneuver Trip Attack'))
+    fireEvent.click(screen.getByLabelText('Learn maneuver Disarming Attack'))
     expect(levelUpButton).not.toBeDisabled()
     fireEvent.click(levelUpButton)
 

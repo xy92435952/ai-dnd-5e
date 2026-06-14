@@ -50,6 +50,27 @@ const ALL_SKILLS = [
   '欺瞒', '恐吓', '表演', '游说',
 ]
 
+const LEVEL_UP_DESCRIPTION_KEYS = ['desc', 'description', 'summary', 'effect', 'details', 'text']
+
+function levelUpOptionLabel(option, fallback = '') {
+  if (typeof option === 'string') return option
+  const primary = option?.label || option?.name || option?.id || fallback
+  const secondary = option?.zh && option.zh !== primary ? option.zh : ''
+  return secondary ? `${primary} - ${secondary}` : primary
+}
+
+function levelUpOptionDescription(option) {
+  if (!option || typeof option === 'string') return ''
+  const detail = LEVEL_UP_DESCRIPTION_KEYS.map(key => option[key]).find(Boolean)
+  if (Array.isArray(detail)) return detail.filter(Boolean).join(' ')
+  return typeof detail === 'string' ? detail : ''
+}
+
+function levelUpChoiceValue(option) {
+  if (typeof option === 'string') return option
+  return option?.value || option?.id || option?.name || ''
+}
+
 export default function CharacterSheet() {
   const { characterId } = useParams()
   const [searchParams] = useSearchParams()
@@ -657,6 +678,10 @@ function LevelUpPanel({
     && hasCompletedFightingStyleChoice
     && hasCompletedManeuverChoice
   const selectedFeat = (featPlan?.featOptions || []).find(feat => feat.name === selections.featName)
+  const selectedSubclass = (subclassPlan?.subclassOptions || [])
+    .find(option => levelUpChoiceValue(option) === selections.subclassName)
+  const selectedFightingStyle = (fightingStylePlan?.styleOptions || [])
+    .find(option => levelUpChoiceValue(option) === selections.fightingStyleName)
 
   return (
     <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
@@ -698,10 +723,11 @@ function LevelUpPanel({
             >
               <option value="">Choose subclass</option>
               {subclassPlan.subclassOptions.map(option => (
-                <option key={option.name} value={option.name}>{option.name}</option>
+                <option key={option.name} value={option.name}>{levelUpOptionLabel(option, option.name)}</option>
               ))}
             </select>
           </label>
+          <LevelUpOptionDetail option={selectedSubclass} />
         </div>
       )}
 
@@ -726,13 +752,14 @@ function LevelUpPanel({
               ))}
             </select>
           </label>
+          <LevelUpOptionDetail option={selectedFightingStyle} />
         </div>
       )}
 
       {hasManeuverChoices && (
         <LevelUpChoiceGroup
           title={`Maneuvers ${selectedManeuverCount}/${maneuverPlan.requiredChoices}`}
-          values={maneuverPlan.maneuverOptions.map(option => option.id)}
+          values={maneuverPlan.maneuverOptions}
           selected={selections.maneuvers}
           onToggle={(value) => onToggleManeuver(value, maneuverPlan.requiredChoices)}
           labelPrefix="Learn maneuver"
@@ -903,36 +930,66 @@ function LevelUpPanel({
   )
 }
 
+function LevelUpOptionDetail({ option }) {
+  const description = levelUpOptionDescription(option)
+  if (!description) return null
+  return (
+    <p style={{ color: 'var(--text-dim)', fontSize: 11, lineHeight: 1.4, margin: '6px 0 0' }}>
+      {description}
+    </p>
+  )
+}
+
 function LevelUpChoiceGroup({ title, values, selected, onToggle, labelPrefix }) {
+  const items = (values || [])
+    .map(option => {
+      const value = levelUpChoiceValue(option)
+      return {
+        value,
+        label: levelUpOptionLabel(option, value),
+        description: levelUpOptionDescription(option),
+      }
+    })
+    .filter(item => item.value)
+
   return (
     <div style={{ marginTop: 10 }}>
       <p style={{ color: 'var(--gold-dim)', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
         {title}
       </p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {values.map(value => (
+        {items.map(item => (
           <label
-            key={value}
+            key={item.value}
             style={{
               display: 'inline-flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
+              flexDirection: 'column',
               gap: 5,
               minHeight: 28,
+              maxWidth: item.description ? 260 : '100%',
               padding: '4px 9px',
               borderRadius: 6,
               border: '1px solid var(--wood-light)',
-              color: selected.includes(value) ? 'var(--gold)' : 'var(--parchment-dark)',
-              background: selected.includes(value) ? 'rgba(201,162,76,0.12)' : 'rgba(138,90,246,0.06)',
+              color: selected.includes(item.value) ? 'var(--gold)' : 'var(--parchment-dark)',
+              background: selected.includes(item.value) ? 'rgba(201,162,76,0.12)' : 'rgba(138,90,246,0.06)',
               fontSize: 11,
             }}
           >
-            <input
-              aria-label={`${labelPrefix} ${value}`}
-              type="checkbox"
-              checked={selected.includes(value)}
-              onChange={() => onToggle(value)}
-            />
-            {value}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <input
+                aria-label={`${labelPrefix} ${item.label}`}
+                type="checkbox"
+                checked={selected.includes(item.value)}
+                onChange={() => onToggle(item.value)}
+              />
+              <span>{item.label}</span>
+            </span>
+            {item.description && (
+              <span style={{ color: 'var(--text-dim)', fontSize: 10, lineHeight: 1.35, marginLeft: 20, wordBreak: 'break-word' }}>
+                {item.description}
+              </span>
+            )}
           </label>
         ))}
       </div>
