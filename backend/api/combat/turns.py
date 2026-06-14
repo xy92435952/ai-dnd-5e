@@ -40,6 +40,7 @@ from services.combat_repeat_save_service import (
     build_condition_end_save_log,
     resolve_repeat_save_end_of_turn_saves,
 )
+from services.bardic_inspiration_service import BardicInspirationError
 from services.combat_legendary_action_service import (
     build_lair_action_prompt,
     build_legendary_action_prompt,
@@ -77,6 +78,8 @@ router = APIRouter(prefix="/game", tags=["combat"])
 
 class EndTurnRequest(BaseModel):
     expected_turn_token: str | None = None
+    use_bardic_inspiration: bool = False
+    bardic_inspiration_roll: int | None = None
 
 
 class DelayTurnRequest(BaseModel):
@@ -200,12 +203,21 @@ async def _end_player_turn_locked(
                     log_type="combat",
                     dice_result=confusion_end_save,
                 ))
-            condition_end_saves = resolve_repeat_save_end_of_turn_saves(
-                player,
-                entity_id=str(current_cid),
-                actor_name=player.name,
-                combat=combat,
-            )
+            use_bardic_end_save = bool(getattr(req, "use_bardic_inspiration", False))
+            bardic_end_save_roll = getattr(req, "bardic_inspiration_roll", None)
+            try:
+                condition_end_saves = resolve_repeat_save_end_of_turn_saves(
+                    player,
+                    entity_id=str(current_cid),
+                    actor_name=player.name,
+                    combat=combat,
+                    use_bardic_inspiration=use_bardic_end_save,
+                    bardic_inspiration_roll=bardic_end_save_roll,
+                )
+            except BardicInspirationError as exc:
+                raise HTTPException(exc.status_code, exc.detail) from exc
+            if use_bardic_end_save and not _condition_end_save_spent_bardic(condition_end_saves):
+                raise HTTPException(400, "No end-of-turn saving throw available for Bardic Inspiration.")
             for condition_end_save in condition_end_saves:
                 tick_logs.append(GameLog(
                     session_id=session_id,
@@ -419,6 +431,13 @@ async def _end_player_turn_locked(
         response_payload["turn_order_delayed"] = bool(delayed_turn.get("moved"))
         response_payload["delayed_turn"] = delayed_turn
     return await _project_ai_control_prompts_for_user(db, session, user_id, response_payload)
+
+
+def _condition_end_save_spent_bardic(condition_end_saves: list[dict]) -> bool:
+    return any(
+        bool(((result.get("save") or {}).get("bardic_inspiration") or {}).get("spent"))
+        for result in condition_end_saves
+    )
 
 
 def _entry_entity_id(entry: dict | None) -> str | None:

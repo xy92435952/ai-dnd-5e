@@ -50,6 +50,8 @@ export function useCombatFlowHandlers({
     setUseBardicAttack,
     useBardicDeathSave,
     setUseBardicDeathSave,
+    useBardicEndSave,
+    setUseBardicEndSave,
     setPlayerSubclass,
     setPlayerSubclassEffects,
     playerSubclassEffects,
@@ -146,9 +148,14 @@ export function useCombatFlowHandlers({
     setCombatOver,
     setLairActionPrompt,
     setLegendaryActionPrompt,
+    showDice,
     addLog,
     triggerAiTurn,
     canDriveAiTurns,
+    classResources,
+    useBardicEndSave,
+    setUseBardicEndSave,
+    setClassResources,
   })
 
   const handleAttack = useCombatAttackFlow({

@@ -95,6 +95,8 @@ export default function Combat() {
     setUseBardicAttack,
     useBardicDeathSave,
     setUseBardicDeathSave,
+    useBardicEndSave,
+    setUseBardicEndSave,
     reactionPrompt,
     legendaryActionPrompt,
     lairActionPrompt,
@@ -393,9 +395,11 @@ export default function Combat() {
         useLuckyAttack={useLuckyAttack}
         useBardicAttack={useBardicAttack}
         useBardicDeathSave={useBardicDeathSave}
+        useBardicEndSave={useBardicEndSave}
         onToggleLuckyAttack={() => setUseLuckyAttack(value => !value)}
         onToggleBardicAttack={() => setUseBardicAttack(value => !value)}
         onToggleBardicDeathSave={() => setUseBardicDeathSave(value => !value)}
+        onToggleBardicEndSave={() => setUseBardicEndSave(value => !value)}
         onOpenCharacter={() => playerId && navigate(`/character/${playerId}?sessionId=${sessionId}`)}
         onReturnAdventure={returnToAdventure}
         onForceEndCombat={forceEndCombat}

@@ -2063,6 +2063,17 @@
       },
       "EndTurnRequest": {
         "properties": {
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
           "expected_turn_token": {
             "anyOf": [
               {
@@ -2073,6 +2084,11 @@
               }
             ],
             "title": "Expected Turn Token"
+          },
+          "use_bardic_inspiration": {
+            "default": false,
+            "title": "Use Bardic Inspiration",
+            "type": "boolean"
           }
         },
         "title": "EndTurnRequest",

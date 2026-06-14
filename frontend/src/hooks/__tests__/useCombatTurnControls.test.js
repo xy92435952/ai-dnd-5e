@@ -1,10 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { delayTurnMock, endTurnMock, getCombatMock } = vi.hoisted(() => ({
+const { delayTurnMock, endTurnMock, getCombatMock, rollDice3DMock } = vi.hoisted(() => ({
   delayTurnMock: vi.fn(),
   endTurnMock: vi.fn(),
   getCombatMock: vi.fn(),
+  rollDice3DMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
@@ -15,12 +16,17 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
+vi.mock('../../components/DiceRollerOverlay', () => ({
+  rollDice3D: rollDice3DMock,
+}))
+
 import { useCombatTurnControls } from '../useCombatTurnControls'
 
 describe('useCombatTurnControls', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    rollDice3DMock.mockResolvedValue({ total: 4, rolls: [4] })
   })
 
   function renderControls(overrides = {}) {
@@ -82,6 +88,60 @@ describe('useCombatTurnControls', () => {
       await vi.advanceTimersByTimeAsync(600)
     })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('submits Bardic Inspiration for an end-of-turn condition save', async () => {
+    endTurnMock.mockResolvedValue({
+      next_turn_index: 1,
+      round_number: 1,
+      condition_end_saves: [{
+        save: {
+          bardic_inspiration: {
+            spent: true,
+            uses_remaining: 0,
+          },
+        },
+      }],
+    })
+    getCombatMock.mockResolvedValue({
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'char-1', is_player: true },
+        { character_id: 'enemy-1', is_player: false },
+      ],
+    })
+    const setClassResources = vi.fn()
+    const setUseBardicEndSave = vi.fn()
+    const showDice = vi.fn()
+
+    const { result } = renderControls({
+      classResources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      useBardicEndSave: true,
+      setUseBardicEndSave,
+      setClassResources,
+      showDice,
+    })
+
+    await act(async () => {
+      await result.current.handleEndTurn()
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(8)
+    expect(showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 4,
+      label: 'Bardic Inspiration d8',
+      count: 1,
+    })
+    expect(endTurnMock).toHaveBeenCalledWith('sess-1', '1:0:char-1', {
+      useBardicInspiration: true,
+      bardicInspirationRoll: 4,
+    })
+    expect(setUseBardicEndSave).toHaveBeenCalledWith(false)
+    const updater = setClassResources.mock.calls[0][0]
+    expect(updater({ bardic_inspiration: { die: 'd8', uses_remaining: 1 } })).toEqual({
+      bardic_inspiration: { die: 'd8', uses_remaining: 0 },
+    })
   })
 
   it('sets player turn state when the fresh next turn is a player', async () => {

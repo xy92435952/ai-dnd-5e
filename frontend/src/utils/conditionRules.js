@@ -286,6 +286,30 @@ export function buildConditionImpactTags(conditions = [], durations = {}) {
     .slice(0, 6)
 }
 
+export function getEndOfTurnRepeatSaveConditions(conditions = [], durations = {}) {
+  if (!Array.isArray(conditions)) return []
+
+  return conditions
+    .map(condition => {
+      const key = conditionKey(condition)
+      if (!key) return null
+      const metadata = repeatSaveMetadata(key, condition, durations)
+      if (!metadata) return null
+      const timing = metadata.repeat_save || metadata.repeatSave || 'end_of_turn'
+      if (timing !== 'end_of_turn') return null
+      const ability = String(metadata.save_ability || metadata.saveAbility || '').trim().toLowerCase()
+      const dc = metadata.save_dc ?? metadata.saveDc ?? metadata.dc ?? null
+      return {
+        key,
+        label: conditionLabel(key),
+        ability,
+        dc,
+        requires: metadata.repeat_save_requires || metadata.repeatSaveRequires || metadata.requires || null,
+      }
+    })
+    .filter(Boolean)
+}
+
 export function buildConditionActionLockReason(conditions = [], durations = {}) {
   if (!Array.isArray(conditions)) return ''
 

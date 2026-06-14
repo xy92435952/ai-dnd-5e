@@ -19,6 +19,7 @@ export function useCombatPageState() {
   const [useLuckyAttack, setUseLuckyAttack] = useState(false)
   const [useBardicAttack, setUseBardicAttack] = useState(false)
   const [useBardicDeathSave, setUseBardicDeathSave] = useState(false)
+  const [useBardicEndSave, setUseBardicEndSave] = useState(false)
   const [playerSubclass, setPlayerSubclass] = useState('')
   const [playerSubclassEffects, setPlayerSubclassEffects] = useState({})
   const [maneuverModalOpen, setManeuverModalOpen] = useState(false)
@@ -50,6 +51,7 @@ export function useCombatPageState() {
     useLuckyAttack, setUseLuckyAttack,
     useBardicAttack, setUseBardicAttack,
     useBardicDeathSave, setUseBardicDeathSave,
+    useBardicEndSave, setUseBardicEndSave,
     playerSubclass, setPlayerSubclass,
     playerSubclassEffects, setPlayerSubclassEffects,
     maneuverModalOpen, setManeuverModalOpen,

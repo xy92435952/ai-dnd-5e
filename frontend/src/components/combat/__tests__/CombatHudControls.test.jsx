@@ -169,6 +169,31 @@ describe('CombatHudControls', () => {
     expect(props.onToggleBardicAttack).toHaveBeenCalledTimes(1)
   })
 
+  it('renders a Bardic end-save toggle when a repeat save is pending', () => {
+    const props = renderControls({
+      classResources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      useBardicEndSave: true,
+      onToggleBardicEndSave: vi.fn(),
+      character: {
+        ...TEST_CHARACTER,
+        conditions: ['blinded'],
+        condition_durations: {
+          blinded: {
+            repeat_save: 'end_of_turn',
+            save_ability: 'con',
+            save_dc: 15,
+          },
+        },
+      },
+    })
+
+    const toggle = screen.getByRole('button', { name: 'End Save ON 路 d8' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(toggle)
+    expect(props.onToggleBardicEndSave).toHaveBeenCalledTimes(1)
+  })
+
   it('submits delay placement after a selected later combatant', () => {
     const props = renderControls({
       delayTurnOptions: [

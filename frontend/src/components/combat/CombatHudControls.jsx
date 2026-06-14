@@ -1,5 +1,6 @@
 import React from 'react'
 import { getAttackWeaponOptions } from '../../utils/combatWeapons'
+import { getEndOfTurnRepeatSaveConditions } from '../../utils/conditionRules'
 import { getLuckyPointsRemaining } from '../../utils/lucky'
 import { getBardicInspiration } from '../../utils/bardicInspiration'
 
@@ -30,6 +31,7 @@ export default function CombatHudControls({
   classResources = {},
   useLuckyAttack = false,
   useBardicAttack = false,
+  useBardicEndSave = false,
   character,
   turnState,
   onEndTurn,
@@ -42,6 +44,7 @@ export default function CombatHudControls({
   onSelectedWeaponChange,
   onToggleLuckyAttack,
   onToggleBardicAttack,
+  onToggleBardicEndSave,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -56,6 +59,15 @@ export default function CombatHudControls({
   const canToggleLuckyAttack = luckyRemaining > 0 && !actionDisabled && typeof onToggleLuckyAttack === 'function'
   const bardic = getBardicInspiration(classResources)
   const canToggleBardicAttack = Boolean(bardic) && !actionDisabled && typeof onToggleBardicAttack === 'function'
+  const repeatSaves = getEndOfTurnRepeatSaveConditions(
+    character?.conditions || [],
+    character?.condition_durations || {},
+  )
+  const canToggleBardicEndSave = Boolean(bardic) && repeatSaves.length > 0 && !actionDisabled && typeof onToggleBardicEndSave === 'function'
+  const repeatSaveLabel = repeatSaves.map(save => {
+    const dc = save.dc != null ? ` DC${save.dc}` : ''
+    return `${save.label}${save.ability ? ` ${save.ability.toUpperCase()}` : ''}${dc}`
+  }).join(' / ')
   const hasDelayTargets = delayTurnOptions.length > 0
   const delayTitle = hasDelayTargets
     ? '按所选位置延迟当前回合'
@@ -137,6 +149,18 @@ export default function CombatHudControls({
             title={disabledReason || `Bardic Inspiration ${bardic.die}`}
           >
             Bardic {useBardicAttack ? 'ON' : 'OFF'} · {bardic.die}
+          </button>
+        )}
+        {bardic && repeatSaves.length > 0 && (
+          <button
+            className={useBardicEndSave ? 'btn-gold' : 'btn-ghost'}
+            style={{ fontSize: 10, padding: '5px 8px' }}
+            onClick={onToggleBardicEndSave}
+            disabled={!canToggleBardicEndSave}
+            aria-pressed={Boolean(useBardicEndSave)}
+            title={disabledReason || `Bardic Inspiration ${bardic.die} on end-of-turn save: ${repeatSaveLabel}`}
+          >
+            End Save {useBardicEndSave ? 'ON' : 'OFF'} 路 {bardic.die}
           </button>
         )}
         <select

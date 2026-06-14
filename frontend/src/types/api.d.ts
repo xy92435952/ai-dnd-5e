@@ -2450,8 +2450,15 @@ export interface components {
         };
         /** EndTurnRequest */
         EndTurnRequest: {
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
             /** Expected Turn Token */
             expected_turn_token?: string | null;
+            /**
+             * Use Bardic Inspiration
+             * @default false
+             */
+            use_bardic_inspiration: boolean;
         };
         /**
          * EndTurnResult

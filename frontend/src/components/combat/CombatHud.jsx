@@ -36,6 +36,7 @@ export default function CombatHud({
   useLuckyAttack = false,
   useBardicAttack = false,
   useBardicDeathSave = false,
+  useBardicEndSave = false,
   onSessionChange,
   onTurnStateChange,
   onError,
@@ -51,6 +52,7 @@ export default function CombatHud({
   onToggleLuckyAttack,
   onToggleBardicAttack,
   onToggleBardicDeathSave,
+  onToggleBardicEndSave,
   onOpenCharacter,
   onReturnAdventure,
   onForceEndCombat,
@@ -141,6 +143,7 @@ export default function CombatHud({
           classResources={classResources}
           useLuckyAttack={useLuckyAttack}
           useBardicAttack={useBardicAttack}
+          useBardicEndSave={useBardicEndSave}
           character={controlledCharacter || session?.player}
           turnState={turnState}
           onEndTurn={onEndTurn}
@@ -151,6 +154,7 @@ export default function CombatHud({
           onSelectedWeaponChange={onSelectedWeaponChange}
           onToggleLuckyAttack={onToggleLuckyAttack}
           onToggleBardicAttack={onToggleBardicAttack}
+          onToggleBardicEndSave={onToggleBardicEndSave}
           onOpenCharacter={onOpenCharacter}
           onReturnAdventure={onReturnAdventure}
           onForceEndCombat={onForceEndCombat}

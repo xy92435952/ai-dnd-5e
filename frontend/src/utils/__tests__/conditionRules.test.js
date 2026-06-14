@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'vitest'
-import { buildConditionImpactTags, buildConditionSummaries, formatConditionLabel } from '../conditionRules'
+import {
+  buildConditionImpactTags,
+  buildConditionSummaries,
+  formatConditionLabel,
+  getEndOfTurnRepeatSaveConditions,
+} from '../conditionRules'
 
 describe('buildConditionSummaries', () => {
+  it('extracts end-of-turn repeat save metadata for Bardic prompts', () => {
+    expect(getEndOfTurnRepeatSaveConditions(['blinded', 'poisoned'], {
+      blinded: {
+        repeat_save: 'end_of_turn',
+        save_ability: 'con',
+        save_dc: 15,
+      },
+      poisoned: 2,
+    })).toEqual([
+      expect.objectContaining({
+        key: 'blinded',
+        ability: 'con',
+        dc: 15,
+      }),
+    ])
+  })
+
   it('summarizes harmful conditions with duration hints', () => {
     expect(buildConditionSummaries(['poisoned'], { poisoned: 2 })).toEqual([
       {
@@ -44,7 +66,7 @@ describe('buildConditionSummaries', () => {
       expect.objectContaining({ key: 'resist', label: '抗性', tone: 'good' }),
     ])
     expect(buildConditionImpactTags(['blessed'])).toEqual([
-      expect.objectContaining({ key: 'buff_active', label: '增益', tone: 'good' }),
+      expect.objectContaining({ key: 'roll_bonus', label: '攻击/豁免 +d4', tone: 'good' }),
     ])
   })
 })

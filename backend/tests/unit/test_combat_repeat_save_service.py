@@ -64,6 +64,53 @@ def test_repeat_save_end_of_turn_failure_keeps_blinded():
     assert actor["condition_durations"]["blinded"]["duration"] == 10
 
 
+def test_repeat_save_can_spend_bardic_inspiration_to_end_condition():
+    actor = SimpleNamespace(
+        id="target-1",
+        name="Inspired Guard",
+        conditions=["blinded"],
+        condition_durations={
+            "blinded": {
+                "duration": 10,
+                "repeat_save": "end_of_turn",
+                "save_ability": "con",
+                "save_dc": 15,
+                "end_save_d20": 11,
+                "spell_name": "Blindness/Deafness",
+            },
+        },
+        class_resources={
+            "bardic_inspiration": {
+                "die": "d8",
+                "uses_remaining": 1,
+                "source_character_id": "bard-1",
+                "source_character_name": "Lyra",
+            },
+        },
+        derived={"saving_throws": {"con": 0}},
+        ability_scores={},
+    )
+
+    results = resolve_repeat_save_end_of_turn_saves(
+        actor,
+        entity_id="target-1",
+        actor_name="Inspired Guard",
+        use_bardic_inspiration=True,
+        bardic_inspiration_roll=4,
+    )
+
+    assert len(results) == 1
+    save = results[0]["save"]
+    assert save["success"] is True
+    assert save["total"] == 15
+    assert save["bardic_inspiration"]["spent"] is True
+    assert save["bardic_inspiration"]["context"] == "condition_end_save"
+    assert save["bardic_inspiration"]["roll"] == 4
+    assert actor.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+    assert actor.conditions == []
+    assert actor.condition_durations == {}
+
+
 def test_fear_repeat_save_requires_blocked_line_of_sight_to_source():
     actor = {
         "id": "target-1",

@@ -1,5 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
+import { rollDice3D } from '../components/DiceRollerOverlay'
+import { getBardicInspiration } from '../utils/bardicInspiration'
 import { getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
 import { formatDelayedTurnLog } from '../utils/turnLogs'
@@ -33,9 +35,14 @@ export function useCombatTurnControls({
   setCombatOver,
   setLairActionPrompt = null,
   setLegendaryActionPrompt = null,
+  showDice,
   addLog,
   triggerAiTurn,
   canDriveAiTurns = true,
+  classResources = {},
+  useBardicEndSave = false,
+  setUseBardicEndSave = null,
+  setClassResources = null,
 }) {
   const handleTurnAdvance = useCallback(async (options = {}) => {
     const delay = typeof options === 'boolean' ? options : Boolean(options.delay)
@@ -53,11 +60,39 @@ export function useCombatTurnControls({
     setLegendaryActionPrompt?.(null)
     try {
       const turnToken = getCombatTurnToken(combat)
+      const bardic = getBardicInspiration(classResources)
+      const bardicEndSaveEnabled = !delay && Boolean(useBardicEndSave) && Boolean(bardic)
+      let bardicRoll = null
+      if (bardicEndSaveEnabled) {
+        const bardicDice = await rollDice3D(bardic.faces)
+        bardicRoll = bardicDice.total
+        showDice?.({ faces: bardic.faces, result: bardicRoll, label: `Bardic Inspiration ${bardic.die}`, count: 1 })
+      } else if (!delay && useBardicEndSave && typeof setUseBardicEndSave === 'function') {
+        setUseBardicEndSave(false)
+      }
       const result = delay
         ? await gameApi.delayTurn(sessionId, turnToken, afterEntityId)
-        : await gameApi.endTurn(sessionId, turnToken)
+        : bardicEndSaveEnabled
+          ? await gameApi.endTurn(sessionId, turnToken, {
+              useBardicInspiration: true,
+              bardicInspirationRoll: bardicRoll,
+            })
+          : await gameApi.endTurn(sessionId, turnToken)
       const lairPrompt = result.lair_action_prompt || null
       const legendaryPrompt = result.legendary_action_prompt || null
+      const bardicEndSave = findBardicConditionEndSave(result.condition_end_saves)
+      if (bardicEndSave?.spent) {
+        if (typeof setClassResources === 'function') {
+          setClassResources(prev => ({
+            ...(prev || {}),
+            bardic_inspiration: {
+              ...((prev || {}).bardic_inspiration || {}),
+              uses_remaining: bardicEndSave.uses_remaining,
+            },
+          }))
+        }
+        if (typeof setUseBardicEndSave === 'function') setUseBardicEndSave(false)
+      }
 
       if (delay && result.turn_order_delayed && result.delayed_turn) {
         addLog({
@@ -145,12 +180,14 @@ export function useCombatTurnControls({
     addLog,
     aiTimer,
     canDriveAiTurns,
+    classResources,
     combat,
     canActThisTurn,
     isPlayerTurn,
     isProcessing,
     processingRef,
     sessionId,
+    setClassResources,
     setCombat,
     setCombatOver,
     setError,
@@ -159,8 +196,11 @@ export function useCombatTurnControls({
     setLairActionPrompt,
     setLegendaryActionPrompt,
     setMoveMode,
+    setUseBardicEndSave,
+    showDice,
     setTurnState,
     triggerAiTurn,
+    useBardicEndSave,
   ])
 
   const handleEndTurn = useCallback(
@@ -173,4 +213,13 @@ export function useCombatTurnControls({
   )
 
   return { handleEndTurn, handleDelayTurn }
+}
+
+function findBardicConditionEndSave(conditionEndSaves = []) {
+  if (!Array.isArray(conditionEndSaves)) return null
+  for (const item of conditionEndSaves) {
+    const bardic = item?.save?.bardic_inspiration
+    if (bardic?.spent) return bardic
+  }
+  return null
 }

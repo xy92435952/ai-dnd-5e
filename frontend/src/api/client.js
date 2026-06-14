@@ -230,10 +230,16 @@ export const gameApi = {
       ...(options.useBardicInspiration ? { use_bardic_inspiration: true } : {}),
       ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
     }),
-  endTurn: (sessionId, expectedTurnToken = null) =>
+  endTurn: (sessionId, expectedTurnToken = null, options = {}) =>
     api.post(
       `/game/combat/${sessionId}/end-turn`,
-      expectedTurnToken ? { expected_turn_token: expectedTurnToken } : undefined,
+      (expectedTurnToken || options.useBardicInspiration || options.bardicInspirationRoll != null)
+        ? {
+            ...(expectedTurnToken ? { expected_turn_token: expectedTurnToken } : {}),
+            ...(options.useBardicInspiration ? { use_bardic_inspiration: true } : {}),
+            ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
+          }
+        : undefined,
     ),
   delayTurn: (sessionId, expectedTurnToken = null, afterEntityId = null) => {
     const payload = {

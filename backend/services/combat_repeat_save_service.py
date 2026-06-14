@@ -6,6 +6,10 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from services.combat_concentration_effect_service import discard_condition_sources
 from services.combat_tactical_service import get_cover_analysis
+from services.bardic_inspiration_service import (
+    apply_bardic_inspiration_to_saving_throw,
+    spend_bardic_inspiration,
+)
 from services.dnd_character_rules import normalize_condition
 from services.dnd_rules import roll_saving_throw
 
@@ -77,11 +81,14 @@ def resolve_repeat_save_end_of_turn_saves(
     actor_name: str | None = None,
     combat=None,
     d20_value: int | None = None,
+    use_bardic_inspiration: bool = False,
+    bardic_inspiration_roll: int | None = None,
 ) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     if not actor:
         return results
 
+    bardic_spent = False
     for condition in list(_actor_conditions(actor)):
         condition_key = normalize_condition(condition)
         config = REPEAT_SAVE_CONDITIONS.get(condition_key)
@@ -111,6 +118,18 @@ def resolve_repeat_save_end_of_turn_saves(
             resolved_dc,
             d20_roller=_fixed_d20_roller(d20_override),
         )
+        if use_bardic_inspiration and not bardic_spent:
+            bardic_inspiration = spend_bardic_inspiration(
+                actor,
+                bardic_roll=bardic_inspiration_roll,
+                context="condition_end_save",
+            )
+            save_detail = apply_bardic_inspiration_to_saving_throw(
+                save_detail,
+                bardic_inspiration=bardic_inspiration,
+                dc=resolved_dc,
+            )
+            bardic_spent = True
         ended = bool(save_detail.get("success"))
         if ended:
             _remove_condition(actor, condition_key)

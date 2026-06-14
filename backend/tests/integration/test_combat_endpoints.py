@@ -103,6 +103,68 @@ async def test_get_combat_state_returns_entities(
     assert data["entities"][sample_character.id]["concentration"] == "Bless"
 
 
+async def test_end_turn_spends_bardic_inspiration_on_condition_save(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    sample_character.conditions = ["blinded"]
+    sample_character.condition_durations = {
+        "blinded": {
+            "duration": 10,
+            "repeat_save": "end_of_turn",
+            "save_ability": "con",
+            "save_dc": 15,
+            "end_save_d20": 11,
+            "spell_name": "Blindness/Deafness",
+        },
+    }
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "saving_throws": {
+            **((sample_character.derived or {}).get("saving_throws") or {}),
+            "con": 0,
+        },
+    }
+    sample_character.class_resources = {
+        "bardic_inspiration": {
+            "die": "d8",
+            "uses_remaining": 1,
+            "source_character_id": "bard-1",
+            "source_character_name": "Lyra",
+        },
+    }
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/end-turn",
+        headers=headers,
+        json={
+            "expected_turn_token": f"1:0:{sample_session.player_character_id}",
+            "use_bardic_inspiration": True,
+            "bardic_inspiration_roll": 4,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    save = data["condition_end_saves"][0]["save"]
+    assert save["success"] is True
+    assert save["total"] == 15
+    assert save["bardic_inspiration"]["spent"] is True
+    assert save["bardic_inspiration"]["uses_remaining"] == 0
+
+    await db_session.refresh(sample_character)
+    assert sample_character.conditions == []
+    assert sample_character.condition_durations == {}
+    assert sample_character.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+
+    log_result = await db_session.execute(select(GameLog).where(GameLog.session_id == sample_session.id))
+    logs = list(log_result.scalars())
+    condition_logs = [log for log in logs if (log.dice_result or {}).get("type") == "condition_end_save"]
+    assert condition_logs
+    assert condition_logs[-1].dice_result["save"]["bardic_inspiration"]["roll"] == 4
+
+
 async def test_get_combat_state_includes_enemy_condition_durations(
     client, db_session, sample_session, combat_state, sample_user,
 ):
