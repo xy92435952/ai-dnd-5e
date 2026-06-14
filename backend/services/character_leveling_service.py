@@ -28,6 +28,7 @@ from services.dnd_data import CLASS_SAVE_PROFICIENCIES
 from services.character_feat_service import (
     apply_resilient_ability_bonuses,
     CharacterFeatError,
+    feat_resource_defaults,
     normalize_existing_feats,
     normalize_level_up_feat_choice,
     resilient_ability_choices,
@@ -233,6 +234,8 @@ def build_level_up_update(
         maneuver_choices=maneuver_choices,
     )
     next_class_resources = maneuver_learning["class_resources"]
+    if selected_feat_choice:
+        next_class_resources.update(feat_resource_defaults([selected_feat_choice]))
     spell_learning = _advance_spell_learning(
         cls_key=cls_key,
         old_level=old_level,

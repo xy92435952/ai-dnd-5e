@@ -15,6 +15,7 @@ from services.character_creation_service import (
 from services.character_feat_service import (
     apply_resilient_ability_bonuses,
     CharacterFeatError,
+    feat_resource_defaults,
     normalize_starting_feats,
     resilient_ability_choices,
     validate_feat_prerequisites,
@@ -155,6 +156,7 @@ async def create_player_character(
         raise HTTPException(exc.status_code, exc.detail) from exc
 
     class_resources = get_class_resource_defaults(cls_key, req.level, subclass=req.subclass)
+    class_resources.update(feat_resource_defaults(feats))
 
     character = Character(
         user_id=user_id,

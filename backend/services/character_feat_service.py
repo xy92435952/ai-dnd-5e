@@ -130,6 +130,14 @@ def apply_resilient_ability_bonuses(
     return next_scores
 
 
+def feat_resource_defaults(feats: list[Any] | None) -> dict:
+    resources = {}
+    lucky_points = _official_feat_effect_int(feats, "Lucky", "lucky_points")
+    if lucky_points > 0:
+        resources["lucky_points_remaining"] = lucky_points
+    return resources
+
+
 def _normalize_new_feats(feats: list[Any], *, existing_feats: list[Any]) -> list[dict]:
     existing_names = {
         _canonical_feat_name(_feat_name(feat))
@@ -185,6 +193,25 @@ def _canonical_feat_name(name: str) -> str | None:
         if zh and zh == target:
             return feat_name
     return None
+
+
+def _official_feat_effect_int(
+    feats: list[Any] | None,
+    feat_name: str,
+    effect_key: str,
+) -> int:
+    target = _canonical_feat_name(feat_name)
+    if not target:
+        return 0
+    for feat in feats or []:
+        if _canonical_feat_name(_feat_name(feat)) != target:
+            continue
+        effects = FEATS[target].get("effects") or {}
+        try:
+            return max(0, int(effects.get(effect_key) or 0))
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
 
 def _can_cast_at_least_one_spell(

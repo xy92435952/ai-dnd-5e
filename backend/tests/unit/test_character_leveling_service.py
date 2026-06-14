@@ -747,6 +747,70 @@ def test_build_level_up_update_applies_resilient_ability_and_save_proficiency():
     assert update["derived"]["feat_effects"]["Resilient"] == {"extra_save_prof": True}
 
 
+def test_build_level_up_update_initializes_lucky_feat_resource():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Champion",
+        fighting_style="Defense",
+        class_resources={"second_wind_used": True},
+        feat_choice={"name": "Lucky", "effects": {"lucky_points": 99}},
+        race="Human",
+    )
+
+    assert update["feats"][0]["name"] == "Lucky"
+    assert update["feats"][0]["effects"] == {"lucky_points": 3}
+    assert update["derived"]["feat_effects"]["Lucky"] == {"lucky_points": 3}
+    assert update["class_resources"]["lucky_points_remaining"] == 3
+    assert update["class_resources"]["second_wind_used"] is True
+
+
+def test_build_level_up_update_preserves_spent_lucky_points_until_rest():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        4,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        feats=[{"name": "Lucky"}],
+        race="Human",
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=4,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Champion",
+        fighting_style="Defense",
+        feats=[{"name": "Lucky"}],
+        class_resources={"lucky_points_remaining": 1},
+        race="Human",
+    )
+
+    assert update["class_resources"]["lucky_points_remaining"] == 1
+    assert update["derived"]["feat_effects"]["Lucky"] == {"lucky_points": 3}
+
+
 def test_build_level_up_update_adds_requested_wizard_spellbook_spells():
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")

@@ -18,6 +18,7 @@ from services.dnd_rules import (
     get_class_resource_defaults,
     roll_dice,
 )
+from services.character_feat_service import feat_resource_defaults
 from services.langgraph_client import langgraph_client
 from services.module_content import get_module_content
 
@@ -363,6 +364,7 @@ def _long_rest_conditions_after(*, conditions_before: list[str], exhaustion_afte
 
 def _long_rest_class_resources(character, cls_key: str) -> dict:
     resources = get_class_resource_defaults(cls_key, character.level, subclass=character.subclass)
+    resources.update(feat_resource_defaults(character.feats))
     resources.update(_rest_calculated_resource_values(character, cls_key))
     for key in LONG_REST_TRANSIENT_RESOURCE_FLAGS:
         resources.pop(key, None)

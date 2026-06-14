@@ -138,6 +138,34 @@ async def test_create_character_canonicalizes_starting_feat_effects(
     assert data["derived"]["feat_effects"]["Alert"] == {"initiative_bonus": 5, "no_surprise": True}
 
 
+async def test_create_character_initializes_lucky_feat_resource(
+    client, sample_user, sample_module,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Lucky Fighter",
+        "race": "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "background": "Soldier",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8},
+        "proficient_skills": ["运动", "感知"],
+        "fighting_style": "Defense",
+        "equipment_choice": 0,
+        "feats": [{"name": "Lucky", "effects": {"lucky_points": 99}}],
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["feats"][0]["name"] == "Lucky"
+    assert data["feats"][0]["effects"] == {"lucky_points": 3}
+    assert data["derived"]["feat_effects"]["Lucky"] == {"lucky_points": 3}
+    assert data["class_resources"]["lucky_points_remaining"] == 3
+
+
 async def test_create_character_rejects_unknown_starting_feat(
     client, sample_user, sample_module,
 ):
@@ -784,6 +812,29 @@ async def test_long_rest_restores_hp_and_spells(
     assert sample_character.concentration is None
     assert sample_character.death_saves is None
     assert sample_character.hit_dice_remaining == 1
+
+
+async def test_long_rest_restores_lucky_feat_points(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    sample_character.feats = [{"name": "Lucky", "effects": {"lucky_points": 99}}]
+    sample_character.class_resources = {"lucky_points_remaining": 0}
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/sessions/{sample_session.id}/rest",
+        headers=headers,
+        params={"rest_type": "long"},
+    )
+
+    assert response.status_code == 200, response.text
+    char_result = next(c for c in response.json()["characters"] if c["name"] == sample_character.name)
+    assert char_result["class_resources"]["lucky_points_remaining"] == 3
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["lucky_points_remaining"] == 3
 
 
 async def test_interrupted_long_rest_grants_no_recovery(
