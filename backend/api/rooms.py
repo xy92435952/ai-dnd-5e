@@ -124,7 +124,7 @@ async def set_start_ready(
     )
     room = await room_service.get_room_info(db, session_id)
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
-    return RoomInfo(**room)
+    return RoomInfo(**room_service.project_room_info_for_viewer(room, viewer_user_id=user_id))
 
 
 @router.post("/{session_id}/fill-ai")
@@ -235,7 +235,7 @@ async def join_group(
         location=req.location,
     )
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
-    return RoomInfo(**room)
+    return RoomInfo(**room_service.project_room_info_for_viewer(room, viewer_user_id=user_id))
 
 
 @router.post("/{session_id}/groups/actions", response_model=RoomInfo)
@@ -253,7 +253,7 @@ async def submit_group_action(
         action_text=req.action_text,
     )
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
-    return RoomInfo(**room)
+    return RoomInfo(**room_service.project_room_info_for_viewer(room, viewer_user_id=user_id))
 
 
 @router.post("/{session_id}/groups/actions/clear", response_model=RoomInfo)
@@ -270,7 +270,7 @@ async def clear_group_actions(
         actor_user_id=user_id,
     )
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
-    return RoomInfo(**room)
+    return RoomInfo(**room_service.project_room_info_for_viewer(room, viewer_user_id=user_id))
 
 
 @router.post("/{session_id}/groups/readiness", response_model=RoomInfo)
@@ -288,7 +288,7 @@ async def set_group_readiness(
         status=req.status,
     )
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
-    return RoomInfo(**room)
+    return RoomInfo(**room_service.project_room_info_for_viewer(room, viewer_user_id=user_id))
 
 
 @router.post("/{session_id}/groups/focus", response_model=RoomInfo)
@@ -305,7 +305,7 @@ async def focus_group(
         actor_user_id=user_id,
     )
     await ws_manager.broadcast(session_id, RoomStateUpdated(room=room))
-    return RoomInfo(**room)
+    return RoomInfo(**room_service.project_room_info_for_viewer(room, viewer_user_id=user_id))
 
 
 # ── 查询 ─────────────────────────────────────────────
@@ -317,7 +317,7 @@ async def get_room(
     user_id: str = Depends(get_user_id),
 ):
     await room_service.require_member(db, session_id, user_id)
-    info = await room_service.get_room_info(db, session_id)
+    info = await room_service.get_room_info(db, session_id, viewer_user_id=user_id)
     return RoomInfo(**info)
 
 

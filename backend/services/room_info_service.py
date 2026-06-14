@@ -1,5 +1,8 @@
 """Aggregated room info for multiplayer lobby and exploration UI."""
 
+from copy import deepcopy
+from typing import Optional
+
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +19,7 @@ from services.room_vote_service import ensure_room_votes
 async def get_room_info(
     db: AsyncSession,
     session_id: str,
+    viewer_user_id: Optional[str] = None,
 ) -> dict:
     session = await db.get(Session, session_id)
     if not session or not session.is_multiplayer:
@@ -25,7 +29,7 @@ async def get_room_info(
     members = await list_members(db, session_id)
     ai_companions = await list_ai_companions(db, session_id)
     mp = (session.game_state or {}).get("multiplayer", {})
-    return {
+    room = {
         "session_id": session.id,
         "room_code": session.room_code,
         "module_id": session.module_id,
@@ -48,3 +52,129 @@ async def get_room_info(
         "dm_style": serialize_dm_style((session.game_state or {}).get("dm_style")),
         "created_at": session.created_at,
     }
+    return project_room_info_for_viewer(room, viewer_user_id=viewer_user_id)
+
+
+def project_room_info_for_viewer(
+    room: dict,
+    *,
+    viewer_user_id: Optional[str] = None,
+) -> dict:
+    """Return a player-facing room snapshot for one connected viewer."""
+    if not isinstance(room, dict):
+        return room
+    projected = dict(room)
+    groups = projected.get("party_groups") or []
+    projected["pending_actions_by_group"] = project_pending_actions_for_viewer(
+        projected.get("pending_actions_by_group") or {},
+        groups,
+        viewer_user_id=viewer_user_id,
+    )
+    projected["dm_thinking"] = project_dm_thinking_for_viewer(
+        projected.get("dm_thinking"),
+        groups,
+        viewer_user_id=viewer_user_id,
+    )
+    return projected
+
+
+def project_pending_actions_for_viewer(
+    pending_actions_by_group: dict,
+    party_groups: list[dict],
+    *,
+    viewer_user_id: Optional[str] = None,
+) -> dict:
+    if not isinstance(pending_actions_by_group, dict):
+        return {}
+    if not viewer_user_id:
+        return deepcopy(pending_actions_by_group)
+
+    projected: dict = {}
+    for group_id, actions in pending_actions_by_group.items():
+        action_list = list(actions or [])
+        if _viewer_in_group(party_groups, viewer_user_id, str(group_id)):
+            projected[group_id] = deepcopy(action_list)
+            continue
+        projected[group_id] = [
+            _redacted_group_action(action, str(group_id))
+            for action in action_list
+            if isinstance(action, dict)
+        ]
+    return projected
+
+
+def project_dm_thinking_for_viewer(
+    dm_thinking: dict | None,
+    party_groups: list[dict],
+    *,
+    viewer_user_id: Optional[str] = None,
+) -> dict | None:
+    if not dm_thinking:
+        return None
+    if not isinstance(dm_thinking, dict):
+        return dm_thinking
+
+    snapshot = deepcopy(dm_thinking)
+    group_id = snapshot.get("group_id") or _group_id_for_user(
+        party_groups,
+        snapshot.get("by_user_id"),
+    )
+    if group_id:
+        snapshot["group_id"] = group_id
+
+    if (
+        not viewer_user_id
+        or not group_id
+        or _viewer_in_group(party_groups, viewer_user_id, str(group_id))
+    ):
+        snapshot["redacted"] = False
+        snapshot.pop("visibility", None)
+        return snapshot
+
+    return {
+        "active": snapshot.get("active", True),
+        "by_user_id": snapshot.get("by_user_id"),
+        "started_at": snapshot.get("started_at"),
+        "group_id": group_id,
+        "redacted": True,
+        "visibility": "other_group",
+        "action_text": "Action text hidden for another group.",
+    }
+
+
+def _redacted_group_action(action: dict, group_id: str) -> dict:
+    placeholder = {
+        "redacted": True,
+        "visibility": "other_group",
+        "group_id": group_id,
+    }
+    if action.get("created_at"):
+        placeholder["created_at"] = action.get("created_at")
+    return placeholder
+
+
+def _viewer_in_group(
+    party_groups: list[dict],
+    viewer_user_id: str,
+    group_id: str,
+) -> bool:
+    viewer_id = str(viewer_user_id)
+    for group in party_groups or []:
+        if str(group.get("id")) != str(group_id):
+            continue
+        return viewer_id in {str(uid) for uid in group.get("member_user_ids") or []}
+    return False
+
+
+def _group_id_for_user(
+    party_groups: list[dict],
+    user_id: Optional[str],
+) -> Optional[str]:
+    if user_id is None:
+        return None
+    target = str(user_id)
+    for group in party_groups or []:
+        if target in {str(uid) for uid in group.get("member_user_ids") or []}:
+            group_id = group.get("id")
+            return str(group_id) if group_id else None
+    return None

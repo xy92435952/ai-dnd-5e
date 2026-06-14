@@ -145,11 +145,12 @@ class WSManager:
 
         send_tasks = []
         for ws in targets:
+            meta = user_map.get(ws)
             if exclude_user_id:
-                meta = user_map.get(ws)
                 if meta and meta[1] == exclude_user_id:
                     continue
-            send_tasks.append(self._send_broadcast(ws, event))
+            event_for_user = self._event_for_user(event, meta[1]) if meta else event
+            send_tasks.append(self._send_broadcast(ws, event_for_user))
         if not send_tasks:
             return 0
         results = await asyncio.gather(*send_tasks)
@@ -181,6 +182,7 @@ class WSManager:
             ws = self.user_ws.get((session_id, user_id))
         if ws is None:
             return False
+        event = self._event_for_user(event, user_id)
         try:
             await ws.send_json(event)
             return True
@@ -194,6 +196,27 @@ class WSManager:
                 uid for (sid, uid) in self.user_ws.keys()
                 if sid == session_id
             ]
+
+    def _event_for_user(self, event, user_id: str):
+        if not isinstance(event, dict):
+            return event
+        if event.get("type") != "room_state_updated":
+            return event
+        room = event.get("room")
+        if not isinstance(room, dict):
+            return event
+        try:
+            from services.room_info_service import project_room_info_for_viewer
+
+            return {
+                **event,
+                "room": project_room_info_for_viewer(
+                    room,
+                    viewer_user_id=user_id,
+                ),
+            }
+        except Exception:
+            return event
 
     async def prune_stale_connections(
         self,

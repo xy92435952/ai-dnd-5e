@@ -165,18 +165,19 @@ def build_enemy_inspect_snapshot(
     snapshot: dict[str, Any] = {}
     if revealed:
         snapshot["revealed_stats"] = revealed
-    if knowledge:
+    if knowledge and (character_knowledge or revealed or fully_visible):
         safe_knowledge = {
             key: value
             for key, value in knowledge.items()
-            if key != "by_character"
+            if key not in {"by_character", "last_inspect"}
         }
         if character_knowledge:
             safe_knowledge.update(character_knowledge)
             safe_knowledge["viewer_character_id"] = str(viewer_character_id)
         if revealed:
             safe_knowledge["revealed_stats"] = revealed
-        snapshot["knowledge_state"] = safe_knowledge
+        if safe_knowledge:
+            snapshot["knowledge_state"] = safe_knowledge
     for flag in ("identified", "inspected", "stats_revealed"):
         if enemy.get(flag) is True or (flag != "inspected" and character_knowledge.get(flag) is True):
             snapshot[flag] = True

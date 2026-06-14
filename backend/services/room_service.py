@@ -53,6 +53,7 @@ set_start_ready = room_start_service.set_start_ready
 list_ai_companions = room_ai_companion_service.list_ai_companions
 fill_with_ai_companions = room_ai_companion_service.fill_with_ai_companions
 get_room_info = room_info_service.get_room_info
+project_room_info_for_viewer = room_info_service.project_room_info_for_viewer
 
 
 async def ensure_multiplayer_state(
@@ -214,6 +215,7 @@ __all__ = [
     "list_members",
     "require_member",
     "get_room_info",
+    "project_room_info_for_viewer",
     "ensure_multiplayer_state",
     "set_member_group",
     "submit_group_action",

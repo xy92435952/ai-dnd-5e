@@ -1777,7 +1777,10 @@ async def test_simulated_multiplayer_split_party_turn_preserves_other_group_queu
     room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
     assert room["pending_actions_by_group"]["alley"] == []
     assert room["group_readiness"]["alley"] == {}
-    assert room["pending_actions_by_group"]["tavern"][0]["text"] == "我继续和老板套话。"
+    tavern_pending = room["pending_actions_by_group"]["tavern"][0]
+    assert tavern_pending["redacted"] is True
+    assert tavern_pending["visibility"] == "other_group"
+    assert "text" not in tavern_pending
     assert room["group_readiness"]["tavern"][tavern["user_id"]] == "ready"
     assert room["active_group_id"] == "tavern"
 

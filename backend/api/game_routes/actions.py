@@ -127,8 +127,20 @@ async def _run_player_action(
                     multiplayer_decision=multiplayer_decision,
                 )
             effective_action_text = multiplayer_decision.effective_action_text or req.action_text
-        await start_dm_thinking(db, session, actor_user_id=user_id, action_text=req.action_text)
-        await _broadcast_dm_thinking(session.id, user_id, req.action_text)
+        dm_thinking = await start_dm_thinking(
+            db,
+            session,
+            actor_user_id=user_id,
+            action_text=req.action_text,
+        )
+        party_groups = ((session.game_state or {}).get("multiplayer", {}) or {}).get("party_groups") or []
+        await _broadcast_dm_thinking(
+            session.id,
+            user_id,
+            req.action_text,
+            dm_thinking=dm_thinking,
+            party_groups=party_groups,
+        )
     else:
         player = await db.get(Character, session.player_character_id)
         if not session.combat_active and player:
@@ -261,8 +273,20 @@ async def ai_takeover_action(
         content=f"[AI 代演] {action_text}",
         log_type="narrative",
     ))
-    await start_dm_thinking(db, session, actor_user_id=speaker_uid, action_text=action_text)
-    await _broadcast_dm_thinking(session.id, speaker_uid, action_text)
+    dm_thinking = await start_dm_thinking(
+        db,
+        session,
+        actor_user_id=speaker_uid,
+        action_text=action_text,
+    )
+    party_groups = ((session.game_state or {}).get("multiplayer", {}) or {}).get("party_groups") or []
+    await _broadcast_dm_thinking(
+        session.id,
+        speaker_uid,
+        action_text,
+        dm_thinking=dm_thinking,
+        party_groups=party_groups,
+    )
 
     return await execute_exploration_action(
         db=db,

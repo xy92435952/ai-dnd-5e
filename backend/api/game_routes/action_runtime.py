@@ -6,15 +6,56 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import CombatState, GameLog, SessionMember
 
 
-async def broadcast_dm_thinking(session_id: str, user_id: str, action_text: str) -> None:
+async def broadcast_dm_thinking(
+    session_id: str,
+    user_id: str,
+    action_text: str,
+    *,
+    dm_thinking: dict | None = None,
+    party_groups: list[dict] | None = None,
+) -> None:
     try:
         from schemas.ws_events import DMThinkingStart
+        from services.room_info_service import project_dm_thinking_for_viewer
         from services.ws_manager import ws_manager
 
-        await ws_manager.broadcast(session_id, DMThinkingStart(
-            by_user_id=user_id,
-            action_text=action_text[:80],
-        ))
+        snapshot = dict(dm_thinking or {})
+        snapshot.setdefault("active", True)
+        snapshot.setdefault("by_user_id", user_id)
+        snapshot.setdefault("action_text", action_text[:80])
+        groups = party_groups or []
+        online_users = await ws_manager.online_users(session_id)
+        if online_users and groups:
+            for viewer_user_id in online_users:
+                projected = project_dm_thinking_for_viewer(
+                    snapshot,
+                    groups,
+                    viewer_user_id=viewer_user_id,
+                )
+                await ws_manager.send_to_user(
+                    session_id,
+                    viewer_user_id,
+                    DMThinkingStart(
+                        by_user_id=projected.get("by_user_id") or user_id,
+                        action_text=projected.get("action_text", ""),
+                        redacted=bool(projected.get("redacted")),
+                        visibility=projected.get("visibility"),
+                        group_id=projected.get("group_id"),
+                        started_at=projected.get("started_at"),
+                    ),
+                )
+            return
+
+        await ws_manager.broadcast(
+            session_id,
+            DMThinkingStart(
+                by_user_id=snapshot.get("by_user_id") or user_id,
+                action_text=snapshot.get("action_text", action_text[:80]),
+                redacted=False,
+                group_id=snapshot.get("group_id"),
+                started_at=snapshot.get("started_at"),
+            ),
+        )
     except Exception:
         pass
 

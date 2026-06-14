@@ -65,7 +65,11 @@ async def ws_endpoint(
             MemberOnline(user_id=user_id, members=online_members),
         )
         async with AsyncSessionLocal() as db:
-            room_info = await room_service.get_room_info(db, session_id)
+            room_info = await room_service.get_room_info(
+                db,
+                session_id,
+                viewer_user_id=user_id,
+            )
         await websocket.send_json(RoomStateUpdated(room=room_info).model_dump(mode="json"))
 
         while True:
