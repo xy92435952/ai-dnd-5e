@@ -429,6 +429,65 @@ async def test_charmed_character_cannot_attack_recorded_charmer(
     assert turn_state.get("action_used") is False
 
 
+async def test_attack_roll_lucky_spends_point_and_stores_pending_attack(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat,
+):
+    headers = await _auth_headers(client, sample_user)
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = []
+    sample_character.feats = [{"name": "Lucky"}]
+    sample_character.class_resources = {"lucky_points_remaining": 1}
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "base_movement_max": 6,
+            "attacks_made": 0,
+        }
+    }
+    await db_session.commit()
+
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/attack-roll",
+        headers=headers,
+        json={
+            "entity_id": sample_character.id,
+            "target_id": "goblin-1",
+            "d20_value": 2,
+            "use_lucky": True,
+            "lucky_d20_value": 18,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["d20"] == 18
+    assert data["hit"] is True
+    assert data["attack_total"] == 23
+    assert data["lucky"] == {
+        "type": "lucky",
+        "spent": True,
+        "context": "attack_roll",
+        "d20_before": 2,
+        "d20_after": 18,
+        "lucky_points_remaining": 0,
+    }
+    assert data["dice_result"]["attack"]["lucky"] == data["lucky"]
+    assert data["special_action"]["lucky"] == data["lucky"]
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["lucky_points_remaining"] == 0
+
+    await db_session.refresh(dying_combat)
+    pending = dying_combat.turn_states[sample_character.id]["pending_attack"]
+    assert pending["attack_roll"]["d20"] == 18
+    assert pending["attack_roll"]["lucky"] == data["lucky"]
+
+
 @pytest.mark.parametrize("action_text", ["dash", "disengage", "help", "dodge"])
 async def test_incapacitating_condition_blocks_basic_combat_actions(
     action_text, client, db_session, sample_session, sample_character, sample_user, dying_combat,

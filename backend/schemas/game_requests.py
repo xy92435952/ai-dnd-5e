@@ -25,6 +25,8 @@ class SkillCheckRequest(BaseModel):
     dc: int
     d20_value: Optional[int] = None
     second_d20_value: Optional[int] = None
+    use_lucky: bool = False
+    lucky_d20_value: Optional[int] = None
 
 
 class AITakeoverRequest(BaseModel):

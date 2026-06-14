@@ -222,9 +222,36 @@
             "title": "Is Offhand",
             "type": "boolean"
           },
+          "lucky_d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lucky D20 Value"
+          },
+          "second_d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Second D20 Value"
+          },
           "target_id": {
             "title": "Target Id",
             "type": "string"
+          },
+          "use_lucky": {
+            "default": false,
+            "title": "Use Lucky",
+            "type": "boolean"
           },
           "weapon_name": {
             "anyOf": [
@@ -1955,6 +1982,47 @@
         "title": "DeathSaveResult",
         "type": "object"
       },
+      "DelayTurnRequest": {
+        "properties": {
+          "after_entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Entity Id"
+          },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          }
+        },
+        "title": "DelayTurnRequest",
+        "type": "object"
+      },
+      "EndConcentrationRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "character_id"
+        ],
+        "title": "EndConcentrationRequest",
+        "type": "object"
+      },
       "EndTurnRequest": {
         "properties": {
           "expected_turn_token": {
@@ -2526,6 +2594,108 @@
         "title": "KickMemberRequest",
         "type": "object"
       },
+      "LairActionRequest": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ids"
+          }
+        },
+        "title": "LairActionRequest",
+        "type": "object"
+      },
+      "LegendaryActionRequest": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ids"
+          }
+        },
+        "required": [
+          "actor_id"
+        ],
+        "title": "LegendaryActionRequest",
+        "type": "object"
+      },
       "LevelUpRequest": {
         "properties": {
           "ability_score_increases": {
@@ -2633,24 +2803,6 @@
           "character"
         ],
         "title": "LevelUpResult",
-        "type": "object"
-      },
-      "SpellReplacementRequest": {
-        "properties": {
-          "new_spell": {
-            "title": "New Spell",
-            "type": "string"
-          },
-          "old_spell": {
-            "title": "Old Spell",
-            "type": "string"
-          }
-        },
-        "required": [
-          "old_spell",
-          "new_spell"
-        ],
-        "title": "SpellReplacementRequest",
         "type": "object"
       },
       "LoginRequest": {
@@ -3329,6 +3481,129 @@
         "title": "ReactionRequest",
         "type": "object"
       },
+      "ReadyActionRequest": {
+        "properties": {
+          "action_type": {
+            "default": "attack",
+            "title": "Action Type",
+            "type": "string"
+          },
+          "condition_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Text"
+          },
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "expected_turn_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Turn Token"
+          },
+          "is_ranged": {
+            "default": false,
+            "title": "Is Ranged",
+            "type": "boolean"
+          },
+          "move_to_x": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To X"
+          },
+          "move_to_y": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To Y"
+          },
+          "spell_level": {
+            "default": 0,
+            "title": "Spell Level",
+            "type": "integer"
+          },
+          "spell_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spell Name"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "trigger": {
+            "default": "target_moves",
+            "title": "Trigger",
+            "type": "string"
+          },
+          "trigger_match": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Match"
+          }
+        },
+        "required": [
+          "entity_id"
+        ],
+        "title": "ReadyActionRequest",
+        "type": "object"
+      },
+      "RecoverThrownWeaponsRequest": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "character_id"
+        ],
+        "title": "RecoverThrownWeaponsRequest",
+        "type": "object"
+      },
       "RegisterRequest": {
         "properties": {
           "display_name": {
@@ -4000,6 +4275,17 @@
             "title": "Dc",
             "type": "integer"
           },
+          "lucky_d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lucky D20 Value"
+          },
           "second_d20_value": {
             "anyOf": [
               {
@@ -4018,6 +4304,11 @@
           "skill": {
             "title": "Skill",
             "type": "string"
+          },
+          "use_lucky": {
+            "default": false,
+            "title": "Use Lucky",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4164,8 +4455,37 @@
         "title": "SpellConfirmRequest",
         "type": "object"
       },
+      "SpellReplacementRequest": {
+        "properties": {
+          "new_spell": {
+            "title": "New Spell",
+            "type": "string"
+          },
+          "old_spell": {
+            "title": "Old Spell",
+            "type": "string"
+          }
+        },
+        "required": [
+          "old_spell",
+          "new_spell"
+        ],
+        "title": "SpellReplacementRequest",
+        "type": "object"
+      },
       "SpellRequest": {
         "properties": {
+          "aoe_center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aoe Center"
+          },
           "caster_id": {
             "title": "Caster Id",
             "type": "string"
@@ -4225,6 +4545,17 @@
       },
       "SpellRollRequest": {
         "properties": {
+          "aoe_center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aoe Center"
+          },
           "caster_id": {
             "title": "Caster Id",
             "type": "string"
@@ -4250,6 +4581,17 @@
               }
             ],
             "title": "Expected Turn Token"
+          },
+          "second_d20_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Second D20 Value"
           },
           "spell_level": {
             "default": 1,
@@ -5642,6 +5984,57 @@
         ]
       }
     },
+    "/game/combat/{session_id}/concentration/end": {
+      "post": {
+        "description": "Voluntarily end a character's concentration without spending an action.",
+        "operationId": "end_concentration_game_combat__session_id__concentration_end_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndConcentrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Concentration",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
     "/game/combat/{session_id}/condition/add": {
       "post": {
         "description": "向战斗实体添加状态条件（角色或敌人）",
@@ -5854,6 +6247,57 @@
         ]
       }
     },
+    "/game/combat/{session_id}/delay-turn": {
+      "post": {
+        "operationId": "delay_player_turn_game_combat__session_id__delay_turn_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DelayTurnRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndTurnResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delay Player Turn",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
     "/game/combat/{session_id}/end": {
       "post": {
         "operationId": "end_combat_game_combat__session_id__end_post",
@@ -6046,6 +6490,112 @@
           }
         },
         "summary": "Inspect Enemy",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/lair-action": {
+      "post": {
+        "description": "Resolve a round-start Lair Action window once per combat round.",
+        "operationId": "use_lair_action_game_combat__session_id__lair_action_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LairActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Lair Action",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/legendary-action": {
+      "post": {
+        "description": "Resolve a non-damage Legendary Action window and spend its resource.",
+        "operationId": "use_legendary_action_game_combat__session_id__legendary_action_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegendaryActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Legendary Action",
         "tags": [
           "combat"
         ]
@@ -6256,6 +6806,108 @@
           }
         },
         "summary": "Use Reaction",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/ready-action": {
+      "post": {
+        "operationId": "ready_action_game_combat__session_id__ready_action_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadyActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ready Action",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/recover-thrown-weapons": {
+      "post": {
+        "operationId": "recover_combat_thrown_weapons_game_combat__session_id__recover_thrown_weapons_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoverThrownWeaponsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recover Combat Thrown Weapons",
         "tags": [
           "combat"
         ]

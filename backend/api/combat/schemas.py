@@ -91,6 +91,8 @@ class AttackRollRequest(BaseModel):
     weapon_name: Optional[str] = None
     d20_value:   Optional[int] = None  # Frontend 3D dice result
     second_d20_value: Optional[int] = None  # Advantage/disadvantage second d20
+    use_lucky: bool = False
+    lucky_d20_value: Optional[int] = None
     expected_turn_token: Optional[str] = None
 
 

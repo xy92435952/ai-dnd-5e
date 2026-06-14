@@ -760,6 +760,102 @@ async def test_skill_check_exhaustion_level_1_marks_disadvantage(
     assert result["exhaustion_disadvantage"] is True
 
 
+async def test_skill_check_lucky_spends_point_and_logs_metadata(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    from sqlalchemy import select
+
+    from models import GameLog
+
+    headers = await _auth_headers(client, sample_user)
+    sample_character.feats = [{"name": "Lucky"}]
+    sample_character.class_resources = {"lucky_points_remaining": 1}
+    await db_session.commit()
+    skill = sample_character.proficient_skills[0]
+
+    r = await client.post("/game/skill-check", headers=headers, json={
+        "session_id": sample_session.id,
+        "character_id": sample_character.id,
+        "skill": skill,
+        "dc": 20,
+        "d20_value": 2,
+        "use_lucky": True,
+        "lucky_d20_value": 18,
+    })
+
+    assert r.status_code == 200, r.text
+    result = r.json()
+    assert result["d20"] == 18
+    assert result["total"] == 23
+    assert result["success"] is True
+    assert result["lucky"] == {
+        "type": "lucky",
+        "spent": True,
+        "context": "skill_check",
+        "d20_before": 2,
+        "d20_after": 18,
+        "lucky_points_remaining": 0,
+    }
+
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["lucky_points_remaining"] == 0
+
+    logs = await db_session.execute(
+        select(GameLog)
+        .where(GameLog.session_id == sample_session.id, GameLog.log_type == "dice")
+        .order_by(GameLog.created_at.desc())
+    )
+    log = logs.scalars().first()
+    assert log.dice_result["lucky"] == result["lucky"]
+    assert log.dice_result["d20"] == 18
+
+
+async def test_skill_check_lucky_rejects_no_remaining_points_without_logging(
+    client, db_session, sample_session, sample_character, sample_user,
+):
+    from sqlalchemy import select
+
+    from models import GameLog
+
+    headers = await _auth_headers(client, sample_user)
+    sample_character.feats = [{"name": "Lucky"}]
+    sample_character.class_resources = {"lucky_points_remaining": 0}
+    await db_session.commit()
+    skill = sample_character.proficient_skills[0]
+    before_logs = (
+        await db_session.execute(
+            select(GameLog).where(
+                GameLog.session_id == sample_session.id,
+                GameLog.log_type == "dice",
+            )
+        )
+    ).scalars().all()
+
+    r = await client.post("/game/skill-check", headers=headers, json={
+        "session_id": sample_session.id,
+        "character_id": sample_character.id,
+        "skill": skill,
+        "dc": 20,
+        "d20_value": 2,
+        "use_lucky": True,
+        "lucky_d20_value": 18,
+    })
+
+    assert r.status_code == 400
+    assert "No Lucky points" in r.text
+    await db_session.refresh(sample_character)
+    assert sample_character.class_resources["lucky_points_remaining"] == 0
+    after_logs = (
+        await db_session.execute(
+            select(GameLog).where(
+                GameLog.session_id == sample_session.id,
+                GameLog.log_type == "dice",
+            )
+        )
+    ).scalars().all()
+    assert len(after_logs) == len(before_logs)
+
+
 # ─── 休息 ───────────────────────────────────────────────
 
 async def test_long_rest_restores_hp_and_spells(

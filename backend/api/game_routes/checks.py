@@ -7,6 +7,11 @@ from models import Character, GameLog
 from schemas.game_requests import SkillCheckRequest
 from schemas.game_responses import SkillCheckResult
 from services.dnd_rules import roll_skill_check
+from services.lucky_feat_service import (
+    LuckyFeatError,
+    apply_lucky_to_skill_check,
+    spend_lucky_point,
+)
 
 router = APIRouter(prefix="/game", tags=["game"])
 
@@ -63,6 +68,17 @@ async def skill_check(
             "total": total,
             "success": total >= req.dc,
         }
+    if req.use_lucky:
+        try:
+            lucky = spend_lucky_point(
+                character,
+                d20_before=result.get("d20"),
+                lucky_d20_value=req.lucky_d20_value,
+                context="skill_check",
+            )
+        except LuckyFeatError as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
+        result = apply_lucky_to_skill_check(result, lucky=lucky, dc=req.dc)
 
     db.add(GameLog(
         session_id=req.session_id,

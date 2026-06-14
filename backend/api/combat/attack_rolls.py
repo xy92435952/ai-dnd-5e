@@ -102,6 +102,8 @@ async def attack_roll(
             weapon_name=req.weapon_name,
             d20_value=req.d20_value,
             second_d20_value=req.second_d20_value,
+            use_lucky=req.use_lucky,
+            lucky_d20_value=req.lucky_d20_value,
             enemies=enemies,
         )
     except CombatAttackRollError as exc:
@@ -150,6 +152,7 @@ async def attack_roll(
         "attacks_max": prepared.attacks_max,
         "defender_interception": prepared.defender_interception,
         "weapon_resource": prepared.weapon_resource,
+        "lucky": attack_roll_result.get("lucky"),
     }
     if attack_roll_result["hit"]:
         hit_text = "critically hits" if attack_roll_result["is_crit"] else "hits"
@@ -216,6 +219,7 @@ async def attack_roll(
         "pending_attack_id": prepared.pending_attack_id,
         "defender_interception": prepared.defender_interception,
         "weapon_resource":  prepared.weapon_resource,
+        "lucky":            attack_roll_result.get("lucky"),
         "thrown_weapon_recovery_pool": public_thrown_recovery_pool(
             (session.game_state or {}).get("thrown_weapon_recovery_pool")
         ),

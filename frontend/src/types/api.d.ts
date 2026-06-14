@@ -509,6 +509,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/combat/{session_id}/concentration/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End Concentration
+         * @description Voluntarily end a character's concentration without spending an action.
+         */
+        post: operations["end_concentration_game_combat__session_id__concentration_end_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/combat/{session_id}/condition/add": {
         parameters: {
             query?: never;
@@ -584,6 +604,23 @@ export interface paths {
          * @description Resolve a DnD 5e death saving throw for a 0-HP character.
          */
         post: operations["death_saving_throw_game_combat__session_id__death_save_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/combat/{session_id}/delay-turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Delay Player Turn */
+        post: operations["delay_player_turn_game_combat__session_id__delay_turn_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -669,6 +706,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/combat/{session_id}/lair-action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Lair Action
+         * @description Resolve a round-start Lair Action window once per combat round.
+         */
+        post: operations["use_lair_action_game_combat__session_id__lair_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/combat/{session_id}/legendary-action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Legendary Action
+         * @description Resolve a non-damage Legendary Action window and spend its resource.
+         */
+        post: operations["use_legendary_action_game_combat__session_id__legendary_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/combat/{session_id}/maneuver": {
         parameters: {
             query?: never;
@@ -748,6 +825,40 @@ export interface paths {
          *     Called by frontend when an enemy attack or spell cast offers a reaction prompt.
          */
         post: operations["use_reaction_game_combat__session_id__reaction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/combat/{session_id}/ready-action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ready Action */
+        post: operations["ready_action_game_combat__session_id__ready_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/combat/{session_id}/recover-thrown-weapons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recover Combat Thrown Weapons */
+        post: operations["recover_combat_thrown_weapons_game_combat__session_id__recover_thrown_weapons_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1544,8 +1655,17 @@ export interface components {
              * @default false
              */
             is_offhand: boolean;
+            /** Lucky D20 Value */
+            lucky_d20_value?: number | null;
+            /** Second D20 Value */
+            second_d20_value?: number | null;
             /** Target Id */
             target_id: string;
+            /**
+             * Use Lucky
+             * @default false
+             */
+            use_lucky: boolean;
             /** Weapon Name */
             weapon_name?: string | null;
         };
@@ -2295,6 +2415,18 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** DelayTurnRequest */
+        DelayTurnRequest: {
+            /** After Entity Id */
+            after_entity_id?: string | null;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
+        };
+        /** EndConcentrationRequest */
+        EndConcentrationRequest: {
+            /** Character Id */
+            character_id: string;
+        };
         /** EndTurnRequest */
         EndTurnRequest: {
             /** Expected Turn Token */
@@ -2571,6 +2703,28 @@ export interface components {
             /** User Id */
             user_id: string;
         };
+        /** LairActionRequest */
+        LairActionRequest: {
+            /** Action Id */
+            action_id?: string | null;
+            /** Source Id */
+            source_id?: string | null;
+            /** Target Id */
+            target_id?: string | null;
+            /** Target Ids */
+            target_ids?: string[] | null;
+        };
+        /** LegendaryActionRequest */
+        LegendaryActionRequest: {
+            /** Action Id */
+            action_id?: string | null;
+            /** Actor Id */
+            actor_id: string;
+            /** Target Id */
+            target_id?: string | null;
+            /** Target Ids */
+            target_ids?: string[] | null;
+        };
         /** LevelUpRequest */
         LevelUpRequest: {
             /** Ability Score Increases */
@@ -2626,13 +2780,6 @@ export interface components {
             };
         } & {
             [key: string]: unknown;
-        };
-        /** SpellReplacementRequest */
-        SpellReplacementRequest: {
-            /** New Spell */
-            new_spell: string;
-            /** Old Spell */
-            old_spell: string;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2953,6 +3100,50 @@ export interface components {
             /** Target Id */
             target_id?: string | null;
         };
+        /** ReadyActionRequest */
+        ReadyActionRequest: {
+            /**
+             * Action Type
+             * @default attack
+             */
+            action_type: string;
+            /** Condition Text */
+            condition_text?: string | null;
+            /** Entity Id */
+            entity_id: string;
+            /** Expected Turn Token */
+            expected_turn_token?: string | null;
+            /**
+             * Is Ranged
+             * @default false
+             */
+            is_ranged: boolean;
+            /** Move To X */
+            move_to_x?: number | null;
+            /** Move To Y */
+            move_to_y?: number | null;
+            /**
+             * Spell Level
+             * @default 0
+             */
+            spell_level: number;
+            /** Spell Name */
+            spell_name?: string | null;
+            /** Target Id */
+            target_id?: string | null;
+            /**
+             * Trigger
+             * @default target_moves
+             */
+            trigger: string;
+            /** Trigger Match */
+            trigger_match?: string | null;
+        };
+        /** RecoverThrownWeaponsRequest */
+        RecoverThrownWeaponsRequest: {
+            /** Character Id */
+            character_id: string;
+        };
         /** RegisterRequest */
         RegisterRequest: {
             /**
@@ -3254,12 +3445,19 @@ export interface components {
             d20_value?: number | null;
             /** Dc */
             dc: number;
+            /** Lucky D20 Value */
+            lucky_d20_value?: number | null;
             /** Second D20 Value */
             second_d20_value?: number | null;
             /** Session Id */
             session_id: string;
             /** Skill */
             skill: string;
+            /**
+             * Use Lucky
+             * @default false
+             */
+            use_lucky: boolean;
         };
         /**
          * SkillCheckResult
@@ -3320,8 +3518,17 @@ export interface components {
             /** Pending Spell Id */
             pending_spell_id: string;
         };
+        /** SpellReplacementRequest */
+        SpellReplacementRequest: {
+            /** New Spell */
+            new_spell: string;
+            /** Old Spell */
+            old_spell: string;
+        };
         /** SpellRequest */
         SpellRequest: {
+            /** Aoe Center */
+            aoe_center?: string | null;
             /** Caster Id */
             caster_id: string;
             /** Expected Turn Token */
@@ -3340,12 +3547,16 @@ export interface components {
         };
         /** SpellRollRequest */
         SpellRollRequest: {
+            /** Aoe Center */
+            aoe_center?: string | null;
             /** Caster Id */
             caster_id: string;
             /** D20 Value */
             d20_value?: number | null;
             /** Expected Turn Token */
             expected_turn_token?: string | null;
+            /** Second D20 Value */
+            second_d20_value?: number | null;
             /**
              * Spell Level
              * @default 1
@@ -4257,6 +4468,41 @@ export interface operations {
             };
         };
     };
+    end_concentration_game_combat__session_id__concentration_end_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndConcentrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_condition_game_combat__session_id__condition_add_post: {
         parameters: {
             query?: never;
@@ -4384,6 +4630,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeathSaveResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delay_player_turn_game_combat__session_id__delay_turn_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DelayTurnRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndTurnResult"];
                 };
             };
             /** @description Validation Error */
@@ -4533,6 +4814,76 @@ export interface operations {
             };
         };
     };
+    use_lair_action_game_combat__session_id__lair_action_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LairActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_legendary_action_game_combat__session_id__legendary_action_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegendaryActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     use_maneuver_game_combat__session_id__maneuver_post: {
         parameters: {
             query?: never;
@@ -4660,6 +5011,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ready_action_game_combat__session_id__ready_action_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadyActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recover_combat_thrown_weapons_game_combat__session_id__recover_thrown_weapons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoverThrownWeaponsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

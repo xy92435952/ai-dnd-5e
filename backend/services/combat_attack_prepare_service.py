@@ -35,6 +35,11 @@ from services.combat_turn_state_service import (
 )
 from services.combat_two_weapon_service import validate_two_weapon_fighting_equipment
 from services.dnd_rules import _normalize_class, roll_attack, should_auto_crit_melee_target
+from services.lucky_feat_service import (
+    LuckyFeatError,
+    apply_lucky_to_attack_roll,
+    spend_lucky_point,
+)
 
 svc = CombatService()
 
@@ -72,6 +77,8 @@ async def prepare_attack_roll(
     is_offhand: bool,
     d20_value: int | None,
     second_d20_value: int | None = None,
+    use_lucky: bool = False,
+    lucky_d20_value: int | None = None,
     enemies: list[dict[str, Any]],
     weapon_name: str | None = None,
     combat_service: CombatService = svc,
@@ -248,6 +255,21 @@ async def prepare_attack_roll(
         crit_threshold=crit_threshold,
         roll_state=roll_state,
     )
+    if use_lucky:
+        try:
+            lucky = spend_lucky_point(
+                player,
+                d20_before=attack_roll_result.get("d20"),
+                lucky_d20_value=lucky_d20_value,
+                context="attack_roll",
+            )
+        except LuckyFeatError as exc:
+            raise CombatAttackRollError(exc.status_code, exc.detail) from exc
+        attack_roll_result = apply_lucky_to_attack_roll(
+            attack_roll_result,
+            lucky=lucky,
+            crit_threshold=crit_threshold,
+        )
     attack_roll_result = {
         **attack_roll_result,
         "advantage": final_advantage,
