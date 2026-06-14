@@ -21,6 +21,7 @@ from services.combat_turn_state_service import (
     save_turn_state,
 )
 from services.dnd_rules import apply_character_damage
+from services.feat_effect_service import get_feat_list_effect_value, has_feat_effect
 
 svc = CombatService()
 
@@ -149,6 +150,17 @@ async def resolve_opportunity_attacks(
                     result.attack_roll,
                     result.damage,
                 )
+                movement_stop = _sentinel_movement_stop(
+                    attacker=enemy,
+                    target_name=moving_char.name,
+                    old_pos=old_pos,
+                    new_pos=new_pos,
+                    attack_hit=result.attack_roll["hit"],
+                )
+                result_payload = result.to_dict()
+                if movement_stop:
+                    result_payload["movement_stop"] = movement_stop
+
                 results.append({
                     "attacker": enemy["name"],
                     "target": moving_char.name,
@@ -162,9 +174,10 @@ async def resolve_opportunity_attacks(
                             "damage": result.damage,
                             "opportunity": True,
                             "retaliation": retaliation if result.attack_roll["hit"] else None,
+                            "movement_stop": movement_stop,
                         },
                     ),
-                    "result": result.to_dict(),
+                    "result": result_payload,
                     "extra_damage_notes": extra_damage_notes,
                 })
 
@@ -246,6 +259,17 @@ async def resolve_opportunity_attacks(
                         result.attack_roll,
                         result.damage,
                     )
+                    movement_stop = _sentinel_movement_stop(
+                        attacker=player,
+                        target_name=moving_enemy["name"],
+                        old_pos=old_pos,
+                        new_pos=new_pos,
+                        attack_hit=result.attack_roll["hit"],
+                    )
+                    result_payload = result.to_dict()
+                    if movement_stop:
+                        result_payload["movement_stop"] = movement_stop
+
                     results.append({
                         "attacker": player.name,
                         "target": moving_enemy["name"],
@@ -258,9 +282,10 @@ async def resolve_opportunity_attacks(
                                 "attack": result.attack_roll,
                                 "damage": result.damage,
                                 "opportunity": True,
+                                "movement_stop": movement_stop,
                             },
                         ),
-                        "result": result.to_dict(),
+                        "result": result_payload,
                         "extra_damage_notes": extra_damage_notes,
                     })
 
@@ -339,6 +364,17 @@ async def resolve_opportunity_attacks(
                     result.attack_roll,
                     result.damage,
                 )
+                movement_stop = _sentinel_movement_stop(
+                    attacker=companion,
+                    target_name=moving_enemy["name"],
+                    old_pos=old_pos,
+                    new_pos=new_pos,
+                    attack_hit=result.attack_roll["hit"],
+                )
+                result_payload = result.to_dict()
+                if movement_stop:
+                    result_payload["movement_stop"] = movement_stop
+
                 results.append({
                     "attacker": companion.name,
                     "target": moving_enemy["name"],
@@ -351,10 +387,77 @@ async def resolve_opportunity_attacks(
                             "attack": result.attack_roll,
                             "damage": result.damage,
                             "opportunity": True,
+                            "movement_stop": movement_stop,
                         },
                     ),
-                    "result": result.to_dict(),
+                    "result": result_payload,
                     "extra_damage_notes": extra_damage_notes,
                 })
 
     return results
+
+
+def _sentinel_movement_stop(
+    *,
+    attacker: Any,
+    target_name: str,
+    old_pos: dict[str, Any],
+    new_pos: dict[str, Any],
+    attack_hit: bool,
+) -> dict[str, Any] | None:
+    if not attack_hit or not _has_sentinel(attacker):
+        return None
+    attacker_name = _actor_name(attacker)
+    return {
+        "type": "sentinel",
+        "applied": True,
+        "attacker": attacker_name,
+        "target": target_name,
+        "from": dict(old_pos),
+        "attempted_to": dict(new_pos),
+        "to": dict(old_pos),
+        "movement_used_to_max": True,
+    }
+
+
+def _has_sentinel(actor: Any) -> bool:
+    derived = _actor_field(actor, "derived") or {}
+    if has_feat_effect(derived, "Sentinel", "sentinel"):
+        return True
+    if bool(get_feat_list_effect_value(_actor_field(actor, "feats"), "Sentinel", "sentinel", False)):
+        return True
+    return any(_is_sentinel_entry(entry) for entry in _actor_entries(actor, ("traits", "features")))
+
+
+def _is_sentinel_entry(entry: Any) -> bool:
+    if isinstance(entry, str):
+        return entry.strip().lower() == "sentinel"
+    if not isinstance(entry, dict):
+        return False
+    if str(entry.get("name") or "").strip().lower() != "sentinel":
+        return False
+    effects = entry.get("effects")
+    if isinstance(effects, dict):
+        return bool(effects.get("sentinel"))
+    return True
+
+
+def _actor_entries(actor: Any, keys: tuple[str, ...]) -> list[Any]:
+    entries: list[Any] = []
+    for key in keys:
+        value = _actor_field(actor, key)
+        if isinstance(value, dict):
+            entries.extend(value.values())
+        elif isinstance(value, (list, tuple, set)):
+            entries.extend(value)
+    return entries
+
+
+def _actor_field(actor: Any, key: str) -> Any:
+    if isinstance(actor, dict):
+        return actor.get(key)
+    return getattr(actor, key, None)
+
+
+def _actor_name(actor: Any) -> str:
+    return str(_actor_field(actor, "name") or "Sentinel")
