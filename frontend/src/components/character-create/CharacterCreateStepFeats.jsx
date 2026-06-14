@@ -1,4 +1,5 @@
 import React from 'react'
+import { getFeatPrerequisiteFailure } from '../../utils/characterCreate'
 
 export default function CharacterCreateStepFeats({ ctx }) {
   const {
@@ -9,6 +10,10 @@ export default function CharacterCreateStepFeats({ ctx }) {
     chosenFeats,
     setChosenFeats,
     options,
+    finalScores,
+    isSpellcaster,
+    chosenCantrips,
+    chosenSpells,
   } = ctx
 
   if (!needsASI) return null
@@ -52,7 +57,17 @@ export default function CharacterCreateStepFeats({ ctx }) {
                 style={{ flex: 1, padding: '6px 12px', fontSize: '0.75rem' }}
                 onClick={() => {
                   const usedNames = chosenFeats.filter(f => f && f.name !== '__ASI__').map(f => f.name)
-                  const available = Object.keys(options.feats || {}).filter(n => !usedNames.includes(n))
+                  const available = Object.entries(options.feats || {})
+                    .filter(([name, info]) => !usedNames.includes(name) && !getFeatPrerequisiteFailure({
+                      name,
+                      ...(info || {}),
+                    }, {
+                      abilityScores: finalScores,
+                      isSpellcaster,
+                      knownSpells: chosenSpells,
+                      cantrips: chosenCantrips,
+                    }))
+                    .map(([name]) => name)
                   if (available.length > 0) {
                     const next = [...chosenFeats]
                     next[i] = { name: available[0] }
@@ -75,12 +90,55 @@ export default function CharacterCreateStepFeats({ ctx }) {
                     setChosenFeats(next)
                   }}
                 >
-                  {Object.entries(options.feats || {}).map(([name, info]) => (
-                    <option key={name} value={name}>
-                      {info.zh || name} -- {info.desc?.slice(0, 30)}
-                    </option>
-                  ))}
+                  {Object.entries(options.feats || {}).map(([name, info]) => {
+                    const usedElsewhere = chosenFeats.some((other, index) => index !== i && other?.name === name)
+                    const unavailableReason = getFeatPrerequisiteFailure({
+                      name,
+                      ...(info || {}),
+                    }, {
+                      abilityScores: finalScores,
+                      isSpellcaster,
+                      knownSpells: chosenSpells,
+                      cantrips: chosenCantrips,
+                    })
+                    return (
+                      <option
+                        key={name}
+                        value={name}
+                        disabled={usedElsewhere || Boolean(unavailableReason)}
+                      >
+                        {info.zh || name} -- {info.desc?.slice(0, 30)}
+                        {unavailableReason ? ` (${unavailableReason})` : ''}
+                      </option>
+                    )
+                  })}
                 </select>
+                {(options.feats || {})[feat.name]?.prereq && (
+                  <p style={{ fontSize: '0.65rem', color: 'var(--gold-dim)', marginTop: '4px' }}>
+                    Prerequisite: {(options.feats || {})[feat.name]?.prereq}
+                  </p>
+                )}
+                {getFeatPrerequisiteFailure({
+                  name: feat.name,
+                  ...((options.feats || {})[feat.name] || {}),
+                }, {
+                  abilityScores: finalScores,
+                  isSpellcaster,
+                  knownSpells: chosenSpells,
+                  cantrips: chosenCantrips,
+                }) && (
+                  <p style={{ fontSize: '0.65rem', color: 'var(--red-light)', marginTop: '4px' }}>
+                    {getFeatPrerequisiteFailure({
+                      name: feat.name,
+                      ...((options.feats || {})[feat.name] || {}),
+                    }, {
+                      abilityScores: finalScores,
+                      isSpellcaster,
+                      knownSpells: chosenSpells,
+                      cantrips: chosenCantrips,
+                    })}
+                  </p>
+                )}
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>
                   {(options.feats || {})[feat.name]?.desc}
                 </p>

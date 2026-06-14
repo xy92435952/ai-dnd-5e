@@ -238,6 +238,7 @@ def build_level_up_update(
         try:
             validate_feat_prerequisites(
                 [selected_feat_choice],
+                ability_scores=next_scores,
                 derived=next_derived,
                 known_spells=spell_learning["known_spells"],
                 cantrips=spell_learning["cantrips"],

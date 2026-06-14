@@ -665,10 +665,11 @@ function LevelUpPanel({
   const selectedManeuverCount = selections.maneuvers.length
   const selectedAbilityTotal = Object.values(selections.abilityIncreases || {})
     .reduce((sum, value) => sum + (Number(value) || 0), 0)
+  const selectedFeat = (featPlan?.featOptions || []).find(feat => feat.name === selections.featName)
   const hasProgressionChoices = hasSpellChoices || hasCantripChoices || hasReplacementChoices
     || hasAbilityChoices || hasFeatChoices || hasSubclassChoices || hasFightingStyleChoices || hasManeuverChoices
   const hasCompletedAsiChoice = !hasAbilityChoices
-    || Boolean(selections.featName)
+    || Boolean(selections.featName && selectedFeat && !selectedFeat.unavailableReason)
     || selectedAbilityTotal === abilityPlan.abilityCapacity
   const hasCompletedSubclassChoice = !hasSubclassChoices || Boolean(selections.subclassName)
   const hasCompletedFightingStyleChoice = !hasFightingStyleChoices || Boolean(selections.fightingStyleName)
@@ -677,7 +678,6 @@ function LevelUpPanel({
     && hasCompletedSubclassChoice
     && hasCompletedFightingStyleChoice
     && hasCompletedManeuverChoice
-  const selectedFeat = (featPlan?.featOptions || []).find(feat => feat.name === selections.featName)
   const selectedSubclass = (subclassPlan?.subclassOptions || [])
     .find(option => levelUpChoiceValue(option) === selections.subclassName)
   const selectedFightingStyle = (fightingStylePlan?.styleOptions || [])
@@ -847,12 +847,23 @@ function LevelUpPanel({
             >
               <option value="">No feat</option>
               {featPlan.featOptions.map(feat => (
-                <option key={feat.name} value={feat.name}>
+                <option key={feat.name} value={feat.name} disabled={Boolean(feat.unavailableReason)}>
                   {feat.zh ? `${feat.name} - ${feat.zh}` : feat.name}
+                  {feat.unavailableReason ? ` (${feat.unavailableReason})` : ''}
                 </option>
               ))}
             </select>
           </label>
+          {selectedFeat?.prereq && (
+            <p style={{ color: 'var(--gold-dim)', fontSize: 10, margin: '6px 0 0' }}>
+              Prerequisite: {selectedFeat.prereq}
+            </p>
+          )}
+          {selectedFeat?.unavailableReason && (
+            <p style={{ color: 'var(--red-light)', fontSize: 10, margin: '6px 0 0' }}>
+              {selectedFeat.unavailableReason}
+            </p>
+          )}
           {selectedFeat?.desc && (
             <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '6px 0 0' }}>
               {selectedFeat.desc}

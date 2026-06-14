@@ -138,6 +138,7 @@ async def create_player_character(
     try:
         validate_feat_prerequisites(
             feats,
+            ability_scores=req.ability_scores,
             derived=derived,
             known_spells=spell_choices["known_spells"],
             cantrips=spell_choices["cantrips"],

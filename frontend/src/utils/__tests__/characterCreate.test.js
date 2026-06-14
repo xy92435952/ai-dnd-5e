@@ -9,6 +9,7 @@ import {
   buildStandardScores,
   formatHitDieLabel,
   getClassEnKey,
+  getFeatPrerequisiteFailure,
   getHitDieValue,
   getRaceEnKey,
   normalizeCharacterOptions,
@@ -115,6 +116,30 @@ describe('characterCreate helpers', () => {
   it('resolves zh/en class and race keys', () => {
     expect(getClassEnKey('战士')).toBe('Fighter')
     expect(getRaceEnKey('人类')).toBe('Human')
+  })
+
+  it('reports feat prerequisite failures from current creation choices', () => {
+    expect(getFeatPrerequisiteFailure({
+      name: 'Ritual Caster',
+      prereq: 'Intelligence or Wisdom 13',
+    }, {
+      abilityScores: makeScores({ int: 12, wis: 12 }),
+    })).toBe('Requires INT or WIS 13+')
+
+    expect(getFeatPrerequisiteFailure({
+      name: 'Ritual Caster',
+      prereq: 'Intelligence or Wisdom 13',
+    }, {
+      abilityScores: makeScores({ int: 13, wis: 8 }),
+    })).toBe('')
+
+    expect(getFeatPrerequisiteFailure({
+      name: 'War Caster',
+      prereq: 'Spellcasting',
+    }, {
+      abilityScores: makeScores({ int: 13 }),
+      isSpellcaster: false,
+    })).toBe('Requires spellcasting')
   })
 
   it('parses and formats hit dice from SRD class metadata', () => {

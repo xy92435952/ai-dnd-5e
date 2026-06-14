@@ -497,6 +497,7 @@ describe('CharacterSheet inventory integration', () => {
       class_cantrips: {},
       feats: {
         Alert: { desc: '+5 initiative' },
+        'Ritual Caster': { prereq: 'Intelligence or Wisdom 13', desc: 'Cast rituals' },
         Tough: { desc: '+2 HP per level' },
       },
     })
@@ -520,6 +521,9 @@ describe('CharacterSheet inventory integration', () => {
     )
 
     await screen.findByText(fighter.name)
+    expect(screen.getByRole('option', {
+      name: /Ritual Caster.*Requires INT or WIS 13/,
+    })).toBeDisabled()
     fireEvent.click(screen.getByLabelText('Increase STR'))
     fireEvent.change(screen.getByLabelText('Feat choice'), {
       target: { value: 'Tough' },

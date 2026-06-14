@@ -172,7 +172,46 @@ describe('level-up martial and identity choice plans', () => {
     })
 
     expect(plan.isFeatChoiceLevel).toBe(true)
-    expect(plan.featOptions).toEqual([{ name: 'Tough', desc: '+2 HP per level' }])
+    expect(plan.featOptions).toEqual([{
+      name: 'Tough',
+      desc: '+2 HP per level',
+      unavailableReason: '',
+    }])
+  })
+
+  it('marks feat prerequisite failures in level-up feat options', () => {
+    const blockedPlan = buildLevelUpFeatChoicePlan({
+      char_class: 'Fighter',
+      level: 3,
+      ability_scores: { str: 16, dex: 14, con: 14, int: 12, wis: 12, cha: 8 },
+      derived: { spell_slots_max: {} },
+      spell_slots: {},
+    }, {
+      feats: {
+        'Ritual Caster': { prereq: 'Intelligence or Wisdom 13', desc: 'Cast rituals' },
+        Tough: { desc: '+2 HP per level' },
+      },
+    })
+    const allowedPlan = buildLevelUpFeatChoicePlan({
+      char_class: 'Fighter',
+      level: 3,
+      ability_scores: { str: 16, dex: 14, con: 14, int: 13, wis: 10, cha: 8 },
+      derived: { spell_slots_max: {} },
+      spell_slots: {},
+    }, {
+      feats: {
+        'Ritual Caster': { prereq: 'Intelligence or Wisdom 13', desc: 'Cast rituals' },
+      },
+    })
+
+    expect(blockedPlan.featOptions.find(feat => feat.name === 'Ritual Caster')).toEqual({
+      name: 'Ritual Caster',
+      prereq: 'Intelligence or Wisdom 13',
+      desc: 'Cast rituals',
+      unavailableReason: 'Requires INT or WIS 13+',
+    })
+    expect(blockedPlan.featOptions.find(feat => feat.name === 'Tough').unavailableReason).toBe('')
+    expect(allowedPlan.featOptions[0].unavailableReason).toBe('')
   })
 
   it('offers subclass and fighting-style choices at their unlock levels', () => {

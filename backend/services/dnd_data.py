@@ -580,7 +580,7 @@ FEATS = {
     "Mobile":              {"zh": "灵活", "desc": "速度+10ft，冲刺时不受困难地形影响，攻击后不触发借机", "effects": {"speed_bonus": 2, "mobile": True}},
     "Crossbow Expert":     {"zh": "弩专家", "desc": "忽略装填特性，相邻远程不劣势，手弩附赠攻击", "effects": {"crossbow_expert": True}},
     "Magic Initiate":      {"zh": "魔法学徒", "desc": "从任一职业法术表学2戏法+1个1环法术（每长休1次）", "effects": {"magic_initiate": True}},
-    "Ritual Caster":       {"zh": "仪式施法者", "desc": "可将仪式标记法术以仪式形式施放", "effects": {"ritual_caster": True}},
+    "Ritual Caster":       {"zh": "仪式施法者", "desc": "可将仪式标记法术以仪式形式施放", "effects": {"ritual_caster": True}, "prereq": "Intelligence or Wisdom 13"},
 }
 
 # ── 种族暗视（Darkvision）────────────────────────────────────

@@ -1,4 +1,4 @@
-import { getClassEnKey } from './characterCreate'
+import { getClassEnKey, getFeatPrerequisiteFailure } from './characterCreate'
 
 const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
@@ -220,7 +220,18 @@ export function buildLevelUpFeatChoicePlan(character, options = {}) {
   const abilityPlan = buildLevelUpAbilityChoicePlan(character, options)
   const existingFeatNames = new Set((character?.feats || []).map(featName).filter(Boolean))
   const featOptions = abilityPlan.isAsiLevel
-    ? normalizeFeatOptions(options?.feats).filter(feat => !existingFeatNames.has(feat.name))
+    ? normalizeFeatOptions(options?.feats)
+      .filter(feat => !existingFeatNames.has(feat.name))
+      .map(feat => ({
+        ...feat,
+        unavailableReason: getFeatPrerequisiteFailure(feat, {
+          abilityScores: character?.ability_scores,
+          derived: character?.derived,
+          knownSpells: character?.known_spells,
+          cantrips: character?.cantrips,
+          spellSlots: character?.spell_slots,
+        }),
+      }))
     : []
 
   return {

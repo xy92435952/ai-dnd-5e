@@ -51,6 +51,7 @@ def normalize_level_up_feat_choice(
 def validate_feat_prerequisites(
     feats: list[Any] | None,
     *,
+    ability_scores: dict | None = None,
     derived: dict | None = None,
     known_spells: list[str] | None = None,
     cantrips: list[str] | None = None,
@@ -68,6 +69,11 @@ def validate_feat_prerequisites(
             raise CharacterFeatError(
                 400,
                 "War Caster requires the ability to cast at least one spell.",
+            )
+        if name == "Ritual Caster" and not _has_int_or_wis_13(ability_scores):
+            raise CharacterFeatError(
+                400,
+                "Ritual Caster requires Intelligence or Wisdom 13 or higher.",
             )
 
 
@@ -139,6 +145,34 @@ def _can_cast_at_least_one_spell(
             except (TypeError, ValueError):
                 continue
     return False
+
+
+def _has_int_or_wis_13(ability_scores: dict | None) -> bool:
+    scores = _ability_score_mapping(ability_scores)
+    for key in ("int", "wis"):
+        try:
+            if int(scores.get(key) or 0) >= 13:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
+def _ability_score_mapping(ability_scores: Any) -> dict:
+    if not ability_scores:
+        return {}
+    if isinstance(ability_scores, dict):
+        return ability_scores
+    model_dump = getattr(ability_scores, "model_dump", None)
+    if callable(model_dump):
+        try:
+            return model_dump(by_alias=True)
+        except TypeError:
+            return model_dump()
+    return {
+        "int": getattr(ability_scores, "int", None) or getattr(ability_scores, "int_", None),
+        "wis": getattr(ability_scores, "wis", None),
+    }
 
 
 def _safe_legacy_feat_entry(feat: Any, name: str) -> dict:

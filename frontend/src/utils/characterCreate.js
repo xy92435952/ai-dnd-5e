@@ -41,6 +41,37 @@ export function getRaceEnKey(race) {
   return Object.keys(RACE_INFO).find((k) => k === race || RACE_INFO[k]?.zh === race) || ''
 }
 
+export function getFeatPrerequisiteFailure(feat, context = {}) {
+  const featName = typeof feat === 'string' ? feat : feat?.name
+  const prereq = String((typeof feat === 'string' ? '' : feat?.prereq) || '')
+  const normalizedName = String(featName || '').trim().toLowerCase()
+  const normalizedPrereq = prereq.trim().toLowerCase()
+  const abilityScores = context.abilityScores || context.ability_scores || {}
+
+  if (
+    normalizedName === 'ritual caster'
+    || normalizedPrereq.includes('intelligence or wisdom 13')
+  ) {
+    const intScore = Number(abilityScores.int || 0)
+    const wisScore = Number(abilityScores.wis || 0)
+    if (intScore < 13 && wisScore < 13) {
+      return 'Requires INT or WIS 13+'
+    }
+  }
+
+  if (normalizedName === 'war caster' || normalizedPrereq === 'spellcasting') {
+    const spellSlots = context.spellSlots || context.spell_slots || context.derived?.spell_slots_max || {}
+    const hasSlots = Object.values(spellSlots || {}).some(value => Number(value || 0) > 0)
+    const hasSpells = (context.knownSpells || context.known_spells || []).length > 0
+      || (context.cantrips || []).length > 0
+    if (!context.isSpellcaster && !hasSlots && !hasSpells) {
+      return 'Requires spellcasting'
+    }
+  }
+
+  return ''
+}
+
 export function buildStandardScores(standardAssigned = {}) {
   const scores = {}
   for (const key of ABILITY_KEYS) {
