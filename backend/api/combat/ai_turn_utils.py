@@ -19,6 +19,7 @@ from services.combat_legendary_action_service import (
 )
 from services.combat_reaction_service import (
     calculate_absorb_elements_prevention,
+    get_cutting_words_die,
     build_pending_spell_reaction,
     character_knows_absorb_elements,
     character_knows_counterspell,
@@ -456,6 +457,21 @@ def build_reaction_prompt(
             "effect": f"将此次攻击的伤害减半（{dodge_preview['original_damage']} → {dodge_preview['reduced_damage']}）",
             "reduced_damage": dodge_preview["reduced_damage"],
             "damage_prevented": dodge_preview["damage_prevented"],
+        })
+
+    cutting_die = get_cutting_words_die(player_check)
+    if cutting_die:
+        attack_total = result_obj.attack_roll.get("attack_total", 0) if result_obj else 0
+        available_reactions.append({
+            "id": "cutting_words",
+            "name": "Cutting Words",
+            "type": "cutting_words",
+            "cost": f"reaction + Bardic Inspiration {cutting_die}",
+            "die": cutting_die,
+            "effect": (
+                f"Roll {cutting_die} and subtract it from the attack "
+                f"({attack_total} vs AC{p_derived_r.get('ac', 10)})."
+            ),
         })
 
     if ("Hellish Rebuke" in known_spells or "hellish_rebuke" in known_spells) and p_slots.get("1st", 0) > 0:

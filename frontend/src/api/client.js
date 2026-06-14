@@ -283,11 +283,12 @@ export const gameApi = {
     }),
 
   // 反应 (Reaction)
-  useReaction: (sessionId, reactionType, targetId = null, characterId = null) =>
+  useReaction: (sessionId, reactionType, targetId = null, characterId = null, options = {}) =>
     api.post(`/game/combat/${sessionId}/reaction`, {
       reaction_type: reactionType,
       ...(targetId ? { target_id: targetId } : {}),
       ...(characterId ? { character_id: characterId } : {}),
+      ...(options.cuttingWordsRoll != null ? { cutting_words_roll: options.cuttingWordsRoll } : {}),
     }),
 
   // 擒抱/推撞 (Grapple/Shove)

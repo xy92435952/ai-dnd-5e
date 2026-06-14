@@ -162,6 +162,53 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('rolls Cutting Words and submits the rolled die value with the reaction', async () => {
+    rollDice3DMock.mockResolvedValueOnce({ total: 6, rolls: [6] })
+    useReactionMock.mockResolvedValueOnce({
+      narration: 'Cutting Words turns the strike aside.',
+      turn_state: { reaction_used: true },
+      reaction_effect: {
+        cutting_words: { die: 'd8', roll: 6, uses_remaining: 1 },
+        damage_prevented: 8,
+        hp_restored: 8,
+        class_resources: { bardic_inspiration_remaining: 1 },
+      },
+      target_state: {
+        target_id: 'char-2',
+        target_name: 'Lore Bard',
+        hp_current: 20,
+        class_resources: { bardic_inspiration_remaining: 1 },
+      },
+    })
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleReaction(
+        'cutting_words',
+        'enemy-1',
+        'char-2',
+        { die: 'd8' },
+      )
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(8, 1)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 6,
+      label: 'Cutting Words d8',
+      count: 1,
+    })
+    expect(useReactionMock).toHaveBeenCalledWith(
+      'sess-1',
+      'cutting_words',
+      'enemy-1',
+      'char-2',
+      { cuttingWordsRoll: 6 },
+    )
+    expect(deps.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
+    expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
   it('ignores duplicate reaction clicks while one is in flight', async () => {
     const { result, deps, processingRef } = renderActions()
     processingRef.current = true

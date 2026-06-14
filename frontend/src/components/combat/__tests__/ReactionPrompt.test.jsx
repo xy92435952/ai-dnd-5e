@@ -87,6 +87,41 @@ describe('ReactionPrompt', () => {
     expect(onReact).toHaveBeenCalledWith('absorb_elements', 'enemy-1', 'char-2')
   })
 
+  it('passes Cutting Words die metadata through to the reaction handler', async () => {
+    const onReact = vi.fn()
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          context: 'Incoming attack',
+          attacker_id: 'enemy-1',
+          reactor_character_id: 'char-2',
+          available_reactions: [
+            {
+              id: 'cutting_words',
+              type: 'cutting_words',
+              name: 'Cutting Words',
+              cost: 'reaction + Bardic Inspiration d8',
+              die: 'd8',
+              effect: 'Roll d8 and subtract it from the attack.',
+            },
+          ],
+        }}
+        onReact={onReact}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Cutting Words/ }))
+
+    expect(onReact).toHaveBeenCalledWith(
+      'cutting_words',
+      'enemy-1',
+      'char-2',
+      expect.objectContaining({ die: 'd8' }),
+    )
+  })
+
   it('passes the prompt back when cancelling a reaction window', async () => {
     const prompt = {
       trigger: 'spell_cast',

@@ -5,6 +5,7 @@ from services.combat_reaction_service import (
     build_pending_attack_reaction,
     calculate_absorb_elements_prevention,
     calculate_counterspell_result,
+    calculate_cutting_words_prevention,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
     calculate_shield_prevention,
@@ -13,8 +14,10 @@ from services.combat_reaction_service import (
     character_knows_counterspell,
     choose_absorb_elements_slot,
     choose_counterspell_slot,
+    get_cutting_words_die,
     resolve_counterspell_eligibility,
     restore_prevented_damage,
+    spend_cutting_words_resource,
 )
 
 
@@ -73,6 +76,63 @@ def test_shield_prevention_only_blocks_attacks_under_plus_five_ac():
     result = calculate_shield_prevention(pending)
 
     assert result == {"damage_prevented": 6, "blocked_attacks": 1}
+
+
+def test_cutting_words_can_turn_a_hit_into_a_miss():
+    pending = {
+        "events": [
+            {"attack_total": 18, "target_ac": 16, "damage": 8, "hit": True},
+        ],
+    }
+
+    result = calculate_cutting_words_prevention(pending, cutting_words_roll=3)
+
+    assert result == {
+        "attack_total_before": 18,
+        "attack_total_after": 15,
+        "target_ac": 16,
+        "blocked_attack": True,
+        "hit_after": False,
+        "original_damage": 8,
+        "reduced_damage": 0,
+        "damage_prevented": 8,
+    }
+
+
+def test_cutting_words_does_not_cancel_a_critical_hit():
+    pending = {
+        "events": [
+            {"attack_total": 18, "target_ac": 16, "damage": 8, "hit": True, "is_crit": True},
+        ],
+    }
+
+    result = calculate_cutting_words_prevention(pending, cutting_words_roll=8)
+
+    assert result["blocked_attack"] is False
+    assert result["hit_after"] is True
+    assert result["damage_prevented"] == 0
+
+
+def test_cutting_words_spends_bardic_resource_and_uses_subclass_die():
+    character = SimpleNamespace(
+        char_class="Bard",
+        level=5,
+        subclass="Lore",
+        derived={"subclass_effects": {"cutting_words": True, "inspiration_die": "d8"}},
+        class_resources={"bardic_inspiration_remaining": 2},
+    )
+
+    assert get_cutting_words_die(character) == "d8"
+    spent = spend_cutting_words_resource(character, cutting_words_roll=5)
+
+    assert spent == {
+        "type": "cutting_words",
+        "spent": True,
+        "die": "d8",
+        "roll": 5,
+        "uses_remaining": 1,
+    }
+    assert character.class_resources["bardic_inspiration_remaining"] == 1
 
 
 def test_uncanny_dodge_halves_first_qualifying_hit():

@@ -54,9 +54,10 @@ class ClassFeatureRequest(BaseModel):
 
 
 class ReactionRequest(BaseModel):
-    reaction_type: str      # "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke" | "absorb_elements"
+    reaction_type: str      # "shield" | "counterspell" | "decline" | "uncanny_dodge" | "hellish_rebuke" | "absorb_elements" | "cutting_words"
     target_id: Optional[str] = None  # For counterspell / hellish_rebuke
     character_id: Optional[str] = None  # Reacting character; important in multiplayer rooms
+    cutting_words_roll: Optional[int] = None
 
 
 class ReadyActionRequest(BaseModel):

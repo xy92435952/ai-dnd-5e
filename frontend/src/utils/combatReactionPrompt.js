@@ -19,6 +19,7 @@ export function normalizeReactionOptions(prompt = {}) {
     label: `${reaction.name || reaction.id}${reaction.effect ? ` - ${reaction.effect}` : ''}`,
     cost: reaction.cost,
     damage_prevented: reaction.damage_prevented,
+    die: reaction.die,
   }))
 
   return rawOptions.map(option => {
@@ -27,6 +28,7 @@ export function normalizeReactionOptions(prompt = {}) {
       ...option,
       cost: option.cost ?? reaction.cost,
       damage_prevented: option.damage_prevented ?? reaction.damage_prevented,
+      die: option.die ?? reaction.die,
       target_id: option.target_id || prompt.target_id || prompt.attacker_id,
       character_id: option.character_id || prompt.reactor_character_id,
     }

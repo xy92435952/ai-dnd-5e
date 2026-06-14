@@ -3541,6 +3541,17 @@
             ],
             "title": "Character Id"
           },
+          "cutting_words_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutting Words Roll"
+          },
           "reaction_type": {
             "title": "Reaction Type",
             "type": "string"

@@ -7,6 +7,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from services.combat_damage_service import normalize_damage_type
 from services.combat_tactical_service import terrain_kind
 from services.dnd_rules import (
+    _normalize_class,
     get_effective_hp_max,
     get_temporary_hp,
     get_wild_shape_hp,
@@ -49,6 +50,10 @@ ABSORB_ELEMENTS_NAMES = {
 ABSORB_ELEMENTS_DAMAGE_TYPES = {"acid", "cold", "fire", "lightning", "thunder"}
 
 
+class CuttingWordsError(ValueError):
+    pass
+
+
 def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
@@ -77,6 +82,134 @@ def _flag_json_modified(character: Any, field: str) -> None:
         pass
 
 
+def _coerce_non_negative_int(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _parse_die_faces(die: Any) -> int:
+    text = str(die or "").strip().lower()
+    if text.startswith("d"):
+        text = text[1:]
+    try:
+        faces = int(text)
+    except (TypeError, ValueError) as exc:
+        raise CuttingWordsError("Invalid Cutting Words die.") from exc
+    if faces not in {6, 8, 10, 12}:
+        raise CuttingWordsError("Invalid Cutting Words die.")
+    return faces
+
+
+def _normalize_cutting_words_roll(value: Any, die_faces: int) -> int:
+    try:
+        roll = int(value)
+    except (TypeError, ValueError) as exc:
+        raise CuttingWordsError("cutting_words_roll must be an integer.") from exc
+    if roll < 1 or roll > die_faces:
+        raise CuttingWordsError(f"cutting_words_roll must be between 1 and {die_faces}.")
+    return roll
+
+
+def get_cutting_words_die(character: Any) -> str | None:
+    if not character_can_use_cutting_words(character):
+        return None
+    derived = dict(getattr(character, "derived", None) or {})
+    subclass_effects = dict(derived.get("subclass_effects") or {})
+    die = str(subclass_effects.get("inspiration_die") or "d6").strip().lower()
+    try:
+        _parse_die_faces(die)
+    except CuttingWordsError:
+        return "d6"
+    return die
+
+
+def character_can_use_cutting_words(character: Any) -> bool:
+    if not character:
+        return False
+    if _normalize_class(getattr(character, "char_class", "")) != "Bard":
+        return False
+    if int(getattr(character, "level", 1) or 1) < 3:
+        return False
+    resources = dict(getattr(character, "class_resources", None) or {})
+    if _coerce_non_negative_int(resources.get("bardic_inspiration_remaining", 0)) <= 0:
+        return False
+
+    derived = dict(getattr(character, "derived", None) or {})
+    subclass_effects = dict(derived.get("subclass_effects") or {})
+    if subclass_effects.get("cutting_words") or subclass_effects.get("lore_bard"):
+        return True
+    subclass = str(getattr(character, "subclass", "") or "").strip().lower()
+    return "lore" in subclass or "知识" in subclass
+
+
+def spend_cutting_words_resource(character: Any, *, cutting_words_roll: Any) -> dict[str, Any]:
+    die = get_cutting_words_die(character)
+    if not die:
+        raise CuttingWordsError("Cutting Words is not available.")
+    faces = _parse_die_faces(die)
+    roll = _normalize_cutting_words_roll(cutting_words_roll, faces)
+    resources = dict(getattr(character, "class_resources", None) or {})
+    remaining = _coerce_non_negative_int(resources.get("bardic_inspiration_remaining", 0))
+    if remaining <= 0:
+        raise CuttingWordsError("No Bardic Inspiration uses remaining.")
+    resources["bardic_inspiration_remaining"] = remaining - 1
+    character.class_resources = resources
+    _flag_json_modified(character, "class_resources")
+    return {
+        "type": "cutting_words",
+        "spent": True,
+        "die": die,
+        "roll": roll,
+        "uses_remaining": remaining - 1,
+    }
+
+
+def calculate_cutting_words_prevention(
+    pending_reaction: dict[str, Any] | None,
+    *,
+    cutting_words_roll: int,
+) -> dict[str, Any]:
+    events = list((pending_reaction or {}).get("events") or [])
+    event = next(
+        (
+            item for item in events
+            if bool(item.get("hit", True)) and _coerce_non_negative_int(item.get("damage", 0)) > 0
+        ),
+        None,
+    )
+    if not event:
+        return {
+            "attack_total_before": None,
+            "attack_total_after": None,
+            "target_ac": None,
+            "blocked_attack": False,
+            "hit_after": True,
+            "original_damage": 0,
+            "reduced_damage": 0,
+            "damage_prevented": 0,
+        }
+
+    attack_total_before = int(event.get("attack_total") or 0)
+    target_ac = int(event.get("target_ac") or 10)
+    attack_total_after = attack_total_before - int(cutting_words_roll)
+    is_crit = bool(event.get("is_crit"))
+    blocked = (not is_crit) and attack_total_after < target_ac
+    original_damage = _coerce_non_negative_int(event.get("damage", 0))
+    reduced_damage = 0 if blocked else original_damage
+    return {
+        "attack_total_before": attack_total_before,
+        "attack_total_after": attack_total_after,
+        "target_ac": target_ac,
+        "blocked_attack": blocked,
+        "hit_after": not blocked,
+        "original_damage": original_damage,
+        "reduced_damage": reduced_damage,
+        "damage_prevented": original_damage - reduced_damage,
+    }
+
+
 def build_pending_attack_reaction(
     *,
     attacker_id: str,
@@ -98,6 +231,8 @@ def build_pending_attack_reaction(
             "hp_before": event.get("hp_before"),
             "hp_after": event.get("hp_after"),
             "hit": bool(event.get("hit", True)),
+            "is_crit": bool(event.get("is_crit", False)),
+            "is_fumble": bool(event.get("is_fumble", False)),
         }
         for key in (
             "temporary_hp_before",

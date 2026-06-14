@@ -496,6 +496,130 @@ async def test_legendary_action_attack_can_prompt_shield_and_restore_damage(
     assert "pending_attack_reaction" not in combat_state.turn_states[sample_character.id]
 
 
+async def test_legendary_action_attack_can_prompt_cutting_words_and_restore_damage(
+    client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from api.combat import legendary_actions as legendary_actions_api
+    from api.combat import reactions as reactions_api
+
+    sample_character.char_class = "Bard"
+    sample_character.subclass = "Lore"
+    sample_character.level = 5
+    sample_character.hp_current = 20
+    sample_character.known_spells = []
+    sample_character.prepared_spells = []
+    sample_character.spell_slots = {}
+    sample_character.class_resources = {"bardic_inspiration_remaining": 2}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "ac": 16,
+        "hp_max": 20,
+        "subclass_effects": {
+            "lore_bard": True,
+            "cutting_words": True,
+            "inspiration_die": "d8",
+        },
+    }
+    state = dict(sample_session.game_state or {})
+    enemies = list(state.get("enemies") or [])
+    enemies[0] = {
+        **enemies[0],
+        "legendary_actions": [{
+            "id": "tail",
+            "name": "Tail Strike",
+            "cost": 1,
+            "attack_bonus": 7,
+            "damage_dice": "1d8+3",
+            "damage_type": "bludgeoning",
+        }],
+        "legendary_action_uses": 3,
+        "legendary_action_uses_remaining": 2,
+        "identified": True,
+    }
+    state["enemies"] = enemies
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+
+    monkeypatch.setattr(legendary_actions_api, "roll_attack", lambda *args, **kwargs: {
+        "d20": 11,
+        "attack_bonus": 7,
+        "attack_total": 18,
+        "target_ac": 16,
+        "hit": True,
+        "is_crit": False,
+        "is_fumble": False,
+    })
+    monkeypatch.setattr(legendary_actions_api, "roll_dice", lambda notation: {
+        "notation": notation,
+        "rolls": [5],
+        "bonus": 3,
+        "total": 8,
+    })
+
+    async def fake_narrate_action(**kwargs):
+        return ""
+
+    monkeypatch.setattr(reactions_api, "narrate_action", fake_narrate_action)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    use_action = await client.post(
+        f"/game/combat/{sample_session.id}/legendary-action",
+        headers=headers,
+        json={"actor_id": "goblin-1", "action_id": "tail", "target_id": sample_character.id},
+    )
+
+    assert use_action.status_code == 200, use_action.text
+    body = use_action.json()
+    assert body["damage"] == 8
+    assert body["target_state"]["hp_current"] == 12
+    cutting_prompt = next(
+        reaction
+        for reaction in body["reaction_prompt"]["available_reactions"]
+        if reaction["type"] == "cutting_words"
+    )
+    assert cutting_prompt["die"] == "d8"
+
+    reaction = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=headers,
+        json={
+            "reaction_type": "cutting_words",
+            "target_id": "goblin-1",
+            "character_id": sample_character.id,
+            "cutting_words_roll": 3,
+        },
+    )
+
+    assert reaction.status_code == 200, reaction.text
+    reaction_body = reaction.json()
+    effect = reaction_body["reaction_effect"]
+    assert effect["blocked_attack"] is True
+    assert effect["attack_total_before"] == 18
+    assert effect["attack_total_after"] == 15
+    assert effect["damage_prevented"] == 8
+    assert effect["hp_restored"] == 8
+    assert effect["cutting_words"] == {
+        "type": "cutting_words",
+        "spent": True,
+        "die": "d8",
+        "roll": 3,
+        "uses_remaining": 1,
+    }
+    assert reaction_body["dice_result"]["reaction_type"] == "cutting_words"
+    assert reaction_body["dice_result"]["cutting_words"] == effect["cutting_words"]
+    assert reaction_body["target_state"]["hp_current"] == 20
+    assert reaction_body["target_state"]["class_resources"]["bardic_inspiration_remaining"] == 1
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(combat_state)
+    assert sample_character.hp_current == 20
+    assert sample_character.class_resources["bardic_inspiration_remaining"] == 1
+    assert combat_state.turn_states[sample_character.id]["reaction_used"] is True
+    assert "pending_attack_reaction" not in combat_state.turn_states[sample_character.id]
+
+
 async def test_legendary_action_save_failure_applies_damage_and_updates_hp(
     client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
 ):

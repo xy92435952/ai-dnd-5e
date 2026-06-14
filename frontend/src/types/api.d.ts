@@ -3149,6 +3149,8 @@ export interface components {
         ReactionRequest: {
             /** Character Id */
             character_id?: string | null;
+            /** Cutting Words Roll */
+            cutting_words_roll?: number | null;
             /** Reaction Type */
             reaction_type: string;
             /** Target Id */

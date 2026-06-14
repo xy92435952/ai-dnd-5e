@@ -5,6 +5,12 @@ import { applyActionResultEntityStates } from '../utils/combat'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
+function reactionDieFaces(option = {}, fallback = 6) {
+  const raw = String(option.die || option.reaction_die || `d${fallback}`).trim().toLowerCase()
+  const faces = Number(raw.startsWith('d') ? raw.slice(1) : raw)
+  return [6, 8, 10, 12].includes(faces) ? faces : fallback
+}
+
 export function useCombatSpecialActions({
   sessionId,
   selectedTarget,
@@ -81,17 +87,26 @@ export function useCombatSpecialActions({
     smitePrompt,
   ])
 
-  const handleReaction = useCallback(async (reactionType, targetId = null, characterId = null) => {
+  const handleReaction = useCallback(async (reactionType, targetId = null, characterId = null, reactionOption = {}) => {
     if (isProcessing || processingRef.current) return
     setReactionPrompt(null)
     processingRef.current = true
     setIsProcessing(true)
     try {
+      const reactionOptions = {}
       if (reactionType === 'hellish_rebuke') {
         const { total } = await rollDice3D(10, 2)
         showDice({ faces: 10, result: total, label: '地狱斥责 2d10', count: 2 })
       }
-      const result = await gameApi.useReaction(sessionId, reactionType, targetId, characterId)
+      if (reactionType === 'cutting_words') {
+        const faces = reactionDieFaces(reactionOption)
+        const { total } = await rollDice3D(faces, 1)
+        showDice({ faces, result: total, label: `Cutting Words d${faces}`, count: 1 })
+        reactionOptions.cuttingWordsRoll = total
+      }
+      const result = Object.keys(reactionOptions).length
+        ? await gameApi.useReaction(sessionId, reactionType, targetId, characterId, reactionOptions)
+        : await gameApi.useReaction(sessionId, reactionType, targetId, characterId)
       const reactionTargetName = result.target_state?.target_name || result.target_name || characterId || '反应者'
       addLog({
         role: 'player',
@@ -103,6 +118,13 @@ export function useCombatSpecialActions({
       })
       if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)
       if (result.turn_state) setTurnState(result.turn_state)
+      if (result.reaction_effect?.class_resources || result.target_state?.class_resources || result.class_resources) {
+        setClassResources?.(
+          result.reaction_effect?.class_resources
+          || result.target_state?.class_resources
+          || result.class_resources,
+        )
+      }
       setCombat(prev => {
         if (!prev) return prev
         return applyActionResultEntityStates(prev, result)
@@ -130,6 +152,7 @@ export function useCombatSpecialActions({
     sessionId,
     setCombat,
     setCombatOver,
+    setClassResources,
     setError,
     setIsProcessing,
     setLairActionPrompt,

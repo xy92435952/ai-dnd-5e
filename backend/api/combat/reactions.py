@@ -29,6 +29,7 @@ from services.combat_reaction_service import (
     apply_absorb_elements_state,
     calculate_absorb_elements_prevention,
     calculate_counterspell_result,
+    calculate_cutting_words_prevention,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
     calculate_shield_prevention,
@@ -37,8 +38,10 @@ from services.combat_reaction_service import (
     character_knows_counterspell,
     choose_absorb_elements_slot,
     choose_counterspell_slot,
+    CuttingWordsError,
     resolve_counterspell_eligibility,
     restore_prevented_damage,
+    spend_cutting_words_resource,
 )
 from services.combat_temporary_hp_service import build_character_target_state
 from services.combat_ai_spell_service import consume_ai_spell_slot, consume_named_spell_slot
@@ -170,7 +173,7 @@ async def use_reaction(
     p_class = _normalize_class(player.char_class)
     p_level = player.level
     derived = player.derived or {}
-    attack_reaction_types = {"shield", "uncanny_dodge", "hellish_rebuke", "absorb_elements"}
+    attack_reaction_types = {"shield", "uncanny_dodge", "hellish_rebuke", "absorb_elements", "cutting_words"}
     if req.reaction_type in attack_reaction_types and not _has_pending_attack_reaction(ts):
         return _reaction_already_resolved(req, ts)
     if req.reaction_type == "counterspell" and not _has_pending_spell_reaction(ts):
@@ -334,6 +337,51 @@ async def use_reaction(
             **absorb_result,
             **absorb_state,
             **hp_result,
+        }
+
+    elif req.reaction_type == "cutting_words":
+        try:
+            cutting_words = spend_cutting_words_resource(
+                player,
+                cutting_words_roll=req.cutting_words_roll,
+            )
+        except CuttingWordsError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+        cutting_result = calculate_cutting_words_prevention(
+            pending_reaction,
+            cutting_words_roll=cutting_words["roll"],
+        )
+        hp_result = restore_prevented_damage(
+            player,
+            pending_reaction,
+            cutting_result["damage_prevented"],
+        )
+        ts["reaction_used"] = True
+        ts.pop("pending_attack_reaction", None)
+        _save_ts(combat, player_id, ts)
+
+        reaction_target_name = pending_reaction.get("attacker_name") or "attacker"
+        if cutting_result["blocked_attack"]:
+            narration = (
+                f"{player.name} uses Cutting Words ({cutting_words['die']}={cutting_words['roll']}), "
+                f"turning {reaction_target_name}'s attack from "
+                f"{cutting_result['attack_total_before']} to {cutting_result['attack_total_after']} "
+                f"against AC{cutting_result['target_ac']}."
+            )
+        else:
+            narration = (
+                f"{player.name} uses Cutting Words ({cutting_words['die']}={cutting_words['roll']}), "
+                f"but {reaction_target_name}'s attack still lands at "
+                f"{cutting_result['attack_total_after']} against AC{cutting_result['target_ac']}."
+            )
+        if hp_result["hp_restored"] > 0:
+            narration += f" Restored {hp_result['hp_restored']} already-applied damage."
+        reaction_effect = {
+            "cutting_words": cutting_words,
+            **cutting_result,
+            **hp_result,
+            "class_resources": player.class_resources or {},
         }
 
     elif req.reaction_type == "hellish_rebuke":
@@ -558,6 +606,19 @@ async def use_reaction(
     reaction_dice = None
     if req.reaction_type == "hellish_rebuke":
         reaction_dice = {"faces": 10, "result": reaction_effect.get("damage_dealt", 0), "label": "地狱斥责 2d10", "count": 2}
+
+    if req.reaction_type == "cutting_words":
+        cutting_words = reaction_effect.get("cutting_words") or {}
+        try:
+            faces = int(str(cutting_words.get("die") or "d6").lstrip("dD"))
+        except (TypeError, ValueError):
+            faces = 6
+        reaction_dice = {
+            "faces": faces,
+            "result": cutting_words.get("roll"),
+            "label": "Cutting Words",
+            "count": 1,
+        }
 
     return await _project_ai_control_prompts_for_user(db, session, user_id, {
         "action": "reaction",

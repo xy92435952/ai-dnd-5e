@@ -51,7 +51,13 @@ export default function ReactionPrompt({
               key={`${opt.type}-${i}`}
               className="btn-gold reaction-prompt-action"
               title={reactionActionTitle(opt)}
-              onClick={() => onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)}
+              onClick={() => {
+                if (opt.type === 'cutting_words') {
+                  onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id, opt)
+                } else {
+                  onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)
+                }
+              }}
             >
               <span>{opt.label}</span>
               {opt.cost && <small>{opt.cost}</small>}
