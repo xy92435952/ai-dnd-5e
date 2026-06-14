@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from services.dnd_rules import apply_character_damage, roll_attack, roll_dice, roll_saving_throw
+from services.feat_effect_service import get_feat_list_effect_value
 
 
 SKILL_ALIASES = {
@@ -104,8 +105,9 @@ def passive_score(character: dict[str, Any] | object, skill: str = "perception")
         score += prof
 
     feats = _read_list(character, "feats")
-    if skill_key in {"perception", "investigation"} and _has_feat(feats, "observant"):
-        score += 5
+    if skill_key in {"perception", "investigation"}:
+        effect_key = f"passive_{skill_key}_bonus"
+        score += _as_int(get_feat_list_effect_value(feats, "Observant", effect_key, 0), 0)
     return score
 
 
@@ -773,15 +775,6 @@ def _normalize_skill_names(values: list[Any]) -> set[str]:
         for normalized in (_normalize_skill(value) for value in values)
         if normalized
     }
-
-
-def _has_feat(feats: list[Any], feat_name: str) -> bool:
-    target = feat_name.strip().lower()
-    for feat in feats or []:
-        name = feat.get("name", "") if isinstance(feat, dict) else str(feat)
-        if name.strip().lower() == target:
-            return True
-    return False
 
 
 def _has_no_surprise(character: dict[str, Any] | object) -> bool:

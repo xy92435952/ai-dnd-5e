@@ -576,7 +576,7 @@ FEATS = {
     "Shield Master":       {"zh": "盾牌大师", "desc": "附赠推撞，DEX豁免半伤可用反应减为0", "effects": {"shield_master": True}},
     "Lucky":               {"zh": "幸运", "desc": "每长休3次幸运点，可重掷任意d20", "effects": {"lucky_points": 3}},
     "Resilient":           {"zh": "坚毅", "desc": "一项属性+1并获得该属性豁免熟练", "effects": {"extra_save_prof": True}, "prereq": "选择一项属性"},
-    "Observant":           {"zh": "观察者", "desc": "+5被动感知和被动调查", "effects": {"passive_perception_bonus": 5}},
+    "Observant":           {"zh": "观察者", "desc": "+5被动感知和被动调查", "effects": {"passive_perception_bonus": 5, "passive_investigation_bonus": 5}},
     "Mobile":              {"zh": "灵活", "desc": "速度+10ft，冲刺时不受困难地形影响，攻击后不触发借机", "effects": {"speed_bonus": 2, "mobile": True}},
     "Crossbow Expert":     {"zh": "弩专家", "desc": "忽略装填特性，相邻远程不劣势，手弩附赠攻击", "effects": {"crossbow_expert": True}},
     "Magic Initiate":      {"zh": "魔法学徒", "desc": "从任一职业法术表学2戏法+1个1环法术（每长休1次）", "effects": {"magic_initiate": True}},

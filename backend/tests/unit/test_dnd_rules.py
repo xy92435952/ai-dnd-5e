@@ -832,6 +832,24 @@ class TestCalcDerived:
 
         assert equipped["ac"] == unequipped["ac"] + 2
 
+    def test_observant_derived_stats_use_canonical_passive_effects(self):
+        scores = {"str": 8, "dex": 14, "con": 12, "int": 16, "wis": 14, "cha": 10}
+
+        derived = calc_derived(
+            "Rogue",
+            4,
+            scores,
+            feats=[{"name": "Observant", "effects": {"passive_perception_bonus": 0}}],
+            proficient_skills=["Perception"],
+            race="Human",
+        )
+
+        assert derived["feat_effects"]["Observant"] == {
+            "passive_perception_bonus": 5,
+            "passive_investigation_bonus": 5,
+        }
+        assert derived["passive_perception"] == 19
+
 
 class TestNormalizeClass:
     @pytest.mark.parametrize("given,expected", [

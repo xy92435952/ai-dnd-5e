@@ -7,6 +7,7 @@ from services.dnd_data import (
     RACIAL_ABILITY_BONUSES, SPELL_SLOTS_FULL, SPELL_SLOTS_HALF,
     SPELL_SLOTS_WARLOCK,
 )
+from services.feat_effect_service import get_feat_list_effect_value
 
 
 def get_exhaustion_effects(exhaustion_level: int) -> list[str]:
@@ -718,12 +719,7 @@ def calc_passive_perception(derived: dict, proficient_skills: list, feats: list 
     prof = derived.get("proficiency_bonus", 2)
     is_proficient = "感知" in proficient_skills or "Perception" in proficient_skills
     base = 10 + wis_mod + (prof if is_proficient else 0)
-    # Observant 专长加 +5
-    if feats:
-        for feat_entry in feats:
-            fname = feat_entry.get("name", "") if isinstance(feat_entry, dict) else str(feat_entry)
-            if fname == "Observant":
-                base += 5
+    base += int(get_feat_list_effect_value(feats, "Observant", "passive_perception_bonus", 0) or 0)
     return base
 
 def ability_modifier(score: int) -> int:

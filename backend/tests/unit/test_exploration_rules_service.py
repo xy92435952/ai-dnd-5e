@@ -88,10 +88,38 @@ def test_passive_investigation_uses_intelligence_and_observant_bonus():
         mods={"int": 1, "wis": 4},
         proficiency_bonus=2,
         proficient_skills=["investigation"],
-        feats=[{"name": "Observant"}],
+        feats=[{"name": "Observant", "effects": {}}],
     )
 
     assert passive_investigation(character) == 18
+
+
+def test_passive_observant_bonus_uses_trusted_effects_for_perception_and_investigation():
+    character = _character(
+        mods={"int": 2, "wis": 3},
+        proficiency_bonus=2,
+        feats=[{"name": "Observant", "effects": {"passive_perception_bonus": 0}}],
+    )
+
+    assert passive_perception(character) == 18
+    assert passive_investigation(character) == 17
+
+
+def test_passive_score_ignores_client_supplied_bonus_on_other_feats():
+    character = _character(
+        mods={"int": 2, "wis": 3},
+        proficiency_bonus=2,
+        feats=[{
+            "name": "Actor",
+            "effects": {
+                "passive_perception_bonus": 99,
+                "passive_investigation_bonus": 99,
+            },
+        }],
+    )
+
+    assert passive_perception(character) == 13
+    assert passive_investigation(character) == 12
 
 
 def test_passive_detects_compares_passive_score_to_dc():
