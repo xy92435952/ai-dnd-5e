@@ -780,6 +780,96 @@ def test_build_level_up_update_initializes_lucky_feat_resource():
     assert update["class_resources"]["second_wind_used"] is True
 
 
+def test_build_level_up_update_canonicalizes_magic_initiate_choices():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Champion",
+        fighting_style="Defense",
+        class_resources={"second_wind_used": True},
+        feat_choice={
+            "name": "Magic Initiate",
+            "spellcasting_class": "wizard",
+            "cantrips": ["Mage Hand", "Light"],
+            "spell": "Shield",
+            "effects": {"magic_initiate": False},
+        },
+        magic_initiate_spell_options={
+            "Wizard": {
+                "cantrips": ["Mage Hand", "Light", "Fire Bolt"],
+                "spells": ["Magic Missile", "Shield"],
+            },
+        },
+        race="Human",
+    )
+
+    feat = update["feats"][0]
+    assert feat["name"] == "Magic Initiate"
+    assert feat["effects"] == {"magic_initiate": True}
+    assert feat["spellcasting_class"] == "Wizard"
+    assert feat["cantrips"] == ["Mage Hand", "Light"]
+    assert feat["spell"] == "Shield"
+    assert update["derived"]["feat_effects"]["Magic Initiate"] == {"magic_initiate": True}
+    assert update["class_resources"]["magic_initiate_spell_uses_remaining"] == 1
+    assert update["class_resources"]["second_wind_used"] is True
+
+
+def test_build_level_up_update_rejects_invalid_magic_initiate_choices():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=3,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={},
+            use_average_hp=True,
+            subclass="Champion",
+            fighting_style="Defense",
+            feat_choice={
+                "name": "Magic Initiate",
+                "spellcasting_class": "Wizard",
+                "cantrips": ["Mage Hand", "Sacred Flame"],
+                "spell": "Shield",
+            },
+            magic_initiate_spell_options={
+                "Wizard": {
+                    "cantrips": ["Mage Hand", "Light", "Fire Bolt"],
+                    "spells": ["Magic Missile", "Shield"],
+                },
+            },
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "Sacred Flame" in exc.value.detail
+
+
 def test_build_level_up_update_preserves_spent_lucky_points_until_rest():
     ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
     old_derived = calc_derived(

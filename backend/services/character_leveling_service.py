@@ -112,6 +112,7 @@ def build_level_up_update(
     learned_spells: list[str] | None = None,
     learned_cantrips: list[str] | None = None,
     spell_replacements: list[dict] | None = None,
+    magic_initiate_spell_options: dict | None = None,
     available_class_spells: list | None = None,
     available_class_cantrips: list[str] | None = None,
     dice_roller: Callable[[str], dict] = roll_dice,
@@ -157,6 +158,7 @@ def build_level_up_update(
                 feat_choice = normalize_level_up_feat_choice(
                     feat_choice,
                     existing_feats=next_feats,
+                    magic_initiate_spell_options=magic_initiate_spell_options,
                 )
             except CharacterFeatError as exc:
                 raise CharacterLevelingError(exc.status_code, exc.detail) from exc

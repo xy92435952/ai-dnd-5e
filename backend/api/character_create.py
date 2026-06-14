@@ -16,6 +16,7 @@ from services.character_feat_service import (
     apply_resilient_ability_bonuses,
     CharacterFeatError,
     feat_resource_defaults,
+    magic_initiate_spell_options,
     normalize_starting_feats,
     resilient_ability_choices,
     validate_feat_prerequisites,
@@ -93,7 +94,10 @@ async def create_player_character(
         raise HTTPException(exc.status_code, exc.detail) from exc
 
     try:
-        feats = normalize_starting_feats(req.feats)
+        feats = normalize_starting_feats(
+            req.feats,
+            magic_initiate_spell_options=magic_initiate_spell_options(spell_service),
+        )
     except CharacterFeatError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
 

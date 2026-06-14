@@ -362,6 +362,69 @@ async def test_level_up_endpoint_initializes_lucky_feat_resource(client, db_sess
     assert fighter.class_resources["lucky_points_remaining"] == 3
 
 
+async def test_level_up_endpoint_canonicalizes_magic_initiate_choices(client, db_session, sample_user):
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+    fighter = Character(
+        id=str(uuid.uuid4()),
+        user_id=sample_user.id,
+        name="Magic Initiate Level Fighter",
+        race="Human",
+        char_class="Fighter",
+        subclass="Champion",
+        fighting_style="Defense",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        class_resources={"second_wind_used": True, "action_surge_used": True},
+        proficient_skills=[],
+        proficient_saves=["str", "con"],
+        feats=[],
+        is_player=True,
+    )
+    db_session.add(fighter)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/characters/{fighter.id}/level-up",
+        headers=headers,
+        json={
+            "use_average_hp": True,
+            "feat_choice": {
+                "name": "Magic Initiate",
+                "spellcasting_class": "Wizard",
+                "cantrips": ["Mage Hand", "Light"],
+                "spell": "Shield",
+                "effects": {"magic_initiate": False},
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["character"]
+    feat = data["feats"][0]
+    assert feat["name"] == "Magic Initiate"
+    assert feat["effects"] == {"magic_initiate": True}
+    assert feat["spellcasting_class"] == "Wizard"
+    assert set(feat["cantrips"]) == {"法师之手", "光明术"}
+    assert feat["spell"] == "护盾"
+    assert data["class_resources"]["magic_initiate_spell_uses_remaining"] == 1
+
+    await db_session.refresh(fighter)
+    assert fighter.feats == data["feats"]
+    assert fighter.class_resources["magic_initiate_spell_uses_remaining"] == 1
+
+
 async def test_level_up_endpoint_rejects_ritual_caster_without_int_or_wis_13(client, db_session, sample_user):
     ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 8}
     old_derived = calc_derived(

@@ -166,6 +166,44 @@ async def test_create_character_initializes_lucky_feat_resource(
     assert data["class_resources"]["lucky_points_remaining"] == 3
 
 
+async def test_create_character_canonicalizes_magic_initiate_choices(
+    client, sample_user, sample_module,
+):
+    headers = await _auth_headers(client, sample_user)
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Magic Initiate Fighter",
+        "race": "Human",
+        "char_class": "Fighter",
+        "level": 1,
+        "background": "Soldier",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 15, "dex": 13, "con": 14, "int": 10, "wis": 12, "cha": 8},
+        "proficient_skills": ["运动", "感知"],
+        "fighting_style": "Defense",
+        "equipment_choice": 0,
+        "feats": [{
+            "name": "Magic Initiate",
+            "spellcasting_class": "Wizard",
+            "cantrips": ["Mage Hand", "Light"],
+            "spell": "Shield",
+            "effects": {"magic_initiate": False},
+        }],
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    feat = data["feats"][0]
+    assert feat["name"] == "Magic Initiate"
+    assert feat["effects"] == {"magic_initiate": True}
+    assert feat["spellcasting_class"] == "Wizard"
+    assert set(feat["cantrips"]) == {"法师之手", "光明术"}
+    assert feat["spell"] == "护盾"
+    assert data["derived"]["feat_effects"]["Magic Initiate"] == {"magic_initiate": True}
+    assert data["class_resources"]["magic_initiate_spell_uses_remaining"] == 1
+
+
 async def test_create_character_rejects_unknown_starting_feat(
     client, sample_user, sample_module,
 ):

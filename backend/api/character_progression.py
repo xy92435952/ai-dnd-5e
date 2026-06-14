@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps import assert_character_write_access
 from models import Character
 from schemas.character_requests import ExhaustionRequest, LevelUpRequest, PreparedSpellsRequest
+from services.character_feat_service import magic_initiate_spell_options
 from services.character_leveling_service import CharacterLevelingError, build_level_up_update
 from services.character_serializer import serialize_character
 from services.character_spell_service import CharacterSpellError, build_prepared_spells_update
@@ -94,6 +95,7 @@ async def level_up_character(
             proficient_saves=char.proficient_saves,
             ability_score_increases=req.ability_score_increases,
             feat_choice=req.feat_choice,
+            magic_initiate_spell_options=magic_initiate_spell_options(spell_service),
             subclass_choice=req.subclass_choice,
             fighting_style_choice=req.fighting_style_choice,
             maneuver_choices=req.maneuver_choices,
