@@ -7,6 +7,7 @@ check_concentration / calc_sneak_attack_dice / get_attack_count / ...）。
 """
 import pytest
 from services.combat_service import CombatService, AttackResult
+from services.dnd_rules import calc_derived
 
 
 svc = CombatService()
@@ -119,6 +120,42 @@ class TestConcentration:
         r = svc.check_concentration(char, damage=12)
         assert r["roll_result"]["disadvantage"] is True
         assert r["roll_result"]["exhaustion_disadvantage"] is True
+
+    def test_war_caster_uses_canonical_feat_effect_for_concentration_advantage(self):
+        derived = calc_derived(
+            "Wizard",
+            4,
+            {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10},
+            feats=[{"name": "War Caster"}],
+            race="Human",
+        )
+        char = {
+            "concentration": "Haste",
+            "derived": derived,
+            "proficient_saves": [],
+        }
+
+        r = svc.check_concentration(char, damage=12)
+
+        assert derived["feat_effects"]["War Caster"] == {"concentration_advantage": True}
+        assert r["war_caster"] is True
+        assert r["roll_result"]["advantage"] is True
+
+    def test_war_caster_dict_without_effect_key_does_not_grant_concentration_advantage(self):
+        char = {
+            "concentration": "Haste",
+            "derived": {
+                "ability_modifiers": {"con": 2},
+                "saving_throws": {"con": 2},
+                "feat_effects": {"War Caster": {"other_effect": True}},
+            },
+            "proficient_saves": [],
+        }
+
+        r = svc.check_concentration(char, damage=12)
+
+        assert r["war_caster"] is False
+        assert r["roll_result"]["advantage"] is False
 
 
 class TestSneakAttack:

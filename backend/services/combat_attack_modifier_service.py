@@ -4,6 +4,7 @@ from typing import Any
 from services.combat_ammunition_service import choose_attack_weapon
 from services.combat_grid_service import has_adjacent_enemy
 from services.combat_service import CombatService
+from services.feat_effect_service import has_feat_effect
 
 svc = CombatService()
 
@@ -53,7 +54,7 @@ def apply_ranged_close_penalty(
     if not is_ranged:
         return atk_dis, False
 
-    has_crossbow_expert = _has_feat_effect(
+    has_crossbow_expert = has_feat_effect(
         attacker_derived,
         "Crossbow Expert",
         "crossbow_expert",
@@ -102,7 +103,7 @@ def calculate_cover_info(
     analysis = svc.get_cover_analysis(grid_data, attacker_position, target_position)
     raw_bonus = int(analysis.get("bonus") or 0)
     cells = tuple(analysis.get("cells") or ())
-    has_sharpshooter = _has_feat_effect(attacker_derived, "Sharpshooter", "sharpshooter")
+    has_sharpshooter = has_feat_effect(attacker_derived, "Sharpshooter", "sharpshooter")
     if has_sharpshooter and is_ranged and raw_bonus > 0:
         return CoverInfo(bonus=0, raw_bonus=raw_bonus, ignored_by="Sharpshooter", cells=cells)
 
@@ -117,7 +118,7 @@ def choose_feat_power_attack(
     is_ranged: bool,
 ) -> FeatPowerAttack:
     """Auto-select GWM/Sharpshooter power attack using the endpoint's existing heuristic."""
-    if not is_ranged and _has_feat_effect(attacker_derived, "Great Weapon Master", "gwm"):
+    if not is_ranged and has_feat_effect(attacker_derived, "Great Weapon Master", "gwm"):
         equipped_type = attacker_derived.get("equipped_weapon_type", "")
         if "heavy" in str(equipped_type).lower() or "two-handed" in str(equipped_type).lower():
             effective_ac = target_derived.get("ac", 13) + cover_bonus
@@ -125,21 +126,13 @@ def choose_feat_power_attack(
             if attack_bonus - 5 + 10 >= effective_ac:
                 return FeatPowerAttack(active=True, hit_penalty=5, bonus_damage=10)
 
-    if is_ranged and _has_feat_effect(attacker_derived, "Sharpshooter", "sharpshooter"):
+    if is_ranged and has_feat_effect(attacker_derived, "Sharpshooter", "sharpshooter"):
         effective_ac = target_derived.get("ac", 13) + cover_bonus
         attack_bonus = attacker_derived.get("ranged_attack_bonus", 3)
         if attack_bonus - 5 + 10 >= effective_ac:
             return FeatPowerAttack(active=True, hit_penalty=5, bonus_damage=10)
 
     return FeatPowerAttack()
-
-
-def _has_feat_effect(attacker_derived: dict[str, Any], feat_name: str, effect_key: str) -> bool:
-    feat_effect = (attacker_derived.get("feat_effects") or {}).get(feat_name)
-    if isinstance(feat_effect, dict):
-        return bool(feat_effect.get(effect_key))
-    return bool(feat_effect)
-
 
 def build_attack_deriveds(
     *,

@@ -1,6 +1,7 @@
 from typing import Optional
 
 from services.dnd_rules import has_exhaustion_effect, normalize_conditions
+from services.feat_effect_service import has_feat_effect
 
 ATTACK_ADVANTAGE_SOURCES = {
     "invisible": "attacker invisible",
@@ -80,8 +81,11 @@ def check_concentration(character_dict: dict, damage: int) -> Optional[dict]:
     dc = max(10, damage // 2)
 
     derived = character_dict.get("derived", {})
-    feat_effects = derived.get("feat_effects", {})
-    has_war_caster = bool(feat_effects.get("War Caster")) or derived.get("subclass_effects", {}).get("concentration_advantage", False)
+    has_war_caster = has_feat_effect(
+        derived,
+        "War Caster",
+        "concentration_advantage",
+    ) or derived.get("subclass_effects", {}).get("concentration_advantage", False)
     roll_result = roll_saving_throw(character_dict, "con", dc, advantage=has_war_caster)
 
     return {
