@@ -24,6 +24,11 @@ from services.dnd_subclass_progression import (
     subclass_options_for_class,
     subclass_unlock_level,
 )
+from services.character_feat_service import (
+    CharacterFeatError,
+    normalize_existing_feats,
+    normalize_level_up_feat_choice,
+)
 
 
 @dataclass
@@ -137,10 +142,17 @@ def build_level_up_update(
         hp_gain = max(1, hp_roll["total"] + con_mod)
 
     asi_levels = get_asi_levels_for_class(cls_key)
-    next_feats = list(feats or [])
+    next_feats = normalize_existing_feats(feats)
 
     if new_level in asi_levels:
         if feat_choice:
+            try:
+                feat_choice = normalize_level_up_feat_choice(
+                    feat_choice,
+                    existing_feats=next_feats,
+                )
+            except CharacterFeatError as exc:
+                raise CharacterLevelingError(exc.status_code, exc.detail) from exc
             feat_name = feat_choice.get("name", "")
             if feat_name not in FEATS:
                 raise CharacterLevelingError(400, f"未知专长：{feat_name}")

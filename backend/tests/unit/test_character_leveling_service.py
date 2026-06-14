@@ -494,6 +494,74 @@ def test_build_level_up_update_validates_asi_total_increase():
     assert "最多增加2点" in exc.value.detail
 
 
+def test_build_level_up_update_canonicalizes_feat_choice_effects():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        race="Human",
+    )
+
+    update = character_leveling_service.build_level_up_update(
+        char_class="Fighter",
+        level=3,
+        ability_scores=ability_scores,
+        derived=old_derived,
+        hp_current=old_derived["hp_max"],
+        spell_slots={},
+        use_average_hp=True,
+        subclass="Champion",
+        fighting_style="Defense",
+        feat_choice={
+            "name": "Tough",
+            "desc": "client supplied text",
+            "effects": {"hp_per_level": 99, "no_surprise": True},
+        },
+        race="Human",
+    )
+
+    feat = update["feats"][0]
+    assert feat["name"] == "Tough"
+    assert feat["effects"] == {"hp_per_level": 2}
+    assert "no_surprise" not in feat["effects"]
+    assert update["derived"]["feat_effects"]["Tough"] == {"hp_per_level": 2}
+
+
+def test_build_level_up_update_rejects_duplicate_feat_choice():
+    ability_scores = {"str": 16, "dex": 14, "con": 14, "int": 10, "wis": 10, "cha": 8}
+    old_derived = calc_derived(
+        "Fighter",
+        3,
+        ability_scores,
+        "Champion",
+        fighting_style="Defense",
+        feats=[{"name": "Alert"}],
+        race="Human",
+    )
+
+    with pytest.raises(character_leveling_service.CharacterLevelingError) as exc:
+        character_leveling_service.build_level_up_update(
+            char_class="Fighter",
+            level=3,
+            ability_scores=ability_scores,
+            derived=old_derived,
+            hp_current=old_derived["hp_max"],
+            spell_slots={},
+            use_average_hp=True,
+            subclass="Champion",
+            fighting_style="Defense",
+            feats=[{"name": "Alert", "effects": {"initiative_bonus": 99}}],
+            feat_choice={"name": "Alert"},
+            race="Human",
+        )
+
+    assert exc.value.status_code == 400
+    assert "Duplicate feat choice: Alert" in exc.value.detail
+
+
 def test_build_level_up_update_adds_requested_wizard_spellbook_spells():
     ability_scores = {"str": 8, "dex": 14, "con": 14, "int": 16, "wis": 12, "cha": 10}
     old_derived = calc_derived("Wizard", 2, ability_scores, None, race="Human")

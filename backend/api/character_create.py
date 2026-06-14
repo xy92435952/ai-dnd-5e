@@ -12,6 +12,10 @@ from services.character_creation_service import (
     build_starting_equipment,
     normalize_fighting_style,
 )
+from services.character_feat_service import (
+    CharacterFeatError,
+    normalize_starting_feats,
+)
 from services.character_serializer import serialize_character
 from services.character_starting_spell_service import (
     CharacterStartingSpellError,
@@ -84,6 +88,11 @@ async def create_player_character(
     except CharacterCreationError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
 
+    try:
+        feats = normalize_starting_feats(req.feats)
+    except CharacterFeatError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+
     save_profs = CLASS_SAVE_PROFICIENCIES.get(cls_key, [])
     derived = calc_derived(
         req.char_class,
@@ -91,7 +100,7 @@ async def create_player_character(
         final_scores,
         req.subclass,
         fighting_style=fighting_style,
-        feats=req.feats or None,
+        feats=feats or None,
         equipment=equipment_data or None,
         race=req.race,
         proficient_skills=chosen_skills,
@@ -152,7 +161,7 @@ async def create_player_character(
         equipment=equipment_data,
         languages=languages,
         tool_proficiencies=bg_tools,
-        feats=req.feats,
+        feats=feats,
         personality=req.personality,
         backstory=req.backstory,
         speech_style=req.speech_style,
