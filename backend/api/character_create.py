@@ -13,6 +13,10 @@ from services.character_creation_service import (
     normalize_fighting_style,
 )
 from services.character_serializer import serialize_character
+from services.character_starting_spell_service import (
+    CharacterStartingSpellError,
+    validate_starting_spell_choices,
+)
 from services.dnd_rules import (
     BACKGROUND_FEATURES,
     CLASS_SAVE_PROFICIENCIES,
@@ -93,6 +97,19 @@ async def create_player_character(
         proficient_skills=chosen_skills,
     )
 
+    try:
+        spell_choices = validate_starting_spell_choices(
+            spell_service=spell_service,
+            char_class=cls_key,
+            subclass=req.subclass,
+            level=req.level,
+            derived=derived,
+            cantrips=req.cantrips,
+            known_spells=req.known_spells,
+        )
+    except CharacterStartingSpellError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+
     bonus_spells = [
         spell["name"]
         for spell in resolved_subclass_bonus_spell_details(
@@ -102,7 +119,7 @@ async def create_player_character(
         )
     ]
 
-    prepared = list(req.known_spells)
+    prepared = list(spell_choices["known_spells"])
     for spell in bonus_spells:
         if spell not in prepared:
             prepared.append(spell)
@@ -124,9 +141,9 @@ async def create_player_character(
         derived=derived,
         hp_current=derived["hp_max"],
         spell_slots=spell_slots,
-        known_spells=req.known_spells,
+        known_spells=spell_choices["known_spells"],
         prepared_spells=prepared,
-        cantrips=req.cantrips,
+        cantrips=spell_choices["cantrips"],
         proficient_skills=chosen_skills,
         proficient_saves=save_profs,
         multiclass_info=req.multiclass_info,

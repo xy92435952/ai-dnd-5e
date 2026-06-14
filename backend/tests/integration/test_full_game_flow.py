@@ -15,6 +15,8 @@ import uuid
 
 import pytest
 
+from services.spell_service import spell_service
+
 pytestmark = pytest.mark.integration
 
 
@@ -26,6 +28,14 @@ async def _auth_headers(client, sample_user):
     })
     assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+def _spell_name_by_english(name_en):
+    return next(
+        spell["name"]
+        for spell in spell_service.get_all()
+        if spell.get("name_en") == name_en
+    )
 
 
 # ─── 创角 ────────────────────────────────────────────────
@@ -173,8 +183,19 @@ async def test_wizard_starts_with_spells(client, sample_user, sample_module):
         "alignment": "守序善良",
         "ability_scores": {"str": 8, "dex": 13, "con": 14, "int": 15, "wis": 12, "cha": 10},
         "proficient_skills": ["奥秘", "调查"],
-        "cantrips": ["fire-bolt", "mage-hand", "prestidigitation"],
-        "known_spells": ["magic-missile", "shield", "mage-armor", "detect-magic", "sleep", "burning-hands"],
+        "cantrips": [
+            _spell_name_by_english("Fire Bolt"),
+            _spell_name_by_english("Mage Hand"),
+            _spell_name_by_english("Prestidigitation"),
+        ],
+        "known_spells": [
+            _spell_name_by_english("Magic Missile"),
+            _spell_name_by_english("Shield"),
+            _spell_name_by_english("Mage Armor"),
+            _spell_name_by_english("Detect Magic"),
+            _spell_name_by_english("Sleep"),
+            _spell_name_by_english("Burning Hands"),
+        ],
     })
     assert r.status_code == 200, r.text
     data = r.json()
@@ -183,6 +204,99 @@ async def test_wizard_starts_with_spells(client, sample_user, sample_module):
     assert len(data["known_spells"]) >= 1
     # 1 环位至少 2 槽
     assert data["spell_slots_max"].get("1st", 0) >= 2
+
+
+async def test_create_rejects_invalid_starting_spell(client, sample_user, sample_module):
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Invalid Spell Wizard",
+        "race": "Elf",
+        "char_class": "Wizard",
+        "level": 1,
+        "background": "Sage",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 8, "dex": 13, "con": 14, "int": 15, "wis": 12, "cha": 10},
+        "proficient_skills": ["奥秘", "调查"],
+        "cantrips": [
+            _spell_name_by_english("Fire Bolt"),
+            _spell_name_by_english("Mage Hand"),
+            _spell_name_by_english("Prestidigitation"),
+        ],
+        "known_spells": [
+            _spell_name_by_english("Magic Missile"),
+            _spell_name_by_english("Shield"),
+            _spell_name_by_english("Mage Armor"),
+            _spell_name_by_english("Detect Magic"),
+            _spell_name_by_english("Sleep"),
+            "Fake Spell",
+        ],
+    })
+
+    assert response.status_code == 400, response.text
+    assert "Fake Spell" in response.json()["detail"]
+
+
+async def test_create_rejects_starting_spell_above_current_slot_rank(client, sample_user, sample_module):
+    headers = await _auth_headers(client, sample_user)
+    fireball = _spell_name_by_english("Fireball")
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Too Eager Wizard",
+        "race": "Elf",
+        "char_class": "Wizard",
+        "level": 1,
+        "background": "Sage",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 8, "dex": 13, "con": 14, "int": 15, "wis": 12, "cha": 10},
+        "proficient_skills": ["奥秘", "调查"],
+        "cantrips": [
+            _spell_name_by_english("Fire Bolt"),
+            _spell_name_by_english("Mage Hand"),
+            _spell_name_by_english("Prestidigitation"),
+        ],
+        "known_spells": [
+            _spell_name_by_english("Magic Missile"),
+            _spell_name_by_english("Shield"),
+            _spell_name_by_english("Mage Armor"),
+            _spell_name_by_english("Detect Magic"),
+            _spell_name_by_english("Sleep"),
+            fireball,
+        ],
+    })
+
+    assert response.status_code == 400, response.text
+    assert "requires level 3" in response.json()["detail"]
+
+
+async def test_create_warlock_allows_subclass_expanded_starting_spell(client, sample_user, sample_module):
+    headers = await _auth_headers(client, sample_user)
+    hex_spell = _spell_name_by_english("Hex")
+    command_spell = _spell_name_by_english("Command")
+
+    response = await client.post("/characters/create", headers=headers, json={
+        "module_id": sample_module.id,
+        "name": "Fiend Starter",
+        "race": "Human",
+        "char_class": "Warlock",
+        "subclass": "Fiend",
+        "level": 1,
+        "background": "Sage",
+        "alignment": "Neutral",
+        "ability_scores": {"str": 8, "dex": 14, "con": 14, "int": 10, "wis": 12, "cha": 16},
+        "proficient_skills": ["奥秘", "调查"],
+        "cantrips": [
+            _spell_name_by_english("Eldritch Blast"),
+            _spell_name_by_english("Chill Touch"),
+        ],
+        "known_spells": [hex_spell, command_spell],
+    })
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["known_spells"] == [hex_spell, command_spell]
+    assert command_spell in data["prepared_spells"]
 
 
 # ─── Session 生命周期 ───────────────────────────────────

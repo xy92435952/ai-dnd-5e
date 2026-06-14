@@ -176,7 +176,13 @@ describe('characterCreate helpers', () => {
       starting_cantrips_count: { Warlock: 2 },
       starting_spells_count: { Warlock: 2 },
       class_cantrips: { Warlock: ['Eldritch Blast', 'Mage Hand'] },
-      class_spells: { Warlock: ['Hex', 'Armor of Agathys'] },
+      class_spell_details: {
+        Warlock: [
+          { name: 'Hex', level: 1 },
+          { name: 'Armor of Agathys', level: 1 },
+          { name: 'Misty Step', level: 2 },
+        ],
+      },
       subclass_bonus_spell_details: {
         'The Fiend': {
           1: [
@@ -210,6 +216,7 @@ describe('characterCreate helpers', () => {
       'Command',
     ])
     expect(model.availableSpells).not.toContain('Scorching Ray')
+    expect(model.availableSpells).not.toContain('Misty Step')
     expect(model.step4Valid).toBe(true)
   })
 })

@@ -9,6 +9,9 @@ export const POINT_BUY_TOTAL = 27
 export const SCORE_COSTS = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 }
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8]
 export const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+const FULL_CASTER_CLASSES = new Set(['Wizard', 'Cleric', 'Druid', 'Sorcerer', 'Bard'])
+const HALF_CASTER_CLASSES = new Set(['Paladin', 'Ranger'])
+const PACT_CASTER_CLASSES = new Set(['Warlock'])
 
 export function modifier(score) {
   return Math.floor((score - 10) / 2)
@@ -69,6 +72,12 @@ function spellName(spell) {
   return typeof spell === 'string' ? spell : spell?.name
 }
 
+function spellLevel(spell) {
+  if (typeof spell === 'string') return null
+  const level = Number(spell?.level)
+  return Number.isFinite(level) ? level : null
+}
+
 function uniqueSpellNames(spells = []) {
   const seen = new Set()
   const names = []
@@ -103,10 +112,53 @@ function subclassSpellDetailsForLevel(options = {}, subclass = '', level = 1) {
     .flatMap(([, spells]) => spells || [])
 }
 
+function maxSpellLevelForClassLevel(classEnKey, level) {
+  if (PACT_CASTER_CLASSES.has(classEnKey)) {
+    if (level >= 9) return 5
+    if (level >= 7) return 4
+    if (level >= 5) return 3
+    if (level >= 3) return 2
+    if (level >= 1) return 1
+    return 0
+  }
+
+  if (HALF_CASTER_CLASSES.has(classEnKey)) {
+    if (level >= 17) return 5
+    if (level >= 13) return 4
+    if (level >= 9) return 3
+    if (level >= 5) return 2
+    if (level >= 2) return 1
+    return 0
+  }
+
+  if (FULL_CASTER_CLASSES.has(classEnKey)) {
+    if (level >= 17) return 9
+    if (level >= 15) return 8
+    if (level >= 13) return 7
+    if (level >= 11) return 6
+    if (level >= 9) return 5
+    if (level >= 7) return 4
+    if (level >= 5) return 3
+    if (level >= 3) return 2
+    if (level >= 1) return 1
+  }
+
+  return 0
+}
+
+function isAvailableAtSpellLevel(spell, maxSpellLevel) {
+  const level = spellLevel(spell)
+  return level === null || (level > 0 && level <= maxSpellLevel)
+}
+
 export function buildStartingSpellOptions(options = {}, classEnKey = '', subclass = '', level = 1) {
-  const classSpells = options?.class_spells?.[classEnKey] || options?.class_spell_details?.[classEnKey] || []
-  const subclassSpells = subclassSpellDetailsForLevel(options, subclass, Number(level) || 1)
-  return uniqueSpellNames([...classSpells, ...subclassSpells])
+  const characterLevel = Number(level) || 1
+  const maxSpellLevel = maxSpellLevelForClassLevel(classEnKey, characterLevel)
+  const classSpells = options?.class_spell_details?.[classEnKey] || options?.class_spells?.[classEnKey] || []
+  const subclassSpells = subclassSpellDetailsForLevel(options, subclass, characterLevel)
+  return uniqueSpellNames(
+    [...classSpells, ...subclassSpells].filter(spell => isAvailableAtSpellLevel(spell, maxSpellLevel)),
+  )
 }
 
 export function getStepLabels({ isSpellcaster, needsASI, isMultiplayerCreate }) {
