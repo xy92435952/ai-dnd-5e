@@ -30,12 +30,12 @@ const DAMAGE_TYPE_LABELS = {
   environmental: '环境',
 }
 
-function localizedSaveAbility(ability = '') {
+export function localizedSaveAbility(ability = '') {
   const key = String(ability || '').trim().toLowerCase()
   return SAVE_ABILITY_LABELS[key] || ability
 }
 
-function localizedDamageType(type = '') {
+export function localizedDamageType(type = '') {
   const key = String(type || '').trim().toLowerCase()
   return DAMAGE_TYPE_LABELS[key] || type
 }

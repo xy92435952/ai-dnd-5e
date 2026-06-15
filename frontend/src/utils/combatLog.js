@@ -1,3 +1,5 @@
+import { buildHazardDiceResult, localizedDamageType, localizedSaveAbility } from './combatHazards'
+
 const ROLE_LABELS = {
   player: '玩家',
   enemy: '敌人',
@@ -138,6 +140,115 @@ function formatContestRule(dice = {}) {
   return compact([`${label} contest: attacker ${attacker} vs target ${target}`, outcome]).join('; ')
 }
 
+function normalizeHazardTrigger(trigger = '') {
+  const key = String(trigger || '').trim().toLowerCase()
+  if (['turn_start', 'turn-start', 'turn_start_hazard', 'start_of_turn', 'start-of-turn'].includes(key)) {
+    return 'turn_start_hazard'
+  }
+  if (['movement_hazard', 'enter', 'enter_hazard', 'movement', 'move'].includes(key)) {
+    return 'movement_hazard'
+  }
+  return key || 'movement_hazard'
+}
+
+function hazardTriggerLabel(trigger = '') {
+  return normalizeHazardTrigger(trigger) === 'turn_start_hazard'
+    ? '回合开始触发'
+    : '进入触发'
+}
+
+function normalizeHazardDice(dice = null) {
+  if (!dice || typeof dice !== 'object') return null
+  if (dice.type === 'hazard') return dice
+  if (!dice.hazard || typeof dice.hazard !== 'object') return null
+  return buildHazardDiceResult(dice.hazard)
+}
+
+function formatHazardDcRule(dice = null) {
+  const hazard = normalizeHazardDice(dice)
+  if (!hazard) return null
+  const source = hazard.dc_source || {}
+  const save = hazard.saving_throw || {}
+  const dc = asNumber(source.dc ?? save.dc)
+  if (dc === null) return null
+  const label = source.label || hazard.label || '危险地形'
+  const ability = localizedSaveAbility(source.ability || save.ability || hazard.save_ability)
+  return compact([
+    '环境DC',
+    label,
+    ability ? `${ability}豁免` : '豁免',
+    `DC${dc}`,
+    hazardTriggerLabel(source.trigger || hazard.trigger),
+  ]).join(' · ')
+}
+
+function formatHazardDamageAdjustmentRule(dice = null) {
+  const hazard = normalizeHazardDice(dice)
+  if (!hazard?.resistance_applied) return null
+  const before = asNumber(hazard.damage_before_resistance)
+  const after = asNumber(hazard.damage_after_resistance ?? hazard.total_damage)
+  if (before === null || after === null || before === after) return null
+  const damageType = localizedDamageType(hazard.damage_type) || '伤害'
+  const label = after === 0 && before > after
+    ? `${damageType}免疫伤害`
+    : after < before
+      ? `${damageType}抗性减伤`
+      : `${damageType}易伤增伤`
+  return compact([label, damageType, `${before} -> ${after}`]).join(' · ')
+}
+
+function formatHazardRules(dice = null) {
+  return compact([
+    formatHazardDamageAdjustmentRule(dice),
+    formatHazardDcRule(dice),
+  ])
+}
+
+function formatHazardSaveDice(dice = null) {
+  const hazard = normalizeHazardDice(dice)
+  const save = hazard?.saving_throw
+  if (!save || typeof save !== 'object') return null
+  const target = hazard.target_state?.target_name || hazard.target_name || hazard.target_id || '目标'
+  const ability = localizedSaveAbility(save.ability || hazard.save_ability)
+  const d20 = asNumber(save.d20)
+  const total = asNumber(save.total)
+  const explicitModifier = asNumber(save.modifier ?? save.bonus)
+  const modifier = explicitModifier !== null
+    ? explicitModifier
+    : d20 !== null && total !== null
+      ? total - d20
+      : null
+  const dc = asNumber(save.dc ?? hazard.dc_source?.dc)
+  const rollText = d20 !== null && total !== null
+    ? `d20 ${d20}${modifier !== null ? ` ${formatSigned(modifier)}` : ''} = ${total}`
+    : total !== null
+      ? `${total}`
+      : null
+  const outcome = save.success === true
+    ? '成功'
+    : save.success === false
+      ? '失败'
+      : ''
+  return compact([
+    target,
+    ability ? `${ability}豁免` : '豁免',
+    rollText,
+    dc !== null ? `vs DC${dc}` : null,
+    outcome ? `→ ${outcome}` : null,
+  ]).join(' ')
+}
+
+function formatHazardDamageRollDice(dice = null) {
+  const hazard = normalizeHazardDice(dice)
+  const roll = hazard?.damage_roll
+  if (!roll || typeof roll !== 'object') return null
+  const total = asNumber(roll.total)
+  if (total === null) return null
+  const notation = roll.notation || hazard.damage_dice || '伤害骰'
+  const damageType = localizedDamageType(hazard.damage_type)
+  return `伤害骰 ${notation} = ${total}${damageType ? ` ${damageType}` : ''}`
+}
+
 function formatAttackDice(attack = {}) {
   if (!attack || typeof attack !== 'object') return null
   const d20 = asNumber(attack.d20 ?? attack.roll)
@@ -196,19 +307,26 @@ function formatGenericDice(dice = {}) {
 
 function buildDiceSections(dice = null) {
   if (!dice || typeof dice !== 'object') return []
+  const displayDice = normalizeHazardDice(dice) || dice
   const entries = []
-  const attackDice = formatAttackDice(dice.attack)
+  const hazardSave = formatHazardSaveDice(displayDice)
+  if (hazardSave) entries.push(hazardSave)
+
+  const hazardDamageRoll = formatHazardDamageRollDice(displayDice)
+  if (hazardDamageRoll) entries.push(hazardDamageRoll)
+
+  const attackDice = formatAttackDice(displayDice.attack)
   if (attackDice) entries.push(attackDice)
 
-  const damage = formatDamageValue(dice.damage)
+  const damage = formatDamageValue(displayDice.damage)
   if (damage !== null) entries.push(`伤害 ${damage}`)
 
-  const totalDamage = formatDamageValue(dice.total_damage)
+  const totalDamage = formatDamageValue(displayDice.total_damage)
   if (totalDamage !== null && totalDamage !== damage) {
     entries.push(`实际伤害 ${totalDamage}`)
   }
 
-  return [...entries, ...formatGenericDice(dice)]
+  return [...entries, ...formatGenericDice(displayDice)]
 }
 
 function buildAttackFeedback(attack = {}) {
@@ -701,13 +819,15 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
 }
 
 export function buildCombatLogView(log = {}) {
-  const dice = log.dice_result || null
+  const rawDice = log.dice_result || null
+  const dice = normalizeHazardDice(rawDice) || rawDice
   const attack = dice?.attack || {}
   const rules = compact([
     log.rule_result,
     formatAttackRule(attack),
     formatDefenderInterception(attack.defender_interception),
     formatContestRule(dice),
+    ...formatHazardRules(dice),
     formatReactionPreventionRule(log.reaction_effect || (dice?.type === 'reaction' ? dice : null)),
     formatCuttingWordsRule(dice?.cutting_words),
   ])

@@ -289,9 +289,9 @@ def test_import_split_multiplayer_dm_agent_modules():
 
 
 def test_combat_routes_registered():
-    """combat 子包对外应暴露 24 个路由（拆分不能漏路由）。"""
+    """combat 子包对外应暴露 31 个路由（拆分不能漏路由）。"""
     from api.combat import router
-    assert len(router.routes) == 24, f"期望 24 个 combat 路由，实际 {len(router.routes)}"
+    assert len(router.routes) == 31, f"期望 31 个 combat 路由，实际 {len(router.routes)}"
 
 
 def test_all_app_routes_have_path():
@@ -312,18 +312,25 @@ def test_combat_route_paths_unchanged():
         "/game/combat/{session_id}/ai-turn",
         "/game/combat/{session_id}/attack-roll",
         "/game/combat/{session_id}/class-feature",
+        "/game/combat/{session_id}/concentration/end",
         "/game/combat/{session_id}/condition/add",
         "/game/combat/{session_id}/condition/remove",
         "/game/combat/{session_id}/damage-roll",
         "/game/combat/{session_id}/death-save",
+        "/game/combat/{session_id}/delay-turn",
         "/game/combat/{session_id}/end",
         "/game/combat/{session_id}/end-turn",
+        "/game/combat/{session_id}/grapple-escape",
         "/game/combat/{session_id}/grapple-shove",
         "/game/combat/{session_id}/inspect",
+        "/game/combat/{session_id}/lair-action",
+        "/game/combat/{session_id}/legendary-action",
         "/game/combat/{session_id}/maneuver",
         "/game/combat/{session_id}/move",
         "/game/combat/{session_id}/predict",
         "/game/combat/{session_id}/reaction",
+        "/game/combat/{session_id}/ready-action",
+        "/game/combat/{session_id}/recover-thrown-weapons",
         "/game/combat/{session_id}/skill-bar",
         "/game/combat/{session_id}/smite",
         "/game/combat/{session_id}/spell",
