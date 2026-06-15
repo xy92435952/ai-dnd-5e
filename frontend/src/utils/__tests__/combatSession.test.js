@@ -154,6 +154,90 @@ describe('applyCombatSessionSnapshot', () => {
     })
   })
 
+  it('restores the controlled player pending reaction even during an enemy turn reload', () => {
+    const setters = {
+      setCombat: vi.fn(),
+      setSession: vi.fn(),
+      setPlayerId: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      setPlayerKnownSpells: vi.fn(),
+      setPlayerCantrips: vi.fn(),
+      setPlayerClass: vi.fn(),
+      setPlayerLevel: vi.fn(),
+      setClassResources: vi.fn(),
+      setPlayerSubclass: vi.fn(),
+      setPlayerSubclassEffects: vi.fn(),
+      setTurnState: vi.fn(),
+      setReactionPrompt: vi.fn(),
+      setLogs: vi.fn(),
+    }
+    const pending = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      reactor_character_id: 'guest-char',
+      available_reactions: [{ type: 'hellish_rebuke' }],
+    }
+
+    const result = applyCombatSessionSnapshot({
+      combatData: {
+        current_turn_index: 0,
+        turn_order: [
+          { character_id: 'enemy-1', is_enemy: true },
+          { character_id: 'guest-char', is_player: true },
+        ],
+        turn_states: {
+          'enemy-1': { action_used: true },
+          'guest-char': { pending_attack_reaction: pending },
+        },
+      },
+      sessionData: { player: { id: 'guest-char' }, logs: [] },
+      ...setters,
+    })
+
+    expect(setters.setTurnState).toHaveBeenCalledWith({ pending_attack_reaction: pending })
+    expect(setters.setReactionPrompt).toHaveBeenCalledWith(pending)
+    expect(result.pendingReaction).toEqual(pending)
+  })
+
+  it('clears stale local reaction prompts when the refreshed controlled state has no pending reaction', () => {
+    const setters = {
+      setCombat: vi.fn(),
+      setSession: vi.fn(),
+      setPlayerId: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      setPlayerKnownSpells: vi.fn(),
+      setPlayerCantrips: vi.fn(),
+      setPlayerClass: vi.fn(),
+      setPlayerLevel: vi.fn(),
+      setClassResources: vi.fn(),
+      setPlayerSubclass: vi.fn(),
+      setPlayerSubclassEffects: vi.fn(),
+      setTurnState: vi.fn(),
+      setReactionPrompt: vi.fn(),
+      setLogs: vi.fn(),
+    }
+
+    const result = applyCombatSessionSnapshot({
+      combatData: {
+        current_turn_index: 0,
+        turn_order: [
+          { character_id: 'enemy-1', is_enemy: true },
+          { character_id: 'guest-char', is_player: true },
+        ],
+        turn_states: {
+          'enemy-1': { action_used: true },
+          'guest-char': { reaction_used: true },
+        },
+      },
+      sessionData: { player: { id: 'guest-char' }, logs: [] },
+      ...setters,
+    })
+
+    expect(setters.setTurnState).toHaveBeenCalledWith({ reaction_used: true })
+    expect(setters.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(result.pendingReaction).toBeNull()
+  })
+
   it('restores a pending spell reaction prompt and keeps backend reactor id', () => {
     const prompt = getPendingReactionPrompt({
       pending_spell_reaction: {
