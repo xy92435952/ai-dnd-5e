@@ -128,6 +128,45 @@ describe('useCombatPageActions websocket sync', () => {
     })
   })
 
+  it('restores a pending reaction prompt from the combat snapshot even when the websocket payload omits it', () => {
+    const pending = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      attacker_name: 'Orc',
+      available_reactions: [{ type: 'shield' }],
+    }
+    const combat = {
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'guest-char', is_player: true },
+      ],
+      turn_states: {
+        'enemy-1': { action_used: true },
+        'guest-char': { reaction_used: false, pending_attack_reaction: pending },
+      },
+    }
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        combat,
+      })
+    })
+
+    expect(deps.setCombat).toHaveBeenCalledWith(combat)
+    expect(deps.setTurnState).toHaveBeenCalledWith({
+      reaction_used: false,
+      pending_attack_reaction: pending,
+    })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      ...pending,
+      reactor_character_id: 'guest-char',
+    })
+    expect(deps.onLoadCombat).not.toHaveBeenCalled()
+  })
+
   it('uses the controlled character turn state from turn_changed snapshots', () => {
     const combat = {
       current_turn_index: 0,

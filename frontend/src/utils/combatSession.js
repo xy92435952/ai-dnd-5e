@@ -38,7 +38,10 @@ export function applyCombatSessionSnapshot({
   if (playerId) {
     const playerTurnState = getPlayerTurnState(combatData, playerId)
     setTurnState(playerTurnState)
-    pendingReaction = getPendingReactionPrompt(playerTurnState, playerId)
+    pendingReaction = resolveCombatReactionPrompt({
+      turnState: playerTurnState,
+      playerId,
+    })
     if (setReactionPrompt) setReactionPrompt(pendingReaction)
   }
 
@@ -86,5 +89,22 @@ export function getPendingReactionPrompt(turnState, playerId) {
     }
   }
 
+  return null
+}
+
+export function resolveCombatReactionPrompt({
+  turnState = null,
+  playerId = null,
+  reactionPrompt = null,
+  playerCanReact = false,
+} = {}) {
+  const pendingReaction = getPendingReactionPrompt(turnState, playerId)
+  if (pendingReaction) return pendingReaction
+  if (playerCanReact && reactionPrompt) {
+    return {
+      ...reactionPrompt,
+      reactor_character_id: reactionPrompt.reactor_character_id || playerId,
+    }
+  }
   return null
 }

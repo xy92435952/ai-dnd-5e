@@ -13,6 +13,7 @@ import { createCombatSkillClickHandler, getCuttingWordsAbilityCheckOption } from
 import { formatCombatError } from '../utils/combatErrors'
 import { buildHazardDiceResult, formatHazardLog } from '../utils/combatHazards'
 import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
+import { resolveCombatReactionPrompt } from '../utils/combatSession'
 import {
   buildConditionFrightenedMoveBlockedReason,
   buildConditionSpeedLockReason,
@@ -318,9 +319,17 @@ export function useCombatPageActions({
     switch (event.type) {
       case 'combat_update':
         {
-          const hasReactionPrompt = !!(event.player_can_react && event.reaction_prompt)
           const lairPrompt = event.lair_action_prompt || null
           const legendaryPrompt = event.legendary_action_prompt || null
+          const combatSnapshot = event.combat || null
+          const turnState = combatSnapshot ? getViewerTurnStateFromCombat(combatSnapshot, actorId) : null
+          const reactionPrompt = resolveCombatReactionPrompt({
+            turnState,
+            playerId: actorId,
+            reactionPrompt: event.reaction_prompt,
+            playerCanReact: event.player_can_react,
+          })
+          const hasReactionPrompt = !!reactionPrompt
           if (event.combat_over && !event.combat) {
             setCombatOver?.(event.outcome || 'ended')
             setReactionPrompt?.(null)
@@ -331,7 +340,7 @@ export function useCombatPageActions({
           }
           if (event.combat) {
             setCombat(event.combat)
-            setTurnState(getViewerTurnStateFromCombat(event.combat, actorId))
+            setTurnState(turnState)
           } else if (event.entity_positions) {
             setCombat(prev => prev ? {
               ...prev,
@@ -342,7 +351,7 @@ export function useCombatPageActions({
             } : prev)
           }
           if (hasReactionPrompt) {
-            setReactionPrompt?.(event.reaction_prompt)
+            setReactionPrompt?.(reactionPrompt)
           } else {
             setReactionPrompt?.(null)
           }
