@@ -3636,6 +3636,13 @@ async def test_multiplayer_guest_reaction_uses_guest_character_and_broadcasts_up
         assert guest_ai_update["reaction_prompt"]["options"][0]["type"] == "hellish_rebuke"
         assert guest_ai_update["combat"]["turn_states"][guest_char.id]["pending_attack_reaction"]["trigger"] == "incoming_attack"
 
+        host_refresh = await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))
+        guest_refresh = await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))
+        assert host_refresh.status_code == 200, host_refresh.text
+        assert guest_refresh.status_code == 200, guest_refresh.text
+        assert "pending_attack_reaction" not in host_refresh.json()["turn_states"][guest_char.id]
+        assert guest_refresh.json()["turn_states"][guest_char.id]["pending_attack_reaction"]["trigger"] == "incoming_attack"
+
         before_reaction_count = len(host_ws.sent)
         reaction = await client.post(
             f"/game/combat/{sid}/reaction",
@@ -3656,6 +3663,13 @@ async def test_multiplayer_guest_reaction_uses_guest_character_and_broadcasts_up
         assert reaction_update["reaction_type"] == "hellish_rebuke"
         assert reaction_update["combat"]["turn_states"][guest_char.id]["reaction_used"] is True
         assert reaction_update["combat"]["entities"][enemy["id"]]["hp_current"] < enemy["hp_current"]
+
+        host_after_reaction = await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))
+        guest_after_reaction = await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))
+        assert host_after_reaction.status_code == 200, host_after_reaction.text
+        assert guest_after_reaction.status_code == 200, guest_after_reaction.text
+        assert "pending_attack_reaction" not in host_after_reaction.json()["turn_states"][guest_char.id]
+        assert "pending_attack_reaction" not in guest_after_reaction.json()["turn_states"][guest_char.id]
     finally:
         await host_ws.disconnect()
         await guest_ws.disconnect()
@@ -4443,6 +4457,13 @@ async def test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_c
         assert "pending_spell_reaction" not in host_ai_update["combat"]["turn_states"][guest_char.id]
         assert guest_ai_update["combat"]["turn_states"][guest_char.id]["pending_spell_reaction"]["trigger"] == "spell_cast"
 
+        host_refresh = await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))
+        guest_refresh = await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))
+        assert host_refresh.status_code == 200, host_refresh.text
+        assert guest_refresh.status_code == 200, guest_refresh.text
+        assert "pending_spell_reaction" not in host_refresh.json()["turn_states"][guest_char.id]
+        assert guest_refresh.json()["turn_states"][guest_char.id]["pending_spell_reaction"]["trigger"] == "spell_cast"
+
         await db_session.refresh(combat_row)
         assert combat_row.turn_states[guest_char.id]["pending_spell_reaction"]["spell_name"] == "魔法飞弹"
 
@@ -4488,6 +4509,13 @@ async def test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_c
         assert reaction_update["special_action"] == reaction_body["special_action"]
         assert "turn_state" not in reaction_update
         assert "pending_spell_reaction" not in reaction_update["combat"]["turn_states"][guest_char.id]
+
+        host_after_reaction = await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))
+        guest_after_reaction = await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))
+        assert host_after_reaction.status_code == 200, host_after_reaction.text
+        assert guest_after_reaction.status_code == 200, guest_after_reaction.text
+        assert "pending_spell_reaction" not in host_after_reaction.json()["turn_states"][guest_char.id]
+        assert "pending_spell_reaction" not in guest_after_reaction.json()["turn_states"][guest_char.id]
     finally:
         await host_ws.disconnect()
         await guest_ws.disconnect()
