@@ -242,6 +242,76 @@ describe('combatLog', () => {
     ])
   })
 
+  it('explains reaction damage prevention and Cutting Words rules in state summaries', () => {
+    expect(buildCombatStateChangeSummary({
+      reaction_type: 'cutting_words_damage',
+      reaction_effect: {
+        cutting_words: { type: 'cutting_words', die: 'd8', roll: 3 },
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+        hp_restored: 3,
+      },
+      turn_state: { reaction_used: true },
+    })).toEqual([
+      'Cutting Words d8=3: damage 8 -> 5; prevented 3',
+      '反应已用',
+    ])
+  })
+
+  it('renders Cutting Words and contested grapple rules in combat log views', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Lore Bard grapples the guard.',
+      dice_result: {
+        type: 'grapple',
+        success: true,
+        attacker_roll: { total: 18 },
+        target_roll: { total: 17 },
+        cutting_words: {
+          type: 'cutting_words',
+          die: 'd8',
+          roll: 3,
+          check_total_before: 20,
+          check_total_after: 17,
+          check_prevented: 3,
+        },
+      },
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: [
+        'Grapple contest: attacker 18 vs target 17; success',
+        'Cutting Words d8=3: check 20 -> 17; prevented 3',
+      ],
+    })
+  })
+
+  it('renders Cutting Words attack prevention from reaction dice payloads', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Cutting Words ruins the attack.',
+      dice_result: {
+        type: 'reaction',
+        reaction_type: 'cutting_words',
+        cutting_words: { type: 'cutting_words', die: 'd8', roll: 6 },
+        attack_total_before: 19,
+        attack_total_after: 13,
+        target_ac: 15,
+        blocked_attack: true,
+        damage_prevented: 8,
+      },
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')?.items).toContain(
+      'Cutting Words d8=6: attack 19 -> 13 vs AC15; hit blocked',
+    )
+  })
+
   it('summarizes multi-target result impacts without double-counting duplicated AoE payloads', () => {
     const targetResults = [
       {

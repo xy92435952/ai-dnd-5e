@@ -66,6 +66,78 @@ function formatDefenderInterception(interception = null) {
   return `${defenderName} 护卫干扰：${targetText}本次攻击劣势`
 }
 
+function formatCuttingWordsRule(source = null) {
+  if (!source || typeof source !== 'object') return null
+  const effect = source
+  const cutting = effect.cutting_words || effect
+  const hasCuttingWords = (
+    cutting?.type === 'cutting_words'
+    || cutting?.die !== undefined
+    || cutting?.roll !== undefined
+    || effect.attack_total_before !== undefined
+    || effect.damage_roll_before !== undefined
+    || effect.check_total_before !== undefined
+  )
+  if (!hasCuttingWords) return null
+
+  const die = cutting?.die
+  const roll = cutting?.roll
+  const rollText = die && roll !== undefined
+    ? `${die}=${roll}`
+    : roll !== undefined
+      ? `roll ${roll}`
+      : 'applied'
+  const prefix = `Cutting Words ${rollText}:`
+
+  const attackBefore = asNumber(effect.attack_total_before)
+  const attackAfter = asNumber(effect.attack_total_after)
+  if (attackBefore !== null && attackAfter !== null) {
+    const targetAc = asNumber(effect.target_ac)
+    const blocked = effect.blocked_attack ? '; hit blocked' : effect.hit_after === false ? '; now misses' : ''
+    return `${prefix} attack ${attackBefore} -> ${attackAfter}${targetAc !== null ? ` vs AC${targetAc}` : ''}${blocked}`
+  }
+
+  const damageBefore = asNumber(effect.damage_roll_before ?? effect.original_damage)
+  const damageAfter = asNumber(effect.damage_roll_after ?? effect.reduced_damage)
+  if (damageBefore !== null && damageAfter !== null) {
+    const prevented = asNumber(effect.damage_prevented)
+    return `${prefix} damage ${damageBefore} -> ${damageAfter}${prevented !== null ? `; prevented ${prevented}` : ''}`
+  }
+
+  const checkBefore = asNumber(effect.check_total_before)
+  const checkAfter = asNumber(effect.check_total_after)
+  if (checkBefore !== null && checkAfter !== null) {
+    const prevented = asNumber(effect.check_prevented)
+    return `${prefix} check ${checkBefore} -> ${checkAfter}${prevented !== null ? `; prevented ${prevented}` : ''}`
+  }
+
+  return null
+}
+
+function formatReactionPreventionRule(effect = null) {
+  if (!effect || typeof effect !== 'object') return null
+  const cutting = formatCuttingWordsRule(effect)
+  if (cutting) return cutting
+  const prevented = asNumber(effect.damage_prevented)
+  const restored = asNumber(effect.hp_restored)
+  if (prevented === null) return null
+  return compact([
+    `prevented ${prevented} damage`,
+    restored !== null && restored > 0 ? `restored ${restored} HP` : null,
+  ]).join('; ').replace(/^/, 'Reaction: ')
+}
+
+function formatContestRule(dice = {}) {
+  if (!dice || typeof dice !== 'object') return null
+  if (!['grapple', 'shove'].includes(dice.type)) return null
+  const attacker = asNumber(dice.attacker_roll?.total)
+  const target = asNumber(dice.target_roll?.total)
+  if (attacker === null || target === null) return null
+  const label = dice.type === 'shove' ? 'Shove' : 'Grapple'
+  const outcome = dice.success === true ? 'success' : dice.success === false ? 'failure' : ''
+  return compact([`${label} contest: attacker ${attacker} vs target ${target}`, outcome]).join('; ')
+}
+
 function formatAttackDice(attack = {}) {
   if (!attack || typeof attack !== 'object') return null
   const d20 = asNumber(attack.d20 ?? attack.roll)
@@ -587,6 +659,8 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
     ...(hasReactionHpRollback ? [] : summarizeTargetResult(result, options)),
     ...summarizeReactionHpResult(result, options),
   ]
+  entries.push(formatReactionPreventionRule(reactionEffect))
+  entries.push(formatCuttingWordsRule(result.cutting_words))
 
   resultGroupsFrom(result).forEach(group => {
     if (!Array.isArray(group)) return
@@ -629,6 +703,9 @@ export function buildCombatLogView(log = {}) {
     log.rule_result,
     formatAttackRule(attack),
     formatDefenderInterception(attack.defender_interception),
+    formatContestRule(dice),
+    formatReactionPreventionRule(log.reaction_effect || (dice?.type === 'reaction' ? dice : null)),
+    formatCuttingWordsRule(dice?.cutting_words),
   ])
   const diceEntries = buildDiceSections(dice)
   const state = normalizeStateChanges(log.state_changes)
