@@ -343,9 +343,10 @@ function summarizeDeathSaves(saves = null) {
   return `死亡豁免 成功 ${successes}/3，失败 ${failures}/3`
 }
 
-function summarizeConditions(conditions = null) {
+function summarizeConditions(conditions = null, targetName = null) {
   if (!Array.isArray(conditions) || !conditions.length) return null
-  return `状态 ${conditions.join('、')}`
+  const summary = `状态 ${conditions.join('、')}`
+  return targetName ? `${targetName} ${summary}` : summary
 }
 
 function targetLabelFrom(result = {}, options = {}) {
@@ -671,7 +672,10 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
 
   const saves = result.death_saves || result.target_state?.death_saves
   entries.push(summarizeDeathSaves(saves))
-  entries.push(summarizeConditions(result.conditions || result.target_state?.conditions))
+  entries.push(summarizeConditions(
+    result.conditions || result.target_state?.conditions,
+    options.targetName,
+  ))
 
   const slots = result.remaining_slots ? formatSlots(result.remaining_slots) : ''
   if (slots) entries.push(`法术位剩余 ${slots}`)

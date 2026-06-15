@@ -59,6 +59,8 @@ export function createCombatSkillClickHandler({
   confirmCuttingWordsAbilityCheck = null,
   rollCuttingWordsDie = null,
   showDice = null,
+  getActorId = () => null,
+  beginReadyMove = null,
 }) {
   async function buildCuttingWordsOptions(actionType, targetId) {
     const option = getCuttingWordsOption?.({ actionType, targetId })
@@ -86,6 +88,19 @@ export function createCombatSkillClickHandler({
     if (!skill.available || getIsProcessing() || !getIsPlayerTurn()) return
 
     try {
+      if (skill.mode === 'ready_move' || skill.ready_action_type === 'move') {
+        const targetId = getSelectedTarget()
+        if (!targetId) { setError('璇峰厛閫夋嫨鐩爣'); return }
+        beginReadyMove?.({
+          actorId: getActorId?.(),
+          targetId,
+          trigger: skill.trigger,
+          triggerMatch: skill.trigger_match || skill.triggerMatch,
+          conditionText: skill.conditionText || skill.condition_text,
+        })
+        return
+      }
+
       switch (skill.k) {
         case 'atk':
         case 'sneak':

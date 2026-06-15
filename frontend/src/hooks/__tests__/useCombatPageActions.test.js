@@ -98,6 +98,61 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
+  it('uses the controlled character turn state from combat_update snapshots', () => {
+    const combat = {
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'guest-char', is_player: true },
+      ],
+      turn_states: {
+        'enemy-1': { action_used: true },
+        'guest-char': { reaction_used: false, pending_attack_reaction: { trigger: 'incoming_attack' } },
+      },
+    }
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        combat,
+        player_can_react: false,
+        reaction_prompt: null,
+      })
+    })
+
+    expect(deps.setCombat).toHaveBeenCalledWith(combat)
+    expect(deps.setTurnState).toHaveBeenCalledWith({
+      reaction_used: false,
+      pending_attack_reaction: { trigger: 'incoming_attack' },
+    })
+  })
+
+  it('uses the controlled character turn state from turn_changed snapshots', () => {
+    const combat = {
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'host-char', is_player: true },
+        { character_id: 'guest-char', is_player: true },
+      ],
+      turn_states: {
+        'host-char': { action_used: true },
+        'guest-char': { movement_used: 2, movement_max: 6 },
+      },
+    }
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'turn_changed',
+        combat,
+      })
+    })
+
+    expect(deps.setCombat).toHaveBeenCalledWith(combat)
+    expect(deps.setTurnState).toHaveBeenCalledWith({ movement_used: 2, movement_max: 6 })
+  })
+
   it('merges entity positions from combat_update before refreshing observers', () => {
     const { result, deps } = renderActions({
       combat: {

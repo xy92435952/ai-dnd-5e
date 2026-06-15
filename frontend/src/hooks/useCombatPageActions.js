@@ -44,6 +44,16 @@ function formatOpportunityAttackMoveLog(opportunity = {}) {
   return `\u501f\u673a\u653b\u51fb\uff1a${attacker} \u653b\u51fb ${target}\uff0c${hitText}${rollText}${damageText}\u3002${stopText}`
 }
 
+function getViewerTurnStateFromCombat(combatSnapshot, characterId = null) {
+  const turnStates = combatSnapshot?.turn_states
+  if (!turnStates) return null
+  if (characterId && Object.prototype.hasOwnProperty.call(turnStates, characterId)) {
+    return turnStates[characterId] || null
+  }
+  const entry = combatSnapshot.turn_order?.[combatSnapshot.current_turn_index]
+  return entry?.character_id ? (turnStates[entry.character_id] || null) : null
+}
+
 function formatReadyActionMoveLog(readyAction = {}) {
   const actor = readyAction.actor_name || readyAction.actor || '\u76ee\u6807'
   const target = readyAction.target_name || readyAction.target || '\u76ee\u6807'
@@ -238,13 +248,20 @@ function appendCombatUpdateActionLog(addLog, event = {}) {
   if (!event.narration) return
   const impactSummary = buildCombatResultImpactSummary(event)
   const diceResult = buildAiTurnDiceResult(event)
+  const targetName = event.target_name
+    || event.target_state?.target_name
+    || diceResult?.target_name
+    || diceResult?.target_state?.target_name
+    || event.target_id
   addLog?.({
     role: event.actor_id?.startsWith?.('enemy') ? 'enemy' : `companion_${event.actor_name || event.actor_id || 'AI'}`,
     content: event.narration,
     log_type: 'combat',
     ...(diceResult ? { dice_result: diceResult } : {}),
     ...(impactSummary.length > 0 ? { impact_summary: impactSummary } : {}),
-    state_changes: buildCombatStateChangeSummary(event),
+    state_changes: buildCombatStateChangeSummary(event, {
+      targetName,
+    }),
   })
 }
 
@@ -314,10 +331,7 @@ export function useCombatPageActions({
           }
           if (event.combat) {
             setCombat(event.combat)
-            const entry = event.combat.turn_order?.[event.combat.current_turn_index]
-            if (entry?.character_id && event.combat.turn_states) {
-              setTurnState(event.combat.turn_states[entry.character_id] || null)
-            }
+            setTurnState(getViewerTurnStateFromCombat(event.combat, actorId))
           } else if (event.entity_positions) {
             setCombat(prev => prev ? {
               ...prev,
@@ -355,10 +369,7 @@ export function useCombatPageActions({
           const legendaryPrompt = event.legendary_action_prompt || null
           if (event.combat) {
             setCombat(event.combat)
-            const entry = event.combat.turn_order?.[event.combat.current_turn_index]
-            if (entry?.character_id && event.combat.turn_states) {
-              setTurnState(event.combat.turn_states[entry.character_id] || null)
-            }
+            setTurnState(getViewerTurnStateFromCombat(event.combat, actorId))
           }
           if (event.turn_order_delayed && event.delayed_turn) {
             addLog?.({
@@ -446,20 +457,30 @@ export function useCombatPageActions({
     addLog,
     onLoadCombat,
     onCombatEnded,
+    actorId,
   ])
 
   const onSkillClick = createCombatSkillClickHandler({
     getIsProcessing: () => isProcessing,
     getIsPlayerTurn: () => canActThisTurn,
-    getUnavailableReason: (skill) => getSkillUnavailableReason({
-      skill,
-      turnState: combat?.turn_states?.[actorId],
-      actor,
-      isPlayerTurn: canActThisTurn,
-      syncBlocked: false,
-      isProcessing,
-      selectedTarget,
-    }),
+    getUnavailableReason: (skill) => {
+      const movementSkill = skill?.kind === 'move' || ['dash', 'cunning_action_dash', 'ki_step_of_the_wind_dash'].includes(skill?.k)
+      if (movementSkill) {
+        const speedLockReason = buildConditionSpeedLockReason(
+          actor?.conditions || [],
+          actor?.condition_durations || {},
+        )
+        if (speedLockReason) return speedLockReason
+      }
+      return getSkillUnavailableReason({
+        skill,
+        turnState: combat?.turn_states?.[actorId],
+        isPlayerTurn: canActThisTurn,
+        syncBlocked: false,
+        isProcessing,
+        selectedTarget,
+      })
+    },
     getSelectedTarget: () => selectedTarget,
     setError,
     handleAttack,
