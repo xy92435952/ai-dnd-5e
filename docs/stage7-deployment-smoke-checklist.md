@@ -181,6 +181,10 @@ For a manual browser check while sockets remain open, add:
 The GitHub Actions workflow `Multiplayer Load Smoke` runs the same style of
 check on demand.
 
+Latest local dry-run evidence:
+
+- 2026-06-15: `scripts\multiplayer_ws_loadtest.py --base-url http://127.0.0.1:8002 --seed-sqlite-module <temp-db> --prefix stage7_load_20260615_1936` passed against a temporary SQLite backend DB. Result: 50 users, 13 rooms, 50 WebSocket connections, room sizes `4x12 + 2`, seeded module cleanup OK, room leave cleanup OK, dissolved-room access checks returned expected 403/404 responses, and backend log scan found no `ERROR`/`Traceback`/`500` lines.
+
 ## Deployment Checks
 
 Before server pull/restart:
