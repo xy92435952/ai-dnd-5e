@@ -462,6 +462,7 @@ def build_reaction_prompt(
     cutting_die = get_cutting_words_die(player_check)
     if cutting_die:
         attack_total = result_obj.attack_roll.get("attack_total", 0) if result_obj else 0
+        incoming_damage = int((pending_reaction or {}).get("incoming_damage") or total_damage or 0)
         available_reactions.append({
             "id": "cutting_words",
             "name": "Cutting Words",
@@ -473,6 +474,19 @@ def build_reaction_prompt(
                 f"({attack_total} vs AC{p_derived_r.get('ac', 10)})."
             ),
         })
+        if incoming_damage > 0:
+            available_reactions.append({
+                "id": "cutting_words_damage",
+                "name": "Cutting Words: Damage",
+                "type": "cutting_words_damage",
+                "cost": f"reaction + Bardic Inspiration {cutting_die}",
+                "die": cutting_die,
+                "damage_roll_before": incoming_damage,
+                "effect": (
+                    f"Roll {cutting_die} and subtract it from the damage "
+                    f"roll ({incoming_damage} damage)."
+                ),
+            })
 
     if ("Hellish Rebuke" in known_spells or "hellish_rebuke" in known_spells) and p_slots.get("1st", 0) > 0:
         available_reactions.append({

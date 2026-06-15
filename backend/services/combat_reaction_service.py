@@ -210,6 +210,37 @@ def calculate_cutting_words_prevention(
     }
 
 
+def calculate_cutting_words_damage_prevention(
+    pending_reaction: dict[str, Any] | None,
+    *,
+    cutting_words_roll: int,
+) -> dict[str, Any]:
+    for index, event in enumerate((pending_reaction or {}).get("events") or []):
+        original_damage = _coerce_non_negative_int(event.get("damage", 0))
+        if not event.get("hit", True) or original_damage <= 0:
+            continue
+        roll = max(0, int(cutting_words_roll or 0))
+        reduced_damage = max(0, original_damage - roll)
+        return {
+            "damage_type": normalize_damage_type(event.get("damage_type")) or None,
+            "original_damage": original_damage,
+            "reduced_damage": reduced_damage,
+            "damage_roll_before": original_damage,
+            "damage_roll_after": reduced_damage,
+            "damage_prevented": original_damage - reduced_damage,
+            "affected_attack_index": index,
+        }
+    return {
+        "damage_type": None,
+        "original_damage": 0,
+        "reduced_damage": 0,
+        "damage_roll_before": 0,
+        "damage_roll_after": 0,
+        "damage_prevented": 0,
+        "affected_attack_index": None,
+    }
+
+
 def build_pending_attack_reaction(
     *,
     attacker_id: str,

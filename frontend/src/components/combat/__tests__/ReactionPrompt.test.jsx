@@ -122,6 +122,41 @@ describe('ReactionPrompt', () => {
     )
   })
 
+  it('passes Cutting Words damage die metadata through to the reaction handler', async () => {
+    const onReact = vi.fn()
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          context: 'Incoming damage',
+          attacker_id: 'enemy-1',
+          reactor_character_id: 'char-2',
+          available_reactions: [
+            {
+              id: 'cutting_words_damage',
+              type: 'cutting_words_damage',
+              name: 'Cutting Words: Damage',
+              cost: 'reaction + Bardic Inspiration d8',
+              die: 'd8',
+              effect: 'Roll d8 and subtract it from the damage roll.',
+            },
+          ],
+        }}
+        onReact={onReact}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Cutting Words: Damage/ }))
+
+    expect(onReact).toHaveBeenCalledWith(
+      'cutting_words_damage',
+      'enemy-1',
+      'char-2',
+      expect.objectContaining({ die: 'd8' }),
+    )
+  })
+
   it('passes Bardic spell-save die metadata through to the reaction handler', async () => {
     const onReact = vi.fn()
     render(

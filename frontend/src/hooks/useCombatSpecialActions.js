@@ -98,7 +98,7 @@ export function useCombatSpecialActions({
         const { total } = await rollDice3D(10, 2)
         showDice({ faces: 10, result: total, label: '地狱斥责 2d10', count: 2 })
       }
-      if (reactionType === 'cutting_words') {
+      if (reactionType === 'cutting_words' || reactionType === 'cutting_words_damage') {
         const faces = reactionDieFaces(reactionOption)
         const { total } = await rollDice3D(faces, 1)
         showDice({ faces, result: total, label: `Cutting Words d${faces}`, count: 1 })

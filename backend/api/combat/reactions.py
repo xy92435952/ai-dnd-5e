@@ -29,6 +29,7 @@ from services.combat_reaction_service import (
     apply_absorb_elements_state,
     calculate_absorb_elements_prevention,
     calculate_counterspell_result,
+    calculate_cutting_words_damage_prevention,
     calculate_cutting_words_prevention,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
@@ -391,7 +392,14 @@ async def use_reaction(
     p_class = _normalize_class(player.char_class)
     p_level = player.level
     derived = player.derived or {}
-    attack_reaction_types = {"shield", "uncanny_dodge", "hellish_rebuke", "absorb_elements", "cutting_words"}
+    attack_reaction_types = {
+        "shield",
+        "uncanny_dodge",
+        "hellish_rebuke",
+        "absorb_elements",
+        "cutting_words",
+        "cutting_words_damage",
+    }
     if req.reaction_type in attack_reaction_types and not _has_pending_attack_reaction(ts):
         return _reaction_already_resolved(req, ts)
     if req.reaction_type == "counterspell" and not _has_pending_spell_reaction(ts):
@@ -609,6 +617,43 @@ async def use_reaction(
                 f"but {reaction_target_name}'s attack still lands at "
                 f"{cutting_result['attack_total_after']} against AC{cutting_result['target_ac']}."
             )
+        if hp_result["hp_restored"] > 0:
+            narration += f" Restored {hp_result['hp_restored']} already-applied damage."
+        reaction_effect = {
+            "cutting_words": cutting_words,
+            **cutting_result,
+            **hp_result,
+            "class_resources": player.class_resources or {},
+        }
+
+    elif req.reaction_type == "cutting_words_damage":
+        try:
+            cutting_words = spend_cutting_words_resource(
+                player,
+                cutting_words_roll=req.cutting_words_roll,
+            )
+        except CuttingWordsError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+        cutting_result = calculate_cutting_words_damage_prevention(
+            pending_reaction,
+            cutting_words_roll=cutting_words["roll"],
+        )
+        hp_result = restore_prevented_damage(
+            player,
+            pending_reaction,
+            cutting_result["damage_prevented"],
+        )
+        ts["reaction_used"] = True
+        ts.pop("pending_attack_reaction", None)
+        _save_ts(combat, player_id, ts)
+
+        reaction_target_name = pending_reaction.get("attacker_name") or "attacker"
+        narration = (
+            f"{player.name} uses Cutting Words ({cutting_words['die']}={cutting_words['roll']}), "
+            f"reducing {reaction_target_name}'s damage roll from "
+            f"{cutting_result['damage_roll_before']} to {cutting_result['damage_roll_after']}."
+        )
         if hp_result["hp_restored"] > 0:
             narration += f" Restored {hp_result['hp_restored']} already-applied damage."
         reaction_effect = {
@@ -841,7 +886,7 @@ async def use_reaction(
     if req.reaction_type == "hellish_rebuke":
         reaction_dice = {"faces": 10, "result": reaction_effect.get("damage_dealt", 0), "label": "地狱斥责 2d10", "count": 2}
 
-    if req.reaction_type == "cutting_words":
+    if req.reaction_type in {"cutting_words", "cutting_words_damage"}:
         cutting_words = reaction_effect.get("cutting_words") or {}
         try:
             faces = int(str(cutting_words.get("die") or "d6").lstrip("dD"))

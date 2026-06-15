@@ -209,6 +209,55 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('rolls Cutting Words for damage reduction reactions', async () => {
+    rollDice3DMock.mockResolvedValueOnce({ total: 3, rolls: [3] })
+    useReactionMock.mockResolvedValueOnce({
+      narration: 'Cutting Words reduces the damage roll.',
+      turn_state: { reaction_used: true },
+      reaction_effect: {
+        cutting_words: { die: 'd8', roll: 3, uses_remaining: 1 },
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+        hp_restored: 3,
+        class_resources: { bardic_inspiration_remaining: 1 },
+      },
+      target_state: {
+        target_id: 'char-2',
+        target_name: 'Lore Bard',
+        hp_current: 15,
+        class_resources: { bardic_inspiration_remaining: 1 },
+      },
+    })
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleReaction(
+        'cutting_words_damage',
+        'enemy-1',
+        'char-2',
+        { die: 'd8' },
+      )
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(8, 1)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 3,
+      label: 'Cutting Words d8',
+      count: 1,
+    })
+    expect(useReactionMock).toHaveBeenCalledWith(
+      'sess-1',
+      'cutting_words_damage',
+      'enemy-1',
+      'char-2',
+      { cuttingWordsRoll: 3 },
+    )
+    expect(deps.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
+    expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
   it('rolls Bardic Inspiration and submits the die value for spell-save prompts without auto-advancing', async () => {
     rollDice3DMock.mockResolvedValueOnce({ total: 4, rolls: [4] })
     useReactionMock.mockResolvedValueOnce({

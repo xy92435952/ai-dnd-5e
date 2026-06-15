@@ -5,6 +5,7 @@ from services.combat_reaction_service import (
     build_pending_attack_reaction,
     calculate_absorb_elements_prevention,
     calculate_counterspell_result,
+    calculate_cutting_words_damage_prevention,
     calculate_cutting_words_prevention,
     calculate_hellish_rebuke_damage,
     calculate_reaction_save,
@@ -111,6 +112,27 @@ def test_cutting_words_does_not_cancel_a_critical_hit():
     assert result["blocked_attack"] is False
     assert result["hit_after"] is True
     assert result["damage_prevented"] == 0
+
+
+def test_cutting_words_damage_reduces_first_qualifying_damage_roll():
+    pending = {
+        "events": [
+            {"attack_total": 20, "target_ac": 16, "damage": 8, "hit": True, "damage_type": "slashing"},
+            {"attack_total": 18, "target_ac": 16, "damage": 5, "hit": True, "damage_type": "piercing"},
+        ],
+    }
+
+    result = calculate_cutting_words_damage_prevention(pending, cutting_words_roll=3)
+
+    assert result == {
+        "damage_type": "slashing",
+        "original_damage": 8,
+        "reduced_damage": 5,
+        "damage_roll_before": 8,
+        "damage_roll_after": 5,
+        "damage_prevented": 3,
+        "affected_attack_index": 0,
+    }
 
 
 def test_cutting_words_spends_bardic_resource_and_uses_subclass_die():
