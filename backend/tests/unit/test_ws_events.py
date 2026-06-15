@@ -165,6 +165,27 @@ class TestSampleEvents:
         assert data["legendary_action_prompt"] is None
         assert data["legendary_action"] == legendary_action
 
+    def test_reaction_prompt_projection_keeps_prompt_only_for_reactor(self):
+        from api.combat._shared import _project_combat_event_for_viewer
+
+        payload = {
+            "type": "combat_update",
+            "player_can_react": True,
+            "reaction_prompt": {
+                "trigger": "incoming_attack",
+                "reactor_character_id": "guest-char",
+                "options": [{"type": "shield", "character_id": "guest-char"}],
+            },
+        }
+
+        own = _project_combat_event_for_viewer(payload, viewer_character_id="guest-char")
+        other = _project_combat_event_for_viewer(payload, viewer_character_id="host-char")
+
+        assert own["player_can_react"] is True
+        assert own["reaction_prompt"]["reactor_character_id"] == "guest-char"
+        assert other["player_can_react"] is False
+        assert other["reaction_prompt"] is None
+
     def test_condition_update_projection_redacts_nested_ready_action_failure_for_other_viewer(self):
         from api.combat._shared import _project_combat_event_for_viewer
 

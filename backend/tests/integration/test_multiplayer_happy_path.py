@@ -56,7 +56,12 @@ async def _create_character(client, user: dict, module_id: str, *, name: str, cl
         "proficient_skills": ["运动", "感知"] if class_name == "Fighter" else ["奥秘", "调查"],
         "fighting_style": "Defense" if class_name == "Fighter" else None,
         "equipment_choice": 0,
-        "known_spells": ["Shield"] if class_name == "Wizard" else [],
+        "known_spells": (
+            ["护盾", "魔法飞弹", "魔法护甲", "灼热之手", "睡眠", "侦测魔法"]
+            if class_name == "Wizard"
+            else []
+        ),
+        "cantrips": ["火焰射线", "法师之手", "光明术"] if class_name == "Wizard" else [],
     })
     assert response.status_code == 200, response.text
     return response.json()
@@ -264,9 +269,8 @@ async def test_four_player_multiplayer_happy_path_room_to_combat_reaction_and_en
     assert ai_turn.status_code == 200, ai_turn.text
     ai_body = ai_turn.json()
     assert ai_body["target_id"] == characters[1]["id"]
-    assert ai_body["player_can_react"] is True
-    assert ai_body["reaction_prompt"]["reactor_character_id"] == characters[1]["id"]
-    assert ai_body["reaction_prompt"]["available_reactions"][0]["type"] == "shield"
+    assert ai_body["player_can_react"] is False
+    assert ai_body["reaction_prompt"] is None
 
     reaction = await client.post(f"/game/combat/{session_id}/reaction", headers=_h(users[1]["token"]), json={
         "reaction_type": "shield",

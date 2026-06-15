@@ -534,7 +534,32 @@ async def _project_ai_control_prompts_for_user(
     user_id: str | None,
     payload: dict,
 ) -> dict:
-    """Hide monster/lair control prompts from non-driver HTTP responses."""
+    """Project private combat prompts for an HTTP response viewer."""
+    return await _project_combat_event_for_user(db, session, user_id, payload)
+
+
+async def _project_combat_event_for_user(
+    db: AsyncSession,
+    session: Session,
+    user_id: str | None,
+    payload: dict,
+) -> dict:
+    """Apply the same prompt privacy rules to direct HTTP responses as WS events."""
+    if session.is_multiplayer:
+        viewer_character_id = None
+        if user_id:
+            viewer_character_id = (await _viewer_character_ids_by_user(db, session)).get(str(user_id))
+        can_drive = (
+            await _user_can_drive_ai_combat(db, session, user_id)
+            if _payload_has_ai_control_prompt(payload)
+            else True
+        )
+        return _project_combat_event_for_viewer(
+            payload,
+            viewer_character_id=viewer_character_id,
+            viewer_can_drive_ai_combat=can_drive,
+        )
+
     if not _payload_has_ai_control_prompt(payload):
         return payload
     can_drive = await _user_can_drive_ai_combat(db, session, user_id)

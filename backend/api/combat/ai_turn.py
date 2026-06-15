@@ -20,6 +20,7 @@ from api.combat._shared import (
     _combat_turn_token,
     _get_ts,
     _get_turn_advance_lock,
+    _project_combat_event_for_user,
     _reset_ts,
 )
 from api.combat.ai_turn_utils import advance_ai_turn, tick_ai_actor_conditions
@@ -49,7 +50,7 @@ class AITurnRequest(BaseModel):
     expected_turn_token: str | None = None
 
 
-async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) -> dict | None:
+async def _broadcast_ai_turn_result(session, combat, db, result: dict | None, user_id: str | None = None) -> dict | None:
     if result is None:
         return result
     await _broadcast_combat(
@@ -102,7 +103,7 @@ async def _broadcast_ai_turn_result(session, combat, db, result: dict | None) ->
         ),
         db=db,
     )
-    return result
+    return await _project_combat_event_for_user(db, session, user_id, result)
 
 
 @router.post("/combat/{session_id}/ai-turn", response_model=EndTurnResult)
@@ -118,7 +119,7 @@ async def ai_combat_turn(
     await _assert_ai_combat_driver(db, session, user_id)
 
     async with _get_turn_advance_lock(session_id):
-        return await _ai_combat_turn_locked(session_id, req, db, session)
+        return await _ai_combat_turn_locked(session_id, req, db, session, user_id)
 
 
 async def _ai_combat_turn_locked(
@@ -126,6 +127,7 @@ async def _ai_combat_turn_locked(
     req: AITurnRequest,
     db: AsyncSession,
     session,
+    user_id: str,
 ):
     await db.refresh(session)
     if not session.combat_active:
@@ -204,7 +206,7 @@ async def _ai_combat_turn_locked(
             "combat_over": False, "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
             **advance_result,
-        })
+        }, user_id)
 
     # ── 计算下一回合索引（多处提前返回需要使用）────────────
     next_index = (combat.current_turn_index + 1) % max(len(turn_order), 1)
@@ -241,7 +243,7 @@ async def _ai_combat_turn_locked(
             "outcome": None,
             "entity_positions": dict(combat.entity_positions or {}),
             **advance_result,
-        })
+        }, user_id)
 
     confusion_turn = apply_confusion_turn_start(combat, actor_id, actor_rule_state)
     if confusion_turn and confusion_turn.get("outcome") != "act_normally":
@@ -307,7 +309,7 @@ async def _ai_combat_turn_locked(
             "condition_end_saves": condition_end_saves,
             "confusion_turn": confusion_turn,
             **advance_result,
-        })
+        }, user_id)
 
     _resume_reactor_id, _resume_ts, resume_spell = find_resumable_spell_reaction(combat, actor_id)
     if resume_spell:
@@ -374,7 +376,7 @@ async def _ai_combat_turn_locked(
         decision=decision,
     )
     if simple_response is not None:
-        return await _broadcast_ai_turn_result(session, combat, db, simple_response)
+        return await _broadcast_ai_turn_result(session, combat, db, simple_response, user_id)
 
     special_response = await handle_ai_special_action(
         session_id,
@@ -395,7 +397,7 @@ async def _ai_combat_turn_locked(
         decision,
     )
     if special_response is not None:
-        return await _broadcast_ai_turn_result(session, combat, db, special_response)
+        return await _broadcast_ai_turn_result(session, combat, db, special_response, user_id)
 
     spell_response = await handle_ai_spell_action(
         session_id,
@@ -419,7 +421,7 @@ async def _ai_combat_turn_locked(
         enemy=e,
     )
     if spell_response is not None:
-        return await _broadcast_ai_turn_result(session, combat, db, spell_response)
+        return await _broadcast_ai_turn_result(session, combat, db, spell_response, user_id)
 
     attack_response = await handle_ai_attack_action(
         session_id,
@@ -445,7 +447,7 @@ async def _ai_combat_turn_locked(
         decision,
     )
     if attack_response is not None:
-        return await _broadcast_ai_turn_result(session, combat, db, attack_response)
+        return await _broadcast_ai_turn_result(session, combat, db, attack_response, user_id)
 
 
 # ── 移动 ─────────────────────────────────────────────────

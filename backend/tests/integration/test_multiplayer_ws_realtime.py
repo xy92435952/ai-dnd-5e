@@ -3621,11 +3621,10 @@ async def test_multiplayer_guest_reaction_uses_guest_character_and_broadcasts_up
         before_ai_count = len(guest_ws.sent)
         ai_result = await client.post(f"/game/combat/{sid}/ai-turn", headers=_h(host["token"]))
         assert ai_result.status_code == 200, ai_result.text
-        assert ai_result.json()["target_id"] == guest_char.id
-        assert ai_result.json()["player_can_react"] is True
-        assert ai_result.json()["reaction_prompt"]["reactor_character_id"] == guest_char.id
-        assert ai_result.json()["reaction_prompt"]["options"][0]["type"] == "hellish_rebuke"
-        assert ai_result.json()["reaction_prompt"]["options"][0]["character_id"] == guest_char.id
+        ai_body = ai_result.json()
+        assert ai_body["target_id"] == guest_char.id
+        assert ai_body["player_can_react"] is False
+        assert ai_body["reaction_prompt"] is None
 
         host_ai_update = await _wait_for_event(host_ws, "combat_update", timeout=2, start_index=before_host_ai_count)
         guest_ai_update = await _wait_for_event(guest_ws, "combat_update", timeout=2, start_index=before_ai_count)
@@ -3827,9 +3826,8 @@ async def test_multiplayer_reaction_prompt_does_not_cross_room_boundaries(
         assert ai_result.status_code == 200, ai_result.text
         ai_body = ai_result.json()
         assert ai_body["target_id"] == a_guest_char.id
-        assert ai_body["player_can_react"] is True
-        assert ai_body["reaction_prompt"]["reactor_character_id"] == a_guest_char.id
-        assert ai_body["reaction_prompt"]["options"][0]["type"] == "hellish_rebuke"
+        assert ai_body["player_can_react"] is False
+        assert ai_body["reaction_prompt"] is None
 
         update = await _wait_for_event(a_guest_ws, "combat_update", timeout=2, start_index=a_before)
         assert update["combat"]["session_id"] == a_sid
@@ -3992,11 +3990,14 @@ async def test_multiplayer_guest_shield_retroactively_blocks_ai_hit(
         ai_body = ai_result.json()
         assert ai_body["target_id"] == guest_char.id
         assert ai_body["target_new_hp"] == 2
-        assert ai_body["reaction_prompt"]["available_reactions"][0]["type"] == "shield"
-        assert ai_body["reaction_prompt"]["available_reactions"][0]["damage_prevented"] == 4
+        assert ai_body["player_can_react"] is False
+        assert ai_body["reaction_prompt"] is None
 
         ai_update = await _wait_for_event(guest_ws, "combat_update", timeout=2, start_index=before_ai_count)
         assert ai_update["combat"]["entities"][guest_char.id]["hp_current"] == 2
+        assert ai_update["player_can_react"] is True
+        assert ai_update["reaction_prompt"]["available_reactions"][0]["type"] == "shield"
+        assert ai_update["reaction_prompt"]["available_reactions"][0]["damage_prevented"] == 4
 
         before_reaction_count = len(host_ws.sent)
         reaction = await client.post(
@@ -4200,17 +4201,18 @@ async def test_multiplayer_guest_absorb_elements_restores_damage_and_broadcasts_
         ai_body = ai_result.json()
         assert ai_body["target_id"] == guest_char.id
         assert ai_body["target_new_hp"] == 0
-        assert ai_body["reaction_prompt"]["reactor_character_id"] == guest_char.id
+        assert ai_body["player_can_react"] is False
+        assert ai_body["reaction_prompt"] is None
+
+        ai_update = await _wait_for_event(guest_ws, "combat_update", timeout=2, start_index=before_ai_count)
+        assert ai_update["reaction_prompt"]["reactor_character_id"] == guest_char.id
         absorb = next(
             reaction
-            for reaction in ai_body["reaction_prompt"]["available_reactions"]
+            for reaction in ai_update["reaction_prompt"]["available_reactions"]
             if reaction["type"] == "absorb_elements"
         )
         assert absorb["damage_type"] == "fire"
         assert absorb["damage_prevented"] == 5
-
-        ai_update = await _wait_for_event(guest_ws, "combat_update", timeout=2, start_index=before_ai_count)
-        assert ai_update["reaction_prompt"]["reactor_character_id"] == guest_char.id
 
         before_reaction_count = len(host_ws.sent)
         reaction = await client.post(
@@ -4413,13 +4415,8 @@ async def test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_c
         assert ai_result.status_code == 200, ai_result.text
         ai_body = ai_result.json()
         assert ai_body["target_id"] == host_char.id
-        assert ai_body["player_can_react"] is True
-        assert ai_body["reaction_prompt"]["trigger"] == "spell_cast"
-        assert ai_body["reaction_prompt"]["reactor_character_id"] == guest_char.id
-        assert ai_body["reaction_prompt"]["spell_target_id"] == host_char.id
-        assert ai_body["reaction_prompt"]["range"]["distance_ft"] == 5
-        assert ai_body["reaction_prompt"]["range"]["range_ft"] == 60
-        assert ai_body["reaction_prompt"]["options"][0]["type"] == "counterspell"
+        assert ai_body["player_can_react"] is False
+        assert ai_body["reaction_prompt"] is None
 
         guest_ai_update = await _wait_for_event(
             guest_ws,
