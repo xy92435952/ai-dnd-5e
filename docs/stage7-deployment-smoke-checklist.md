@@ -120,6 +120,7 @@ to reinstall normal dev dependencies afterwards.
 Latest local dry-run evidence:
 
 - 2026-06-15: `npm ci --omit=dev` followed by `npm run build` passed in an isolated detached worktree under `.codex-test-artifacts`, leaving the active `frontend/node_modules` untouched. The prod-only install reported npm audit findings (`2 moderate`, `4 high`) but completed successfully; the production Vite build transformed 281 modules and produced the expected `dist/` bundle.
+- 2026-06-15: dependency audit cleanup upgraded direct production frontend dependencies to `axios@^1.18.0`, `react-router-dom@^7.17.0`, and `vite@^8.0.16`, pulling patched production transitive versions `follow-redirects@1.16.0`, `react-router@7.17.0`, and `postcss@8.5.15`. `npm audit fix` then patched the remaining dev-only `brace-expansion` chain to `brace-expansion@1.1.15`. Both `npm audit --omit=dev` and full `npm audit` reported 0 vulnerabilities after the cleanup.
 
 ## Manual Local Smoke
 
