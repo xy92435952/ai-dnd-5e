@@ -117,6 +117,10 @@ npm run build
 Do not run `npm ci --omit=dev` in the active working tree unless you are ready
 to reinstall normal dev dependencies afterwards.
 
+Latest local dry-run evidence:
+
+- 2026-06-15: `npm ci --omit=dev` followed by `npm run build` passed in an isolated detached worktree under `.codex-test-artifacts`, leaving the active `frontend/node_modules` untouched. The prod-only install reported npm audit findings (`2 moderate`, `4 high`) but completed successfully; the production Vite build transformed 281 modules and produced the expected `dist/` bundle.
+
 ## Manual Local Smoke
 
 Start the app:
