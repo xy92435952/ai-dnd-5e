@@ -80,6 +80,8 @@ class GrappleShoveRequest(BaseModel):
     action_type: str        # "grapple" | "shove"
     target_id: str
     shove_type: str = "prone"  # "prone" | "push" (only for shove)
+    use_cutting_words: Optional[bool] = False
+    cutting_words_roll: Optional[int] = None
 
 
 class GrappleEscapeRequest(BaseModel):

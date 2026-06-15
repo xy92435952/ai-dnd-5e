@@ -312,11 +312,13 @@ export const gameApi = {
     })
   },
 
-  grappleShove: (sessionId, actionType, targetId, shoveType = 'prone') =>
+  grappleShove: (sessionId, actionType, targetId, shoveType = 'prone', options = {}) =>
     api.post(`/game/combat/${sessionId}/grapple-shove`, {
       action_type: actionType,
       target_id: targetId,
       shove_type: shoveType,
+      ...(options.useCuttingWords ? { use_cutting_words: true } : {}),
+      ...(options.cuttingWordsRoll != null ? { cutting_words_roll: options.cuttingWordsRoll } : {}),
     }),
 
   // 法术列表

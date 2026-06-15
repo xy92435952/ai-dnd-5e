@@ -382,6 +382,82 @@ async def test_dying_character_can_still_roll_death_save_after_action_gate(
     assert response.json()["outcome"] == "success"
 
 
+async def test_grapple_shove_can_spend_cutting_words_on_target_contested_check(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat, monkeypatch,
+):
+    import services.combat_grapple_service as grapple_service
+
+    sample_character.char_class = "Bard"
+    sample_character.subclass = "Lore"
+    sample_character.level = 5
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = []
+    sample_character.class_resources = {"bardic_inspiration_remaining": 2}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "subclass_effects": {
+            "lore_bard": True,
+            "cutting_words": True,
+            "inspiration_die": "d8",
+        },
+    }
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "attacks_made": 0,
+        }
+    }
+
+    def fake_resolve_grapple(*_args):
+        return {
+            "success": False,
+            "attacker_roll": {"total": 18},
+            "target_roll": {"total": 20},
+        }
+
+    monkeypatch.setattr(grapple_service.svc, "resolve_grapple", fake_resolve_grapple)
+    monkeypatch.setattr(grapple_service, "narrate_action", lambda **_kwargs: None)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/grapple-shove",
+        headers=headers,
+        json={
+            "action_type": "grapple",
+            "target_id": "goblin-1",
+            "use_cutting_words": True,
+            "cutting_words_roll": 3,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is True
+    assert body["target_roll"]["total_before_cutting_words"] == 20
+    assert body["target_roll"]["total"] == 17
+    assert body["cutting_words"]["check_total_before"] == 20
+    assert body["cutting_words"]["check_total_after"] == 17
+    assert body["cutting_words"]["roll"] == 3
+    assert body["class_resources"]["bardic_inspiration_remaining"] == 1
+    assert body["dice_result"]["cutting_words"] == body["cutting_words"]
+    assert body["turn_state"]["reaction_used"] is True
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(sample_session)
+    await db_session.refresh(dying_combat)
+    assert sample_character.class_resources["bardic_inspiration_remaining"] == 1
+    assert dying_combat.turn_states[sample_character.id]["reaction_used"] is True
+    enemies = (sample_session.game_state or {}).get("enemies") or []
+    goblin = next(enemy for enemy in enemies if enemy["id"] == "goblin-1")
+    assert "grappled" in goblin.get("conditions", [])
+
+
 async def test_incapacitating_condition_blocks_combat_action(
     client, db_session, sample_session, sample_character, sample_user, dying_combat,
 ):

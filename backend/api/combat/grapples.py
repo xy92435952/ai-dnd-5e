@@ -61,6 +61,8 @@ async def grapple_shove(
             action_type=req.action_type,
             target_id=req.target_id,
             shove_type=req.shove_type,
+            use_cutting_words=bool(req.use_cutting_words),
+            cutting_words_roll=req.cutting_words_roll,
         )
     except CombatGrappleError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc

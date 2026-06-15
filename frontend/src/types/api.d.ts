@@ -2723,6 +2723,8 @@ export interface components {
         GrappleShoveRequest: {
             /** Action Type */
             action_type: string;
+            /** Cutting Words Roll */
+            cutting_words_roll?: number | null;
             /**
              * Shove Type
              * @default prone
@@ -2730,6 +2732,11 @@ export interface components {
             shove_type: string;
             /** Target Id */
             target_id: string;
+            /**
+             * Use Cutting Words
+             * @default false
+             */
+            use_cutting_words: boolean | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

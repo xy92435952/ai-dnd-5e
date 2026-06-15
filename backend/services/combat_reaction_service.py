@@ -241,6 +241,21 @@ def calculate_cutting_words_damage_prevention(
     }
 
 
+def calculate_cutting_words_ability_check_prevention(
+    check_roll: dict[str, Any] | None,
+    *,
+    cutting_words_roll: int,
+) -> dict[str, Any]:
+    total_before = int((check_roll or {}).get("total") or 0)
+    roll = max(0, int(cutting_words_roll or 0))
+    total_after = total_before - roll
+    return {
+        "check_total_before": total_before,
+        "check_total_after": total_after,
+        "check_prevented": roll,
+    }
+
+
 def build_pending_attack_reaction(
     *,
     attacker_id: str,

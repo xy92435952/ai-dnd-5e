@@ -5,6 +5,7 @@ from services.combat_reaction_service import (
     build_pending_attack_reaction,
     calculate_absorb_elements_prevention,
     calculate_counterspell_result,
+    calculate_cutting_words_ability_check_prevention,
     calculate_cutting_words_damage_prevention,
     calculate_cutting_words_prevention,
     calculate_hellish_rebuke_damage,
@@ -132,6 +133,19 @@ def test_cutting_words_damage_reduces_first_qualifying_damage_roll():
         "damage_roll_after": 5,
         "damage_prevented": 3,
         "affected_attack_index": 0,
+    }
+
+
+def test_cutting_words_ability_check_subtracts_from_check_total():
+    result = calculate_cutting_words_ability_check_prevention(
+        {"total": 20},
+        cutting_words_roll=3,
+    )
+
+    assert result == {
+        "check_total_before": 20,
+        "check_total_after": 17,
+        "check_prevented": 3,
     }
 
 

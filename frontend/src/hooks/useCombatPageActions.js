@@ -6,9 +6,10 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { gameApi, roomsApi } from '../api/client'
+import { rollDice3D } from '../components/DiceRollerOverlay'
 import { buildSpellAoePreview, getAoePreviewCenterKey, getCombatTurnToken, getSkillUnavailableReason } from '../utils/combat'
 import { buildAiTurnDiceResult } from '../utils/combatAiTurnLogs'
-import { createCombatSkillClickHandler } from '../utils/combatSkillActions'
+import { createCombatSkillClickHandler, getCuttingWordsAbilityCheckOption } from '../utils/combatSkillActions'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildHazardDiceResult, formatHazardLog } from '../utils/combatHazards'
 import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
@@ -285,6 +286,7 @@ export function useCombatPageActions({
   onLoadCombat,
   setCombatOver,
   onCombatEnded,
+  showDice,
   combat,
 }) {
   const actorId = playerId || myCharacterId
@@ -475,6 +477,15 @@ export function useCombatPageActions({
     handleHealingPotion,
     handleClassFeature,
     getTurnToken: () => getCombatTurnToken(combat),
+    getCuttingWordsAbilityCheckOption: () => getCuttingWordsAbilityCheckOption({
+      ...(actor || {}),
+      turn_state: combat?.turn_states?.[actorId],
+    }),
+    confirmCuttingWordsAbilityCheck: ({ die }) => (
+      globalThis.confirm?.(`Use Cutting Words ${die} on the target's contested check?`) ?? false
+    ),
+    rollCuttingWordsDie: (faces) => rollDice3D(faces, 1),
+    showDice,
     getActorId: () => actorId,
     beginReadyMove: ({ actorId: readyActorId, targetId, trigger, triggerMatch, conditionText }) => {
       setReadyMoveDraft({

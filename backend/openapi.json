@@ -2587,6 +2587,17 @@
             "title": "Action Type",
             "type": "string"
           },
+          "cutting_words_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutting Words Roll"
+          },
           "shove_type": {
             "default": "prone",
             "title": "Shove Type",
@@ -2595,6 +2606,18 @@
           "target_id": {
             "title": "Target Id",
             "type": "string"
+          },
+          "use_cutting_words": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false,
+            "title": "Use Cutting Words"
           }
         },
         "required": [

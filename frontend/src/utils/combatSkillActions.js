@@ -1,6 +1,32 @@
 import { formatCombatError } from './combatErrors'
 import { buildCombatStateChangeSummary } from './combatLog'
 
+function parseDieFaces(die) {
+  const text = String(die || 'd6').trim().toLowerCase().replace(/^d/, '')
+  const faces = Number.parseInt(text, 10)
+  return [6, 8, 10, 12].includes(faces) ? faces : 6
+}
+
+export function getCuttingWordsAbilityCheckOption(actor = {}) {
+  const cls = String(actor?.char_class || actor?.class || '').trim().toLowerCase()
+  if (cls !== 'bard') return null
+  if (Number(actor?.level || 1) < 3) return null
+  const resources = actor?.class_resources || {}
+  if (Number(resources.bardic_inspiration_remaining || 0) <= 0) return null
+  const turnState = actor?.turn_state || actor?.turnState || {}
+  if (turnState.reaction_used) return null
+  const subclassEffects = actor?.derived?.subclass_effects || {}
+  const subclass = String(actor?.subclass || '').trim().toLowerCase()
+  if (!subclassEffects.cutting_words && !subclassEffects.lore_bard && !subclass.includes('lore')) {
+    return null
+  }
+  const die = String(subclassEffects.inspiration_die || 'd6').trim().toLowerCase()
+  return {
+    die: /^d(6|8|10|12)$/.test(die) ? die : 'd6',
+    faces: parseDieFaces(die),
+  }
+}
+
 const SPELL_SHORTCUT_NAMES = {
   bless: '祝福',
   heal: '治愈创伤',
@@ -29,7 +55,28 @@ export function createCombatSkillClickHandler({
   handleHealingPotion,
   handleClassFeature,
   getTurnToken = () => null,
+  getCuttingWordsAbilityCheckOption: getCuttingWordsOption = () => null,
+  confirmCuttingWordsAbilityCheck = null,
+  rollCuttingWordsDie = null,
+  showDice = null,
 }) {
+  async function buildCuttingWordsOptions(actionType, targetId) {
+    const option = getCuttingWordsOption?.({ actionType, targetId })
+    if (!option) return {}
+    const confirmed = confirmCuttingWordsAbilityCheck
+      ? await confirmCuttingWordsAbilityCheck({ ...option, actionType, targetId })
+      : false
+    if (!confirmed) return {}
+    const faces = option.faces || parseDieFaces(option.die)
+    const rollResult = rollCuttingWordsDie
+      ? await rollCuttingWordsDie(faces, { actionType, targetId, die: option.die })
+      : null
+    const total = Number(rollResult?.total ?? rollResult)
+    if (!Number.isFinite(total)) return {}
+    showDice?.({ faces, result: total, label: `Cutting Words d${faces}`, count: 1 })
+    return { useCuttingWords: true, cuttingWordsRoll: total }
+  }
+
   return async function onSkillClick(skill) {
     const blockedReason = getUnavailableReason(skill)
     if (blockedReason) {
@@ -65,13 +112,15 @@ export function createCombatSkillClickHandler({
         case 'shove':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }
           {
-            const result = await gameApi.grappleShove(sessionId, 'shove', getSelectedTarget(), 'prone')
+            const targetId = getSelectedTarget()
+            const cuttingWordsOptions = await buildCuttingWordsOptions('shove', targetId)
+            const result = await gameApi.grappleShove(sessionId, 'shove', targetId, 'prone', cuttingWordsOptions)
             if (result?.turn_state) setTurnState?.(result.turn_state)
             if (result?.narration) addLog?.({
               role: 'player',
               content: result.narration,
               log_type: 'combat',
-              state_changes: buildCombatStateChangeSummary(result, { targetName: getSelectedTarget() }),
+              state_changes: buildCombatStateChangeSummary(result, { targetName: targetId }),
             })
           }
           setCombat(await gameApi.getCombat(sessionId))
@@ -79,13 +128,15 @@ export function createCombatSkillClickHandler({
         case 'grapple':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }
           {
-            const result = await gameApi.grappleShove(sessionId, 'grapple', getSelectedTarget(), 'prone')
+            const targetId = getSelectedTarget()
+            const cuttingWordsOptions = await buildCuttingWordsOptions('grapple', targetId)
+            const result = await gameApi.grappleShove(sessionId, 'grapple', targetId, 'prone', cuttingWordsOptions)
             if (result?.turn_state) setTurnState?.(result.turn_state)
             if (result?.narration) addLog?.({
               role: 'player',
               content: result.narration,
               log_type: 'combat',
-              state_changes: buildCombatStateChangeSummary(result, { targetName: getSelectedTarget() }),
+              state_changes: buildCombatStateChangeSummary(result, { targetName: targetId }),
             })
           }
           setCombat(await gameApi.getCombat(sessionId))

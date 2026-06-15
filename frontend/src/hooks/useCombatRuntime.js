@@ -213,6 +213,7 @@ export function useCombatRuntime({
     onLoadCombat: flow.loadCombat,
     setCombatOver: page.setCombatOver,
     onCombatEnded: handleCombatEnded,
+    showDice,
     combat,
   })
 

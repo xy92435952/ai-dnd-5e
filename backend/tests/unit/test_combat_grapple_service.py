@@ -13,10 +13,29 @@ class FakePlayer:
     proficient_skills = ["运动"]
 
 
+class FakeBardPlayer(FakePlayer):
+    char_class = "Bard"
+    subclass = "Lore"
+    level = 5
+    class_resources = {"bardic_inspiration_remaining": 2}
+    derived = {
+        "ability_modifiers": {"str": 4},
+        "proficiency_bonus": 3,
+        "subclass_effects": {
+            "lore_bard": True,
+            "cutting_words": True,
+            "inspiration_die": "d8",
+        },
+    }
+
+
 class FakeDb:
+    def __init__(self, player=None):
+        self.player = player or FakePlayer()
+
     async def get(self, _model, entity_id):
         if entity_id == "player-1":
-            return FakePlayer()
+            return self.player
         return None
 
 
@@ -60,6 +79,15 @@ class FakeCombatService:
             "success": True,
             "attacker_roll": {"total": 18},
             "target_roll": {"total": 10},
+        }
+
+
+class FakeFailedContestService(FakeCombatService):
+    def resolve_grapple(self, *_args):
+        return {
+            "success": False,
+            "attacker_roll": {"total": 18},
+            "target_roll": {"total": 20},
         }
 
 
@@ -118,6 +146,71 @@ async def test_resolve_shove_push_moves_enemy_away_and_marks_action_when_last_at
     assert combat.entity_positions["goblin-1"] == {"x": 7, "y": 5}
     assert result.payload["turn_state"]["attacks_made"] == 2
     assert result.payload["turn_state"]["action_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_grapple_can_spend_cutting_words_on_target_contested_check():
+    from services.combat_grapple_service import resolve_grapple_shove
+
+    session = FakeSession()
+    combat = FakeCombat()
+    bard = FakeBardPlayer()
+
+    result = await resolve_grapple_shove(
+        FakeDb(player=bard),
+        session=session,
+        combat=combat,
+        action_type="grapple",
+        target_id="goblin-1",
+        combat_service=FakeFailedContestService(),
+        flag_modified_func=lambda *_args: None,
+        save_turn_state_func=save_turn_state,
+        narrate_action_func=lambda **_kwargs: None,
+        use_cutting_words=True,
+        cutting_words_roll=3,
+    )
+
+    assert result.payload["success"] is True
+    assert session.game_state["enemies"][0]["conditions"] == ["grappled"]
+    assert bard.class_resources["bardic_inspiration_remaining"] == 1
+    assert result.payload["class_resources"]["bardic_inspiration_remaining"] == 1
+    cutting = result.payload["cutting_words"]
+    assert cutting["context"] == "ability_check"
+    assert cutting["check_total_before"] == 20
+    assert cutting["check_total_after"] == 17
+    assert result.payload["target_roll"]["total"] == 17
+    assert result.payload["target_roll"]["cutting_words"]["roll"] == 3
+    assert result.log_dice_result["cutting_words"] == cutting
+    assert result.payload["turn_state"]["reaction_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_grapple_rejects_cutting_words_when_reaction_used():
+    from services.combat_grapple_service import CombatGrappleError, resolve_grapple_shove
+
+    session = FakeSession()
+    combat = FakeCombat()
+    combat.turn_states["player-1"]["reaction_used"] = True
+    bard = FakeBardPlayer()
+
+    with pytest.raises(CombatGrappleError) as exc:
+        await resolve_grapple_shove(
+            FakeDb(player=bard),
+            session=session,
+            combat=combat,
+            action_type="grapple",
+            target_id="goblin-1",
+            combat_service=FakeFailedContestService(),
+            flag_modified_func=lambda *_args: None,
+            save_turn_state_func=save_turn_state,
+            narrate_action_func=lambda **_kwargs: None,
+            use_cutting_words=True,
+            cutting_words_roll=3,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "Reaction already used this turn."
+    assert bard.class_resources["bardic_inspiration_remaining"] == 2
 
 
 @pytest.mark.asyncio

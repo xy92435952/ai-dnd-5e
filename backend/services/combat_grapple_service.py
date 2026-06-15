@@ -4,9 +4,18 @@ from typing import Any, Callable
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character
-from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
+from services.combat_action_rules_service import (
+    CombatActionRuleError,
+    validate_can_take_action,
+    validate_can_take_reaction,
+)
 from services.combat_charmed_service import CHARMED_ATTACK_ERROR, is_charmed_by_target
 from services.combat_narrator import narrate_action
+from services.combat_reaction_service import (
+    CuttingWordsError,
+    calculate_cutting_words_ability_check_prevention,
+    spend_cutting_words_resource,
+)
 from services.combat_service import CombatService
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import _normalize_class
@@ -43,6 +52,8 @@ async def resolve_grapple_shove(
     flag_modified_func: Callable[[Any, str], None] = flag_modified,
     save_turn_state_func: Callable[[Any, str, dict[str, Any]], None] = save_turn_state,
     narrate_action_func: Callable[..., Any] = narrate_action,
+    use_cutting_words: bool = False,
+    cutting_words_roll: int | None = None,
 ) -> GrappleShoveResolution:
     if not session.combat_active:
         raise CombatGrappleError(400, "当前不在战斗中")
@@ -92,6 +103,25 @@ async def resolve_grapple_shove(
         target_id,
     ):
         raise CombatGrappleError(400, CHARMED_ATTACK_ERROR)
+
+    if action_type not in {"grapple", "shove"}:
+        raise CombatGrappleError(400, f"未知动作类型：{action_type}")
+
+    cutting_words_spend = None
+    if use_cutting_words:
+        if turn_state.get("reaction_used"):
+            raise CombatGrappleError(400, "Reaction already used this turn.")
+        try:
+            validate_can_take_reaction(player)
+        except CombatActionRuleError as exc:
+            raise CombatGrappleError(exc.status_code, exc.detail) from exc
+        try:
+            cutting_words_spend = spend_cutting_words_resource(
+                player,
+                cutting_words_roll=cutting_words_roll,
+            )
+        except CuttingWordsError as exc:
+            raise CombatGrappleError(400, str(exc)) from exc
 
     if action_type == "grapple":
         check_result = combat_service.resolve_grapple(
@@ -143,6 +173,65 @@ async def resolve_grapple_shove(
     else:
         raise CombatGrappleError(400, f"未知动作类型：{action_type}")
 
+    applied_before_cutting_words = bool(check_result["success"])
+    cutting_words_result = None
+    if cutting_words_spend:
+        cutting_check = calculate_cutting_words_ability_check_prevention(
+            check_result.get("target_roll"),
+            cutting_words_roll=cutting_words_spend["roll"],
+        )
+        target_roll = dict(check_result.get("target_roll") or {})
+        target_roll["total_before_cutting_words"] = cutting_check["check_total_before"]
+        target_roll["total"] = cutting_check["check_total_after"]
+        target_roll["cutting_words"] = {
+            **cutting_words_spend,
+            "context": "ability_check",
+        }
+        check_result["target_roll"] = target_roll
+        check_result["success"] = (
+            int((check_result.get("attacker_roll") or {}).get("total") or 0)
+            >= int(target_roll["total"])
+        )
+        cutting_words_result = {
+            **cutting_words_spend,
+            "context": "ability_check",
+            "target_id": target_id,
+            "target_name": target["name"],
+            **cutting_check,
+            "class_resources": player.class_resources or {},
+        }
+
+    if cutting_words_result and check_result["success"] and not applied_before_cutting_words:
+        if action_type == "grapple":
+            narration = _apply_grapple_result(
+                session=session,
+                state=state,
+                enemies=enemies,
+                target=target,
+                player_name=player.name,
+                target_name=target["name"],
+                success=True,
+                flag_modified_func=flag_modified_func,
+            )
+        elif action_type == "shove":
+            narration = _apply_shove_result(
+                combat=combat,
+                session=session,
+                state=state,
+                enemies=enemies,
+                target=target,
+                player_id=player_id,
+                target_id=target_id,
+                player_name=player.name,
+                target_name=target["name"],
+                shove_type=shove_type,
+                success=True,
+                flag_modified_func=flag_modified_func,
+            )
+
+    if cutting_words_result:
+        turn_state["reaction_used"] = True
+
     turn_state["attacks_made"] = turn_state.get("attacks_made", 0) + 1
     if turn_state["attacks_made"] >= max_attacks:
         turn_state["action_used"] = True
@@ -158,6 +247,11 @@ async def resolve_grapple_shove(
     vivid = await vivid if hasattr(vivid, "__await__") else vivid
     if vivid:
         narration = vivid
+    if cutting_words_result:
+        narration += (
+            f" Cutting Words reduces {target['name']}'s check from "
+            f"{cutting_words_result['check_total_before']} to {cutting_words_result['check_total_after']}."
+        )
 
     target_state = _target_state(target, target_id)
     condition_result = _condition_result_for_action(
@@ -175,6 +269,8 @@ async def resolve_grapple_shove(
         "target_state": target_state,
         "condition_result": condition_result,
     }
+    if cutting_words_result:
+        log_dice_result["cutting_words"] = cutting_words_result
     payload = {
         "action": action_type,
         "success": check_result["success"],
@@ -193,6 +289,9 @@ async def resolve_grapple_shove(
         "combat_over": False,
         "outcome": None,
     }
+    if cutting_words_result:
+        payload["cutting_words"] = cutting_words_result
+        payload["class_resources"] = player.class_resources or {}
     return GrappleShoveResolution(
         narration=narration,
         payload=payload,

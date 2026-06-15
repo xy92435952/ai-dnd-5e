@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCombatSkillClickHandler } from '../combatSkillActions'
+import { createCombatSkillClickHandler, getCuttingWordsAbilityCheckOption } from '../combatSkillActions'
 
 function makeHandler(overrides = {}) {
   const api = {
@@ -120,8 +120,8 @@ describe('createCombatSkillClickHandler', () => {
     await handler({ k: 'shove', available: true })
     await handler({ k: 'grapple', available: true })
 
-    expect(api.grappleShove).toHaveBeenNthCalledWith(1, 'sess-1', 'shove', 'enemy-1', 'prone')
-    expect(api.grappleShove).toHaveBeenNthCalledWith(2, 'sess-1', 'grapple', 'enemy-1', 'prone')
+    expect(api.grappleShove).toHaveBeenNthCalledWith(1, 'sess-1', 'shove', 'enemy-1', 'prone', {})
+    expect(api.grappleShove).toHaveBeenNthCalledWith(2, 'sess-1', 'grapple', 'enemy-1', 'prone', {})
     expect(api.combatAction).not.toHaveBeenCalled()
     expect(api.getCombat).toHaveBeenCalledTimes(2)
     expect(fns.setTurnState).toHaveBeenCalledWith({ action_used: true })
@@ -132,6 +132,63 @@ describe('createCombatSkillClickHandler', () => {
       state_changes: ['动作已用'],
     })
     expect(fns.setCombat).toHaveBeenCalledWith({ current_turn_index: 0 })
+  })
+
+  it('can spend Cutting Words on a grapple contested check', async () => {
+    const { handler, fns, api } = makeHandler({
+      getCuttingWordsAbilityCheckOption: vi.fn(() => ({ die: 'd8', faces: 8 })),
+      confirmCuttingWordsAbilityCheck: vi.fn(() => true),
+      rollCuttingWordsDie: vi.fn().mockResolvedValue({ total: 3, rolls: [3] }),
+      showDice: vi.fn(),
+    })
+
+    await handler({ k: 'grapple', available: true })
+
+    expect(fns.confirmCuttingWordsAbilityCheck).toHaveBeenCalledWith({
+      die: 'd8',
+      faces: 8,
+      actionType: 'grapple',
+      targetId: 'enemy-1',
+    })
+    expect(fns.rollCuttingWordsDie).toHaveBeenCalledWith(8, {
+      actionType: 'grapple',
+      targetId: 'enemy-1',
+      die: 'd8',
+    })
+    expect(fns.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 3,
+      label: 'Cutting Words d8',
+      count: 1,
+    })
+    expect(api.grappleShove).toHaveBeenCalledWith(
+      'sess-1',
+      'grapple',
+      'enemy-1',
+      'prone',
+      { useCuttingWords: true, cuttingWordsRoll: 3 },
+    )
+  })
+
+  it('detects Cutting Words ability-check availability from a Lore Bard actor', () => {
+    expect(getCuttingWordsAbilityCheckOption({
+      char_class: 'Bard',
+      subclass: 'Lore',
+      level: 5,
+      class_resources: { bardic_inspiration_remaining: 1 },
+      derived: { subclass_effects: { inspiration_die: 'd8', cutting_words: true } },
+    })).toEqual({ die: 'd8', faces: 8 })
+  })
+
+  it('hides Cutting Words ability-check spending after the reaction is used', () => {
+    expect(getCuttingWordsAbilityCheckOption({
+      char_class: 'Bard',
+      subclass: 'Lore',
+      level: 5,
+      class_resources: { bardic_inspiration_remaining: 1 },
+      derived: { subclass_effects: { inspiration_die: 'd8', cutting_words: true } },
+      turn_state: { reaction_used: true },
+    })).toBeNull()
   })
 
   it('routes offhand attacks through the combat action endpoint', async () => {
