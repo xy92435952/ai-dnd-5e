@@ -8,6 +8,10 @@ function makeHandler(overrides = {}) {
       narration: 'Tester 推倒训练假人',
       turn_state: { action_used: true },
     }),
+    grappleEscape: vi.fn().mockResolvedValue({
+      narration: 'Tester 脱困成功',
+      turn_state: { action_used: true },
+    }),
     getCombat: vi.fn().mockResolvedValue({ current_turn_index: 0 }),
   }
   const fns = {
@@ -168,6 +172,43 @@ describe('createCombatSkillClickHandler', () => {
       'prone',
       { useCuttingWords: true, cuttingWordsRoll: 3 },
     )
+  })
+
+  it('can spend Cutting Words on a grapple escape ability check', async () => {
+    const { handler, fns, api } = makeHandler({
+      getSelectedTarget: vi.fn(() => null),
+      getCuttingWordsAbilityCheckOption: vi.fn(() => ({ die: 'd8', faces: 8 })),
+      confirmCuttingWordsAbilityCheck: vi.fn(() => true),
+      rollCuttingWordsDie: vi.fn().mockResolvedValue({ total: 4, rolls: [4] }),
+      showDice: vi.fn(),
+    })
+
+    await handler({ k: 'grapple_escape', available: true })
+
+    expect(fns.confirmCuttingWordsAbilityCheck).toHaveBeenCalledWith({
+      die: 'd8',
+      faces: 8,
+      actionType: 'grapple_escape',
+      targetId: undefined,
+    })
+    expect(fns.rollCuttingWordsDie).toHaveBeenCalledWith(8, {
+      actionType: 'grapple_escape',
+      targetId: undefined,
+      die: 'd8',
+    })
+    expect(fns.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 4,
+      label: 'Cutting Words d8',
+      count: 1,
+    })
+    expect(api.grappleEscape).toHaveBeenCalledWith(
+      'sess-1',
+      { useCuttingWords: true, cuttingWordsRoll: 4 },
+    )
+    expect(api.grappleShove).not.toHaveBeenCalled()
+    expect(api.combatAction).not.toHaveBeenCalled()
+    expect(api.getCombat).toHaveBeenCalledWith('sess-1')
   })
 
   it('detects Cutting Words ability-check availability from a Lore Bard actor', () => {

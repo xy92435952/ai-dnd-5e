@@ -2714,10 +2714,17 @@ export interface components {
         };
         /** GrappleEscapeRequest */
         GrappleEscapeRequest: {
+            /** Cutting Words Roll */
+            cutting_words_roll?: number | null;
             /** Skill */
             skill?: string | null;
             /** Source Id */
             source_id?: string | null;
+            /**
+             * Use Cutting Words
+             * @default false
+             */
+            use_cutting_words: boolean | null;
         };
         /** GrappleShoveRequest */
         GrappleShoveRequest: {

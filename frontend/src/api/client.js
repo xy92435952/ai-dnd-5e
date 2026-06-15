@@ -320,6 +320,13 @@ export const gameApi = {
       ...(options.useCuttingWords ? { use_cutting_words: true } : {}),
       ...(options.cuttingWordsRoll != null ? { cutting_words_roll: options.cuttingWordsRoll } : {}),
     }),
+  grappleEscape: (sessionId, options = {}) =>
+    api.post(`/game/combat/${sessionId}/grapple-escape`, {
+      ...(options.sourceId ? { source_id: options.sourceId } : {}),
+      ...(options.skill ? { skill: options.skill } : {}),
+      ...(options.useCuttingWords ? { use_cutting_words: true } : {}),
+      ...(options.cuttingWordsRoll != null ? { cutting_words_roll: options.cuttingWordsRoll } : {}),
+    }),
 
   // 法术列表
   getSpells:         () => api.get('/game/spells'),

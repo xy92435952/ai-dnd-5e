@@ -234,10 +234,19 @@ def build_skill_bar(player: Any) -> list[dict[str, Any]]:
         "k": "grapple", "label": "擒抱", "glyph": "⛓",
         "cost": "动作", "key": "9", "kind": "attack", "available": True,
     })
-    bar.append({
-        "k": "pot_heal", "label": "治疗药剂", "glyph": "⚱",
-        "cost": "动作", "key": "0", "kind": "item", "available": True,
-    })
+    if "grappled" in conditions:
+        bar.append({
+            "k": "grapple_escape", "label": "脱困", "glyph": "↺",
+            "cost": "动作", "key": "0", "kind": "action", "available": True,
+            "reason": None,
+            "requires_target": False,
+            "target_type": "none",
+        })
+    else:
+        bar.append({
+            "k": "pot_heal", "label": "治疗药剂", "glyph": "⚱",
+            "cost": "动作", "key": "0", "kind": "item", "available": True,
+        })
 
     return bar[:10]
 

@@ -88,6 +88,18 @@ def test_action_cost_skills_are_not_labeled_as_bonus_actions():
     assert slots["pot_heal"]["kind"] == "item"
 
 
+def test_grappled_actor_skill_bar_exposes_grapple_escape_shortcut():
+    bar = build_skill_bar(_character("Bard", level=5, conditions=["grappled"]))
+    slots = {slot["k"]: slot for slot in bar}
+
+    assert slots["grapple_escape"]["key"] == "0"
+    assert slots["grapple_escape"]["kind"] == "action"
+    assert slots["grapple_escape"]["available"] is True
+    assert slots["grapple_escape"]["requires_target"] is False
+    assert slots["grapple_escape"]["target_type"] == "none"
+    assert "pot_heal" not in slots
+
+
 def test_skill_bar_prefers_live_class_resources_over_derived_snapshot():
     bar = build_skill_bar(_character(
         "Fighter",

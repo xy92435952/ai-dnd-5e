@@ -290,6 +290,50 @@ describe('combatLog', () => {
     })
   })
 
+  it('renders Cutting Words and grapple escape rules in combat log views', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Lore Bard slips free.',
+      dice_result: {
+        type: 'grapple_escape',
+        success: true,
+        actor_roll: { total: 19 },
+        source_roll: {
+          total: 17,
+          total_before_cutting_words: 20,
+          cutting_words: {
+            type: 'cutting_words',
+            die: 'd8',
+            roll: 3,
+            context: 'ability_check',
+            check_total_before: 20,
+            check_total_after: 17,
+            check_prevented: 3,
+          },
+        },
+        cutting_words: {
+          type: 'cutting_words',
+          die: 'd8',
+          roll: 3,
+          context: 'ability_check',
+          check_total_before: 20,
+          check_total_after: 17,
+          check_prevented: 3,
+        },
+      },
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: [
+        'Grapple escape contest: actor 19 vs source 17; success',
+        'Cutting Words d8=3: check 20 -> 17; prevented 3',
+      ],
+    })
+  })
+
   it('renders Cutting Words attack prevention from reaction dice payloads', () => {
     const view = buildCombatLogView({
       role: 'player',

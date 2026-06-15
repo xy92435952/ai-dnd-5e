@@ -2555,6 +2555,17 @@
       },
       "GrappleEscapeRequest": {
         "properties": {
+          "cutting_words_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutting Words Roll"
+          },
           "skill": {
             "anyOf": [
               {
@@ -2576,6 +2587,18 @@
               }
             ],
             "title": "Source Id"
+          },
+          "use_cutting_words": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false,
+            "title": "Use Cutting Words"
           }
         },
         "title": "GrappleEscapeRequest",

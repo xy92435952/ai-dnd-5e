@@ -131,13 +131,23 @@ function formatReactionPreventionRule(effect = null) {
 
 function formatContestRule(dice = {}) {
   if (!dice || typeof dice !== 'object') return null
-  if (!['grapple', 'shove'].includes(dice.type)) return null
-  const attacker = asNumber(dice.attacker_roll?.total)
-  const target = asNumber(dice.target_roll?.total)
-  if (attacker === null || target === null) return null
-  const label = dice.type === 'shove' ? 'Shove' : 'Grapple'
+  if (!['grapple', 'shove', 'grapple_escape'].includes(dice.type)) return null
+  const attackRoll = dice.type === 'grapple_escape'
+    ? asNumber(dice.actor_roll?.total)
+    : asNumber(dice.attacker_roll?.total)
+  const targetRoll = dice.type === 'grapple_escape'
+    ? asNumber(dice.source_roll?.total)
+    : asNumber(dice.target_roll?.total)
+  if (attackRoll === null || targetRoll === null) return null
+  const label = dice.type === 'shove'
+    ? 'Shove'
+    : dice.type === 'grapple_escape'
+      ? 'Grapple escape'
+      : 'Grapple'
   const outcome = dice.success === true ? 'success' : dice.success === false ? 'failure' : ''
-  return compact([`${label} contest: attacker ${attacker} vs target ${target}`, outcome]).join('; ')
+  const actorLabel = dice.type === 'grapple_escape' ? 'actor' : 'attacker'
+  const targetLabel = dice.type === 'grapple_escape' ? 'source' : 'target'
+  return compact([`${label} contest: ${actorLabel} ${attackRoll} vs ${targetLabel} ${targetRoll}`, outcome]).join('; ')
 }
 
 function normalizeHazardTrigger(trigger = '') {

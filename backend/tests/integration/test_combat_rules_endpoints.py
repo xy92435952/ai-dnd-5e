@@ -458,6 +458,82 @@ async def test_grapple_shove_can_spend_cutting_words_on_target_contested_check(
     assert "grappled" in goblin.get("conditions", [])
 
 
+async def test_grapple_escape_can_spend_cutting_words_on_source_contested_check(
+    client, db_session, sample_session, sample_character, sample_user, dying_combat, monkeypatch,
+):
+    import api.combat.grapples as grapples
+
+    sample_character.char_class = "Bard"
+    sample_character.subclass = "Lore"
+    sample_character.level = 5
+    sample_character.hp_current = 12
+    sample_character.death_saves = None
+    sample_character.conditions = ["grappled"]
+    sample_character.condition_durations = {"grappled": {"source_id": "goblin-1"}}
+    sample_character.class_resources = {"bardic_inspiration_remaining": 2}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "subclass_effects": {
+            "lore_bard": True,
+            "cutting_words": True,
+            "inspiration_die": "d8",
+        },
+    }
+    dying_combat.turn_states = {
+        sample_character.id: {
+            "action_used": False,
+            "bonus_action_used": False,
+            "reaction_used": False,
+            "movement_used": 0,
+            "movement_max": 6,
+            "attacks_made": 0,
+        }
+    }
+
+    rolls = iter([
+        {"total": 19},
+        {"total": 20},
+    ])
+
+    def fake_roll_skill_check(*_args, **_kwargs):
+        return next(rolls)
+
+    monkeypatch.setattr(grapples, "roll_skill_check", fake_roll_skill_check)
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    response = await client.post(
+        f"/game/combat/{sample_session.id}/grapple-escape",
+        headers=headers,
+        json={
+            "source_id": "goblin-1",
+            "skill": "athletics",
+            "use_cutting_words": True,
+            "cutting_words_roll": 3,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["success"] is True
+    assert body["source_roll"]["total_before_cutting_words"] == 20
+    assert body["source_roll"]["total"] == 17
+    assert body["cutting_words"]["check_total_before"] == 20
+    assert body["cutting_words"]["check_total_after"] == 17
+    assert body["cutting_words"]["roll"] == 3
+    assert body["class_resources"]["bardic_inspiration_remaining"] == 1
+    assert body["dice_result"]["cutting_words"] == body["cutting_words"]
+    assert body["turn_state"]["reaction_used"] is True
+    assert "Cutting Words reduces" in body["narration"]
+
+    await db_session.refresh(sample_character)
+    await db_session.refresh(sample_session)
+    await db_session.refresh(dying_combat)
+    assert sample_character.class_resources["bardic_inspiration_remaining"] == 1
+    assert dying_combat.turn_states[sample_character.id]["reaction_used"] is True
+    assert "grappled" not in sample_character.conditions
+
+
 async def test_incapacitating_condition_blocks_combat_action(
     client, db_session, sample_session, sample_character, sample_user, dying_combat,
 ):

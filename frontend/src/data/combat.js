@@ -10,6 +10,7 @@ export const SKILL_INFO = {
   spell: { desc: '打开法术列表选择法术；施法消耗对应环级法术位。' },
   shove: { desc: '推倒或推开对手。对方进行力量(运动) vs 力量/敏捷(特技)对抗。' },
   grapple: { desc: '尝试擒抱目标。双方进行力量(运动)对抗，成功后目标速度降为0。' },
+  grapple_escape: { desc: '尝试摆脱擒抱。若你是 Lore Bard，可用 Cutting Words 削弱对手检定。' },
   help:  { desc: '辅助相邻盟友。其下一次攻击或检定获得优势。' },
   dash:  { desc: '冲刺——本回合移动力翻倍，但消耗你的动作。' },
   disg:  { desc: '脱离接战——移动时不触发敌方的借机攻击。' },

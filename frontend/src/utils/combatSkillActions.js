@@ -156,6 +156,22 @@ export function createCombatSkillClickHandler({
           }
           setCombat(await gameApi.getCombat(sessionId))
           break
+        case 'grapple_escape':
+          {
+            const cuttingWordsOptions = await buildCuttingWordsOptions('grapple_escape')
+            const result = await gameApi.grappleEscape(sessionId, cuttingWordsOptions)
+            if (result?.turn_state) setTurnState?.(result.turn_state)
+            if (result?.narration) addLog?.({
+              role: 'player',
+              content: result.narration,
+              log_type: 'combat',
+              state_changes: buildCombatStateChangeSummary(result, {
+                targetName: result.target_name || result.actor_name,
+              }),
+            })
+          }
+          setCombat(await gameApi.getCombat(sessionId))
+          break
         case 'off_attack':
           if (!getSelectedTarget()) { setError('请先选择目标'); return }
           {

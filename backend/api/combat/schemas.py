@@ -87,6 +87,8 @@ class GrappleShoveRequest(BaseModel):
 class GrappleEscapeRequest(BaseModel):
     source_id: Optional[str] = None
     skill: Optional[str] = None  # "athletics" | "acrobatics" | None for best available
+    use_cutting_words: Optional[bool] = False
+    cutting_words_roll: Optional[int] = None
 
 
 class AttackRollRequest(BaseModel):

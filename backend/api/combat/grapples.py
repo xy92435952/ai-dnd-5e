@@ -18,7 +18,13 @@ from api.combat._shared import _broadcast_combat
 from api.combat.schemas import GrappleEscapeRequest, GrappleShoveRequest
 from schemas.combat_responses import CombatActionResult
 from schemas.ws_events import CombatUpdate
+from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_reaction
 from services.combat_grapple_service import CombatGrappleError, resolve_grapple_shove
+from services.combat_reaction_service import (
+    CuttingWordsError,
+    calculate_cutting_words_ability_check_prevention,
+    spend_cutting_words_resource,
+)
 from services.combat_turn_state_service import get_turn_state, save_turn_state
 from services.dnd_rules import get_life_state, roll_skill_check
 
@@ -149,6 +155,40 @@ async def grapple_escape(
         "Athletics",
         dc=0,
     )
+    cutting_words_spend = None
+    if req.use_cutting_words:
+        try:
+            validate_can_take_reaction(actor)
+        except CombatActionRuleError as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
+        try:
+            cutting_words_spend = spend_cutting_words_resource(
+                actor,
+                cutting_words_roll=req.cutting_words_roll,
+            )
+        except CuttingWordsError as exc:
+            raise HTTPException(400, str(exc)) from exc
+    cutting_words_result = None
+    if cutting_words_spend:
+        cutting_check = calculate_cutting_words_ability_check_prevention(
+            source_roll,
+            cutting_words_roll=cutting_words_spend["roll"],
+        )
+        source_roll = dict(source_roll)
+        source_roll["total_before_cutting_words"] = cutting_check["check_total_before"]
+        source_roll["total"] = cutting_check["check_total_after"]
+        source_roll["cutting_words"] = {
+            **cutting_words_spend,
+            "context": "ability_check",
+        }
+        cutting_words_result = {
+            **cutting_words_spend,
+            "context": "ability_check",
+            "source_id": source_id,
+            "source_name": source.get("name"),
+            **cutting_check,
+            "class_resources": actor.class_resources or {},
+        }
     escaped = actor_roll["total"] >= source_roll["total"]
     if escaped:
         actor.conditions = [condition for condition in conditions if condition != "grappled"]
@@ -157,6 +197,8 @@ async def grapple_escape(
         actor.condition_durations = durations
 
     turn_state = get_turn_state(combat, actor_id)
+    if cutting_words_result:
+        turn_state["reaction_used"] = True
     turn_state["action_used"] = True
     save_turn_state(combat, actor_id, turn_state)
 
@@ -181,17 +223,26 @@ async def grapple_escape(
         "target_state": target_state,
         "condition_result": condition_result,
     }
+    if cutting_words_result:
+        dice_result["cutting_words"] = cutting_words_result
     narration = (
         f"{actor.name} escapes the grapple."
         if escaped
         else f"{actor.name} fails to escape the grapple."
     )
+    if cutting_words_result:
+        narration += (
+            f" Cutting Words reduces {source.get('name') or 'the grappler'}'s check from "
+            f"{cutting_words_result['check_total_before']} to {cutting_words_result['check_total_after']}."
+        )
     payload = {
         "action": "grapple_escape",
         "success": bool(escaped),
         "narration": narration,
         "actor_id": actor_id,
         "actor_name": actor.name,
+        "actor_roll": actor_roll,
+        "source_roll": source_roll,
         "target_id": actor_id,
         "target_name": actor.name,
         "source_id": source_id,
@@ -204,6 +255,9 @@ async def grapple_escape(
         "combat_over": False,
         "outcome": None,
     }
+    if cutting_words_result:
+        payload["cutting_words"] = cutting_words_result
+        payload["class_resources"] = actor.class_resources or {}
 
     db.add(GameLog(
         session_id=session_id,
