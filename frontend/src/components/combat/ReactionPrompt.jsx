@@ -52,7 +52,7 @@ export default function ReactionPrompt({
               className="btn-gold reaction-prompt-action"
               title={reactionActionTitle(opt)}
               onClick={() => {
-                if (opt.type === 'cutting_words') {
+                if (opt.type === 'cutting_words' || opt.type === 'bardic_spell_save') {
                   onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id, opt)
                 } else {
                   onReact(opt.type, opt.target_id, opt.character_id || prompt.reactor_character_id)

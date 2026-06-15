@@ -27,6 +27,10 @@ from services.combat_spell_resolution_service import (
     CombatSpellResolutionError,
 )
 from services.bardic_inspiration_service import BardicInspirationError
+from services.combat_bardic_spell_save_reaction_service import (
+    build_pending_bardic_spell_save_reaction,
+    store_pending_bardic_spell_save_reaction,
+)
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.spell_service import spell_service
@@ -234,6 +238,51 @@ async def spell_confirm(
     spell = spell_service.get(spell_name)
     if not spell:
         raise HTTPException(400, f"未知法术：{spell_name}")
+
+    if session.is_multiplayer and not req.use_bardic_inspiration:
+        prompt = await build_pending_bardic_spell_save_reaction(
+            db,
+            session=session,
+            caster=caster,
+            caster_entity_id=str(caster_entity_id),
+            pending=pending,
+            spell=spell,
+            damage_values=req.damage_values,
+            requesting_user_id=user_id,
+        )
+        if prompt:
+            reactor_id = str(prompt["reactor_character_id"])
+            turn_state = store_pending_bardic_spell_save_reaction(combat_obj, prompt)
+            narration = (
+                f"Waiting for {prompt.get('target_name') or 'the target'} to choose whether "
+                f"to spend Bardic Inspiration on {spell_name}."
+            )
+            await db.commit()
+            await _broadcast_combat(
+                session,
+                combat_obj,
+                CombatUpdate(
+                    actor_id=str(caster_entity_id),
+                    actor_name=caster.name,
+                    narration=narration,
+                    action="reaction_prompt",
+                    target_id=reactor_id,
+                    target_name=prompt.get("target_name"),
+                    player_can_react=True,
+                    reaction_prompt=prompt,
+                ),
+                db=db,
+            )
+            return {
+                "action": "reaction_prompt",
+                "narration": narration,
+                "pending_spell_id": req.pending_spell_id,
+                "target_id": reactor_id,
+                "target_name": prompt.get("target_name"),
+                "player_can_react": False,
+                "reaction_prompt": None,
+                "turn_state": None,
+            }
 
     try:
         confirmed = await confirm_pending_spell(

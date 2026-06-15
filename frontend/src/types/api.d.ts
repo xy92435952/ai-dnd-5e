@@ -3147,6 +3147,8 @@ export interface components {
         };
         /** ReactionRequest */
         ReactionRequest: {
+            /** Bardic Inspiration Roll */
+            bardic_inspiration_roll?: number | null;
             /** Character Id */
             character_id?: string | null;
             /** Cutting Words Roll */

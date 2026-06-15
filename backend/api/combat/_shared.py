@@ -257,6 +257,7 @@ def _project_turn_states_for_viewer(
         "pending_smite",
         "pending_attack_reaction",
         "pending_spell_reaction",
+        "pending_bardic_spell_save_reaction",
         "resume_spell_reaction",
     }
     projected: dict = {}

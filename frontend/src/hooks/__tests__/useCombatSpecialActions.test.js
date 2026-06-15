@@ -209,6 +209,50 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('rolls Bardic Inspiration and submits the die value for spell-save prompts without auto-advancing', async () => {
+    rollDice3DMock.mockResolvedValueOnce({ total: 4, rolls: [4] })
+    useReactionMock.mockResolvedValueOnce({
+      action: 'spell',
+      reaction_type: 'bardic_spell_save',
+      narration: 'Sacred Flame resolves after Bardic Inspiration.',
+      turn_state: {},
+      target_state: {
+        target_id: 'char-2',
+        target_name: 'Bardic Target',
+        class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 0 } },
+      },
+    })
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleReaction(
+        'bardic_spell_save',
+        'char-2',
+        'char-2',
+        { die: 'd8' },
+      )
+    })
+
+    expect(rollDice3DMock).toHaveBeenCalledWith(8, 1)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 4,
+      label: 'Bardic Inspiration d8',
+      count: 1,
+    })
+    expect(useReactionMock).toHaveBeenCalledWith(
+      'sess-1',
+      'bardic_spell_save',
+      'char-2',
+      'char-2',
+      { bardicInspirationRoll: 4 },
+    )
+    expect(deps.setClassResources).toHaveBeenCalledWith({
+      bardic_inspiration: { die: 'd8', uses_remaining: 0 },
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
   it('ignores duplicate reaction clicks while one is in flight', async () => {
     const { result, deps, processingRef } = renderActions()
     processingRef.current = true
@@ -236,6 +280,41 @@ describe('useCombatSpecialActions', () => {
     expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'enemy-mage', 'char-2')
     expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
     expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('declines Bardic spell-save prompts and applies the resolved spell result locally', async () => {
+    useReactionMock.mockResolvedValueOnce({
+      action: 'spell',
+      reaction_type: 'bardic_spell_save',
+      narration: 'The spell resolves without Bardic Inspiration.',
+      turn_state: {},
+      target_state: {
+        target_id: 'char-2',
+        target_name: 'Bardic Target',
+        hp_current: 5,
+        class_resources: { bardic_inspiration: { die: 'd8', uses_remaining: 1 } },
+      },
+    })
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleCancelReaction({
+        trigger: 'spell_save',
+        target_id: 'char-2',
+        reactor_character_id: 'char-2',
+      })
+    })
+
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'char-2', 'char-2')
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'The spell resolves without Bardic Inspiration.',
+      log_type: 'combat',
+    }))
+    expect(deps.setClassResources).toHaveBeenCalledWith({
+      bardic_inspiration: { die: 'd8', uses_remaining: 1 },
+    })
+    expect(deps.setTurnState).toHaveBeenCalledWith({})
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
   })
 
   it('declines attack reactions on the server so refresh does not restore stale prompts', async () => {

@@ -104,10 +104,16 @@ export function useCombatSpecialActions({
         showDice({ faces, result: total, label: `Cutting Words d${faces}`, count: 1 })
         reactionOptions.cuttingWordsRoll = total
       }
+      if (reactionType === 'bardic_spell_save') {
+        const faces = reactionDieFaces(reactionOption)
+        const { total } = await rollDice3D(faces, 1)
+        showDice({ faces, result: total, label: `Bardic Inspiration d${faces}`, count: 1 })
+        reactionOptions.bardicInspirationRoll = total
+      }
       const result = Object.keys(reactionOptions).length
         ? await gameApi.useReaction(sessionId, reactionType, targetId, characterId, reactionOptions)
         : await gameApi.useReaction(sessionId, reactionType, targetId, characterId)
-      const reactionTargetName = result.target_state?.target_name || result.target_name || characterId || '反应者'
+      const reactionTargetName = result.target_state?.target_name || result.target_name || characterId || 'reactor'
       addLog({
         role: 'player',
         content: result.narration,
@@ -138,12 +144,19 @@ export function useCombatSpecialActions({
       }
       processingRef.current = false
       setIsProcessing(false)
-      if (!result.lair_action_prompt && !result.legendary_action_prompt) triggerAiTurn()
+      if (
+        !result.lair_action_prompt
+        && !result.legendary_action_prompt
+        && reactionType !== 'bardic_spell_save'
+        && result.action !== 'spell'
+      ) {
+        triggerAiTurn()
+      }
     } catch (e) {
       setError(formatCombatError(e))
       processingRef.current = false
       setIsProcessing(false)
-      triggerAiTurn()
+      if (reactionType !== 'bardic_spell_save') triggerAiTurn()
     }
   }, [
     addLog,
@@ -169,6 +182,7 @@ export function useCombatSpecialActions({
     processingRef.current = true
     setIsProcessing(true)
     let followupPrompt = null
+    let resolvedSpellPrompt = false
     try {
       const result = await gameApi.useReaction(
         sessionId,
@@ -176,6 +190,27 @@ export function useCombatSpecialActions({
         prompt.target_id || prompt.attacker_id || null,
         prompt.reactor_character_id || null,
       )
+      resolvedSpellPrompt = result?.action === 'spell' || result?.reaction_type === 'bardic_spell_save'
+      if (resolvedSpellPrompt) {
+        const reactionTargetName = result.target_state?.target_name || result.target_name || prompt.reactor_character_id || 'reactor'
+        addLog({
+          role: 'player',
+          content: result.narration,
+          log_type: 'combat',
+          state_changes: buildCombatStateChangeSummary(result, {
+            targetName: reactionTargetName,
+          }),
+        })
+        if (result.turn_state) setTurnState(result.turn_state)
+        if (result.target_state?.class_resources || result.class_resources) {
+          setClassResources?.(result.target_state?.class_resources || result.class_resources)
+        }
+        setCombat(prev => {
+          if (!prev) return prev
+          return applyActionResultEntityStates(prev, result)
+        })
+        if (result.combat_over) setCombatOver(result.outcome)
+      }
       followupPrompt = result?.lair_action_prompt || result?.legendary_action_prompt || null
       if (result?.lair_action_prompt) {
         setLairActionPrompt?.(result.lair_action_prompt)
@@ -188,16 +223,21 @@ export function useCombatSpecialActions({
     } finally {
       processingRef.current = false
       setIsProcessing(false)
-      if (!followupPrompt) triggerAiTurn()
+      if (!followupPrompt && !resolvedSpellPrompt && prompt?.trigger !== 'spell_save') triggerAiTurn()
     }
   }, [
+    addLog,
     processingRef,
     sessionId,
+    setClassResources,
+    setCombat,
+    setCombatOver,
     setError,
     setIsProcessing,
     setLairActionPrompt,
     setLegendaryActionPrompt,
     setReactionPrompt,
+    setTurnState,
     triggerAiTurn,
   ])
 

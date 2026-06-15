@@ -92,6 +92,11 @@ export function getReactionOptionOutcome(prompt = {}, option = {}) {
 
 export function getReactionPromptContext(prompt = {}) {
   if (prompt.context) return prompt.context
+  if ((prompt.trigger === 'spell_save' || prompt.trigger === 'bardic_spell_save') && prompt.spell_name) {
+    const save = prompt.save_ability ? `${String(prompt.save_ability).toUpperCase()} save` : 'saving throw'
+    const dc = prompt.save_dc !== undefined && prompt.save_dc !== null ? ` DC${prompt.save_dc}` : ''
+    return `${prompt.caster_name || 'Caster'}'s ${prompt.spell_name} forces a ${save}${dc}`
+  }
   if (prompt.trigger === 'spell_cast' && prompt.spell_name) {
     return `${prompt.attacker_name || prompt.caster_name || '敌人'} 正在施放 ${prompt.spell_name}`
   }
@@ -116,6 +121,13 @@ export function getReactionPromptMeta(prompt = {}) {
   }
   if (prompt.spell_level !== undefined && prompt.spell_name) {
     items.push(`${prompt.spell_name} ${prompt.spell_level}环`)
+  }
+  if (prompt.save_ability) {
+    const dc = prompt.save_dc !== undefined && prompt.save_dc !== null ? ` DC${prompt.save_dc}` : ''
+    items.push(`${String(prompt.save_ability).toUpperCase()} save${dc}`)
+  }
+  if (prompt.die) {
+    items.push(`Bardic ${prompt.die}`)
   }
   return items
 }

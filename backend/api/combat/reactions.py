@@ -43,9 +43,18 @@ from services.combat_reaction_service import (
     restore_prevented_damage,
     spend_cutting_words_resource,
 )
+from services.bardic_inspiration_service import BardicInspirationError
+from services.combat_bardic_spell_save_reaction_service import (
+    BARDIC_SPELL_SAVE_REACTION_TYPE,
+    PENDING_BARDIC_SPELL_SAVE_REACTION_KEY,
+)
+from services.combat_pending_spell_service import find_pending_spell
+from services.combat_spell_confirm_service import confirm_pending_spell, spell_actor_class
+from services.combat_spell_resolution_service import CombatSpellResolutionError
 from services.combat_temporary_hp_service import build_character_target_state
 from services.combat_ai_spell_service import consume_ai_spell_slot, consume_named_spell_slot
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_reaction
+from services.combat_outcome_service import check_and_cleanup_combat_outcome
 from services.character_roster import CharacterRoster
 
 from api.combat._shared import (
@@ -105,6 +114,208 @@ def _has_pending_spell_reaction(ts: dict) -> bool:
     return (ts.get("pending_spell_reaction") or {}).get("trigger") == "spell_cast"
 
 
+def _has_pending_bardic_spell_save_reaction(ts: dict) -> bool:
+    return (
+        ts.get(PENDING_BARDIC_SPELL_SAVE_REACTION_KEY) or {}
+    ).get("trigger") == "spell_save"
+
+
+def _extract_spell_save_bardic(response_dice_result: dict | None) -> dict | None:
+    save_result = (response_dice_result or {}).get("save_result")
+    if isinstance(save_result, dict) and save_result.get("bardic_inspiration"):
+        return save_result["bardic_inspiration"]
+    target_state = (response_dice_result or {}).get("target_state")
+    if isinstance(target_state, dict):
+        save = target_state.get("save")
+        if isinstance(save, dict) and save.get("bardic_inspiration"):
+            return save["bardic_inspiration"]
+    return None
+
+
+async def _resolve_bardic_spell_save_reaction(
+    *,
+    session_id: str,
+    req: ReactionRequest,
+    db: AsyncSession,
+    session: Session,
+    combat: CombatState,
+    player: Character,
+    player_id: str,
+    ts: dict,
+    user_id: str | None,
+    use_bardic_inspiration: bool,
+) -> dict:
+    pending_reaction = ts.get(PENDING_BARDIC_SPELL_SAVE_REACTION_KEY) or {}
+    if pending_reaction.get("trigger") != "spell_save":
+        return _reaction_already_resolved(req, ts)
+    if req.target_id and str(req.target_id) != str(pending_reaction.get("target_id")):
+        raise HTTPException(400, "Bardic spell-save reaction target mismatch.")
+
+    caster_entity_id, pending = find_pending_spell(
+        dict(combat.turn_states or {}),
+        pending_reaction.get("pending_spell_id"),
+    )
+    if not pending:
+        ts.pop(PENDING_BARDIC_SPELL_SAVE_REACTION_KEY, None)
+        _save_ts(combat, player_id, ts)
+        await db.commit()
+        return _reaction_already_resolved(req, ts)
+    if str(caster_entity_id) != str(pending_reaction.get("caster_id")):
+        raise HTTPException(400, "Bardic spell-save reaction caster mismatch.")
+
+    caster = await db.get(Character, caster_entity_id)
+    if not caster:
+        raise HTTPException(404, "Spell caster not found")
+    await assert_character_in_session(caster, session, db)
+
+    spell_name = pending["spell_name"]
+    spell = spell_service.get(spell_name)
+    if not spell:
+        raise HTTPException(400, f"Unknown spell: {spell_name}")
+
+    try:
+        confirmed = await confirm_pending_spell(
+            db,
+            session_id=session_id,
+            combat_obj=combat,
+            caster=caster,
+            caster_entity_id=caster_entity_id,
+            pending=pending,
+            spell=spell,
+            state=session.game_state or {},
+            enemies=list((session.game_state or {}).get("enemies", [])),
+            damage_values=pending_reaction.get("damage_values"),
+            session=session,
+            use_bardic_inspiration=use_bardic_inspiration,
+            bardic_inspiration_roll=req.bardic_inspiration_roll if use_bardic_inspiration else None,
+            bardic_target_id=str(player_id) if use_bardic_inspiration else None,
+            spell_service_obj=spell_service,
+            check_combat_outcome_func=check_and_cleanup_combat_outcome,
+        )
+    except CombatSpellResolutionError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+    except BardicInspirationError as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+
+    vivid = await narrate_action(
+        actor_name=caster.name,
+        actor_class=spell_actor_class(caster),
+        target_name=confirmed.spell_target,
+        action_type="spell",
+        spell_name=spell_name,
+        damage=confirmed.damage,
+        heal_amount=confirmed.heal,
+        damage_type=spell.get("damage_type", ""),
+    )
+    narration = vivid if vivid else confirmed.narration
+    response_narration = narration
+    if confirmed.wild_magic_narration_append:
+        response_narration += f"\n\n{confirmed.wild_magic_narration_append}"
+
+    db.add(GameLog(
+        session_id=session_id,
+        role="player" if caster.is_player else f"companion_{caster.name}",
+        content=narration,
+        log_type="combat",
+        dice_result=confirmed.log_dice_result,
+    ))
+    for concentration_log in confirmed.concentration_logs:
+        db.add(concentration_log)
+    for wild_magic_log in confirmed.wild_magic_logs:
+        db.add(wild_magic_log)
+
+    ts.pop(PENDING_BARDIC_SPELL_SAVE_REACTION_KEY, None)
+    _save_ts(combat, player_id, ts)
+
+    response_dice_result = dict(confirmed.log_dice_result or {})
+    response_dice_result.setdefault("total", confirmed.damage or confirmed.heal or 0)
+    bardic = _extract_spell_save_bardic(response_dice_result)
+    reaction_effect = {
+        "spell_name": spell_name,
+        "pending_spell_id": pending_reaction.get("pending_spell_id"),
+        "target_id": str(player_id),
+        "target_name": player.name,
+        "used_bardic_inspiration": bool(use_bardic_inspiration),
+    }
+    if bardic:
+        reaction_effect["bardic_inspiration"] = bardic
+        reaction_effect["class_resources"] = player.class_resources or {}
+
+    response_payload = {
+        "action": "spell",
+        "reaction_type": BARDIC_SPELL_SAVE_REACTION_TYPE,
+        "reaction_effect": reaction_effect,
+        "narration": response_narration,
+        "damage": confirmed.damage,
+        "heal": confirmed.heal,
+        "target_id": confirmed.target_id,
+        "target_new_hp": confirmed.target_new_hp,
+        "target_state": confirmed.target_state,
+        "actor_state": confirmed.caster_state,
+        "caster_state": confirmed.caster_state,
+        "class_resources": (
+            confirmed.target_state.get("class_resources")
+            if isinstance(confirmed.target_state, dict)
+            else None
+        ),
+        "spell_resource": confirmed.spell_resource,
+        "aoe_results": confirmed.aoe_results,
+        "resurrection_results": confirmed.resurrection_results,
+        "concentration_effect_updates": confirmed.concentration_effect_updates,
+        "remaining_slots": confirmed.remaining_slots,
+        "dice_detail": confirmed.dice_detail,
+        "dice_result": response_dice_result,
+        "log_dice_result": response_dice_result,
+        "turn_state": ts,
+        "caster_turn_state": confirmed.turn_state,
+        "is_concentration": confirmed.is_concentration,
+        "is_aoe": confirmed.is_aoe,
+        "concentration_check": confirmed.concentration_check,
+        "concentration_checks": confirmed.concentration_checks,
+        "combat_over": confirmed.combat_over,
+        "outcome": confirmed.outcome,
+        "wild_magic_surge": confirmed.wild_magic_surge,
+        "wild_magic_check": confirmed.wild_magic_check,
+    }
+
+    await db.commit()
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            actor_id=str(caster_entity_id),
+            actor_name=caster.name,
+            narration=response_narration,
+            action="spell",
+            reaction_type=BARDIC_SPELL_SAVE_REACTION_TYPE,
+            reaction_effect=reaction_effect,
+            target_id=confirmed.target_id,
+            target_new_hp=confirmed.target_new_hp,
+            target_state=confirmed.target_state,
+            actor_state=confirmed.caster_state,
+            caster_state=confirmed.caster_state,
+            concentration_effect_updates=confirmed.concentration_effect_updates,
+            resurrection_results=confirmed.resurrection_results,
+            damage=confirmed.damage,
+            heal=confirmed.heal,
+            dice_result=response_dice_result,
+            spell_result=response_dice_result,
+            aoe_results=confirmed.aoe_results,
+            remaining_slots=confirmed.remaining_slots,
+            spell_resource=confirmed.spell_resource,
+            concentration_check=confirmed.concentration_check,
+            concentration_checks=confirmed.concentration_checks,
+            wild_magic_surge=confirmed.wild_magic_surge,
+            wild_magic_check=confirmed.wild_magic_check,
+            combat_over=confirmed.combat_over,
+            outcome=confirmed.outcome,
+        ),
+        db=db,
+    )
+
+    return await _project_ai_control_prompts_for_user(db, session, user_id, response_payload)
+
+
 @router.post("/combat/{session_id}/reaction", response_model=CombatActionResult)
 async def use_reaction(
     session_id: str,
@@ -162,12 +373,19 @@ async def use_reaction(
     ts = _get_ts(combat, player_id)
     pending_reaction = ts.get("pending_attack_reaction") or {}
     pending_spell_reaction = ts.get("pending_spell_reaction") or {}
-    try:
-        validate_can_take_reaction(_actor_snapshot_for_attack_reaction(player, pending_reaction))
-    except CombatActionRuleError as exc:
-        raise HTTPException(exc.status_code, exc.detail) from exc
+    pending_bardic_spell_save_reaction = ts.get(PENDING_BARDIC_SPELL_SAVE_REACTION_KEY) or {}
+    is_bardic_spell_save = req.reaction_type == BARDIC_SPELL_SAVE_REACTION_TYPE
+    is_bardic_spell_save_decline = (
+        req.reaction_type == "decline"
+        and pending_bardic_spell_save_reaction.get("trigger") == "spell_save"
+    )
+    if not (is_bardic_spell_save or is_bardic_spell_save_decline):
+        try:
+            validate_can_take_reaction(_actor_snapshot_for_attack_reaction(player, pending_reaction))
+        except CombatActionRuleError as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
 
-    if ts.get("reaction_used"):
+    if ts.get("reaction_used") and not (is_bardic_spell_save or is_bardic_spell_save_decline):
         return _reaction_already_resolved(req, ts)
 
     p_class = _normalize_class(player.char_class)
@@ -178,6 +396,8 @@ async def use_reaction(
         return _reaction_already_resolved(req, ts)
     if req.reaction_type == "counterspell" and not _has_pending_spell_reaction(ts):
         return _reaction_already_resolved(req, ts)
+    if is_bardic_spell_save and not _has_pending_bardic_spell_save_reaction(ts):
+        return _reaction_already_resolved(req, ts)
 
     state = session.game_state or {}
     enemies = list(state.get("enemies", []))
@@ -186,6 +406,20 @@ async def use_reaction(
     reaction_target_name = ""
     lair_action_prompt = None
     legendary_action_prompt = None
+
+    if is_bardic_spell_save or is_bardic_spell_save_decline:
+        return await _resolve_bardic_spell_save_reaction(
+            session_id=session_id,
+            req=req,
+            db=db,
+            session=session,
+            combat=combat,
+            player=player,
+            player_id=player_id,
+            ts=ts,
+            user_id=user_id,
+            use_bardic_inspiration=is_bardic_spell_save,
+        )
 
     if req.reaction_type == "decline":
         if pending_reaction:

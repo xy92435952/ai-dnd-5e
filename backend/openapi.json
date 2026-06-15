@@ -3530,6 +3530,17 @@
       },
       "ReactionRequest": {
         "properties": {
+          "bardic_inspiration_roll": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bardic Inspiration Roll"
+          },
           "character_id": {
             "anyOf": [
               {

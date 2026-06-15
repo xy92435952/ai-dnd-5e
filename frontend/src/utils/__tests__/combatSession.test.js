@@ -172,6 +172,30 @@ describe('applyCombatSessionSnapshot', () => {
     })
   })
 
+  it('restores a pending Bardic spell-save prompt even when reaction was already used', () => {
+    const prompt = getPendingReactionPrompt({
+      reaction_used: true,
+      pending_bardic_spell_save_reaction: {
+        trigger: 'spell_save',
+        reaction_type: 'bardic_spell_save',
+        pending_spell_id: 'spell-1',
+        target_id: 'char-1',
+        die: 'd8',
+        options: [{ type: 'bardic_spell_save', die: 'd8' }],
+      },
+    }, 'char-1')
+
+    expect(prompt).toEqual({
+      trigger: 'spell_save',
+      reaction_type: 'bardic_spell_save',
+      pending_spell_id: 'spell-1',
+      target_id: 'char-1',
+      die: 'd8',
+      options: [{ type: 'bardic_spell_save', die: 'd8' }],
+      reactor_character_id: 'char-1',
+    })
+  })
+
   it('does not restore a prompt after the reaction was already used', () => {
     const prompt = getPendingReactionPrompt({
       reaction_used: true,

@@ -122,6 +122,48 @@ describe('ReactionPrompt', () => {
     )
   })
 
+  it('passes Bardic spell-save die metadata through to the reaction handler', async () => {
+    const onReact = vi.fn()
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          trigger: 'spell_save',
+          caster_name: 'Host Cleric',
+          spell_name: 'Sacred Flame',
+          target_id: 'char-2',
+          reactor_character_id: 'char-2',
+          save_ability: 'dex',
+          save_dc: 15,
+          die: 'd8',
+          available_reactions: [
+            {
+              id: 'bardic_spell_save',
+              type: 'bardic_spell_save',
+              name: 'Bardic Inspiration',
+              cost: 'spend Bardic Inspiration d8',
+              die: 'd8',
+              effect: 'Roll d8 and add it to this saving throw.',
+            },
+          ],
+        }}
+        onReact={onReact}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Bardic Inspiration/ }))
+
+    expect(onReact).toHaveBeenCalledWith(
+      'bardic_spell_save',
+      'char-2',
+      'char-2',
+      expect.objectContaining({ die: 'd8' }),
+    )
+    expect(screen.getByText('DEX save DC15')).toBeInTheDocument()
+    expect(screen.getByText('Bardic d8')).toBeInTheDocument()
+  })
+
   it('passes the prompt back when cancelling a reaction window', async () => {
     const prompt = {
       trigger: 'spell_cast',

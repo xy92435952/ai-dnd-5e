@@ -55,7 +55,20 @@ export function applyCombatSessionSnapshot({
 }
 
 export function getPendingReactionPrompt(turnState, playerId) {
-  if (!turnState || !playerId || turnState.reaction_used) return null
+  if (!turnState || !playerId) return null
+
+  const bardicSpellSaveReaction = turnState.pending_bardic_spell_save_reaction
+  if (
+    bardicSpellSaveReaction?.trigger === 'spell_save'
+    || bardicSpellSaveReaction?.trigger === 'bardic_spell_save'
+  ) {
+    return {
+      ...bardicSpellSaveReaction,
+      reactor_character_id: bardicSpellSaveReaction.reactor_character_id || playerId,
+    }
+  }
+
+  if (turnState.reaction_used) return null
 
   const attackReaction = turnState.pending_attack_reaction
   if (attackReaction?.trigger === 'incoming_attack') {

@@ -289,6 +289,7 @@ export const gameApi = {
       ...(targetId ? { target_id: targetId } : {}),
       ...(characterId ? { character_id: characterId } : {}),
       ...(options.cuttingWordsRoll != null ? { cutting_words_roll: options.cuttingWordsRoll } : {}),
+      ...(options.bardicInspirationRoll != null ? { bardic_inspiration_roll: options.bardicInspirationRoll } : {}),
     }),
 
   // 擒抱/推撞 (Grapple/Shove)

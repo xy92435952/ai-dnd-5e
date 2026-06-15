@@ -10336,6 +10336,169 @@ async def test_spell_confirm_response_keeps_legendary_resistance_save_detail(
     assert sample_session.game_state["enemies"][0]["legendary_resistances_remaining"] == 0
 
 
+async def _prepare_multiplayer_bardic_spell_save_prompt(
+    client,
+    db_session,
+    sample_session,
+    sample_character,
+    combat_state,
+    sample_user,
+    monkeypatch,
+    *,
+    name_suffix: str,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    from models import SessionMember
+    from services import combat_spell_effect_service
+    from services.spell_service import spell_service
+
+    sacred_flame_name = next(
+        (
+            spell["name"]
+            for spell in spell_service.get_all()
+            if spell.get("name_en") == "Sacred Flame"
+            or (
+                spell.get("save") == "dex"
+                and spell.get("damage_dice") == "1d8"
+                and "Cleric" in (spell.get("classes") or [])
+            )
+        ),
+        None,
+    )
+    assert sacred_flame_name
+
+    guest_response = await client.post("/auth/register", json={
+        "username": f"bss_{name_suffix[:3]}_{_uuid.uuid4().hex[:8]}",
+        "password": "password",
+        "display_name": f"Bardic Target {name_suffix}",
+    })
+    assert guest_response.status_code == 200, guest_response.text
+    guest = guest_response.json()
+    guest_headers = {"Authorization": f"Bearer {guest['token']}"}
+
+    ally = Character(
+        id=str(_uuid.uuid4()),
+        user_id=guest["user_id"],
+        session_id=sample_session.id,
+        name=f"Bardic Private Target {name_suffix}",
+        race="Human",
+        char_class="Fighter",
+        level=1,
+        background="Soldier",
+        ability_scores={"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10},
+        derived={"hp_max": 12, "ac": 12, "saving_throws": {"dex": 0}},
+        hp_current=12,
+        is_player=True,
+        class_resources={
+            "bardic_inspiration": {
+                "die": "d8",
+                "uses_remaining": 1,
+                "source_character_id": "bard-1",
+                "source_character_name": "Lyra",
+            },
+        },
+    )
+    db_session.add(ally)
+
+    sample_session.is_multiplayer = True
+    sample_session.room_code = f"BSP{name_suffix[:3].upper()}"
+    sample_session.host_user_id = sample_user.id
+    sample_character.user_id = sample_user.id
+    sample_character.char_class = "Cleric"
+    sample_character.cantrips = [sacred_flame_name]
+    sample_character.spell_slots = {}
+    sample_character.derived = {
+        **(sample_character.derived or {}),
+        "spell_ability": "wis",
+        "spell_save_dc": 15,
+        "ability_modifiers": {"wis": 4},
+    }
+    db_session.add_all([
+        SessionMember(
+            session_id=sample_session.id,
+            user_id=sample_user.id,
+            character_id=sample_character.id,
+            role="host",
+        ),
+        SessionMember(
+            session_id=sample_session.id,
+            user_id=guest["user_id"],
+            character_id=ally.id,
+            role="player",
+        ),
+    ])
+    combat_state.entity_positions = {
+        **(combat_state.entity_positions or {}),
+        ally.id: {"x": 5, "y": 6},
+    }
+    combat_state.turn_order = [
+        {
+            "character_id": sample_character.id,
+            "name": sample_character.name,
+            "initiative": 18,
+            "is_player": True,
+            "is_enemy": False,
+        },
+        {
+            "character_id": ally.id,
+            "name": ally.name,
+            "initiative": 14,
+            "is_player": True,
+            "is_enemy": False,
+        },
+    ]
+    combat_state.current_turn_index = 0
+    flag_modified(combat_state, "entity_positions")
+    flag_modified(combat_state, "turn_order")
+    monkeypatch.setattr(
+        combat_spell_effect_service,
+        "roll_saving_throw",
+        lambda _target, ability, dc: {
+            "ability": ability,
+            "d20": 11,
+            "modifier": 0,
+            "total": 11,
+            "dc": dc,
+            "success": False,
+        },
+    )
+    await db_session.commit()
+
+    host_headers = await _auth_headers(client, sample_user)
+    spell_roll = await client.post(
+        f"/game/combat/{sample_session.id}/spell-roll",
+        headers=host_headers,
+        json={
+            "caster_id": sample_character.id,
+            "spell_name": sacred_flame_name,
+            "spell_level": 0,
+            "target_id": ally.id,
+        },
+    )
+    assert spell_roll.status_code == 200, spell_roll.text
+
+    prompt_response = await client.post(
+        f"/game/combat/{sample_session.id}/spell-confirm",
+        headers=host_headers,
+        json={
+            "pending_spell_id": spell_roll.json()["pending_spell_id"],
+            "damage_values": [7],
+        },
+    )
+    assert prompt_response.status_code == 200, prompt_response.text
+    assert prompt_response.json()["action"] == "reaction_prompt"
+
+    await db_session.refresh(combat_state)
+    return {
+        "ally": ally,
+        "guest": guest,
+        "guest_headers": guest_headers,
+        "host_headers": host_headers,
+        "prompt_response": prompt_response,
+        "pending_spell_id": spell_roll.json()["pending_spell_id"],
+    }
+
+
 async def test_spell_confirm_spends_bardic_inspiration_on_character_spell_save(
     client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
 ):
@@ -10554,6 +10717,158 @@ async def test_spell_save_bardic_inspiration_rejects_enemy_target(
     )
     assert response.status_code == 400, response.text
     assert "character target" in response.text
+
+
+async def test_multiplayer_spell_confirm_prompts_private_bardic_spell_save_and_target_spends(
+    client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
+):
+    from api.combat._shared import _build_combat_snapshot
+
+    prepared = await _prepare_multiplayer_bardic_spell_save_prompt(
+        client,
+        db_session,
+        sample_session,
+        sample_character,
+        combat_state,
+        sample_user,
+        monkeypatch,
+        name_suffix="spend",
+    )
+    ally = prepared["ally"]
+    prompt_body = prepared["prompt_response"].json()
+    assert prompt_body["reaction_prompt"] is None
+    assert prompt_body["player_can_react"] is False
+
+    await db_session.refresh(combat_state)
+    pending = combat_state.turn_states[ally.id]["pending_bardic_spell_save_reaction"]
+    assert pending["trigger"] == "spell_save"
+    assert pending["reaction_type"] == "bardic_spell_save"
+    assert pending["pending_spell_id"] == prepared["pending_spell_id"]
+    assert pending["reactor_character_id"] == ally.id
+    assert pending["target_id"] == ally.id
+    assert pending["die"] == "d8"
+    assert pending["save_ability"] == "dex"
+    assert pending["save_dc"] == 15
+    assert pending["damage_values"] == [7]
+
+    host_snapshot = await _build_combat_snapshot(
+        db_session,
+        sample_session,
+        combat_state,
+        viewer_character_id=sample_character.id,
+    )
+    guest_snapshot = await _build_combat_snapshot(
+        db_session,
+        sample_session,
+        combat_state,
+        viewer_character_id=ally.id,
+    )
+    assert "pending_bardic_spell_save_reaction" not in host_snapshot["turn_states"][ally.id]
+    assert guest_snapshot["turn_states"][ally.id]["pending_bardic_spell_save_reaction"]["die"] == "d8"
+
+    blocked = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=prepared["host_headers"],
+        json={
+            "reaction_type": "bardic_spell_save",
+            "character_id": ally.id,
+            "target_id": ally.id,
+            "bardic_inspiration_roll": 4,
+        },
+    )
+    assert blocked.status_code == 403, blocked.text
+
+    invalid = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=prepared["guest_headers"],
+        json={
+            "reaction_type": "bardic_spell_save",
+            "character_id": ally.id,
+            "target_id": ally.id,
+            "bardic_inspiration_roll": 9,
+        },
+    )
+    assert invalid.status_code == 400, invalid.text
+    assert "between 1 and 8" in invalid.text
+    await db_session.refresh(combat_state)
+    assert "pending_bardic_spell_save_reaction" in combat_state.turn_states[ally.id]
+    await db_session.refresh(ally)
+    assert ally.class_resources["bardic_inspiration"]["uses_remaining"] == 1
+
+    reaction = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=prepared["guest_headers"],
+        json={
+            "reaction_type": "bardic_spell_save",
+            "character_id": ally.id,
+            "target_id": ally.id,
+            "bardic_inspiration_roll": 4,
+        },
+    )
+    assert reaction.status_code == 200, reaction.text
+    data = reaction.json()
+    assert data["action"] == "spell"
+    assert data["reaction_type"] == "bardic_spell_save"
+    assert data["reaction_effect"]["used_bardic_inspiration"] is True
+    save = data["target_state"]["save"]
+    assert save["success"] is True
+    assert save["total"] == 15
+    assert save["bardic_inspiration"]["context"] == "spell_save"
+    assert save["bardic_inspiration"]["roll"] == 4
+    assert data["dice_result"]["save_result"] == save
+    assert data["target_state"]["class_resources"]["bardic_inspiration"]["uses_remaining"] == 0
+    assert "pending_bardic_spell_save_reaction" not in data["turn_state"]
+    assert "pending_spell" not in data["caster_turn_state"]
+
+    await db_session.refresh(ally)
+    await db_session.refresh(combat_state)
+    assert ally.class_resources["bardic_inspiration"]["uses_remaining"] == 0
+    assert "pending_bardic_spell_save_reaction" not in combat_state.turn_states[ally.id]
+    assert "pending_spell" not in combat_state.turn_states[sample_character.id]
+
+
+async def test_multiplayer_bardic_spell_save_decline_resolves_without_spending_die(
+    client, db_session, sample_session, sample_character, combat_state, sample_user, monkeypatch,
+):
+    prepared = await _prepare_multiplayer_bardic_spell_save_prompt(
+        client,
+        db_session,
+        sample_session,
+        sample_character,
+        combat_state,
+        sample_user,
+        monkeypatch,
+        name_suffix="decline",
+    )
+    ally = prepared["ally"]
+
+    decline = await client.post(
+        f"/game/combat/{sample_session.id}/reaction",
+        headers=prepared["guest_headers"],
+        json={
+            "reaction_type": "decline",
+            "character_id": ally.id,
+            "target_id": ally.id,
+        },
+    )
+    assert decline.status_code == 200, decline.text
+    data = decline.json()
+    assert data["action"] == "spell"
+    assert data["reaction_type"] == "bardic_spell_save"
+    assert data["reaction_effect"]["used_bardic_inspiration"] is False
+    save = data["target_state"]["save"]
+    assert save["success"] is False
+    assert save["total"] == 11
+    assert "bardic_inspiration" not in save
+    assert data["target_state"]["class_resources"]["bardic_inspiration"]["uses_remaining"] == 1
+    assert "pending_bardic_spell_save_reaction" not in data["turn_state"]
+    assert "pending_spell" not in data["caster_turn_state"]
+
+    await db_session.refresh(ally)
+    await db_session.refresh(combat_state)
+    assert ally.class_resources["bardic_inspiration"]["uses_remaining"] == 1
+    assert "pending_bardic_spell_save_reaction" not in combat_state.turn_states[ally.id]
+    assert "pending_spell" not in combat_state.turn_states[sample_character.id]
 
 
 async def test_spell_attack_roll_critical_hit_doubles_damage_dice(
