@@ -160,6 +160,10 @@ python seed_smoke_scenario.py --slug codex_death_save --variant death-save
 
 See `docs/smoke-seed-scenario.md` for cleanup commands and seeded credentials.
 
+Latest local dry-run evidence:
+
+- 2026-06-15: `seed_smoke_scenario.py` was run against a temporary SQLite backend DB for `standard`, `reaction`, and `death-save` variants. A real local backend on `127.0.0.1:8002` then verified `/auth/login`, `/game/sessions/{session_id}`, and `/game/combat/{session_id}` for all three seeded users. The same run consumed the reaction variant's pending Shield prompt through `/game/combat/{session_id}/reaction`, preventing 9 damage, restoring HP to 28, spending the 1st-level slot, and clearing `pending_attack_reaction`; it also submitted a death save with `d20_value=12`, updating death saves from `1/1` to `2/1`. Backend log scan found no `ERROR`/`Traceback`/`500` lines.
+
 ## Multiplayer Load Smoke
 
 Run only when the backend is already listening on `127.0.0.1:8002` and you want
