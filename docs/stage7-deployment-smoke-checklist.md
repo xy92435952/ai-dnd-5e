@@ -26,6 +26,7 @@ git log --oneline --decorate -8
 
 cd frontend
 npm run test -- <focused-test-files>
+npm run test:stage7:reaction
 npm run build
 cd ..
 
@@ -76,7 +77,7 @@ For a narrower but faster multiplayer reconnect gate, use:
   -q
 
 cd frontend
-npm run test -- src\utils\__tests__\combatSession.test.js src\hooks\__tests__\useCombatPageActions.test.js
+npm run test:stage7:reaction
 npm run build
 cd ..
 ```
