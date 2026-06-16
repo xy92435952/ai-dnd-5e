@@ -12,7 +12,7 @@ from schemas.ws_events import (
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing,
-    DMThinkingStart, DMResponded, DMSpeakTurn,
+    DMThinkingStart, DMResponded, DMSpeakTurn, ExplorationReactionPrompt,
     CombatUpdate, TurnChanged, EntityMoved,
 )
 from schemas.game_responses import (

@@ -272,6 +272,12 @@ async def _broadcast_exploration_result(
     except Exception:
         pass
 
+    if applied.exploration_reaction_prompt:
+        await _send_exploration_reaction_prompt(
+            session=session,
+            prompt=applied.exploration_reaction_prompt,
+        )
+
     if not session.combat_active and not applied.combat_triggered and not applied.exploration_reaction_prompt:
         try:
             from services.ws_manager import ws_manager
@@ -285,3 +291,22 @@ async def _broadcast_exploration_result(
                 await ws_manager.broadcast(session.id, RoomStateUpdated(room=room_info))
         except Exception:
             pass
+
+
+async def _send_exploration_reaction_prompt(*, session: Session, prompt: dict | None) -> bool:
+    if not isinstance(prompt, dict):
+        return False
+    reactor_user_id = prompt.get("reactor_user_id")
+    if not reactor_user_id:
+        return False
+    try:
+        from schemas.ws_events import ExplorationReactionPrompt
+        from services.ws_manager import ws_manager
+
+        return await ws_manager.send_to_user(
+            session.id,
+            str(reactor_user_id),
+            ExplorationReactionPrompt(prompt=prompt),
+        )
+    except Exception:
+        return False

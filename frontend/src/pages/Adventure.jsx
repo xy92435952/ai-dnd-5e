@@ -187,7 +187,7 @@ export default function Adventure() {
   const onWsEvent = useDialogueWsSync({
     sessionId, myUserId, room, companions,
     buildDialogueQueue, enterDialogueStage, loadSession,
-    setIsLoading, setRoom,
+    setIsLoading, setRoom, setPendingExplorationReaction,
   })
 
   const { connected: wsConnected, status: wsStatus, send: wsSend } = useWebSocket(room ? sessionId : null, onWsEvent)

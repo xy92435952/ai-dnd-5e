@@ -16,7 +16,7 @@ from schemas.ws_events import (
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing, WSError,
-    DMThinkingStart, DMResponded, DMSpeakTurn,
+    DMThinkingStart, DMResponded, DMSpeakTurn, ExplorationReactionPrompt,
     RoomStateUpdated, CombatUpdate, TurnChanged, EntityMoved,
 )
 
@@ -25,7 +25,7 @@ ALL_CLASSES = [
     MemberJoined, MemberLeft, RoomDissolved, GameStarted,
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing, WSError,
-    DMThinkingStart, DMResponded, DMSpeakTurn,
+    DMThinkingStart, DMResponded, DMSpeakTurn, ExplorationReactionPrompt,
     RoomStateUpdated, CombatUpdate, TurnChanged, EntityMoved,
 ]
 
@@ -125,6 +125,19 @@ class TestSampleEvents:
         d = e.model_dump(mode="json")
         assert d["type"] == "room_state_updated"
         assert d["room"]["session_id"] == "s1"
+
+    def test_exploration_reaction_prompt_carries_private_prompt(self):
+        prompt = {
+            "type": "feather_fall",
+            "reactor_character_id": "bard-1",
+            "reactor_user_id": "user-2",
+            "options": [{"type": "feather_fall"}],
+        }
+        e = ExplorationReactionPrompt(prompt=prompt)
+        d = e.model_dump(mode="json")
+
+        assert d["type"] == "exploration_reaction_prompt"
+        assert d["prompt"] == prompt
 
     def test_combat_update_carries_reaction_and_control_payloads(self):
         reaction_prompt = {

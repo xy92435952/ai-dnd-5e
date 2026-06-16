@@ -149,6 +149,12 @@ class RoomStateUpdated(_BaseEvent):
     room: dict
 
 
+class ExplorationReactionPrompt(_BaseEvent):
+    """Private exploration-mode reaction prompt for the prompted viewer only."""
+    type: Literal["exploration_reaction_prompt"] = "exploration_reaction_prompt"
+    prompt: dict[str, Any]
+
+
 # ─── 战斗 ────────────────────────────────────────────────────
 
 class CombatUpdate(_BaseEvent):
@@ -272,6 +278,7 @@ WSEvent = Union[
     AiCompanionsFilled, MemberKicked, HostTransferred, CharacterClaimed,
     MemberOnline, MemberOffline, Typing, WSError,
     DMThinkingStart, DMResponded, DMSpeakTurn, RoomStateUpdated,
+    ExplorationReactionPrompt,
     CombatUpdate, TurnChanged, EntityMoved,
 ]
 
@@ -281,6 +288,7 @@ WS_EVENT_TYPES = frozenset({
     "ai_companions_filled", "member_kicked", "host_transferred", "character_claimed",
     "member_online", "member_offline", "typing", "error",
     "dm_thinking_start", "dm_responded", "dm_speak_turn", "room_state_updated",
+    "exploration_reaction_prompt",
     "combat_update", "turn_changed", "entity_moved",
 })
 
@@ -294,6 +302,7 @@ __all__ = [
     "MemberOnline", "MemberOffline", "Typing", "WSError",
     # DM
     "DMThinkingStart", "DMResponded", "DMSpeakTurn", "RoomStateUpdated",
+    "ExplorationReactionPrompt",
     # 战斗
     "CombatUpdate", "TurnChanged", "EntityMoved",
 ]

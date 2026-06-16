@@ -40,6 +40,7 @@ function makeDeps(overrides = {}) {
     loadSession:        vi.fn(),
     setIsLoading:       vi.fn(),
     setRoom:            vi.fn(),
+    setPendingExplorationReaction: vi.fn(),
     ...overrides,
   }
 }
@@ -324,6 +325,26 @@ describe('useDialogueWsSync', () => {
       _currentSpeaker: 'u-next',
       party_groups: [{ id: 'main', member_user_ids: ['me'] }],
     })
+  })
+
+  it('exploration_reaction_prompt: restores the private Feather Fall prompt without theatre replay', () => {
+    const prompt = {
+      type: 'feather_fall',
+      reactor_character_id: 'bard-1',
+      reactor_user_id: 'me',
+      options: [{ type: 'feather_fall' }],
+    }
+    const deps = makeDeps()
+    const { result } = renderHook(() => useDialogueWsSync(deps))
+
+    act(() => {
+      result.current({ type: 'exploration_reaction_prompt', prompt })
+    })
+
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(prompt)
+    expect(deps.setIsLoading).toHaveBeenCalledWith(false)
+    expect(deps.enterDialogueStage).not.toHaveBeenCalled()
+    expect(deps.loadSession).not.toHaveBeenCalled()
   })
 
   it('未知 type: 静默忽略不报错', () => {

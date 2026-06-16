@@ -147,6 +147,11 @@ export interface RoomStateUpdated {
   room: unknown
 }
 
+export interface ExplorationReactionPrompt {
+  type: 'exploration_reaction_prompt'
+  prompt: Record<string, unknown>
+}
+
 // ─── 战斗 ────────────────────────────────────────────────
 
 export interface CombatUpdate {
@@ -279,6 +284,7 @@ export type WSEvent =
   | DMResponded
   | DMSpeakTurn
   | RoomStateUpdated
+  | ExplorationReactionPrompt
   | CombatUpdate
   | TurnChanged
   | EntityMoved

@@ -20,6 +20,7 @@
  * @property {() => Promise<void>} loadSession
  * @property {(loading: boolean) => void} setIsLoading
  * @property {(updater: any) => void} setRoom
+ * @property {(prompt: object|null) => void} setPendingExplorationReaction
  *
  * @param {Deps} deps
  * @returns {(event: import('../types/ws').WSEvent) => void}
@@ -46,6 +47,7 @@ export function useDialogueWsSync({
   loadSession,
   setIsLoading,
   setRoom,
+  setPendingExplorationReaction,
 }) {
   return useCallback((event) => {
     switch (event.type) {
@@ -94,6 +96,13 @@ export function useDialogueWsSync({
         setRoom(prev => mergeRealtimeRoomEvent(prev, event))
         break
 
+      case 'exploration_reaction_prompt':
+        if (event.prompt) {
+          setPendingExplorationReaction?.(event.prompt)
+          setIsLoading(false)
+        }
+        break
+
       case 'member_online':
       case 'member_offline':
       case 'member_joined':
@@ -111,5 +120,16 @@ export function useDialogueWsSync({
 
       default: break
     }
-  }, [sessionId, myUserId, room, companions, buildDialogueQueue, enterDialogueStage, loadSession, setIsLoading, setRoom])
+  }, [
+    sessionId,
+    myUserId,
+    room,
+    companions,
+    buildDialogueQueue,
+    enterDialogueStage,
+    loadSession,
+    setIsLoading,
+    setRoom,
+    setPendingExplorationReaction,
+  ])
 }
