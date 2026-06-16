@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   smiteMock,
   useReactionMock,
+  getCombatMock,
   maneuverMock,
   rollDice3DMock,
 } = vi.hoisted(() => ({
   smiteMock: vi.fn(),
   useReactionMock: vi.fn(),
+  getCombatMock: vi.fn(),
   maneuverMock: vi.fn(),
   rollDice3DMock: vi.fn(),
 }))
@@ -17,6 +19,7 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     smite: smiteMock,
     useReaction: useReactionMock,
+    getCombat: getCombatMock,
     maneuver: maneuverMock,
   },
 }))
@@ -40,6 +43,9 @@ describe('useCombatSpecialActions', () => {
     useReactionMock.mockResolvedValue({
       narration: '地狱斥责命中',
       turn_state: { reaction_used: true },
+    })
+    getCombatMock.mockResolvedValue({
+      turn_states: {},
     })
     maneuverMock.mockResolvedValue({
       narration: '战技命中',
@@ -315,6 +321,43 @@ describe('useCombatSpecialActions', () => {
     expect(deps.setReactionPrompt).not.toHaveBeenCalledWith(null)
   })
 
+  it('restores a combat reaction prompt from the latest snapshot after submit failure', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      attacker_name: 'Ogre',
+      incoming_damage: 9,
+      target_hp_before_damage: 12,
+      available_reactions: [{ type: 'shield', name: 'Shield' }],
+    }
+    const freshCombat = {
+      turn_states: {
+        'char-2': {
+          reaction_used: false,
+          pending_attack_reaction: pendingReaction,
+        },
+      },
+    }
+    useReactionMock.mockRejectedValueOnce(new Error('Reaction failed'))
+    getCombatMock.mockResolvedValueOnce(freshCombat)
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleReaction('shield', 'enemy-1', 'char-2')
+    })
+
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'shield', 'enemy-1', 'char-2')
+    expect(getCombatMock).toHaveBeenCalledWith('sess-1')
+    expect(deps.setCombat).toHaveBeenCalledWith(freshCombat)
+    expect(deps.setTurnState).toHaveBeenCalledWith(freshCombat.turn_states['char-2'])
+    expect(deps.setReactionPrompt).toHaveBeenLastCalledWith({
+      ...pendingReaction,
+      reactor_character_id: 'char-2',
+    })
+    expect(deps.setError).toHaveBeenCalledWith('本轮反应已经用过了，等到你的下个回合开始后会恢复。')
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
   it('declines spell reactions on the server before resuming ai turns', async () => {
     const { result, deps } = renderActions()
 
@@ -329,6 +372,43 @@ describe('useCombatSpecialActions', () => {
     expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'enemy-mage', 'char-2')
     expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
     expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
+  it('restores a combat reaction prompt from the latest snapshot after decline failure', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      incoming_damage: 6,
+      available_reactions: [{ type: 'shield', name: 'Shield' }],
+    }
+    const freshCombat = {
+      turn_states: {
+        'char-2': {
+          reaction_used: false,
+          pending_attack_reaction: pendingReaction,
+        },
+      },
+    }
+    useReactionMock.mockRejectedValueOnce(new Error('Network down'))
+    getCombatMock.mockResolvedValueOnce(freshCombat)
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleCancelReaction({
+        trigger: 'incoming_attack',
+        attacker_id: 'enemy-1',
+        reactor_character_id: 'char-2',
+      })
+    })
+
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'enemy-1', 'char-2')
+    expect(getCombatMock).toHaveBeenCalledWith('sess-1')
+    expect(deps.setReactionPrompt).toHaveBeenLastCalledWith({
+      ...pendingReaction,
+      reactor_character_id: 'char-2',
+    })
+    expect(deps.setError).toHaveBeenCalledWith('Network down')
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
   })
 
   it('declines Bardic spell-save prompts and applies the resolved spell result locally', async () => {

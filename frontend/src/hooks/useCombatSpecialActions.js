@@ -1,7 +1,8 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
-import { applyActionResultEntityStates } from '../utils/combat'
+import { applyActionResultEntityStates, getPlayerTurnState } from '../utils/combat'
+import { resolveCombatReactionPrompt } from '../utils/combatSession'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
@@ -34,6 +35,27 @@ export function useCombatSpecialActions({
   showDice,
   addLog,
 }) {
+  const refreshReactionSnapshot = useCallback(async (characterId = null) => {
+    if (!characterId) return false
+    try {
+      const fresh = await gameApi.getCombat(sessionId)
+      if (!fresh) return false
+      setCombat(fresh)
+      const freshTurnState = getPlayerTurnState(fresh, characterId)
+      if (freshTurnState) setTurnState(freshTurnState)
+      const restoredPrompt = resolveCombatReactionPrompt({
+        turnState: freshTurnState,
+        playerId: characterId,
+        reactionPrompt: fresh.reaction_prompt,
+        playerCanReact: fresh.player_can_react,
+      })
+      setReactionPrompt(restoredPrompt)
+      return Boolean(restoredPrompt)
+    } catch {
+      return false
+    }
+  }, [sessionId, setCombat, setReactionPrompt, setTurnState])
+
   const handleSmite = useCallback(async (slotLevel) => {
     if (!canActThisTurn || isProcessing) return
     processingRef.current = true
@@ -154,9 +176,10 @@ export function useCombatSpecialActions({
       }
     } catch (e) {
       setError(formatCombatError(e))
+      const restoredPrompt = await refreshReactionSnapshot(characterId)
       processingRef.current = false
       setIsProcessing(false)
-      if (reactionType !== 'bardic_spell_save') triggerAiTurn()
+      if (!restoredPrompt && reactionType !== 'bardic_spell_save') triggerAiTurn()
     }
   }, [
     addLog,
@@ -175,6 +198,7 @@ export function useCombatSpecialActions({
     setTurnState,
     showDice,
     triggerAiTurn,
+    refreshReactionSnapshot,
   ])
 
   const handleCancelReaction = useCallback(async (prompt = null) => {
@@ -220,6 +244,7 @@ export function useCombatSpecialActions({
       }
     } catch (e) {
       setError(formatCombatError(e))
+      followupPrompt = await refreshReactionSnapshot(prompt?.reactor_character_id || null)
     } finally {
       processingRef.current = false
       setIsProcessing(false)
