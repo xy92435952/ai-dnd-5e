@@ -149,7 +149,10 @@ describe('useCombatAiTurns', () => {
       await result.current.triggerAiTurn()
     })
 
-    expect(deps.setReactionPrompt).toHaveBeenCalledWith({ context: '可用反应' })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      context: '可用反应',
+      reactor_character_id: 'char-1',
+    })
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
@@ -367,6 +370,50 @@ describe('useCombatAiTurns', () => {
       reactor_character_id: 'guest-char',
     })
     expect(deps.setTurnState).not.toHaveBeenCalledWith({ action_used: false })
+  })
+
+  it('routes ai-turn reaction prompts through the shared resolver', async () => {
+    getCombatMock.mockResolvedValueOnce({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'char-1': { reaction_used: false },
+      },
+    })
+    aiTurnMock.mockResolvedValue({
+      actor_id: 'enemy-1',
+      actor_name: 'Enemy Mage',
+      narration: 'Enemy Mage begins casting.',
+      attack_result: {},
+      target_id: 'char-1',
+      target_new_hp: 10,
+      next_turn_index: 0,
+      round_number: 1,
+      player_can_react: true,
+      reaction_prompt: {
+        trigger: 'spell_cast',
+        reactor_character_id: 'char-1',
+        options: [{ type: 'counterspell' }],
+      },
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      const promise = result.current.triggerAiTurn()
+      await Promise.resolve()
+      await Promise.resolve()
+      await vi.runOnlyPendingTimersAsync()
+      await promise
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      trigger: 'spell_cast',
+      reactor_character_id: 'char-1',
+      options: [{ type: 'counterspell' }],
+    })
+    expect(aiTurnMock).toHaveBeenCalledTimes(1)
   })
 
   it('quietly stops when the backend rejects a stale ai turn token', async () => {

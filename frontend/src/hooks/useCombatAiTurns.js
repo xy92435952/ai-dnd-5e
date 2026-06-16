@@ -112,8 +112,13 @@ export function useCombatAiTurns({
           state_changes: buildCombatStateChangeSummary(result),
         })
 
-        if (result.reaction_prompt && result.player_can_react) {
-          setReactionPrompt(result.reaction_prompt)
+        const resultReactionPrompt = resolveCombatReactionPrompt({
+          playerId,
+          reactionPrompt: result.reaction_prompt,
+          playerCanReact: result.player_can_react,
+        })
+        if (resultReactionPrompt) {
+          setReactionPrompt(resultReactionPrompt)
           processingRef.current = false
           setIsProcessing(false)
           break
