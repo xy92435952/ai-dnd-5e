@@ -68,6 +68,18 @@ the seed in exploration instead of active combat and temporarily equips the AI
 companion with Feather Fall so Adventure restore can show the non-combat
 ReactionPrompt without invoking the LLM.
 
+For a full local browser verification of the `feather-fall` Adventure prompt,
+run from the repository root:
+
+```powershell
+node scripts\feather_fall_adventure_browser_smoke.mjs
+```
+
+That smoke uses a temporary SQLite database, starts backend/frontend processes
+when needed, logs in as the seeded user, opens the Adventure session, accepts
+the Feather Fall prompt, verifies HP/slot/pending state through HTTP refresh,
+and writes prompt/resolved screenshots under `artifacts/`.
+
 The same `--slug` is idempotent: rerunning it replaces the previous seeded rows
 with the same deterministic ids instead of accumulating duplicate test data.
 
