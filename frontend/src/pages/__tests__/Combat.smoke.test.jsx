@@ -663,6 +663,97 @@ describe('Combat render smoke', () => {
     expect(getCombatMock.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
+  it('does not restore another player private reaction prompt from a redacted multiplayer refresh', async () => {
+    wsConnectedMock.mockReturnValue(true)
+    const redactedCombat = {
+      ...combatFixture,
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'host-char', name: 'Host Hero', is_player: true, initiative: 18 },
+        { character_id: 'guest-char', name: 'Guest Hero', is_player: true, initiative: 16 },
+        { character_id: 'enemy-1', name: 'Training Dummy', is_enemy: true, initiative: 8 },
+      ],
+      entities: {
+        ...combatFixture.entities,
+        'host-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'host-char',
+          name: 'Host Hero',
+          hp_current: 12,
+          hp_max: 12,
+          ac: 16,
+        },
+        'guest-char': {
+          ...combatFixture.entities['char-1'],
+          id: 'guest-char',
+          name: 'Guest Hero',
+          hp_current: 5,
+          hp_max: 18,
+          ac: 15,
+        },
+        'enemy-1': {
+          ...combatFixture.entities['enemy-1'],
+          name: 'Training Dummy',
+        },
+      },
+      turn_states: {
+        'host-char': { action_used: false, movement_used: 0, movement_max: 6, reaction_used: false },
+        'guest-char': {
+          action_used: true,
+          movement_used: 3,
+          movement_max: 6,
+          reaction_used: false,
+        },
+      },
+    }
+    const hostSession = {
+      ...sessionFixture,
+      is_multiplayer: true,
+      player: {
+        ...sessionFixture.player,
+        id: 'host-char',
+        name: 'Host Hero',
+        hp_current: 12,
+        hp_max: 12,
+        derived: {
+          ...sessionFixture.player.derived,
+          hp_max: 12,
+          ac: 16,
+        },
+      },
+    }
+    const room = {
+      is_multiplayer: true,
+      session_id: 'sess-1',
+      room_code: '234567',
+      host_user_id: 'host-user',
+      members: [
+        { user_id: 'host-user', display_name: 'Host', character_id: 'host-char', is_online: true },
+        { user_id: 'guest-user', display_name: 'Guest', character_id: 'guest-char', is_online: true },
+      ],
+    }
+
+    localStorage.setItem('user', JSON.stringify({ user_id: 'host-user', display_name: 'Host' }))
+    window.dispatchEvent(new Event('user-changed'))
+    roomsGetMock.mockResolvedValue(room)
+    getCombatMock.mockResolvedValue(redactedCombat)
+    getSessionMock.mockResolvedValue(hostSession)
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('.hud-portrait')).toHaveTextContent('Host Hero')
+    })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Shield')).not.toBeInTheDocument()
+  })
+
   it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {
     wsConnectedMock.mockReturnValue(true)
     const hostTurnCombat = {
