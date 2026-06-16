@@ -12,9 +12,12 @@ const frontendCwd = path.join(root, 'frontend');
 const backendOrigin = process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8002';
 const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://127.0.0.1:3000';
 const pythonPath = process.env.PYTHON_EXE || path.join(root, '.codex-test-artifacts', 'backend-venv', 'Scripts', 'python.exe');
-const slug = process.env.FEATHER_FALL_SMOKE_SLUG || 'stage7_feather_fall_browser';
-const promptScreenshotPath = path.join(root, 'artifacts', 'browser-feather-fall-adventure-prompt-20260617.png');
-const resolvedScreenshotPath = path.join(root, 'artifacts', 'browser-feather-fall-adventure-resolved-20260617.png');
+const decision = normalizeDecision(process.env.FEATHER_FALL_SMOKE_DECISION || parseDecisionArg() || 'accept');
+const reactionType = decision === 'decline' ? 'decline' : 'feather_fall';
+const decisionButtonText = decision === 'decline' ? 'Decline' : 'Cast Feather Fall';
+const slug = process.env.FEATHER_FALL_SMOKE_SLUG || `stage7_feather_fall_browser_${decision}`;
+const promptScreenshotPath = screenshotPath('prompt');
+const resolvedScreenshotPath = screenshotPath('resolved');
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -22,6 +25,33 @@ function sleep(ms) {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function parseDecisionArg(args = process.argv.slice(2)) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--decision') return args[index + 1] || '';
+    if (arg.startsWith('--decision=')) return arg.slice('--decision='.length);
+    if (['accept', 'cast', 'feather_fall', 'feather-fall', 'decline', 'pass'].includes(arg)) {
+      return arg;
+    }
+  }
+  return '';
+}
+
+function normalizeDecision(value) {
+  const normalized = String(value || '').trim().toLowerCase().replace(/-/g, '_');
+  if (['accept', 'cast', 'feather_fall'].includes(normalized)) return 'accept';
+  if (['decline', 'pass'].includes(normalized)) return 'decline';
+  throw new Error(`Unsupported Feather Fall smoke decision "${value}". Use accept or decline.`);
+}
+
+function screenshotPath(kind) {
+  if (decision === 'accept') {
+    const suffix = kind === 'prompt' ? 'prompt' : 'resolved';
+    return path.join(root, 'artifacts', `browser-feather-fall-adventure-${suffix}-20260617.png`);
+  }
+  return path.join(root, 'artifacts', `browser-feather-fall-adventure-${decision}-${kind}-20260617.png`);
 }
 
 function sqliteUrl(dbPath) {
@@ -357,10 +387,11 @@ async function readUiState(cdp) {
   })()`);
 }
 
-async function clickCastFeatherFall(cdp) {
+async function clickPromptButton(cdp, buttonText) {
   return evalPage(cdp, `(() => {
+    const expected = ${JSON.stringify(buttonText)};
     const button = Array.from(document.querySelectorAll('button'))
-      .find((candidate) => (candidate.innerText || '').includes('Cast Feather Fall'));
+      .find((candidate) => (candidate.innerText || '').includes(expected));
     if (!button) return { ok: false, text: document.body?.innerText || '' };
     button.click();
     return { ok: true, text: (button.innerText || '').replace(/\\s+/g, ' ').trim() };
@@ -372,12 +403,25 @@ async function assertResolvedSession(seed, token, beforeSession) {
     headers: { Authorization: `Bearer ${token}` },
   });
   assert(!after.game_state?.pending_exploration_reaction, 'pending_exploration_reaction survived refresh');
-  assert(after.player?.hp_current === beforeSession.player?.hp_max, `player HP changed: ${after.player?.hp_current} vs ${beforeSession.player?.hp_max}`);
+  const beforeHp = Number(beforeSession.player?.hp_current ?? beforeSession.player?.hp_max ?? 0);
+  const pending = beforeSession.game_state?.pending_exploration_reaction || {};
+  const fallDamage = Number(pending.damage_before ?? pending.damage_prevented ?? 0);
+  const expectedHp = decision === 'decline' ? Math.max(0, beforeHp - fallDamage) : beforeHp;
+  assert(after.player?.hp_current === expectedHp, `player HP mismatch for ${decision}: ${after.player?.hp_current} vs ${expectedHp}`);
   const companion = (after.companions || []).find(item => item.id === seed.companion_ids[0]);
   assert(companion, `missing seeded Feather Fall caster ${seed.companion_ids[0]}`);
-  assert(companion.spell_slots?.['1st'] === 0, `Feather Fall slot was not spent: ${JSON.stringify(companion.spell_slots)}`);
+  const beforeCompanion = (beforeSession.companions || []).find(item => item.id === seed.companion_ids[0]);
+  const expectedSlots = decision === 'decline' ? beforeCompanion?.spell_slots?.['1st'] : 0;
+  assert(companion.spell_slots?.['1st'] === expectedSlots, `Feather Fall slot mismatch for ${decision}: ${JSON.stringify(companion.spell_slots)}`);
   const logText = JSON.stringify(after.logs || []);
-  assert(logText.includes('Feather Fall') && logText.includes('preventing 6 fall damage'), 'session logs did not include resolved Feather Fall narration');
+  if (decision === 'decline') {
+    assert(
+      logText.includes('lets the Feather Fall window pass') && logText.includes(`deals ${fallDamage} damage`),
+      'session logs did not include declined Feather Fall narration',
+    );
+  } else {
+    assert(logText.includes('Feather Fall') && logText.includes(`preventing ${fallDamage} fall damage`), 'session logs did not include resolved Feather Fall narration');
+  }
   return after;
 }
 
@@ -508,15 +552,16 @@ async function main() {
         && state.dialogText.includes('Gatehouse drop shaft')
         && state.dialogText.includes('Prevents 6 fall damage')
         && state.castButtonVisible
+        && state.declineButtonVisible
         ? state
         : null;
     }, 45000, 250);
     await screenshot(cdp, promptScreenshotPath);
 
-    const clicked = await clickCastFeatherFall(cdp);
-    assert(clicked.ok, `Could not click Cast Feather Fall: ${JSON.stringify(clicked)}`);
+    const clicked = await clickPromptButton(cdp, decisionButtonText);
+    assert(clicked.ok, `Could not click ${decisionButtonText}: ${JSON.stringify(clicked)}`);
 
-    const resolvedUi = await waitFor('Feather Fall prompt clears after cast', async () => {
+    const resolvedUi = await waitFor('Feather Fall prompt clears after decision', async () => {
       const state = await readUiState(cdp);
       lastUiState = state;
       return !state.dialogVisible
@@ -531,6 +576,8 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       mode: 'feather-fall-adventure-browser-smoke',
+      decision,
+      reaction_type: reactionType,
       seed: {
         slug: seed.slug,
         session_id: seed.session_id,

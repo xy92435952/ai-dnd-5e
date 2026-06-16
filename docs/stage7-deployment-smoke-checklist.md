@@ -180,16 +180,18 @@ For a repeatable browser-level check of that Adventure prompt, run:
 
 ```powershell
 node scripts\feather_fall_adventure_browser_smoke.mjs
+node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline
 ```
 
 The browser smoke starts a temporary SQLite-backed backend on `127.0.0.1:8002`,
 starts Vite on `127.0.0.1:3000` when needed, logs in as the seeded user, opens
-the seeded Adventure page, verifies the Feather Fall panel text, clicks
-`Cast Feather Fall`, verifies the prompt clears, and writes prompt/resolved
-screenshots under `artifacts/`.
+the seeded Adventure page, verifies the Feather Fall panel text, clicks either
+`Cast Feather Fall` or `Decline`, verifies the prompt clears, checks HP/slot
+state through refresh, and writes prompt/resolved screenshots under `artifacts/`.
 
 Latest local dry-run evidence:
 
+- 2026-06-17: `node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline` passed against a temporary SQLite backend DB and exited cleanly. The run restored the same seeded Adventure prompt, clicked `Decline`, confirmed `pending_exploration_reaction` cleared, applied the saved 6 fall damage so player HP became `22/28`, left the caster's `1st` slot at `1`, and wrote `artifacts\browser-feather-fall-adventure-decline-prompt-20260617.png` plus `artifacts\browser-feather-fall-adventure-decline-resolved-20260617.png`.
 - 2026-06-17: `node scripts\feather_fall_adventure_browser_smoke.mjs` passed against a temporary SQLite backend DB and exited cleanly. The run restored the seeded Adventure prompt, verified the panel text included Feather Fall, Mara Quickstep, Smoke Sentinel, Gatehouse drop shaft, and `Prevents 6 fall damage`, clicked `Cast Feather Fall`, confirmed `pending_exploration_reaction` cleared, kept player HP at `28/28`, spent the caster's `1st` slot to `0`, and wrote `artifacts\browser-feather-fall-adventure-prompt-20260617.png` plus `artifacts\browser-feather-fall-adventure-resolved-20260617.png`.
 - 2026-06-15: `seed_smoke_scenario.py` was run against a temporary SQLite backend DB for `standard`, `reaction`, and `death-save` variants. A real local backend on `127.0.0.1:8002` then verified `/auth/login`, `/game/sessions/{session_id}`, and `/game/combat/{session_id}` for all three seeded users. The same run consumed the reaction variant's pending Shield prompt through `/game/combat/{session_id}/reaction`, preventing 9 damage, restoring HP to 28, spending the 1st-level slot, and clearing `pending_attack_reaction`; it also submitted a death save with `d20_value=12`, updating death saves from `1/1` to `2/1`. Backend log scan found no `ERROR`/`Traceback`/`500` lines.
 
