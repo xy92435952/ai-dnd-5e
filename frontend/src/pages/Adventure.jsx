@@ -46,7 +46,7 @@ import MultiplayerPartyPanel from '../components/adventure/MultiplayerPartyPanel
 import MultiplayerTableNotice from '../components/adventure/MultiplayerTableNotice'
 import MultiplayerTimelinePanel from '../components/adventure/MultiplayerTimelinePanel'
 import { buildDialogueQueue as buildDialogueQueueFromText } from '../utils/dialogue'
-import { getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
+import { getRestoredExplorationReactionPrompt, getRestoredTurnState, prepareOpeningStage } from '../utils/adventureSessionLoaded'
 import { updateLuckyPointsRemaining } from '../utils/lucky'
 import { updateBardicInspirationUses } from '../utils/bardicInspiration'
 
@@ -68,6 +68,7 @@ export default function Adventure() {
     journalOpen, setJournalOpen,
     journalText, setJournalText,
     journalLoading, setJournalLoading,
+    pendingExplorationReaction, setPendingExplorationReaction,
   } = useAdventureUiState()
 
   // 对话流系统（v0.10.1）— 状态机 + 打字机 + 空格推进都在 useDialogueFlow 里
@@ -122,6 +123,7 @@ export default function Adventure() {
       if (restored.choices) setChoices(restored.choices)
       if (restored.pendingCheck) setPendingCheck(restored.pendingCheck)
     }
+    setPendingExplorationReaction(getRestoredExplorationReactionPrompt(data))
 
     const opening = prepareOpeningStage(data, {
       sessionId,
@@ -232,6 +234,7 @@ export default function Adventure() {
     handleGenerateJournal,
     handlePrepareSpells,
     handleCheckpoint,
+    handleExplorationReaction,
   } = useAdventureActions({
     sessionId,
     playerId: player?.id,
@@ -247,6 +250,7 @@ export default function Adventure() {
     setIsLoading,
     setJournalLoading,
     setJournalText,
+    setPendingExplorationReaction,
     setPendingCheck,
     setPlayer,
     setPrepareOpen,
@@ -478,8 +482,10 @@ export default function Adventure() {
           logs={logs}
           logsEndRef={logsEndRef}
           pendingCheck={pendingCheck}
+          pendingExplorationReaction={pendingExplorationReaction}
           checkRolling={checkRolling}
           onDiceRoll={handleDiceRoll}
+          onExplorationReaction={handleExplorationReaction}
           choices={choices}
           player={player}
           setPendingCheck={setPendingCheck}

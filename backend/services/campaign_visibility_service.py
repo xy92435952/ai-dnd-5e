@@ -4,6 +4,8 @@ from copy import deepcopy
 import re
 from typing import Any
 
+from services.exploration_reaction_service import project_game_state_exploration_reaction
+
 
 HIDDEN_STATUS_VALUES = {
     "hidden",
@@ -82,12 +84,18 @@ def public_game_state(
     campaign_state: dict[str, Any] | None,
     *,
     viewer_character_id: str | None = None,
+    viewer_user_id: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(game_state, dict):
         return {}
 
     public_state = deepcopy(game_state)
     _sanitize_trap_state_feather_fall(public_state, viewer_character_id=viewer_character_id)
+    project_game_state_exploration_reaction(
+        public_state,
+        viewer_character_id=viewer_character_id,
+        viewer_user_id=viewer_user_id,
+    )
     if isinstance(campaign_state, dict):
         _, public_clue_identities, hidden_clue_identities = _clue_visibility_sets(campaign_state)
     else:

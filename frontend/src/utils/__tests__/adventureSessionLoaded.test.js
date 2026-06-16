@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { getRestoredTurnState, prepareOpeningStage } from '../adventureSessionLoaded'
+import {
+  getRestoredExplorationReactionPrompt,
+  getRestoredTurnState,
+  prepareOpeningStage,
+} from '../adventureSessionLoaded'
 
 describe('getRestoredTurnState', () => {
   it('restores choices and pending check for the local actor', () => {
@@ -46,6 +50,21 @@ describe('getRestoredTurnState', () => {
       pendingCheck: null,
       clearTurnState: false,
     })
+  })
+})
+
+describe('getRestoredExplorationReactionPrompt', () => {
+  it('returns the viewer-projected pending exploration reaction prompt', () => {
+    const prompt = {
+      type: 'feather_fall',
+      reactor_character_id: 'bard-1',
+      target_character_id: 'rogue-1',
+    }
+
+    expect(getRestoredExplorationReactionPrompt({
+      game_state: { pending_exploration_reaction: prompt },
+    })).toBe(prompt)
+    expect(getRestoredExplorationReactionPrompt({ game_state: {} })).toBeNull()
   })
 })
 

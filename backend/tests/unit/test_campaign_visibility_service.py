@@ -163,6 +163,41 @@ def test_public_game_state_redacts_other_character_feather_fall_spell_slots():
     assert own_view["trap_states"]["pit-1"]["last_trigger"]["feather_fall"]["spell_slots"] == {"1st": 0}
 
 
+def test_public_game_state_projects_pending_exploration_reaction_only_to_reactor():
+    game_state = {
+        "pending_exploration_reaction": {
+            "id": "prompt-1",
+            "type": "feather_fall",
+            "reactor_character_id": "bard-1",
+            "reactor_user_id": "user-bard",
+            "target_character_id": "rogue-1",
+            "available_reactions": [{
+                "type": "feather_fall",
+                "slots_remaining": 1,
+                "damage_prevented": 9,
+            }],
+            "trap_resolution": {"final_damage": 9},
+        },
+    }
+
+    own_view = public_game_state(
+        game_state,
+        None,
+        viewer_character_id="bard-1",
+        viewer_user_id="user-bard",
+    )
+    other_view = public_game_state(
+        game_state,
+        None,
+        viewer_character_id="rogue-1",
+        viewer_user_id="user-rogue",
+    )
+
+    assert own_view["pending_exploration_reaction"]["available_reactions"][0]["slots_remaining"] == 1
+    assert "pending_exploration_reaction" not in other_view
+    assert "slots_remaining" not in json.dumps(other_view)
+
+
 def test_public_log_entry_redacts_hidden_clue_texts():
     campaign_state = {
         "clues": [

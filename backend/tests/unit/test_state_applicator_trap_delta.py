@@ -330,6 +330,99 @@ async def test_state_applicator_trap_trigger_can_apply_feather_fall():
 
 
 @pytest.mark.asyncio
+async def test_state_applicator_fall_trap_creates_feather_fall_prompt_without_damage():
+    session = Session(
+        id="session-1",
+        user_id="user-1",
+        module_id="module-1",
+        game_state={},
+    )
+    target = Character(
+        id="char-1",
+        name="Scout",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Urchin",
+        ability_scores={"str": 8, "dex": 8, "con": 12, "int": 14, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 9,
+            "ability_modifiers": {"dex": -1},
+            "saving_throws": {"dex": -1},
+            "proficiency_bonus": 2,
+        },
+        hp_current=9,
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+    caster = Character(
+        id="bard-1",
+        name="Lyra",
+        race="Human",
+        char_class="Bard",
+        level=5,
+        background="Entertainer",
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 10, "wis": 10, "cha": 18},
+        derived={"hp_max": 24, "ability_modifiers": {"dex": 2}},
+        hp_current=24,
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+        known_spells=["Feather Fall"],
+        prepared_spells=[],
+        spell_slots={"1st": 1},
+    )
+
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "exploration",
+        "narrative": "The floor gives way.",
+        "state_delta": {
+            "trap_triggers": [
+                {
+                    "target_character_id": "char-1",
+                    "trap": {
+                        "id": "pit",
+                        "name": "Hidden Pit",
+                        "save_ability": "dex",
+                        "save_dc": 99,
+                        "damage_dice": "2d6",
+                        "damage_type": "fall",
+                        "fall_distance_ft": 30,
+                    },
+                }
+            ]
+        },
+        "player_choices": [{"text": "Keep moving"}],
+    }
+
+    applied = await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[target, caster],
+        actor_user_id="user-1",
+    )
+
+    pending = session.game_state["pending_exploration_reaction"]
+    assert target.hp_current == 9
+    assert caster.spell_slots["1st"] == 1
+    assert "trap_states" not in session.game_state
+    assert applied.dice_display == []
+    assert applied.player_choices == []
+    assert applied.needs_check == {"required": False}
+    assert applied.exploration_reaction_prompt["reactor_character_id"] == "bard-1"
+    assert pending["reactor_character_id"] == "bard-1"
+    assert pending["reactor_user_id"] == "user-1"
+    assert pending["target_character_id"] == "char-1"
+    assert pending["trigger_actor_user_id"] == "user-1"
+    assert pending["trap_resolution"]["final_damage"] > 0
+    assert pending["available_reactions"][0]["type"] == "feather_fall"
+
+
+@pytest.mark.asyncio
 async def test_state_applicator_invalid_feather_fall_falls_back_to_trap_damage():
     session = Session(
         id="session-1",

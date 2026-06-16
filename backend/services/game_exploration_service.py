@@ -13,6 +13,7 @@ from services.dm_thinking_service import clear_dm_thinking, clear_dm_thinking_st
 from services.game_combat_setup_service import init_combat
 from services.game_multiplayer_service import send_dm_responded_with_visibility
 from services.langgraph_client import langgraph_client
+from services.exploration_reaction_service import project_exploration_reaction_prompt
 from services.state_applicator import StateApplicator
 
 
@@ -86,6 +87,7 @@ async def execute_exploration_action(
             result_json=dm_result["result"],
             characters=characters,
             combat_state=combat_state,
+            actor_user_id=actor_user_id,
         )
 
         if applied.combat_triggered:
@@ -137,6 +139,11 @@ async def execute_exploration_action(
             "visibility": multiplayer_visibility,
             "table_reason": multiplayer_table_reason,
             "table_decision": multiplayer_table_decision,
+            "exploration_reaction_prompt": project_exploration_reaction_prompt(
+                applied.exploration_reaction_prompt,
+                viewer_character_id=actor.id if actor else None,
+                viewer_user_id=actor_user_id,
+            ),
             "errors": applied.errors,
         }
     finally:
@@ -222,6 +229,8 @@ def _persist_last_turn(
         "action_type": applied.action_type,
         "ts": datetime.utcnow().isoformat(),
     }
+    if applied.exploration_reaction_prompt:
+        last_turn["pending_exploration_reaction_id"] = applied.exploration_reaction_prompt.get("id")
     if is_takeover:
         last_turn["ai_takeover"] = True
         if takeover_by_user_id:
@@ -263,7 +272,7 @@ async def _broadcast_exploration_result(
     except Exception:
         pass
 
-    if not session.combat_active and not applied.combat_triggered:
+    if not session.combat_active and not applied.combat_triggered and not applied.exploration_reaction_prompt:
         try:
             from services.ws_manager import ws_manager
             from api.ws import _advance_speaker

@@ -487,30 +487,50 @@ def apply_trap_trigger_to_target(
         d20_roller=d20_roller,
         damage_roller=damage_roller,
     )
+    return apply_trap_resolution_to_target(
+        resolution,
+        target,
+        trap=trap,
+        feather_fall_caster=feather_fall_caster,
+        feather_fall_reaction_state=feather_fall_reaction_state,
+    )
+
+
+def apply_trap_resolution_to_target(
+    resolution: dict[str, Any],
+    target: dict[str, Any] | object,
+    *,
+    trap: dict[str, Any] | None = None,
+    feather_fall_caster: dict[str, Any] | object | None = None,
+    feather_fall_reaction_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply an already-rolled trap resolution to a mutable target."""
+    resolved = dict(resolution or {})
+    trap_data = trap if isinstance(trap, dict) else {}
     feather_fall = None
     if feather_fall_caster is not None:
         feather_fall = resolve_feather_fall_reaction(
             caster=feather_fall_caster,
             fall_event={
-                **dict(trap or {}),
-                "damage": resolution.get("final_damage", 0),
-                "final_damage": resolution.get("final_damage", 0),
-                "rolled_damage": resolution.get("rolled_damage", 0),
-                "damage_type": resolution.get("damage_type"),
+                **trap_data,
+                "damage": resolved.get("final_damage", 0),
+                "final_damage": resolved.get("final_damage", 0),
+                "rolled_damage": resolved.get("rolled_damage", 0),
+                "damage_type": resolved.get("damage_type"),
             },
             targets=[target],
             reaction_state=feather_fall_reaction_state,
         )
-        resolution = apply_feather_fall_damage_prevention(resolution, feather_fall)
+        resolved = apply_feather_fall_damage_prevention(resolved, feather_fall)
     before_hp = _as_int(_read_attr(target, "hp_current", 0), 0)
-    damage_result = _apply_damage_to_target(target, resolution["final_damage"])
+    damage_result = _apply_damage_to_target(target, resolved["final_damage"])
     added_conditions = []
-    for condition in resolution["conditions_applied"]:
+    for condition in resolved.get("conditions_applied", []):
         if _add_condition(target, str(condition)):
             added_conditions.append(str(condition))
 
     return {
-        **resolution,
+        **resolved,
         "mutates_hp": True,
         "hp_before": before_hp,
         "hp_after": _as_int(_read_attr(target, "hp_current", 0), 0),

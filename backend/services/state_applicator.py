@@ -31,6 +31,7 @@ from services.exploration_rules_service import (
     apply_trap_trigger_to_target,
     resolve_trap_disarm,
 )
+from services.exploration_reaction_service import maybe_create_feather_fall_prompt
 from services.feather_fall_service import FeatherFallError
 from services.state_apply_result import ApplyResult
 from services.location_graph_service import (
@@ -59,6 +60,7 @@ class StateApplicator:
         result_json: str,
         characters: list[Character],
         combat_state: Optional[CombatState] = None,
+        actor_user_id: str | None = None,
     ) -> ApplyResult:
         """
         解析 WF3 返回的完整 JSON，应用所有状态变化。
@@ -106,8 +108,18 @@ class StateApplicator:
             for trap_update in sub_delta.get("trap_updates", []):
                 self._apply_trap_update_delta(trap_update, session)
             for trap_delta in sub_delta.get("trap_triggers", []):
-                self._apply_trap_trigger_delta(trap_delta, char_map, ar, session)
+                if ar.exploration_reaction_prompt:
+                    break
+                self._apply_trap_trigger_delta(
+                    trap_delta,
+                    char_map,
+                    ar,
+                    session,
+                    actor_user_id=actor_user_id,
+                )
             for attack_delta in sub_delta.get("trap_attacks", []):
+                if ar.exploration_reaction_prompt:
+                    break
                 self._apply_trap_attack_delta(attack_delta, char_map, ar, session)
             for disarm_delta in sub_delta.get("trap_disarms", []):
                 self._apply_trap_disarm_delta(disarm_delta, char_map, ar, session)
@@ -134,9 +146,19 @@ class StateApplicator:
             self._apply_trap_update_delta(trap_update, session)
 
         for trap_delta in delta.get("trap_triggers", []):
-            self._apply_trap_trigger_delta(trap_delta, char_map, ar, session)
+            if ar.exploration_reaction_prompt:
+                break
+            self._apply_trap_trigger_delta(
+                trap_delta,
+                char_map,
+                ar,
+                session,
+                actor_user_id=actor_user_id,
+            )
 
         for attack_delta in delta.get("trap_attacks", []):
+            if ar.exploration_reaction_prompt:
+                break
             self._apply_trap_attack_delta(attack_delta, char_map, ar, session)
 
         for disarm_delta in delta.get("trap_disarms", []):
@@ -451,6 +473,8 @@ class StateApplicator:
         char_map: dict[str, Character],
         ar: ApplyResult,
         session: Session,
+        *,
+        actor_user_id: str | None = None,
     ) -> None:
         if not isinstance(delta, dict):
             return
@@ -490,6 +514,26 @@ class StateApplicator:
             elif getattr(session, "combat_active", False) and getattr(session, "combat_state", None):
                 turn_states = dict(session.combat_state.turn_states or {})
                 feather_fall_reaction_state = dict(turn_states.get(feather_fall_caster_id) or {})
+        else:
+            prompt = maybe_create_feather_fall_prompt(
+                session=session,
+                trap=trap,
+                target=target,
+                characters=list(char_map.values()),
+                trigger_actor_user_id=actor_user_id,
+            )
+            if prompt:
+                ar.exploration_reaction_prompt = prompt
+                ar.player_choices = []
+                ar.needs_check = {"required": False}
+                logger.info(
+                    "pending Feather Fall exploration reaction: session=%s trap=%s target=%s reactor=%s",
+                    session.id,
+                    trap_id,
+                    target_id[:8],
+                    prompt.get("reactor_character_id"),
+                )
+                return
 
         trigger_kwargs = {}
         if feather_fall_caster is not None:

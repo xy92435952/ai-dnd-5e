@@ -16,3 +16,4 @@ class ApplyResult:
     combat_end_result: Optional[str] = None
     initial_enemies: list = field(default_factory=list)
     errors: list = field(default_factory=list)
+    exploration_reaction_prompt: dict | None = None

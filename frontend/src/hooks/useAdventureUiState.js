@@ -105,6 +105,7 @@ export function useAdventureUiState() {
   const [journalOpen, setJournalOpen] = useState(false)
   const [journalText, setJournalText] = useState('')
   const [journalLoading, setJournalLoading] = useState(false)
+  const [pendingExplorationReaction, setPendingExplorationReaction] = useState(null)
 
   const addLog = useCallback((role, content, logType = 'narrative', extra = {}) => {
     const displayContent = (role === 'dice' || logType === 'dice') && extra?.dice_result
@@ -130,6 +131,7 @@ export function useAdventureUiState() {
     journalOpen, setJournalOpen,
     journalText, setJournalText,
     journalLoading, setJournalLoading,
+    pendingExplorationReaction, setPendingExplorationReaction,
   }
 }
 

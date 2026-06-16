@@ -157,6 +157,7 @@ async def get_session(
         public_state,
         session.campaign_state,
         viewer_character_id=controlled_player.id if controlled_player else None,
+        viewer_user_id=user_id,
     )
     return {
         "session_id": session.id,

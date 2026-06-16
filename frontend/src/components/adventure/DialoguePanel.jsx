@@ -15,8 +15,10 @@ export default function DialoguePanel({
   logs,
   logsEndRef,
   pendingCheck,
+  pendingExplorationReaction,
   checkRolling,
   onDiceRoll,
+  onExplorationReaction,
   choices,
   player,
   setPendingCheck,
@@ -51,8 +53,10 @@ export default function DialoguePanel({
       <div className="crpg-dialogue" style={{ margin: '10px 24px 0', display: dialogueMode === 'stage' ? 'none' : 'block' }}>
         <DialogueResponseBox
           pendingCheck={pendingCheck}
+          pendingExplorationReaction={pendingExplorationReaction}
           checkRolling={checkRolling}
           onDiceRoll={onDiceRoll}
+          onExplorationReaction={onExplorationReaction}
           choices={choices}
           player={player}
           setPendingCheck={setPendingCheck}

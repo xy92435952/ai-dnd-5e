@@ -43,3 +43,8 @@ class ClaimLootRequest(BaseModel):
 
 class SelectEncounterTemplateRequest(BaseModel):
     template_id: str
+
+
+class ExplorationReactionRequest(BaseModel):
+    reaction_type: Literal["feather_fall", "decline"]
+    character_id: Optional[str] = None

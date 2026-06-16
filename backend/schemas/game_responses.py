@@ -130,6 +130,7 @@ class PlayerActionResponse(BaseModel):
     visibility: dict[str, Any] = {}
     table_reason: str = ""
     table_decision: dict[str, Any] = {}
+    exploration_reaction_prompt: Optional[dict[str, Any]] = None
     errors: list[Any] = []
     retryable: bool = False
 

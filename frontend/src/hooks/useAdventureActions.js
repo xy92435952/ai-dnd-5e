@@ -86,6 +86,7 @@ export function useAdventureActions({
   setIsLoading,
   setJournalLoading,
   setJournalText,
+  setPendingExplorationReaction,
   setPendingCheck,
   setPlayer,
   setPrepareOpen,
@@ -166,6 +167,11 @@ export function useAdventureActions({
         }
       }
 
+      if (resp.exploration_reaction_prompt) {
+        setPendingExplorationReaction?.(resp.exploration_reaction_prompt)
+      } else {
+        setPendingExplorationReaction?.(null)
+      }
       if (resp.needs_check?.required) setPendingCheck(resp.needs_check)
       if (resp.player_choices?.length) setChoices(resp.player_choices)
 
@@ -207,6 +213,60 @@ export function useAdventureActions({
     setInput,
     setIsLoading,
     setPendingCheck,
+    setPendingExplorationReaction,
+  ])
+
+  const handleExplorationReaction = useCallback(async (reactionType, prompt) => {
+    if (!prompt || isLoading) return
+    if (actionBlockedReason) {
+      setError(actionBlockedReason)
+      inputRef.current?.focus()
+      return
+    }
+    setError('')
+    setIsLoading(true)
+    try {
+      const result = await gameApi.useExplorationReaction(
+        sessionId,
+        reactionType,
+        prompt.reactor_character_id,
+      )
+      setPendingExplorationReaction?.(null)
+
+      if (result.dice_display?.length) {
+        for (const d of result.dice_display) {
+          addLog(
+            'dice',
+            `${d.label || 'Dice'}: ${d.raw ?? ''}${d.modifier ? ` + ${d.modifier}` : ''}${d.total != null ? ` = ${d.total}` : ''}`,
+            'dice',
+            { dice_result: d },
+          )
+        }
+      }
+
+      const queue = buildDialogueQueue(result.narrative, result.companion_reactions, companions)
+      if (queue.length > 0) enterDialogueStage(queue)
+      await refreshCharacters()
+    } catch (e) {
+      setError(e.message)
+      addLog('system', `Reaction failed: ${e.message}`, 'system')
+    } finally {
+      setIsLoading(false)
+      inputRef.current?.focus()
+    }
+  }, [
+    actionBlockedReason,
+    addLog,
+    buildDialogueQueue,
+    companions,
+    enterDialogueStage,
+    inputRef,
+    isLoading,
+    refreshCharacters,
+    sessionId,
+    setError,
+    setIsLoading,
+    setPendingExplorationReaction,
   ])
 
   const handleDiceRoll = useCallback(async () => {
@@ -300,5 +360,6 @@ export function useAdventureActions({
     handleGenerateJournal,
     handlePrepareSpells,
     handleCheckpoint,
+    handleExplorationReaction,
   }
 }

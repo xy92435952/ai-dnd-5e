@@ -1376,6 +1376,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/sessions/{session_id}/exploration-reaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Use Exploration Reaction */
+        post: operations["use_exploration_reaction_game_sessions__session_id__exploration_reaction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/sessions/{session_id}/journal": {
         parameters: {
             query?: never;
@@ -2614,6 +2631,16 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** ExplorationReactionRequest */
+        ExplorationReactionRequest: {
+            /** Character Id */
+            character_id?: string | null;
+            /**
+             * Reaction Type
+             * @enum {string}
+             */
+            reaction_type: "feather_fall" | "decline";
+        };
         /** FocusGroupRequest */
         FocusGroupRequest: {
             /**
@@ -3083,6 +3110,10 @@ export interface components {
              * @default []
              */
             errors: unknown[];
+            /** Exploration Reaction Prompt */
+            exploration_reaction_prompt?: {
+                [key: string]: unknown;
+            } | null;
             /** Narrative */
             narrative: string;
             /** Needs Check */
@@ -6165,6 +6196,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_exploration_reaction_game_sessions__session_id__exploration_reaction_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplorationReactionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerActionResponse"];
                 };
             };
             /** @description Validation Error */

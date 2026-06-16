@@ -128,6 +128,11 @@ export const gameApi = {
     api.post(`/game/sessions/${sessionId}/encounter-template/select`, {
       template_id: templateId,
     }),
+  useExplorationReaction: (sessionId, reactionType, characterId = null) =>
+    api.post(`/game/sessions/${sessionId}/exploration-reaction`, {
+      reaction_type: reactionType,
+      ...(characterId ? { character_id: characterId } : {}),
+    }),
 
   /**
    * 多人模式：让 AI 替断线的当前发言者出招（仅 last_seen > 30s 的离线玩家）

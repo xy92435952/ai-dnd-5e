@@ -19,6 +19,11 @@ export function getRestoredTurnState(data, myUserId) {
   }
 }
 
+export function getRestoredExplorationReactionPrompt(data) {
+  const prompt = data?.game_state?.pending_exploration_reaction
+  return prompt && typeof prompt === 'object' && !Array.isArray(prompt) ? prompt : null
+}
+
 export function prepareOpeningStage(data, {
   sessionId,
   dialogueQueueLength,

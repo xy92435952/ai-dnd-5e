@@ -2382,6 +2382,34 @@
         "title": "ExhaustionUpdateResult",
         "type": "object"
       },
+      "ExplorationReactionRequest": {
+        "properties": {
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "reaction_type": {
+            "enum": [
+              "feather_fall",
+              "decline"
+            ],
+            "title": "Reaction Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reaction_type"
+        ],
+        "title": "ExplorationReactionRequest",
+        "type": "object"
+      },
       "FocusGroupRequest": {
         "properties": {
           "group_id": {
@@ -3439,6 +3467,18 @@
             "items": {},
             "title": "Errors",
             "type": "array"
+          },
+          "exploration_reaction_prompt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exploration Reaction Prompt"
           },
           "narrative": {
             "title": "Narrative",
@@ -8526,6 +8566,58 @@
           }
         },
         "summary": "Select Session Encounter Template",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/game/sessions/{session_id}/exploration-reaction": {
+      "post": {
+        "operationId": "use_exploration_reaction_game_sessions__session_id__exploration_reaction_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplorationReactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Use Exploration Reaction",
         "tags": [
           "game"
         ]

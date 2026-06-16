@@ -8,6 +8,7 @@ vi.mock('../../api/client', () => ({
     rest: vi.fn(),
     saveCheckpoint: vi.fn(),
     generateJournal: vi.fn(),
+    useExplorationReaction: vi.fn(),
   },
   charactersApi: {
     prepareSpells: vi.fn(),
@@ -34,6 +35,7 @@ function makeDeps(overrides = {}) {
     setIsLoading: vi.fn(),
     setJournalLoading: vi.fn(),
     setJournalText: vi.fn(),
+    setPendingExplorationReaction: vi.fn(),
     setPendingCheck: vi.fn(),
     setPlayer: vi.fn(),
     setPrepareOpen: vi.fn(),
@@ -200,6 +202,72 @@ describe('useAdventureActions', () => {
     expect(deps.setInput).not.toHaveBeenCalled()
     expect(deps.addLog).not.toHaveBeenCalled()
     expect(deps.inputRef.current.focus).toHaveBeenCalledTimes(1)
+  })
+
+  it('stores an exploration reaction prompt returned by the action endpoint', async () => {
+    const prompt = {
+      type: 'feather_fall',
+      reactor_character_id: 'bard-1',
+      target_character_id: 'rogue-1',
+    }
+    gameApi.action.mockResolvedValue({
+      type: 'exploration',
+      narrative: 'The floor gives way.',
+      companion_reactions: '',
+      dice_display: [],
+      player_choices: [],
+      needs_check: { required: false },
+      combat_triggered: false,
+      combat_ended: false,
+      exploration_reaction_prompt: prompt,
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+
+    await act(async () => {
+      await result.current.handleAction()
+    })
+
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(prompt)
+    expect(deps.setChoices).toHaveBeenCalledWith([])
+  })
+
+  it('submits exploration Feather Fall reactions and logs backend dice rows', async () => {
+    gameApi.useExplorationReaction.mockResolvedValue({
+      type: 'exploration_reaction',
+      narrative: 'Lyra casts Feather Fall.',
+      companion_reactions: '',
+      dice_display: [{
+        kind: 'reaction',
+        reaction_type: 'feather_fall',
+        label: 'Feather Fall reaction',
+        spell_name: 'Feather Fall',
+        slot_level: '1st',
+        damage_prevented: 9,
+      }],
+      player_choices: [],
+      needs_check: { required: false },
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+    const prompt = { reactor_character_id: 'bard-1' }
+
+    await act(async () => {
+      await result.current.handleExplorationReaction('feather_fall', prompt)
+    })
+
+    expect(gameApi.useExplorationReaction).toHaveBeenCalledWith('sess-1', 'feather_fall', 'bard-1')
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(null)
+    expect(deps.addLog).toHaveBeenCalledWith(
+      'dice',
+      expect.any(String),
+      'dice',
+      { dice_result: expect.objectContaining({ reaction_type: 'feather_fall' }) },
+    )
+    expect(deps.enterDialogueStage).toHaveBeenCalledWith([
+      expect.objectContaining({ role: 'dm' }),
+    ])
+    expect(gameApi.getSession).toHaveBeenCalledWith('sess-1')
   })
 
   it('blocks rest, prepared spells, and checkpoint mutations while multiplayer sync is unavailable', async () => {

@@ -2,11 +2,14 @@ import DialoguePendingCheck from './DialoguePendingCheck'
 import DialogueChoices from './DialogueChoices'
 import DialogueRecoveryAffordances from './DialogueRecoveryAffordances'
 import DialogueFreeSpeak from './DialogueFreeSpeak'
+import ExplorationReactionPrompt from './ExplorationReactionPrompt'
 
 export default function DialogueResponseBox({
   pendingCheck,
+  pendingExplorationReaction,
   checkRolling,
   onDiceRoll,
+  onExplorationReaction,
   choices,
   player,
   setPendingCheck,
@@ -31,6 +34,16 @@ export default function DialogueResponseBox({
         player={player}
         onToggleLucky={() => setPendingCheck(prev => prev ? { ...prev, use_lucky: !prev.use_lucky } : prev)}
         onToggleBardicInspiration={() => setPendingCheck(prev => prev ? { ...prev, use_bardic_inspiration: !prev.use_bardic_inspiration } : prev)}
+      />
+    )
+  }
+
+  if (pendingExplorationReaction) {
+    return (
+      <ExplorationReactionPrompt
+        prompt={pendingExplorationReaction}
+        disabled={isLoading || (room && multiplayerSyncBlocked)}
+        onResolve={onExplorationReaction}
       />
     )
   }
