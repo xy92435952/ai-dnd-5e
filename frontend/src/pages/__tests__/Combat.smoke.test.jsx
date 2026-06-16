@@ -604,6 +604,65 @@ describe('Combat render smoke', () => {
     expect(prompt).toHaveTextContent('可避免倒地')
   })
 
+  it('clears a stale combat reaction prompt after dm_responded refresh', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      attacker_name: 'Training Dummy',
+      target_id: 'char-1',
+      reactor_character_id: 'char-1',
+      incoming_damage: 7,
+      target_hp_before_damage: 12,
+      attack_roll: 17,
+      player_ac: 14,
+      available_reactions: [
+        { type: 'shield', name: 'Shield', cost: '1st-level spell slot', damage_prevented: 7 },
+      ],
+    }
+    const pendingCombat = {
+      ...combatFixture,
+      turn_states: {
+        ...combatFixture.turn_states,
+        'char-1': {
+          ...combatFixture.turn_states['char-1'],
+          pending_attack_reaction: pendingReaction,
+        },
+      },
+    }
+    const { pending_attack_reaction: _pending, ...clearedTurnState } = pendingCombat.turn_states['char-1']
+    const clearedCombat = {
+      ...pendingCombat,
+      turn_states: {
+        ...pendingCombat.turn_states,
+        'char-1': clearedTurnState,
+      },
+    }
+    getCombatMock
+      .mockResolvedValueOnce(pendingCombat)
+      .mockResolvedValueOnce(clearedCombat)
+    getSessionMock.mockResolvedValue(sessionFixture)
+
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const prompt = await screen.findByRole('dialog')
+    expect(prompt).toHaveTextContent('Shield')
+
+    await act(async () => {
+      wsEvents.current?.({ type: 'dm_responded' })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(getCombatMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
   it('simulates multiplayer combat clicks: observer waits, owner attacks on their turn', async () => {
     wsConnectedMock.mockReturnValue(true)
     const hostTurnCombat = {
