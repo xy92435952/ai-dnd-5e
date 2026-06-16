@@ -9,6 +9,7 @@ import { useCombatSpellFlow } from './useCombatSpellFlow'
 import { useCombatTurnControls } from './useCombatTurnControls'
 import { gameApi } from '../api/client'
 import { applyActionResultEntityStates, getPlayerTurnState, isPlayerCombatTurn } from '../utils/combat'
+import { resolveCombatReactionPrompt } from '../utils/combatSession'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
@@ -105,6 +106,24 @@ export function useCombatFlowHandlers({
       setTurnState(getPlayerTurnState(combatState, nextEntry.character_id))
     }
   }, [aiTimer, canDriveAiTurns, combat, setTurnState, triggerAiTurn])
+
+  const restoreReactionPromptFromResult = useCallback((result) => {
+    const combatSnapshot = result?.combat || null
+    const playerTurnState = combatSnapshot && actorId ? getPlayerTurnState(combatSnapshot, actorId) : null
+    const reactionPrompt = resolveCombatReactionPrompt({
+      turnState: playerTurnState,
+      playerId: actorId,
+      reactionPrompt: result?.reaction_prompt,
+      playerCanReact: result?.player_can_react,
+    })
+    if (!reactionPrompt) return false
+    if (combatSnapshot) {
+      setCombat(combatSnapshot)
+      if (actorId) setTurnState(playerTurnState)
+    }
+    setReactionPrompt(reactionPrompt)
+    return true
+  }, [actorId, setCombat, setReactionPrompt, setTurnState])
 
   const { loadCombat } = useCombatLoader({
     sessionId,
@@ -247,14 +266,14 @@ export function useCombatFlowHandlers({
     setIsProcessing,
   ])
 
-  const handleLegendaryAction = useCallback(async (actorId, actionId = null, targetId = null) => {
-    if (!actorId || isProcessing || processingRef.current) return
+  const handleLegendaryAction = useCallback(async (legendaryActorId, actionId = null, targetId = null) => {
+    if (!legendaryActorId || isProcessing || processingRef.current) return
     setLegendaryActionPrompt(null)
     processingRef.current = true
     setIsProcessing(true)
     setError('')
     try {
-      const result = await gameApi.useLegendaryAction(sessionId, actorId, actionId, targetId)
+      const result = await gameApi.useLegendaryAction(sessionId, legendaryActorId, actionId, targetId)
       addLog({
         role: 'system',
         content: result.narration || result.log_msg || '传奇动作',
@@ -263,11 +282,7 @@ export function useCombatFlowHandlers({
         state_changes: buildCombatStateChangeSummary(result),
       })
       setCombat(prev => applyActionResultEntityStates(prev, result))
-      if (result.player_can_react && result.reaction_prompt) {
-        setReactionPrompt(result.reaction_prompt)
-        if (result.combat) setCombat(result.combat)
-        return
-      }
+      if (restoreReactionPromptFromResult(result)) return
       try {
         const fresh = await gameApi.getCombat(sessionId)
         if (fresh) {
@@ -290,12 +305,12 @@ export function useCombatFlowHandlers({
     continueAfterLegendaryWindow,
     isProcessing,
     processingRef,
+    restoreReactionPromptFromResult,
     sessionId,
     setCombat,
     setError,
     setIsProcessing,
     setLegendaryActionPrompt,
-    setReactionPrompt,
   ])
 
   const handleSkipLegendaryAction = useCallback(() => {
@@ -319,11 +334,7 @@ export function useCombatFlowHandlers({
         state_changes: buildCombatStateChangeSummary(result),
       })
       setCombat(prev => applyActionResultEntityStates(prev, result))
-      if (result.player_can_react && result.reaction_prompt) {
-        setReactionPrompt(result.reaction_prompt)
-        if (result.combat) setCombat(result.combat)
-        return
-      }
+      if (restoreReactionPromptFromResult(result)) return
       try {
         const fresh = await gameApi.getCombat(sessionId)
         if (fresh) {
@@ -346,12 +357,12 @@ export function useCombatFlowHandlers({
     continueAfterLegendaryWindow,
     isProcessing,
     processingRef,
+    restoreReactionPromptFromResult,
     sessionId,
     setCombat,
     setError,
     setIsProcessing,
     setLairActionPrompt,
-    setReactionPrompt,
   ])
 
   const handleSkipLairAction = useCallback(() => {

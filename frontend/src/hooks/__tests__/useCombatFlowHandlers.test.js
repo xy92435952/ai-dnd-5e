@@ -228,7 +228,11 @@ describe('useCombatFlowHandlers', () => {
       turn_order: [{ character_id: 'enemy-2', is_player: false }],
       turn_states: {
         'hero-1': {
-          pending_attack_reaction: { trigger: 'incoming_attack' },
+          pending_attack_reaction: {
+            trigger: 'incoming_attack',
+            attacker_id: 'enemy-1',
+            available_reactions: [{ type: 'shield', name: 'Shield', damage_prevented: 8 }],
+          },
         },
       },
     }
@@ -262,8 +266,77 @@ describe('useCombatFlowHandlers', () => {
       await result.current.handleLegendaryAction('enemy-1', 'tail', 'hero-1')
     })
 
-    expect(page.setReactionPrompt).toHaveBeenCalledWith(reactionPrompt)
+    expect(page.setReactionPrompt).toHaveBeenCalledWith({
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      available_reactions: [{ type: 'shield', name: 'Shield', damage_prevented: 8 }],
+      reactor_character_id: 'hero-1',
+    })
     expect(page.setCombat).toHaveBeenCalledWith(combatSnapshot)
+    expect(getCombatMock).not.toHaveBeenCalled()
+    expect(triggerAiTurnMock).not.toHaveBeenCalled()
+  })
+
+  it('restores a legendary-action reaction prompt from the returned combat snapshot', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      attacker_name: 'Open Spark Decoy',
+      available_reactions: [{ type: 'cutting_words_damage', die: 'd8' }],
+    }
+    const combatSnapshot = {
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'enemy-1', is_player: false },
+        { character_id: 'hero-1', is_player: true },
+      ],
+      turn_states: {
+        'enemy-1': { action_used: true },
+        'hero-1': {
+          reaction_used: false,
+          pending_attack_reaction: pendingReaction,
+        },
+      },
+    }
+    useLegendaryActionMock.mockResolvedValue({
+      action: 'legendary_action',
+      resolution: 'attack',
+      actor_id: 'enemy-1',
+      actor_name: 'Open Spark Decoy',
+      target_id: 'hero-1',
+      target_name: 'Smoke Sentinel',
+      hp_before: 20,
+      narration: 'Open Spark Decoy uses Legendary Action: Tail Strike.',
+      player_can_react: false,
+      reaction_prompt: null,
+      combat: combatSnapshot,
+      dice_result: {
+        type: 'legendary_action',
+        attack: { attack_total: 18, target_ac: 16, hit: true },
+        damage: 8,
+        total_damage: 8,
+      },
+      target_state: {
+        target_id: 'hero-1',
+        target_name: 'Smoke Sentinel',
+        hp_current: 12,
+      },
+    })
+    const { result, page } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleLegendaryAction('enemy-1', 'tail', 'hero-1')
+    })
+
+    expect(page.setCombat).toHaveBeenCalledWith(combatSnapshot)
+    expect(page.setTurnState).toHaveBeenCalledWith({
+      reaction_used: false,
+      pending_attack_reaction: pendingReaction,
+    })
+    expect(page.setReactionPrompt).toHaveBeenCalledWith({
+      ...pendingReaction,
+      reactor_character_id: 'hero-1',
+    })
     expect(getCombatMock).not.toHaveBeenCalled()
     expect(triggerAiTurnMock).not.toHaveBeenCalled()
   })
@@ -308,5 +381,68 @@ describe('useCombatFlowHandlers', () => {
     }))
     expect(page.setCombat).toHaveBeenCalledWith(freshCombat)
     expect(page.setTurnState).toHaveBeenCalledWith({ action_used: false })
+  })
+
+  it('restores a lair-action reaction prompt from the returned combat snapshot', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'lair-1',
+      attacker_name: 'Cracked Shrine',
+      available_reactions: [{ type: 'shield', name: 'Shield' }],
+    }
+    const combatSnapshot = {
+      current_turn_index: 1,
+      turn_order: [
+        { character_id: 'lair-1', is_player: false },
+        { character_id: 'hero-1', is_player: true },
+      ],
+      turn_states: {
+        'hero-1': {
+          reaction_used: false,
+          pending_attack_reaction: pendingReaction,
+        },
+      },
+    }
+    useLairActionMock.mockResolvedValue({
+      action: 'lair_action',
+      resolution: 'attack',
+      source_id: 'lair-1',
+      source_name: 'Cracked Shrine',
+      target_id: 'hero-1',
+      target_name: 'Smoke Sentinel',
+      hp_before: 20,
+      narration: 'Cracked Shrine lashes out.',
+      player_can_react: false,
+      reaction_prompt: null,
+      combat: combatSnapshot,
+      dice_result: {
+        type: 'lair_action',
+        attack: { attack_total: 18, target_ac: 16, hit: true },
+        damage: 8,
+        total_damage: 8,
+      },
+      target_state: {
+        target_id: 'hero-1',
+        target_name: 'Smoke Sentinel',
+        hp_current: 12,
+      },
+    })
+    const { result, page } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleLairAction('lair-1', 'lash', 'hero-1')
+    })
+
+    expect(page.setCombat).toHaveBeenCalledWith(combatSnapshot)
+    expect(page.setTurnState).toHaveBeenCalledWith({
+      reaction_used: false,
+      pending_attack_reaction: pendingReaction,
+    })
+    expect(page.setReactionPrompt).toHaveBeenCalledWith({
+      ...pendingReaction,
+      reactor_character_id: 'hero-1',
+    })
+    expect(getCombatMock).not.toHaveBeenCalled()
+    expect(triggerAiTurnMock).not.toHaveBeenCalled()
   })
 })
