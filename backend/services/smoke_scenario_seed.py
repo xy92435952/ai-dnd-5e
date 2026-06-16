@@ -19,6 +19,7 @@ from services.dnd_rules import (
     get_class_resource_defaults,
     roll_initiative,
 )
+from services.exploration_reaction_service import maybe_create_feather_fall_prompt
 
 
 SMOKE_USER_PASSWORD = "smoke-password"
@@ -262,7 +263,7 @@ async def seed_smoke_scenario(
         "difficulty": "medium",
         "thresholds": {"easy": 150, "medium": 300, "hard": 450, "deadly": 800},
     }
-    _apply_smoke_variant(clean_variant, ids, hero, session, combat, game_state)
+    _apply_smoke_variant(clean_variant, ids, hero, companion, session, combat, game_state)
     session.game_state = game_state
 
     db.add_all([
@@ -578,9 +579,10 @@ def _normalize_variant(variant: str | None) -> str:
         "normal": "standard",
         "deathsave": "death_save",
         "death_saves": "death_save",
+        "featherfall": "feather_fall",
     }
     value = aliases.get(value, value)
-    allowed = {"standard", "death_save", "reaction"}
+    allowed = {"standard", "death_save", "reaction", "feather_fall"}
     if value not in allowed:
         raise ValueError(f"Unsupported smoke scenario variant: {variant}")
     return value
@@ -597,6 +599,7 @@ def _apply_smoke_variant(
     variant: str,
     ids: "_SmokeIds",
     hero: Character,
+    companion: Character,
     session: Session,
     combat: CombatState,
     game_state: dict[str, Any],
@@ -624,6 +627,67 @@ def _apply_smoke_variant(
         combat.combat_log = combat_log
         session.current_scene = (
             "Smoke Sentinel is down but not dead. The next decision is a death save."
+        )
+        return
+
+    if variant == "feather_fall":
+        companion.char_class = "Wizard"
+        companion.subclass = "Evocation"
+        companion.known_spells = ["Feather Fall"]
+        companion.spell_slots = {"1st": 1}
+        companion.class_resources = get_class_resource_defaults(
+            "Wizard",
+            companion.level,
+            subclass=companion.subclass,
+        )
+        session.combat_active = False
+        fall_trap = {
+            "id": "gatehouse_drop_shaft",
+            "name": "Gatehouse drop shaft",
+            "description": "A cracked brass floor panel drops a creature into a deep shaft.",
+            "damage": "6",
+            "damage_type": "fall",
+            "fall_distance_ft": 30,
+            "save_ability": "dex",
+            "save_dc": 99,
+            "half_on_save": True,
+        }
+        game_state["trap_states"] = {
+            **dict(game_state.get("trap_states") or {}),
+            "gatehouse_drop_shaft": {
+                "id": "gatehouse_drop_shaft",
+                "name": "Gatehouse drop shaft",
+                "status": "triggered",
+                "discovered": True,
+                "armed": False,
+                "triggered": True,
+            },
+        }
+        game_state["player_choices"] = []
+        session.game_state = game_state
+        prompt = maybe_create_feather_fall_prompt(
+            session=session,
+            trap=fall_trap,
+            target=hero,
+            characters=[hero, companion],
+            trigger_actor_user_id=session.user_id,
+        )
+        if prompt:
+            game_state.clear()
+            game_state.update(session.game_state or {})
+            game_state["last_turn"] = {
+                "player_choices": [],
+                "needs_check": None,
+                "action_type": "trap_trigger",
+                "source": "seed",
+                "pending_exploration_reaction_id": prompt.get("id"),
+            }
+        combat_log.append("Smoke variant prepared a pending exploration Feather Fall prompt.")
+        combat.combat_log = combat_log
+        session.current_scene = (
+            "The gatehouse floor gives way beneath Smoke Sentinel. Mara Quickstep, "
+            "now carrying a prepared Feather Fall spell for this smoke check, can "
+            "spend her reaction before the fall damage lands."
         )
         return
 

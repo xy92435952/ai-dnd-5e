@@ -15,11 +15,12 @@ def test_import_backend_main():
 def test_import_all_api_modules():
     """所有 api/* 子模块能 import。"""
     from api import auth, game, modules, characters, character_inventory, rooms, ws, deps
-    from api.game_routes import actions, campaign, checks, sessions
+    from api.game_routes import actions, campaign, checks, exploration_reactions, sessions
     from api import combat
     assert all([auth.router, game.router, modules.router, characters.router,
                 character_inventory.router, rooms.router, ws.router, combat.router,
-                actions.router, campaign.router, checks.router, sessions.router])
+                actions.router, campaign.router, checks.router,
+                exploration_reactions.router, sessions.router])
 
 
 def test_import_combat_subpackage():
@@ -354,6 +355,7 @@ def test_game_route_paths_unchanged():
         "/game/sessions/{session_id}/ai-takeover",
         "/game/sessions/{session_id}/checkpoint",
         "/game/sessions/{session_id}/encounter-template/select",
+        "/game/sessions/{session_id}/exploration-reaction",
         "/game/sessions/{session_id}/journal",
         "/game/sessions/{session_id}/loot",
         "/game/sessions/{session_id}/loot/claim",

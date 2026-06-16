@@ -38,6 +38,7 @@ Use `--variant` for focused combat edge-case QA:
 ```powershell
 python seed_smoke_scenario.py --slug qa_reaction --variant reaction
 python seed_smoke_scenario.py --slug qa_death_save --variant death-save
+python seed_smoke_scenario.py --slug qa_feather_fall --variant feather-fall
 ```
 
 - `standard`: default playable exploration + active combat seed.
@@ -45,6 +46,10 @@ python seed_smoke_scenario.py --slug qa_death_save --variant death-save
   Shield reaction prompt, damaged player HP, and one 1st-level slot.
 - `death-save`: starts on the player turn with the player at 0 HP and existing
   death-save marks.
+- `feather-fall`: starts in exploration with a pending private Feather Fall
+  prompt after a fixed 6-damage fall trap. The player remains unharmed until
+  the prompt is accepted or declined through
+  `/game/sessions/{session_id}/exploration-reaction`.
 
 ## What It Seeds
 
@@ -57,6 +62,11 @@ The scenario is `The Clockwork Crossing`, a compact level 2-3 adventure with:
 - a single-player session with DM style, current scene, choices, trap state, campaign memory, and quest/clue data
 - an active combat state with two enemies, initiative, grid positions, difficult terrain, and turn-state records
 - two initial logs so session restore has narrative/system history
+
+Focused variants may adjust that baseline. For example, `feather-fall` pauses
+the seed in exploration instead of active combat and temporarily equips the AI
+companion with Feather Fall so Adventure restore can show the non-combat
+ReactionPrompt without invoking the LLM.
 
 The same `--slug` is idempotent: rerunning it replaces the previous seeded rows
 with the same deterministic ids instead of accumulating duplicate test data.

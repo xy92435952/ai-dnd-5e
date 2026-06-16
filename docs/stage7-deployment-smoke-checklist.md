@@ -1,6 +1,6 @@
 # Stage 7 Deployment Smoke Checklist
 
-Last updated: 2026-06-15
+Last updated: 2026-06-17
 
 This checklist is the deployment-readiness gate for the current Stage 7 work.
 It focuses on rule trust, multiplayer privacy/reconnect behavior, ReactionPrompt
@@ -145,6 +145,9 @@ Verify:
 - ReactionPrompt appears only for the correct character and clears after accept/decline.
 - A browser refresh during a pending reaction restores only that viewer's own prompt.
 - A second player/observer does not see another player's private pending prompt text.
+- Exploration Feather Fall prompts restore in Adventure, spend the caster's 1st-level
+  slot on accept, prevent the saved fall damage, and leave refresh clear of stale
+  `pending_exploration_reaction`.
 
 ## Seeded Single-Player Smoke
 
@@ -161,9 +164,17 @@ Useful variants:
 ```powershell
 python seed_smoke_scenario.py --slug codex_reaction --variant reaction
 python seed_smoke_scenario.py --slug codex_death_save --variant death-save
+python seed_smoke_scenario.py --slug codex_feather_fall --variant feather-fall
 ```
 
 See `docs/smoke-seed-scenario.md` for cleanup commands and seeded credentials.
+
+For the Feather Fall variant, login as the printed seeded user, open the
+Adventure session, confirm the pending Feather Fall panel is visible, then call
+or click the exploration reaction accept path. A successful smoke should show
+`combat_active=false`, remove `pending_exploration_reaction` after resolution,
+keep the player HP unchanged, spend the AI caster's `1st` spell slot, and add a
+Feather Fall reaction dice/log row.
 
 Latest local dry-run evidence:
 

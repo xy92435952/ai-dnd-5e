@@ -86,6 +86,37 @@ async def test_seed_smoke_scenario_can_prepare_reaction_variant(db_session):
     assert pending["options"][0]["character_id"] == result.character_id
 
 
+async def test_seed_smoke_scenario_can_prepare_feather_fall_variant(db_session):
+    result = await seed_smoke_scenario(
+        db_session,
+        slug="feather fall qa",
+        variant="feather-fall",
+    )
+
+    hero = await db_session.get(Character, result.character_id)
+    companion = await db_session.get(Character, result.companion_ids[0])
+    session = await db_session.get(Session, result.session_id)
+    combat = await db_session.get(CombatState, result.combat_state_id)
+    prompt = session.game_state["pending_exploration_reaction"]
+
+    assert result.variant == "feather_fall"
+    assert session.combat_active is False
+    assert session.game_state["scenario_seed_variant"] == "feather_fall"
+    assert companion.char_class == "Wizard"
+    assert "Feather Fall" in companion.known_spells
+    assert companion.spell_slots["1st"] == 1
+    assert hero.hp_current == hero.derived["hp_max"]
+    assert prompt["type"] == "feather_fall"
+    assert prompt["reactor_character_id"] == companion.id
+    assert prompt["reactor_user_id"] == result.user_id
+    assert prompt["target_character_id"] == hero.id
+    assert prompt["damage_before"] == 6
+    assert prompt["damage_prevented"] == 6
+    assert prompt["trap_resolution"]["final_damage"] == 6
+    assert session.game_state["last_turn"]["pending_exploration_reaction_id"] == prompt["id"]
+    assert "Feather Fall prompt" in combat.combat_log[-1]
+
+
 async def test_seed_smoke_scenario_is_idempotent_for_same_slug(db_session):
     first = await seed_smoke_scenario(db_session, slug="repeatable")
     second = await seed_smoke_scenario(db_session, slug="repeatable")

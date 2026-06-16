@@ -31,7 +31,7 @@ def main() -> int:
     parser.add_argument(
         "--variant",
         default="standard",
-        choices=["standard", "death-save", "reaction"],
+        choices=["standard", "death-save", "reaction", "feather-fall"],
         help="Optional combat state variant for focused manual QA.",
     )
     args = parser.parse_args()
