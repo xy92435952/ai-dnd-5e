@@ -59,7 +59,7 @@ class GameLogEntry(BaseModel):
     role: str
     content: str
     log_type: str
-    dice_result: Optional[dict[str, Any]] = None
+    dice_result: dict[str, Any] | list[Any] | None = None
     visibility: dict[str, Any] = {}
     table_reason: str = ""
     table_decision: dict[str, Any] = {}

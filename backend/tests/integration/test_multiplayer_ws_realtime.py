@@ -1092,6 +1092,162 @@ async def test_http_multiplayer_action_reaches_room_websocket_clients(
         ws_manager.ws_meta.clear()
 
 
+async def test_multiplayer_exploration_feather_fall_prompt_is_private_across_ws_and_refresh(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Exploration Feather Fall prompts should be live-private and refresh-private."""
+    import json
+    import api.ws as ws_api
+    import services.langgraph_client as lc
+    from services.ws_manager import ws_manager
+    from sqlalchemy.orm.attributes import flag_modified
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="ws_explore_ff",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    host_char = room_data["host_char"]
+    guest_char = room_data["guest_char"]
+
+    guest_char.known_spells = ["Feather Fall"]
+    guest_char.prepared_spells = []
+    guest_char.spell_slots = {"1st": 1}
+    flag_modified(guest_char, "known_spells")
+    flag_modified(guest_char, "prepared_spells")
+    flag_modified(guest_char, "spell_slots")
+    await db_session.commit()
+
+    async def fake_call_dm_agent(**kwargs):
+        return {
+            "result": json.dumps({
+                "action_type": "exploration",
+                "narrative": "The bridge plank snaps beneath the fighter.",
+                "player_choices": [{"text": "Grab the railing"}],
+                "companion_reactions": "",
+                "state_delta": {
+                    "trap_triggers": [
+                        {
+                            "target_character_id": host_char.id,
+                            "trap": {
+                                "id": "skybridge-drop",
+                                "name": "Skybridge Drop",
+                                "save_ability": "dex",
+                                "save_dc": 99,
+                                "damage_dice": "3d6",
+                                "damage_type": "fall",
+                                "fall_distance_ft": 40,
+                            },
+                        }
+                    ]
+                },
+                "needs_check": {"required": False},
+                "dice_results": [],
+            }),
+            "success": True,
+        }
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fake_call_dm_agent)
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+        await _wait_for_event(guest_ws, "member_online")
+
+        host_before = len(host_ws.sent)
+        guest_before = len(guest_ws.sent)
+        response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": "I cross the old skybridge.",
+        })
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["narrative"] == "The bridge plank snaps beneath the fighter."
+        assert body["exploration_reaction_prompt"] is None
+        assert body["player_choices"] == []
+
+        guest_prompt_event = await _wait_for_event(
+            guest_ws,
+            "exploration_reaction_prompt",
+            timeout=2,
+            start_index=guest_before,
+        )
+        prompt = guest_prompt_event["prompt"]
+        assert prompt["type"] == "feather_fall"
+        assert prompt["reactor_character_id"] == guest_char.id
+        assert prompt["reactor_user_id"] == guest["user_id"]
+        assert prompt["target_character_id"] == host_char.id
+        assert prompt["trigger_actor_user_id"] == host["user_id"]
+        assert prompt["trap_resolution"]["final_damage"] > 0
+        assert prompt["options"][0]["type"] == "feather_fall"
+
+        await _wait_for_event(
+            guest_ws,
+            "dm_responded",
+            timeout=2,
+            start_index=guest_before,
+        )
+        _assert_no_event_types(host_ws, host_before, {"exploration_reaction_prompt"})
+
+        host_refresh = await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))
+        guest_refresh = await client.get(f"/game/sessions/{sid}", headers=_h(guest["token"]))
+        assert host_refresh.status_code == 200, host_refresh.text
+        assert guest_refresh.status_code == 200, guest_refresh.text
+        assert "pending_exploration_reaction" not in host_refresh.json()["game_state"]
+        guest_pending = guest_refresh.json()["game_state"]["pending_exploration_reaction"]
+        assert guest_pending["id"] == prompt["id"]
+        assert guest_pending["reactor_character_id"] == guest_char.id
+
+        resolve = await client.post(
+            f"/game/sessions/{sid}/exploration-reaction",
+            headers=_h(guest["token"]),
+            json={"reaction_type": "feather_fall", "character_id": guest_char.id},
+        )
+        assert resolve.status_code == 200, resolve.text
+        resolved = resolve.json()
+        assert resolved["reaction_effect"]["damage_prevented"] == prompt["damage_prevented"]
+        assert resolved["target_state"]["hp_current"] == host_char.hp_current
+
+        await db_session.refresh(guest_char)
+        assert guest_char.spell_slots["1st"] == 0
+
+        host_after = await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))
+        guest_after = await client.get(f"/game/sessions/{sid}", headers=_h(guest["token"]))
+        assert "pending_exploration_reaction" not in host_after.json()["game_state"]
+        assert "pending_exploration_reaction" not in guest_after.json()["game_state"]
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_dm_thinking_survives_refresh_and_reconnect_until_response(
     client,
     db_session,
