@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { filterPublicClues, filterPublicRecentUpdates } from '../utils/clueVisibility'
+import { formatAdventureDiceLog } from '../utils/adventureDiceLog'
 
 function cleanText(value) {
   return String(value || '').trim()
@@ -106,10 +107,13 @@ export function useAdventureUiState() {
   const [journalLoading, setJournalLoading] = useState(false)
 
   const addLog = useCallback((role, content, logType = 'narrative', extra = {}) => {
+    const displayContent = (role === 'dice' || logType === 'dice') && extra?.dice_result
+      ? formatAdventureDiceLog(extra.dice_result)
+      : content
     setLogs(prev => [...prev, {
       id: `${role}-${Date.now()}-${Math.random()}`,
       role,
-      content,
+      content: displayContent,
       log_type: logType,
       created_at: new Date().toISOString(),
       ...extra,

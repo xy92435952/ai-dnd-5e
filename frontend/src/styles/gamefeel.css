@@ -1072,6 +1072,7 @@
 }
 .hist-roll .die { font-size: 12px; }
 .hist-roll .check { color: var(--amber); letter-spacing: .15em; }
+.hist-roll .check.raw { letter-spacing: 0; }
 .hist-roll .calc b { color: var(--parchment); font-size: 12px; }
 .hist-roll.success { border-color: rgba(106,196,132,.5); box-shadow: 0 0 8px -2px rgba(106,196,132,.3); }
 .hist-roll.success .outcome { color: #8aeaa0; }

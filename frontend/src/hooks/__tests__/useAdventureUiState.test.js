@@ -28,6 +28,29 @@ describe('useAdventureUiState', () => {
       scene: 'gate',
     })
   })
+
+  it('formats reaction dice logs when they are added immediately', () => {
+    const { result } = renderHook(() => useAdventureUiState())
+
+    act(() => {
+      result.current.addLog('dice', 'undefined = undefined', 'dice', {
+        dice_result: {
+          kind: 'reaction',
+          reaction_type: 'feather_fall',
+          spell_name: 'Feather Fall',
+          slot_level: '1st',
+          damage_prevented: 11,
+        },
+      })
+    })
+
+    expect(result.current.logs).toHaveLength(1)
+    expect(result.current.logs[0]).toMatchObject({
+      role: 'dice',
+      log_type: 'dice',
+      content: 'Feather Fall reaction：prevented 11 damage · spent 1st slot',
+    })
+  })
 })
 
 describe('useAdventureDerivedState', () => {

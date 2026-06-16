@@ -12,80 +12,122 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { renderLightMarkdown } from '../utils/markdown'
+import { formatAdventureDiceLog } from '../utils/adventureDiceLog'
 
 /**
  * 把后端 GameLog 转成史册条目。
  * role: dm/player/companion_{name}/system/dice
  * log_type: narrative/combat/dice/companion/system
  */
-function logsToHistoryEntries(logs = [], player) {
+function hasDiceResult(log) {
+  return log?.dice_result !== null && log?.dice_result !== undefined
+}
+
+function diceRows(diceResult) {
+  if (Array.isArray(diceResult)) {
+    return diceResult.filter(row => row && typeof row === 'object' && !Array.isArray(row))
+  }
+  if (diceResult && typeof diceResult === 'object') return [diceResult]
+  return []
+}
+
+function diceRowToHistoryEntry(dice, fallbackContent = '') {
+  if (!dice || typeof dice !== 'object' || Array.isArray(dice)) {
+    return {
+      kind: 'roll',
+      label: '检定',
+      dc: null,
+      against: null,
+      roll: null,
+      mod: null,
+      total: null,
+      result: 'neutral',
+      rawText: fallbackContent || '骰子结果',
+    }
+  }
+
+  const reactionText = (dice.kind === 'reaction' || dice.reaction_type)
+    ? formatAdventureDiceLog(dice)
+    : null
+  const outcome = String(dice.outcome || '')
+  const roll = dice.d20 ?? dice.raw ?? dice.roll ?? null
+  const modifier = dice.modifier === null || dice.modifier === undefined ? null : Number(dice.modifier)
+
+  return {
+    kind: 'roll',
+    label: dice.label || dice.skill || dice.check_type || dice.spell_name || (reactionText ? 'Reaction' : '检定'),
+    dc: dice.dc ?? null,
+    against: dice.against ?? (dice.target_ac != null ? `AC ${dice.target_ac}` : null),
+    roll,
+    mod: Number.isFinite(modifier) ? modifier : null,
+    total: dice.total ?? (dice.d20 != null && dice.modifier != null ? dice.d20 + dice.modifier : null),
+    result: (dice.success === true || dice.hit === true || outcome === '成功' || /成功|通过/.test(outcome)) ? 'success' :
+            (dice.success === false || dice.hit === false || outcome === '失败' || /失败|未通过/.test(outcome)) ? 'failure' :
+            'neutral',
+    rawText: reactionText || (!roll && fallbackContent ? fallbackContent : null),
+  }
+}
+
+function appendDiceEntries(entries, diceResult, fallbackContent = '') {
+  const rows = diceRows(diceResult)
+  if (!rows.length) {
+    if (fallbackContent) entries.push(diceRowToHistoryEntry(null, fallbackContent))
+    return
+  }
+  rows.forEach(row => entries.push(diceRowToHistoryEntry(row)))
+}
+
+export function logsToHistoryEntries(logs = [], player) {
   const entries = []
   for (const l of logs) {
     if (!l) continue
     const role = l.role || ''
     const logType = l.log_type || ''
     const content = String(l.content || '').trim()
-    if (!content) continue
+    const dicePayload = hasDiceResult(l)
+    if (!content && !dicePayload) continue
 
     // 检定 / 骰子结果
     if (role === 'dice' || logType === 'dice') {
-      const d = l.dice_result || {}
-      entries.push({
-        kind: 'roll',
-        label: d.label || d.skill || d.check_type || '检定',
-        dc: d.dc ?? d.against ?? null,
-        roll: d.d20 ?? d.raw ?? d.roll ?? null,
-        mod: d.modifier ?? 0,
-        total: d.total ?? (d.d20 != null && d.modifier != null ? d.d20 + d.modifier : null),
-        result: (d.success === true || d.outcome === '成功' || /成功|通过/.test(d.outcome || '')) ? 'success' :
-                (d.success === false || d.outcome === '失败' || /失败|未通过/.test(d.outcome || '')) ? 'failure' :
-                'neutral',
-        rawText: content,
-      })
+      appendDiceEntries(entries, l.dice_result, content)
       continue
     }
 
-    // DM 旁白 / 场景
-    if (role === 'dm') {
-      // 清理可能的 JSON 包装
-      const clean = stripJsonWrapper(content)
-      entries.push({ kind: 'narration', txt: clean })
-      continue
+    if (content) {
+      // DM 旁白 / 场景
+      if (role === 'dm') {
+        // 清理可能的 JSON 包装
+        const clean = stripJsonWrapper(content)
+        entries.push({ kind: 'narration', txt: clean })
+      } else if (role === 'player') {
+        // 玩家
+        entries.push({
+          kind: 'player',
+          speaker: player?.name || '我',
+          letter: (player?.name || '我').slice(0, 1),
+          txt: content,
+        })
+      } else if (role === 'companion' || role.startsWith('companion_')) {
+        // 队友（companion 或 companion_{name}）
+        const maybeName = role.startsWith('companion_')
+          ? role.slice('companion_'.length)
+          : l.speaker || l.companion_speaker || '队友'
+        entries.push({
+          kind: 'companion',
+          speaker: maybeName,
+          letter: maybeName.slice(0, 1),
+          txt: content,
+        })
+      } else if (role === 'system' || logType === 'system') {
+        // system 显示为分隔符
+        entries.push({ kind: 'system', txt: content })
+      } else {
+        // 兜底：作为旁白
+        entries.push({ kind: 'narration', txt: content })
+      }
     }
 
-    // 玩家
-    if (role === 'player') {
-      entries.push({
-        kind: 'player',
-        speaker: player?.name || '我',
-        letter: (player?.name || '我').slice(0, 1),
-        txt: content,
-      })
-      continue
-    }
-
-    // 队友（companion 或 companion_{name}）
-    if (role === 'companion' || role.startsWith('companion_')) {
-      const maybeName = role.startsWith('companion_')
-        ? role.slice('companion_'.length)
-        : l.speaker || l.companion_speaker || '队友'
-      entries.push({
-        kind: 'companion',
-        speaker: maybeName,
-        letter: maybeName.slice(0, 1),
-        txt: content,
-      })
-      continue
-    }
-
-    // system 显示为分隔符
-    if (role === 'system' || logType === 'system') {
-      entries.push({ kind: 'system', txt: content })
-      continue
-    }
-
-    // 兜底：作为旁白
-    entries.push({ kind: 'narration', txt: content })
+    if (dicePayload) appendDiceEntries(entries, l.dice_result)
   }
   return entries
 }
@@ -323,13 +365,16 @@ export default function DialogueHistoryView({ session, player, onBack }) {
                 )
               }
               if (h.kind === 'roll') {
+                const checkText = h.rawText || `${h.label}${h.dc != null ? ` · DC ${h.dc}` : h.against ? ` · ${h.against}` : ''}`
                 return (
                   <div key={i} className={`hist-roll ${h.result}`}>
                     <span className="die">🎲</span>
-                    <span className="check">{h.label}{h.dc != null ? ` · DC ${h.dc}` : ''}</span>
+                    <span className={`check ${h.rawText ? 'raw' : ''}`}>{checkText}</span>
                     {h.roll != null && (
                       <span className="calc">
-                        {h.roll}{h.mod >= 0 ? '+' : ''}{h.mod} = <b>{h.total}</b>
+                        {h.roll}
+                        {h.mod != null ? `${h.mod >= 0 ? '+' : ''}${h.mod}` : ''}
+                        {h.total != null ? ` = ${h.total}` : ''}
                       </span>
                     )}
                     {h.result !== 'neutral' && (
