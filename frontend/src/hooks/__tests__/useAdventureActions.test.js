@@ -260,9 +260,47 @@ describe('useAdventureActions', () => {
     expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(null)
     expect(deps.addLog).toHaveBeenCalledWith(
       'dice',
-      expect.any(String),
+      expect.stringContaining('Feather Fall reaction'),
       'dice',
       { dice_result: expect.objectContaining({ reaction_type: 'feather_fall' }) },
+    )
+    expect(deps.enterDialogueStage).toHaveBeenCalledWith([
+      expect.objectContaining({ role: 'dm' }),
+    ])
+    expect(gameApi.getSession).toHaveBeenCalledWith('sess-1')
+  })
+
+  it('submits declined exploration Feather Fall reactions and logs saved trap dice', async () => {
+    gameApi.useExplorationReaction.mockResolvedValue({
+      type: 'exploration_reaction',
+      action: 'reaction_declined',
+      narrative: 'Lyra lets the Feather Fall window pass.',
+      companion_reactions: '',
+      dice_display: [{
+        kind: 'damage',
+        label: 'Gatehouse drop shaft damage',
+        raw: 6,
+        total: 6,
+        outcome: 'damage',
+      }],
+      player_choices: [],
+      needs_check: { required: false },
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+    const prompt = { reactor_character_id: 'bard-1' }
+
+    await act(async () => {
+      await result.current.handleExplorationReaction('decline', prompt)
+    })
+
+    expect(gameApi.useExplorationReaction).toHaveBeenCalledWith('sess-1', 'decline', 'bard-1')
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(null)
+    expect(deps.addLog).toHaveBeenCalledWith(
+      'dice',
+      expect.stringContaining('Gatehouse drop shaft damage'),
+      'dice',
+      { dice_result: expect.objectContaining({ label: 'Gatehouse drop shaft damage' }) },
     )
     expect(deps.enterDialogueStage).toHaveBeenCalledWith([
       expect.objectContaining({ role: 'dm' }),

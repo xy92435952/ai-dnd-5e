@@ -14,6 +14,7 @@
  */
 import { useCallback } from 'react'
 import { gameApi, charactersApi } from '../api/client'
+import { formatAdventureDiceLog } from '../utils/adventureDiceLog'
 
 function createActionIdempotencyKey(sessionId) {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -237,7 +238,7 @@ export function useAdventureActions({
         for (const d of result.dice_display) {
           addLog(
             'dice',
-            `${d.label || 'Dice'}: ${d.raw ?? ''}${d.modifier ? ` + ${d.modifier}` : ''}${d.total != null ? ` = ${d.total}` : ''}`,
+            formatAdventureDiceLog(d),
             'dice',
             { dice_result: d },
           )
