@@ -301,6 +301,35 @@ describe('useCombatAiTurns', () => {
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
+  it('does not drive an ai turn when fresh combat carries an explicit player reaction prompt', async () => {
+    const reactionPrompt = {
+      trigger: 'spell_cast',
+      reactor_character_id: 'char-1',
+      options: [{ type: 'counterspell' }],
+    }
+    getCombatMock.mockResolvedValue({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'char-1': { reaction_used: false },
+      },
+      player_can_react: true,
+      reaction_prompt: reactionPrompt,
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(aiTurnMock).not.toHaveBeenCalled()
+    expect(deps.setTurnState).toHaveBeenCalledWith({ reaction_used: false })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(reactionPrompt)
+    expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
+  })
+
   it('pauses ai and stores reaction prompts for another controlled character as a watcher notice', async () => {
     getCombatMock.mockResolvedValueOnce({
       round_number: 1,

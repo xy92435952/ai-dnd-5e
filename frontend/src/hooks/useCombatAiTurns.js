@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { gameApi } from '../api/client'
 import { applyActionResultEntityStates, getCombatTurnToken, getPlayerTurnState } from '../utils/combat'
-import { getPendingReactionPrompt } from '../utils/combatSession'
+import { resolveCombatReactionPrompt } from '../utils/combatSession'
 import { buildCombatResultImpactSummary, buildCombatStateChangeSummary } from '../utils/combatLog'
 
 const AI_TURN_LIMIT = 20
@@ -43,7 +43,12 @@ export function useCombatAiTurns({
         setCombat(fresh)
 
         const playerTurnState = getPlayerTurnState(fresh, playerId)
-        const pendingReaction = getPendingReactionPrompt(playerTurnState, playerId)
+        const pendingReaction = resolveCombatReactionPrompt({
+          turnState: playerTurnState,
+          playerId,
+          reactionPrompt: fresh.reaction_prompt,
+          playerCanReact: fresh.player_can_react,
+        })
         if (pendingReaction) {
           setTurnState(playerTurnState)
           setReactionPrompt(pendingReaction)
