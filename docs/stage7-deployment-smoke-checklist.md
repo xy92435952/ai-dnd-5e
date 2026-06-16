@@ -148,6 +148,18 @@ Verify:
 - Exploration Feather Fall prompts restore in Adventure, spend the caster's 1st-level
   slot on accept, prevent the saved fall damage, and leave refresh clear of stale
   `pending_exploration_reaction`.
+- Exploration Feather Fall decline remains private in multiplayer: only the reactor
+  can answer, the triggering player gets no private prompt, decline applies the
+  saved fall damage without spending the slot, and both viewers refresh without
+  stale `pending_exploration_reaction`.
+
+For a focused automated multiplayer check of that non-combat prompt privacy:
+
+```powershell
+.codex-test-artifacts\backend-venv\Scripts\python.exe -m pytest `
+  backend\tests\integration\test_multiplayer_ws_realtime.py::test_multiplayer_exploration_feather_fall_prompt_is_private_across_ws_and_refresh `
+  -q
+```
 
 ## Seeded Single-Player Smoke
 

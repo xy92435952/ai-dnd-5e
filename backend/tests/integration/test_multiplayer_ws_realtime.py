@@ -1092,12 +1092,22 @@ async def test_http_multiplayer_action_reaches_room_websocket_clients(
         ws_manager.ws_meta.clear()
 
 
+@pytest.mark.parametrize(
+    ("reaction_type", "expect_accept", "name_suffix"),
+    [
+        ("feather_fall", True, "cast"),
+        ("decline", False, "decl"),
+    ],
+)
 async def test_multiplayer_exploration_feather_fall_prompt_is_private_across_ws_and_refresh(
     client,
     db_session,
     engine,
     sample_module,
     monkeypatch,
+    reaction_type,
+    expect_accept,
+    name_suffix,
 ):
     """Exploration Feather Fall prompts should be live-private and refresh-private."""
     import json
@@ -1119,7 +1129,7 @@ async def test_multiplayer_exploration_feather_fall_prompt_is_private_across_ws_
         client,
         db_session,
         sample_module,
-        name_prefix="ws_explore_ff",
+        name_prefix=f"ws_ff_{name_suffix}",
     )
     host = room_data["host"]
     guest = room_data["guest"]
@@ -1222,23 +1232,53 @@ async def test_multiplayer_exploration_feather_fall_prompt_is_private_across_ws_
         assert guest_pending["id"] == prompt["id"]
         assert guest_pending["reactor_character_id"] == guest_char.id
 
+        forbidden_resolve = await client.post(
+            f"/game/sessions/{sid}/exploration-reaction",
+            headers=_h(host["token"]),
+            json={"reaction_type": reaction_type, "character_id": guest_char.id},
+        )
+        assert forbidden_resolve.status_code == 403, forbidden_resolve.text
+
+        still_pending = await client.get(f"/game/sessions/{sid}", headers=_h(guest["token"]))
+        assert still_pending.status_code == 200, still_pending.text
+        assert still_pending.json()["game_state"]["pending_exploration_reaction"]["id"] == prompt["id"]
+
+        host_hp_before = int(host_char.hp_current)
+        expected_damage = int(prompt["trap_resolution"]["final_damage"])
+        expected_hp_after = (
+            host_hp_before
+            if expect_accept
+            else max(0, host_hp_before - expected_damage)
+        )
         resolve = await client.post(
             f"/game/sessions/{sid}/exploration-reaction",
             headers=_h(guest["token"]),
-            json={"reaction_type": "feather_fall", "character_id": guest_char.id},
+            json={"reaction_type": reaction_type, "character_id": guest_char.id},
         )
         assert resolve.status_code == 200, resolve.text
         resolved = resolve.json()
-        assert resolved["reaction_effect"]["damage_prevented"] == prompt["damage_prevented"]
-        assert resolved["target_state"]["hp_current"] == host_char.hp_current
+        assert resolved["action"] == ("reaction" if expect_accept else "reaction_declined")
+        if expect_accept:
+            assert resolved["reaction_effect"]["damage_prevented"] == prompt["damage_prevented"]
+        else:
+            assert resolved["reaction_effect"]["type"] == "feather_fall"
+            assert "lets the Feather Fall window pass" in resolved["narrative"]
+        assert resolved["target_state"]["hp_current"] == expected_hp_after
 
+        await db_session.refresh(host_char)
         await db_session.refresh(guest_char)
-        assert guest_char.spell_slots["1st"] == 0
+        assert host_char.hp_current == expected_hp_after
+        assert guest_char.spell_slots["1st"] == (0 if expect_accept else 1)
 
         host_after = await client.get(f"/game/sessions/{sid}", headers=_h(host["token"]))
         guest_after = await client.get(f"/game/sessions/{sid}", headers=_h(guest["token"]))
-        assert "pending_exploration_reaction" not in host_after.json()["game_state"]
-        assert "pending_exploration_reaction" not in guest_after.json()["game_state"]
+        assert host_after.status_code == 200, host_after.text
+        assert guest_after.status_code == 200, guest_after.text
+        host_after_data = host_after.json()
+        guest_after_data = guest_after.json()
+        assert "pending_exploration_reaction" not in host_after_data["game_state"]
+        assert "pending_exploration_reaction" not in guest_after_data["game_state"]
+        assert host_after_data["player"]["hp_current"] == expected_hp_after
     finally:
         await host_ws.disconnect()
         await guest_ws.disconnect()
