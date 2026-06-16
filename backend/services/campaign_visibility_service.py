@@ -80,11 +80,14 @@ def public_campaign_state(campaign_state: dict[str, Any] | None) -> dict[str, An
 def public_game_state(
     game_state: dict[str, Any] | None,
     campaign_state: dict[str, Any] | None,
+    *,
+    viewer_character_id: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(game_state, dict):
         return {}
 
     public_state = deepcopy(game_state)
+    _sanitize_trap_state_feather_fall(public_state, viewer_character_id=viewer_character_id)
     if isinstance(campaign_state, dict):
         _, public_clue_identities, hidden_clue_identities = _clue_visibility_sets(campaign_state)
     else:
@@ -104,6 +107,29 @@ def public_game_state(
             public_state.pop("last_turn", None)
 
     return public_state
+
+
+def _sanitize_trap_state_feather_fall(
+    game_state: dict[str, Any],
+    *,
+    viewer_character_id: str | None,
+) -> None:
+    trap_states = game_state.get("trap_states")
+    if not isinstance(trap_states, dict):
+        return
+    for trap_state in trap_states.values():
+        if not isinstance(trap_state, dict):
+            continue
+        last_trigger = trap_state.get("last_trigger")
+        if not isinstance(last_trigger, dict):
+            continue
+        feather_fall = last_trigger.get("feather_fall")
+        if not isinstance(feather_fall, dict):
+            continue
+        caster_id = feather_fall.get("caster_id")
+        if _viewer_matches_character(viewer_character_id, caster_id):
+            continue
+        feather_fall.pop("spell_slots", None)
 
 
 def public_log_entry(

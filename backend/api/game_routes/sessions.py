@@ -153,7 +153,11 @@ async def get_session(
     public_state["thrown_weapon_recovery_pool"] = public_thrown_recovery_pool(
         public_state.get("thrown_weapon_recovery_pool")
     )
-    public_state = public_game_state(public_state, session.campaign_state)
+    public_state = public_game_state(
+        public_state,
+        session.campaign_state,
+        viewer_character_id=controlled_player.id if controlled_player else None,
+    )
     return {
         "session_id": session.id,
         "save_name": session.save_name,

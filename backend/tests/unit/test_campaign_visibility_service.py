@@ -137,6 +137,32 @@ def test_public_game_state_filters_explicit_hidden_last_turn_without_clue_catalo
     assert public["last_turn"]["player_choices"] == [{"text": "Public fallback choice"}]
 
 
+def test_public_game_state_redacts_other_character_feather_fall_spell_slots():
+    game_state = {
+        "trap_states": {
+            "pit-1": {
+                "id": "pit-1",
+                "last_trigger": {
+                    "damage": 0,
+                    "feather_fall": {
+                        "caster_id": "bard-1",
+                        "spell_name": "Feather Fall",
+                        "slot_level": "1st",
+                        "damage_prevented": 11,
+                        "spell_slots": {"1st": 0},
+                    },
+                },
+            },
+        },
+    }
+
+    other_view = public_game_state(game_state, None, viewer_character_id="rogue-1")
+    own_view = public_game_state(game_state, None, viewer_character_id="bard-1")
+
+    assert "spell_slots" not in other_view["trap_states"]["pit-1"]["last_trigger"]["feather_fall"]
+    assert own_view["trap_states"]["pit-1"]["last_trigger"]["feather_fall"]["spell_slots"] == {"1st": 0}
+
+
 def test_public_log_entry_redacts_hidden_clue_texts():
     campaign_state = {
         "clues": [

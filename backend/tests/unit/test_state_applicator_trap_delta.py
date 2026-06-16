@@ -320,6 +320,7 @@ async def test_state_applicator_trap_trigger_can_apply_feather_fall():
     assert trap_state["last_trigger"]["damage"] == 0
     assert trap_state["last_trigger"]["feather_fall"]["caster_id"] == "bard-1"
     assert trap_state["last_trigger"]["feather_fall"]["damage_prevented"] > 0
+    assert "spell_slots" not in trap_state["last_trigger"]["feather_fall"]
     assert [item["kind"] for item in applied.dice_display] == [
         "saving_throw",
         "damage",

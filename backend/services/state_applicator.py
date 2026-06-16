@@ -588,7 +588,9 @@ class StateApplicator:
             "conditions_added": result.get("conditions_added", []),
         }
         if result.get("feather_fall"):
-            last_trigger["feather_fall"] = result.get("feather_fall")
+            feather_fall = dict(result.get("feather_fall") or {})
+            feather_fall.pop("spell_slots", None)
+            last_trigger["feather_fall"] = feather_fall
         existing.update({
             "id": trap_id,
             "name": result.get("name") or trap_id,
