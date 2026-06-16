@@ -164,6 +164,90 @@ describe('Adventure render smoke', () => {
     cleanup()
   })
 
+  it('clears a stale exploration reaction prompt after multiplayer reconnect refresh', async () => {
+    const pendingPrompt = {
+      type: 'feather_fall',
+      reactor_character_id: 'char-1',
+      reactor_character_name: 'Mara Quickstep',
+      target_character_id: 'char-2',
+      target_character_name: 'Smoke Sentinel',
+      trap_name: 'Gatehouse drop shaft',
+      damage_prevented: 6,
+      available_reactions: [{
+        type: 'feather_fall',
+        slot_level: '1st',
+        damage_prevented: 6,
+      }],
+      options: [{ type: 'feather_fall', label: 'Cast Feather Fall' }],
+      can_decline: true,
+    }
+    const roomSnapshot = {
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'me',
+      active_group_id: 'main',
+      members: [
+        { user_id: 'me', display_name: 'Me', character_id: 'char-1', is_online: true },
+      ],
+      party_groups: [{ id: 'main', name: 'Main', location: 'Gatehouse', member_user_ids: ['me'] }],
+      pending_actions_by_group: { main: [] },
+      group_readiness: { main: {} },
+    }
+    const baseMultiplayerSession = {
+      ...sessionFixture,
+      is_multiplayer: true,
+      player: {
+        id: 'char-1',
+        name: 'Mara Quickstep',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+      companions: [],
+    }
+    getSessionMock
+      .mockResolvedValueOnce({
+        ...baseMultiplayerSession,
+        game_state: { pending_exploration_reaction: pendingPrompt },
+      })
+      .mockResolvedValueOnce({
+        ...baseMultiplayerSession,
+        game_state: {},
+      })
+    roomsGetMock.mockResolvedValue(roomSnapshot)
+    wsConnectedMock.mockReturnValue(false)
+
+    const view = render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('dialog', { name: 'Exploration reaction prompt' })).toBeInTheDocument()
+
+    wsConnectedMock.mockReturnValue(true)
+    view.rerender(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(getSessionMock).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Exploration reaction prompt' })).not.toBeInTheDocument()
+    })
+
+    cleanup()
+  })
+
   it('点击带 skill_check 的选项时进入前端检定流程', async () => {
     getSessionMock.mockResolvedValue({
       ...sessionFixture,
