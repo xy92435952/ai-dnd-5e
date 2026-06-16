@@ -3,7 +3,7 @@ import json
 import pytest
 
 from models.character import Character
-from models.session import Session
+from models.session import CombatState, Session
 from services.state_applicator import StateApplicator
 
 
@@ -230,6 +230,185 @@ async def test_state_applicator_applies_trap_trigger_delta(monkeypatch):
             "target_id": "char-1",
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_trap_trigger_can_apply_feather_fall():
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        combat_active=True,
+        game_state={},
+    )
+    session.combat_state = CombatState(
+        session_id="session-1",
+        turn_states={"bard-1": {}},
+    )
+    target = Character(
+        id="char-1",
+        name="Scout",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Urchin",
+        ability_scores={"str": 8, "dex": 16, "con": 12, "int": 14, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 9,
+            "ability_modifiers": {"dex": 3},
+            "saving_throws": {"dex": 3},
+            "proficiency_bonus": 2,
+        },
+        hp_current=9,
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+    caster = Character(
+        id="bard-1",
+        name="Lyra",
+        race="Human",
+        char_class="Bard",
+        level=5,
+        background="Entertainer",
+        ability_scores={"str": 8, "dex": 14, "con": 12, "int": 10, "wis": 10, "cha": 18},
+        derived={"hp_max": 24, "ability_modifiers": {"dex": 2}},
+        hp_current=24,
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+        known_spells=["Feather Fall"],
+        prepared_spells=[],
+        spell_slots={"1st": 1},
+    )
+
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "exploration",
+        "narrative": "The floor gives way, but Lyra snaps out a spell.",
+        "state_delta": {
+            "trap_triggers": [
+                {
+                    "target_character_id": "char-1",
+                    "feather_fall_caster_id": "bard-1",
+                    "trap": {
+                        "id": "pit",
+                        "name": "Hidden Pit",
+                        "save_ability": "dex",
+                        "save_dc": 20,
+                        "damage_dice": "2d6",
+                        "damage_type": "fall",
+                        "fall_distance_ft": 30,
+                    },
+                }
+            ]
+        },
+    }
+
+    applied = await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[target, caster],
+    )
+
+    assert target.hp_current == 9
+    assert caster.spell_slots["1st"] == 0
+    assert session.combat_state.turn_states["bard-1"]["reaction_used"] is True
+    trap_state = session.game_state["trap_states"]["pit"]
+    assert trap_state["triggered"] is True
+    assert trap_state["last_trigger"]["damage"] == 0
+    assert trap_state["last_trigger"]["feather_fall"]["caster_id"] == "bard-1"
+    assert trap_state["last_trigger"]["feather_fall"]["damage_prevented"] > 0
+    assert [item["kind"] for item in applied.dice_display] == [
+        "saving_throw",
+        "damage",
+        "reaction",
+    ]
+    assert applied.dice_display[-1]["reaction_type"] == "feather_fall"
+
+
+@pytest.mark.asyncio
+async def test_state_applicator_invalid_feather_fall_falls_back_to_trap_damage():
+    session = Session(
+        id="session-1",
+        module_id="module-1",
+        game_state={},
+    )
+    target = Character(
+        id="char-1",
+        name="Scout",
+        race="Human",
+        char_class="Rogue",
+        level=1,
+        background="Urchin",
+        ability_scores={"str": 8, "dex": 8, "con": 12, "int": 14, "wis": 10, "cha": 10},
+        derived={
+            "hp_max": 9,
+            "ability_modifiers": {"dex": -1},
+            "saving_throws": {"dex": -1},
+            "proficiency_bonus": 2,
+        },
+        hp_current=9,
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+    invalid_caster = Character(
+        id="rogue-1",
+        name="Not A Caster",
+        race="Human",
+        char_class="Rogue",
+        level=5,
+        background="Urchin",
+        ability_scores={"str": 8, "dex": 16, "con": 12, "int": 10, "wis": 10, "cha": 10},
+        derived={"hp_max": 24, "ability_modifiers": {"dex": 3}},
+        hp_current=24,
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+        known_spells=[],
+        prepared_spells=[],
+        spell_slots={},
+    )
+
+    applicator = StateApplicator(FakeDb())
+    result = {
+        "action_type": "exploration",
+        "narrative": "The floor gives way.",
+        "state_delta": {
+            "trap_triggers": [
+                {
+                    "target_character_id": "char-1",
+                    "feather_fall_caster_id": "rogue-1",
+                    "trap": {
+                        "id": "pit",
+                        "name": "Hidden Pit",
+                        "save_ability": "dex",
+                        "save_dc": 99,
+                        "damage_dice": "2d6",
+                        "damage_type": "fall",
+                        "fall_distance_ft": 30,
+                    },
+                }
+            ]
+        },
+    }
+
+    applied = await applicator.apply(
+        session,
+        json.dumps(result),
+        characters=[target, invalid_caster],
+    )
+
+    assert target.hp_current < 9
+    assert invalid_caster.spell_slots == {}
+    trap_state = session.game_state["trap_states"]["pit"]
+    assert trap_state["last_trigger"]["damage"] > 0
+    assert "feather_fall" not in trap_state["last_trigger"]
+    assert [item["kind"] for item in applied.dice_display] == ["saving_throw", "damage"]
 
 
 @pytest.mark.asyncio

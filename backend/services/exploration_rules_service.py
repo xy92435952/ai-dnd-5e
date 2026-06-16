@@ -6,6 +6,10 @@ from collections.abc import Callable
 from typing import Any
 
 from services.dnd_rules import apply_character_damage, roll_attack, roll_dice, roll_saving_throw
+from services.feather_fall_service import (
+    apply_feather_fall_damage_prevention,
+    resolve_feather_fall_reaction,
+)
 from services.feat_effect_service import get_feat_list_effect_value
 
 
@@ -473,6 +477,8 @@ def apply_trap_trigger_to_target(
     *,
     d20_roller: Callable[[str], dict[str, Any]] | None = None,
     damage_roller: Callable[[str], dict[str, Any]] | None = None,
+    feather_fall_caster: dict[str, Any] | object | None = None,
+    feather_fall_reaction_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve and apply a triggered trap to a mutable character-like target."""
     resolution = resolve_trap_trigger(
@@ -481,6 +487,21 @@ def apply_trap_trigger_to_target(
         d20_roller=d20_roller,
         damage_roller=damage_roller,
     )
+    feather_fall = None
+    if feather_fall_caster is not None:
+        feather_fall = resolve_feather_fall_reaction(
+            caster=feather_fall_caster,
+            fall_event={
+                **dict(trap or {}),
+                "damage": resolution.get("final_damage", 0),
+                "final_damage": resolution.get("final_damage", 0),
+                "rolled_damage": resolution.get("rolled_damage", 0),
+                "damage_type": resolution.get("damage_type"),
+            },
+            targets=[target],
+            reaction_state=feather_fall_reaction_state,
+        )
+        resolution = apply_feather_fall_damage_prevention(resolution, feather_fall)
     before_hp = _as_int(_read_attr(target, "hp_current", 0), 0)
     damage_result = _apply_damage_to_target(target, resolution["final_damage"])
     added_conditions = []
@@ -501,6 +522,7 @@ def apply_trap_trigger_to_target(
             "condition_durations": _read_mapping(target, "condition_durations"),
             "death_saves": _read_attr(target, "death_saves", None),
         },
+        "feather_fall": feather_fall,
     }
 
 

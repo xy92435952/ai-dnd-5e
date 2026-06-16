@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from services.exploration_rules_service import (
     apply_trap_attack_to_target,
     apply_trap_trigger_to_target,
@@ -576,6 +578,92 @@ def test_apply_trap_trigger_does_not_duplicate_failed_condition():
     assert target.conditions == ["frightened"]
     assert result["conditions_applied"] == ["frightened"]
     assert result["conditions_added"] == []
+
+
+def test_apply_trap_trigger_can_use_feather_fall_to_prevent_fall_damage():
+    target = SimpleNamespace(
+        id="wizard",
+        name="Wizard",
+        hp_current=6,
+        ability_scores={"dex": 14},
+        derived={"saving_throws": {"dex": 2}, "ability_modifiers": {"dex": 2}, "hp_max": 10},
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+    caster = SimpleNamespace(
+        id="bard-1",
+        name="Lyra",
+        char_class="Bard",
+        level=5,
+        known_spells=["Feather Fall"],
+        prepared_spells=[],
+        spell_slots={"1st": 1},
+    )
+
+    result = apply_trap_trigger_to_target(
+        {
+            "id": "pit",
+            "name": "Hidden Pit",
+            "damage_type": "fall",
+            "fall_distance_ft": 30,
+            "save_dc": 14,
+            "damage_dice": "2d6",
+        },
+        target,
+        d20_roller=lambda _expr: {"rolls": [1], "total": 1},
+        damage_roller=lambda expr: {"notation": expr, "rolls": [4, 3], "total": 7},
+        feather_fall_caster=caster,
+        feather_fall_reaction_state={},
+    )
+
+    assert target.hp_current == 6
+    assert result["final_damage"] == 0
+    assert result["damage_application"]["damage"] == 0
+    assert result["feather_fall"]["spell_name"] == "Feather Fall"
+    assert result["feather_fall"]["damage_prevented"] == 7
+    assert caster.spell_slots["1st"] == 0
+
+
+def test_apply_trap_trigger_rejects_invalid_feather_fall_caster():
+    target = SimpleNamespace(
+        id="wizard",
+        name="Wizard",
+        hp_current=6,
+        ability_scores={"dex": 14},
+        derived={"saving_throws": {"dex": 2}, "ability_modifiers": {"dex": 2}, "hp_max": 10},
+        conditions=[],
+        condition_durations={},
+        death_saves=None,
+        class_resources={},
+    )
+    caster = SimpleNamespace(
+        id="rogue-1",
+        name="Nope",
+        char_class="Rogue",
+        level=5,
+        known_spells=[],
+        prepared_spells=[],
+        spell_slots={},
+    )
+
+    with pytest.raises(ValueError):
+        apply_trap_trigger_to_target(
+            {
+                "id": "pit",
+                "name": "Hidden Pit",
+                "damage_type": "fall",
+                "fall_distance_ft": 30,
+                "save_dc": 14,
+                "damage_dice": "2d6",
+            },
+            target,
+            d20_roller=lambda _expr: {"rolls": [1], "total": 1},
+            damage_roller=lambda expr: {"notation": expr, "rolls": [4, 3], "total": 7},
+            feather_fall_caster=caster,
+            feather_fall_reaction_state={},
+        )
 
 
 def test_resolve_trap_attack_hits_ac_and_rolls_damage():

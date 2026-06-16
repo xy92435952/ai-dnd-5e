@@ -31,6 +31,7 @@ from services.exploration_rules_service import (
     apply_trap_trigger_to_target,
     resolve_trap_disarm,
 )
+from services.feather_fall_service import FeatherFallError
 from services.state_apply_result import ApplyResult
 from services.location_graph_service import (
     apply_location_update,
@@ -472,7 +473,51 @@ class StateApplicator:
             logger.warning(f"trap_triggers contains unknown character ID: {target_id}")
             return
 
-        result = apply_trap_trigger_to_target(trap, target)
+        feather_fall_caster = None
+        feather_fall_reaction_state = None
+        feather_fall_caster_id = str(
+            delta.get("feather_fall_caster_id")
+            or trap.get("feather_fall_caster_id")
+            or ""
+        )
+        if feather_fall_caster_id:
+            feather_fall_caster = char_map.get(feather_fall_caster_id)
+            if not feather_fall_caster:
+                logger.warning(
+                    "trap_triggers contains unknown Feather Fall caster ID: %s",
+                    feather_fall_caster_id,
+                )
+            elif getattr(session, "combat_active", False) and getattr(session, "combat_state", None):
+                turn_states = dict(session.combat_state.turn_states or {})
+                feather_fall_reaction_state = dict(turn_states.get(feather_fall_caster_id) or {})
+
+        trigger_kwargs = {}
+        if feather_fall_caster is not None:
+            trigger_kwargs["feather_fall_caster"] = feather_fall_caster
+            trigger_kwargs["feather_fall_reaction_state"] = feather_fall_reaction_state
+
+        try:
+            result = apply_trap_trigger_to_target(
+                trap,
+                target,
+                **trigger_kwargs,
+            )
+        except FeatherFallError as exc:
+            logger.warning(
+                "ignored invalid Feather Fall trap reaction: session=%s trap=%s caster=%s reason=%s",
+                session.id,
+                trap_id,
+                feather_fall_caster_id or None,
+                exc,
+            )
+            result = apply_trap_trigger_to_target(trap, target)
+
+        if feather_fall_reaction_state is not None and getattr(session, "combat_state", None):
+            turn_states = dict(session.combat_state.turn_states or {})
+            turn_states[feather_fall_caster_id] = feather_fall_reaction_state
+            session.combat_state.turn_states = turn_states
+            flag_modified(session.combat_state, "turn_states")
+
         ar.dice_display.extend(self._trap_dice_display(result))
         self._record_trap_trigger_state(session, result)
         logger.info(
@@ -489,7 +534,7 @@ class StateApplicator:
         trap_name = result.get("name") or result.get("trap_id") or "Trap"
         save = result.get("save") if isinstance(result.get("save"), dict) else {}
         damage_roll = result.get("damage_roll") if isinstance(result.get("damage_roll"), dict) else {}
-        return [
+        rows = [
             {
                 "label": f"{trap_name} saving throw",
                 "kind": "saving_throw",
@@ -513,6 +558,19 @@ class StateApplicator:
                 "target_id": result.get("target_id"),
             },
         ]
+        feather_fall = result.get("feather_fall") if isinstance(result.get("feather_fall"), dict) else None
+        if feather_fall:
+            rows.append({
+                "label": "Feather Fall reaction",
+                "kind": "reaction",
+                "reaction_type": "feather_fall",
+                "spell_name": feather_fall.get("spell_name") or "Feather Fall",
+                "slot_level": feather_fall.get("slot_level"),
+                "damage_prevented": feather_fall.get("damage_prevented", 0),
+                "target_id": result.get("target_id"),
+                "actor_id": feather_fall.get("caster_id"),
+            })
+        return rows
 
     def _record_trap_trigger_state(self, session: Session, result: dict) -> None:
         game_state = dict(session.game_state or {})
@@ -521,19 +579,22 @@ class StateApplicator:
         if not trap_id:
             return
         existing = dict(trap_states.get(trap_id) or {})
+        last_trigger = {
+            "save_ability": result.get("save_ability"),
+            "save_dc": result.get("save_dc"),
+            "saved": result.get("saved"),
+            "damage": result.get("final_damage", 0),
+            "damage_type": result.get("damage_type"),
+            "conditions_added": result.get("conditions_added", []),
+        }
+        if result.get("feather_fall"):
+            last_trigger["feather_fall"] = result.get("feather_fall")
         existing.update({
             "id": trap_id,
             "name": result.get("name") or trap_id,
             "triggered": True,
             "last_target_id": result.get("target_id"),
-            "last_trigger": {
-                "save_ability": result.get("save_ability"),
-                "save_dc": result.get("save_dc"),
-                "saved": result.get("saved"),
-                "damage": result.get("final_damage", 0),
-                "damage_type": result.get("damage_type"),
-                "conditions_added": result.get("conditions_added", []),
-            },
+            "last_trigger": last_trigger,
         })
         trap_states[trap_id] = existing
         game_state["trap_states"] = trap_states
