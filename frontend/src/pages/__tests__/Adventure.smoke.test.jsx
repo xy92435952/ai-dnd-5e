@@ -11,7 +11,7 @@
  * mount 整个组件"才能发现。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, cleanup, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, cleanup, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 // ─── 把所有外部副作用模块 mock 到最小可用 ───────────────────
@@ -28,6 +28,7 @@ const {
   roomsGetMock,
   wsConnectedMock,
   wsSendMock,
+  wsEventHandlerRef,
   submitGroupActionMock,
   joinGroupMock,
   setGroupReadinessMock,
@@ -56,6 +57,7 @@ const {
   roomsGetMock: vi.fn(),
   wsConnectedMock: vi.fn(),
   wsSendMock: vi.fn(),
+  wsEventHandlerRef: { current: null },
   submitGroupActionMock: vi.fn(),
   joinGroupMock: vi.fn(),
   setGroupReadinessMock: vi.fn(),
@@ -83,7 +85,10 @@ vi.mock('../../api/client', () => ({
 }))
 
 vi.mock('../../hooks/useWebSocket', () => ({
-  useWebSocket: () => ({ connected: wsConnectedMock(), send: wsSendMock }),
+  useWebSocket: (_sessionId, onEvent) => {
+    wsEventHandlerRef.current = onEvent
+    return { connected: wsConnectedMock(), send: wsSendMock }
+  },
 }))
 
 vi.mock('../../components/DiceRollerOverlay', () => ({
@@ -104,6 +109,7 @@ describe('Adventure render smoke', () => {
     vi.clearAllMocks()
     localStorage.setItem('user', JSON.stringify({ user_id: 'me', username: 'me', display_name: '我' }))
     getSessionMock.mockResolvedValue(sessionFixture)
+    wsEventHandlerRef.current = null
     wsConnectedMock.mockReturnValue(false)
     wsSendMock.mockReturnValue(false)
     roomsGetMock.mockRejectedValue(new Error('not multiplayer'))
@@ -237,6 +243,98 @@ describe('Adventure render smoke', () => {
         </Routes>
       </MemoryRouter>
     )
+
+    await waitFor(() => {
+      expect(getSessionMock).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Exploration reaction prompt' })).not.toBeInTheDocument()
+    })
+
+    cleanup()
+  })
+
+  it('clears a stale exploration reaction prompt after dm_responded refresh', async () => {
+    const pendingPrompt = {
+      type: 'feather_fall',
+      reactor_character_id: 'char-1',
+      reactor_character_name: 'Mara Quickstep',
+      target_character_id: 'char-2',
+      target_character_name: 'Smoke Sentinel',
+      trap_name: 'Gatehouse drop shaft',
+      damage_prevented: 6,
+      available_reactions: [{
+        type: 'feather_fall',
+        slot_level: '1st',
+        damage_prevented: 6,
+      }],
+      options: [{ type: 'feather_fall', label: 'Cast Feather Fall' }],
+      can_decline: true,
+    }
+    const roomSnapshot = {
+      session_id: 'sess-1',
+      is_multiplayer: true,
+      room_code: '234567',
+      current_speaker_user_id: 'me',
+      active_group_id: 'main',
+      members: [
+        { user_id: 'me', display_name: 'Me', character_id: 'char-1', is_online: true },
+        { user_id: 'u2', display_name: 'Ally', character_id: 'char-2', is_online: true },
+      ],
+      party_groups: [{ id: 'main', name: 'Main', location: 'Gatehouse', member_user_ids: ['me', 'u2'] }],
+      pending_actions_by_group: { main: [] },
+      group_readiness: { main: {} },
+    }
+    const baseMultiplayerSession = {
+      ...sessionFixture,
+      is_multiplayer: true,
+      player: {
+        id: 'char-1',
+        name: 'Mara Quickstep',
+        char_class: 'Wizard',
+        hp_current: 10,
+        derived: { hp_max: 10, proficiency_bonus: 2, ability_modifiers: { int: 3 } },
+        proficient_skills: [],
+      },
+      companions: [],
+    }
+    getSessionMock
+      .mockResolvedValueOnce({
+        ...baseMultiplayerSession,
+        game_state: { pending_exploration_reaction: pendingPrompt },
+      })
+      .mockResolvedValueOnce({
+        ...baseMultiplayerSession,
+        game_state: {},
+      })
+    roomsGetMock.mockResolvedValue(roomSnapshot)
+    wsConnectedMock.mockReturnValue(true)
+
+    render(
+      <MemoryRouter initialEntries={['/adventure/sess-1']}>
+        <Routes>
+          <Route path="/adventure/:sessionId" element={<Adventure />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByRole('dialog', { name: 'Exploration reaction prompt' })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(wsEventHandlerRef.current).toEqual(expect.any(Function))
+    })
+
+    await act(async () => {
+      wsEventHandlerRef.current({
+        type: 'dm_responded',
+        by_user_id: 'u2',
+        action_type: 'exploration',
+        narrative: 'The table sees the resolved fall.',
+        companion_reactions: '',
+        dice_display: [],
+        combat_triggered: false,
+        combat_ended: false,
+      })
+    })
 
     await waitFor(() => {
       expect(getSessionMock).toHaveBeenCalledTimes(2)
