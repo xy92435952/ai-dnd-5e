@@ -15,6 +15,7 @@
 import { useCallback } from 'react'
 import { gameApi, charactersApi } from '../api/client'
 import { formatAdventureDiceLog } from '../utils/adventureDiceLog'
+import { getRestoredExplorationReactionPrompt } from '../utils/adventureSessionLoaded'
 
 function createActionIdempotencyKey(sessionId) {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -105,10 +106,11 @@ export function useAdventureActions({
       setSession(data)
       setPlayer(data.player)
       setCompanions(data.companions || [])
+      setPendingExplorationReaction?.(getRestoredExplorationReactionPrompt(data))
     } catch {
       // Keep the current character snapshot if refresh fails.
     }
-  }, [sessionId, setSession, setPlayer, setCompanions])
+  }, [sessionId, setSession, setPlayer, setCompanions, setPendingExplorationReaction])
 
   const handleAction = useCallback(async (overrideText, options = {}) => {
     const text = (overrideText ?? input).trim()
@@ -249,6 +251,7 @@ export function useAdventureActions({
       if (queue.length > 0) enterDialogueStage(queue)
       await refreshCharacters()
     } catch (e) {
+      await refreshCharacters()
       setError(e.message)
       addLog('system', `Reaction failed: ${e.message}`, 'system')
     } finally {

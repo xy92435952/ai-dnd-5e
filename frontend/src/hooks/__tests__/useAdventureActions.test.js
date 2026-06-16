@@ -308,6 +308,34 @@ describe('useAdventureActions', () => {
     expect(gameApi.getSession).toHaveBeenCalledWith('sess-1')
   })
 
+  it('refreshes and clears stale exploration prompts after a failed reaction submit', async () => {
+    gameApi.useExplorationReaction.mockRejectedValue(new Error('No pending exploration reaction'))
+    gameApi.getSession.mockResolvedValue({
+      player: { id: 'char-1', hp_current: 22 },
+      companions: [],
+      game_state: {},
+    })
+    const deps = makeDeps()
+    const { result } = renderHook(() => useAdventureActions(deps))
+    const prompt = { reactor_character_id: 'bard-1' }
+
+    await act(async () => {
+      await result.current.handleExplorationReaction('decline', prompt)
+    })
+
+    expect(gameApi.useExplorationReaction).toHaveBeenCalledWith('sess-1', 'decline', 'bard-1')
+    expect(gameApi.getSession).toHaveBeenCalledWith('sess-1')
+    expect(deps.setSession).toHaveBeenCalledWith(expect.objectContaining({ game_state: {} }))
+    expect(deps.setPlayer).toHaveBeenCalledWith(expect.objectContaining({ hp_current: 22 }))
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(null)
+    expect(deps.setError).toHaveBeenCalledWith('No pending exploration reaction')
+    expect(deps.addLog).toHaveBeenCalledWith(
+      'system',
+      'Reaction failed: No pending exploration reaction',
+      'system',
+    )
+  })
+
   it('blocks rest, prepared spells, and checkpoint mutations while multiplayer sync is unavailable', async () => {
     const deps = makeDeps({
       actionBlockedReason: '房间正在重新同步，请恢复连接后再发言。',
