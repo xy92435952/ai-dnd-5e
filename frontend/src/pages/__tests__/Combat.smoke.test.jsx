@@ -5,7 +5,7 @@
  * 但 React 运行时会报 hook 顺序变化并导致页面不可用。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, cleanup, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const {
@@ -20,8 +20,10 @@ const {
   damageRollMock,
   moveMock,
   combatActionMock,
+  useReactionMock,
   endTurnMock,
   useItemMock,
+  rollDice3DMock,
   wsConnectedMock,
   wsSendMock,
   wsEvents,
@@ -102,8 +104,10 @@ const {
   damageRollMock: vi.fn(),
   moveMock: vi.fn(),
   combatActionMock: vi.fn(),
+  useReactionMock: vi.fn(),
   endTurnMock: vi.fn(),
   useItemMock: vi.fn(),
+  rollDice3DMock: vi.fn(),
   wsConnectedMock: vi.fn(),
   wsSendMock: vi.fn(),
   wsEvents: { current: null },
@@ -122,6 +126,7 @@ vi.mock('../../api/client', () => ({
     damageRoll: damageRollMock,
     move: moveMock,
     combatAction: combatActionMock,
+    useReaction: useReactionMock,
   },
   charactersApi: {
     useItem: useItemMock,
@@ -140,7 +145,7 @@ vi.mock('../../hooks/useWebSocket', () => ({
 
 vi.mock('../../components/DiceRollerOverlay', () => ({
   default: () => null,
-  rollDice3D: vi.fn().mockResolvedValue({ total: 10, rolls: [10] }),
+  rollDice3D: rollDice3DMock,
 }))
 
 vi.mock('../../juice', () => ({
@@ -160,6 +165,8 @@ import Combat from '../Combat'
 describe('Combat render smoke', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    useReactionMock.mockReset()
+    rollDice3DMock.mockReset()
     wsEvents.current = null
     wsConnectedMock.mockReturnValue(false)
     wsSendMock.mockReturnValue(false)
@@ -169,6 +176,8 @@ describe('Combat render smoke', () => {
     getSkillBarMock.mockResolvedValue({ bar: [] })
     roomsGetMock.mockRejectedValue(new Error('not multiplayer'))
     endTurnMock.mockResolvedValue({})
+    useReactionMock.mockResolvedValue({})
+    rollDice3DMock.mockResolvedValue({ total: 10, rolls: [10] })
     attackRollMock.mockResolvedValue({
       d20: 10,
       attack_bonus: 5,
@@ -602,6 +611,151 @@ describe('Combat render smoke', () => {
     expect(prompt).toHaveTextContent('不反应 HP 5 -> 0')
     expect(prompt).toHaveTextContent('使用后 HP 5 -> 5')
     expect(prompt).toHaveTextContent('可避免倒地')
+  })
+
+  it('resolves a restored Cutting Words damage reaction through the Combat page', async () => {
+    const pendingReaction = {
+      trigger: 'incoming_attack',
+      attacker_id: 'enemy-1',
+      attacker_name: 'Training Dummy',
+      target_id: 'enemy-1',
+      reactor_character_id: 'char-1',
+      reactor_name: 'Tester',
+      incoming_damage: 8,
+      target_hp_before_damage: 12,
+      attack_roll: 18,
+      player_ac: 14,
+      available_reactions: [
+        {
+          id: 'cutting_words_damage',
+          type: 'cutting_words_damage',
+          name: 'Cutting Words: Damage',
+          cost: 'reaction + Bardic Inspiration d8',
+          die: 'd8',
+          damage_roll_before: 8,
+          effect: 'Roll d8 and subtract it from the damage roll (8 damage).',
+        },
+      ],
+      options: [
+        {
+          type: 'cutting_words_damage',
+          target_id: 'enemy-1',
+          character_id: 'char-1',
+          label: 'Cutting Words: Damage - Roll d8 and subtract it from the damage roll (8 damage).',
+          die: 'd8',
+        },
+      ],
+    }
+    const pendingCombat = {
+      ...combatFixture,
+      turn_states: {
+        ...combatFixture.turn_states,
+        'char-1': {
+          ...combatFixture.turn_states['char-1'],
+          pending_attack_reaction: pendingReaction,
+        },
+      },
+    }
+    const resolvedCombat = {
+      ...pendingCombat,
+      turn_states: {
+        ...pendingCombat.turn_states,
+        'char-1': {
+          ...combatFixture.turn_states['char-1'],
+          reaction_used: true,
+          movement_used: 0,
+          movement_max: 6,
+        },
+      },
+    }
+    const reactionEffect = {
+      cutting_words: {
+        type: 'cutting_words',
+        die: 'd8',
+        roll: 3,
+        uses_remaining: 1,
+      },
+      damage_roll_before: 8,
+      damage_roll_after: 5,
+      damage_prevented: 3,
+      hp_restored: 3,
+      class_resources: { bardic_inspiration_remaining: 1 },
+    }
+    let reactionSubmitted = false
+    rollDice3DMock.mockResolvedValueOnce({ total: 3, rolls: [3] })
+    useReactionMock.mockImplementationOnce(async () => {
+      reactionSubmitted = true
+      return {
+        action: 'reaction',
+        reaction_type: 'cutting_words_damage',
+        narration: "Tester's Cutting Words reduces the damage roll.",
+        reaction_effect: reactionEffect,
+        dice_result: {
+          type: 'reaction',
+          reaction_type: 'cutting_words_damage',
+          ...reactionEffect,
+        },
+        turn_state: resolvedCombat.turn_states['char-1'],
+        target_state: {
+          target_id: 'char-1',
+          target_name: 'Tester',
+          hp_current: 7,
+          hp_max: 12,
+          class_resources: { bardic_inspiration_remaining: 1 },
+        },
+      }
+    })
+    getCombatMock.mockImplementation(() => Promise.resolve(
+      reactionSubmitted ? resolvedCombat : pendingCombat,
+    ))
+    getSessionMock.mockResolvedValue({
+      ...sessionFixture,
+      player: {
+        ...sessionFixture.player,
+        char_class: 'Bard',
+        level: 5,
+        subclass: 'Lore',
+        class_resources: { bardic_inspiration_remaining: 2 },
+        derived: {
+          ...sessionFixture.player.derived,
+          subclass_effects: {
+            cutting_words: true,
+            bardic_inspiration_die: 'd8',
+          },
+        },
+      },
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/combat/sess-1']}>
+        <Routes>
+          <Route path="/combat/:sessionId" element={<Combat />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    const prompt = await screen.findByRole('dialog')
+    expect(prompt).toHaveTextContent('Cutting Words: Damage')
+    fireEvent.click(within(prompt).getByRole('button', { name: /Cutting Words: Damage/ }))
+
+    await waitFor(() => {
+      expect(rollDice3DMock).toHaveBeenCalledWith(8, 1)
+      expect(useReactionMock).toHaveBeenCalledWith(
+        'sess-1',
+        'cutting_words_damage',
+        'enemy-1',
+        'char-1',
+        { cuttingWordsRoll: 3 },
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByText("Tester's Cutting Words reduces the damage roll.")).toBeInTheDocument()
+      expect(screen.getByText('Cutting Words d8=3: damage 8 -> 5; prevented 3')).toBeInTheDocument()
+      expect(screen.getByText('Tester HP 7')).toBeInTheDocument()
+      expect(screen.getAllByLabelText(/反应已用/).length).toBeGreaterThan(0)
+    })
   })
 
   it('clears a stale combat reaction prompt after dm_responded refresh', async () => {
