@@ -25,6 +25,7 @@ function makeHandler(overrides = {}) {
     sessionId: 'sess-1',
     setCombat: vi.fn(),
     setTurnState: vi.fn(),
+    setClassResources: vi.fn(),
     addLog: vi.fn(),
     setHelpMode: vi.fn(),
     setSpellQuickPick: vi.fn(),
@@ -145,6 +146,11 @@ describe('createCombatSkillClickHandler', () => {
       rollCuttingWordsDie: vi.fn().mockResolvedValue({ total: 3, rolls: [3] }),
       showDice: vi.fn(),
     })
+    api.grappleShove.mockResolvedValueOnce({
+      narration: 'Tester grapples with Cutting Words.',
+      turn_state: { action_used: true, reaction_used: true },
+      class_resources: { bardic_inspiration_remaining: 1 },
+    })
 
     await handler({ k: 'grapple', available: true })
 
@@ -172,6 +178,7 @@ describe('createCombatSkillClickHandler', () => {
       'prone',
       { useCuttingWords: true, cuttingWordsRoll: 3 },
     )
+    expect(fns.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
   })
 
   it('can spend Cutting Words on a grapple escape ability check', async () => {
@@ -181,6 +188,11 @@ describe('createCombatSkillClickHandler', () => {
       confirmCuttingWordsAbilityCheck: vi.fn(() => true),
       rollCuttingWordsDie: vi.fn().mockResolvedValue({ total: 4, rolls: [4] }),
       showDice: vi.fn(),
+    })
+    api.grappleEscape.mockResolvedValueOnce({
+      narration: 'Tester escapes with Cutting Words.',
+      turn_state: { action_used: true, reaction_used: true },
+      class_resources: { bardic_inspiration_remaining: 1 },
     })
 
     await handler({ k: 'grapple_escape', available: true })
@@ -208,6 +220,7 @@ describe('createCombatSkillClickHandler', () => {
     )
     expect(api.grappleShove).not.toHaveBeenCalled()
     expect(api.combatAction).not.toHaveBeenCalled()
+    expect(fns.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
     expect(api.getCombat).toHaveBeenCalledWith('sess-1')
   })
 

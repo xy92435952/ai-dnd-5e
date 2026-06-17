@@ -47,6 +47,7 @@ export function createCombatSkillClickHandler({
   sessionId,
   setCombat,
   setTurnState,
+  setClassResources,
   addLog,
   setHelpMode,
   handleDash,
@@ -77,6 +78,12 @@ export function createCombatSkillClickHandler({
     if (!Number.isFinite(total)) return {}
     showDice?.({ faces, result: total, label: `Cutting Words d${faces}`, count: 1 })
     return { useCuttingWords: true, cuttingWordsRoll: total }
+  }
+
+  function applyActionResourceState(result) {
+    if (result?.class_resources && typeof setClassResources === 'function') {
+      setClassResources(result.class_resources)
+    }
   }
 
   return async function onSkillClick(skill) {
@@ -131,6 +138,7 @@ export function createCombatSkillClickHandler({
             const cuttingWordsOptions = await buildCuttingWordsOptions('shove', targetId)
             const result = await gameApi.grappleShove(sessionId, 'shove', targetId, 'prone', cuttingWordsOptions)
             if (result?.turn_state) setTurnState?.(result.turn_state)
+            applyActionResourceState(result)
             if (result?.narration) addLog?.({
               role: 'player',
               content: result.narration,
@@ -147,6 +155,7 @@ export function createCombatSkillClickHandler({
             const cuttingWordsOptions = await buildCuttingWordsOptions('grapple', targetId)
             const result = await gameApi.grappleShove(sessionId, 'grapple', targetId, 'prone', cuttingWordsOptions)
             if (result?.turn_state) setTurnState?.(result.turn_state)
+            applyActionResourceState(result)
             if (result?.narration) addLog?.({
               role: 'player',
               content: result.narration,
@@ -161,6 +170,7 @@ export function createCombatSkillClickHandler({
             const cuttingWordsOptions = await buildCuttingWordsOptions('grapple_escape')
             const result = await gameApi.grappleEscape(sessionId, cuttingWordsOptions)
             if (result?.turn_state) setTurnState?.(result.turn_state)
+            applyActionResourceState(result)
             if (result?.narration) addLog?.({
               role: 'player',
               content: result.narration,
