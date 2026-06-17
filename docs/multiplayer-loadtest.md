@@ -26,6 +26,7 @@ keeps the load smoke opt-in.
 $env:RUN_MULTIPLAYER_LOADTEST = "1"
 $env:LOADTEST_SQLITE_DB = "backend/ai_trpg.db"
 $env:LOADTEST_PREFIX = "codex_load_YYYYMMDD_HHMM"
+$env:LOADTEST_RESULT_JSON = "artifacts/multiplayer-load-smoke-YYYYMMDD_HHMM.json"
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
@@ -37,6 +38,7 @@ $env:RUN_MULTIPLAYER_LOADTEST = "1"
 $env:LOADTEST_SQLITE_DB = "backend/ai_trpg.db"
 $env:LOADTEST_PREFIX = "codex_load_YYYYMMDD_HHMM"
 $env:LOADTEST_HOLD_SECONDS = "90"
+$env:LOADTEST_RESULT_JSON = "artifacts/multiplayer-load-smoke-YYYYMMDD_HHMM.json"
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
@@ -55,6 +57,12 @@ $env:LOADTEST_PREFIX = "codex_load_YYYYMMDD_HHMM"
 
 For direct low-level script debugging, call `scripts/multiplayer_ws_loadtest.py`
 with the matching flags directly.
+
+Set `LOADTEST_RESULT_JSON` through `scripts/check.sh`, or pass
+`--result-json artifacts/multiplayer-load-smoke-YYYYMMDD_HHMM.json` directly,
+when you want to keep the final users/rooms/WebSocket/timing/cleanup summary as
+a machine-readable local evidence file. The `artifacts/` folder is ignored by
+git and can be uploaded separately by CI or archived for a release checklist.
 
 The default test shape is fixed on purpose:
 

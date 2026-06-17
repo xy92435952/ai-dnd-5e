@@ -278,6 +278,7 @@ the 50-user WebSocket gate:
 $env:RUN_MULTIPLAYER_LOADTEST='1'
 $env:LOADTEST_SQLITE_DB='backend\ai_trpg.db'
 $env:LOADTEST_PREFIX='codex_load_YYYYMMDD_HHMM'
+$env:LOADTEST_RESULT_JSON='artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
@@ -293,11 +294,15 @@ $env:RUN_MULTIPLAYER_LOADTEST='1'
 $env:LOADTEST_SQLITE_DB='backend\ai_trpg.db'
 $env:LOADTEST_PREFIX='codex_load_YYYYMMDD_HHMM'
 $env:LOADTEST_HOLD_SECONDS='90'
+$env:LOADTEST_RESULT_JSON='artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
 For direct low-level script debugging, pass the same hold window as
-`--hold-seconds 90` to `scripts\multiplayer_ws_loadtest.py`.
+`--hold-seconds 90` to `scripts\multiplayer_ws_loadtest.py`. Pass
+`--result-json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json`, or set
+`LOADTEST_RESULT_JSON` through `scripts/check.sh`, to keep the final load-smoke
+summary as an ignored local evidence file under `artifacts/`.
 
 The GitHub Actions workflow `Multiplayer Load Smoke` runs the same style of
 check on demand.

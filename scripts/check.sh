@@ -100,12 +100,16 @@ if [ "${RUN_MULTIPLAYER_LOADTEST:-0}" = "1" ]; then
   if [ -n "${LOADTEST_HOLD_SECONDS:-}" ]; then
     set -- "$@" --hold-seconds "$LOADTEST_HOLD_SECONDS"
   fi
+  if [ -n "${LOADTEST_RESULT_JSON:-}" ]; then
+    set -- "$@" --result-json "$LOADTEST_RESULT_JSON"
+  fi
 
   (cd "$ROOT_DIR" && run_backend_python scripts/multiplayer_ws_loadtest.py "$@")
 else
   echo "== Multiplayer load smoke skipped =="
   echo "Set RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID or LOADTEST_SQLITE_DB to run it."
   echo "Set LOADTEST_HOLD_SECONDS to keep sockets open for manual browser observation."
+  echo "Set LOADTEST_RESULT_JSON to write a machine-readable load smoke result file."
 fi
 
 echo "== All checks passed =="

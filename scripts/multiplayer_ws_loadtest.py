@@ -17,6 +17,7 @@ import statistics
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -1207,6 +1208,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Honor HTTP(S)_PROXY and related environment variables for HTTP calls.",
     )
+    parser.add_argument(
+        "--result-json",
+        default="",
+        help="Optional path where the final JSON result should be written for later audit.",
+    )
     return parser.parse_args()
 
 
@@ -1218,6 +1224,10 @@ def main() -> int:
             f"for room sizes {DEFAULT_ROOM_SIZES}; got {args.users}."
         )
     result = asyncio.run(run(args))
+    if args.result_json:
+        result_path = Path(args.result_json)
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["ok"] else 1
 
