@@ -316,6 +316,16 @@ Latest local dry-run evidence:
 
 ## Deployment Checks
 
+Keep the local or CI evidence from this checklist with the release note:
+
+- Stage 7 reaction backend/frontend gate output
+- Feather Fall browser smoke JSON manifest and screenshots when Adventure
+  reaction UX changed
+- Multiplayer load smoke result JSON and backend log when WS, rooms, reconnect,
+  or privacy changed
+- CI `frontend-prod-build` result when frontend dependencies or build tooling
+  changed
+
 Before server pull/restart:
 
 ```powershell
@@ -331,6 +341,8 @@ After server update:
 - production `CORS_ALLOW_ORIGINS` contains the public frontend origin
 - `JWT_SECRET`, `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, database paths/URLs,
   upload path, and Chroma/LangGraph paths are set in `backend/.env`
+- deployment evidence links point to either local `artifacts/` files or GitHub
+  Actions artifacts for the release candidate
 
 Health checks:
 
@@ -346,6 +358,17 @@ sudo journalctl -u ai-trpg -n 100 --no-pager
 sudo tail -n 100 /var/log/nginx/error.log
 ```
 
+After restart, run at least one browser session through login, Adventure load,
+and Combat load on the public origin. When multiplayer or WS paths changed,
+open two users in the same room and confirm:
+
+- both clients show connected realtime sync
+- private ReactionPrompt or exploration reaction text only appears for the
+  reactor
+- refresh restores the reactor's own pending prompt and does not leak it to an
+  observer
+- server logs stay free of `Traceback`, `ERROR`, and `500` during the check
+
 ## Stop Conditions
 
 Do not deploy when any of these are true:
@@ -356,3 +379,7 @@ Do not deploy when any of these are true:
 - multiplayer private prompt tests fail or were skipped after changing WS/snapshot/reconnect code.
 - `npm run build` fails or the production-only build guard is known broken.
 - health check fails locally or on the server after restart.
+- required smoke artifacts are missing for the area changed, or the result JSON
+  has `ok: false`.
+- server logs show `Traceback`, `ERROR`, or repeated `500` responses during the
+  post-restart browser check.
