@@ -118,10 +118,10 @@ cd ..
 ```
 
 `npm run test:stage7:reaction` includes the direct combat `ReactionPrompt`,
-Adventure `ExplorationReactionPrompt`, and `combatReactionPrompt` utility
-regressions in addition to Adventure/Combat page smoke, hook recovery, privacy
-projection, and combat-log coverage. Keep new frontend ReactionPrompt recovery
-or target-normalization tests in that gate.
+Adventure `ExplorationReactionPrompt`, `useDialogueWsSync`, and
+`combatReactionPrompt` utility regressions in addition to Adventure/Combat page
+smoke, hook recovery, privacy projection, and combat-log coverage. Keep new
+frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## Schema Gate
 
