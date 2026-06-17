@@ -14,6 +14,14 @@ echo "== Backend tests =="
 echo "== Frontend tests =="
 (cd "$ROOT_DIR/frontend" && npm test)
 
+if [ "${RUN_STAGE7_REACTION_GATE:-0}" = "1" ]; then
+  echo "== Stage 7 ReactionPrompt focused gate =="
+  (cd "$ROOT_DIR/frontend" && npm run test:stage7:reaction)
+else
+  echo "== Stage 7 ReactionPrompt focused gate skipped =="
+  echo "Set RUN_STAGE7_REACTION_GATE=1 to rerun the focused ReactionPrompt recovery/privacy gate."
+fi
+
 echo "== Frontend build =="
 (cd "$ROOT_DIR/frontend" && npm run build)
 

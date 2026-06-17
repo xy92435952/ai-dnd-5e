@@ -33,6 +33,16 @@ cd ..
 git diff --check
 ```
 
+To include the focused Stage 7 ReactionPrompt gate in the existing full local
+check script, run:
+
+```powershell
+$env:RUN_STAGE7_REACTION_GATE='1'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
+If Git Bash is on `PATH`, `bash scripts/check.sh` is equivalent.
+
 For backend-only slices:
 
 ```powershell
