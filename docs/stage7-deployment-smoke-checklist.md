@@ -34,6 +34,15 @@ cd ..
 git diff --check
 ```
 
+For a fast standard-entry smoke of `scripts/check.sh` without running the full
+backend suite, provide a focused backend target. The script still runs the full
+frontend Vitest suite and production build:
+
+```powershell
+$env:CHECK_BACKEND_TARGETS='backend/tests/unit/test_ws_events.py::TestSampleEvents::test_reaction_prompt_projection_uses_compact_reactor_identity'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
 To include the focused Stage 7 ReactionPrompt backend and frontend gates in the
 existing full local check script, run:
 
@@ -42,7 +51,9 @@ $env:RUN_STAGE7_REACTION_GATE='1'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
-If Git Bash is on `PATH`, `bash scripts/check.sh` is equivalent.
+On Windows, prefer the explicit Git Bash path above. `scripts/check.sh` will use
+the workspace backend test venv when present and routes frontend commands
+through `npm.cmd` when Git Bash exposes it, avoiding the WSL shell shim.
 
 To include the browser-level Adventure Feather Fall smoke in the same check
 entrypoint, opt in explicitly because it starts temporary backend/frontend
@@ -85,16 +96,14 @@ confidence:
 git status --short --branch --untracked-files=all
 git log --oneline --decorate -8
 
-.codex-test-artifacts\backend-venv\Scripts\python.exe -m pytest backend\tests\smoke\test_imports.py -q
-.codex-test-artifacts\backend-venv\Scripts\python.exe -m pytest backend\tests\unit\test_ws_events.py backend\tests\integration\test_multiplayer_ws_realtime.py -q
-
-cd frontend
-npm test
-npm run build
-cd ..
-
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 git diff --check
 ```
+
+By default `scripts/check.sh` runs `backend/tests -q`, full frontend Vitest,
+and `npm run build`, while leaving slower optional Stage 7 browser/load smokes
+disabled. Use `CHECK_BACKEND_TARGETS` only for a deliberate focused smoke, not
+for the full release gate.
 
 For a narrower but faster multiplayer reconnect gate, use:
 
