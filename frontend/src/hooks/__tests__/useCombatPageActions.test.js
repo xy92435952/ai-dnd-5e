@@ -1,14 +1,17 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { roomsGetMock } = vi.hoisted(() => ({
+const { roomsGetMock, rollDice3DMock } = vi.hoisted(() => ({
   roomsGetMock: vi.fn(),
+  rollDice3DMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
   gameApi: {
     combatAction: vi.fn(),
     getCombat: vi.fn(),
+    grappleEscape: vi.fn(),
+    grappleShove: vi.fn(),
     move: vi.fn(),
     readyAction: vi.fn(),
   },
@@ -17,12 +20,22 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
+vi.mock('../../components/DiceRollerOverlay', () => ({
+  rollDice3D: rollDice3DMock,
+}))
+
 import { gameApi } from '../../api/client'
 import { useCombatPageActions } from '../useCombatPageActions'
 
 describe('useCombatPageActions websocket sync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    rollDice3DMock.mockReset()
+    rollDice3DMock.mockResolvedValue({ total: 10, rolls: [10] })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   function renderActions(overrides = {}) {
@@ -41,11 +54,13 @@ describe('useCombatPageActions websocket sync', () => {
       setError: vi.fn(),
       setCombat: vi.fn(),
       setTurnState: vi.fn(),
+      setClassResources: vi.fn(),
       setReactionPrompt: vi.fn(),
       setLairActionPrompt: vi.fn(),
       setLegendaryActionPrompt: vi.fn(),
       addLog: vi.fn(),
       setSpellModalOpen: vi.fn(),
+      setSpellQuickPick: vi.fn(),
       setHelpMode: vi.fn(),
       handleAttack: vi.fn(),
       handleDash: vi.fn(),
@@ -60,6 +75,7 @@ describe('useCombatPageActions websocket sync', () => {
       onLoadCombat: vi.fn(),
       setCombatOver: vi.fn(),
       onCombatEnded: vi.fn(),
+      showDice: vi.fn(),
       combat: {
         round_number: 1,
         current_turn_index: 0,
@@ -2584,6 +2600,89 @@ describe('useCombatPageActions websocket sync', () => {
 
     expect(handleDash).not.toHaveBeenCalled()
     expect(deps.setError).toHaveBeenCalledWith('束缚 (2轮) · 移动速度为 0')
+  })
+
+  it('wires Lore Bard Cutting Words into contested grapple skill clicks', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    rollDice3DMock.mockResolvedValueOnce({ total: 4, rolls: [4] })
+    gameApi.grappleShove.mockResolvedValueOnce({
+      narration: 'Lore Bard grapples with Cutting Words.',
+      turn_state: { action_used: true, reaction_used: true },
+      class_resources: { bardic_inspiration_remaining: 1 },
+    })
+    gameApi.getCombat.mockResolvedValueOnce({
+      current_turn_index: 0,
+      turn_states: {
+        'guest-char': { action_used: true, reaction_used: true },
+      },
+    })
+    const { result, deps } = renderActions({
+      entities: {
+        'guest-char': {
+          id: 'guest-char',
+          char_class: 'Bard',
+          subclass: 'Lore',
+          level: 5,
+          class_resources: { bardic_inspiration_remaining: 2 },
+          derived: {
+            subclass_effects: {
+              cutting_words: true,
+              inspiration_die: 'd8',
+            },
+          },
+        },
+        'enemy-1': {
+          id: 'enemy-1',
+          name: 'Training Dummy',
+          is_enemy: true,
+        },
+      },
+      combat: {
+        round_number: 1,
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'guest-char', id: 'guest-char' }],
+        turn_states: {
+          'guest-char': {
+            action_used: false,
+            reaction_used: false,
+            movement_used: 0,
+            movement_max: 6,
+          },
+        },
+      },
+    })
+
+    await act(async () => {
+      await result.current.onSkillClick({
+        k: 'grapple',
+        label: 'Grapple',
+        available: true,
+      })
+    })
+
+    expect(globalThis.confirm).toHaveBeenCalledWith("Use Cutting Words d8 on the target's contested check?")
+    expect(rollDice3DMock).toHaveBeenCalledWith(8, 1)
+    expect(deps.showDice).toHaveBeenCalledWith({
+      faces: 8,
+      result: 4,
+      label: 'Cutting Words d8',
+      count: 1,
+    })
+    expect(gameApi.grappleShove).toHaveBeenCalledWith(
+      'sess-1',
+      'grapple',
+      'enemy-1',
+      'prone',
+      { useCuttingWords: true, cuttingWordsRoll: 4 },
+    )
+    expect(deps.setTurnState).toHaveBeenCalledWith({ action_used: true, reaction_used: true })
+    expect(deps.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'player',
+      content: 'Lore Bard grapples with Cutting Words.',
+      log_type: 'combat',
+    }))
+    expect(deps.setCombat).toHaveBeenCalledWith(expect.objectContaining({ current_turn_index: 0 }))
   })
 
   it('keeps websocket reaction prompts so non-reactors can see a non-blocking notice', () => {
