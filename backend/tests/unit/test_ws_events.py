@@ -726,6 +726,11 @@ class TestSampleEvents:
 
 
     def test_turn_changed_carries_control_prompts_and_delay_payload(self):
+        reaction_prompt = {
+            "trigger": "spell_cast",
+            "reactor_character_id": "hero-1",
+            "options": [{"type": "counterspell"}],
+        }
         prompt = {
             "trigger": "lair_action",
             "timing": "initiative_count_20",
@@ -740,6 +745,8 @@ class TestSampleEvents:
         event = TurnChanged(
             round_number=1,
             next_turn_index=0,
+            player_can_react=True,
+            reaction_prompt=reaction_prompt,
             lair_action_prompt=prompt,
             legendary_action_prompt=None,
             turn_order_delayed=True,
@@ -748,6 +755,8 @@ class TestSampleEvents:
         data = event.model_dump(mode="json")
 
         assert data["type"] == "turn_changed"
+        assert data["player_can_react"] is True
+        assert data["reaction_prompt"] == reaction_prompt
         assert data["lair_action_prompt"] == prompt
         assert data["legendary_action_prompt"] is None
         assert data["turn_order_delayed"] is True

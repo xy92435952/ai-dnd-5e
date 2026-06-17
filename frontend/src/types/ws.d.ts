@@ -242,6 +242,8 @@ export interface TurnChanged {
   current_entity_id: string | null
   round_number: number
   next_turn_index: number
+  player_can_react?: boolean
+  reaction_prompt?: Record<string, unknown> | null
   lair_action_prompt?: Record<string, unknown> | null
   legendary_action_prompt?: Record<string, unknown> | null
   turn_order_delayed?: boolean

@@ -247,6 +247,8 @@ class TurnChanged(_BaseEvent):
     current_entity_id: Optional[str] = None
     round_number: int
     next_turn_index: int
+    player_can_react: bool = False
+    reaction_prompt: Optional[dict[str, Any]] = None
     lair_action_prompt: Optional[dict[str, Any]] = None
     legendary_action_prompt: Optional[dict[str, Any]] = None
     turn_order_delayed: bool = False
