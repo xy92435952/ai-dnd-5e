@@ -265,15 +265,19 @@ $env:LOADTEST_PREFIX='codex_load_YYYYMMDD_HHMM'
 the pytest gates. To target an existing parsed module instead of seeding a
 SQLite module, set `LOADTEST_MODULE_ID` instead of `LOADTEST_SQLITE_DB`.
 
-For direct manual runs or a manual browser check while sockets remain open, use:
+For a manual browser check while sockets remain open, keep the same standard
+entrypoint and add a hold window:
 
 ```powershell
-.codex-test-artifacts\backend-venv\Scripts\python.exe scripts\multiplayer_ws_loadtest.py `
-  --base-url http://127.0.0.1:8002 `
-  --seed-sqlite-module backend\ai_trpg.db `
-  --prefix codex_load_YYYYMMDD_HHMM `
-  --hold-seconds 90
+$env:RUN_MULTIPLAYER_LOADTEST='1'
+$env:LOADTEST_SQLITE_DB='backend\ai_trpg.db'
+$env:LOADTEST_PREFIX='codex_load_YYYYMMDD_HHMM'
+$env:LOADTEST_HOLD_SECONDS='90'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
+
+For direct low-level script debugging, pass the same hold window as
+`--hold-seconds 90` to `scripts\multiplayer_ws_loadtest.py`.
 
 The GitHub Actions workflow `Multiplayer Load Smoke` runs the same style of
 check on demand.
