@@ -28,7 +28,7 @@ jobs:
       - name: Run pytest (smoke + unit + integration)
         working-directory: backend
         env:
-          # CI 环境不配真实 LLM；所有 AI 调用由 conftest mock
+          # CI does not use a real LLM key; AI calls are mocked by conftest.
           LLM_API_KEY: ci-dummy
           JWT_SECRET: ci-test-secret-at-least-32-bytes-long
         run: |
@@ -41,7 +41,7 @@ jobs:
           JWT_SECRET: ci-test-secret-at-least-32-bytes-long
         run: |
           python scripts/export_openapi.py
-          git diff --exit-code openapi.json || (echo "❌ openapi.json 已过时，请本地跑 python scripts/export_openapi.py 并 commit" && exit 1)
+          git diff --exit-code openapi.json || (echo "openapi.json is stale; run python scripts/export_openapi.py locally and commit the result" && exit 1)
 
   frontend:
     runs-on: ubuntu-latest
@@ -63,20 +63,19 @@ jobs:
         working-directory: frontend
         run: |
           npm run types:api
-          git diff --exit-code src/types/api.d.ts || (echo "❌ src/types/api.d.ts 已过时，请本地跑 npm run types:api 并 commit" && exit 1)
+          git diff --exit-code src/types/api.d.ts || (echo "src/types/api.d.ts is stale; run npm run types:api locally and commit the result" && exit 1)
 
-      - name: Run vitest (前端 hook 单测)
+      - name: Run vitest
         working-directory: frontend
         run: npm test
 
-      - name: Build (full deps —— dev + prod)
+      - name: Build (full deps)
         working-directory: frontend
         run: npm run build
 
-  # 生产部署兜底：模拟 `npm install --omit=dev` 后能 build。
-  # 痛点回忆：vite.config.js 曾经 `import 'vitest/config'`，本地 / 上面那个 frontend job
-  # 都过得了（dev deps 已装），但腾讯云 update 脚本用 --omit=dev 直接 ERR_MODULE_NOT_FOUND。
-  # 这个 job 就是把那种坑挡在 PR 阶段。
+  # Production deploy guard: prove the frontend still builds after installing
+  # production dependencies only. This catches accidental dev-only imports in
+  # build-time config before deployment scripts run with `npm ci --omit=dev`.
   frontend-prod-build:
     runs-on: ubuntu-latest
     steps:
