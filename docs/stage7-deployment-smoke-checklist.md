@@ -44,6 +44,23 @@ $env:RUN_STAGE7_REACTION_GATE='1'
 
 If Git Bash is on `PATH`, `bash scripts/check.sh` is equivalent.
 
+To include the browser-level Adventure Feather Fall smoke in the same check
+entrypoint, opt in explicitly because it starts temporary backend/frontend
+processes and drives Chrome/Edge:
+
+```powershell
+$env:RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE='1'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
+To run both Feather Fall accept and decline browser paths from `scripts/check.sh`:
+
+```powershell
+$env:RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE='1'
+$env:RUN_STAGE7_FEATHER_FALL_DECLINE_SMOKE='1'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
 For backend-only slices:
 
 ```powershell

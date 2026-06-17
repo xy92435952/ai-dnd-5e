@@ -29,6 +29,22 @@ else
   echo "Set RUN_STAGE7_REACTION_GATE=1 to rerun the focused backend/frontend ReactionPrompt recovery/privacy gates."
 fi
 
+if [ "${RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE:-0}" = "1" ]; then
+  echo "== Stage 7 Feather Fall browser smoke: accept =="
+  (cd "$ROOT_DIR" && node scripts/feather_fall_adventure_browser_smoke.mjs)
+
+  if [ "${RUN_STAGE7_FEATHER_FALL_DECLINE_SMOKE:-0}" = "1" ]; then
+    echo "== Stage 7 Feather Fall browser smoke: decline =="
+    (cd "$ROOT_DIR" && node scripts/feather_fall_adventure_browser_smoke.mjs --decision decline)
+  else
+    echo "== Stage 7 Feather Fall decline browser smoke skipped =="
+    echo "Set RUN_STAGE7_FEATHER_FALL_DECLINE_SMOKE=1 with RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE=1 to run both accept and decline."
+  fi
+else
+  echo "== Stage 7 Feather Fall browser smoke skipped =="
+  echo "Set RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE=1 to run the Adventure Feather Fall browser smoke."
+fi
+
 echo "== Frontend build =="
 (cd "$ROOT_DIR/frontend" && npm run build)
 
