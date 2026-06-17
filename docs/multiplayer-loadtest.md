@@ -16,24 +16,28 @@ The script needs a parsed module. To avoid invoking the LLM parser during load
 testing, either pass an existing module id whose `parse_status` is `done`, or
 let the script seed a temporary ready module directly into the local SQLite DB.
 
-## Command
+## Standard Check Entrypoint
+
+Prefer the same `scripts/check.sh` entrypoint used by the Stage 7 deployment
+checklist. It uses the workspace backend Python resolver on Windows/Git Bash and
+keeps the load smoke opt-in.
 
 ```powershell
-python scripts/multiplayer_ws_loadtest.py `
-  --base-url http://127.0.0.1:8002 `
-  --seed-sqlite-module backend/ai_trpg.db `
-  --prefix codex_load_YYYYMMDD_HHMM
+$env:RUN_MULTIPLAYER_LOADTEST = "1"
+$env:LOADTEST_SQLITE_DB = "backend/ai_trpg.db"
+$env:LOADTEST_PREFIX = "codex_load_YYYYMMDD_HHMM"
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
-For a live browser check while the 50 WebSocket clients remain connected, add a
-short hold window:
+For a live browser check while the 50 WebSocket clients remain connected, keep
+the same entrypoint and add a short hold window:
 
 ```powershell
-python scripts/multiplayer_ws_loadtest.py `
-  --base-url http://127.0.0.1:8002 `
-  --seed-sqlite-module backend/ai_trpg.db `
-  --prefix codex_load_YYYYMMDD_HHMM `
-  --hold-seconds 90
+$env:RUN_MULTIPLAYER_LOADTEST = "1"
+$env:LOADTEST_SQLITE_DB = "backend/ai_trpg.db"
+$env:LOADTEST_PREFIX = "codex_load_YYYYMMDD_HHMM"
+$env:LOADTEST_HOLD_SECONDS = "90"
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
 When the scripted checks have passed, the script prints a `phase: holding` JSON
@@ -43,11 +47,14 @@ that observer account and open `/room/<session_id>` before the hold window ends.
 If you want to reuse an existing parsed module instead:
 
 ```powershell
-python scripts/multiplayer_ws_loadtest.py `
-  --base-url http://127.0.0.1:8002 `
-  --module-id <ready-module-id> `
-  --prefix codex_load_YYYYMMDD_HHMM
+$env:RUN_MULTIPLAYER_LOADTEST = "1"
+$env:LOADTEST_MODULE_ID = "<ready-module-id>"
+$env:LOADTEST_PREFIX = "codex_load_YYYYMMDD_HHMM"
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
+
+For direct low-level script debugging, call `scripts/multiplayer_ws_loadtest.py`
+with the matching flags directly.
 
 The default test shape is fixed on purpose:
 
@@ -81,27 +88,6 @@ The script checks that:
 - created test room members leave, and the rooms are dissolved at the end
 - dissolved rooms reject former-member room/session reads with 403
 - dissolved room codes reject new joins with 404
-
-## Check Script
-
-The load smoke is opt-in from `scripts/check.sh` because it requires a running
-backend and takes longer than normal unit/build checks.
-
-With a seeded module:
-
-```powershell
-$env:RUN_MULTIPLAYER_LOADTEST = "1"
-$env:LOADTEST_SQLITE_DB = "backend/ai_trpg.db"
-scripts/check.sh
-```
-
-With an existing ready module:
-
-```powershell
-$env:RUN_MULTIPLAYER_LOADTEST = "1"
-$env:LOADTEST_MODULE_ID = "<ready-module-id>"
-scripts/check.sh
-```
 
 ## GitHub Actions
 
