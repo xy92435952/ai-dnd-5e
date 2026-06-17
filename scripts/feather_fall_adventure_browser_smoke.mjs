@@ -18,6 +18,7 @@ const decisionButtonText = decision === 'decline' ? 'Decline' : 'Cast Feather Fa
 const slug = process.env.FEATHER_FALL_SMOKE_SLUG || `stage7_feather_fall_browser_${decision}`;
 const promptScreenshotPath = screenshotPath('prompt');
 const resolvedScreenshotPath = screenshotPath('resolved');
+const manifestPath = artifactPath('manifest', 'json');
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -47,11 +48,15 @@ function normalizeDecision(value) {
 }
 
 function screenshotPath(kind) {
+  return artifactPath(kind, 'png');
+}
+
+function artifactPath(kind, extension) {
   if (decision === 'accept') {
-    const suffix = kind === 'prompt' ? 'prompt' : 'resolved';
-    return path.join(root, 'artifacts', `browser-feather-fall-adventure-${suffix}-20260617.png`);
+    const suffix = kind === 'prompt' || kind === 'resolved' ? kind : `${kind}`;
+    return path.join(root, 'artifacts', `browser-feather-fall-adventure-${suffix}-20260617.${extension}`);
   }
-  return path.join(root, 'artifacts', `browser-feather-fall-adventure-${decision}-${kind}-20260617.png`);
+  return path.join(root, 'artifacts', `browser-feather-fall-adventure-${decision}-${kind}-20260617.${extension}`);
 }
 
 function sqliteUrl(dbPath) {
@@ -367,6 +372,11 @@ async function screenshot(cdp, filePath) {
   await writeFile(filePath, Buffer.from(capture.data, 'base64'));
 }
 
+async function writeJsonArtifact(filePath, value) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
 async function readUiState(cdp) {
   return evalPage(cdp, `(() => {
     const dialog = document.querySelector('[role="dialog"][aria-label="Exploration reaction prompt"]');
@@ -423,6 +433,28 @@ async function assertResolvedSession(seed, token, beforeSession) {
     assert(logText.includes('Feather Fall') && logText.includes(`preventing ${fallDamage} fall damage`), 'session logs did not include resolved Feather Fall narration');
   }
   return after;
+}
+
+function buildResolvedSummary(seed, beforeSession, afterSession) {
+  const beforeHp = Number(beforeSession.player?.hp_current ?? beforeSession.player?.hp_max ?? 0);
+  const pending = beforeSession.game_state?.pending_exploration_reaction || {};
+  const fallDamage = Number(pending.damage_before ?? pending.damage_prevented ?? 0);
+  const expectedHp = decision === 'decline' ? Math.max(0, beforeHp - fallDamage) : beforeHp;
+  const afterCompanion = (afterSession.companions || []).find(item => item.id === seed.companion_ids[0]);
+  const beforeCompanion = (beforeSession.companions || []).find(item => item.id === seed.companion_ids[0]);
+  const expectedCasterFirstSlots = decision === 'decline' ? beforeCompanion?.spell_slots?.['1st'] : 0;
+  const actualCasterFirstSlots = afterCompanion?.spell_slots?.['1st'];
+
+  return {
+    pending_cleared: !afterSession.game_state?.pending_exploration_reaction,
+    fall_damage: fallDamage,
+    before_hp: beforeHp,
+    expected_hp: expectedHp,
+    actual_hp: afterSession.player?.hp_current,
+    hp_max: afterSession.player?.hp_max,
+    expected_caster_1st_slots: expectedCasterFirstSlots,
+    actual_caster_1st_slots: actualCasterFirstSlots,
+  };
 }
 
 async function main() {
@@ -572,10 +604,10 @@ async function main() {
     await screenshot(cdp, resolvedScreenshotPath);
 
     const after = await assertResolvedSession(seed, auth.token, before);
-
-    console.log(JSON.stringify({
+    const result = {
       ok: true,
       mode: 'feather-fall-adventure-browser-smoke',
+      created_at: new Date().toISOString(),
       decision,
       reaction_type: reactionType,
       seed: {
@@ -595,11 +627,15 @@ async function main() {
         caster_slots: (after.companions || []).find(item => item.id === seed.companion_ids[0])?.spell_slots,
         pending_cleared: !after.game_state?.pending_exploration_reaction,
       },
+      assertions: buildResolvedSummary(seed, before, after),
       screenshots: {
         prompt: promptScreenshotPath,
         resolved: resolvedScreenshotPath,
       },
-    }, null, 2));
+      manifest: manifestPath,
+    };
+    await writeJsonArtifact(manifestPath, result);
+    console.log(JSON.stringify(result, null, 2));
   } catch (error) {
     throw new Error(`${error.message}\nLast UI state:\n${JSON.stringify(lastUiState, null, 2)}\nRecent browser events:\n${JSON.stringify(cdp?.events?.slice(-20) || [], null, 2)}`);
   } finally {

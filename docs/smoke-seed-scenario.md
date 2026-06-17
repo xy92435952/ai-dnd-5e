@@ -79,7 +79,8 @@ node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline
 That smoke uses a temporary SQLite database, starts backend/frontend processes
 when needed, logs in as the seeded user, opens the Adventure session, accepts
 or declines the Feather Fall prompt, verifies HP/slot/pending state through
-HTTP refresh, and writes prompt/resolved screenshots under `artifacts/`.
+HTTP refresh, and writes prompt/resolved screenshots plus a JSON manifest under
+`artifacts/`.
 
 The same `--slug` is idempotent: rerunning it replaces the previous seeded rows
 with the same deterministic ids instead of accumulating duplicate test data.

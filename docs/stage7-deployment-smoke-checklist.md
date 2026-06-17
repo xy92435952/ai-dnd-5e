@@ -260,7 +260,8 @@ The browser smoke starts a temporary SQLite-backed backend on `127.0.0.1:8002`,
 starts Vite on `127.0.0.1:3000` when needed, logs in as the seeded user, opens
 the seeded Adventure page, verifies the Feather Fall panel text, clicks either
 `Cast Feather Fall` or `Decline`, verifies the prompt clears, checks HP/slot
-state through refresh, and writes prompt/resolved screenshots under `artifacts/`.
+state through refresh, and writes prompt/resolved screenshots plus a JSON
+manifest under `artifacts/`.
 
 Latest local dry-run evidence:
 
