@@ -464,6 +464,21 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
   })
 
+  it('clears stale reaction prompts before reloading after movement updates', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'entity_moved',
+        entity_id: 'enemy-1',
+        position: { x: 5, y: 5 },
+      })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
   it('ends combat from websocket movement updates that carry combat_over', () => {
     const { result, deps } = renderActions()
 

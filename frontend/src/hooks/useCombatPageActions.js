@@ -449,6 +449,7 @@ export function useCombatPageActions({
           onCombatEnded?.(outcome)
           break
         }
+        setReactionPrompt?.(null)
         onLoadCombat()
         break
       case 'dm_responded':
