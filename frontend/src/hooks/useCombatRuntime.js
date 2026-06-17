@@ -195,6 +195,8 @@ export function useCombatRuntime({
     setCombat,
     setTurnState,
     setReactionPrompt,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     addLog,
     setSpellModalOpen,
     setSpellQuickPick,
