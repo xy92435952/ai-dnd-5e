@@ -2548,6 +2548,32 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.setReactionPrompt).toHaveBeenCalledTimes(2)
   })
 
+  it('normalizes websocket spell reaction prompts using the caster target', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        player_can_react: true,
+        reaction_prompt: {
+          trigger: 'spell_cast',
+          caster_id: 'enemy-mage',
+          reactor_character_id: 'guest-char',
+          options: [{ type: 'counterspell' }],
+        },
+      })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      trigger: 'spell_cast',
+      caster_id: 'enemy-mage',
+      reactor_character_id: 'guest-char',
+      target_id: 'enemy-mage',
+      options: [{ type: 'counterspell', target_id: 'enemy-mage' }],
+    })
+    expect(deps.onLoadCombat).not.toHaveBeenCalled()
+  })
+
   it('clears stale reaction prompts when a combat update has no active prompt', () => {
     const { result, deps } = renderActions()
 

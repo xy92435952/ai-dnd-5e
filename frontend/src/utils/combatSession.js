@@ -1,4 +1,5 @@
 import { getPlayerTurnState } from './combat'
+import { resolveReactionPromptTargetId } from './combatReactionPrompt'
 
 export function applyCombatSessionSnapshot({
   combatData,
@@ -127,10 +128,13 @@ export function resolveCombatReactionPrompt({
   const pendingReaction = getPendingReactionPrompt(turnState, playerId)
   if (pendingReaction) return pendingReaction
   if (playerCanReact && reactionPrompt) {
-    return {
+    const targetId = resolveReactionPromptTargetId(reactionPrompt)
+    const normalizedPrompt = {
       ...reactionPrompt,
       reactor_character_id: reactionPrompt.reactor_character_id || playerId,
     }
+    if (targetId) normalizedPrompt.target_id = targetId
+    return normalizePendingReactionPrompt(normalizedPrompt, targetId)
   }
   return null
 }

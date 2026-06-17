@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyCombatSessionSnapshot, getPendingReactionPrompt } from '../combatSession'
+import { applyCombatSessionSnapshot, getPendingReactionPrompt, resolveCombatReactionPrompt } from '../combatSession'
 
 describe('applyCombatSessionSnapshot', () => {
   function createSetters(overrides = {}) {
@@ -422,5 +422,25 @@ describe('applyCombatSessionSnapshot', () => {
 
     expect(prompt.target_id).toBe('enemy-1')
     expect(prompt.options[0].target_id).toBe('enemy-1')
+  })
+
+  it('normalizes explicit top-level spell reaction prompts from the caster id', () => {
+    const prompt = resolveCombatReactionPrompt({
+      playerId: 'wizard-2',
+      playerCanReact: true,
+      reactionPrompt: {
+        trigger: 'spell_cast',
+        caster_id: 'enemy-mage',
+        options: [{ type: 'counterspell' }],
+      },
+    })
+
+    expect(prompt).toEqual({
+      trigger: 'spell_cast',
+      caster_id: 'enemy-mage',
+      reactor_character_id: 'wizard-2',
+      target_id: 'enemy-mage',
+      options: [{ type: 'counterspell', target_id: 'enemy-mage' }],
+    })
   })
 })

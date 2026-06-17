@@ -300,6 +300,7 @@ describe('useCombatAiTurns', () => {
     expect(deps.setReactionPrompt).toHaveBeenCalledWith({
       ...pendingReaction,
       reactor_character_id: 'char-1',
+      target_id: 'enemy-1',
     })
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
@@ -414,6 +415,38 @@ describe('useCombatAiTurns', () => {
       options: [{ type: 'counterspell' }],
     })
     expect(aiTurnMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('normalizes ai-turn spell reaction prompts using the caster target', async () => {
+    getCombatMock.mockResolvedValueOnce({
+      round_number: 1,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      turn_states: {
+        'char-1': { reaction_used: false },
+      },
+      player_can_react: true,
+      reaction_prompt: {
+        trigger: 'spell_cast',
+        caster_id: 'enemy-mage',
+        options: [{ type: 'counterspell' }],
+      },
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(aiTurnMock).not.toHaveBeenCalled()
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      trigger: 'spell_cast',
+      caster_id: 'enemy-mage',
+      reactor_character_id: 'char-1',
+      target_id: 'enemy-mage',
+      options: [{ type: 'counterspell', target_id: 'enemy-mage' }],
+    })
   })
 
   it('quietly stops when the backend rejects a stale ai turn token', async () => {
