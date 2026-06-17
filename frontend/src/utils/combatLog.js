@@ -134,18 +134,22 @@ function formatCounterspellRule(effect = null) {
       ? 'not cancelled'
       : 'resolved'
   const slot = effect.slot_used || effect.slot
+  const counteredLevel = asNumber(effect.countered_spell_level ?? effect.spell_level)
+  const slotLevel = asNumber(effect.slot_level ?? effect.counterspell_slot_level)
   const check = effect.check && typeof effect.check === 'object' ? effect.check : null
   const checkTotal = asNumber(check?.total)
   const checkDc = asNumber(check?.dc)
   const checkText = check?.automatic
     ? 'automatic'
     : checkTotal !== null && checkDc !== null
-      ? `check ${checkTotal} vs DC${checkDc}`
+      ? `check ${checkTotal} vs DC${checkDc}${check?.success === true ? ' success' : check?.success === false ? ' failed' : ''}`
       : null
 
   return compact([
     `Counterspell: ${spell} ${cancelled}`,
+    counteredLevel !== null ? `spell Lv${counteredLevel}` : null,
     slot ? `slot ${slot}` : null,
+    slotLevel !== null ? `slot Lv${slotLevel}` : null,
     checkText,
   ]).join('; ')
 }

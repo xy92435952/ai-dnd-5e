@@ -390,7 +390,9 @@ describe('combatLog', () => {
         reaction_type: 'counterspell',
         spell_cancelled: true,
         countered_spell: 'Magic Missile',
+        countered_spell_level: 1,
         slot_used: '3rd',
+        slot_level: 3,
         check: {
           automatic: true,
           success: true,
@@ -401,7 +403,35 @@ describe('combatLog', () => {
     expect(view.sections.find(section => section.kind === 'rules')).toEqual({
       kind: 'rules',
       label: '规则',
-      items: ['Counterspell: Magic Missile cancelled; slot 3rd; automatic'],
+      items: ['Counterspell: Magic Missile cancelled; spell Lv1; slot 3rd; slot Lv3; automatic'],
+    })
+  })
+
+  it('renders Counterspell check outcomes for higher-level spells', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Lyra tries to unravel the archmage spell.',
+      reaction_effect: {
+        reaction_type: 'counterspell',
+        spell_cancelled: false,
+        countered_spell: 'Disintegrate',
+        countered_spell_level: 6,
+        slot_used: '3rd',
+        slot_level: 3,
+        check: {
+          automatic: false,
+          total: 14,
+          dc: 16,
+          success: false,
+        },
+      },
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: ['Counterspell: Disintegrate not cancelled; spell Lv6; slot 3rd; slot Lv3; check 14 vs DC16 failed'],
     })
   })
 
