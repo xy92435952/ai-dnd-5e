@@ -163,6 +163,7 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.setReactionPrompt).toHaveBeenCalledWith({
       ...pending,
       reactor_character_id: 'guest-char',
+      target_id: 'enemy-1',
     })
     expect(deps.onLoadCombat).not.toHaveBeenCalled()
   })

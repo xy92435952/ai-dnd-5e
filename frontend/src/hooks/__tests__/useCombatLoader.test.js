@@ -163,6 +163,7 @@ describe('useCombatLoader', () => {
     expect(deps.setReactionPrompt).toHaveBeenCalledWith({
       ...pendingReaction,
       reactor_character_id: 'char-1',
+      target_id: 'enemy-1',
     })
     expect(aiTimer.current).toBeNull()
     await act(async () => {

@@ -86,21 +86,36 @@ export function getPendingReactionPrompt(turnState, playerId) {
 
   const attackReaction = turnState.pending_attack_reaction
   if (attackReaction?.trigger === 'incoming_attack') {
-    return {
+    const targetId = attackReaction.target_id || attackReaction.attacker_id || null
+    return normalizePendingReactionPrompt({
       ...attackReaction,
       reactor_character_id: attackReaction.reactor_character_id || playerId,
-    }
+      target_id: targetId,
+    }, targetId)
   }
 
   const spellReaction = turnState.pending_spell_reaction
   if (spellReaction?.trigger === 'spell_cast') {
-    return {
+    const targetId = spellReaction.target_id || spellReaction.caster_id || null
+    return normalizePendingReactionPrompt({
       ...spellReaction,
       reactor_character_id: spellReaction.reactor_character_id || playerId,
-    }
+      target_id: targetId,
+    }, targetId)
   }
 
   return null
+}
+
+function normalizePendingReactionPrompt(prompt, targetId = null) {
+  if (!prompt || !targetId || !Array.isArray(prompt.options)) return prompt
+  return {
+    ...prompt,
+    options: prompt.options.map(option => ({
+      ...option,
+      target_id: option.target_id || targetId,
+    })),
+  }
 }
 
 export function resolveCombatReactionPrompt({

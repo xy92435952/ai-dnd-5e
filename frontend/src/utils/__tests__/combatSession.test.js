@@ -169,10 +169,12 @@ describe('applyCombatSessionSnapshot', () => {
     expect(setters.setReactionPrompt).toHaveBeenCalledWith({
       ...pending,
       reactor_character_id: 'char-1',
+      target_id: 'enemy-1',
     })
     expect(result.pendingReaction).toEqual({
       ...pending,
       reactor_character_id: 'char-1',
+      target_id: 'enemy-1',
     })
   })
 
@@ -217,8 +219,14 @@ describe('applyCombatSessionSnapshot', () => {
     })
 
     expect(setters.setTurnState).toHaveBeenCalledWith({ pending_attack_reaction: pending })
-    expect(setters.setReactionPrompt).toHaveBeenCalledWith(pending)
-    expect(result.pendingReaction).toEqual(pending)
+    expect(setters.setReactionPrompt).toHaveBeenCalledWith({
+      ...pending,
+      target_id: 'enemy-1',
+    })
+    expect(result.pendingReaction).toEqual({
+      ...pending,
+      target_id: 'enemy-1',
+    })
   })
 
   it('clears stale local reaction prompts when the refreshed controlled state has no pending reaction', () => {
@@ -347,8 +355,23 @@ describe('applyCombatSessionSnapshot', () => {
       trigger: 'spell_cast',
       caster_id: 'enemy-mage',
       reactor_character_id: 'wizard-2',
-      options: [{ type: 'counterspell' }],
+      target_id: 'enemy-mage',
+      options: [{ type: 'counterspell', target_id: 'enemy-mage' }],
     })
+  })
+
+  it('restores pending spell reaction targets from the caster id after refresh', () => {
+    const prompt = getPendingReactionPrompt({
+      pending_spell_reaction: {
+        trigger: 'spell_cast',
+        caster_id: 'enemy-mage',
+        reactor_character_id: 'wizard-2',
+        options: [{ type: 'counterspell' }],
+      },
+    }, 'wizard-2')
+
+    expect(prompt.target_id).toBe('enemy-mage')
+    expect(prompt.options[0].target_id).toBe('enemy-mage')
   })
 
   it('restores a pending Bardic spell-save prompt even when reaction was already used', () => {
@@ -385,5 +408,19 @@ describe('applyCombatSessionSnapshot', () => {
     }, 'char-1')
 
     expect(prompt).toBeNull()
+  })
+
+  it('restores pending attack reaction targets from the attacker id after refresh', () => {
+    const prompt = getPendingReactionPrompt({
+      pending_attack_reaction: {
+        trigger: 'incoming_attack',
+        attacker_id: 'enemy-1',
+        reactor_character_id: 'char-1',
+        options: [{ type: 'shield' }],
+      },
+    }, 'char-1')
+
+    expect(prompt.target_id).toBe('enemy-1')
+    expect(prompt.options[0].target_id).toBe('enemy-1')
   })
 })

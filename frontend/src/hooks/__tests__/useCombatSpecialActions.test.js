@@ -382,6 +382,7 @@ describe('useCombatSpecialActions', () => {
     expect(deps.setReactionPrompt).toHaveBeenLastCalledWith({
       ...pendingReaction,
       reactor_character_id: 'char-2',
+      target_id: 'enemy-1',
     })
     expect(deps.setError).toHaveBeenCalledWith('本轮反应已经用过了，等到你的下个回合开始后会恢复。')
     expect(deps.triggerAiTurn).not.toHaveBeenCalled()
@@ -435,6 +436,7 @@ describe('useCombatSpecialActions', () => {
     expect(deps.setReactionPrompt).toHaveBeenLastCalledWith({
       ...pendingReaction,
       reactor_character_id: 'char-2',
+      target_id: 'enemy-1',
     })
     expect(deps.setError).toHaveBeenCalledWith('Network down')
     expect(deps.triggerAiTurn).not.toHaveBeenCalled()
