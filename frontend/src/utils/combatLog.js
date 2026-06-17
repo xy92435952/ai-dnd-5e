@@ -116,10 +116,46 @@ function formatCuttingWordsRule(source = null) {
   return null
 }
 
+function formatCounterspellRule(effect = null) {
+  if (!effect || typeof effect !== 'object') return null
+  const reactionType = String(effect.reaction_type || '').toLowerCase()
+  const hasCounterspell = (
+    reactionType === 'counterspell'
+    || effect.spell_cancelled !== undefined
+    || effect.countered_spell !== undefined
+    || effect.countered_spell_level !== undefined
+  )
+  if (!hasCounterspell) return null
+
+  const spell = effect.countered_spell || 'spell'
+  const cancelled = effect.spell_cancelled === true
+    ? 'cancelled'
+    : effect.spell_cancelled === false
+      ? 'not cancelled'
+      : 'resolved'
+  const slot = effect.slot_used || effect.slot
+  const check = effect.check && typeof effect.check === 'object' ? effect.check : null
+  const checkTotal = asNumber(check?.total)
+  const checkDc = asNumber(check?.dc)
+  const checkText = check?.automatic
+    ? 'automatic'
+    : checkTotal !== null && checkDc !== null
+      ? `check ${checkTotal} vs DC${checkDc}`
+      : null
+
+  return compact([
+    `Counterspell: ${spell} ${cancelled}`,
+    slot ? `slot ${slot}` : null,
+    checkText,
+  ]).join('; ')
+}
+
 function formatReactionPreventionRule(effect = null) {
   if (!effect || typeof effect !== 'object') return null
   const cutting = formatCuttingWordsRule(effect)
   if (cutting) return cutting
+  const counterspell = formatCounterspellRule(effect)
+  if (counterspell) return counterspell
   const prevented = asNumber(effect.damage_prevented)
   const restored = asNumber(effect.hp_restored)
   if (prevented === null) return null
@@ -788,8 +824,10 @@ export function buildCombatStateChangeSummary(result = {}, options = {}) {
     ...(hasReactionHpRollback ? [] : summarizeTargetResult(result, options)),
     ...summarizeReactionHpResult(result, options),
   ]
-  entries.push(formatReactionPreventionRule(reactionEffect))
-  entries.push(formatCuttingWordsRule(result.cutting_words))
+  if (options.includeReactionRules !== false) {
+    entries.push(formatReactionPreventionRule(reactionEffect))
+    entries.push(formatCuttingWordsRule(result.cutting_words))
+  }
 
   resultGroupsFrom(result).forEach(group => {
     if (!Array.isArray(group)) return

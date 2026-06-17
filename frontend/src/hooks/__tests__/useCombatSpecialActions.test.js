@@ -148,6 +148,18 @@ describe('useCombatSpecialActions', () => {
       role: 'player',
       content: '护盾术让攻击落空',
       log_type: 'combat',
+      reaction_effect: {
+        hp_before_reaction: 3,
+        hp_after_reaction: 12,
+        hp_restored: 9,
+      },
+      dice_result: {
+        type: 'reaction',
+        reaction_type: 'shield',
+        hp_before_reaction: 3,
+        hp_after_reaction: 12,
+        hp_restored: 9,
+      },
       state_changes: expect.arrayContaining([
         'Smoke Sentinel HP 3 -> 12（反应恢复 9）',
         '反应已用',
@@ -260,6 +272,23 @@ describe('useCombatSpecialActions', () => {
       'char-2',
       { cuttingWordsRoll: 3 },
     )
+    expect(deps.addLog).toHaveBeenCalledWith(expect.objectContaining({
+      reaction_effect: expect.objectContaining({
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+      }),
+      dice_result: expect.objectContaining({
+        type: 'reaction',
+        reaction_type: 'cutting_words_damage',
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+      }),
+      state_changes: expect.not.arrayContaining([
+        'Cutting Words d8=3: damage 8 -> 5; prevented 3',
+      ]),
+    }))
     expect(deps.setClassResources).toHaveBeenCalledWith({ bardic_inspiration_remaining: 1 })
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })

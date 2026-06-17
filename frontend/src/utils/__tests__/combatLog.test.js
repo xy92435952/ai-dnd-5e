@@ -356,6 +356,55 @@ describe('combatLog', () => {
     )
   })
 
+  it('renders immediate reaction effects as rule rows', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Smoke Sentinel raises a shield.',
+      reaction_effect: {
+        damage_prevented: 5,
+        hp_before_reaction: 4,
+        hp_after_reaction: 9,
+        hp_restored: 5,
+      },
+      state_changes: ['Smoke Sentinel HP 4 -> 9（反应恢复 5）', '反应已用'],
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: ['Reaction: prevented 5 damage; restored 5 HP'],
+    })
+    expect(view.sections.find(section => section.kind === 'state')?.items).toEqual([
+      'Smoke Sentinel HP 4 -> 9（反应恢复 5）',
+      '反应已用',
+    ])
+  })
+
+  it('renders Counterspell reaction effects with spell, slot, and check details', () => {
+    const view = buildCombatLogView({
+      role: 'player',
+      log_type: 'combat',
+      content: 'Lyra shuts the spell down.',
+      reaction_effect: {
+        reaction_type: 'counterspell',
+        spell_cancelled: true,
+        countered_spell: 'Magic Missile',
+        slot_used: '3rd',
+        check: {
+          automatic: true,
+          success: true,
+        },
+      },
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: ['Counterspell: Magic Missile cancelled; slot 3rd; automatic'],
+    })
+  })
+
   it('summarizes multi-target result impacts without double-counting duplicated AoE payloads', () => {
     const targetResults = [
       {

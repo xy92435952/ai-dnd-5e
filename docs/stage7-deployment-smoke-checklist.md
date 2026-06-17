@@ -4,7 +4,7 @@ Last updated: 2026-06-17
 
 This checklist is the deployment-readiness gate for the current Stage 7 work.
 It focuses on rule trust, multiplayer privacy/reconnect behavior, ReactionPrompt
-recovery, combat-log readability, and production build safety.
+recovery, reaction combat-log readability, and production build safety.
 
 ## Scope
 

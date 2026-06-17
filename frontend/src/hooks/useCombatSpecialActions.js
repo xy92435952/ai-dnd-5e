@@ -12,6 +12,23 @@ function reactionDieFaces(option = {}, fallback = 6) {
   return [6, 8, 10, 12].includes(faces) ? faces : fallback
 }
 
+function buildReactionLogExtras(result = {}, fallbackReactionType = null) {
+  const reactionEffect = result.reaction_effect || null
+  const diceResult = result.dice_result || result.log_dice_result || null
+  const extras = {}
+  if (reactionEffect) extras.reaction_effect = reactionEffect
+  if (diceResult) {
+    extras.dice_result = diceResult
+  } else if (reactionEffect) {
+    extras.dice_result = {
+      type: 'reaction',
+      reaction_type: result.reaction_type || fallbackReactionType,
+      ...reactionEffect,
+    }
+  }
+  return extras
+}
+
 export function useCombatSpecialActions({
   sessionId,
   selectedTarget,
@@ -140,8 +157,10 @@ export function useCombatSpecialActions({
         role: 'player',
         content: result.narration,
         log_type: 'combat',
+        ...buildReactionLogExtras(result, reactionType),
         state_changes: buildCombatStateChangeSummary(result, {
           targetName: reactionTargetName,
+          includeReactionRules: false,
         }),
       })
       if (result.remaining_slots) setPlayerSpellSlots(result.remaining_slots)
@@ -221,8 +240,10 @@ export function useCombatSpecialActions({
           role: 'player',
           content: result.narration,
           log_type: 'combat',
+          ...buildReactionLogExtras(result, result.reaction_type || 'decline'),
           state_changes: buildCombatStateChangeSummary(result, {
             targetName: reactionTargetName,
+            includeReactionRules: false,
           }),
         })
         if (result.turn_state) setTurnState(result.turn_state)
