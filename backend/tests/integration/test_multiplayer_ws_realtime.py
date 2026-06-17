@@ -6288,6 +6288,21 @@ async def test_multiplayer_ai_control_prompts_are_private_to_driver(
         assert guest_legendary["legendary_action_prompt"] is None
         assert legendary_secret not in json.dumps(guest_legendary)
 
+        host_legendary_refresh = await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))
+        guest_legendary_refresh = await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))
+        assert host_legendary_refresh.status_code == 200, host_legendary_refresh.text
+        assert guest_legendary_refresh.status_code == 200, guest_legendary_refresh.text
+        assert host_legendary_refresh.json()["legendary_action_prompt"]["actor_id"] == boss_id
+        assert host_legendary_refresh.json()["legendary_action_prompt"]["actions"][0]["name"] == legendary_secret
+        assert guest_legendary_refresh.json()["legendary_action_prompt"] is None
+        assert legendary_secret not in json.dumps(guest_legendary_refresh.json())
+
+        guest_skip_legendary = await client.post(
+            f"/game/combat/{sid}/legendary-action/skip",
+            headers=_h(guest["token"]),
+        )
+        assert guest_skip_legendary.status_code == 403, guest_skip_legendary.text
+
         guest_use_legendary = await client.post(
             f"/game/combat/{sid}/legendary-action",
             headers=_h(guest["token"]),
@@ -6372,6 +6387,21 @@ async def test_multiplayer_ai_control_prompts_are_private_to_driver(
         assert host_lair_prompt["actions"][0]["name"] == lair_secret
         assert guest_lair["lair_action_prompt"] is None
         assert lair_secret not in json.dumps(guest_lair)
+
+        host_lair_refresh = await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))
+        guest_lair_refresh = await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))
+        assert host_lair_refresh.status_code == 200, host_lair_refresh.text
+        assert guest_lair_refresh.status_code == 200, guest_lair_refresh.text
+        assert host_lair_refresh.json()["lair_action_prompt"]["source_id"] == boss_id
+        assert host_lair_refresh.json()["lair_action_prompt"]["actions"][0]["name"] == lair_secret
+        assert guest_lair_refresh.json()["lair_action_prompt"] is None
+        assert lair_secret not in json.dumps(guest_lair_refresh.json())
+
+        guest_skip_lair = await client.post(
+            f"/game/combat/{sid}/lair-action/skip",
+            headers=_h(guest["token"]),
+        )
+        assert guest_skip_lair.status_code == 403, guest_skip_lair.text
 
         guest_use_lair = await client.post(
             f"/game/combat/{sid}/lair-action",

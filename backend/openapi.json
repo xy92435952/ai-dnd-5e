@@ -1412,6 +1412,30 @@
             "title": "Grid Data",
             "type": "object"
           },
+          "lair_action_prompt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lair Action Prompt"
+          },
+          "legendary_action_prompt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legendary Action Prompt"
+          },
           "round_number": {
             "default": 1,
             "title": "Round Number",
@@ -6865,6 +6889,49 @@
         ]
       }
     },
+    "/game/combat/{session_id}/lair-action/skip": {
+      "post": {
+        "description": "Persistently skip the active Lair Action window without applying effects.",
+        "operationId": "skip_lair_action_game_combat__session_id__lair_action_skip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skip Lair Action",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
     "/game/combat/{session_id}/legendary-action": {
       "post": {
         "description": "Resolve a non-damage Legendary Action window and spend its resource.",
@@ -6913,6 +6980,49 @@
           }
         },
         "summary": "Use Legendary Action",
+        "tags": [
+          "combat"
+        ]
+      }
+    },
+    "/game/combat/{session_id}/legendary-action/skip": {
+      "post": {
+        "description": "Persistently skip the active Legendary Action window without spending resources.",
+        "operationId": "skip_legendary_action_game_combat__session_id__legendary_action_skip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombatActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Skip Legendary Action",
         "tags": [
           "combat"
         ]

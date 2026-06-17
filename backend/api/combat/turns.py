@@ -60,6 +60,7 @@ from api.combat._shared import (
     _assert_ai_combat_driver,
     _combat_turn_token, _get_turn_advance_lock,
     _project_ai_control_prompts_for_user,
+    _set_active_ai_control_prompt,
     _chebyshev_dist, _check_attack_range, _ai_move_toward,
     _has_adjacent_enemy, _has_ally_adjacent_to,
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
@@ -394,6 +395,11 @@ async def _end_player_turn_locked(
             state["enemies"] = enemies
             session.game_state = dict(state)
             flag_modified(session, "game_state")
+    _set_active_ai_control_prompt(
+        session,
+        lair_action_prompt=lair_action_prompt,
+        legendary_action_prompt=legendary_action_prompt,
+    )
 
     for tl in [*tick_logs, *turn_start_logs]:
         db.add(tl)

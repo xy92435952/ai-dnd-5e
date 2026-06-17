@@ -292,7 +292,7 @@ def test_import_split_multiplayer_dm_agent_modules():
 def test_combat_routes_registered():
     """combat 子包对外应暴露 31 个路由（拆分不能漏路由）。"""
     from api.combat import router
-    assert len(router.routes) == 31, f"期望 31 个 combat 路由，实际 {len(router.routes)}"
+    assert len(router.routes) == 33, f"期望 33 个 combat 路由，实际 {len(router.routes)}"
 
 
 def test_all_app_routes_have_path():
@@ -325,7 +325,9 @@ def test_combat_route_paths_unchanged():
         "/game/combat/{session_id}/grapple-shove",
         "/game/combat/{session_id}/inspect",
         "/game/combat/{session_id}/lair-action",
+        "/game/combat/{session_id}/lair-action/skip",
         "/game/combat/{session_id}/legendary-action",
+        "/game/combat/{session_id}/legendary-action/skip",
         "/game/combat/{session_id}/maneuver",
         "/game/combat/{session_id}/move",
         "/game/combat/{session_id}/predict",

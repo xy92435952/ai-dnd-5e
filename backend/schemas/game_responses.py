@@ -224,6 +224,8 @@ class CombatStateResponse(BaseModel):
     grid_data: dict[str, Any] = {}
     entities: dict[str, EntitySnapshot] = {}
     turn_states: dict[str, Any] = {}
+    lair_action_prompt: Optional[dict[str, Any]] = None
+    legendary_action_prompt: Optional[dict[str, Any]] = None
 
 
 # ─── /game/combat/{id}/skill-bar ───────────────────────────

@@ -1531,6 +1531,28 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).not.toHaveBeenCalled()
   })
 
+  it('clears boss prompts from combat_update skip events', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        action: 'lair_action_skip',
+      })
+    })
+
+    expect(deps.setLairActionPrompt).toHaveBeenCalledWith(null)
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'combat_update',
+        action: 'legendary_action_skip',
+      })
+    })
+
+    expect(deps.setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+  })
+
   it('pauses reload for legendary prompts surfaced by reaction combat updates', () => {
     const prompt = {
       trigger: 'legendary_action',

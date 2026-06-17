@@ -307,6 +307,8 @@ export const gameApi = {
       ...(!targetIds.length && targetId ? { target_id: targetId } : {}),
     })
   },
+  skipLegendaryAction: (sessionId) =>
+    api.post(`/game/combat/${sessionId}/legendary-action/skip`),
   useLairAction: (sessionId, sourceId, actionId = null, targetId = null) => {
     const targetIds = Array.isArray(targetId) ? targetId.filter(Boolean) : []
     return api.post(`/game/combat/${sessionId}/lair-action`, {
@@ -316,6 +318,8 @@ export const gameApi = {
       ...(!targetIds.length && targetId ? { target_id: targetId } : {}),
     })
   },
+  skipLairAction: (sessionId) =>
+    api.post(`/game/combat/${sessionId}/lair-action/skip`),
 
   grappleShove: (sessionId, actionType, targetId, shoveType = 'prone', options = {}) =>
     api.post(`/game/combat/${sessionId}/grapple-shove`, {

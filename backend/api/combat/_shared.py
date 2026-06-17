@@ -8,6 +8,7 @@ import asyncio
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, Session, CombatState, SessionMember
 from api.deps import entity_snapshot, serialize_combat, broadcast_to_session
@@ -46,6 +47,8 @@ from services.combat_ai_control_service import (
 
 svc = CombatService()
 _TURN_ADVANCE_LOCKS: dict[str, asyncio.Lock] = {}
+_ACTIVE_LAIR_PROMPT_KEY = "active_lair_action_prompt"
+_ACTIVE_LEGENDARY_PROMPT_KEY = "active_legendary_action_prompt"
 
 
 def _combat_turn_token(combat: CombatState, current: dict | None = None) -> str:
@@ -84,6 +87,44 @@ def _release_turn_advance_lock(session_id: str) -> bool:
         return False
     _TURN_ADVANCE_LOCKS.pop(session_id, None)
     return True
+
+
+def _active_ai_control_prompt_payload(session: Session) -> dict:
+    """Return persisted lair/legendary prompt fields for direct combat refresh."""
+    state = session.game_state or {}
+    lair_prompt = state.get(_ACTIVE_LAIR_PROMPT_KEY)
+    legendary_prompt = None if lair_prompt else state.get(_ACTIVE_LEGENDARY_PROMPT_KEY)
+    return {
+        "lair_action_prompt": lair_prompt if isinstance(lair_prompt, dict) else None,
+        "legendary_action_prompt": (
+            legendary_prompt if isinstance(legendary_prompt, dict) else None
+        ),
+    }
+
+
+def _set_active_ai_control_prompt(
+    session: Session,
+    *,
+    lair_action_prompt: dict | None = None,
+    legendary_action_prompt: dict | None = None,
+) -> None:
+    """Persist the one active monster-control window that may survive refresh."""
+    state = dict(session.game_state or {})
+    if lair_action_prompt:
+        state[_ACTIVE_LAIR_PROMPT_KEY] = lair_action_prompt
+        state.pop(_ACTIVE_LEGENDARY_PROMPT_KEY, None)
+    elif legendary_action_prompt:
+        state[_ACTIVE_LEGENDARY_PROMPT_KEY] = legendary_action_prompt
+        state.pop(_ACTIVE_LAIR_PROMPT_KEY, None)
+    else:
+        state.pop(_ACTIVE_LAIR_PROMPT_KEY, None)
+        state.pop(_ACTIVE_LEGENDARY_PROMPT_KEY, None)
+    session.game_state = state
+    flag_modified(session, "game_state")
+
+
+def _clear_active_ai_control_prompt(session: Session) -> None:
+    _set_active_ai_control_prompt(session)
 
 
 async def _build_combat_snapshot(
@@ -138,6 +179,9 @@ async def _build_combat_snapshot(
             "condition_durations": enemy.get("condition_durations", {}),
             "derived": {**derived, "hp_max": hp_max, "ac": ac},
         }
+        for resource_key in ("legendary_action_uses", "legendary_action_uses_remaining"):
+            if resource_key in enemy:
+                enemy_snapshot[resource_key] = enemy.get(resource_key)
         enemy_snapshot.update(build_enemy_inspect_snapshot(
             enemy,
             viewer_character_id=viewer_character_id,

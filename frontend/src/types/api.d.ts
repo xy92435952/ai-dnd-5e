@@ -746,6 +746,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/game/combat/{session_id}/lair-action/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip Lair Action
+         * @description Persistently skip the active Lair Action window without applying effects.
+         */
+        post: operations["skip_lair_action_game_combat__session_id__lair_action_skip_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/game/combat/{session_id}/legendary-action": {
         parameters: {
             query?: never;
@@ -760,6 +780,26 @@ export interface paths {
          * @description Resolve a non-damage Legendary Action window and spend its resource.
          */
         post: operations["use_legendary_action_game_combat__session_id__legendary_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/game/combat/{session_id}/legendary-action/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip Legendary Action
+         * @description Persistently skip the active Legendary Action window without spending resources.
+         */
+        post: operations["skip_legendary_action_game_combat__session_id__legendary_action_skip_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2250,6 +2290,14 @@ export interface components {
             grid_data: {
                 [key: string]: unknown;
             };
+            /** Lair Action Prompt */
+            lair_action_prompt?: {
+                [key: string]: unknown;
+            } | null;
+            /** Legendary Action Prompt */
+            legendary_action_prompt?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Round Number
              * @default 1
@@ -2661,7 +2709,7 @@ export interface components {
             /** Dice Result */
             dice_result?: {
                 [key: string]: unknown;
-            } | null;
+            } | unknown[] | null;
             /** Id */
             id: string;
             /** Log Type */
@@ -5012,6 +5060,37 @@ export interface operations {
             };
         };
     };
+    skip_lair_action_game_combat__session_id__lair_action_skip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     use_legendary_action_game_combat__session_id__legendary_action_post: {
         parameters: {
             query?: never;
@@ -5026,6 +5105,37 @@ export interface operations {
                 "application/json": components["schemas"]["LegendaryActionRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombatActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    skip_legendary_action_game_combat__session_id__legendary_action_skip_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

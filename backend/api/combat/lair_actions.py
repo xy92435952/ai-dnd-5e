@@ -14,6 +14,7 @@ from api.combat._shared import (
     _assert_ai_combat_driver,
     _broadcast_combat,
     _build_combat_snapshot,
+    _clear_active_ai_control_prompt,
 )
 from api.combat.legendary_actions import _normalize_target_ids, _resolve_legendary_action_effect
 from api.deps import assert_session_access, get_session_or_404, get_user_id
@@ -95,6 +96,7 @@ async def use_lair_action(
     state["enemies"] = enemies
     session.game_state = state
     flag_modified(session, "game_state")
+    _clear_active_ai_control_prompt(session)
 
     narration = _build_lair_action_narration(
         source_name=source_name,
@@ -192,6 +194,54 @@ async def use_lair_action(
     }
     response.update(effect.get("response", {}))
     return response
+
+
+@router.post("/combat/{session_id}/lair-action/skip", response_model=CombatActionResult)
+async def skip_lair_action(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    """Persistently skip the active Lair Action window without applying effects."""
+    session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
+    await _assert_ai_combat_driver(db, session, user_id)
+    if not session.combat_active:
+        raise HTTPException(400, "Current session is not in combat")
+
+    combat_result = await db.execute(
+        select(CombatState)
+        .where(CombatState.session_id == session_id)
+        .order_by(CombatState.created_at.desc())
+    )
+    combat = combat_result.scalars().first()
+    if not combat:
+        raise HTTPException(404, "Combat state not found")
+
+    _clear_active_ai_control_prompt(session)
+    await db.commit()
+    await db.refresh(session)
+    combat_snapshot = await _build_combat_snapshot(db, session, combat)
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            combat=combat_snapshot,
+            action="lair_action_skip",
+            narration="Lair Action skipped.",
+            lair_action_prompt=None,
+            legendary_action_prompt=None,
+        ),
+        db=db,
+    )
+    return {
+        "success": True,
+        "action": "lair_action_skip",
+        "narration": "Lair Action skipped.",
+        "combat": combat_snapshot,
+        "lair_action_prompt": None,
+        "legendary_action_prompt": None,
+    }
 
 
 def _lair_action_target_ids(req: LairActionRequest, action: dict[str, Any]) -> list[str]:

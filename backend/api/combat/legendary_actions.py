@@ -15,6 +15,7 @@ from api.combat._shared import (
     _assert_ai_combat_driver,
     _broadcast_combat,
     _build_combat_snapshot,
+    _clear_active_ai_control_prompt,
     _get_ts,
     _save_ts,
 )
@@ -116,6 +117,7 @@ async def use_legendary_action(
     state["enemies"] = enemies
     session.game_state = state
     flag_modified(session, "game_state")
+    _clear_active_ai_control_prompt(session)
 
     actor_state = {
         "target_id": actor_id,
@@ -221,6 +223,54 @@ async def use_legendary_action(
     }
     response.update(effect.get("response", {}))
     return response
+
+
+@router.post("/combat/{session_id}/legendary-action/skip", response_model=CombatActionResult)
+async def skip_legendary_action(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_user_id),
+):
+    """Persistently skip the active Legendary Action window without spending resources."""
+    session = await get_session_or_404(session_id, db)
+    await assert_session_access(session, user_id, db)
+    await _assert_ai_combat_driver(db, session, user_id)
+    if not session.combat_active:
+        raise HTTPException(400, "Current session is not in combat")
+
+    combat_result = await db.execute(
+        select(CombatState)
+        .where(CombatState.session_id == session_id)
+        .order_by(CombatState.created_at.desc())
+    )
+    combat = combat_result.scalars().first()
+    if not combat:
+        raise HTTPException(404, "Combat state not found")
+
+    _clear_active_ai_control_prompt(session)
+    await db.commit()
+    await db.refresh(session)
+    combat_snapshot = await _build_combat_snapshot(db, session, combat)
+    await _broadcast_combat(
+        session,
+        combat,
+        CombatUpdate(
+            combat=combat_snapshot,
+            action="legendary_action_skip",
+            narration="Legendary Action skipped.",
+            legendary_action_prompt=None,
+            lair_action_prompt=None,
+        ),
+        db=db,
+    )
+    return {
+        "success": True,
+        "action": "legendary_action_skip",
+        "narration": "Legendary Action skipped.",
+        "combat": combat_snapshot,
+        "legendary_action_prompt": None,
+        "lair_action_prompt": None,
+    }
 
 
 async def _resolve_legendary_action_effect(

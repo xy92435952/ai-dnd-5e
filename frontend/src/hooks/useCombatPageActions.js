@@ -363,6 +363,8 @@ export function useCombatPageActions({
           }
           if (!lairPrompt && legendaryPrompt) setLegendaryActionPrompt?.(legendaryPrompt)
           if (event.legendary_action) setLegendaryActionPrompt?.(null)
+          if (event.action === 'lair_action_skip') setLairActionPrompt?.(null)
+          if (event.action === 'legendary_action_skip') setLegendaryActionPrompt?.(null)
           if (event.combat_over) {
             setCombatOver?.(event.outcome)
           }

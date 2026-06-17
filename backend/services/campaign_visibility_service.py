@@ -90,6 +90,8 @@ def public_game_state(
         return {}
 
     public_state = deepcopy(game_state)
+    public_state.pop("active_lair_action_prompt", None)
+    public_state.pop("active_legendary_action_prompt", None)
     _sanitize_trap_state_feather_fall(public_state, viewer_character_id=viewer_character_id)
     project_game_state_exploration_reaction(
         public_state,

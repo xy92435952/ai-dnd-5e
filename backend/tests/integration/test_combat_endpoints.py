@@ -272,6 +272,10 @@ async def test_end_turn_legendary_action_prompt_and_endpoint_spends_resource(
     assert prompt["remaining"] == 2
     assert [action["id"] for action in prompt["actions"]] == ["detect", "wing"]
 
+    refresh_with_prompt = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert refresh_with_prompt.status_code == 200, refresh_with_prompt.text
+    assert refresh_with_prompt.json()["legendary_action_prompt"]["actor_id"] == "goblin-1"
+
     use_action = await client.post(
         f"/game/combat/{sample_session.id}/legendary-action",
         headers=headers,
@@ -294,6 +298,54 @@ async def test_end_turn_legendary_action_prompt_and_endpoint_spends_resource(
     followup = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
     assert followup.status_code == 200, followup.text
     assert followup.json()["entities"]["goblin-1"]["legendary_action_uses_remaining"] == 1
+    assert followup.json()["legendary_action_prompt"] is None
+
+
+async def test_skip_legendary_action_clears_active_prompt_without_spending_resource(
+    client, db_session, sample_session, combat_state, sample_user,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    state = dict(sample_session.game_state or {})
+    enemies = list(state.get("enemies") or [])
+    enemies[0] = {
+        **enemies[0],
+        "legendary_actions": [
+            {"id": "detect", "name": "Detect", "cost": 1, "description": "Perceive a threat."},
+        ],
+        "legendary_action_uses": 3,
+        "legendary_action_uses_remaining": 2,
+        "identified": True,
+    }
+    state["enemies"] = enemies
+    sample_session.game_state = state
+    flag_modified(sample_session, "game_state")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    end_turn = await client.post(
+        f"/game/combat/{sample_session.id}/end-turn",
+        headers=headers,
+        json={"expected_turn_token": f"1:0:{sample_session.player_character_id}"},
+    )
+    assert end_turn.status_code == 200, end_turn.text
+    assert end_turn.json()["legendary_action_prompt"]["actor_id"] == "goblin-1"
+
+    skipped = await client.post(
+        f"/game/combat/{sample_session.id}/legendary-action/skip",
+        headers=headers,
+    )
+    assert skipped.status_code == 200, skipped.text
+    assert skipped.json()["action"] == "legendary_action_skip"
+
+    await db_session.refresh(sample_session)
+    enemy = sample_session.game_state["enemies"][0]
+    assert enemy["legendary_action_uses_remaining"] == 2
+    assert "active_legendary_action_prompt" not in sample_session.game_state
+
+    followup = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert followup.status_code == 200, followup.text
+    assert followup.json()["legendary_action_prompt"] is None
 
 
 async def test_legendary_action_attack_hits_target_and_updates_hp(
@@ -1598,6 +1650,10 @@ async def test_lair_action_prompt_triggers_when_advancing_past_initiative_count_
     assert prompt_action["target_ids"] == [sample_character.id]
     assert prompt_action["area_template"] == "radius"
 
+    refresh_with_prompt = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert refresh_with_prompt.status_code == 200, refresh_with_prompt.text
+    assert refresh_with_prompt.json()["lair_action_prompt"]["source_id"] == "goblin-1"
+
     use_action = await client.post(
         f"/game/combat/{sample_session.id}/lair-action",
         headers=headers,
@@ -1620,6 +1676,75 @@ async def test_lair_action_prompt_triggers_when_advancing_past_initiative_count_
     assert sample_character.hp_current == 14
     assert sample_session.game_state["lair_action_prompted_round"] == 1
     assert sample_session.game_state["lair_action_used_round"] == 1
+    followup = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert followup.status_code == 200, followup.text
+    assert followup.json()["lair_action_prompt"] is None
+
+
+async def test_skip_lair_action_clears_active_prompt_without_using_round_action(
+    client, db_session, sample_session, combat_state, sample_user, sample_character,
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    sample_character.hp_current = 20
+    state = dict(sample_session.game_state or {})
+    enemies = list(state.get("enemies") or [])
+    enemies[0] = {
+        **enemies[0],
+        "lair_actions": [{
+            "id": "seismic-pulse",
+            "name": "Seismic Pulse",
+            "area": "15 ft radius",
+            "targets": "multiple",
+            "save": "dex",
+            "save_dc": 15,
+            "damage_dice": "2d6",
+            "damage_type": "bludgeoning",
+            "half_on_save": True,
+        }],
+        "identified": True,
+    }
+    state["enemies"] = enemies
+    sample_session.game_state = state
+    combat_state.turn_order = [
+        {"character_id": sample_character.id, "name": sample_character.name, "initiative": 24, "is_player": True, "is_enemy": False},
+        {"character_id": "goblin-1", "name": "Goblin", "initiative": 18, "is_player": False, "is_enemy": True},
+    ]
+    combat_state.current_turn_index = 0
+    combat_state.round_number = 1
+    combat_state.entity_positions = {
+        sample_character.id: {"x": 5, "y": 5},
+        "goblin-1": {"x": 6, "y": 5},
+    }
+    flag_modified(sample_session, "game_state")
+    flag_modified(combat_state, "turn_order")
+    flag_modified(combat_state, "entity_positions")
+    await db_session.commit()
+
+    headers = await _auth_headers(client, sample_user)
+    end_turn = await client.post(
+        f"/game/combat/{sample_session.id}/end-turn",
+        headers=headers,
+        json={"expected_turn_token": f"1:0:{sample_session.player_character_id}"},
+    )
+    assert end_turn.status_code == 200, end_turn.text
+    assert end_turn.json()["lair_action_prompt"]["source_id"] == "goblin-1"
+
+    skipped = await client.post(
+        f"/game/combat/{sample_session.id}/lair-action/skip",
+        headers=headers,
+    )
+    assert skipped.status_code == 200, skipped.text
+    assert skipped.json()["action"] == "lair_action_skip"
+
+    await db_session.refresh(sample_session)
+    assert sample_session.game_state["lair_action_prompted_round"] == 1
+    assert sample_session.game_state.get("lair_action_used_round") is None
+    assert "active_lair_action_prompt" not in sample_session.game_state
+
+    followup = await client.get(f"/game/combat/{sample_session.id}", headers=headers)
+    assert followup.status_code == 200, followup.text
+    assert followup.json()["lair_action_prompt"] is None
 
 
 async def test_ai_turn_surfaces_lair_action_prompt_when_advancing_past_initiative_count_20(

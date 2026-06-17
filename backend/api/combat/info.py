@@ -27,7 +27,12 @@ from services.combat_condition_service import (
     get_defense_modifier_sources,
 )
 
-from api.combat._shared import _build_combat_snapshot, svc
+from api.combat._shared import (
+    _active_ai_control_prompt_payload,
+    _build_combat_snapshot,
+    _project_ai_control_prompts_for_user,
+    svc,
+)
 
 router = APIRouter(prefix="/game", tags=["combat"])
 
@@ -52,12 +57,14 @@ async def get_combat_state(
     session = await get_session_or_404(session_id, db)
     await assert_session_access(session, user_id, db)
     await db.refresh(session)  # 确保读取最新的 game_state
-    return await _build_combat_snapshot(
+    snapshot = await _build_combat_snapshot(
         db,
         session,
         combat,
         viewer_character_id=await _viewer_character_id(db, session, user_id),
     )
+    snapshot.update(_active_ai_control_prompt_payload(session))
+    return await _project_ai_control_prompts_for_user(db, session, user_id, snapshot)
 
 
 async def _viewer_character_id(db: AsyncSession, session, user_id: str) -> str | None:

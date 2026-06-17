@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   endConcentrationMock,
   useLegendaryActionMock,
+  skipLegendaryActionMock,
   useLairActionMock,
+  skipLairActionMock,
   getCombatMock,
   triggerAiTurnMock,
 } = vi.hoisted(() => ({
   endConcentrationMock: vi.fn(),
   useLegendaryActionMock: vi.fn(),
+  skipLegendaryActionMock: vi.fn(),
   useLairActionMock: vi.fn(),
+  skipLairActionMock: vi.fn(),
   getCombatMock: vi.fn(),
   triggerAiTurnMock: vi.fn(),
 }))
@@ -19,7 +23,9 @@ vi.mock('../../api/client', () => ({
   gameApi: {
     endConcentration: endConcentrationMock,
     useLegendaryAction: useLegendaryActionMock,
+    skipLegendaryAction: skipLegendaryActionMock,
     useLairAction: useLairActionMock,
+    skipLairAction: skipLairActionMock,
     getCombat: getCombatMock,
   },
 }))
@@ -341,6 +347,43 @@ describe('useCombatFlowHandlers', () => {
     expect(triggerAiTurnMock).not.toHaveBeenCalled()
   })
 
+  it('persists a skipped legendary-action window before resuming the turn flow', async () => {
+    const freshCombat = {
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'hero-2', is_player: true }],
+      turn_states: { 'hero-2': { action_used: false } },
+    }
+    skipLegendaryActionMock.mockResolvedValue({
+      action: 'legendary_action_skip',
+      combat: freshCombat,
+    })
+    const { result, page } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleSkipLegendaryAction()
+    })
+
+    expect(page.setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+    expect(skipLegendaryActionMock).toHaveBeenCalledWith('sess-1')
+    expect(page.setCombat).toHaveBeenCalledWith(freshCombat)
+    expect(page.setTurnState).toHaveBeenCalledWith({ action_used: false })
+  })
+
+  it('keeps a legendary-action window visible when skip confirmation fails', async () => {
+    skipLegendaryActionMock.mockRejectedValue(new Error('skip failed'))
+    const { result, page } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleSkipLegendaryAction()
+    })
+
+    expect(skipLegendaryActionMock).toHaveBeenCalledWith('sess-1')
+    expect(page.setLegendaryActionPrompt).not.toHaveBeenCalledWith(null)
+    expect(page.setCombat).not.toHaveBeenCalled()
+    expect(triggerAiTurnMock).not.toHaveBeenCalled()
+    expect(page.setError).toHaveBeenCalledWith('skip failed')
+  })
+
   it('uses lair actions, logs state changes, and resumes the turn flow', async () => {
     useLairActionMock.mockResolvedValue({
       action: 'lair_action',
@@ -444,5 +487,42 @@ describe('useCombatFlowHandlers', () => {
     })
     expect(getCombatMock).not.toHaveBeenCalled()
     expect(triggerAiTurnMock).not.toHaveBeenCalled()
+  })
+
+  it('persists a skipped lair-action window before resuming the turn flow', async () => {
+    const freshCombat = {
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'hero-2', is_player: true }],
+      turn_states: { 'hero-2': { action_used: false } },
+    }
+    skipLairActionMock.mockResolvedValue({
+      action: 'lair_action_skip',
+      combat: freshCombat,
+    })
+    const { result, page } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleSkipLairAction()
+    })
+
+    expect(page.setLairActionPrompt).toHaveBeenCalledWith(null)
+    expect(skipLairActionMock).toHaveBeenCalledWith('sess-1')
+    expect(page.setCombat).toHaveBeenCalledWith(freshCombat)
+    expect(page.setTurnState).toHaveBeenCalledWith({ action_used: false })
+  })
+
+  it('keeps a lair-action window visible when skip confirmation fails', async () => {
+    skipLairActionMock.mockRejectedValue(new Error('skip failed'))
+    const { result, page } = renderHandlers()
+
+    await act(async () => {
+      await result.current.handleSkipLairAction()
+    })
+
+    expect(skipLairActionMock).toHaveBeenCalledWith('sess-1')
+    expect(page.setLairActionPrompt).not.toHaveBeenCalledWith(null)
+    expect(page.setCombat).not.toHaveBeenCalled()
+    expect(triggerAiTurnMock).not.toHaveBeenCalled()
+    expect(page.setError).toHaveBeenCalledWith('skip failed')
   })
 })

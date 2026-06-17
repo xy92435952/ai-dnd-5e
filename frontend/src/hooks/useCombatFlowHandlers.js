@@ -315,10 +315,36 @@ export function useCombatFlowHandlers({
     setLegendaryActionPrompt,
   ])
 
-  const handleSkipLegendaryAction = useCallback(() => {
-    setLegendaryActionPrompt(null)
-    continueAfterLegendaryWindow()
-  }, [continueAfterLegendaryWindow, setLegendaryActionPrompt])
+  const handleSkipLegendaryAction = useCallback(async () => {
+    if (isProcessing || processingRef.current) return
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const result = await gameApi.skipLegendaryAction(sessionId)
+      setLegendaryActionPrompt(null)
+      if (result?.combat) {
+        setCombat(result.combat)
+        continueAfterLegendaryWindow(result.combat)
+      } else {
+        continueAfterLegendaryWindow()
+      }
+    } catch (e) {
+      setError(formatCombatError(e))
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }, [
+    continueAfterLegendaryWindow,
+    isProcessing,
+    processingRef,
+    sessionId,
+    setCombat,
+    setError,
+    setIsProcessing,
+    setLegendaryActionPrompt,
+  ])
 
   const handleLairAction = useCallback(async (sourceId, actionId = null, targetId = null) => {
     if (isProcessing || processingRef.current) return
@@ -367,10 +393,36 @@ export function useCombatFlowHandlers({
     setLairActionPrompt,
   ])
 
-  const handleSkipLairAction = useCallback(() => {
-    setLairActionPrompt(null)
-    continueAfterLegendaryWindow()
-  }, [continueAfterLegendaryWindow, setLairActionPrompt])
+  const handleSkipLairAction = useCallback(async () => {
+    if (isProcessing || processingRef.current) return
+    processingRef.current = true
+    setIsProcessing(true)
+    setError('')
+    try {
+      const result = await gameApi.skipLairAction(sessionId)
+      setLairActionPrompt(null)
+      if (result?.combat) {
+        setCombat(result.combat)
+        continueAfterLegendaryWindow(result.combat)
+      } else {
+        continueAfterLegendaryWindow()
+      }
+    } catch (e) {
+      setError(formatCombatError(e))
+    } finally {
+      processingRef.current = false
+      setIsProcessing(false)
+    }
+  }, [
+    continueAfterLegendaryWindow,
+    isProcessing,
+    processingRef,
+    sessionId,
+    setCombat,
+    setError,
+    setIsProcessing,
+    setLairActionPrompt,
+  ])
 
   const handleDeathSave = useCombatDeathSave({
     sessionId,

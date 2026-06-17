@@ -6,6 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from api.combat._shared import (
     _calc_entity_turn_limits,
     _reset_ts,
+    _set_active_ai_control_prompt,
     _tick_conditions_char,
     _tick_conditions_enemy,
 )
@@ -121,6 +122,7 @@ async def _build_lair_action_prompt_for_turn_advance(
         state["enemies"] = enemies
         session.game_state = dict(state)
         flag_modified(session, "game_state")
+        _set_active_ai_control_prompt(session, lair_action_prompt=lair_action_prompt)
     return lair_action_prompt
 
 
@@ -261,6 +263,11 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int, *, i
                 state["enemies"] = enemies
                 session.game_state = dict(state)
                 flag_modified(session, "game_state")
+    _set_active_ai_control_prompt(
+        session,
+        lair_action_prompt=lair_action_prompt,
+        legendary_action_prompt=legendary_action_prompt,
+    )
 
     return {
         "turn_start_hazard": turn_start_hazard,
