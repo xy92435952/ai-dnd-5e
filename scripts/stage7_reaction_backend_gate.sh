@@ -7,6 +7,7 @@ if [ "$SCRIPT_DIR" = "$0" ]; then
 fi
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 BACKEND_PYTEST="$ROOT_DIR/backend/.venv-codex/bin/pytest"
+BACKEND_VENV_PYTHON="$ROOT_DIR/backend/.venv-codex/Scripts/python.exe"
 BACKEND_PYTHON="$ROOT_DIR/.codex-test-artifacts/backend-venv/Scripts/python.exe"
 
 TARGETS="
@@ -16,6 +17,7 @@ backend/tests/unit/test_combat_reaction_service.py::test_cutting_words_ability_c
 backend/tests/unit/test_combat_reaction_service.py::test_cutting_words_spends_bardic_resource_and_uses_subclass_die
 backend/tests/unit/test_campaign_visibility_service.py::test_public_game_state_projects_pending_exploration_reaction_only_to_reactor
 backend/tests/unit/test_ws_events.py::TestSampleEvents::test_reaction_prompt_projection_keeps_prompt_only_for_reactor
+backend/tests/unit/test_ws_events.py::TestSampleEvents::test_reaction_prompt_projection_uses_compact_reactor_identity
 backend/tests/unit/test_ws_events.py::TestSampleEvents::test_exploration_reaction_prompt_carries_private_prompt
 backend/tests/unit/test_game_exploration_service.py::test_send_exploration_reaction_prompt_targets_reactor_user
 backend/tests/unit/test_game_exploration_service.py::test_broadcast_exploration_result_sends_private_prompt_to_reactor
@@ -38,6 +40,9 @@ if [ -x "$BACKEND_PYTEST" ]; then
 elif [ -x "$BACKEND_PYTHON" ]; then
   # shellcheck disable=SC2086
   "$BACKEND_PYTHON" -m pytest $TARGETS -q
+elif [ -x "$BACKEND_VENV_PYTHON" ]; then
+  # shellcheck disable=SC2086
+  "$BACKEND_VENV_PYTHON" -m pytest $TARGETS -q
 else
   # shellcheck disable=SC2086
   pytest $TARGETS -q
