@@ -101,8 +101,8 @@ The script checks that:
 
 Use the manual `Multiplayer Load Smoke` workflow when you want CI to run the
 50-user WebSocket smoke. It starts a local backend, seeds a temporary ready
-module in SQLite, runs the load script, uploads the backend log, and then stops
-the backend.
+module in SQLite, runs the load script, uploads the backend log and the
+machine-readable load smoke result JSON, and then stops the backend.
 
 ## Notes
 
