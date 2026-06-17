@@ -7,23 +7,45 @@ if [ "$SCRIPT_DIR" = "$0" ]; then
 fi
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 BACKEND_PYTEST="$ROOT_DIR/backend/.venv-codex/bin/pytest"
+BACKEND_PYTHON="$ROOT_DIR/.codex-test-artifacts/backend-venv/Scripts/python.exe"
+BACKEND_VENV_PYTHON="$ROOT_DIR/backend/.venv-codex/Scripts/python.exe"
 
-if [ ! -x "$BACKEND_PYTEST" ]; then
-  BACKEND_PYTEST="pytest"
-fi
+run_backend_pytest() {
+  if [ -x "$BACKEND_PYTEST" ]; then
+    "$BACKEND_PYTEST" "$@"
+  elif [ -x "$BACKEND_PYTHON" ]; then
+    "$BACKEND_PYTHON" -m pytest "$@"
+  elif [ -x "$BACKEND_VENV_PYTHON" ]; then
+    "$BACKEND_VENV_PYTHON" -m pytest "$@"
+  else
+    pytest "$@"
+  fi
+}
+
+run_npm() {
+  if command -v npm.cmd >/dev/null 2>&1; then
+    npm.cmd "$@"
+  else
+    npm "$@"
+  fi
+}
 
 echo "== Backend tests =="
-(cd "$ROOT_DIR" && "$BACKEND_PYTEST" backend/tests -q)
+BACKEND_TEST_TARGETS=${CHECK_BACKEND_TARGETS:-backend/tests}
+(cd "$ROOT_DIR" && {
+  # shellcheck disable=SC2086
+  run_backend_pytest $BACKEND_TEST_TARGETS -q
+})
 
 echo "== Frontend tests =="
-(cd "$ROOT_DIR/frontend" && npm test)
+(cd "$ROOT_DIR/frontend" && run_npm test)
 
 if [ "${RUN_STAGE7_REACTION_GATE:-0}" = "1" ]; then
   echo "== Stage 7 ReactionPrompt backend focused gate =="
   sh "$ROOT_DIR/scripts/stage7_reaction_backend_gate.sh"
 
   echo "== Stage 7 ReactionPrompt frontend focused gate =="
-  (cd "$ROOT_DIR/frontend" && npm run test:stage7:reaction)
+  (cd "$ROOT_DIR/frontend" && run_npm run test:stage7:reaction)
 else
   echo "== Stage 7 ReactionPrompt focused gates skipped =="
   echo "Set RUN_STAGE7_REACTION_GATE=1 to rerun the focused backend/frontend ReactionPrompt recovery/privacy gates."
@@ -46,7 +68,7 @@ else
 fi
 
 echo "== Frontend build =="
-(cd "$ROOT_DIR/frontend" && npm run build)
+(cd "$ROOT_DIR/frontend" && run_npm run build)
 
 if [ "${RUN_MULTIPLAYER_LOADTEST:-0}" = "1" ]; then
   echo "== Multiplayer load smoke =="

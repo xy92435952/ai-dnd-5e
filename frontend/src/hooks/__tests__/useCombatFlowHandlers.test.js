@@ -275,6 +275,7 @@ describe('useCombatFlowHandlers', () => {
     expect(page.setReactionPrompt).toHaveBeenCalledWith({
       trigger: 'incoming_attack',
       attacker_id: 'enemy-1',
+      target_id: 'enemy-1',
       available_reactions: [{ type: 'shield', name: 'Shield', damage_prevented: 8 }],
       reactor_character_id: 'hero-1',
     })
@@ -342,6 +343,7 @@ describe('useCombatFlowHandlers', () => {
     expect(page.setReactionPrompt).toHaveBeenCalledWith({
       ...pendingReaction,
       reactor_character_id: 'hero-1',
+      target_id: 'enemy-1',
     })
     expect(getCombatMock).not.toHaveBeenCalled()
     expect(triggerAiTurnMock).not.toHaveBeenCalled()
@@ -484,6 +486,7 @@ describe('useCombatFlowHandlers', () => {
     expect(page.setReactionPrompt).toHaveBeenCalledWith({
       ...pendingReaction,
       reactor_character_id: 'hero-1',
+      target_id: 'lair-1',
     })
     expect(getCombatMock).not.toHaveBeenCalled()
     expect(triggerAiTurnMock).not.toHaveBeenCalled()
