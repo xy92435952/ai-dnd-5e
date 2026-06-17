@@ -117,10 +117,11 @@ npm run build
 cd ..
 ```
 
-`npm run test:stage7:reaction` includes the direct `ReactionPrompt` component
-and `combatReactionPrompt` utility regressions in addition to Adventure/Combat
-page smoke, hook recovery, privacy projection, and combat-log coverage. Keep
-new frontend ReactionPrompt recovery or target-normalization tests in that gate.
+`npm run test:stage7:reaction` includes the direct combat `ReactionPrompt`,
+Adventure `ExplorationReactionPrompt`, and `combatReactionPrompt` utility
+regressions in addition to Adventure/Combat page smoke, hook recovery, privacy
+projection, and combat-log coverage. Keep new frontend ReactionPrompt recovery
+or target-normalization tests in that gate.
 
 ## Schema Gate
 
