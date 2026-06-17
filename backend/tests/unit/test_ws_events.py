@@ -199,6 +199,49 @@ class TestSampleEvents:
         assert other["player_can_react"] is False
         assert other["reaction_prompt"] is None
 
+    def test_reaction_prompt_projection_uses_compact_reactor_identity(self):
+        from api.combat._shared import _project_combat_event_for_viewer
+
+        option_only_payload = {
+            "type": "combat_update",
+            "player_can_react": True,
+            "reaction_prompt": {
+                "trigger": "spell_cast",
+                "caster_id": "enemy-mage",
+                "options": [{"type": "counterspell", "character_id": "guest-char"}],
+            },
+        }
+        reactor_id_payload = {
+            "type": "turn_changed",
+            "player_can_react": True,
+            "reaction_prompt": {
+                "trigger": "spell_cast",
+                "caster_id": "enemy-mage",
+                "reactor_id": "guest-char",
+                "options": [{"type": "counterspell"}],
+            },
+        }
+
+        own = _project_combat_event_for_viewer(
+            option_only_payload,
+            viewer_character_id="guest-char",
+        )
+        other = _project_combat_event_for_viewer(
+            option_only_payload,
+            viewer_character_id="host-char",
+        )
+        reactor_id_other = _project_combat_event_for_viewer(
+            reactor_id_payload,
+            viewer_character_id="host-char",
+        )
+
+        assert own["reaction_prompt"]["options"][0]["character_id"] == "guest-char"
+        assert own["player_can_react"] is True
+        assert other["player_can_react"] is False
+        assert other["reaction_prompt"] is None
+        assert reactor_id_other["player_can_react"] is False
+        assert reactor_id_other["reaction_prompt"] is None
+
     def test_condition_update_projection_redacts_nested_ready_action_failure_for_other_viewer(self):
         from api.combat._shared import _project_combat_event_for_viewer
 

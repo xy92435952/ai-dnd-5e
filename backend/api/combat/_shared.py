@@ -390,7 +390,7 @@ def _project_combat_event_for_viewer(
     projected = payload
     prompt = payload.get("reaction_prompt")
     if prompt:
-        reactor_character_id = prompt.get("reactor_character_id") if isinstance(prompt, dict) else None
+        reactor_character_id = _reaction_prompt_reactor_character_id(prompt)
         if reactor_character_id and not _viewer_matches_character(viewer_character_id, reactor_character_id):
             projected = dict(projected)
             projected["reaction_prompt"] = None
@@ -518,6 +518,24 @@ def _project_combat_event_for_viewer(
         projected["legendary_action_prompt"] = None
         projected["lair_action_prompt"] = None
     return projected
+
+
+def _reaction_prompt_reactor_character_id(prompt: dict | None) -> str | None:
+    if not isinstance(prompt, dict):
+        return None
+    for key in ("reactor_character_id", "reactor_id"):
+        value = prompt.get(key)
+        if value is not None:
+            return str(value)
+    for collection_key in ("options", "available_reactions"):
+        for option in prompt.get(collection_key) or []:
+            if not isinstance(option, dict):
+                continue
+            for key in ("reactor_character_id", "reactor_id", "character_id"):
+                value = option.get(key)
+                if value is not None:
+                    return str(value)
+    return None
 
 
 def _redact_enemy_inspect_payload(value: dict) -> dict:
