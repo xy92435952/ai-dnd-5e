@@ -30,11 +30,12 @@ npm run test:stage7:reaction
 npm run build
 cd ..
 
+& 'C:\Program Files\Git\bin\bash.exe' scripts/stage7_reaction_backend_gate.sh
 git diff --check
 ```
 
-To include the focused Stage 7 ReactionPrompt gate in the existing full local
-check script, run:
+To include the focused Stage 7 ReactionPrompt backend and frontend gates in the
+existing full local check script, run:
 
 ```powershell
 $env:RUN_STAGE7_REACTION_GATE='1'
@@ -81,10 +82,7 @@ git diff --check
 For a narrower but faster multiplayer reconnect gate, use:
 
 ```powershell
-.codex-test-artifacts\backend-venv\Scripts\python.exe -m pytest `
-  backend\tests\integration\test_multiplayer_ws_realtime.py::test_multiplayer_guest_reaction_uses_guest_character_and_broadcasts_update `
-  backend\tests\integration\test_multiplayer_ws_realtime.py::test_multiplayer_counterspell_prompt_broadcasts_to_guest_reactor_and_cancels_spell `
-  -q
+& 'C:\Program Files\Git\bin\bash.exe' scripts/stage7_reaction_backend_gate.sh
 
 cd frontend
 npm run test:stage7:reaction

@@ -1,7 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+SCRIPT_DIR=${0%/*}
+if [ "$SCRIPT_DIR" = "$0" ]; then
+  SCRIPT_DIR=.
+fi
+ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 BACKEND_PYTEST="$ROOT_DIR/backend/.venv-codex/bin/pytest"
 
 if [ ! -x "$BACKEND_PYTEST" ]; then
@@ -15,11 +19,14 @@ echo "== Frontend tests =="
 (cd "$ROOT_DIR/frontend" && npm test)
 
 if [ "${RUN_STAGE7_REACTION_GATE:-0}" = "1" ]; then
-  echo "== Stage 7 ReactionPrompt focused gate =="
+  echo "== Stage 7 ReactionPrompt backend focused gate =="
+  sh "$ROOT_DIR/scripts/stage7_reaction_backend_gate.sh"
+
+  echo "== Stage 7 ReactionPrompt frontend focused gate =="
   (cd "$ROOT_DIR/frontend" && npm run test:stage7:reaction)
 else
-  echo "== Stage 7 ReactionPrompt focused gate skipped =="
-  echo "Set RUN_STAGE7_REACTION_GATE=1 to rerun the focused ReactionPrompt recovery/privacy gate."
+  echo "== Stage 7 ReactionPrompt focused gates skipped =="
+  echo "Set RUN_STAGE7_REACTION_GATE=1 to rerun the focused backend/frontend ReactionPrompt recovery/privacy gates."
 fi
 
 echo "== Frontend build =="
