@@ -16,6 +16,7 @@ const decision = normalizeDecision(process.env.FEATHER_FALL_SMOKE_DECISION || pa
 const reactionType = decision === 'decline' ? 'decline' : 'feather_fall';
 const decisionButtonText = decision === 'decline' ? 'Decline' : 'Cast Feather Fall';
 const slug = process.env.FEATHER_FALL_SMOKE_SLUG || `stage7_feather_fall_browser_${decision}`;
+const artifactTag = normalizeArtifactTag(process.env.FEATHER_FALL_SMOKE_ARTIFACT_TAG || parseArgValue('--artifact-tag') || todayTag());
 const promptScreenshotPath = screenshotPath('prompt');
 const resolvedScreenshotPath = screenshotPath('resolved');
 const manifestPath = artifactPath('manifest', 'json');
@@ -40,11 +41,37 @@ function parseDecisionArg(args = process.argv.slice(2)) {
   return '';
 }
 
+function parseArgValue(name, args = process.argv.slice(2)) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === name) return args[index + 1] || '';
+    if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
+  }
+  return '';
+}
+
 function normalizeDecision(value) {
   const normalized = String(value || '').trim().toLowerCase().replace(/-/g, '_');
   if (['accept', 'cast', 'feather_fall'].includes(normalized)) return 'accept';
   if (['decline', 'pass'].includes(normalized)) return 'decline';
   throw new Error(`Unsupported Feather Fall smoke decision "${value}". Use accept or decline.`);
+}
+
+function todayTag() {
+  const now = new Date();
+  return [
+    String(now.getFullYear()),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('');
+}
+
+function normalizeArtifactTag(value) {
+  const tag = String(value || '').trim();
+  if (!/^[A-Za-z0-9_.-]+$/.test(tag)) {
+    throw new Error(`Unsupported artifact tag "${value}". Use only letters, numbers, dot, underscore, or dash.`);
+  }
+  return tag;
 }
 
 function screenshotPath(kind) {
@@ -54,9 +81,9 @@ function screenshotPath(kind) {
 function artifactPath(kind, extension) {
   if (decision === 'accept') {
     const suffix = kind === 'prompt' || kind === 'resolved' ? kind : `${kind}`;
-    return path.join(root, 'artifacts', `browser-feather-fall-adventure-${suffix}-20260617.${extension}`);
+    return path.join(root, 'artifacts', `browser-feather-fall-adventure-${suffix}-${artifactTag}.${extension}`);
   }
-  return path.join(root, 'artifacts', `browser-feather-fall-adventure-${decision}-${kind}-20260617.${extension}`);
+  return path.join(root, 'artifacts', `browser-feather-fall-adventure-${decision}-${kind}-${artifactTag}.${extension}`);
 }
 
 function sqliteUrl(dbPath) {
@@ -610,6 +637,7 @@ async function main() {
       created_at: new Date().toISOString(),
       decision,
       reaction_type: reactionType,
+      artifact_tag: artifactTag,
       seed: {
         slug: seed.slug,
         session_id: seed.session_id,

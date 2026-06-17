@@ -252,8 +252,8 @@ Feather Fall reaction dice/log row.
 For a repeatable browser-level check of that Adventure prompt, run:
 
 ```powershell
-node scripts\feather_fall_adventure_browser_smoke.mjs
-node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline
+node scripts\feather_fall_adventure_browser_smoke.mjs --artifact-tag YYYYMMDD
+node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline --artifact-tag YYYYMMDD
 ```
 
 The browser smoke starts a temporary SQLite-backed backend on `127.0.0.1:8002`,
@@ -261,7 +261,9 @@ starts Vite on `127.0.0.1:3000` when needed, logs in as the seeded user, opens
 the seeded Adventure page, verifies the Feather Fall panel text, clicks either
 `Cast Feather Fall` or `Decline`, verifies the prompt clears, checks HP/slot
 state through refresh, and writes prompt/resolved screenshots plus a JSON
-manifest under `artifacts/`.
+manifest under `artifacts/`. If `--artifact-tag` or
+`FEATHER_FALL_SMOKE_ARTIFACT_TAG` is omitted, the script uses the current local
+date as `YYYYMMDD`.
 
 Latest local dry-run evidence:
 

@@ -72,15 +72,16 @@ For a full local browser verification of the `feather-fall` Adventure prompt,
 run from the repository root:
 
 ```powershell
-node scripts\feather_fall_adventure_browser_smoke.mjs
-node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline
+node scripts\feather_fall_adventure_browser_smoke.mjs --artifact-tag YYYYMMDD
+node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline --artifact-tag YYYYMMDD
 ```
 
 That smoke uses a temporary SQLite database, starts backend/frontend processes
 when needed, logs in as the seeded user, opens the Adventure session, accepts
 or declines the Feather Fall prompt, verifies HP/slot/pending state through
 HTTP refresh, and writes prompt/resolved screenshots plus a JSON manifest under
-`artifacts/`.
+`artifacts/`. If `--artifact-tag` or `FEATHER_FALL_SMOKE_ARTIFACT_TAG` is not
+set, the script uses the current local date as `YYYYMMDD`.
 
 The same `--slug` is idempotent: rerunning it replaces the previous seeded rows
 with the same deterministic ids instead of accumulating duplicate test data.
