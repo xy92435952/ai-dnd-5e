@@ -52,8 +52,9 @@ $env:RUN_STAGE7_REACTION_GATE='1'
 ```
 
 On Windows, prefer the explicit Git Bash path above. `scripts/check.sh` will use
-the workspace backend test venv when present and routes frontend commands
-through `npm.cmd` when Git Bash exposes it, avoiding the WSL shell shim.
+the workspace backend test venv when present, including for the optional
+multiplayer load smoke, and routes frontend commands through `npm.cmd` when Git
+Bash exposes it, avoiding the WSL shell shim.
 
 To include the browser-level Adventure Feather Fall smoke in the same check
 entrypoint, opt in explicitly because it starts temporary backend/frontend
@@ -253,15 +254,23 @@ Run only when the backend is already listening on `127.0.0.1:8002` and you want
 the 50-user WebSocket gate:
 
 ```powershell
-python scripts\multiplayer_ws_loadtest.py `
-  --base-url http://127.0.0.1:8002 `
-  --seed-sqlite-module backend\ai_trpg.db `
-  --prefix codex_load_YYYYMMDD_HHMM
+$env:RUN_MULTIPLAYER_LOADTEST='1'
+$env:LOADTEST_SQLITE_DB='backend\ai_trpg.db'
+$env:LOADTEST_PREFIX='codex_load_YYYYMMDD_HHMM'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
-For a manual browser check while sockets remain open, add:
+`scripts/check.sh` runs this load smoke with the same backend Python resolver as
+the pytest gates. To target an existing parsed module instead of seeding a
+SQLite module, set `LOADTEST_MODULE_ID` instead of `LOADTEST_SQLITE_DB`.
+
+For direct manual runs or a manual browser check while sockets remain open, use:
 
 ```powershell
+.codex-test-artifacts\backend-venv\Scripts\python.exe scripts\multiplayer_ws_loadtest.py `
+  --base-url http://127.0.0.1:8002 `
+  --seed-sqlite-module backend\ai_trpg.db `
+  --prefix codex_load_YYYYMMDD_HHMM `
   --hold-seconds 90
 ```
 

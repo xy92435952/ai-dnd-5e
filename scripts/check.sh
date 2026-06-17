@@ -7,6 +7,7 @@ if [ "$SCRIPT_DIR" = "$0" ]; then
 fi
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 BACKEND_PYTEST="$ROOT_DIR/backend/.venv-codex/bin/pytest"
+BACKEND_UNIX_PYTHON="$ROOT_DIR/backend/.venv-codex/bin/python"
 BACKEND_PYTHON="$ROOT_DIR/.codex-test-artifacts/backend-venv/Scripts/python.exe"
 BACKEND_VENV_PYTHON="$ROOT_DIR/backend/.venv-codex/Scripts/python.exe"
 
@@ -19,6 +20,18 @@ run_backend_pytest() {
     "$BACKEND_VENV_PYTHON" -m pytest "$@"
   else
     pytest "$@"
+  fi
+}
+
+run_backend_python() {
+  if [ -x "$BACKEND_UNIX_PYTHON" ]; then
+    "$BACKEND_UNIX_PYTHON" "$@"
+  elif [ -x "$BACKEND_PYTHON" ]; then
+    "$BACKEND_PYTHON" "$@"
+  elif [ -x "$BACKEND_VENV_PYTHON" ]; then
+    "$BACKEND_VENV_PYTHON" "$@"
+  else
+    python "$@"
   fi
 }
 
@@ -85,7 +98,7 @@ if [ "${RUN_MULTIPLAYER_LOADTEST:-0}" = "1" ]; then
     exit 1
   fi
 
-  (cd "$ROOT_DIR" && python scripts/multiplayer_ws_loadtest.py "$@")
+  (cd "$ROOT_DIR" && run_backend_python scripts/multiplayer_ws_loadtest.py "$@")
 else
   echo "== Multiplayer load smoke skipped =="
   echo "Set RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID or LOADTEST_SQLITE_DB to run it."
