@@ -5,8 +5,14 @@ export function isReactionPromptForCharacter(prompt, characterId) {
   return String(reactorId) === String(characterId)
 }
 
+export function resolveReactionPromptTargetId(prompt = {}) {
+  if (!prompt) return null
+  return prompt.target_id || prompt.attacker_id || prompt.caster_id || prompt.spell_target_id || null
+}
+
 export function normalizeReactionOptions(prompt = {}) {
   const reactions = prompt.available_reactions || []
+  const promptTargetId = resolveReactionPromptTargetId(prompt)
   const reactionsByType = new Map()
   reactions.forEach(reaction => {
     if (reaction.id) reactionsByType.set(reaction.id, reaction)
@@ -14,7 +20,7 @@ export function normalizeReactionOptions(prompt = {}) {
   })
   const rawOptions = prompt.options || reactions.map(reaction => ({
     type: reaction.id || reaction.type,
-    target_id: prompt.target_id || prompt.attacker_id,
+    target_id: promptTargetId,
     character_id: prompt.reactor_character_id,
     label: `${reaction.name || reaction.id}${reaction.effect ? ` - ${reaction.effect}` : ''}`,
     cost: reaction.cost,
@@ -29,7 +35,7 @@ export function normalizeReactionOptions(prompt = {}) {
       cost: option.cost ?? reaction.cost,
       damage_prevented: option.damage_prevented ?? reaction.damage_prevented,
       die: option.die ?? reaction.die,
-      target_id: option.target_id || prompt.target_id || prompt.attacker_id,
+      target_id: option.target_id || promptTargetId,
       character_id: option.character_id || prompt.reactor_character_id,
     }
     return {

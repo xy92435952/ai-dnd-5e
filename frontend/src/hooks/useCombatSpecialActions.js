@@ -3,6 +3,7 @@ import { gameApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { applyActionResultEntityStates, getPlayerTurnState } from '../utils/combat'
 import { resolveCombatReactionPrompt } from '../utils/combatSession'
+import { resolveReactionPromptTargetId } from '../utils/combatReactionPrompt'
 import { formatCombatError } from '../utils/combatErrors'
 import { buildCombatStateChangeSummary } from '../utils/combatLog'
 
@@ -230,7 +231,7 @@ export function useCombatSpecialActions({
       const result = await gameApi.useReaction(
         sessionId,
         'decline',
-        prompt.target_id || prompt.attacker_id || null,
+        resolveReactionPromptTargetId(prompt),
         prompt.reactor_character_id || null,
       )
       resolvedSpellPrompt = result?.action === 'spell' || result?.reaction_type === 'bardic_spell_save'

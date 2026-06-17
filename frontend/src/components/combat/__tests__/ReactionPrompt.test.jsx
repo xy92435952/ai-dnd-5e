@@ -59,6 +59,58 @@ describe('ReactionPrompt', () => {
     expect(onReact).toHaveBeenCalledWith('counterspell', 'enemy-mage', 'char-2')
   })
 
+  it('targets the caster for restored spell-cast prompts without explicit target id', async () => {
+    const onReact = vi.fn()
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          trigger: 'spell_cast',
+          context: 'Incoming spell',
+          caster_id: 'enemy-mage',
+          reactor_character_id: 'char-2',
+          available_reactions: [
+            {
+              id: 'counterspell',
+              type: 'spell',
+              name: 'Counterspell',
+              effect: 'Cancel the spell',
+            },
+          ],
+        }}
+        onReact={onReact}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Counterspell/ }))
+
+    expect(onReact).toHaveBeenCalledWith('counterspell', 'enemy-mage', 'char-2')
+  })
+
+  it('fills option targets from the caster for compact restored spell-cast prompts', async () => {
+    const onReact = vi.fn()
+    render(
+      <ReactionPrompt
+        currentCharacterId="char-2"
+        prompt={{
+          trigger: 'spell_cast',
+          context: 'Incoming spell',
+          caster_id: 'enemy-mage',
+          reactor_character_id: 'char-2',
+          available_reactions: [{ type: 'counterspell', name: 'Counterspell' }],
+          options: [{ type: 'counterspell', label: 'Counterspell' }],
+        }}
+        onReact={onReact}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Counterspell/ }))
+
+    expect(onReact).toHaveBeenCalledWith('counterspell', 'enemy-mage', 'char-2')
+  })
+
   it('passes Absorb Elements actions through from available reactions', async () => {
     const onReact = vi.fn()
     render(

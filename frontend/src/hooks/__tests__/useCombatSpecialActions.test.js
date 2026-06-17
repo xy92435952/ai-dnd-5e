@@ -404,6 +404,22 @@ describe('useCombatSpecialActions', () => {
     expect(deps.triggerAiTurn).toHaveBeenCalled()
   })
 
+  it('declines restored spell-cast prompts by targeting the caster id', async () => {
+    const { result, deps } = renderActions()
+
+    await act(async () => {
+      await result.current.handleCancelReaction({
+        trigger: 'spell_cast',
+        caster_id: 'enemy-mage',
+        reactor_character_id: 'char-2',
+      })
+    })
+
+    expect(useReactionMock).toHaveBeenCalledWith('sess-1', 'decline', 'enemy-mage', 'char-2')
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.triggerAiTurn).toHaveBeenCalled()
+  })
+
   it('restores a combat reaction prompt from the latest snapshot after decline failure', async () => {
     const pendingReaction = {
       trigger: 'incoming_attack',

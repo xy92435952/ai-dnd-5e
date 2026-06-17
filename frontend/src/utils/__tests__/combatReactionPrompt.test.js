@@ -6,6 +6,7 @@ import {
   getReactionPromptMeta,
   isReactionPromptForCharacter,
   normalizeReactionOptions,
+  resolveReactionPromptTargetId,
 } from '../combatReactionPrompt'
 
 describe('combatReactionPrompt', () => {
@@ -45,6 +46,32 @@ describe('combatReactionPrompt', () => {
           hp_preview: '预计减免 4 伤害',
         },
       },
+    ])
+  })
+
+  it('uses caster id as the target for spell-cast reaction prompts', () => {
+    const prompt = {
+      trigger: 'spell_cast',
+      caster_id: 'enemy-mage',
+      reactor_character_id: 'char-1',
+      available_reactions: [
+        {
+          id: 'counterspell',
+          type: 'spell',
+          name: 'Counterspell',
+          effect: 'Cancel the spell',
+        },
+      ],
+    }
+
+    expect(resolveReactionPromptTargetId(prompt)).toBe('enemy-mage')
+    expect(normalizeReactionOptions(prompt)).toEqual([
+      expect.objectContaining({
+        type: 'counterspell',
+        target_id: 'enemy-mage',
+        character_id: 'char-1',
+        label: 'Counterspell - Cancel the spell',
+      }),
     ])
   })
 
