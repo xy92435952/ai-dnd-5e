@@ -20,6 +20,8 @@ export function useCombatLoader({
   setPlayerSubclassEffects,
   setTurnState,
   setReactionPrompt,
+  setLairActionPrompt,
+  setLegendaryActionPrompt,
   setLogs,
   setInitiativeShown,
   setError,
@@ -33,7 +35,13 @@ export function useCombatLoader({
     try {
       const data = await gameApi.getCombat(sessionId)
       const sessionData = await gameApi.getSession(sessionId)
-      const { playerId: pid, playerEntry, pendingReaction } = applyCombatSessionSnapshot({
+      const {
+        playerId: pid,
+        playerEntry,
+        pendingReaction,
+        lairActionPrompt,
+        legendaryActionPrompt,
+      } = applyCombatSessionSnapshot({
         combatData: data,
         sessionData,
         setCombat,
@@ -49,6 +57,8 @@ export function useCombatLoader({
         setPlayerSubclassEffects,
         setTurnState,
         setReactionPrompt,
+        setLairActionPrompt,
+        setLegendaryActionPrompt,
         setLogs,
       })
 
@@ -66,7 +76,8 @@ export function useCombatLoader({
         aiTimer.current = null
       }
 
-      if (canDriveAiTurns && !pendingReaction && !isPlayerTurn(data)) {
+      const pendingBossPrompt = lairActionPrompt || legendaryActionPrompt
+      if (canDriveAiTurns && !pendingReaction && !pendingBossPrompt && !isPlayerTurn(data)) {
         aiTimer.current = setTimeout(() => {
           aiTimer.current = null
           triggerAiTurn()
@@ -103,6 +114,8 @@ export function useCombatLoader({
     setPlayerSubclass,
     setPlayerSubclassEffects,
     setReactionPrompt,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setSession,
     setTurnState,
     onCombatEnded,

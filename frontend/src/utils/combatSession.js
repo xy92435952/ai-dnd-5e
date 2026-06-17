@@ -16,6 +16,8 @@ export function applyCombatSessionSnapshot({
   setPlayerSubclassEffects,
   setTurnState,
   setReactionPrompt,
+  setLairActionPrompt,
+  setLegendaryActionPrompt,
   setLogs,
 }) {
   setCombat(combatData)
@@ -45,6 +47,13 @@ export function applyCombatSessionSnapshot({
     if (setReactionPrompt) setReactionPrompt(pendingReaction)
   }
 
+  const lairActionPrompt = combatData?.lair_action_prompt || null
+  const legendaryActionPrompt = lairActionPrompt
+    ? null
+    : (combatData?.legendary_action_prompt || null)
+  if (setLairActionPrompt) setLairActionPrompt(lairActionPrompt)
+  if (setLegendaryActionPrompt) setLegendaryActionPrompt(legendaryActionPrompt)
+
   const combatLogs = (sessionData?.logs || []).filter(l =>
     l.log_type === 'combat' || l.log_type === 'system'
   )
@@ -54,6 +63,8 @@ export function applyCombatSessionSnapshot({
     playerId,
     playerEntry: (combatData?.turn_order || []).find(t => t.character_id === playerId),
     pendingReaction,
+    lairActionPrompt,
+    legendaryActionPrompt,
   }
 }
 

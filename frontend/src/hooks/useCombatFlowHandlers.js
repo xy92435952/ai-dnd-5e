@@ -142,6 +142,8 @@ export function useCombatFlowHandlers({
     setPlayerSubclassEffects,
     setTurnState,
     setReactionPrompt,
+    setLairActionPrompt,
+    setLegendaryActionPrompt,
     setLogs,
     setInitiativeShown,
     setError,

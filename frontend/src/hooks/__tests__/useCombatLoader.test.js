@@ -40,6 +40,8 @@ describe('useCombatLoader', () => {
       setPlayerSubclassEffects: vi.fn(),
       setTurnState: vi.fn(),
       setReactionPrompt: vi.fn(),
+      setLairActionPrompt: vi.fn(),
+      setLegendaryActionPrompt: vi.fn(),
       setLogs: vi.fn(),
       setInitiativeShown: vi.fn(),
       setError: vi.fn(),
@@ -162,6 +164,54 @@ describe('useCombatLoader', () => {
       ...pendingReaction,
       reactor_character_id: 'char-1',
     })
+    expect(aiTimer.current).toBeNull()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(deps.triggerAiTurn).not.toHaveBeenCalled()
+  })
+
+  it('clears stale boss prompts while loading a combat snapshot without prompt fields', async () => {
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'char-1', is_player: true }],
+      turn_states: { 'char-1': { action_used: false } },
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'char-1' }, logs: [] })
+
+    const { result, deps } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(deps.setLairActionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+  })
+
+  it('does not schedule ai turns while a boss control prompt is restored', async () => {
+    const lairPrompt = {
+      trigger: 'lair_action',
+      source_id: 'dragon-lair',
+      actions: [{ id: 'quake', name: 'Quake' }],
+    }
+    getCombatMock.mockResolvedValue({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'enemy-1', is_player: false }],
+      lair_action_prompt: lairPrompt,
+    })
+    getSessionMock.mockResolvedValue({ player: { id: 'char-1' }, logs: [] })
+
+    const { result, deps, aiTimer } = renderLoader()
+
+    await act(async () => {
+      await result.current.loadCombat()
+    })
+
+    expect(deps.setLairActionPrompt).toHaveBeenCalledWith(lairPrompt)
+    expect(deps.setLegendaryActionPrompt).toHaveBeenCalledWith(null)
     expect(aiTimer.current).toBeNull()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000)

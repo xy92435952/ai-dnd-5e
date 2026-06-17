@@ -2,6 +2,28 @@ import { describe, expect, it, vi } from 'vitest'
 import { applyCombatSessionSnapshot, getPendingReactionPrompt } from '../combatSession'
 
 describe('applyCombatSessionSnapshot', () => {
+  function createSetters(overrides = {}) {
+    return {
+      setCombat: vi.fn(),
+      setSession: vi.fn(),
+      setPlayerId: vi.fn(),
+      setPlayerSpellSlots: vi.fn(),
+      setPlayerKnownSpells: vi.fn(),
+      setPlayerCantrips: vi.fn(),
+      setPlayerClass: vi.fn(),
+      setPlayerLevel: vi.fn(),
+      setClassResources: vi.fn(),
+      setPlayerSubclass: vi.fn(),
+      setPlayerSubclassEffects: vi.fn(),
+      setTurnState: vi.fn(),
+      setReactionPrompt: vi.fn(),
+      setLairActionPrompt: vi.fn(),
+      setLegendaryActionPrompt: vi.fn(),
+      setLogs: vi.fn(),
+      ...overrides,
+    }
+  }
+
   it('syncs combat, player fields, turn state, and combat logs', () => {
     const setters = {
       setCombat: vi.fn(),
@@ -236,6 +258,79 @@ describe('applyCombatSessionSnapshot', () => {
     expect(setters.setTurnState).toHaveBeenCalledWith({ reaction_used: true })
     expect(setters.setReactionPrompt).toHaveBeenCalledWith(null)
     expect(result.pendingReaction).toBeNull()
+  })
+
+  it('clears stale local boss control prompts when refreshed combat has no prompt', () => {
+    const setters = createSetters()
+
+    const result = applyCombatSessionSnapshot({
+      combatData: {
+        current_turn_index: 0,
+        turn_order: [{ character_id: 'enemy-1', is_enemy: true }],
+        turn_states: { 'char-1': { action_used: false } },
+      },
+      sessionData: { player: { id: 'char-1' }, logs: [] },
+      ...setters,
+    })
+
+    expect(setters.setLairActionPrompt).toHaveBeenCalledWith(null)
+    expect(setters.setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+    expect(result.lairActionPrompt).toBeNull()
+    expect(result.legendaryActionPrompt).toBeNull()
+  })
+
+  it('restores a lair action prompt from combat snapshot and suppresses legendary prompt', () => {
+    const setters = createSetters()
+    const lairPrompt = {
+      trigger: 'lair_action',
+      source_id: 'dragon-lair',
+      actions: [{ id: 'quake', name: 'Quake' }],
+    }
+    const legendaryPrompt = {
+      trigger: 'legendary_action',
+      actor_id: 'dragon',
+      actions: [{ id: 'tail', name: 'Tail Attack' }],
+    }
+
+    const result = applyCombatSessionSnapshot({
+      combatData: {
+        turn_order: [],
+        turn_states: {},
+        lair_action_prompt: lairPrompt,
+        legendary_action_prompt: legendaryPrompt,
+      },
+      sessionData: { player: null, logs: [] },
+      ...setters,
+    })
+
+    expect(setters.setLairActionPrompt).toHaveBeenCalledWith(lairPrompt)
+    expect(setters.setLegendaryActionPrompt).toHaveBeenCalledWith(null)
+    expect(result.lairActionPrompt).toBe(lairPrompt)
+    expect(result.legendaryActionPrompt).toBeNull()
+  })
+
+  it('restores a legendary action prompt from combat snapshot when no lair prompt is active', () => {
+    const setters = createSetters()
+    const legendaryPrompt = {
+      trigger: 'legendary_action',
+      actor_id: 'dragon',
+      actions: [{ id: 'tail', name: 'Tail Attack' }],
+    }
+
+    const result = applyCombatSessionSnapshot({
+      combatData: {
+        turn_order: [],
+        turn_states: {},
+        legendary_action_prompt: legendaryPrompt,
+      },
+      sessionData: { player: null, logs: [] },
+      ...setters,
+    })
+
+    expect(setters.setLairActionPrompt).toHaveBeenCalledWith(null)
+    expect(setters.setLegendaryActionPrompt).toHaveBeenCalledWith(legendaryPrompt)
+    expect(result.lairActionPrompt).toBeNull()
+    expect(result.legendaryActionPrompt).toBe(legendaryPrompt)
   })
 
   it('restores a pending spell reaction prompt and keeps backend reactor id', () => {
