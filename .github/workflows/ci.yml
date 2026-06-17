@@ -34,6 +34,12 @@ jobs:
         run: |
           python -m pytest tests/ -v --tb=short
 
+      - name: Run Stage 7 reaction backend gate
+        env:
+          LLM_API_KEY: ci-dummy
+          JWT_SECRET: ci-test-secret-at-least-32-bytes-long
+        run: sh scripts/stage7_reaction_backend_gate.sh
+
       - name: Verify OpenAPI schema is up-to-date
         working-directory: backend
         env:
@@ -68,6 +74,10 @@ jobs:
       - name: Run vitest
         working-directory: frontend
         run: npm test
+
+      - name: Run Stage 7 reaction frontend gate
+        working-directory: frontend
+        run: npm run test:stage7:reaction
 
       - name: Build (full deps)
         working-directory: frontend
