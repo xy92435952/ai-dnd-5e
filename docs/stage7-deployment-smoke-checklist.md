@@ -1,6 +1,6 @@
 # Stage 7 Deployment Smoke Checklist
 
-Last updated: 2026-06-17
+Last updated: 2026-06-18
 
 This checklist is the deployment-readiness gate for the current Stage 7 work.
 It focuses on rule trust, multiplayer privacy/reconnect behavior, ReactionPrompt
@@ -122,6 +122,25 @@ Adventure `ExplorationReactionPrompt`, `useDialogueWsSync`, and
 `combatReactionPrompt` utility regressions in addition to Adventure/Combat page
 smoke, hook recovery, privacy projection, and combat-log coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
+
+## CI Release Gate
+
+The GitHub Actions workflow `.github/workflows/ci.yml` mirrors the deploy-safe
+parts of the local release gate:
+
+- `backend` installs backend dependencies, runs the full backend pytest suite,
+  runs the named `Run Stage 7 reaction backend gate` step, and verifies
+  `backend/openapi.json` is current.
+- `frontend` installs frontend dependencies, verifies generated REST API types,
+  runs full Vitest, runs the named `Run Stage 7 reaction frontend gate` step,
+  and builds with full dependencies.
+- `frontend-prod-build` installs production-only frontend dependencies with
+  `npm ci --omit=dev` and verifies `npm run build` still succeeds.
+
+The slower browser and multiplayer load smokes remain explicit local or
+on-demand checks. Use the local commands below when a slice touches Feather Fall
+Adventure reaction UX, live browser behavior, WebSocket fan-out, reconnect
+behavior, or manual multiplayer observation.
 
 ## Schema Gate
 
