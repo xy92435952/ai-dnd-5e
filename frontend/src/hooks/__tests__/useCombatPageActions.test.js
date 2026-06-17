@@ -2695,6 +2695,17 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.onLoadCombat).toHaveBeenCalledTimes(3)
   })
 
+  it('clears stale reaction prompts before reloading after dm response events', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({ type: 'dm_responded' })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
   it('logs delayed turn broadcasts from turn_changed events', () => {
     const { result, deps } = renderActions()
 

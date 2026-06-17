@@ -453,6 +453,7 @@ export function useCombatPageActions({
         onLoadCombat()
         break
       case 'dm_responded':
+        setReactionPrompt?.(null)
         onLoadCombat()
         break
       case 'room_state_updated':
