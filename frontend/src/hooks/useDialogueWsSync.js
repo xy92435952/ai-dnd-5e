@@ -60,6 +60,7 @@ export function useDialogueWsSync({
 
       case 'dm_responded': {
         if (!isVisibleToMe(event, myUserId, room)) break
+        setPendingExplorationReaction?.(null)
         const isMe = event.by_user_id && event.by_user_id === myUserId
         if (!isMe) {
           // 非发言者：用广播 payload 本地启动剧场，避免变只读观众

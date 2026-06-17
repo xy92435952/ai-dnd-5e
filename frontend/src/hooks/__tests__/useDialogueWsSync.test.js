@@ -85,6 +85,7 @@ describe('useDialogueWsSync', () => {
     expect(deps.buildDialogueQueue).toHaveBeenCalled()
     expect(deps.enterDialogueStage).toHaveBeenCalled()
     expect(deps.loadSession).toHaveBeenCalled()
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(null)
   })
 
   it('dm_responded: 自己触发 → 不启动剧场（HTTP 响应已经触发了）但仍 loadSession', () => {
@@ -100,6 +101,7 @@ describe('useDialogueWsSync', () => {
     })
     expect(deps.enterDialogueStage).not.toHaveBeenCalled()
     expect(deps.loadSession).toHaveBeenCalled()
+    expect(deps.setPendingExplorationReaction).toHaveBeenCalledWith(null)
   })
 
   it('dm_responded: 带可见范围但不包含自己 → 忽略剧场和刷新', () => {
@@ -126,6 +128,7 @@ describe('useDialogueWsSync', () => {
     expect(deps.buildDialogueQueue).not.toHaveBeenCalled()
     expect(deps.enterDialogueStage).not.toHaveBeenCalled()
     expect(deps.loadSession).not.toHaveBeenCalled()
+    expect(deps.setPendingExplorationReaction).not.toHaveBeenCalled()
   })
 
   it('dm_responded: group visibility missing explicit targets only reaches my own group', () => {
