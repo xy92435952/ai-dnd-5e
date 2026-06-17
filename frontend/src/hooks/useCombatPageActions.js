@@ -379,10 +379,20 @@ export function useCombatPageActions({
         {
           const lairPrompt = event.lair_action_prompt || null
           const legendaryPrompt = event.legendary_action_prompt || null
+          const combatSnapshot = event.combat || null
+          const turnState = combatSnapshot ? getViewerTurnStateFromCombat(combatSnapshot, actorId) : null
+          const reactionPrompt = resolveCombatReactionPrompt({
+            turnState,
+            playerId: actorId,
+            reactionPrompt: event.reaction_prompt,
+            playerCanReact: event.player_can_react,
+          })
+          const hasReactionPrompt = !!reactionPrompt
           if (event.combat) {
             setCombat(event.combat)
-            setTurnState(getViewerTurnStateFromCombat(event.combat, actorId))
+            setTurnState(turnState)
           }
+          setReactionPrompt?.(reactionPrompt)
           if (event.turn_order_delayed && event.delayed_turn) {
             addLog?.({
               role: 'system',
@@ -396,7 +406,7 @@ export function useCombatPageActions({
           }
           setLairActionPrompt?.(lairPrompt)
           setLegendaryActionPrompt?.(lairPrompt ? null : legendaryPrompt)
-          if (lairPrompt || legendaryPrompt) break
+          if (hasReactionPrompt || lairPrompt || legendaryPrompt) break
           onLoadCombat()
           break
         }

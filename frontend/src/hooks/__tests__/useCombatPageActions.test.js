@@ -193,6 +193,65 @@ describe('useCombatPageActions websocket sync', () => {
     expect(deps.setTurnState).toHaveBeenCalledWith({ movement_used: 2, movement_max: 6 })
   })
 
+  it('restores a normalized reaction prompt directly from turn_changed events', () => {
+    const combat = {
+      current_turn_index: 0,
+      turn_order: [
+        { character_id: 'enemy-mage', is_player: false },
+        { character_id: 'guest-char', is_player: true },
+      ],
+      turn_states: {
+        'guest-char': { reaction_used: false },
+      },
+    }
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'turn_changed',
+        combat,
+        player_can_react: true,
+        reaction_prompt: {
+          trigger: 'spell_cast',
+          caster_id: 'enemy-mage',
+          reactor_character_id: 'guest-char',
+          options: [{ type: 'counterspell' }],
+        },
+      })
+    })
+
+    expect(deps.setCombat).toHaveBeenCalledWith(combat)
+    expect(deps.setTurnState).toHaveBeenCalledWith({ reaction_used: false })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith({
+      trigger: 'spell_cast',
+      caster_id: 'enemy-mage',
+      reactor_character_id: 'guest-char',
+      target_id: 'enemy-mage',
+      options: [{ type: 'counterspell', target_id: 'enemy-mage' }],
+    })
+    expect(deps.onLoadCombat).not.toHaveBeenCalled()
+  })
+
+  it('clears stale reaction prompts on turn_changed events without active prompts', () => {
+    const { result, deps } = renderActions()
+
+    act(() => {
+      result.current.onWsEvent({
+        type: 'turn_changed',
+        combat: {
+          current_turn_index: 0,
+          turn_order: [{ character_id: 'guest-char', is_player: true }],
+          turn_states: {
+            'guest-char': { reaction_used: false, action_used: false },
+          },
+        },
+      })
+    })
+
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(deps.onLoadCombat).toHaveBeenCalledTimes(1)
+  })
+
   it('merges entity positions from combat_update before refreshing observers', () => {
     const { result, deps } = renderActions({
       combat: {
