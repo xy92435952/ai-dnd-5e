@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import CombatHudSlots from '../CombatHudSlots'
 
 describe('CombatHudSlots', () => {
@@ -20,7 +20,9 @@ describe('CombatHudSlots', () => {
       />,
     )
 
-    expect(screen.getByText('Bless')).toBeTruthy()
+    const panel = screen.getByRole('region', { name: '法术位与专注' })
+    expect(panel).toHaveClass('combat-spell-slot-panel')
+    expect(within(panel).getByText('Bless')).toHaveClass('combat-concentration-label')
     expect(screen.queryByText('Shield of Faith')).toBeNull()
   })
 
@@ -39,6 +41,10 @@ describe('CombatHudSlots', () => {
       />,
     )
 
+    const list = screen.getByRole('list', { name: '当前法术位' })
+    expect(list).toHaveClass('combat-spell-slot-list')
+    expect(screen.getByRole('listitem', { name: '1st 法术位 1/3' })).toHaveClass('combat-spell-slot-row')
+    expect(within(list).getByText('1st')).toHaveClass('combat-spell-slot-level')
     expect(container.querySelectorAll('.slot-gem')).toHaveLength(3)
     expect(container.querySelectorAll('.slot-gem.used')).toHaveLength(2)
   })
@@ -55,6 +61,8 @@ describe('CombatHudSlots', () => {
     )
 
     const button = screen.getByRole('button', { name: '结束专注 Web' })
+    expect(screen.getByRole('status')).toHaveClass('combat-concentration-row')
+    expect(button).toHaveClass('combat-end-concentration-button')
     fireEvent.click(button)
 
     expect(onEndConcentration).toHaveBeenCalledTimes(1)
@@ -72,6 +80,7 @@ describe('CombatHudSlots', () => {
 
     expect(screen.getByText('准备法术 Magic Missile')).toBeTruthy()
     expect(screen.queryByText('准备法术: Magic Missile')).toBeNull()
+    expect(screen.getByRole('status')).toHaveTextContent('准备法术 Magic Missile')
     expect(screen.getByRole('button', { name: '结束专注 准备法术 Magic Missile' })).toBeTruthy()
   })
 
@@ -89,6 +98,8 @@ describe('CombatHudSlots', () => {
 
     const button = screen.getByRole('button', { name: '结束专注 Web' })
     expect(button).toBeDisabled()
+    expect(button).toHaveClass('combat-end-concentration-button')
+    expect(button).toHaveAttribute('title', '同步或结算完成后可结束专注')
     fireEvent.click(button)
     expect(onEndConcentration).not.toHaveBeenCalled()
   })

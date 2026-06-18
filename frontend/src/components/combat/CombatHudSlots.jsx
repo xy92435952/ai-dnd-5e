@@ -22,25 +22,33 @@ export default function CombatHudSlots({
   const slotMax = caster?.derived?.spell_slots_max || session?.player?.derived?.spell_slots_max || {}
   const canEndConcentration = Boolean(caster?.concentration && onEndConcentration && !disabled)
   const concentrationLabel = formatConcentrationLabel(caster?.concentration)
+  const slotRows = Object.entries(playerSpellSlots || {})
+    .filter(([lvl, cur]) => cur > 0 || /^(1st|2nd|3rd)$/.test(lvl))
+    .slice(0, 4)
+
   return (
-    <div style={{
-      padding: '8px 10px',
-      background: 'linear-gradient(180deg, #1a1208, #0a0604)',
-      border: '1px solid rgba(138,90,24,.5)',
-      boxShadow: 'inset 0 1px 0 rgba(240,208,96,.15)',
-    }}>
-      <div style={{ fontFamily: 'var(--font-heading)', fontSize: 10, color: 'var(--amber)', letterSpacing: '.2em', textTransform: 'uppercase', marginBottom: 6 }}>
+    <section className="combat-spell-slot-panel" aria-label="法术位与专注">
+      <div className="combat-spell-slot-title">
         ✦ 法术位
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {Object.entries(playerSpellSlots || {}).filter(([lvl, cur]) => cur > 0 || /^(1st|2nd|3rd)$/.test(lvl)).slice(0, 4).map(([lvl, cur]) => {
+      <div className="combat-spell-slot-list" role="list" aria-label="当前法术位">
+        {slotRows.map(([lvl, cur]) => {
           const max = slotMax[lvl] || cur
           return (
-            <div key={lvl} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.08em', width: 24 }}>{lvl}</span>
+            <div
+              key={lvl}
+              className="combat-spell-slot-row"
+              role="listitem"
+              aria-label={`${lvl} 法术位 ${cur}/${max}`}
+            >
+              <span className="combat-spell-slot-level">{lvl}</span>
               <div className="spell-slots">
                 {Array.from({ length: Math.max(max, cur) }).map((_, i) => (
-                  <div key={i} className={`slot-gem ${i >= cur ? 'used' : ''}`} />
+                  <div
+                    key={i}
+                    className={`slot-gem ${i >= cur ? 'used' : ''}`}
+                    aria-hidden="true"
+                  />
                 ))}
               </div>
             </div>
@@ -49,22 +57,12 @@ export default function CombatHudSlots({
       </div>
       {caster?.concentration && (
         <div
-          style={{
-            marginTop: 8,
-            paddingTop: 6,
-            borderTop: '1px solid rgba(138,90,24,.3)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 9,
-            color: 'var(--parchment-dark)',
-            letterSpacing: '.1em',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-          }}
+          className="combat-concentration-row"
+          role="status"
+          aria-live="polite"
         >
           <span>
-            专注 <span style={{ color: 'var(--flame)' }}>{concentrationLabel}</span>
+            专注 <span className="combat-concentration-label">{concentrationLabel}</span>
           </span>
           {onEndConcentration && (
             <button
@@ -73,21 +71,13 @@ export default function CombatHudSlots({
               disabled={!canEndConcentration}
               aria-label={`结束专注 ${concentrationLabel}`}
               title={disabled ? '同步或结算完成后可结束专注' : `结束对 ${concentrationLabel} 的专注`}
-              style={{
-                border: '1px solid rgba(240,120,80,.55)',
-                background: canEndConcentration ? 'rgba(80,20,12,.65)' : 'rgba(80,64,48,.35)',
-                color: canEndConcentration ? 'var(--flame)' : 'var(--text-dim)',
-                fontFamily: 'inherit',
-                fontSize: 9,
-                padding: '2px 6px',
-                cursor: canEndConcentration ? 'pointer' : 'not-allowed',
-              }}
+              className="combat-end-concentration-button"
             >
               结束
             </button>
           )}
         </div>
       )}
-    </div>
+    </section>
   )
 }
