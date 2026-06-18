@@ -26,13 +26,15 @@ describe('CombatHudSkillBar', () => {
     expect(screen.getByText('动作 · 动作')).toBeInTheDocument()
     expect(screen.getByText('物品 · 动作')).toBeInTheDocument()
     expect(screen.getByText('附赠 · 附赠')).toBeInTheDocument()
-    const labels = container.querySelectorAll('.slot-label-bar span')
-    expect(labels[0]).toHaveClass('ready')
-    expect(labels[0]).toHaveAttribute('title', '协助 · 动作 · 可用')
-    expect(labels[1]).toHaveAttribute('title', '治疗药剂 · 物品 · 动作 · 可用')
-    expect(labels[2]).toHaveAttribute('aria-label', '再接再厉：可用')
+    const panel = screen.getByRole('region', { name: '战斗技能栏' })
+    const skills = within(panel).getByRole('list', { name: '可用战斗技能' })
+    const itemSkill = within(skills).getByRole('button', { name: '治疗药剂：可用，消耗 动作，快捷键 0' })
+    const labels = within(panel).getByRole('list', { name: '技能可用状态' })
+    expect(within(labels).getByRole('listitem', { name: '协助：可用' })).toHaveClass('ready')
+    expect(within(labels).getByRole('listitem', { name: '治疗药剂：可用' })).toHaveAttribute('title', '治疗药剂 · 物品 · 动作 · 可用')
+    expect(within(labels).getByRole('listitem', { name: '再接再厉：可用' })).toHaveClass('ready')
 
-    fireEvent.click(container.querySelector('.slot-key.item'))
+    fireEvent.click(itemSkill)
     expect(onSkillClick).toHaveBeenCalledWith(expect.objectContaining({ k: 'pot_heal', kind: 'item' }))
   })
 
@@ -53,8 +55,9 @@ describe('CombatHudSkillBar', () => {
       />,
     )
 
-    const attack = container.querySelector('.slot-key.attack')
-    const attackLabel = container.querySelector('.slot-label-bar span')
+    const attack = screen.getByRole('button', { name: '攻击：需要先选择目标，消耗 动作，快捷键 1' })
+    const labels = screen.getByRole('list', { name: '技能可用状态' })
+    const attackLabel = within(labels).getByRole('listitem', { name: '攻击：需要先选择目标' })
     expect(attack).toHaveAttribute('aria-disabled', 'true')
     expect(attack).toHaveAttribute('title', '需要先选择目标')
     expect(attackLabel).toHaveClass('blocked')
@@ -93,7 +96,7 @@ describe('CombatHudSkillBar', () => {
       />,
     )
 
-    const skill = container.querySelector('.slot-key.spell')
+    const skill = screen.getByRole('button', { name: '强酸飞溅：需要先选择目标，消耗 动作，快捷键 2' })
     expect(skill).toHaveAttribute('aria-disabled', 'true')
     expect(skill).toHaveAttribute('title', '需要先选择目标')
     expect(screen.getAllByText('需要先选择目标').length).toBeGreaterThan(0)
@@ -127,14 +130,14 @@ describe('CombatHudSkillBar', () => {
       />,
     )
 
-    const skill = container.querySelector('.slot-key.spell')
-    const skillLabel = container.querySelector('.slot-label-bar span')
+    const skill = screen.getByRole('button', { name: '强酸飞溅：可用，消耗 动作，快捷键 2' })
+    const skillLabel = within(screen.getByRole('list', { name: '技能可用状态' })).getByRole('listitem', { name: '强酸飞溅：可用' })
     expect(skill).toHaveAttribute('aria-disabled', 'false')
     expect(skill).toHaveAttribute('title', '强酸飞溅')
     expect(skillLabel).toHaveClass('ready')
     expect(skillLabel).toHaveAttribute('aria-label', '强酸飞溅：可用')
 
-    fireEvent.click(skill)
+    fireEvent.keyDown(skill, { key: 'Enter' })
     expect(onSkillClick).toHaveBeenCalledWith(skillEntry)
   })
 
@@ -155,10 +158,10 @@ describe('CombatHudSkillBar', () => {
       />,
     )
 
-    const dodge = container.querySelector('.slot-key.action')
+    const dodge = screen.getByRole('button', { name: '闪避：本回合动作已使用，消耗 动作，快捷键 7' })
     expect(dodge).toHaveAttribute('title', '本回合动作已使用')
     expect(screen.getByLabelText('技能限制提示')).toHaveTextContent('本回合动作已使用：闪避')
-    fireEvent.click(dodge)
+    fireEvent.keyDown(dodge, { key: 'Enter' })
     expect(onSkillClick).not.toHaveBeenCalled()
   })
 
@@ -221,16 +224,11 @@ describe('CombatHudSkillBar', () => {
     const preview = screen.getByLabelText('当前攻击预览')
     expect(preview).toHaveTextContent('目标')
     expect(preview).toHaveTextContent('命中 70%')
-    expect(within(preview).getByText('劣势')).toHaveAttribute('title', '掷两个 d20，取较低结果。')
+    const previewTags = within(preview).getByRole('list', { name: '攻击预览标签' })
+    expect(within(previewTags).getByRole('listitem', { name: '掷两个 d20，取较低结果。' })).toHaveTextContent('劣势')
     expect(within(preview).getByText('3/4 掩护 +5 AC')).toBeInTheDocument()
     expect(within(preview).getByText('有效 AC 18')).toBeInTheDocument()
-    expect(within(preview).getByText('速度 0')).toHaveAttribute(
-      'title',
-      '移动速度降为 0。 来源：束缚 (2轮)。',
-    )
-    expect(within(preview).getByText('受击优势')).toHaveAttribute(
-      'title',
-      '攻击此生物具有优势。 来源：束缚 (2轮)。',
-    )
+    expect(within(previewTags).getByRole('listitem', { name: '移动速度降为 0。 来源：束缚 (2轮)。' })).toHaveTextContent('速度 0')
+    expect(within(previewTags).getByRole('listitem', { name: '攻击此生物具有优势。 来源：束缚 (2轮)。' })).toHaveTextContent('受击优势')
   })
 })

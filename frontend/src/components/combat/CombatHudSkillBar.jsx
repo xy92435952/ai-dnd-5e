@@ -69,18 +69,27 @@ export default function CombatHudSkillBar({
   const blockerSummary = buildSkillBlockerSummary(skillViews)
 
   return (
-    <div>
-      <div className="skill-bar">
+    <section className="combat-skill-panel" aria-label="战斗技能栏">
+      <div className="skill-bar" role="list" aria-label="可用战斗技能">
         {skillViews.map(({ skill: s, stats, ruleTags, info, unavailableReason, canUse }) => {
           return (
             <div
               key={s.k}
               className={`slot-key ${s.kind} ${!canUse ? 'used' : ''}`}
+              role="button"
+              tabIndex={canUse ? 0 : -1}
               onClick={() => { if (canUse) onSkillClick(s) }}
+              onKeyDown={(event) => {
+                if (!canUse) return
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onSkillClick(s)
+                }
+              }}
               onMouseEnter={() => { try { JuiceAudio.hover() } catch {} }}
               title={unavailableReason || s.label || ''}
               aria-disabled={!canUse}
-              style={{ cursor: canUse ? 'pointer' : 'not-allowed' }}
+              aria-label={skillButtonLabel(s, unavailableReason)}
             >
               <span className="hot">{s.key}</span>
               <span className="glyph">{s.glyph}</span>
@@ -92,12 +101,12 @@ export default function CombatHudSkillBar({
                   <div className="t-meta">
                     {SKILL_KIND_LABELS[s.kind] || '—'}
                     {' · '}{s.cost || '—'}
-                    {unavailableReason && <span style={{ color: '#f47070', marginLeft: 6 }}>{unavailableReason}</span>}
+                    {unavailableReason && <span className="skill-unavailable-reason">{unavailableReason}</span>}
                   </div>
                   {ruleTags.length > 0 && (
-                    <div className="skill-rule-tags" aria-label={`${s.label} attack rule tags`}>
+                    <div className="skill-rule-tags" role="list" aria-label={`${s.label} 攻击规则标签`}>
                       {ruleTags.map(tag => (
-                        <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
+                        <span key={tag.key} className={tag.tone || ''} title={tag.title} role="listitem">{tag.label}</span>
                       ))}
                     </div>
                   )}
@@ -116,12 +125,13 @@ export default function CombatHudSkillBar({
           )
         })}
       </div>
-      <div className="slot-label-bar">
+      <div className="slot-label-bar" role="list" aria-label="技能可用状态">
         {skillViews.map(({ skill: s, unavailableReason, canUse }) => (
           <span
             key={s.k}
             className={canUse ? 'ready' : 'blocked'}
             title={skillStatusTitle(s, unavailableReason)}
+            role="listitem"
             aria-label={`${s.label || '—'}：${unavailableReason || '可用'}`}
           >
             {s.label || '—'}
@@ -131,9 +141,15 @@ export default function CombatHudSkillBar({
       {attackPreviewSummary && (
         <div className="skill-rule-summary" aria-label="当前攻击预览">
           <b title={attackPreviewSummary.targetName}>{attackPreviewSummary.targetName}</b>
-          <div>
+          <div role="list" aria-label="攻击预览标签">
             {attackPreviewSummary.chips.map(chip => (
-              <span key={chip.key} className={chip.tone || ''} title={chip.title || chip.label}>
+              <span
+                key={chip.key}
+                className={chip.tone || ''}
+                title={chip.title || chip.label}
+                role="listitem"
+                aria-label={chip.title || chip.label}
+              >
                 {chip.label}
               </span>
             ))}
@@ -141,12 +157,12 @@ export default function CombatHudSkillBar({
         </div>
       )}
       {blockerSummary && (
-        <div className={`skill-blocker-summary ${blockerSummary.tone}`} aria-label="技能限制提示">
+        <div className={`skill-blocker-summary ${blockerSummary.tone}`} role="status" aria-live="polite" aria-label="技能限制提示">
           <b>限制</b>
           <span>{blockerSummary.text}</span>
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -229,6 +245,13 @@ function skillStatusTitle(skill = {}, unavailableReason = '') {
     skill.cost && skill.cost !== kindLabel ? skill.cost : '',
     unavailableReason || '可用',
   ].filter(Boolean).join(' · ')
+}
+
+function skillButtonLabel(skill = {}, unavailableReason = '') {
+  const status = unavailableReason || '可用'
+  const cost = skill.cost ? `，消耗 ${skill.cost}` : ''
+  const key = skill.key ? `，快捷键 ${skill.key}` : ''
+  return `${skill.label || '技能'}：${status}${cost}${key}`
 }
 
 function formatPercent(value) {

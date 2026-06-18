@@ -6730,6 +6730,14 @@ button.companion-signal-item:focus-visible {
   transition: all .15s;
   display: grid; place-items: center;
 }
+.slot-key.used,
+.slot-key[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.slot-key:focus-visible {
+  outline: 2px solid var(--arcane-light, #5fd8e8);
+  outline-offset: 3px;
+}
 .slot-key:hover {
   border-color: var(--arcane-light, #5fd8e8);
   transform: translateY(-3px);
@@ -6778,6 +6786,10 @@ button.companion-signal-item:focus-visible {
   font-size: 22px;
   display: grid; place-items: center;
   backdrop-filter: blur(1px);
+}
+.skill-unavailable-reason {
+  margin-left: 6px;
+  color: #f47070;
 }
 
 /* 技能名横条 */
