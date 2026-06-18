@@ -31,6 +31,9 @@ describe('MultiplayerSpeakBar', () => {
   it('shows connection, controlled character, and current speaker status', () => {
     renderBar()
 
+    expect(screen.getByRole('region', { name: '多人发言权状态' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('等待 队友 发言')
+    expect(screen.getByRole('group', { name: '联机同步与发言者信息' })).toHaveTextContent('房间码 234567')
     expect(screen.getByText('同步在线')).toBeInTheDocument()
     expect(screen.getByText('角色 战士')).toBeInTheDocument()
     expect(screen.getByText('发言 队友 / 法师 · 离线')).toBeInTheDocument()
@@ -72,6 +75,7 @@ describe('MultiplayerSpeakBar', () => {
     renderBar({ syncNotice: '房间状态已重新同步' })
 
     expect(screen.getByText('房间状态已重新同步')).toBeInTheDocument()
+    expect(screen.getByTitle('最近一次重连后的补漏刷新已完成')).toHaveTextContent('房间状态已重新同步')
   })
 
   it('keeps AI takeover disabled until the offline threshold is reached', () => {

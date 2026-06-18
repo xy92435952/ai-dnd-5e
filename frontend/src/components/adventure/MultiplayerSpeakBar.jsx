@@ -55,83 +55,49 @@ export default function MultiplayerSpeakBar({
     : '当前发言者状态'
 
   return (
-    <div style={{
-      background: isMySpeakTurn
-        ? 'linear-gradient(90deg, rgba(74,138,74,0.4), rgba(74,138,74,0.15))'
-        : 'linear-gradient(90deg, rgba(58,122,170,0.3), rgba(58,122,170,0.1))',
-      borderBottom: '1px solid var(--amber)',
-      padding: '5px 16px', color: 'var(--amber)',
-      fontSize: 12, fontWeight: 'bold',
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      gap: 12,
-      zIndex: 5,
-    }}>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <section
+      className={`multiplayer-speak-bar${isMySpeakTurn ? ' mine' : ''}`}
+      aria-label="多人发言权状态"
+    >
+      <span className="multiplayer-speak-status" role="status" aria-live="polite">
         {isMySpeakTurn ? `✦ ${statusText}` : statusText}
       </span>
-      <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <span className="multiplayer-speak-meta" role="group" aria-label="联机同步与发言者信息">
         <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
         {syncNotice && (
-          <span title="最近一次重连后的补漏刷新已完成" style={{
-            padding: '2px 7px',
-            border: '1px solid rgba(127,232,248,.5)',
-            color: 'var(--arcane-light)',
-            borderRadius: 3,
-            fontSize: 10,
-            fontFamily: 'var(--font-mono)',
-            whiteSpace: 'nowrap',
-          }}>
+          <span
+            title="最近一次重连后的补漏刷新已完成"
+            className="multiplayer-speak-chip sync"
+          >
             {syncNotice}
           </span>
         )}
-        <span title="你当前控制的角色" style={{
-          padding: '2px 7px',
-          border: '1px solid rgba(240,208,96,.45)',
-          color: 'var(--parchment)',
-          borderRadius: 3,
-          fontSize: 10,
-          fontFamily: 'var(--font-mono)',
-          whiteSpace: 'nowrap',
-        }}>
+        <span title="你当前控制的角色" className="multiplayer-speak-chip character">
           角色 {myCharacterName}
         </span>
         {currentSpeakerUid && (
-          <span title={speakerStatusTitle} style={{
-            padding: '2px 7px',
-            border: `1px solid ${speakerStatus.isOnline ? 'var(--emerald-light)' : 'var(--blood)'}`,
-            color: speakerStatus.isOnline ? 'var(--emerald-light)' : '#ffaaaa',
-            borderRadius: 3,
-            fontSize: 10,
-            fontFamily: 'var(--font-mono)',
-            whiteSpace: 'nowrap',
-          }}>
+          <span
+            title={speakerStatusTitle}
+            className={`multiplayer-speak-chip speaker${speakerStatus.isOnline ? ' online' : ' offline'}`}
+          >
             发言 {speakerIdentity} · {speakerStatus.label}
           </span>
         )}
         {takeoverHint && (
-          <span title={takeoverStatus.label} style={{
-            padding: '2px 7px',
-            border: `1px solid ${takeoverStatus.canTakeover && wsConnected ? 'var(--arcane-light)' : 'rgba(240,208,96,.45)'}`,
-            color: takeoverStatus.canTakeover && wsConnected ? 'var(--arcane-light)' : 'var(--amber)',
-            borderRadius: 3,
-            fontSize: 10,
-            fontFamily: 'var(--font-mono)',
-            whiteSpace: 'nowrap',
-          }}>
+          <span
+            title={takeoverStatus.label}
+            className={`multiplayer-speak-chip takeover${takeoverStatus.canTakeover && wsConnected ? ' ready' : ''}`}
+          >
             {takeoverHint}
           </span>
         )}
         {isMySpeakTurn && currentSpeakerUid && (
-          <button onClick={onSkipTurn}
+          <button
+            onClick={onSkipTurn}
             title="跳过本轮，不说话也不发起行动"
             disabled={!wsConnected}
-            style={{
-              padding: '3px 10px', fontSize: 11, background: 'transparent',
-              color: wsConnected ? 'var(--amber)' : 'var(--text-dim)',
-              border: `1px solid ${wsConnected ? 'var(--amber)' : 'var(--wood-light)'}`,
-              borderRadius: 3, cursor: wsConnected ? 'pointer' : 'not-allowed',
-              opacity: wsConnected ? 1 : 0.65,
-            }}>
+            className="multiplayer-speak-action skip"
+          >
             跳过本轮 ↷
           </button>
         )}
@@ -140,18 +106,13 @@ export default function MultiplayerSpeakBar({
             onClick={onAiTakeover}
             disabled={!canTakeover}
             title={takeoverTitle}
-            style={{
-              padding: '3px 10px', fontSize: 11, background: 'transparent',
-              color: canTakeover ? 'var(--arcane-light)' : 'var(--text-dim)',
-              border: `1px solid ${canTakeover ? 'var(--arcane-light)' : 'var(--wood-light)'}`,
-              borderRadius: 3, cursor: canTakeover ? 'pointer' : 'not-allowed',
-              opacity: canTakeover ? 1 : 0.65,
-            }}>
+            className={`multiplayer-speak-action takeover${canTakeover ? ' ready' : ''}`}
+          >
             ⚙ {takeoverButtonLabel}
           </button>
         )}
-        <span style={{ fontSize: 11, opacity: 0.8 }}>房间码 {room.room_code}</span>
+        <span className="multiplayer-speak-room-code">房间码 {room.room_code}</span>
       </span>
-    </div>
+    </section>
   )
 }

@@ -4109,6 +4109,93 @@ button.companion-signal-item:focus-visible {
 .multiplayer-party-location-input {
   width: 140px;
 }
+
+.multiplayer-speak-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 5;
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--amber);
+  background: linear-gradient(90deg, rgba(58,122,170,.3), rgba(58,122,170,.1));
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 700;
+}
+.multiplayer-speak-bar.mine {
+  background: linear-gradient(90deg, rgba(74,138,74,.4), rgba(74,138,74,.15));
+}
+.multiplayer-speak-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.multiplayer-speak-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.multiplayer-speak-chip {
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid rgba(240,208,96,.45);
+  border-radius: 3px;
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.multiplayer-speak-chip.sync {
+  border-color: rgba(127,232,248,.5);
+  color: var(--arcane-light);
+}
+.multiplayer-speak-chip.character {
+  color: var(--parchment);
+}
+.multiplayer-speak-chip.speaker.online {
+  border-color: var(--emerald-light);
+  color: var(--emerald-light);
+}
+.multiplayer-speak-chip.speaker.offline {
+  border-color: var(--blood);
+  color: #ffaaaa;
+}
+.multiplayer-speak-chip.takeover.ready {
+  border-color: var(--arcane-light);
+  color: var(--arcane-light);
+}
+.multiplayer-speak-action {
+  padding: 3px 10px;
+  border: 1px solid var(--wood-light);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: not-allowed;
+  opacity: .65;
+}
+.multiplayer-speak-action:not(:disabled) {
+  cursor: pointer;
+  opacity: 1;
+}
+.multiplayer-speak-action.skip:not(:disabled) {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.multiplayer-speak-action.takeover.ready:not(:disabled) {
+  border-color: var(--arcane-light);
+  color: var(--arcane-light);
+}
+.multiplayer-speak-room-code {
+  color: rgba(240,208,96,.8);
+  font-size: 11px;
+  white-space: nowrap;
+}
 @media (max-width: 720px) {
   .multiplayer-timeline-panel {
     margin-inline: 12px;
@@ -4130,6 +4217,24 @@ button.companion-signal-item:focus-visible {
   .multiplayer-party-location-input {
     width: 100%;
     min-width: 0;
+  }
+  .multiplayer-speak-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+    padding-inline: 12px;
+  }
+  .multiplayer-speak-status {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .multiplayer-speak-meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .multiplayer-speak-chip {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
