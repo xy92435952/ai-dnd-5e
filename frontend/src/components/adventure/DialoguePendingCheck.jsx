@@ -18,40 +18,48 @@ export default function DialoguePendingCheck({
   const canToggleBardic = Boolean(bardic) && !checkRolling && !disabled && typeof onToggleBardicInspiration === 'function'
 
   return (
-    <div style={{ padding: 16, textAlign: 'center' }}>
-      <div className="eyebrow" style={{ color: 'var(--arcane-light)' }}>🎲 {pendingCheck.check_type}检定 · DC {pendingCheck.dc}</div>
-      <p style={{ fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)', fontSize: 13, marginTop: 6 }}>
+    <section className="dialogue-pending-check" aria-label="待处理技能检定">
+      <div className="eyebrow dialogue-pending-check-title" role="status" aria-live="polite">
+        🎲 {pendingCheck.check_type}检定 · DC {pendingCheck.dc}
+      </div>
+      <p className="dialogue-pending-check-context">
         {pendingCheck.context || '请投骰决定结果'}
       </p>
-      {luckyRemaining > 0 && (
-        <button
-          type="button"
-          className={luckyActive ? 'btn-gold' : 'btn-ghost'}
-          aria-pressed={luckyActive}
-          onClick={onToggleLucky}
-          disabled={!canToggleLucky}
-          title={`Lucky points remaining: ${luckyRemaining}`}
-          style={{ marginTop: 8, marginRight: 8, padding: '8px 14px', letterSpacing: '.08em' }}
-        >
-          Lucky {luckyActive ? 'ON' : 'OFF'} · {luckyRemaining}
-        </button>
+      {(luckyRemaining > 0 || bardic) && (
+        <div className="dialogue-pending-check-modifiers" role="group" aria-label="检定资源修正">
+          {luckyRemaining > 0 && (
+            <button
+              type="button"
+              className={`${luckyActive ? 'btn-gold' : 'btn-ghost'} dialogue-pending-check-toggle`}
+              aria-pressed={luckyActive}
+              onClick={onToggleLucky}
+              disabled={!canToggleLucky}
+              title={`Lucky points remaining: ${luckyRemaining}`}
+            >
+              Lucky {luckyActive ? 'ON' : 'OFF'} · {luckyRemaining}
+            </button>
+          )}
+          {bardic && (
+            <button
+              type="button"
+              className={`${bardicActive ? 'btn-gold' : 'btn-ghost'} dialogue-pending-check-toggle`}
+              aria-pressed={bardicActive}
+              onClick={onToggleBardicInspiration}
+              disabled={!canToggleBardic}
+              title={`Bardic Inspiration ${bardic.die}`}
+            >
+              Bardic {bardicActive ? 'ON' : 'OFF'} · {bardic.die}
+            </button>
+          )}
+        </div>
       )}
-      {bardic && (
-        <button
-          type="button"
-          className={bardicActive ? 'btn-gold' : 'btn-ghost'}
-          aria-pressed={bardicActive}
-          onClick={onToggleBardicInspiration}
-          disabled={!canToggleBardic}
-          title={`Bardic Inspiration ${bardic.die}`}
-          style={{ marginTop: 8, marginRight: 8, padding: '8px 14px', letterSpacing: '.08em' }}
-        >
-          Bardic {bardicActive ? 'ON' : 'OFF'} · {bardic.die}
-        </button>
-      )}
-      <button className="btn-gold" onClick={onDiceRoll} disabled={checkRolling || disabled} style={{ marginTop: 10, padding: '10px 24px', letterSpacing: '.2em' }}>
+      <button
+        className="btn-gold dialogue-pending-check-roll"
+        onClick={onDiceRoll}
+        disabled={checkRolling || disabled}
+      >
         {checkRolling ? '✦ 骰子翻滚中… ✦' : disabled ? '✦ 等待同步恢复 ✦' : '✦ 投掷 d20 ✦'}
       </button>
-    </div>
+    </section>
   )
 }

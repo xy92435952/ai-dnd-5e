@@ -22,6 +22,9 @@ describe('DialoguePendingCheck', () => {
       player: { class_resources: { lucky_points_remaining: 2 } },
     })
 
+    expect(screen.getByRole('region', { name: '待处理技能检定' })).toHaveTextContent('运动检定 · DC 15')
+    expect(screen.getByRole('status')).toHaveTextContent('运动检定 · DC 15')
+    expect(screen.getByRole('group', { name: '检定资源修正' })).toBeInTheDocument()
     const lucky = screen.getByRole('button', { name: 'Lucky ON · 2' })
     expect(lucky).toHaveAttribute('aria-pressed', 'true')
 
@@ -49,5 +52,14 @@ describe('DialoguePendingCheck', () => {
 
     fireEvent.click(bardic)
     expect(props.onToggleBardicInspiration).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the roll action while waiting for sync recovery', () => {
+    const props = renderPendingCheck({ disabled: true })
+
+    const roll = screen.getByRole('button', { name: '✦ 等待同步恢复 ✦' })
+    expect(roll).toBeDisabled()
+    fireEvent.click(roll)
+    expect(props.onDiceRoll).not.toHaveBeenCalled()
   })
 })

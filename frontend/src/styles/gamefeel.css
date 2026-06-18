@@ -1681,6 +1681,41 @@
   overflow-wrap: anywhere;
 }
 
+.dialogue-pending-check {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.dialogue-pending-check-title {
+  color: var(--arcane-light);
+}
+.dialogue-pending-check-context {
+  margin: 0;
+  color: var(--parchment-dark);
+  font-family: var(--font-script);
+  font-size: 13px;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.dialogue-pending-check-modifiers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dialogue-pending-check-toggle {
+  padding: 8px 14px;
+  letter-spacing: .08em;
+}
+.dialogue-pending-check-roll {
+  margin-top: 2px;
+  padding: 10px 24px;
+  letter-spacing: .2em;
+}
+
 .quest-recent-list {
   display: flex;
   gap: 5px;
