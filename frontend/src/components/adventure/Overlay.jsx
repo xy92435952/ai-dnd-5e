@@ -7,22 +7,14 @@
 export default function Overlay({ children, onClose }) {
   return (
     <div
+      className="adventure-overlay-backdrop"
+      role="presentation"
       onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 500,
-        background: 'rgba(0,0,0,0.75)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="panel"
-        style={{
-          padding: 24,
-          width: 500, maxWidth: '90vw', maxHeight: '85vh',
-          display: 'flex', flexDirection: 'column', gap: 16,
-          borderColor: 'var(--bark-light)',
-        }}
+        className="panel adventure-overlay-panel"
+        role="document"
       >
         {children}
       </div>

@@ -6,6 +6,28 @@
 /* ══════════════════════ 冒险 · CRPG 对话 ══════════════════════ */
 
 /* 剧场式叙事遮罩：上下黑边 */
+.adventure-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.75);
+}
+.adventure-overlay-panel {
+  display: flex;
+  width: 500px;
+  max-width: min(90vw, 100%);
+  max-height: 85vh;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border-color: var(--bark-light);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
 /* Home hub */
 .home-page {
   min-height: 100vh;
