@@ -4483,11 +4483,36 @@ button.companion-signal-item:focus-visible {
   border-radius: 2px;
   box-shadow: inset 0 1px 0 rgba(240,208,96,.12);
 }
-.party-slot {
+.party-slot-item {
   position: relative;
-  width: 52px; height: 52px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
+}
+.party-slot {
+  position: absolute;
+  inset: 0;
+  width: 52px; height: 52px;
+  pointer-events: none;
+}
+.party-slot-action {
+  position: absolute;
+  inset: 0;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   cursor: pointer;
+  color: transparent;
+}
+.party-slot-action:disabled {
+  cursor: default;
+}
+.party-slot-action:focus-visible {
+  outline: 2px solid var(--arcane-light, #5fd8e8);
+  outline-offset: 3px;
 }
 .party-slot .frame {
   position: absolute; inset: 0;
@@ -4504,6 +4529,23 @@ button.companion-signal-item:focus-visible {
     0 0 18px -2px var(--arcane-light, #5fd8e8);
   animation: bg3ActivePulse 2s ease-in-out infinite;
 }
+.party-slot-avatar {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.party-slot-hp-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .party-slot .hp-micro {
   position: absolute;
   left: -2px; right: -2px; bottom: -6px;
@@ -4513,6 +4555,7 @@ button.companion-signal-item:focus-visible {
 }
 .party-slot .hp-micro .fill {
   height: 100%;
+  width: var(--hp-pct, 0%);
   background: linear-gradient(90deg, #6ac484, #2a6a3a);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
 }
