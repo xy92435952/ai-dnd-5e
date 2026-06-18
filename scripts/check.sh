@@ -43,6 +43,26 @@ run_npm() {
   fi
 }
 
+stage7_evidence_files=""
+
+add_stage7_evidence_file() {
+  if [ -n "$1" ]; then
+    if [ -n "$stage7_evidence_files" ]; then
+      stage7_evidence_files="$stage7_evidence_files $1"
+    else
+      stage7_evidence_files="$1"
+    fi
+  fi
+}
+
+feather_fall_artifact_tag() {
+  if [ -n "${FEATHER_FALL_SMOKE_ARTIFACT_TAG:-}" ]; then
+    printf '%s' "$FEATHER_FALL_SMOKE_ARTIFACT_TAG"
+  else
+    date +%Y%m%d
+  fi
+}
+
 echo "== Backend tests =="
 BACKEND_TEST_TARGETS=${CHECK_BACKEND_TARGETS:-backend/tests}
 (cd "$ROOT_DIR" && {
@@ -65,12 +85,15 @@ else
 fi
 
 if [ "${RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE:-0}" = "1" ]; then
+  FEATHER_FALL_ARTIFACT_TAG="$(feather_fall_artifact_tag)"
   echo "== Stage 7 Feather Fall browser smoke: accept =="
   (cd "$ROOT_DIR" && node scripts/feather_fall_adventure_browser_smoke.mjs)
+  add_stage7_evidence_file "artifacts/browser-feather-fall-adventure-manifest-${FEATHER_FALL_ARTIFACT_TAG}.json"
 
   if [ "${RUN_STAGE7_FEATHER_FALL_DECLINE_SMOKE:-0}" = "1" ]; then
     echo "== Stage 7 Feather Fall browser smoke: decline =="
     (cd "$ROOT_DIR" && node scripts/feather_fall_adventure_browser_smoke.mjs --decision decline)
+    add_stage7_evidence_file "artifacts/browser-feather-fall-adventure-decline-manifest-${FEATHER_FALL_ARTIFACT_TAG}.json"
   else
     echo "== Stage 7 Feather Fall decline browser smoke skipped =="
     echo "Set RUN_STAGE7_FEATHER_FALL_DECLINE_SMOKE=1 with RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE=1 to run both accept and decline."
@@ -102,6 +125,7 @@ if [ "${RUN_MULTIPLAYER_LOADTEST:-0}" = "1" ]; then
   fi
   if [ -n "${LOADTEST_RESULT_JSON:-}" ]; then
     set -- "$@" --result-json "$LOADTEST_RESULT_JSON"
+    add_stage7_evidence_file "$LOADTEST_RESULT_JSON"
   fi
 
   (cd "$ROOT_DIR" && run_backend_python scripts/multiplayer_ws_loadtest.py "$@")
@@ -113,12 +137,14 @@ else
 fi
 
 if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
-  if [ -z "${STAGE7_EVIDENCE_FILES:-}" ]; then
+  stage7_evidence_input=${STAGE7_EVIDENCE_FILES:-$stage7_evidence_files}
+  if [ -z "$stage7_evidence_input" ]; then
     echo "RUN_STAGE7_EVIDENCE_GATE=1 requires STAGE7_EVIDENCE_FILES" >&2
+    echo "Or run an evidence-producing smoke in the same check script." >&2
     exit 1
   fi
   echo "== Stage 7 evidence artifact gate =="
-  set -- $STAGE7_EVIDENCE_FILES
+  set -- $stage7_evidence_input
   if [ "${STAGE7_EVIDENCE_NO_FILE_CHECK:-0}" = "1" ]; then
     set -- --no-file-check "$@"
   fi

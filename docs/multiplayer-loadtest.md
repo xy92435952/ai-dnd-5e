@@ -66,8 +66,8 @@ git and can be uploaded separately by CI or archived for a release checklist.
 Verify the result before release handoff with
 `node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json`.
 To generate and verify the JSON in one `scripts/check.sh` run, also set
-`RUN_STAGE7_EVIDENCE_GATE=1` and set `STAGE7_EVIDENCE_FILES` to the same
-`LOADTEST_RESULT_JSON` path.
+`RUN_STAGE7_EVIDENCE_GATE=1`; the check script adds `LOADTEST_RESULT_JSON` to
+the evidence gate automatically.
 
 The default test shape is fixed on purpose:
 
