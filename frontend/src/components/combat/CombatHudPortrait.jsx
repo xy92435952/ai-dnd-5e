@@ -4,65 +4,78 @@ import { buildConditionImpactTags, buildConditionSummaries } from '../../utils/c
 
 export default function CombatHudPortrait({ session, character = null, playerClass, playerSubclass, playerLevel, turnState }) {
   const player = character || session?.player
-  const hpMax = player?.hp_max ?? player?.derived?.hp_max ?? 1
+  const hpMax = Math.max(1, player?.hp_max ?? player?.derived?.hp_max ?? 1)
+  const hpCurrent = player?.hp_current ?? 0
+  const hpRatio = hpCurrent / hpMax
+  const hpSegments = 12
+  const hpMeterValue = Math.max(0, Math.min(hpMax, hpCurrent))
+  const hpFilledSegments = Math.max(0, Math.min(hpSegments, Math.round((hpMeterValue / hpMax) * hpSegments)))
+  const movementMax = turnState?.movement_max ?? 6
+  const movementRemaining = Math.max(0, movementMax - (turnState?.movement_used ?? 0))
+  const playerName = player?.name || '玩家'
+  const classLabel = `${playerClass || '?'} ${playerSubclass ? `· ${playerSubclass} ` : ''}· Lv ${playerLevel ?? '?'}`
+  const initiative = player?.derived?.initiative ?? 0
   const weaponResource = getEquippedWeaponResourceSummary(player)
   const conditionSummaries = buildConditionSummaries(player?.conditions || [], player?.condition_durations || {})
   const conditionImpactTags = buildConditionImpactTags(player?.conditions || [], player?.condition_durations || {})
 
   return (
-    <div className="hud-portrait">
-      <div className="big" style={{ position: 'relative' }}>
-        {(player?.name || 'P').slice(0, 1)}
-        {(() => {
-          const hp = player?.hp_current ?? 0
-          return hp > 0 && hp / hpMax <= 0.25 ? <span className="avatar-crack" /> : null
-        })()}
+    <section className="hud-portrait" aria-label={`当前战斗角色 ${playerName}`}>
+      <div className="hud-avatar big" aria-hidden="true">
+        {playerName.slice(0, 1)}
+        {hpCurrent > 0 && hpRatio <= 0.25 ? <span className="avatar-crack" /> : null}
       </div>
       <div className="stats">
-        <div className="name">{player?.name || '玩家'}</div>
-        <div className="sub">{playerClass || '?'} {playerSubclass ? `· ${playerSubclass} ` : ''}· Lv {playerLevel}</div>
-        <div className={`hp-segmented ${(() => {
-          const hp = player?.hp_current ?? 0
-          return hp / hpMax < .34 ? 'low' : hp / hpMax < .67 ? 'mid' : ''
-        })()}`}>
-          {(() => {
-            const hp = player?.hp_current ?? 0
-            const segs = 12
-            const filled = Math.round((hp / hpMax) * segs)
-            return Array.from({ length: segs }).map((_, i) => (
-              <div key={i} className={`seg ${i >= filled ? 'empty' : ''}`} />
-            ))
-          })()}
+        <div className="name">{playerName}</div>
+        <div className="sub">{classLabel}</div>
+        <div
+          className={`hp-segmented ${hpRatio < .34 ? 'low' : hpRatio < .67 ? 'mid' : ''}`}
+          role="meter"
+          aria-label={`生命值 ${hpCurrent}/${hpMax}`}
+          aria-valuemin={0}
+          aria-valuemax={hpMax}
+          aria-valuenow={hpMeterValue}
+        >
+          {Array.from({ length: hpSegments }).map((_, i) => (
+            <div key={i} className={`seg ${i >= hpFilledSegments ? 'empty' : ''}`} />
+          ))}
         </div>
         <div className="hp-text">
           <span>
-            <span className="cur">{player?.hp_current ?? 0}</span> / {hpMax}
+            <span className="cur">{hpCurrent}</span> / {hpMax}
             {player?.wild_shape_hp > 0 ? ` WS ${player.wild_shape_hp}` : ''}
             {player?.temporary_hp > 0 ? ` +${player.temporary_hp}` : ''}
           </span>
-          <span>移动 <b style={{ color: 'var(--arcane-light)' }}>{(turnState?.movement_max ?? 6) - (turnState?.movement_used ?? 0)}/{turnState?.movement_max ?? 6}</b></span>
+          <span className="hud-movement">移动 <b>{movementRemaining}/{movementMax}</b></span>
         </div>
-        <div className="stat-line">
-          <span>AC <span className="v">{player?.derived?.ac ?? player?.ac ?? 10}</span></span>
-          <span>先攻 <span className="v">{(() => { const m = player?.derived?.initiative ?? 0; return (m >= 0 ? '+' : '') + m })()}</span></span>
+        <div className="stat-line" role="list" aria-label="角色战斗数据">
+          <span role="listitem">AC <span className="v">{player?.derived?.ac ?? player?.ac ?? 10}</span></span>
+          <span role="listitem">先攻 <span className="v">{(initiative >= 0 ? '+' : '') + initiative}</span></span>
           {player?.derived?.spell_save_dc && (
-            <span>DC <span className="v">{player.derived.spell_save_dc}</span></span>
+            <span role="listitem">DC <span className="v">{player.derived.spell_save_dc}</span></span>
           )}
         </div>
         {weaponResource && (
-          <div className="stat-line" style={{ marginTop: 2, minWidth: 0 }}>
+          <div className="stat-line hud-resource-line">
             <span
+              className="hud-resource"
               title={weaponResource.label}
-              style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              aria-label={`武器资源 ${weaponResource.label} ${weaponResource.value}`}
             >
               {weaponResource.label} <span className="v">{weaponResource.value}</span>
             </span>
           </div>
         )}
         {conditionSummaries.length > 0 && (
-          <div className="conditions" aria-label="Active condition rules">
+          <div className="conditions" role="list" aria-label="当前状态规则">
             {conditionSummaries.slice(0, 6).map(condition => (
-              <span key={condition.key} className={`cond-icon ${condition.tone}`} title={condition.title}>
+              <span
+                key={condition.key}
+                className={`cond-icon ${condition.tone}`}
+                title={condition.title}
+                role="listitem"
+                aria-label={condition.title}
+              >
                 {condition.label}
                 {condition.duration ? <b>{condition.duration}</b> : null}
               </span>
@@ -70,15 +83,21 @@ export default function CombatHudPortrait({ session, character = null, playerCla
           </div>
         )}
         {conditionImpactTags.length > 0 && (
-          <div className="condition-impact-tags" aria-label="Active condition impacts">
+          <div className="condition-impact-tags" role="list" aria-label="当前状态影响">
             {conditionImpactTags.map(tag => (
-              <span key={tag.key} className={tag.tone || ''} title={tag.title}>
+              <span
+                key={tag.key}
+                className={tag.tone || ''}
+                title={tag.title}
+                role="listitem"
+                aria-label={tag.title}
+              >
                 {tag.label}
               </span>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }
