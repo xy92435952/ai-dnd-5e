@@ -208,110 +208,80 @@ export default function DialogueHistoryView({ session, player, onBack }) {
   const scrollToLatest = () => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }
+  const filterOptions = [
+    { k: 'all',    n: '全部',       c: counts.all },
+    { k: 'npc',    n: '仅 NPC 对话', c: counts.npc },
+    { k: 'player', n: '仅玩家发言',   c: counts.player },
+    { k: 'roll',   n: '仅检定结果',   c: counts.roll },
+    { k: 'narr',   n: '仅旁白',      c: counts.narr },
+  ]
 
   return (
-    <div style={{
-      height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      background: 'linear-gradient(180deg, #0a0604 0%, #06040a 100%)',
-    }}>
+    <div className="dialogue-history-view">
       {/* 顶部返回条 */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 20px',
-        background: 'linear-gradient(180deg, rgba(16,10,4,.95), rgba(10,6,2,.85))',
-        borderBottom: '1px solid rgba(138,90,24,.5)',
-        boxShadow: 'inset 0 1px 0 rgba(240,208,96,.15), 0 4px 10px -4px rgba(0,0,0,.8)',
-        zIndex: 5, flexShrink: 0,
-      }}>
+      <div className="dialogue-history-topbar">
         <button
-          className="btn-ghost"
-          style={{ padding: '6px 14px', fontSize: 11, borderColor: 'rgba(127,232,248,.6)', color: 'var(--arcane-light)' }}
+          className="btn-ghost dialogue-history-back"
           onClick={onBack}
+          aria-label="返回对话"
         >
           ◀ 返回对话
         </button>
-        <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9,
-            color: 'var(--amber)', letterSpacing: '.35em', opacity: .7,
-          }}>DIALOGUE LOG</div>
-          <div className="display-title" style={{
-            fontSize: 18, letterSpacing: '.12em', color: 'var(--parchment)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
+        <div className="dialogue-history-title">
+          <div>DIALOGUE LOG</div>
+          <h2 className="display-title">
             对话史册 · {session?.module_name || '冒险'}
-          </div>
+          </h2>
         </div>
-        <div style={{ width: 80 }} />
+        <div className="dialogue-history-topbar-spacer" />
       </div>
 
       {/* 章节目录 + 内容 */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '180px 1fr', overflow: 'hidden' }}>
+      <div className="dialogue-history-layout">
 
         {/* 左 · 章节目录 + 筛选 */}
-        <div style={{
-          borderRight: '1px solid rgba(138,90,24,.35)',
-          background: 'rgba(10,6,2,.5)',
-          padding: '16px 10px',
-          overflow: 'auto',
-        }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9,
-            color: 'var(--parchment-dark)', letterSpacing: '.25em',
-            textTransform: 'uppercase', marginBottom: 10, padding: '0 6px',
-          }}>章节目录</div>
+        <aside className="dialogue-history-sidebar" aria-label="对话史册导航">
+          <div className="history-section-label">章节目录</div>
 
           {chapters.map((ch, i) => (
             <div key={i} className={`chapter-nav ${ch.cur ? 'current' : ''}`}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{
-                  fontFamily: 'var(--font-display)', fontSize: 12,
-                  color: ch.cur ? 'var(--amber)' : 'var(--parchment-dark)',
-                  letterSpacing: '.15em',
-                }}>{ch.i}</span>
+              <div className="chapter-nav-index-row">
+                <span>{ch.i}</span>
               </div>
-              <div style={{
-                fontSize: 12,
-                color: ch.cur ? 'var(--parchment)' : 'rgba(232,200,160,.6)',
-                marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>{ch.title}</div>
+              <div className="chapter-nav-title">{ch.title}</div>
             </div>
           ))}
 
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9,
-            color: 'var(--parchment-dark)', letterSpacing: '.25em',
-            textTransform: 'uppercase', marginTop: 24, marginBottom: 10, padding: '0 6px',
-          }}>筛选</div>
+          <div className="history-section-label filter">筛选</div>
 
-          {[
-            { k: 'all',    n: '全部',       c: counts.all },
-            { k: 'npc',    n: '仅 NPC 对话', c: counts.npc },
-            { k: 'player', n: '仅玩家发言',   c: counts.player },
-            { k: 'roll',   n: '仅检定结果',   c: counts.roll },
-            { k: 'narr',   n: '仅旁白',      c: counts.narr },
-          ].map(f => (
-            <div
+          <div className="history-filter-list" role="group" aria-label="筛选对话记录">
+            {filterOptions.map(f => (
+              <button
               key={f.k}
               className={`filter-pill ${filter === f.k ? 'active' : ''}`}
               onClick={() => setFilter(f.k)}
+              aria-pressed={filter === f.k}
             >
               <span>{f.n}</span>
               <span className="count">{f.c}</span>
-            </div>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        </aside>
 
         {/* 右 · 滚动流 */}
         <div
           ref={scrollRef}
           onScroll={handleScroll}
           className="adv-history-scroll"
-          style={{ overflow: 'auto', position: 'relative' }}
+          aria-label="对话记录"
         >
-          <div className="dialogue-history" style={{
-            padding: '20px 40px 80px', maxWidth: 900, margin: '0 auto', width: '100%',
-          }}>
+          <div className="dialogue-history-status" role="status" aria-live="polite">
+            <span>{filterOptions.find(item => item.k === filter)?.n || '全部'}</span>
+            <strong>{filteredEntries.length}</strong>
+            <b>条记录</b>
+          </div>
+          <div className="dialogue-history">
             {/* 首章分隔 */}
             <div className="hist-divider">
               <span className="ornament">❦</span>
@@ -320,11 +290,7 @@ export default function DialogueHistoryView({ session, player, onBack }) {
             </div>
 
             {filteredEntries.length === 0 && (
-              <p style={{
-                fontFamily: 'var(--font-script)', fontStyle: 'italic',
-                color: 'var(--parchment-dark)', textAlign: 'center',
-                padding: '40px 0',
-              }}>
+              <p className="dialogue-history-empty">
                 {filter === 'all' ? '还没有任何对话记录' : '当前筛选下没有匹配的记录'}
               </p>
             )}
@@ -396,14 +362,7 @@ export default function DialogueHistoryView({ session, player, onBack }) {
                   <span className="label">当前 · 对话进行中</span>
                   <span className="dot" />
                 </div>
-                <div style={{
-                  padding: '14px 18px',
-                  background: 'linear-gradient(180deg, rgba(40,26,14,.6), rgba(26,18,8,.4))',
-                  border: '1px dashed rgba(138,90,24,.5)',
-                  fontFamily: 'var(--font-script)', fontStyle: 'italic',
-                  color: 'var(--parchment-dark)', fontSize: 13, lineHeight: 1.7,
-                  textAlign: 'center',
-                }}>
+                <div className="dialogue-history-current-note">
                   等待你的回应…… 点击"返回对话"继续。
                 </div>
               </>

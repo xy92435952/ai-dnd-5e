@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
-import { logsToHistoryEntries } from '../DialogueHistoryView'
+import DialogueHistoryView, { logsToHistoryEntries } from '../DialogueHistoryView'
 
 describe('DialogueHistoryView logsToHistoryEntries', () => {
   it('shows Feather Fall reaction dice from restored DM logs', () => {
@@ -93,5 +94,83 @@ describe('DialogueHistoryView logsToHistoryEntries', () => {
       rawText: 'Feather Fall reaction：prevented 7 damage · spent 1st slot',
       result: 'neutral',
     })
+  })
+})
+
+describe('DialogueHistoryView', () => {
+  const session = {
+    module_name: 'Lost Mine',
+    save_name: 'Session One',
+    current_scene: 'The goblin trail bends north.',
+    campaign_state: {
+      completed_scenes: ['Road Ambush'],
+    },
+    logs: [
+      { id: 'dm-1', role: 'dm', log_type: 'narrative', content: 'The woods grow quiet.' },
+      { id: 'player-1', role: 'player', log_type: 'narrative', content: 'I check the wagon tracks.' },
+      { id: 'comp-1', role: 'companion_Mira', log_type: 'companion', content: 'I will watch the ridge.' },
+      {
+        id: 'dice-1',
+        role: 'dice',
+        log_type: 'dice',
+        content: '',
+        dice_result: {
+          label: 'Survival check',
+          d20: 12,
+          modifier: 3,
+          total: 15,
+          dc: 13,
+          success: true,
+        },
+      },
+    ],
+  }
+
+  it('renders the history shell with labelled navigation and filters', () => {
+    const onBack = vi.fn()
+    render(<DialogueHistoryView session={session} player={{ name: 'Aria' }} onBack={onBack} />)
+
+    expect(screen.getByRole('button', { name: '返回对话' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回对话' }))
+    expect(onBack).toHaveBeenCalledTimes(1)
+
+    expect(screen.getByRole('heading', { name: '对话史册 · Lost Mine' })).toBeInTheDocument()
+    const nav = screen.getByLabelText('对话史册导航')
+    expect(within(nav).getByText('章节目录')).toBeInTheDocument()
+    expect(within(nav).getByText('Road Ambush')).toBeInTheDocument()
+    expect(within(nav).getByText('The goblin trail ben')).toBeInTheDocument()
+
+    const filters = within(nav).getByRole('group', { name: '筛选对话记录' })
+    expect(within(filters).getByRole('button', { name: /全部/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(filters).getByRole('button', { name: /仅玩家发言/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('status')).toHaveTextContent('全部')
+    expect(screen.getByRole('status')).toHaveTextContent('4')
+    expect(screen.getByText('The woods grow quiet.')).toBeInTheDocument()
+    expect(screen.getByText('I check the wagon tracks.')).toBeInTheDocument()
+    expect(screen.getByText('I will watch the ridge.')).toBeInTheDocument()
+  })
+
+  it('updates the live count and empty state when filters change', () => {
+    render(<DialogueHistoryView session={session} player={{ name: 'Aria' }} onBack={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /仅检定结果/ }))
+    expect(screen.getByRole('button', { name: /仅检定结果/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('仅检定结果')
+    expect(screen.getByRole('status')).toHaveTextContent('1')
+    expect(screen.getByText('Survival check · DC 13')).toBeInTheDocument()
+    expect(screen.queryByText('The woods grow quiet.')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /仅玩家发言/ }))
+    expect(screen.getByRole('status')).toHaveTextContent('仅玩家发言')
+    expect(screen.getByText('I check the wagon tracks.')).toBeInTheDocument()
+  })
+
+  it('shows an empty state for filters with no matching entries', () => {
+    const emptySession = { ...session, logs: [{ id: 'dm-only', role: 'dm', content: 'Only narration.' }] }
+    render(<DialogueHistoryView session={emptySession} player={{ name: 'Aria' }} onBack={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /仅玩家发言/ }))
+    expect(screen.getByRole('status')).toHaveTextContent('0')
+    expect(screen.getByText('当前筛选下没有匹配的记录')).toBeInTheDocument()
   })
 })
