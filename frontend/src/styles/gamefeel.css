@@ -1838,6 +1838,96 @@ button.companion-signal-item:focus-visible {
 .adventure-quest-hud > * {
   min-width: 0;
 }
+.quest-hud-label {
+  flex: 0 0 auto;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.quest-hud-label.target,
+.quest-hud-label.recent {
+  color: var(--amber);
+  letter-spacing: .2em;
+}
+.quest-hud-label.map,
+.quest-hud-label.bonds {
+  color: var(--emerald-light);
+}
+.quest-hud-label.clues {
+  color: var(--arcane-light);
+  letter-spacing: .2em;
+}
+.quest-hud-separator {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(138,90,24,.3);
+}
+.quest-title {
+  color: var(--parchment-dark);
+  font-family: var(--font-body);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quest-title.active {
+  color: var(--blood-light);
+}
+.quest-location-name {
+  max-width: 180px;
+  color: var(--parchment-light);
+  font-family: var(--font-body);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quest-location-count {
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.quest-clue-list,
+.quest-memory-list {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.quest-clue-item,
+.quest-memory-item {
+  max-width: 220px;
+  color: var(--parchment-dark);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quest-clue-item {
+  font-style: italic;
+}
+.quest-clue-item.new,
+.quest-memory-item.decision {
+  color: var(--amber);
+}
+.quest-memory-item.npc {
+  color: var(--parchment-light);
+}
+.quest-new-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .15em;
+}
 .quest-status-pill {
   flex: 0 0 auto;
   max-width: 56px;
@@ -2005,8 +2095,18 @@ button.companion-signal-item:focus-visible {
     max-width: 100%;
   }
   .quest-recent-item,
-  .companion-signal-item {
+  .companion-signal-item,
+  .quest-clue-item,
+  .quest-memory-item,
+  .quest-location-name {
     max-width: 100%;
+  }
+  .quest-clue-list,
+  .quest-memory-list {
+    flex-basis: 100%;
+  }
+  .quest-hud-separator {
+    display: none;
   }
 }
 

@@ -67,7 +67,8 @@ describe('AdventureBottomHud', () => {
 
     const hud = screen.getByRole('region', { name: 'Adventure status' })
     expect(hud).toHaveClass('adventure-bottom-hud')
-    expect(screen.getByRole('group', { name: 'Quest and location status' })).toHaveClass('adventure-quest-hud')
+    expect(screen.getByRole('region', { name: '冒险目标与线索状态' })).toHaveClass('adventure-quest-hud')
+    expect(screen.getByRole('list', { name: '公开线索' })).toHaveTextContent('Wagon ruts turn toward the mine')
 
     const tools = screen.getByLabelText('Adventure tools')
     expect(tools).toHaveClass('adventure-bottom-actions')

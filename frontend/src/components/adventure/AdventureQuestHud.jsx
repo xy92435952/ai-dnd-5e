@@ -105,11 +105,11 @@ export default function AdventureQuestHud({
       ].filter(Boolean).join('\n')
     : ''
   return (
-    <div className="adventure-quest-hud" role="group" aria-label="Quest and location status">
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>◆ 目标</span>
+    <section className="adventure-quest-hud" aria-label="冒险目标与线索状态">
+      <span className="quest-hud-label target">◆ 目标</span>
       <span
         title={questTitle}
-        style={{ color: questLine ? 'var(--blood-light)' : 'var(--parchment-dark)', fontSize: 12, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        className={`quest-title ${questLine ? 'active' : 'empty'}`}
       >
         {questLine?.quest || '继续冒险'}
       </span>
@@ -135,26 +135,18 @@ export default function AdventureQuestHud({
       )}
       {locationSummary && (
         <>
-          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--emerald-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>◇ 地图</span>
+          <span className="quest-hud-separator" aria-hidden="true" />
+          <span className="quest-hud-label map">◇ 地图</span>
           <span
             title={[
               locationSummary.currentDescription,
               locationSummary.linkedNames.length ? `相邻：${locationSummary.linkedNames.join(' / ')}` : '',
             ].filter(Boolean).join('\n')}
-            style={{
-              color: 'var(--parchment-light)',
-              fontSize: 11,
-              fontFamily: 'var(--font-body)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: 180,
-            }}
+            className="quest-location-name"
           >
             {locationSummary.currentName}
           </span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', whiteSpace: 'nowrap' }}>
+          <span className="quest-location-count" aria-label="地图探索进度">
             {locationSummary.visitedCount}/{locationSummary.totalCount}
           </span>
           {locationSummary.encounterCount > 0 && (
@@ -167,18 +159,14 @@ export default function AdventureQuestHud({
           )}
         </>
       )}
-      <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--arcane-light)', letterSpacing: '.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>❖ 线索 {visibleClues.length}</span>
-      <div style={{ display: 'flex', gap: 6, overflow: 'hidden', minWidth: 0 }}>
+      <span className="quest-hud-separator" aria-hidden="true" />
+      <span className="quest-hud-label clues">❖ 线索 {visibleClues.length}</span>
+      <div className="quest-clue-list" role="list" aria-label="公开线索">
         {visibleClues.map((c, i) => (
-          <span key={i} style={{
-            fontSize: 11,
-            color: c.is_new ? 'var(--amber)' : 'var(--parchment-dark)',
-            fontStyle: 'italic', whiteSpace: 'nowrap',
-          }}>
+          <span key={i} className={`quest-clue-item${c.is_new ? ' new' : ''}`} role="listitem">
             {i > 0 ? '· ' : ''}{c.text}
             {c.is_new && (
-              <span style={{ fontSize: 8, color: 'var(--amber)', border: '1px solid var(--amber)', padding: '0 5px', letterSpacing: '.15em', fontFamily: 'var(--font-mono)', marginLeft: 4 }}>
+              <span className="quest-new-badge">
                 NEW
               </span>
             )}
@@ -187,27 +175,16 @@ export default function AdventureQuestHud({
       </div>
       {(npcUpdates.length > 0 || keyDecisions.length > 0) && (
         <>
-          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--parchment-dark)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>记忆</span>
-          <div style={{ display: 'flex', gap: 6, overflow: 'hidden', minWidth: 0 }}>
+          <span className="quest-hud-separator" aria-hidden="true" />
+          <span className="quest-hud-label memory">记忆</span>
+          <div className="quest-memory-list" role="list" aria-label="重要记忆">
             {npcUpdates.map(npc => (
-              <span key={`npc-${npc.name}`} title={(npc.keyFacts || []).join('；')} style={{
-                fontSize: 11,
-                color: 'var(--parchment-light)',
-                whiteSpace: 'nowrap',
-              }}>
+              <span key={`npc-${npc.name}`} title={(npc.keyFacts || []).join('；')} className="quest-memory-item npc" role="listitem">
                 {npc.name}:{npc.relationship}
               </span>
             ))}
             {keyDecisions.slice(-1).map(decision => (
-              <span key={`decision-${decision}`} title={decision} style={{
-                fontSize: 11,
-                color: 'var(--amber)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: 180,
-              }}>
+              <span key={`decision-${decision}`} title={decision} className="quest-memory-item decision" role="listitem">
                 · {decision}
               </span>
             ))}
@@ -216,9 +193,9 @@ export default function AdventureQuestHud({
       )}
       {companionSignals.length > 0 && (
         <>
-          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--emerald-light)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>羁绊</span>
-          <div className="companion-signal-list">
+          <span className="quest-hud-separator" aria-hidden="true" />
+          <span className="quest-hud-label bonds">羁绊</span>
+          <div className="companion-signal-list" role="group" aria-label="队友羁绊信号">
             {companionSignals.map(signal => (
               <CompanionSignalChip
                 key={signal.id}
@@ -231,9 +208,9 @@ export default function AdventureQuestHud({
       )}
       {visibleRecentConsequences.length > 0 && (
         <>
-          <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(138,90,24,.3)' }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.18em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>最近</span>
-          <div className="quest-recent-list">
+          <span className="quest-hud-separator" aria-hidden="true" />
+          <span className="quest-hud-label recent">最近</span>
+          <div className="quest-recent-list" role="list" aria-label="最近战役变化">
             {visibleRecentConsequences.map((item, index) => {
               const type = item.type || 'note'
               const typeLabel = RECENT_TYPE_LABELS[type] || '记录'
@@ -243,6 +220,7 @@ export default function AdventureQuestHud({
                   key={`${type}-${item.label}-${index}`}
                   className={`quest-recent-item ${type}`}
                   title={`${typeLabel} ${item.label}${detail}`}
+                  role="listitem"
                 >
                   <b>{typeLabel}</b>{item.label}{detail}
                 </span>
@@ -251,6 +229,6 @@ export default function AdventureQuestHud({
           </div>
         </>
       )}
-    </div>
+    </section>
   )
 }

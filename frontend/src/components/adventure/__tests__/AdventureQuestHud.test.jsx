@@ -59,6 +59,11 @@ describe('AdventureQuestHud', () => {
       />,
     )
 
+    expect(screen.getByRole('region', { name: '冒险目标与线索状态' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: '公开线索' })).toHaveTextContent('暗门在井底')
+    expect(screen.getByRole('group', { name: '队友羁绊信号' })).toHaveTextContent('艾琳')
+    expect(screen.getByRole('list', { name: '最近战役变化' })).toHaveTextContent('寻找矿工')
+    expect(screen.getByLabelText('地图探索进度')).toHaveTextContent('2/2')
     expect(screen.getByText('调查暗门')).toBeInTheDocument()
     expect(screen.getByText('进行中')).toHaveClass('quest-status-pill', 'active')
     expect(screen.getByText('井底调查线')).toHaveClass('quest-branch-pill')
@@ -88,6 +93,24 @@ describe('AdventureQuestHud', () => {
     expect(within(recent).queryByText(/隐藏金库/)).not.toBeInTheDocument()
     expect(within(recent).getByText('决定')).toBeInTheDocument()
     expect(within(recent).getByText(/信任铁匠：关键决定/)).toHaveClass('quest-recent-item', 'decision')
+  })
+
+  it('labels memory chips when NPC updates and key decisions are present', () => {
+    render(
+      <AdventureQuestHud
+        questLine={null}
+        clues={[]}
+        npcUpdates={[
+          { name: '铁匠格雷', relationship: '盟友', keyFacts: ['交出了旧钥匙'] },
+        ]}
+        keyDecisions={['信任铁匠格雷']}
+      />,
+    )
+
+    const memory = screen.getByRole('list', { name: '重要记忆' })
+    expect(memory).toHaveTextContent('铁匠格雷:盟友')
+    expect(memory).toHaveTextContent('信任铁匠格雷')
+    expect(within(memory).getAllByRole('listitem')).toHaveLength(2)
   })
 
   it('surfaces failed quest outcomes as immediate fail-forward context', () => {
