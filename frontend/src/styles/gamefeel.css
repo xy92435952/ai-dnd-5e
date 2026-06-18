@@ -6499,9 +6499,13 @@ button.companion-signal-item:focus-visible {
 
 /* 动作配额圆点 — 顶部 */
 .action-pips {
+  min-width: 0;
+}
+.action-pip-list {
   display: flex; gap: 6px;
   justify-content: center;
   padding: 4px 0 2px;
+  min-width: 0;
 }
 .action-pip {
   min-width: 48px;

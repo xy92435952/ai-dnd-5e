@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import CombatHudPips from '../CombatHudPips'
 
 describe('CombatHudPips', () => {
   it('renders readable action economy labels for a fresh turn', () => {
     const { container } = render(<CombatHudPips turnState={{ movement_max: 6, movement_used: 1 }} />)
 
-    expect(screen.getByRole('status')).toHaveAttribute(
+    const region = screen.getByRole('region', { name: '行动经济' })
+    const list = within(region).getByRole('list')
+    expect(region).toHaveClass('action-pips')
+    expect(list).toHaveClass('action-pip-list')
+    expect(list).toHaveAttribute(
       'aria-label',
       '行动经济：动作可用，附赠可用，反应可用，移动5/6',
     )
-    expect(screen.getByText('动作')).toBeInTheDocument()
-    expect(screen.getByText('附赠')).toBeInTheDocument()
-    expect(screen.getByText('反应')).toBeInTheDocument()
-    expect(screen.getByText('移动')).toBeInTheDocument()
+    expect(within(list).getByRole('listitem', { name: '动作可用' })).toHaveClass('action-pip', 'action')
+    expect(within(list).getByRole('listitem', { name: '附赠可用' })).toHaveClass('action-pip', 'bonus')
+    expect(within(list).getByRole('listitem', { name: '反应可用' })).toHaveClass('action-pip', 'react')
+    expect(within(list).getByRole('listitem', { name: '移动剩余 5/6' })).toHaveClass('action-pip', 'movement')
     expect(screen.getByText('5/6')).toBeInTheDocument()
     expect(screen.getAllByText('可用')).toHaveLength(3)
     expect(container.querySelector('.action-pips .pip.action.used')).toBeNull()
@@ -32,7 +36,7 @@ describe('CombatHudPips', () => {
       />,
     )
 
-    expect(screen.getByRole('status')).toHaveAttribute(
+    expect(screen.getByRole('list')).toHaveAttribute(
       'aria-label',
       '行动经济：动作已用，附赠已用，反应可用，移动0/6',
     )
@@ -49,7 +53,7 @@ describe('CombatHudPips', () => {
   it('falls back to normal movement when turn state is missing', () => {
     render(<CombatHudPips />)
 
-    expect(screen.getByRole('status')).toHaveAttribute(
+    expect(screen.getByRole('list')).toHaveAttribute(
       'aria-label',
       '行动经济：动作可用，附赠可用，反应可用，移动6/6',
     )
