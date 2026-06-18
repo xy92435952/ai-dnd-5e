@@ -40,15 +40,23 @@ function statusLabel(item) {
   return item?.claimed_by_name ? `Claimed by ${item.claimed_by_name}` : 'Claimed'
 }
 
+function claimHint(item) {
+  if (item?.status === 'claimed') return 'Distribution locked after resolution.'
+  if (item?.category === 'gold') return 'Claim for yourself or split with the party.'
+  return 'Claim for yourself, share to the party stash, or roll for a winner.'
+}
+
 function LootRow({ item, disabled, disabledReason = '', claiming, onClaim }) {
   const claimed = item.status === 'claimed'
   const meta = lootMeta(item)
   const canSplit = item.category === 'gold' && Number(item.amount || 0) > 0
   const canDistribute = item.category !== 'gold'
   const actionTitle = disabled ? disabledReason : undefined
+  const lootName = item.name || 'loot'
+  const categoryClass = item.category ? `loot-row--${item.category}` : 'loot-row--uncategorized'
 
   return (
-    <article className={`loot-row ${claimed ? 'claimed' : ''}`}>
+    <article className={`loot-row ${categoryClass} ${claimed ? 'claimed' : ''}`}>
       <div className="loot-row-main">
         <div className="loot-row-title">
           <strong>{item.name || 'Unknown reward'}</strong>
@@ -60,49 +68,52 @@ function LootRow({ item, disabled, disabledReason = '', claiming, onClaim }) {
             {meta.map(part => <span key={part}>{part}</span>)}
           </div>
         )}
+        <p className="loot-row-hint">{claimHint(item)}</p>
       </div>
-      <button
-        className="btn-fantasy loot-claim-button"
-        disabled={disabled || claimed || claiming}
-        title={actionTitle}
-        aria-label={`Claim ${item.name || 'loot'}`}
-        onClick={() => onClaim(item, 'claim')}
-      >
-        {claiming ? 'Claiming...' : claimed ? 'Taken' : 'Claim'}
-      </button>
-      {canSplit && (
+      <div className="loot-row-actions" role="group" aria-label={`Loot actions for ${lootName}`}>
         <button
           className="btn-fantasy loot-claim-button"
           disabled={disabled || claimed || claiming}
           title={actionTitle}
-          aria-label={`Split ${item.name || 'loot'}`}
-          onClick={() => onClaim(item, 'split_party')}
+          aria-label={`Claim ${lootName}`}
+          onClick={() => onClaim(item, 'claim')}
         >
-          {claiming ? 'Splitting...' : claimed ? 'Split' : 'Split'}
+          {claiming ? 'Claiming...' : claimed ? 'Taken' : 'Claim'}
         </button>
-      )}
-      {canDistribute && (
-        <>
+        {canSplit && (
           <button
             className="btn-fantasy loot-claim-button"
             disabled={disabled || claimed || claiming}
             title={actionTitle}
-            aria-label={`Share ${item.name || 'loot'}`}
-            onClick={() => onClaim(item, 'party_stash')}
+            aria-label={`Split ${lootName}`}
+            onClick={() => onClaim(item, 'split_party')}
           >
-            {claiming ? 'Sharing...' : claimed ? 'Shared' : 'Share'}
+            {claiming ? 'Splitting...' : claimed ? 'Split' : 'Split'}
           </button>
-          <button
-            className="btn-fantasy loot-claim-button"
-            disabled={disabled || claimed || claiming}
-            title={actionTitle}
-            aria-label={`Roll ${item.name || 'loot'}`}
-            onClick={() => onClaim(item, 'roll_party')}
-          >
-            {claiming ? 'Rolling...' : claimed ? 'Rolled' : 'Roll'}
-          </button>
-        </>
-      )}
+        )}
+        {canDistribute && (
+          <>
+            <button
+              className="btn-fantasy loot-claim-button"
+              disabled={disabled || claimed || claiming}
+              title={actionTitle}
+              aria-label={`Share ${lootName}`}
+              onClick={() => onClaim(item, 'party_stash')}
+            >
+              {claiming ? 'Sharing...' : claimed ? 'Shared' : 'Share'}
+            </button>
+            <button
+              className="btn-fantasy loot-claim-button"
+              disabled={disabled || claimed || claiming}
+              title={actionTitle}
+              aria-label={`Roll ${lootName}`}
+              onClick={() => onClaim(item, 'roll_party')}
+            >
+              {claiming ? 'Rolling...' : claimed ? 'Rolled' : 'Roll'}
+            </button>
+          </>
+        )}
+      </div>
     </article>
   )
 }
@@ -183,7 +194,7 @@ export default function LootModal({
         </div>
       )}
 
-      <div className="loot-list" aria-label="Session loot">
+      <div className="loot-list" aria-label="Session loot" aria-live="polite">
         {loading ? (
           <p className="checkpoint-empty">Loading loot...</p>
         ) : items.length === 0 ? (

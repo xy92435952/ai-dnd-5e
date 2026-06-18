@@ -40,6 +40,10 @@ describe('LootModal', () => {
 
     expect(await screen.findByRole('button', { name: 'Claim 25 gp' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Split 25 gp' })).toBeEnabled()
+    expect(screen.getByRole('group', { name: 'Loot actions for 25 gp' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Loot actions for Gate Token' })).toBeInTheDocument()
+    expect(screen.getByText('Claim for yourself or split with the party.')).toBeInTheDocument()
+    expect(screen.getByText('Claimed by Mira')).toBeInTheDocument()
     expect(screen.queryByText('Ancient Seal')).not.toBeInTheDocument()
     expect(screen.queryByText('Old Reward')).not.toBeInTheDocument()
     expect(screen.getByText('Gate Token')).toBeInTheDocument()
@@ -47,7 +51,7 @@ describe('LootModal', () => {
     const summary = screen.getByLabelText('Loot summary')
     expect(within(summary).getByText('available')).toBeInTheDocument()
     expect(within(summary).getByText('claimed')).toBeInTheDocument()
-    expect(screen.getByText('Claimed by Mira')).toBeInTheDocument()
+    expect(screen.getByLabelText('Session loot')).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByRole('button', { name: 'Claim Gate Token' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Share Gate Token' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Roll Gate Token' })).toBeDisabled()
@@ -113,6 +117,7 @@ describe('LootModal', () => {
 
     const claim = await screen.findByRole('button', { name: 'Claim 25 gp' })
     expect(screen.getByText('Gate Token')).toBeInTheDocument()
+    expect(screen.getByText('Claim for yourself, share to the party stash, or roll for a winner.')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('同步暂停')
     expect(screen.getByText('房间正在重新同步，请恢复连接后再分配战利品。')).toBeInTheDocument()
 
