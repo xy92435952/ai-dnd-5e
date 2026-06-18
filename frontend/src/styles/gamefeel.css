@@ -875,6 +875,85 @@
 }
 .adventure-dialogue-panel::-webkit-scrollbar { width: 6px; }
 .adventure-dialogue-panel::-webkit-scrollbar-thumb { background: rgba(138,90,24,.55); }
+.dialogue-stage-player {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 28px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  user-select: none;
+}
+.dialogue-stage-player:focus-visible {
+  outline: 2px solid var(--arcane-light, #5fd8e8);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.dialogue-stage-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .15em;
+}
+.dialogue-stage-progress .ready {
+  color: var(--arcane-light);
+}
+.stage-bubble {
+  position: relative;
+  min-height: 64px;
+  padding: 14px 18px 14px 22px;
+  border: 1px solid var(--stage-bubble-border, rgba(240,208,96,.45));
+  border-left: 4px solid var(--stage-bubble-accent, var(--amber));
+  border-radius: 6px;
+  background: var(--stage-bubble-bg, linear-gradient(180deg, rgba(46,31,14,.65), rgba(26,18,8,.85)));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 4px 20px -6px rgba(0,0,0,.8);
+}
+.stage-bubble-speaker {
+  position: absolute;
+  top: -11px;
+  left: 14px;
+  padding: 2px 10px;
+  border-radius: 2px;
+  background: var(--stage-bubble-accent, var(--amber));
+  color: #0a0604;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .15em;
+  box-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+.stage-bubble-text {
+  margin: 0;
+  color: var(--stage-bubble-text, var(--parchment));
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-style: normal;
+  line-height: 1.85;
+  letter-spacing: .03em;
+}
+.stage-bubble.dm .stage-bubble-text {
+  font-family: var(--font-script);
+  font-size: 15px;
+  font-style: italic;
+}
+.stage-bubble-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--stage-bubble-accent, var(--amber));
+  animation: breathe 0.8s ease-in-out infinite;
+}
 .dialogue-stage-player,
 .dialogue-log-list,
 .stage-bubble,

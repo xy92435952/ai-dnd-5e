@@ -9,29 +9,36 @@ export default function DialogueStagePlayer({
   onAdvanceDialogue,
 }) {
   if (!dialogueQueue[dialogueIdx]) return null
+  const currentSegment = dialogueQueue[dialogueIdx]
+  const progressText = `${dialogueIdx + 1} / ${dialogueQueue.length}`
+  const advanceHint = typingDone ? '▸ 点击继续（空格/回车）' : '… 打字中（点击跳过）'
+  const speaker = currentSegment.speaker || (currentSegment.role === 'dm' ? 'DM' : 'NPC')
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onAdvanceDialogue()
+    }
+  }
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onAdvanceDialogue}
+      onKeyDown={handleKeyDown}
       className="dialogue-stage-player"
-      style={{
-        padding: '20px 28px 10px', maxWidth: 900, margin: '0 auto',
-        cursor: 'pointer', userSelect: 'none',
-      }}
+      aria-label={`${speaker}剧场对白，${progressText}，${typingDone ? '点击继续' : '点击跳过打字'}`}
     >
-      <StageBubble seg={dialogueQueue[dialogueIdx]} typingText={typingText} typingDone={typingDone} />
+      <StageBubble seg={currentSegment} typingText={typingText} typingDone={typingDone} />
       <CompanionReactionPanel
-        reactions={dialogueQueue[dialogueIdx].companionReactions}
+        reactions={currentSegment.companionReactions}
         visible={typingDone}
       />
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 10,
-        color: 'var(--parchment-dark)', letterSpacing: '.15em',
-      }}>
-        <span>{dialogueIdx + 1} / {dialogueQueue.length}</span>
-        <span style={{ color: typingDone ? 'var(--arcane-light)' : 'var(--parchment-dark)' }}>
-          {typingDone ? '▸ 点击继续（空格/回车）' : '… 打字中（点击跳过）'}
+      <div className="dialogue-stage-progress" role="status" aria-live="polite">
+        <span>{progressText}</span>
+        <span className={typingDone ? 'ready' : ''}>
+          {advanceHint}
         </span>
       </div>
     </div>

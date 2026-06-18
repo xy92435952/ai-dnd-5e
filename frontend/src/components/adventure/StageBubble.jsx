@@ -33,57 +33,31 @@ export default function StageBubble({ seg, typingText, typingDone }) {
   }
   const p = palette[role] || palette.dm
   const isDm = role === 'dm'
+  const speaker = seg.speaker || (isDm ? 'DM' : 'NPC')
 
   return (
     <div
-      className="stage-bubble"
+      className={`stage-bubble ${role}`}
+      role="article"
+      aria-label={`剧场对白：${speaker}`}
       style={{
-        position: 'relative',
-        padding: '14px 18px 14px 22px',
-        border: `1px solid ${p.border}`,
-        borderLeft: `4px solid ${p.accent}`,
-        background: p.bg,
-        borderRadius: 6,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05), 0 4px 20px -6px rgba(0,0,0,.8)',
-        minHeight: 64,
+        '--stage-bubble-border': p.border,
+        '--stage-bubble-bg': p.bg,
+        '--stage-bubble-accent': p.accent,
+        '--stage-bubble-text': p.textColor,
       }}
     >
       {!isDm && (
-        <div style={{
-          position: 'absolute', top: -11, left: 14,
-          padding: '2px 10px',
-          background: p.accent, color: '#0a0604',
-          fontFamily: 'var(--font-display)', fontSize: 11,
-          letterSpacing: '.15em', fontWeight: 700,
-          borderRadius: 2,
-          boxShadow: '0 2px 6px rgba(0,0,0,.6)',
-        }}>
-          ❖ {seg.speaker || 'NPC'}
+        <div className="stage-bubble-speaker">
+          ❖ {speaker}
         </div>
       )}
       <p
         className="stage-bubble-text"
-        style={{
-          fontFamily: isDm ? 'var(--font-script)' : 'var(--font-body)',
-          fontStyle: isDm ? 'italic' : 'normal',
-          color: p.textColor,
-          fontSize: isDm ? 15 : 14,
-          lineHeight: 1.85,
-          margin: 0,
-          letterSpacing: '.03em',
-          whiteSpace: 'pre-wrap',
-        }}
       >
         {renderLightMarkdown(typingText, p.accent)}
         {!typingDone && (
-          <span style={{
-            display: 'inline-block',
-            width: 6, height: 14,
-            background: p.accent,
-            marginLeft: 2,
-            verticalAlign: 'text-bottom',
-            animation: 'breathe 0.8s ease-in-out infinite',
-          }} />
+          <span className="stage-bubble-cursor" aria-hidden="true" />
         )}
       </p>
     </div>
