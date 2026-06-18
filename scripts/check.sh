@@ -110,6 +110,10 @@ if [ "${RUN_MULTIPLAYER_LOADTEST:-0}" = "1" ]; then
   echo "== Multiplayer load smoke =="
   LOADTEST_BASE_URL="${LOADTEST_BASE_URL:-http://127.0.0.1:8002}"
   LOADTEST_PREFIX="${LOADTEST_PREFIX:-check_load_$(date +%Y%m%d_%H%M%S)}"
+  if [ -z "${LOADTEST_RESULT_JSON:-}" ] && [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
+    LOADTEST_RESULT_JSON="artifacts/multiplayer-load-smoke-${LOADTEST_PREFIX}.json"
+    echo "LOADTEST_RESULT_JSON not set; writing evidence to $LOADTEST_RESULT_JSON"
+  fi
 
   set -- --base-url "$LOADTEST_BASE_URL" --prefix "$LOADTEST_PREFIX"
   if [ -n "${LOADTEST_MODULE_ID:-}" ]; then
@@ -134,13 +138,15 @@ else
   echo "Set RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID or LOADTEST_SQLITE_DB to run it."
   echo "Set LOADTEST_HOLD_SECONDS to keep sockets open for manual browser observation."
   echo "Set LOADTEST_RESULT_JSON to write a machine-readable load smoke result file."
+  echo "If RUN_STAGE7_EVIDENCE_GATE=1 is also set, check.sh writes a default load-smoke result JSON."
 fi
 
 if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
   stage7_evidence_input=${STAGE7_EVIDENCE_FILES:-$stage7_evidence_files}
   if [ -z "$stage7_evidence_input" ]; then
-    echo "RUN_STAGE7_EVIDENCE_GATE=1 requires STAGE7_EVIDENCE_FILES" >&2
-    echo "Or run an evidence-producing smoke in the same check script." >&2
+    echo "RUN_STAGE7_EVIDENCE_GATE=1 needs evidence JSON files." >&2
+    echo "Set STAGE7_EVIDENCE_FILES, or run an evidence-producing smoke in the same check script." >&2
+    echo "Examples: RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE=1 or RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID/LOADTEST_SQLITE_DB." >&2
     exit 1
   fi
   echo "== Stage 7 evidence artifact gate =="
@@ -151,7 +157,8 @@ if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
   (cd "$ROOT_DIR" && node scripts/verify_stage7_evidence.mjs "$@")
 else
   echo "== Stage 7 evidence artifact gate skipped =="
-  echo "Set RUN_STAGE7_EVIDENCE_GATE=1 with STAGE7_EVIDENCE_FILES to verify smoke result JSON before release handoff."
+  echo "Set RUN_STAGE7_EVIDENCE_GATE=1 to verify smoke result JSON before release handoff."
+  echo "Use STAGE7_EVIDENCE_FILES for existing artifacts, or run Feather Fall/load smoke in the same check script for auto-discovery."
 fi
 
 echo "== All checks passed =="
