@@ -124,6 +124,27 @@ describe('useCombatAiTurns', () => {
     expect(deps.setIsProcessing).toHaveBeenLastCalledWith(false)
   })
 
+  it('clears stale reaction prompts when the refreshed ai-loop snapshot has no pending reaction', async () => {
+    getCombatMock.mockResolvedValueOnce({
+      round_number: 2,
+      current_turn_index: 0,
+      turn_order: [{ character_id: 'char-1', is_player: true }],
+      turn_states: {
+        'char-1': { reaction_used: true },
+      },
+    })
+
+    const { result, deps } = renderAiTurns()
+
+    await act(async () => {
+      await result.current.triggerAiTurn()
+    })
+
+    expect(deps.setTurnState).toHaveBeenCalledWith({ reaction_used: true })
+    expect(deps.setReactionPrompt).toHaveBeenCalledWith(null)
+    expect(aiTurnMock).not.toHaveBeenCalled()
+  })
+
   it('pauses the ai loop when a reaction prompt is returned', async () => {
     getCombatMock.mockResolvedValue({
       round_number: 1,

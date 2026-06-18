@@ -866,6 +866,71 @@
   white-space: nowrap;
   box-shadow: 0 0 12px -2px rgba(240,208,96,.5);
 }
+.stage-figure-player .player-silhouette {
+  background: radial-gradient(circle at 40% 30%, #e8d070, #6a5020 75%);
+}
+.stage-figure-initial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff8dd;
+  font-family: var(--font-display);
+  font-size: 72px;
+  text-shadow: 0 4px 12px #000;
+}
+.stage-figure .player-nameplate {
+  background: linear-gradient(180deg, #3ec8d8, #14444e);
+  color: #04181c;
+  box-shadow: 0 0 0 1px rgba(127,232,248,.6), 0 0 12px -2px var(--arcane-light);
+}
+.stage-focus-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.stage-focus-glow-core {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(127,232,248,.8), transparent 70%);
+  filter: blur(6px);
+  animation: breathe 2s ease-in-out infinite;
+}
+.scene-vibe-strip {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  z-index: 4;
+  display: flex;
+  max-width: calc(100% - 32px);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .15em;
+}
+.scene-vibe-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.scene-vibe-separator {
+  opacity: .5;
+}
+.scene-vibe-item.tension.calm {
+  color: var(--emerald-light);
+}
+.scene-vibe-item.tension.danger {
+  color: var(--blood-light);
+}
+.scene-vibe-item.tension.watch {
+  color: var(--amber);
+}
 
 .adventure-dialogue-panel {
   min-width: 0;

@@ -54,6 +54,7 @@ export function useCombatAiTurns({
           setReactionPrompt(pendingReaction)
           break
         }
+        setReactionPrompt(null)
 
         if (fresh.current_turn_index === lastTurnIndex) {
           console.warn('AI turn index not advancing, breaking loop')
