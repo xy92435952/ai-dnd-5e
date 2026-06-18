@@ -1,6 +1,28 @@
 /**
  * AdventureTopBar — Adventure 顶部章节条。
  */
+function TopBarButton({
+  children,
+  label,
+  title,
+  onClick,
+  disabled = false,
+  tone = '',
+}) {
+  return (
+    <button
+      type="button"
+      className={`btn-ghost adventure-topbar-button ${tone}`.trim()}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={label || title || String(children || '')}
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function AdventureTopBar({
   session,
   player,
@@ -23,6 +45,7 @@ export default function AdventureTopBar({
   const sharedMutationDisabled = isLoading || syncBlocked || sharedMutationBlocked
   const personalMutationDisabled = isLoading || syncBlocked
   const sharedMutationTitle = sharedTitle || syncTitle
+  const loadingTitle = isLoading ? 'Adventure is loading.' : ''
 
   return (
     <div style={{
@@ -37,17 +60,22 @@ export default function AdventureTopBar({
       zIndex: 4,
       flexShrink: 0,
     }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onHome}>◄ 主页</button>
-        <button
-          className="btn-ghost"
-          style={{ padding: '4px 10px', fontSize: 10 }}
+      <div className="adventure-topbar-actions">
+        <TopBarButton
+          label="Home"
+          title="Return to the home screen."
+          onClick={onHome}
+        >
+          ◄ 主页
+        </TopBarButton>
+        <TopBarButton
+          label="Save checkpoint"
           onClick={onCheckpoint}
           disabled={sharedMutationDisabled}
-          title={sharedMutationTitle || '保存战役 checkpoint'}
+          title={sharedMutationTitle || loadingTitle || '保存战役 checkpoint'}
         >
           ● 存档
-        </button>
+        </TopBarButton>
       </div>
       <div style={{ textAlign: 'center', minWidth: 0, maxWidth: '60vw' }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.3em', opacity: .7 }}>
@@ -60,35 +88,48 @@ export default function AdventureTopBar({
           {session.module_name || '未知模组'}
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-        <button
-          className="btn-ghost"
-          style={{ padding: '4px 10px', fontSize: 10, borderColor: 'rgba(127,232,248,.5)', color: 'var(--arcane-light)' }}
+      <div className="adventure-topbar-actions right">
+        <TopBarButton
+          label="Dialogue history"
+          title="Review recent dialogue."
+          tone="arcane"
           onClick={onShowHistory}
-        >☰ 对话历史</button>
-        <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenJournal}>✎ 日志</button>
-        <button
-          className="btn-ghost"
-          style={{ padding: '4px 10px', fontSize: 10 }}
+        >
+          ☰ 对话历史
+        </TopBarButton>
+        <TopBarButton
+          label="Open journal"
+          title="Open the generated adventure journal."
+          onClick={onOpenJournal}
+        >
+          ✎ 日志
+        </TopBarButton>
+        <TopBarButton
+          label="Open rest menu"
           onClick={onOpenRest}
           disabled={sharedMutationDisabled}
-          title={sharedMutationTitle || '短休或长休'}
+          title={sharedMutationTitle || loadingTitle || '短休或长休'}
         >
           ☾ 休息
-        </button>
+        </TopBarButton>
         {canPrepareSpells && (
-          <button
-            className="btn-ghost"
-            style={{ padding: '4px 10px', fontSize: 10 }}
+          <TopBarButton
+            label="Prepare spells"
             onClick={onOpenPrepare}
             disabled={personalMutationDisabled}
-            title={syncTitle || '准备法术'}
+            title={syncTitle || loadingTitle || '准备法术'}
           >
             ✧ 备法
-          </button>
+          </TopBarButton>
         )}
         {player && (
-          <button className="btn-ghost" style={{ padding: '4px 10px', fontSize: 10 }} onClick={onOpenCharacter}>⚜ 角色</button>
+          <TopBarButton
+            label="Open character sheet"
+            title="Open your character sheet."
+            onClick={onOpenCharacter}
+          >
+            ⚜ 角色
+          </TopBarButton>
         )}
       </div>
     </div>
