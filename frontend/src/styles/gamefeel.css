@@ -4396,6 +4396,34 @@ button.companion-signal-item:focus-visible {
 }
 .choice.ended:hover { transform: none; background: none; border-left-color: rgba(138,90,24,.3); }
 
+.dialogue-response-box {
+  padding-top: 12px;
+  border-top: 1px solid rgba(138,90,24,.35);
+}
+.dialogue-response-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+}
+.dialogue-response-caret,
+.dialogue-response-shortcuts {
+  color: var(--parchment-dark);
+}
+.dialogue-response-caret {
+  flex: 0;
+}
+.dialogue-response-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(127,232,248,.4), transparent);
+}
+
 .recovery-affordances {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4463,6 +4491,17 @@ button.companion-signal-item:focus-visible {
   padding-right: 10px;
   border-right: 1px solid rgba(138,90,24,.4);
 }
+.free-speak-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .free-speak input {
   flex: 1;
   background: transparent; border: none; outline: none;
@@ -4472,6 +4511,17 @@ button.companion-signal-item:focus-visible {
   padding: 4px 0;
 }
 .free-speak input::placeholder { color: var(--parchment-dark); opacity: .5; font-style: italic; }
+.free-speak-send {
+  padding: 4px 12px;
+  border-color: #2a7a88;
+  background: linear-gradient(180deg, #3ec8d8, #14444e);
+  color: #04181c;
+  font-size: 10px;
+}
+.free-speak-send:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
 
 /* 队伍列 · 游戏HUD */
 .party-hud {

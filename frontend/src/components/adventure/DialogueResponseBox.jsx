@@ -49,18 +49,13 @@ export default function DialogueResponseBox({
   }
 
   return (
-    <div style={{ borderTop: '1px solid rgba(138,90,24,.35)', paddingTop: 12 }}>
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 10,
-        color: 'var(--arcane-light)', letterSpacing: '.25em',
-        textTransform: 'uppercase', marginBottom: 8,
-        display: 'flex', alignItems: 'center', gap: 10,
-      }}>
-        <span style={{ flex: 0, color: 'var(--parchment-dark)' }}>▼</span>
+    <section className="dialogue-response-box" aria-label="玩家回应">
+      <div className="dialogue-response-header" role="status" aria-live="polite">
+        <span className="dialogue-response-caret">▼</span>
         <span>你的回应</span>
-        <span style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(127,232,248,.4), transparent)' }} />
+        <span className="dialogue-response-rule" />
         {choices.length > 0 && (
-          <span style={{ color: 'var(--parchment-dark)' }}>1–{Math.min(choices.length, 9)} 快捷键</span>
+          <span className="dialogue-response-shortcuts">1–{Math.min(choices.length, 9)} 快捷键</span>
         )}
       </div>
 
@@ -90,6 +85,6 @@ export default function DialogueResponseBox({
         isMySpeakTurn={isMySpeakTurn}
         multiplayerSyncBlocked={multiplayerSyncBlocked}
       />
-    </div>
+    </section>
   )
 }

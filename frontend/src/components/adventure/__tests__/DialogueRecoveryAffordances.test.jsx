@@ -23,7 +23,12 @@ describe('DialogueRecoveryAffordances', () => {
   it('submits a continue action directly', () => {
     const { onAction, setInput } = renderAffordances()
 
-    fireEvent.click(screen.getByRole('button', { name: /继续/ }))
+    const group = screen.getByRole('group', { name: '回应快捷入口' })
+    expect(group).toHaveClass('recovery-affordances')
+
+    const button = screen.getByRole('button', { name: '继续推进当前场景' })
+    expect(button).toHaveAttribute('title', '直接请求 DM 继续推进当前场景')
+    fireEvent.click(button)
 
     expect(onAction).toHaveBeenCalledWith(
       '继续推进当前场景。',
@@ -35,7 +40,9 @@ describe('DialogueRecoveryAffordances', () => {
   it('seeds an editable question and focuses the free input', () => {
     const { setInput, focus, onAction } = renderAffordances()
 
-    fireEvent.click(screen.getByRole('button', { name: /提问/ }))
+    const ask = screen.getByRole('button', { name: '提问：填入询问前缀' })
+    expect(ask).toHaveAttribute('title', '在自由行动输入框中填入询问前缀')
+    fireEvent.click(ask)
 
     expect(setInput).toHaveBeenCalledWith('我想询问：')
     expect(focus).toHaveBeenCalled()
@@ -45,7 +52,9 @@ describe('DialogueRecoveryAffordances', () => {
   it('seeds an editable action without discarding existing text', () => {
     const { setInput } = renderAffordances({ input: '检查井口' })
 
-    fireEvent.click(screen.getByRole('button', { name: /行动/ }))
+    const act = screen.getByRole('button', { name: '行动：填入尝试前缀' })
+    expect(act).toHaveAttribute('title', '在自由行动输入框中填入尝试行动前缀')
+    fireEvent.click(act)
 
     expect(setInput).toHaveBeenCalledWith('我尝试：检查井口')
   })
@@ -53,8 +62,8 @@ describe('DialogueRecoveryAffordances', () => {
   it('does nothing while disabled', () => {
     const { setInput, onAction, focus } = renderAffordances({ disabled: true })
 
-    fireEvent.click(screen.getByRole('button', { name: /继续/ }))
-    fireEvent.click(screen.getByRole('button', { name: /提问/ }))
+    fireEvent.click(screen.getByRole('button', { name: '继续推进当前场景' }))
+    fireEvent.click(screen.getByRole('button', { name: '提问：填入询问前缀' }))
 
     expect(onAction).not.toHaveBeenCalled()
     expect(setInput).not.toHaveBeenCalled()
