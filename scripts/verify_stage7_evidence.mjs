@@ -77,15 +77,37 @@ function ensurePathExists(targetPath, label) {
   ensure(existsSync(targetPath), `${label} missing: ${targetPath}`);
 }
 
+function ensureNumber(value, message) {
+  ensure(typeof value === 'number' && Number.isFinite(value), message);
+}
+
 function verifyFeatherFall(filePath, data, { noFileCheck }) {
   ensure(data.ok === true, `${filePath}: ok must be true`);
   ensure(data.mode === 'feather-fall-adventure-browser-smoke', `${filePath}: unexpected mode ${data.mode}`);
-  ensure(typeof data.decision === 'string' && data.decision.length > 0, `${filePath}: decision missing`);
+  ensure(data.decision === 'accept' || data.decision === 'decline', `${filePath}: decision must be accept or decline`);
+  const expectedReactionType = data.decision === 'decline' ? 'decline' : 'feather_fall';
+  ensure(data.reaction_type === expectedReactionType, `${filePath}: reaction_type must be ${expectedReactionType}`);
   ensure(typeof data.artifact_tag === 'string' && data.artifact_tag.length > 0, `${filePath}: artifact_tag missing`);
   ensure(data.assertions?.pending_cleared === true, `${filePath}: pending_cleared must be true`);
-  ensure(typeof data.assertions?.actual_hp === 'number', `${filePath}: actual_hp missing`);
-  ensure(typeof data.assertions?.hp_max === 'number', `${filePath}: hp_max missing`);
-  ensure(typeof data.assertions?.actual_caster_1st_slots === 'number', `${filePath}: actual_caster_1st_slots missing`);
+  ensureNumber(data.assertions?.fall_damage, `${filePath}: fall_damage missing`);
+  ensureNumber(data.assertions?.before_hp, `${filePath}: before_hp missing`);
+  ensureNumber(data.assertions?.expected_hp, `${filePath}: expected_hp missing`);
+  ensureNumber(data.assertions?.actual_hp, `${filePath}: actual_hp missing`);
+  ensureNumber(data.assertions?.hp_max, `${filePath}: hp_max missing`);
+  ensureNumber(data.assertions?.expected_caster_1st_slots, `${filePath}: expected_caster_1st_slots missing`);
+  ensureNumber(data.assertions?.actual_caster_1st_slots, `${filePath}: actual_caster_1st_slots missing`);
+  ensure(data.assertions.actual_hp === data.assertions.expected_hp, `${filePath}: actual_hp must match expected_hp`);
+  ensure(
+    data.assertions.actual_caster_1st_slots === data.assertions.expected_caster_1st_slots,
+    `${filePath}: actual_caster_1st_slots must match expected_caster_1st_slots`,
+  );
+  const expectedHpFromDecision = data.decision === 'decline'
+    ? Math.max(0, data.assertions.before_hp - data.assertions.fall_damage)
+    : data.assertions.before_hp;
+  ensure(data.assertions.expected_hp === expectedHpFromDecision, `${filePath}: expected_hp does not match ${data.decision} semantics`);
+  ensure(data.resolved?.pending_cleared === true, `${filePath}: resolved.pending_cleared must be true`);
+  ensure(data.resolved?.hp_current === data.assertions.actual_hp, `${filePath}: resolved.hp_current must match actual_hp`);
+  ensure(data.resolved?.caster_slots?.['1st'] === data.assertions.actual_caster_1st_slots, `${filePath}: resolved caster 1st slot must match actual_caster_1st_slots`);
   ensure(data.screenshots?.prompt, `${filePath}: prompt screenshot path missing`);
   ensure(data.screenshots?.resolved, `${filePath}: resolved screenshot path missing`);
   ensure(typeof data.manifest === 'string' && data.manifest.length > 0, `${filePath}: manifest path missing`);

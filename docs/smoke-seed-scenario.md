@@ -84,6 +84,9 @@ HTTP refresh, and writes prompt/resolved screenshots plus a JSON manifest under
 set, the script uses the current local date as `YYYYMMDD`.
 Verify the manifest before release handoff with
 `node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json`.
+The verifier checks that the manifest's `accept` or `decline` decision matches
+the submitted reaction type, prompt cleanup, expected HP, actual HP, and caster
+slot result, not just that the JSON file exists.
 The smoke resolves Python from `PYTHON_EXE`, known project virtualenvs, then
 `python3` / `python`. It resolves the browser from
 `FEATHER_FALL_SMOKE_BROWSER_PATH` or `CHROME_PATH`, then common
