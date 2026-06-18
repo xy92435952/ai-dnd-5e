@@ -869,12 +869,21 @@
 
 .adventure-dialogue-panel {
   min-width: 0;
+  max-height: 40vh;
+  overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgba(138,90,24,.55) rgba(10,6,4,.3);
 }
 .adventure-dialogue-panel::-webkit-scrollbar { width: 6px; }
 .adventure-dialogue-panel::-webkit-scrollbar-thumb { background: rgba(138,90,24,.55); }
+.dialogue-response-shell {
+  display: block;
+  margin: 10px 24px 0;
+}
+.dialogue-response-shell.hidden {
+  display: none;
+}
 .dialogue-stage-player {
   display: block;
   width: 100%;

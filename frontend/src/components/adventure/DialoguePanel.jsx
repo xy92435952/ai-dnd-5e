@@ -34,7 +34,8 @@ export default function DialoguePanel({
   return (
     <div
       className="adventure-dialogue-panel"
-      style={{ overflow: 'auto', maxHeight: '40vh' }}
+      role="region"
+      aria-label="冒险对话面板"
     >
       {dialogueMode === 'stage' && dialogueQueue[dialogueIdx] && (
         <DialogueStagePlayer
@@ -50,7 +51,7 @@ export default function DialoguePanel({
         <DialogueLogList logs={logs} logsEndRef={logsEndRef} />
       )}
 
-      <div className="crpg-dialogue" style={{ margin: '10px 24px 0', display: dialogueMode === 'stage' ? 'none' : 'block' }}>
+      <div className={`crpg-dialogue dialogue-response-shell ${dialogueMode === 'stage' ? 'hidden' : ''}`}>
         <DialogueResponseBox
           pendingCheck={pendingCheck}
           pendingExplorationReaction={pendingExplorationReaction}

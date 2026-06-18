@@ -130,7 +130,7 @@ cd ..
 
 `npm run test:stage7:reaction` includes the direct combat `ReactionPrompt`,
 Adventure `ExplorationReactionPrompt`, Adventure `LootModal`, Adventure
-`DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
+`DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
 `DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `DialogueLogList`,
 Adventure `LogLine`, Adventure `LocationMapModal`, Adventure
@@ -144,7 +144,7 @@ privacy projection, combat-log coverage, loot distribution UI coverage, mapped
 location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
 spell-preparation, dialogue-history, adventure party status HUD, adventure quest/location HUD,
-player response composer, stage dialogue playback, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, multiplayer timeline, multiplayer party
+dialogue panel shell, player response composer, stage dialogue playback, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, multiplayer timeline, multiplayer party
 coordination, and multiplayer speak-turn coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
