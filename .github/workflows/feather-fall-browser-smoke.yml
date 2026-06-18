@@ -1,0 +1,78 @@
+name: Feather Fall Browser Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      decision:
+        description: "Which Feather Fall decision path to run"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - accept
+          - decline
+
+jobs:
+  feather-fall-browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Feather Fall accept browser smoke
+        if: ${{ github.event.inputs.decision == 'both' || github.event.inputs.decision == 'accept' }}
+        env:
+          PYTHON_EXE: python
+          FEATHER_FALL_SMOKE_ARTIFACT_TAG: "ci-${{ github.run_id }}"
+        run: node scripts/feather_fall_adventure_browser_smoke.mjs --decision accept
+
+      - name: Verify Feather Fall accept evidence
+        if: ${{ github.event.inputs.decision == 'both' || github.event.inputs.decision == 'accept' }}
+        run: node scripts/verify_stage7_evidence.mjs artifacts/browser-feather-fall-adventure-manifest-ci-${{ github.run_id }}.json
+
+      - name: Run Feather Fall decline browser smoke
+        if: ${{ github.event.inputs.decision == 'both' || github.event.inputs.decision == 'decline' }}
+        env:
+          PYTHON_EXE: python
+          FEATHER_FALL_SMOKE_ARTIFACT_TAG: "ci-${{ github.run_id }}"
+        run: node scripts/feather_fall_adventure_browser_smoke.mjs --decision decline
+
+      - name: Verify Feather Fall decline evidence
+        if: ${{ github.event.inputs.decision == 'both' || github.event.inputs.decision == 'decline' }}
+        run: node scripts/verify_stage7_evidence.mjs artifacts/browser-feather-fall-adventure-decline-manifest-ci-${{ github.run_id }}.json
+
+      - name: Upload Feather Fall browser smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feather-fall-browser-smoke
+          path: |
+            artifacts/browser-feather-fall-adventure-*-ci-${{ github.run_id }}.json
+            artifacts/browser-feather-fall-adventure-*-ci-${{ github.run_id }}.png
+          if-no-files-found: ignore
