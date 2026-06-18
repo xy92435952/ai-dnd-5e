@@ -1413,7 +1413,14 @@
 }
 
 /* 编号对话选项 —— CRPG 经典 */
-.choice-list { display: flex; flex-direction: column; gap: 6px; }
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.choice-list-item {
+  display: contents;
+}
 .choice {
   position: relative;
   display: flex;
@@ -1651,6 +1658,15 @@
   color: var(--parchment-dark);
   border-color: rgba(213,184,121,.32);
   background: rgba(213,184,121,.08);
+}
+.choice-preview-hint {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(138,90,24,.4);
+  color: rgba(232,200,160,.7);
+  font-size: 10px;
+  font-style: italic;
+  overflow-wrap: anywhere;
 }
 
 .choice.action { border-left-color: rgba(196,40,40,.5); }

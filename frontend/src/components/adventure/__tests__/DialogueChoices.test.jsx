@@ -32,9 +32,13 @@ describe('DialogueChoices', () => {
       />,
     )
 
+    expect(screen.getByRole('list', { name: '可选行动' })).toBeInTheDocument()
     const choice = screen.getByRole('button', { name: /撬开铁门/ })
     const preview = within(choice).getByLabelText('技能检定预览')
 
+    expect(choice).toHaveAttribute('aria-describedby', 'dialogue-choice-1-preview')
+    expect(choice).toHaveAttribute('title', '运动 · DC 12 · 中风险 · 70%')
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
     expect(within(preview).getByText('技能')).toBeInTheDocument()
     expect(within(preview).getByText('运动')).toBeInTheDocument()
     expect(within(preview).getByText('属性')).toBeInTheDocument()
@@ -151,6 +155,7 @@ describe('DialogueChoices', () => {
 
     const choice = screen.getByRole('button', { name: /穿过青铜门/ })
     expect(choice).toHaveClass('choice-intent-movement')
+    expect(choice).toHaveAttribute('aria-describedby', 'dialogue-choice-1-exit')
     expect(within(choice).getByText('移动')).toHaveClass('choice-intent-badge', 'movement')
 
     const exit = within(choice).getByLabelText('地图出口')
