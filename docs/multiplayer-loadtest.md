@@ -65,6 +65,9 @@ a machine-readable local evidence file. The `artifacts/` folder is ignored by
 git and can be uploaded separately by CI or archived for a release checklist.
 Verify the result before release handoff with
 `node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json`.
+The verifier checks the 50-user/13-room shape, room-size totals and max-player
+limits, WebSocket count, cleanup flags, timing summary values, and any hold
+observer fields.
 To generate and verify the JSON in one `scripts/check.sh` run, also set
 `RUN_STAGE7_EVIDENCE_GATE=1`; the check script adds `LOADTEST_RESULT_JSON` to
 the evidence gate automatically.

@@ -81,6 +81,11 @@ function ensureNumber(value, message) {
   ensure(typeof value === 'number' && Number.isFinite(value), message);
 }
 
+function ensureNonNegativeNumber(value, message) {
+  ensureNumber(value, message);
+  ensure(value >= 0, message);
+}
+
 function verifyFeatherFall(filePath, data, { noFileCheck }) {
   ensure(data.ok === true, `${filePath}: ok must be true`);
   ensure(data.mode === 'feather-fall-adventure-browser-smoke', `${filePath}: unexpected mode ${data.mode}`);
@@ -126,18 +131,38 @@ function verifyMultiplayerLoad(filePath, data, { noFileCheck }) {
   ensure(data.users === 50, `${filePath}: users must be 50`);
   ensure(data.rooms === 13, `${filePath}: rooms must be 13`);
   ensure(data.websockets === 50, `${filePath}: websockets must be 50`);
+  ensure(data.room_sizes.every(size => Number.isInteger(size) && size > 0), `${filePath}: room_sizes must contain positive integers`);
+  ensure(data.room_sizes.every(size => size <= 4), `${filePath}: room_sizes must not exceed max_players=4`);
+  const totalRoomUsers = data.room_sizes.reduce((sum, size) => sum + size, 0);
+  ensure(totalRoomUsers === data.users, `${filePath}: room_sizes must sum to users`);
+  ensure(data.websockets === data.users, `${filePath}: websockets must match users`);
+  ensure(data.rooms === data.room_sizes.length, `${filePath}: rooms must match room_sizes length`);
   ensure(data.cleanup_ok === true, `${filePath}: cleanup_ok must be true`);
   ensure(data.cleanup_verification_ok === true, `${filePath}: cleanup_verification_ok must be true`);
   ensure(data.module_cleanup_ok === true, `${filePath}: module_cleanup_ok must be true`);
   ensure(data.seed_module_cleanup_ok === true, `${filePath}: seed_module_cleanup_ok must be true`);
+  ensureNonNegativeNumber(data.elapsed_ms, `${filePath}: elapsed_ms missing`);
   ensure(data.timings && typeof data.timings === 'object', `${filePath}: timings missing`);
 
   const summaryKeys = ['register_ms', 'login_ms', 'create_room_ms', 'join_room_ms', 'ws_connect_ms', 'ws_ping_pong_ms'];
   const hasSummary = summaryKeys.some(key => Object.prototype.hasOwnProperty.call(data.timings, key));
   ensure(hasSummary, `${filePath}: timings summary missing expected keys`);
+  for (const key of summaryKeys) {
+    if (!Object.prototype.hasOwnProperty.call(data.timings, key)) continue;
+    const summary = data.timings[key];
+    ensure(summary && typeof summary === 'object', `${filePath}: timings.${key} must be an object`);
+    ensure(Number.isInteger(summary.count) && summary.count > 0, `${filePath}: timings.${key}.count must be positive`);
+    ensureNonNegativeNumber(summary.avg_ms, `${filePath}: timings.${key}.avg_ms missing`);
+    ensureNonNegativeNumber(summary.p95_ms, `${filePath}: timings.${key}.p95_ms missing`);
+    ensureNonNegativeNumber(summary.max_ms, `${filePath}: timings.${key}.max_ms missing`);
+  }
 
   if (data.hold_observer) {
+    ensure(typeof data.hold_observer.base_url === 'string', `${filePath}: hold_observer.base_url missing`);
+    ensure(typeof data.hold_observer.frontend_url === 'string', `${filePath}: hold_observer.frontend_url missing`);
+    ensure(typeof data.hold_observer.session_id === 'string', `${filePath}: hold_observer.session_id missing`);
     ensure(typeof data.hold_observer.username === 'string', `${filePath}: hold_observer.username missing`);
+    ensure(typeof data.hold_observer.password === 'string', `${filePath}: hold_observer.password missing`);
     ensure(typeof data.hold_observer.room_code === 'string', `${filePath}: hold_observer.room_code missing`);
   }
 

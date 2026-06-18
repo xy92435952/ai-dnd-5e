@@ -364,8 +364,10 @@ node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMD
 For Feather Fall browser manifests, the verifier checks the decision path,
 reaction type, prompt cleanup, expected-vs-actual HP, and the caster's first
 level slot count in addition to screenshot paths. For multiplayer load result
-JSON, it checks the 50-user/13-room shape, cleanup flags, timing summary, and
-optional hold observer fields.
+JSON, it checks the 50-user/13-room shape, that room sizes are positive and
+stay at or below `max_players=4`, that room sizes sum to users, that WebSocket
+connections match users, cleanup flags, timing summary values, and optional
+hold observer fields.
 
 The same verifier can run from the standard local check entrypoint after the
 frontend build and any optional evidence-producing browser/load smokes:
