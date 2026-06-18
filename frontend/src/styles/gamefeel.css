@@ -1039,6 +1039,24 @@
   background: var(--stage-bubble-bg, linear-gradient(180deg, rgba(46,31,14,.65), rgba(26,18,8,.85)));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 4px 20px -6px rgba(0,0,0,.8);
 }
+.stage-bubble.dm {
+  --stage-bubble-border: rgba(240,208,96,.45);
+  --stage-bubble-bg: linear-gradient(180deg, rgba(46,31,14,.65), rgba(26,18,8,.85));
+  --stage-bubble-accent: var(--amber);
+  --stage-bubble-text: var(--parchment);
+}
+.stage-bubble.npc {
+  --stage-bubble-border: rgba(168,144,232,.55);
+  --stage-bubble-bg: linear-gradient(180deg, rgba(58,36,90,.45), rgba(26,16,44,.8));
+  --stage-bubble-accent: var(--amethyst-light);
+  --stage-bubble-text: #d8c8ff;
+}
+.stage-bubble.companion {
+  --stage-bubble-border: rgba(127,200,248,.55);
+  --stage-bubble-bg: linear-gradient(180deg, rgba(20,40,62,.55), rgba(10,22,36,.85));
+  --stage-bubble-accent: var(--arcane-light);
+  --stage-bubble-text: #d8eeff;
+}
 .stage-bubble-speaker {
   position: absolute;
   top: -11px;

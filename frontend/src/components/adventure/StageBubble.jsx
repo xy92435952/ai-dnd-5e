@@ -9,43 +9,26 @@
  */
 import { renderLightMarkdown } from '../../utils/markdown'
 
+const STAGE_BUBBLE_ROLES = new Set(['dm', 'npc', 'companion'])
+const ROLE_ACCENTS = {
+  dm: 'var(--amber)',
+  npc: 'var(--amethyst-light)',
+  companion: 'var(--arcane-light)',
+}
+
 export default function StageBubble({ seg, typingText, typingDone }) {
-  const role = seg.role || 'dm'
-  const palette = {
-    dm: {
-      border: 'rgba(240,208,96,.45)',
-      bg: 'linear-gradient(180deg, rgba(46,31,14,.65), rgba(26,18,8,.85))',
-      accent: 'var(--amber)',
-      textColor: 'var(--parchment)',
-    },
-    npc: {
-      border: 'rgba(168,144,232,.55)',
-      bg: 'linear-gradient(180deg, rgba(58,36,90,.45), rgba(26,16,44,.8))',
-      accent: 'var(--amethyst-light)',
-      textColor: '#d8c8ff',
-    },
-    companion: {
-      border: 'rgba(127,200,248,.55)',
-      bg: 'linear-gradient(180deg, rgba(20,40,62,.55), rgba(10,22,36,.85))',
-      accent: 'var(--arcane-light)',
-      textColor: '#d8eeff',
-    },
-  }
-  const p = palette[role] || palette.dm
+  const role = STAGE_BUBBLE_ROLES.has(seg.role) ? seg.role : 'dm'
   const isDm = role === 'dm'
   const speaker = seg.speaker || (isDm ? 'DM' : 'NPC')
+  const typingState = typingDone ? 'complete' : 'typing'
 
   return (
     <div
-      className={`stage-bubble ${role}`}
+      className={`stage-bubble ${role} is-${typingState}`}
       role="article"
       aria-label={`剧场对白：${speaker}`}
-      style={{
-        '--stage-bubble-border': p.border,
-        '--stage-bubble-bg': p.bg,
-        '--stage-bubble-accent': p.accent,
-        '--stage-bubble-text': p.textColor,
-      }}
+      aria-busy={!typingDone}
+      data-typing-state={typingState}
     >
       {!isDm && (
         <div className="stage-bubble-speaker">
@@ -55,7 +38,7 @@ export default function StageBubble({ seg, typingText, typingDone }) {
       <p
         className="stage-bubble-text"
       >
-        {renderLightMarkdown(typingText, p.accent)}
+        {renderLightMarkdown(typingText, ROLE_ACCENTS[role])}
         {!typingDone && (
           <span className="stage-bubble-cursor" aria-hidden="true" />
         )}
