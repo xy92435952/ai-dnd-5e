@@ -5764,6 +5764,20 @@ button.companion-signal-item:focus-visible {
   font-family: var(--font-mono);
   font-size: 10px;
 }
+.reaction-prompt-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  color: rgba(232, 200, 160, .84);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.reaction-prompt-status span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .reaction-prompt-actions {
   display: flex;
   flex-direction: column;
@@ -5794,6 +5808,14 @@ button.companion-signal-item:focus-visible {
   text-align: right;
   color: rgba(124,42,24,.86);
 }
+.reaction-prompt-empty {
+  border: 1px solid rgba(213,184,121,.26);
+  background: rgba(0,0,0,.18);
+  padding: 8px;
+  color: var(--parchment-dark);
+  font-size: 12px;
+  line-height: 1.4;
+}
 .reaction-outcome-panel {
   flex: 1 0 100%;
   display: grid;
@@ -5804,6 +5826,11 @@ button.companion-signal-item:focus-visible {
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.35;
+}
+.reaction-outcome-caption {
+  grid-column: 1 / -1;
+  color: rgba(52,32,12,.66);
+  text-transform: uppercase;
 }
 .reaction-outcome-panel span,
 .reaction-outcome-panel b,

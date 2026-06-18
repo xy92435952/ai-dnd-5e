@@ -295,6 +295,10 @@ describe('ReactionPrompt', () => {
     )
 
     expect(screen.getByRole('dialog', { name: '反应触发' })).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '反应触发' })).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('没有可用反应')).toBeInTheDocument()
+    expect(screen.getByText('等待你的裁定')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '可用反应' })).toBeInTheDocument()
     expect(screen.getByText('当前没有可用反应，只能放弃反应窗口。')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Shield|Counterspell|Hellish Rebuke|Absorb Elements/ })).not.toBeInTheDocument()
 
@@ -363,9 +367,12 @@ describe('ReactionPrompt', () => {
     )
 
     expect(screen.getByRole('dialog', { name: '反应触发' })).toBeInTheDocument()
+    expect(screen.getByText('1 个可用反应')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '可用反应' })).toBeInTheDocument()
     expect(screen.getByText('攻击 18 vs AC14')).toBeInTheDocument()
     expect(screen.getByText('伤害 9')).toBeInTheDocument()
     expect(screen.getByText('HP 12 -> 3')).toBeInTheDocument()
+    expect(screen.getByText('结果预览')).toBeInTheDocument()
     expect(screen.getByText('不反应 HP 12 -> 3')).toBeInTheDocument()
     expect(screen.getByText('使用后 HP 12 -> 12')).toBeInTheDocument()
     expect(screen.getByText('减免 9 伤害')).toBeInTheDocument()

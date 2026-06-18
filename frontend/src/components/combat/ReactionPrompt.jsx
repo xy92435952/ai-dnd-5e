@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import {
   getReactionPromptContext,
   getReactionPromptMeta,
@@ -11,6 +12,8 @@ export default function ReactionPrompt({
   onReact,
   onCancel,
 }) {
+  const promptDomId = useId()
+
   if (!prompt) return null
 
   const canReact = isReactionPromptForCharacter(prompt, currentCharacterId)
@@ -18,6 +21,10 @@ export default function ReactionPrompt({
   const meta = getReactionPromptMeta(prompt)
   const context = getReactionPromptContext(prompt)
   const reactorLabel = prompt.reactor_name || prompt.reactor_character_name || prompt.reactor_character_id || '另一名角色'
+  const titleId = `${promptDomId}-title`
+  const contextId = `${promptDomId}-context`
+  const statusId = `${promptDomId}-status`
+  const optionCountLabel = options.length > 0 ? `${options.length} 个可用反应` : '没有可用反应'
 
   if (!canReact) {
     return (
@@ -29,13 +36,20 @@ export default function ReactionPrompt({
   }
 
   return (
-    <div className="reaction-prompt-layer" role="dialog" aria-modal="true" aria-label="反应触发">
+    <div
+      className="reaction-prompt-layer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={`${contextId} ${statusId}`}
+      aria-live="polite"
+    >
       <section className="reaction-prompt-card">
         <header className="reaction-prompt-head">
           <span className="reaction-prompt-icon" aria-hidden="true">⚡</span>
           <div>
-            <p className="reaction-prompt-title">反应触发</p>
-            <p className="reaction-prompt-context">{context}</p>
+            <p id={titleId} className="reaction-prompt-title">反应触发</p>
+            <p id={contextId} className="reaction-prompt-context">{context}</p>
           </div>
         </header>
 
@@ -45,7 +59,12 @@ export default function ReactionPrompt({
           </div>
         )}
 
-        <div className="reaction-prompt-actions">
+        <div id={statusId} className="reaction-prompt-status">
+          <span>{optionCountLabel}</span>
+          <span>等待你的裁定</span>
+        </div>
+
+        <div className="reaction-prompt-actions" role="group" aria-label="可用反应">
           {options.length > 0 ? options.map((opt, i) => (
             <button
               key={`${opt.type}-${i}`}
@@ -66,7 +85,7 @@ export default function ReactionPrompt({
               )}
             </button>
           )) : (
-            <div style={{ color: 'var(--parchment-dark)', fontSize: 12 }}>
+            <div className="reaction-prompt-empty" role="status">
               当前没有可用反应，只能放弃反应窗口。
             </div>
           )}
@@ -83,6 +102,7 @@ function ReactionOutcome({ outcome }) {
   const hasHp = outcome.hp_before !== undefined
   return (
     <span className="reaction-outcome-panel" aria-label="反应结果预览">
+      <span className="reaction-outcome-caption">结果预览</span>
       {hasHp ? (
         <>
           <span>{outcome.no_reaction_label}</span>
