@@ -132,7 +132,7 @@ cd ..
 Adventure `ExplorationReactionPrompt`, Adventure `LootModal`, Adventure
 `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
-`DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `DialogueLogList`,
+`DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `CompanionReactionPanel`, Adventure `DialogueLogList`,
 Adventure `LogLine`, Adventure `LocationMapModal`, Adventure
 `AdventureBottomHud`, Adventure `AdventurePartyHud`, Adventure `AdventureQuestHud`, Adventure `AdventureTopBar`,
 Adventure `CheckpointModal`, Adventure `JournalModal`, Adventure `RestModal`,
@@ -144,7 +144,7 @@ privacy projection, combat-log coverage, loot distribution UI coverage, mapped
 location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
 spell-preparation, dialogue-history, adventure party status HUD, adventure quest/location HUD,
-dialogue panel shell, player response composer, stage dialogue playback, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, multiplayer timeline, multiplayer party
+dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, multiplayer timeline, multiplayer party
 coordination, and multiplayer speak-turn coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
