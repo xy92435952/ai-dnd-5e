@@ -5867,6 +5867,21 @@ button.companion-signal-item:focus-visible {
   padding: 4px 7px;
   background: rgba(0, 0, 0, .18);
 }
+.exploration-reaction-prompt__outcomes {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(127, 232, 248, .2);
+  background: rgba(7, 12, 18, .42);
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(240, 222, 192, .88);
+}
+.exploration-reaction-prompt__outcomes b {
+  color: var(--arcane-light);
+  font-weight: 700;
+}
 .exploration-reaction-prompt__actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
