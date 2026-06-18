@@ -18,6 +18,11 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Install backend deps
         working-directory: backend
         run: |
@@ -64,6 +69,9 @@ jobs:
             --seed-sqlite-module backend/ai_trpg.db \
             --prefix "ci_load_${{ github.run_id }}" \
             --result-json artifacts/multiplayer-load-smoke-result.json
+
+      - name: Verify load smoke result evidence
+        run: node scripts/verify_stage7_evidence.mjs artifacts/multiplayer-load-smoke-result.json
 
       - name: Stop backend
         if: always()

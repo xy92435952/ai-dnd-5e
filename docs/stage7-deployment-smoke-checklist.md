@@ -307,8 +307,9 @@ For direct low-level script debugging, pass the same hold window as
 summary as an ignored local evidence file under `artifacts/`.
 
 The GitHub Actions workflow `Multiplayer Load Smoke` runs the same style of
-check on demand and uploads both the backend log and the load-smoke result JSON
-artifact for later review.
+check on demand, verifies the load-smoke result JSON with
+`scripts/verify_stage7_evidence.mjs`, and uploads both the backend log and the
+load-smoke result JSON artifact for later review.
 
 Latest local dry-run evidence:
 
