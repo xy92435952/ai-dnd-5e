@@ -4,15 +4,14 @@ export default function DialogueLogList({ logs, logsEndRef }) {
   return (
     <div
       className="dialogue-log-list"
-      style={{
-        padding: '10px 28px 0',
-        maxWidth: 900,
-        margin: '0 auto',
-        minHeight: 0,
-      }}
+      role="log"
+      aria-label="冒险对话日志"
+      aria-live="polite"
     >
-      {logs.map(l => <LogLine key={l.id} entry={l} />)}
-      <div ref={logsEndRef} />
+      <div className="dialogue-log-items" role="list" aria-label="对话记录">
+        {logs.map(l => <LogLine key={l.id} entry={l} />)}
+      </div>
+      <div ref={logsEndRef} className="dialogue-log-end" aria-hidden="true" />
     </div>
   )
 }

@@ -19,23 +19,17 @@ function VisibilityBadge({ visibility }) {
   const label = visibilityLabel(visibility)
   if (!label) return null
   return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      height: 18,
-      padding: '0 6px',
-      marginRight: 8,
-      borderRadius: 4,
-      border: '1px solid rgba(240,208,96,.35)',
-      background: 'rgba(240,208,96,.12)',
-      color: 'var(--amber)',
-      fontFamily: 'var(--font-body)',
-      fontSize: 10,
-      fontStyle: 'normal',
-      fontWeight: 700,
-      letterSpacing: 0,
-      verticalAlign: '1px',
-    }}>{label}</span>
+    <span className={`dialogue-log-visibility ${visibility?.scope || 'party'}`}>
+      {label}
+    </span>
+  )
+}
+
+function LogShell({ role, entryRole, children }) {
+  return (
+    <div className={`dialogue-log-item ${role}`} role="listitem" aria-label={`日志 ${entryRole}`}>
+      {children}
+    </div>
   )
 }
 
@@ -45,65 +39,42 @@ export default function LogLine({ entry }) {
 
   if (role === 'dm') {
     return (
-      <p
-        className="dialogue-log-line dialogue-log-line-dm"
-        style={{
-          fontFamily: 'var(--font-script)', fontStyle: 'italic',
-          color: 'var(--parchment)', fontSize: 14, lineHeight: 1.7,
-          margin: '8px 0', padding: '0 0 0 14px',
-          borderLeft: '2px solid rgba(240,208,96,.45)',
-        }}
-      >
-        <VisibilityBadge visibility={entry.visibility} />
-        {renderLightMarkdown(txt, 'var(--amber)')}
-      </p>
+      <LogShell role="dm" entryRole="DM">
+        <p className="dialogue-log-line dialogue-log-line-dm">
+          <VisibilityBadge visibility={entry.visibility} />
+          {renderLightMarkdown(txt, 'var(--amber)')}
+        </p>
+      </LogShell>
     )
   }
   if (role === 'player') {
     return (
-      <p
-        className="dialogue-log-line dialogue-log-line-player"
-        style={{
-          color: '#7fe8f8', fontSize: 13, fontFamily: 'var(--font-body)',
-          margin: '6px 0', padding: '0 0 0 14px',
-          borderLeft: '2px solid rgba(127,232,248,.5)',
-        }}
-      >► {renderLightMarkdown(txt, '#fff8dd')}</p>
+      <LogShell role="player" entryRole="玩家">
+        <p className="dialogue-log-line dialogue-log-line-player">► {renderLightMarkdown(txt, '#fff8dd')}</p>
+      </LogShell>
     )
   }
   if (role === 'companion') {
     const speaker = entry.speaker || entry.companion_speaker || '队友'
     return (
-      <p
-        className="dialogue-log-line dialogue-log-line-companion"
-        style={{
-          color: 'var(--emerald-light)', fontSize: 12,
-          margin: '4px 0', padding: '0 0 0 14px', fontStyle: 'italic',
-          borderLeft: '2px solid rgba(90,168,120,.5)',
-        }}
-      >❖ {speaker}：{renderLightMarkdown(txt, '#a8f0c0')}</p>
+      <LogShell role="companion" entryRole={`队友 ${speaker}`}>
+        <p className="dialogue-log-line dialogue-log-line-companion">❖ {speaker}：{renderLightMarkdown(txt, '#a8f0c0')}</p>
+      </LogShell>
     )
   }
   if (role === 'dice') {
     return (
-      <p style={{
-        color: 'var(--amber)', fontSize: 12, fontFamily: 'var(--font-mono)',
-        margin: '3px 0', padding: '2px 10px',
-        background: 'rgba(10,6,4,.45)', borderRadius: 3,
-        display: 'inline-block',
-      }}>🎲 {txt}</p>
+      <LogShell role="dice" entryRole="骰子">
+        <p className="dialogue-log-line dialogue-log-line-dice">🎲 {txt}</p>
+      </LogShell>
     )
   }
   // system / other
   return (
-    <p
-      className="dialogue-log-line dialogue-log-line-system"
-      style={{
-        color: 'var(--parchment-dark)', fontSize: 11,
-        margin: '3px 0', fontStyle: 'italic', opacity: 0.7,
-      }}
-    >
-      {txt}
-    </p>
+    <LogShell role="system" entryRole="系统">
+      <p className="dialogue-log-line dialogue-log-line-system">
+        {txt}
+      </p>
+    </LogShell>
   )
 }
