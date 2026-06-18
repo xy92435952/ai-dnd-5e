@@ -28,6 +28,9 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+.multiplayer-table-notice {
+  min-width: 0;
+}
 /* Home hub */
 .home-page {
   min-height: 100vh;

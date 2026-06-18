@@ -15,13 +15,19 @@ export default function MultiplayerTableNotice({
   if (!tableStatus.shouldShowNotice) return null
 
   return (
-    <MultiplayerSessionStatusBar
-      room={room}
-      label="DM 调度原因"
-      title={tableStatus.tableDecisionLabel}
-      reason={tableStatus.tableReason}
-      focusLabel={tableStatus.activeGroupLabel ? `当前镜头：${tableStatus.activeGroupLabel}` : ''}
-      nextLabel={tableStatus.nextReadySummary}
-    />
+    <section
+      className="multiplayer-table-notice"
+      role="region"
+      aria-label="多人调度提示"
+    >
+      <MultiplayerSessionStatusBar
+        room={room}
+        label="DM 调度原因"
+        title={tableStatus.tableDecisionLabel}
+        reason={tableStatus.tableReason}
+        focusLabel={tableStatus.activeGroupLabel ? `当前镜头：${tableStatus.activeGroupLabel}` : ''}
+        nextLabel={tableStatus.nextReadySummary}
+      />
+    </section>
   )
 }

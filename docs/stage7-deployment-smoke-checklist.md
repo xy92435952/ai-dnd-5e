@@ -138,6 +138,7 @@ Adventure `LogLine`, Adventure `LocationMapModal`, Adventure
 Adventure `CheckpointModal`, Adventure `JournalModal`, Adventure `RestModal`,
 Adventure `PrepareSpellsModal`, Adventure `MultiplayerTimelinePanel`,
 Adventure `MultiplayerPartyPanel`, Adventure `MultiplayerSpeakBar`,
+Adventure `MultiplayerTableNotice`,
 `DialogueHistoryView`, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
 privacy projection, combat-log coverage, loot distribution UI coverage, mapped
@@ -145,7 +146,7 @@ location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 shared adventure modal shell, checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
 spell-preparation, dialogue-history, adventure party status HUD, adventure quest/location HUD,
 adventure stage shell, stage speaker figure, dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, AI-turn stale reaction cleanup, multiplayer timeline, multiplayer party
-coordination, and multiplayer speak-turn coverage. Keep new
+coordination, multiplayer speak-turn, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## CI Release Gate

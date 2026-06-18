@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyCombatSessionSnapshot, getPendingReactionPrompt, resolveCombatReactionPrompt } from '../combatSession'
+import {
+  applyCombatSessionSnapshot,
+  getPendingReactionPrompt,
+  mergeCombatSessionLogs,
+  resolveCombatReactionPrompt,
+} from '../combatSession'
 
 describe('applyCombatSessionSnapshot', () => {
   function createSetters(overrides = {}) {
@@ -77,13 +82,69 @@ describe('applyCombatSessionSnapshot', () => {
     expect(setters.setPlayerClass).toHaveBeenCalledWith('Wizard')
     expect(setters.setTurnState).toHaveBeenCalledWith({ action_used: false })
     expect(setters.setReactionPrompt).toHaveBeenCalledWith(null)
-    expect(setters.setLogs).toHaveBeenCalledWith([
+    const syncLogs = setters.setLogs.mock.calls[0][0]
+    expect(syncLogs([])).toEqual([
       { log_type: 'combat', content: '战斗日志' },
       { log_type: 'system', content: '系统日志' },
     ])
     expect(result.playerId).toBe('char-1')
     expect(result.playerEntry).toEqual({ character_id: 'char-1', name: 'Tester', is_player: true })
     expect(result.pendingReaction).toBeNull()
+  })
+
+  it('keeps local immediate combat logs while syncing a backend snapshot', () => {
+    const localReactionLog = {
+      id: 'log-123-0.4',
+      role: 'player',
+      content: "Tester's Cutting Words reduces the damage roll.",
+      log_type: 'combat',
+      reaction_effect: {
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+      },
+    }
+
+    expect(mergeCombatSessionLogs([], [localReactionLog])).toEqual([localReactionLog])
+    expect(mergeCombatSessionLogs([
+      { id: 7, role: 'system', content: '系统日志', log_type: 'system' },
+    ], [localReactionLog])).toEqual([
+      { id: 7, role: 'system', content: '系统日志', log_type: 'system' },
+      localReactionLog,
+    ])
+  })
+
+  it('deduplicates a local reaction log once the persisted snapshot catches up', () => {
+    const persistedReactionLog = {
+      id: 7,
+      role: 'player',
+      content: "Tester's Cutting Words reduces the damage roll.",
+      log_type: 'combat',
+      dice_result: {
+        type: 'reaction',
+        reaction_type: 'cutting_words_damage',
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+      },
+    }
+    const localReactionLog = {
+      id: 'log-123-0.4',
+      role: 'player',
+      content: "Tester's Cutting Words reduces the damage roll.",
+      log_type: 'combat',
+      dice_result: {
+        type: 'reaction',
+        reaction_type: 'cutting_words_damage',
+        damage_roll_before: 8,
+        damage_roll_after: 5,
+        damage_prevented: 3,
+      },
+    }
+
+    expect(mergeCombatSessionLogs([persistedReactionLog], [localReactionLog])).toEqual([
+      persistedReactionLog,
+    ])
   })
 
   it('returns the current controlled player entry instead of the first player in initiative', () => {

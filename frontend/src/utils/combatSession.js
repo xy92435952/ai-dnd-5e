@@ -55,10 +55,8 @@ export function applyCombatSessionSnapshot({
   if (setLairActionPrompt) setLairActionPrompt(lairActionPrompt)
   if (setLegendaryActionPrompt) setLegendaryActionPrompt(legendaryActionPrompt)
 
-  const combatLogs = (sessionData?.logs || []).filter(l =>
-    l.log_type === 'combat' || l.log_type === 'system'
-  )
-  setLogs(combatLogs)
+  const combatLogs = filterCombatSessionLogs(sessionData?.logs)
+  setLogs(prevLogs => mergeCombatSessionLogs(combatLogs, prevLogs))
 
   return {
     playerId,
@@ -67,6 +65,54 @@ export function applyCombatSessionSnapshot({
     lairActionPrompt,
     legendaryActionPrompt,
   }
+}
+
+export function filterCombatSessionLogs(logs = []) {
+  return (logs || []).filter(l =>
+    l.log_type === 'combat' || l.log_type === 'system'
+  )
+}
+
+export function mergeCombatSessionLogs(snapshotLogs = [], localLogs = []) {
+  const merged = [...snapshotLogs]
+  const seen = new Set(snapshotLogs.flatMap(getCombatLogKeys))
+
+  for (const log of localLogs || []) {
+    const keys = getCombatLogKeys(log)
+    if (keys.some(key => seen.has(key))) continue
+    if (isLocalCombatLog(log)) {
+      merged.push(log)
+      keys.forEach(key => seen.add(key))
+    }
+  }
+
+  return merged
+}
+
+function isLocalCombatLog(log = {}) {
+  if (!log || typeof log !== 'object') return false
+  if (log.log_type !== 'combat' && log.log_type !== 'system') return false
+  return typeof log.id === 'string' && log.id.startsWith('log-')
+}
+
+function getCombatLogKeys(log = {}) {
+  if (!log || typeof log !== 'object') return []
+  const keys = []
+  if (log.id || log.log_id) keys.push(`id:${log.id || log.log_id}`)
+  const role = log.role || ''
+  const logType = log.log_type || ''
+  const content = log.content || ''
+  keys.push(['content', role, logType, content].join('|'))
+  if (log.dice_result) {
+    keys.push(['dice', role, logType, content, JSON.stringify(log.dice_result)].join('|'))
+  }
+  if (log.reaction_effect) {
+    keys.push(['reaction', role, logType, content, JSON.stringify(log.reaction_effect)].join('|'))
+  }
+  if (log.state_changes) {
+    keys.push(['state', role, logType, content, JSON.stringify(log.state_changes)].join('|'))
+  }
+  return keys
 }
 
 export function getPendingReactionPrompt(turnState, playerId) {

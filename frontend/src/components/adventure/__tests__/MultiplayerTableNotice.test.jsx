@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import MultiplayerTableNotice from '../MultiplayerTableNotice'
 
 const room = {
@@ -41,12 +41,14 @@ describe('MultiplayerTableNotice', () => {
       />
     )
 
-    expect(screen.getByText('DM 调度原因')).toBeInTheDocument()
-    expect(screen.getByText('切换镜头')).toBeInTheDocument()
-    expect(screen.getByText('酒馆组已有待处理行动，玩家明确要求切镜头。')).toBeInTheDocument()
-    expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
-    expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
-    expect(screen.queryByText('主持')).not.toBeInTheDocument()
+    const notice = screen.getByRole('region', { name: '多人调度提示' })
+    expect(notice).toHaveClass('multiplayer-table-notice')
+    expect(within(notice).getByText('DM 调度原因')).toBeInTheDocument()
+    expect(within(notice).getByText('切换镜头')).toBeInTheDocument()
+    expect(within(notice).getByText('酒馆组已有待处理行动，玩家明确要求切镜头。')).toBeInTheDocument()
+    expect(within(notice).getByText('当前镜头：酒馆组')).toBeInTheDocument()
+    expect(within(notice).getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
+    expect(within(notice).queryByText('主持')).not.toBeInTheDocument()
   })
 
   it('falls back to the latest visible log reason after theatre playback', () => {
@@ -62,7 +64,8 @@ describe('MultiplayerTableNotice', () => {
       />
     )
 
-    expect(screen.getByText('等待后巷组补充行动。')).toBeInTheDocument()
+    const notice = screen.getByRole('region', { name: '多人调度提示' })
+    expect(within(notice).getByText('等待后巷组补充行动。')).toBeInTheDocument()
   })
 
   it('stays hidden when there is no coordination reason or ready group', () => {
