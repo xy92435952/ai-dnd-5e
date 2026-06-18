@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { within } from '@testing-library/react'
 import MultiplayerTimelinePanel from '../MultiplayerTimelinePanel'
 
 describe('MultiplayerTimelinePanel', () => {
@@ -17,10 +18,13 @@ describe('MultiplayerTimelinePanel', () => {
 
     render(<MultiplayerTimelinePanel room={room} logs={logs} myUserId="u1" />)
 
-    expect(screen.getByText('分队时间线')).toBeInTheDocument()
-    expect(screen.getByText('公共 1')).toBeInTheDocument()
-    expect(screen.getByText('我的分队 1')).toBeInTheDocument()
-    expect(screen.getByText('私密 1')).toBeInTheDocument()
+    const panel = screen.getByLabelText('分队时间线')
+    expect(within(panel).getByText('分队时间线')).toBeInTheDocument()
+    expect(within(panel).getByText('后巷组')).toBeInTheDocument()
+    const lanes = within(panel).getByLabelText('分队可见记录')
+    expect(within(lanes).getByLabelText('公共 1')).toBeInTheDocument()
+    expect(within(lanes).getByLabelText('我的分队 1')).toBeInTheDocument()
+    expect(within(lanes).getByLabelText('私密 1')).toBeInTheDocument()
     expect(screen.getByText('全队听见钟声。')).toBeInTheDocument()
     expect(screen.getByText('后巷门锁弹开。')).toBeInTheDocument()
     expect(screen.getByText('只有你注意到暗号。')).toBeInTheDocument()
@@ -43,6 +47,9 @@ describe('MultiplayerTimelinePanel', () => {
 
     render(<MultiplayerTimelinePanel room={room} logs={[]} myUserId="u1" />)
 
-    expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('当前镜头：酒馆组')
+    expect(screen.getByLabelText('公共 0')).toHaveTextContent('暂无可见记录')
+    expect(screen.getByLabelText('我的分队 0')).toHaveTextContent('暂无可见记录')
+    expect(screen.getByLabelText('私密 0')).toHaveTextContent('暂无可见记录')
   })
 })
