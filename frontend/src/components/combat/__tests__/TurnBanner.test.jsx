@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import TurnBanner from '../TurnBanner'
 
 describe('TurnBanner', () => {
@@ -19,13 +19,14 @@ describe('TurnBanner', () => {
       />
     )
 
-    expect(screen.getByText('R 3')).toBeInTheDocument()
-    expect(screen.getByText('轮到')).toBeInTheDocument()
-    expect(screen.getByText('洛林')).toBeInTheDocument()
-    expect(screen.getByText('你的回合')).toBeInTheDocument()
-    expect(screen.getByText(/正在控制 洛林/)).toBeInTheDocument()
-    expect(screen.getByLabelText('下一位行动 矿洞斥候')).toHaveTextContent('下个')
-    expect(screen.getByLabelText('下一位行动 矿洞斥候')).toHaveClass('enemy')
+    const banner = screen.getByRole('region', { name: '当前回合状态' })
+    expect(within(banner).getByText('R 3')).toBeInTheDocument()
+    expect(within(banner).getByText('轮到')).toBeInTheDocument()
+    expect(within(banner).getByLabelText('当前行动者 洛林')).toHaveTextContent('洛林')
+    expect(within(banner).getByRole('status', { name: '回合状态提示' })).toHaveTextContent('你的回合')
+    expect(within(banner).getByRole('status', { name: '回合状态提示' })).toHaveTextContent(/正在控制 洛林/)
+    expect(within(banner).getByLabelText('下一位行动 矿洞斥候')).toHaveTextContent('下个')
+    expect(within(banner).getByLabelText('下一位行动 矿洞斥候')).toHaveClass('enemy')
   })
 
   it('shows blocked sync guidance before normal turn guidance', () => {
@@ -42,8 +43,9 @@ describe('TurnBanner', () => {
       />
     )
 
-    expect(screen.getByText('同步暂停')).toBeInTheDocument()
-    expect(screen.getByText(/等待战斗同步恢复/)).toBeInTheDocument()
+    const coach = screen.getByRole('status', { name: '回合状态提示' })
+    expect(coach).toHaveTextContent('同步暂停')
+    expect(coach).toHaveTextContent(/等待战斗同步恢复/)
     expect(screen.queryByText('你的回合')).not.toBeInTheDocument()
   })
 
@@ -61,8 +63,9 @@ describe('TurnBanner', () => {
       />
     )
 
-    const button = screen.getByRole('button', { name: /威胁区/ })
+    const button = screen.getByRole('button', { name: '切换敌人威胁区显示' })
     expect(button).toHaveClass('active')
+    expect(button).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('敌方行动')).toBeInTheDocument()
 
     fireEvent.click(button)
@@ -86,14 +89,11 @@ describe('TurnBanner', () => {
       />
     )
 
-    const coach = screen.getByLabelText('回合行动提示')
-    expect(coach).toHaveTextContent('动作')
-    expect(coach).toHaveTextContent('选目标')
-    expect(coach).toHaveTextContent('目标')
-    expect(coach).toHaveTextContent('移动')
-    expect(coach).toHaveTextContent('4 格')
-    expect(coach).toHaveTextContent('反应')
-    expect(coach).toHaveTextContent('保留')
+    const coach = screen.getByRole('list', { name: '回合行动提示' })
+    expect(within(coach).getByRole('listitem', { name: '动作：选目标' })).toBeInTheDocument()
+    expect(within(coach).getByRole('listitem', { name: '目标：选目标' })).toBeInTheDocument()
+    expect(within(coach).getByRole('listitem', { name: '移动：4 格' })).toBeInTheDocument()
+    expect(within(coach).getByRole('listitem', { name: '反应：保留' })).toBeInTheDocument()
   })
 
   it('surfaces selected target context in the action coach', () => {
@@ -125,7 +125,7 @@ describe('TurnBanner', () => {
       />
     )
 
-    const coach = screen.getByLabelText('回合行动提示')
+    const coach = screen.getByRole('list', { name: '回合行动提示' })
     expect(coach).toHaveTextContent('目标')
     expect(coach).toHaveTextContent('敌人 · Goblin Boss · 危急 · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')
     expect(screen.getByTitle('敌人 · Goblin Boss · 危急 · AC 15 · 命中 55% · 劣势 · 3/4 掩护 +5 AC · 有效 AC 20')).toBeInTheDocument()
@@ -154,9 +154,8 @@ describe('TurnBanner', () => {
       />
     )
 
-    const coach = screen.getByLabelText('回合行动提示')
-    expect(coach).toHaveTextContent('动作')
-    expect(coach).toHaveTextContent('选队友')
+    const coach = screen.getByRole('list', { name: '回合行动提示' })
+    expect(within(coach).getByRole('listitem', { name: '动作：选队友' })).toBeInTheDocument()
     expect(coach).toHaveTextContent('协助')
   })
 
@@ -182,10 +181,8 @@ describe('TurnBanner', () => {
       />
     )
 
-    const coach = screen.getByLabelText('回合行动提示')
-    expect(coach).toHaveTextContent('附赠')
-    expect(coach).toHaveTextContent('副手攻击')
-    expect(coach).toHaveTextContent('结束')
-    expect(coach).toHaveTextContent('还有附赠')
+    const coach = screen.getByRole('list', { name: '回合行动提示' })
+    expect(within(coach).getByRole('listitem', { name: '附赠：副手攻击' })).toBeInTheDocument()
+    expect(within(coach).getByRole('listitem', { name: '结束：还有附赠' })).toBeInTheDocument()
   })
 })
