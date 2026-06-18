@@ -63,6 +63,8 @@ Set `LOADTEST_RESULT_JSON` through `scripts/check.sh`, or pass
 when you want to keep the final users/rooms/WebSocket/timing/cleanup summary as
 a machine-readable local evidence file. The `artifacts/` folder is ignored by
 git and can be uploaded separately by CI or archived for a release checklist.
+Verify the result before release handoff with
+`node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json`.
 
 The default test shape is fixed on purpose:
 

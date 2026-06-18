@@ -82,6 +82,8 @@ or declines the Feather Fall prompt, verifies HP/slot/pending state through
 HTTP refresh, and writes prompt/resolved screenshots plus a JSON manifest under
 `artifacts/`. If `--artifact-tag` or `FEATHER_FALL_SMOKE_ARTIFACT_TAG` is not
 set, the script uses the current local date as `YYYYMMDD`.
+Verify the manifest before release handoff with
+`node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json`.
 
 The same `--slug` is idempotent: rerunning it replaces the previous seeded rows
 with the same deterministic ids instead of accumulating duplicate test data.

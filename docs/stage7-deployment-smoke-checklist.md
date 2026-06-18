@@ -326,6 +326,17 @@ Keep the local or CI evidence from this checklist with the release note:
 - CI `frontend-prod-build` result when frontend dependencies or build tooling
   changed
 
+Verify machine-readable smoke evidence before handoff:
+
+```powershell
+node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json
+node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json
+node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json
+```
+
+When checking a downloaded GitHub Actions JSON artifact without its sibling
+screenshots or local result path, add `--no-file-check`.
+
 Before server pull/restart:
 
 ```powershell

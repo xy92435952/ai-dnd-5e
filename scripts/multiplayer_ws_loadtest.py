@@ -1225,6 +1225,8 @@ def main() -> int:
         )
     result = asyncio.run(run(args))
     if args.result_json:
+        result["result_json"] = args.result_json
+    if args.result_json:
         result_path = Path(args.result_json)
         result_path.parent.mkdir(parents=True, exist_ok=True)
         result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
