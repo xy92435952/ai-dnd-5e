@@ -48,6 +48,17 @@ function PreviewList({ title, items, empty }) {
   )
 }
 
+function CheckpointScopeList({ title, items, tone = '' }) {
+  return (
+    <section className={`checkpoint-scope ${tone}`.trim()}>
+      <h4>{title}</h4>
+      <ul>
+        {items.map(item => <li key={item}>{item}</li>)}
+      </ul>
+    </section>
+  )
+}
+
 function buildPreviewItems(campaignState = {}) {
   const state = asObject(campaignState)
   const quests = asArray(state.quest_log)
@@ -100,20 +111,23 @@ export default function CheckpointModal({ sessionId, onSave, onClose }) {
 
   return (
     <Overlay onClose={onClose}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ color: 'var(--amber)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="checkpoint-modal-head">
+        <h3>
           <CheckpointIcon size={18} color="var(--amber)" /> Checkpoint
         </h3>
-        <button onClick={onClose} style={{ color: 'var(--parchment-dark)', fontSize: 22, background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+        <button type="button" onClick={onClose} aria-label="关闭 checkpoint">×</button>
       </div>
 
-      <div className="checkpoint-explainer">
-        <p>
-          这个 checkpoint 会更新 DM 的长期战役记忆。之后继续冒险时，DM 会参考这里的任务、NPC、线索、地点和世界状态。
-        </p>
-        <p className="checkpoint-warning">
-          它不会回滚 HP、位置、背包、战斗回合或已经写入的日志；这些仍以当前会话状态为准。
-        </p>
+      <div className="checkpoint-explainer" aria-label="Checkpoint 保存范围">
+        <CheckpointScopeList
+          title="会更新"
+          items={['DM 长期战役记忆', '任务、NPC、线索、地点与世界状态', '之后继续冒险时的上下文参考']}
+        />
+        <CheckpointScopeList
+          title="不会回滚"
+          tone="warn"
+          items={['HP、位置、背包或法术位', '战斗回合、临时提示或实时同步状态', '已经写入的可见日志']}
+        />
       </div>
 
       <div className="checkpoint-summary" aria-label="Checkpoint 当前记忆摘要">
@@ -125,7 +139,7 @@ export default function CheckpointModal({ sessionId, onSave, onClose }) {
         <SummaryPill label="决定" value={summary.decisions} />
       </div>
 
-      <div className="checkpoint-preview" aria-label="Checkpoint 会恢复的记忆">
+      <div className="checkpoint-preview" aria-label="Checkpoint 会恢复的记忆" aria-live="polite">
         {loading ? (
           <p className="checkpoint-empty">正在读取 checkpoint...</p>
         ) : checkpoint?.has_checkpoint ? (
@@ -140,13 +154,14 @@ export default function CheckpointModal({ sessionId, onSave, onClose }) {
         )}
       </div>
 
-      {error && <p className="checkpoint-error">{error}</p>}
+      {saving && <p className="checkpoint-status" role="status">正在保存 checkpoint 记忆...</p>}
+      {error && <p className="checkpoint-error" role="alert">{error}</p>}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={handleSave} disabled={loading || saving}>
+      <div className="checkpoint-actions" role="group" aria-label="Checkpoint 操作">
+        <button className="btn-fantasy checkpoint-action" onClick={handleSave} disabled={loading || saving}>
           {saving ? '保存中...' : '保存 / 更新 checkpoint'}
         </button>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onClose}>关闭</button>
+        <button className="btn-fantasy checkpoint-action" onClick={onClose}>关闭</button>
       </div>
     </Overlay>
   )

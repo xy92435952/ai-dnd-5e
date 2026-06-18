@@ -2308,22 +2308,67 @@ button.companion-signal-item:focus-visible {
   color: var(--blood-light);
 }
 
+.checkpoint-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.checkpoint-modal-head h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--amber);
+  font-size: 17px;
+}
+.checkpoint-modal-head button {
+  border: 0;
+  background: none;
+  color: var(--parchment-dark);
+  font-size: 22px;
+  cursor: pointer;
+}
 .checkpoint-explainer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   padding: 12px;
   border: 1px solid rgba(240,208,96,.32);
   border-radius: 6px;
   background: linear-gradient(180deg, rgba(26,18,8,.72), rgba(10,6,4,.86));
 }
-.checkpoint-explainer p {
-  margin: 0;
-  color: var(--parchment);
-  font-size: 13px;
-  line-height: 1.6;
+.checkpoint-scope {
+  min-width: 0;
+  padding: 8px;
+  border-left: 2px solid rgba(106,196,132,.46);
+  background: rgba(18,58,36,.14);
 }
-.checkpoint-explainer .checkpoint-warning {
-  margin-top: 6px;
-  color: var(--parchment-dark);
-  font-size: 12px;
+.checkpoint-scope.warn {
+  border-left-color: rgba(240,208,96,.5);
+  background: rgba(82,58,16,.16);
+}
+.checkpoint-scope h4 {
+  margin: 0;
+  color: var(--emerald-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.checkpoint-scope.warn h4 {
+  color: var(--gold);
+}
+.checkpoint-scope ul {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  color: var(--parchment);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.checkpoint-scope li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
 }
 .checkpoint-summary {
   display: grid;
@@ -2398,6 +2443,25 @@ button.companion-signal-item:focus-visible {
   color: var(--blood-light);
   background: rgba(138,26,26,.16);
   font-size: 12px;
+}
+.checkpoint-status {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(127,232,248,.3);
+  border-radius: 4px;
+  color: var(--arcane-light);
+  background: rgba(47,168,184,.1);
+  font-size: 12px;
+}
+.checkpoint-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.checkpoint-action {
+  min-width: 96px;
+  padding: 8px 16px;
+  font-size: 13px;
 }
 
 .loot-modal-head {

@@ -39,8 +39,13 @@ describe('CheckpointModal', () => {
       />,
     )
 
-    expect(screen.getByText(/会更新 DM 的长期战役记忆/)).toBeInTheDocument()
-    expect(screen.getByText(/不会回滚 HP、位置、背包、战斗回合或已经写入的日志/)).toBeInTheDocument()
+    const scope = screen.getByLabelText('Checkpoint 保存范围')
+    expect(within(scope).getByText('会更新')).toBeInTheDocument()
+    expect(within(scope).getByText('DM 长期战役记忆')).toBeInTheDocument()
+    expect(within(scope).getByText('任务、NPC、线索、地点与世界状态')).toBeInTheDocument()
+    expect(within(scope).getByText('不会回滚')).toBeInTheDocument()
+    expect(within(scope).getByText('HP、位置、背包或法术位')).toBeInTheDocument()
+    expect(within(scope).getByText('战斗回合、临时提示或实时同步状态')).toBeInTheDocument()
 
     const summary = screen.getByLabelText('Checkpoint 当前记忆摘要')
     await waitFor(() => {
@@ -49,6 +54,7 @@ describe('CheckpointModal', () => {
     })
 
     const preview = screen.getByLabelText('Checkpoint 会恢复的记忆')
+    expect(preview).toHaveAttribute('aria-live', 'polite')
     expect(within(preview).getByText(/寻找失踪矿工/)).toBeInTheDocument()
     expect(within(preview).getByText(/铁匠格雷/)).toBeInTheDocument()
     expect(within(preview).getByText('暗门在井底')).toBeInTheDocument()
@@ -73,7 +79,10 @@ describe('CheckpointModal', () => {
     )
 
     await screen.findByText(/还没有 checkpoint/)
-    fireEvent.click(screen.getByRole('button', { name: /保存 \/ 更新 checkpoint/ }))
+    const actions = screen.getByRole('group', { name: 'Checkpoint 操作' })
+    const saveButton = within(actions).getByRole('button', { name: /保存 \/ 更新 checkpoint/ })
+    fireEvent.click(saveButton)
+    expect(await screen.findByRole('status')).toHaveTextContent('正在保存 checkpoint 记忆...')
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalled()
@@ -97,7 +106,7 @@ describe('CheckpointModal', () => {
     await screen.findByText(/还没有 checkpoint/)
     fireEvent.click(screen.getByRole('button', { name: /保存 \/ 更新 checkpoint/ }))
 
-    expect(await screen.findByText('档案生成失败')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('档案生成失败')
     expect(onClose).not.toHaveBeenCalled()
   })
 })
