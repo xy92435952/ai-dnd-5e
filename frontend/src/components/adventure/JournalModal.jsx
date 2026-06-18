@@ -433,6 +433,13 @@ function Pill({ children, tone = 'default' }) {
 export default function JournalModal({ session, room, text, loading, initialSection = '', onGenerate, onClose }) {
   const journal = buildJournalSections(session, room)
   const companionsSectionRef = useRef(null)
+  const dossierSummary = [
+    { label: '任务', count: journal.quests.length, tone: journal.quests.length ? 'active' : 'default' },
+    { label: '时间线', count: journal.timeline.length, tone: journal.timeline.length ? 'active' : 'default' },
+    { label: '队友', count: journal.companions.length, tone: journal.companions.length ? 'good' : 'default' },
+    { label: '线索', count: journal.clues.length, tone: journal.clues.length ? 'active' : 'default' },
+    { label: '威胁', count: journal.threats.length, tone: journal.threats.length ? 'danger' : 'default' },
+  ]
 
   useEffect(() => {
     if (initialSection !== 'companions') return
@@ -448,11 +455,19 @@ export default function JournalModal({ session, room, text, loading, initialSect
 
   return (
     <Overlay onClose={onClose}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ color: 'var(--amber)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="journal-modal-head">
+        <h3>
           <JournalIcon size={18} color="var(--amber)" /> 冒险卷宗
         </h3>
-        <button onClick={onClose} style={{ color: 'var(--parchment-dark)', fontSize: 22, background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+        <button type="button" onClick={onClose} aria-label="关闭卷宗">×</button>
+      </div>
+
+      <div className="journal-dossier-summary" role="status" aria-label="卷宗概览">
+        {dossierSummary.map(item => (
+          <span key={item.label} className={item.tone} aria-label={`${item.label} ${item.count}`}>
+            <b>{item.count}</b>{item.label}
+          </span>
+        ))}
       </div>
 
       <div className="journal-dossier" aria-label="冒险卷宗">
@@ -632,24 +647,24 @@ export default function JournalModal({ session, room, text, loading, initialSect
         </Section>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 160, maxHeight: '32vh', background: '#0a0604', borderRadius: 8, padding: 16, border: '1px solid var(--bark)' }}>
+      <div className="journal-generated-panel" aria-label="生成日志" aria-live="polite">
         {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--amber)' }}>
+          <div className="journal-generated-loading" role="status">
             DM 正在撰写日志...
           </div>
         ) : text ? (
-          <p style={{ color: 'var(--parchment)', lineHeight: 1.9, fontSize: 14, whiteSpace: 'pre-wrap', margin: 0 }}>{text}</p>
+          <p>{text}</p>
         ) : (
-          <p style={{ color: 'var(--parchment-dark)', textAlign: 'center', marginTop: 32, fontSize: 13 }}>
+          <p className="journal-generated-empty">
             点击下方按钮生成本次冒险的叙述日志
           </p>
         )}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onGenerate} disabled={loading}>
+      <div className="journal-modal-actions" role="group" aria-label="日志操作">
+        <button className="btn-fantasy" onClick={onGenerate} disabled={loading} aria-label={loading ? '日志生成中' : '重新生成日志'}>
           {loading ? '生成中...' : '🔄 重新生成'}
         </button>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onClose}>关闭</button>
+        <button className="btn-fantasy" onClick={onClose} aria-label="关闭日志">关闭</button>
       </div>
     </Overlay>
   )

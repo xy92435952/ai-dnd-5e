@@ -109,6 +109,13 @@ describe('JournalModal', () => {
       />,
     )
 
+    expect(screen.getByRole('button', { name: '关闭卷宗' })).toBeInTheDocument()
+    const overview = screen.getByRole('status', { name: '卷宗概览' })
+    expect(within(overview).getByLabelText('任务 2')).toBeInTheDocument()
+    expect(within(overview).getByLabelText('时间线 3')).toBeInTheDocument()
+    expect(within(overview).getByLabelText('队友 1')).toBeInTheDocument()
+    expect(within(overview).getByLabelText('线索 2')).toBeInTheDocument()
+    expect(within(overview).getByLabelText('威胁 4')).toBeInTheDocument()
     const dossier = screen.getByLabelText('冒险卷宗')
     expect(within(dossier).getAllByText('任务').length).toBeGreaterThanOrEqual(1)
     const questSummary = within(dossier).getByLabelText('任务状态汇总')
@@ -186,7 +193,9 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('守卫开始巡逻')).toBeInTheDocument()
     expect(within(dossier).getByText('关键决定')).toBeInTheDocument()
     expect(within(dossier).getByText('信任铁匠格雷')).toBeInTheDocument()
-    expect(screen.getByText('上一幕日志')).toBeInTheDocument()
+    const generatedPanel = screen.getByLabelText('生成日志')
+    expect(generatedPanel).toHaveAttribute('aria-live', 'polite')
+    expect(within(generatedPanel).getByText('上一幕日志')).toBeInTheDocument()
   })
 
   it('uses the latest role-scoped companion combat log as the dossier reaction', () => {
@@ -235,7 +244,7 @@ describe('JournalModal', () => {
       />,
     )
 
-    const companionSection = screen.getByText('队友').closest('section')
+    const companionSection = screen.getByText('队友', { selector: '.journal-section h4 span' }).closest('section')
     expect(companionSection).toHaveAttribute('data-journal-section', 'companions')
     expect(companionSection).toHaveAttribute('tabindex', '-1')
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' }))
@@ -262,10 +271,32 @@ describe('JournalModal', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /重新生成/ }))
-    fireEvent.click(screen.getByRole('button', { name: '关闭' }))
+    const generatedPanel = screen.getByLabelText('生成日志')
+    expect(generatedPanel).toHaveAttribute('aria-live', 'polite')
+    expect(within(generatedPanel).getByText('点击下方按钮生成本次冒险的叙述日志')).toBeInTheDocument()
+    const actions = screen.getByRole('group', { name: '日志操作' })
+
+    fireEvent.click(within(actions).getByRole('button', { name: '重新生成日志' }))
+    fireEvent.click(within(actions).getByRole('button', { name: '关闭日志' }))
 
     expect(onGenerate).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('marks the generated journal loading state as live status', () => {
+    render(
+      <JournalModal
+        session={{ campaign_state: {}, game_state: {} }}
+        text=""
+        loading
+        onGenerate={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const generatedPanel = screen.getByLabelText('生成日志')
+    expect(generatedPanel).toHaveAttribute('aria-live', 'polite')
+    expect(within(generatedPanel).getByRole('status')).toHaveTextContent('DM 正在撰写日志...')
+    expect(screen.getByRole('button', { name: '日志生成中' })).toBeDisabled()
   })
 })
