@@ -6830,11 +6830,38 @@ button.companion-signal-item:focus-visible {
   min-width: 0;
 }
 .combat-turn-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
   min-width: 0;
 }
 .combat-turn-action-grid > * {
   min-width: 0;
   box-sizing: border-box;
+}
+.combat-turn-compact-action {
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.combat-turn-danger-action {
+  font-size: 9px;
+}
+.combat-turn-select {
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--wood-light);
+  border-radius: 4px;
+  background: rgba(10,6,2,0.65);
+  color: var(--parchment);
+  font-size: 10px;
+}
+.combat-turn-weapon-select {
+  grid-column: 1 / -1;
+}
+.combat-turn-status {
+  color: var(--parchment-dark);
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .end-turn-mega {

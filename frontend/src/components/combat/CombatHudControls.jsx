@@ -75,7 +75,7 @@ export default function CombatHudControls({
   const statusNotice = disabledReason || delaySpentReason
 
   return (
-    <div className="combat-turn-controls">
+    <section className="combat-turn-controls" aria-label="战斗回合控制">
       <button
         className="end-turn-mega"
         onClick={onEndTurn}
@@ -83,8 +83,8 @@ export default function CombatHudControls({
         title={disabledReason || '结束当前回合'}
       >{syncBlocked ? '☰ 同步中' : '☰ 结束回合'}</button>
 
-      <div className="combat-turn-action-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-        <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+      <div className="combat-turn-action-grid" role="group" aria-label="战斗行动命令">
+        <button className="btn-ghost combat-turn-compact-action"
           onClick={() => onDelayTurn(delayAfterEntityId || null)}
           disabled={delayDisabled}
           title={delayDisabledReason || delayTitle}>
@@ -97,15 +97,7 @@ export default function CombatHudControls({
             onChange={(event) => onDelayAfterEntityChange?.(event.target.value)}
             disabled={delayDisabled}
             title={delayDisabledReason || '选择延迟到哪个战斗者之后'}
-            style={{
-              background: 'rgba(10,6,2,0.65)',
-              border: '1px solid var(--wood-light)',
-              color: 'var(--parchment)',
-              borderRadius: 4,
-              fontSize: 10,
-              padding: '5px 8px',
-              minWidth: 0,
-            }}
+            className="combat-turn-select"
           >
             <option value="">本轮末尾</option>
             {delayTurnOptions.map(option => (
@@ -115,13 +107,13 @@ export default function CombatHudControls({
             ))}
           </select>
         )}
-        <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+        <button className="btn-ghost combat-turn-compact-action"
           onClick={onToggleMove}
           disabled={actionDisabled}
           title={disabledReason || '切换移动模式'}>
           {moveMode ? '✓ 移动' : '► 移动'}
         </button>
-        <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+        <button className="btn-ghost combat-turn-compact-action"
           onClick={onToggleRanged}
           disabled={actionDisabled}
           title={disabledReason || '切换远程攻击'}>
@@ -129,8 +121,7 @@ export default function CombatHudControls({
         </button>
         {luckyRemaining > 0 && (
           <button
-            className={useLuckyAttack ? 'btn-gold' : 'btn-ghost'}
-            style={{ fontSize: 10, padding: '5px 8px' }}
+            className={`${useLuckyAttack ? 'btn-gold' : 'btn-ghost'} combat-turn-compact-action`}
             onClick={onToggleLuckyAttack}
             disabled={!canToggleLuckyAttack}
             aria-pressed={Boolean(useLuckyAttack)}
@@ -141,8 +132,7 @@ export default function CombatHudControls({
         )}
         {bardic && (
           <button
-            className={useBardicAttack ? 'btn-gold' : 'btn-ghost'}
-            style={{ fontSize: 10, padding: '5px 8px' }}
+            className={`${useBardicAttack ? 'btn-gold' : 'btn-ghost'} combat-turn-compact-action`}
             onClick={onToggleBardicAttack}
             disabled={!canToggleBardicAttack}
             aria-pressed={Boolean(useBardicAttack)}
@@ -153,8 +143,7 @@ export default function CombatHudControls({
         )}
         {bardic && repeatSaves.length > 0 && (
           <button
-            className={useBardicEndSave ? 'btn-gold' : 'btn-ghost'}
-            style={{ fontSize: 10, padding: '5px 8px' }}
+            className={`${useBardicEndSave ? 'btn-gold' : 'btn-ghost'} combat-turn-compact-action`}
             onClick={onToggleBardicEndSave}
             disabled={!canToggleBardicEndSave}
             aria-pressed={Boolean(useBardicEndSave)}
@@ -169,16 +158,7 @@ export default function CombatHudControls({
           onChange={(event) => onSelectedWeaponChange?.(event.target.value)}
           disabled={actionDisabled || weaponOptions.length === 0}
           title={disabledReason || '选择本次普通攻击使用的武器'}
-          style={{
-            gridColumn: '1 / -1',
-            background: 'rgba(10,6,2,0.65)',
-            border: '1px solid var(--wood-light)',
-            color: 'var(--parchment)',
-            borderRadius: 4,
-            fontSize: 10,
-            padding: '5px 8px',
-            minWidth: 0,
-          }}
+          className="combat-turn-select combat-turn-weapon-select"
         >
           <option value="">{weaponOptions.length ? '自动选择武器' : '无可用武器'}</option>
           {weaponOptions.map(weapon => {
@@ -194,24 +174,24 @@ export default function CombatHudControls({
             )
           })}
         </select>
-        <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+        <button className="btn-ghost combat-turn-compact-action"
           onClick={onOpenCharacter}>
           角色卡
         </button>
-        <button className="btn-ghost" style={{ fontSize: 10, padding: '5px 8px' }}
+        <button className="btn-ghost combat-turn-compact-action"
           onClick={onReturnAdventure}>
           ⏎ 返回
         </button>
-        <button className="btn-danger" style={{ fontSize: 9, padding: '5px 8px' }}
+        <button className="btn-danger combat-turn-compact-action combat-turn-danger-action"
           onClick={onForceEndCombat}>
           终止
         </button>
       </div>
       {statusNotice && (
-        <div style={{ color: 'var(--parchment-dark)', fontSize: 10 }}>
+        <div className="combat-turn-status" role="status" aria-live="polite">
           {statusNotice}
         </div>
       )}
-    </div>
+    </section>
   )
 }

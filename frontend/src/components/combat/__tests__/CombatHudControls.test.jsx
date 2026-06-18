@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import CombatHudControls from '../CombatHudControls'
 import { getAttackWeaponOptions } from '../../../utils/combatWeapons'
 
@@ -67,12 +67,19 @@ function renderControls(overrides = {}) {
 describe('CombatHudControls', () => {
   it('keeps turn action buttons enabled on the active turn', () => {
     const props = renderControls()
+    const controls = screen.getByRole('region', { name: '战斗回合控制' })
+    const actions = within(controls).getByRole('group', { name: '战斗行动命令' })
 
-    fireEvent.click(screen.getByRole('button', { name: /结束回合/ }))
-    fireEvent.click(screen.getByRole('button', { name: '延迟' }))
-    fireEvent.click(screen.getByRole('button', { name: /移动/ }))
-    fireEvent.click(screen.getByRole('button', { name: /远程/ }))
-    fireEvent.change(screen.getByLabelText('攻击武器'), { target: { value: 'Javelin' } })
+    expect(controls).toHaveClass('combat-turn-controls')
+    expect(actions).toHaveClass('combat-turn-action-grid')
+    expect(within(actions).getByRole('button', { name: '延迟' })).toHaveClass('combat-turn-compact-action')
+    expect(within(actions).getByLabelText('攻击武器')).toHaveClass('combat-turn-select', 'combat-turn-weapon-select')
+
+    fireEvent.click(within(controls).getByRole('button', { name: /结束回合/ }))
+    fireEvent.click(within(actions).getByRole('button', { name: '延迟' }))
+    fireEvent.click(within(actions).getByRole('button', { name: /移动/ }))
+    fireEvent.click(within(actions).getByRole('button', { name: /远程/ }))
+    fireEvent.change(within(actions).getByLabelText('攻击武器'), { target: { value: 'Javelin' } })
 
     expect(props.onEndTurn).toHaveBeenCalledTimes(1)
     expect(props.onDelayTurn).toHaveBeenCalledWith(null)
@@ -97,7 +104,8 @@ describe('CombatHudControls', () => {
     expect(move).toHaveAttribute('title', '等待你的回合')
     expect(ranged).toBeDisabled()
     expect(ranged).toHaveAttribute('title', '等待你的回合')
-    expect(screen.getByText('等待你的回合')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('等待你的回合')
+    expect(screen.getByRole('status')).toHaveClass('combat-turn-status')
 
     fireEvent.click(endTurn)
     fireEvent.click(delay)
@@ -116,7 +124,7 @@ describe('CombatHudControls', () => {
     const endTurn = screen.getByRole('button', { name: /同步中/ })
     expect(endTurn).toBeDisabled()
     expect(endTurn).toHaveAttribute('title', '等待战斗同步恢复')
-    expect(screen.getByText('等待战斗同步恢复')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('等待战斗同步恢复')
   })
 
   it('filters attack weapons by melee and ranged mode', () => {
@@ -138,6 +146,7 @@ describe('CombatHudControls', () => {
 
     const selector = screen.getByLabelText('攻击武器')
     expect(selector).toHaveValue('Longbow')
+    expect(selector).toHaveClass('combat-turn-select', 'combat-turn-weapon-select')
     expect(screen.getByRole('option', { name: '长弓 · 弹药 7' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /轻弩/ })).not.toBeInTheDocument()
   })
@@ -150,6 +159,7 @@ describe('CombatHudControls', () => {
 
     const lucky = screen.getByRole('button', { name: 'Lucky ON · 2' })
     expect(lucky).toHaveAttribute('aria-pressed', 'true')
+    expect(lucky).toHaveClass('combat-turn-compact-action')
 
     fireEvent.click(lucky)
     expect(props.onToggleLuckyAttack).toHaveBeenCalledTimes(1)
@@ -204,6 +214,7 @@ describe('CombatHudControls', () => {
     })
 
     expect(screen.getByLabelText('延迟位置')).toHaveValue('enemy-1')
+    expect(screen.getByLabelText('延迟位置')).toHaveClass('combat-turn-select')
     fireEvent.change(screen.getByLabelText('延迟位置'), { target: { value: 'ally-1' } })
     fireEvent.click(screen.getByRole('button', { name: '延迟' }))
 
@@ -248,7 +259,7 @@ describe('CombatHudControls', () => {
     expect(delay).toBeDisabled()
     expect(delay).toHaveAttribute('title', '已花费本回合动作，不能延迟')
     expect(endTurn).not.toBeDisabled()
-    expect(screen.getByText('已花费本回合动作，不能延迟')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('已花费本回合动作，不能延迟')
 
     fireEvent.click(delay)
     fireEvent.click(endTurn)
