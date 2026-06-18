@@ -39,16 +39,21 @@ export default function CombatHudIntentSummary({
   return (
     <section className="combat-intent-summary" aria-label="战斗意图摘要">
       <div className="combat-intent-head">
-        <span className={`combat-intent-status ${status.tone}`}>
+        <span className={`combat-intent-status ${status.tone}`} role="status" aria-live="polite">
           <b>{status.label}</b>
           <em>{status.detail}</em>
         </span>
         {modeLabel && <span className="combat-intent-mode" title={modeLabel}>{modeLabel}</span>}
       </div>
 
-      <div className="combat-intent-economy" aria-label="本回合资源">
+      <div className="combat-intent-economy" role="list" aria-label="本回合资源">
         {economy.map(item => (
-          <span key={item.key} className={`combat-intent-chip ${item.tone}`}>
+          <span
+            key={item.key}
+            className={`combat-intent-chip ${item.tone}`}
+            role="listitem"
+            aria-label={`${item.label} ${item.value}`}
+          >
             <b>{item.label}</b>
             <em>{item.value}</em>
           </span>
@@ -71,9 +76,15 @@ export default function CombatHudIntentSummary({
       </div>
 
       {ruleChips.length > 0 && (
-        <div className="combat-intent-rules" aria-label="目标规则摘要">
+        <div className="combat-intent-rules" role="list" aria-label="目标规则摘要">
           {ruleChips.map(chip => (
-            <span key={chip.key} className={chip.tone || ''} title={chip.title || chip.label}>
+            <span
+              key={chip.key}
+              className={chip.tone || ''}
+              title={chip.title || chip.label}
+              role="listitem"
+              aria-label={chip.title || chip.label}
+            >
               {chip.label}
             </span>
           ))}
