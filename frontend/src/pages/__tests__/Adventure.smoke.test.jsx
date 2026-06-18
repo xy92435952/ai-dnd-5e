@@ -11,7 +11,7 @@
  * mount 整个组件"才能发现。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, cleanup, screen, waitFor, fireEvent, act } from '@testing-library/react'
+import { render, cleanup, screen, waitFor, fireEvent, act, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 // ─── 把所有外部副作用模块 mock 到最小可用 ───────────────────
@@ -1012,7 +1012,9 @@ describe('Adventure render smoke', () => {
 
     expect(await screen.findByRole('heading', { name: 'Map' })).toBeInTheDocument()
     expect(screen.getAllByText('Construct Patrol').length).toBeGreaterThan(0)
-    expect(screen.getByText('房间正在重新同步，请恢复连接后再选择遭遇。')).toBeInTheDocument()
+    const encounters = screen.getByLabelText('Selected encounter templates')
+    expect(within(encounters).getByText('同步暂停')).toBeInTheDocument()
+    expect(within(encounters).getAllByText('房间正在重新同步，请恢复连接后再选择遭遇。').length).toBeGreaterThanOrEqual(2)
 
     const selectButton = screen.getByRole('button', { name: 'Set active' })
     expect(selectButton).toBeDisabled()

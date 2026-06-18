@@ -2671,6 +2671,62 @@ button.companion-signal-item:focus-visible {
   font-size: 11px;
   line-height: 1.45;
 }
+.location-map-selected-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+  gap: 5px;
+  margin-top: 9px;
+}
+.location-map-selected-status span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 5px 6px;
+  border: 1px solid rgba(127,232,248,.2);
+  border-radius: 4px;
+  background: rgba(47,168,184,.07);
+  color: var(--parchment-dark);
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.location-map-selected-status b {
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.location-map-selected-status span.current,
+.location-map-selected-status span.ready {
+  border-color: rgba(106,196,132,.28);
+  background: rgba(18,58,36,.18);
+  color: var(--emerald-light);
+}
+.location-map-selected-status span.current b,
+.location-map-selected-status span.ready b {
+  color: var(--emerald-light);
+}
+.location-map-selected-status span.warn {
+  border-color: rgba(240,208,96,.3);
+  background: rgba(82,58,16,.2);
+  color: var(--gold);
+}
+.location-map-selected-status span.warn b {
+  color: var(--gold);
+}
+.location-map-selected-status span.danger {
+  border-color: rgba(240,64,64,.3);
+  background: rgba(138,26,26,.12);
+  color: var(--blood-light);
+}
+.location-map-selected-status span.danger b {
+  color: var(--blood-light);
+}
+.location-map-selected-status span.muted {
+  border-color: rgba(213,184,121,.14);
+  background: rgba(0,0,0,.16);
+}
 .location-map-travel-plan {
   display: grid;
   gap: 4px;
@@ -3044,8 +3100,12 @@ button.companion-signal-item:focus-visible {
   letter-spacing: 0;
   text-transform: uppercase;
 }
+.location-encounter-action {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
 .location-encounter-select {
-  justify-self: end;
   min-width: 88px;
   padding: 7px 10px;
   font-size: 11px;

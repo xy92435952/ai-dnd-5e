@@ -129,10 +129,11 @@ cd ..
 ```
 
 `npm run test:stage7:reaction` includes the direct combat `ReactionPrompt`,
-Adventure `ExplorationReactionPrompt`, Adventure `LootModal`, `useDialogueWsSync`, and
-`combatReactionPrompt` utility regressions in addition to Adventure/Combat page
-smoke, hook recovery, privacy projection, combat-log coverage, and loot
-distribution UI coverage. Keep new
+Adventure `ExplorationReactionPrompt`, Adventure `LootModal`, Adventure
+`LocationMapModal`, `useDialogueWsSync`, and `combatReactionPrompt` utility
+regressions in addition to Adventure/Combat page smoke, hook recovery, privacy
+projection, combat-log coverage, loot distribution UI coverage, and mapped
+location/encounter-template UI coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## CI Release Gate

@@ -58,12 +58,50 @@ function RouteSummary({ routes }) {
   )
 }
 
-function RouteList({ routes }) {
+function countLabel(count, singular) {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`
+}
+
+function SelectedLocationStatus({ node }) {
+  if (!node) return null
+  const routes = Array.isArray(node.routes) ? node.routes : []
+  const encounterCount = Number(node.encounterCount || 0)
+  const planTone = node.travelPlan?.tone || (node.current ? 'current' : 'muted')
+  const planLabel = node.travelPlan?.label || (node.current ? 'Current location' : 'Route unknown')
+  const items = [
+    { label: 'Focus', value: node.current ? 'Current' : 'Selected', tone: node.current ? 'current' : '' },
+    { label: 'Route', value: planLabel, tone: planTone },
+    { label: 'Exits', value: countLabel(routes.length, 'exit') },
+    {
+      label: 'Templates',
+      value: encounterCount > 0 ? countLabel(encounterCount, 'encounter template') : 'No encounter templates',
+      tone: encounterCount > 0 ? 'danger' : 'muted',
+    },
+  ]
+
+  return (
+    <div
+      className="location-map-selected-status"
+      role="status"
+      aria-live="polite"
+      aria-label={`Selected location status for ${node.name || 'location'}`}
+    >
+      {items.map(item => (
+        <span key={item.label} className={item.tone || ''}>
+          <b>{item.label}</b>
+          {item.value}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function RouteList({ routes, locationName = 'selected location' }) {
   if (!routes?.length) return <p className="location-map-muted">No exits recorded.</p>
   return (
     <>
       <RouteSummary routes={routes} />
-      <ul className="location-map-route-list">
+      <ul className="location-map-route-list" aria-label={`Routes from ${locationName}`}>
         {routes.map(route => (
           <li key={`${route.id}-${route.destinationId}`} className={route.locked ? 'locked' : (route.tone || '')}>
             <div className="location-map-route-main">
@@ -99,6 +137,15 @@ function TravelPlanSummary({ plan }) {
   )
 }
 
+function encounterHandoff(encounter, nodeCurrent, disabled, disabledReason) {
+  if (disabled) return disabledReason || 'Encounter selection is paused.'
+  if (encounter.selected) {
+    return nodeCurrent ? 'Already armed for this location.' : 'Already armed away from the current location.'
+  }
+  if (encounter.status !== 'available') return 'This encounter cannot be armed right now.'
+  return nodeCurrent ? 'Can arm this encounter for the next combat.' : 'Travel here before arming.'
+}
+
 function EncounterCard({
   encounter,
   selecting,
@@ -110,9 +157,7 @@ function EncounterCard({
   const canSelect = encounter.status === 'available' && !encounter.selected && onSelectEncounter && !disabled && nodeCurrent
   const locationSelectReason = 'Travel to this location before setting this encounter active.'
   const selectTitle = disabled ? disabledReason : !nodeCurrent ? locationSelectReason : undefined
-  const handoff = encounter.selected
-    ? (nodeCurrent ? 'Armed for the next combat at this location.' : 'Armed away from your current location.')
-    : (nodeCurrent ? 'Ready at your current location.' : 'Travel here before arming.')
+  const handoff = encounterHandoff(encounter, nodeCurrent, disabled, disabledReason)
   return (
     <article className="location-encounter-card">
       <div className="location-encounter-card-head">
@@ -161,15 +206,17 @@ function EncounterCard({
       <p className="location-map-muted location-encounter-handoff">{handoff}</p>
       {encounter.tactics && <p className="location-map-muted">{encounter.tactics}</p>}
       {onSelectEncounter && (
-        <button
-          type="button"
-          className="btn-fantasy location-encounter-select"
-          disabled={!canSelect || selecting}
-          title={selectTitle}
-          onClick={() => onSelectEncounter(encounter.id)}
-        >
-          {selecting ? 'Setting...' : encounter.selected ? 'Active' : !nodeCurrent ? 'Travel first' : 'Set active'}
-        </button>
+        <div className="location-encounter-action" role="group" aria-label={`Encounter action for ${encounter.name}`}>
+          <button
+            type="button"
+            className="btn-fantasy location-encounter-select"
+            disabled={!canSelect || selecting}
+            title={selectTitle}
+            onClick={() => onSelectEncounter(encounter.id)}
+          >
+            {selecting ? 'Setting...' : encounter.selected ? 'Active' : !nodeCurrent ? 'Travel first' : 'Set active'}
+          </button>
+        </div>
       )}
     </article>
   )
@@ -274,6 +321,7 @@ export default function LocationMapModal({
               <h4>{selectedNode?.current ? 'Current' : 'Selected'}</h4>
               <strong>{selectedNode?.name}</strong>
               {selectedNode?.description && <p>{selectedNode.description}</p>}
+              <SelectedLocationStatus node={selectedNode} />
               <TravelPlanSummary plan={selectedNode?.travelPlan} />
               {selectedNode?.encounterCount > 0 && (
                 <p className="location-map-muted">{selectedNode.encounterCount} encounter template at this location.</p>
@@ -281,12 +329,12 @@ export default function LocationMapModal({
             </section>
             <section>
               <h4>Exits</h4>
-              <RouteList routes={selectedNode?.routes || []} />
+              <RouteList routes={selectedNode?.routes || []} locationName={selectedNode?.name} />
             </section>
           </div>
 
           {selectedNode?.encounters?.length > 0 && (
-            <div className="location-encounter-list" aria-label="Selected encounter templates">
+            <div className="location-encounter-list" aria-label="Selected encounter templates" aria-live="polite">
               {disabled && onSelectEncounter && (
                 <div role="status" className="multiplayer-sync-guard" style={{ margin: '0 0 10px' }}>
                   <strong>同步暂停</strong>
@@ -308,7 +356,7 @@ export default function LocationMapModal({
           )}
 
           {map.nodes.some(node => node.encounterCount > 0) && (
-            <div className="location-map-encounters" aria-label="Mapped encounters">
+            <div className="location-map-encounters" role="group" aria-label="Mapped encounters">
               {map.nodes.filter(node => node.encounterCount > 0).map(node => (
                 <button
                   key={node.id}
