@@ -7,26 +7,34 @@ export default function CombatHudCombatLog({ logs, logsEndRef }) {
   const summary = buildCombatLogSummary(visibleLogs)
 
   return (
-    <div className="combat-log-panel" role="region" aria-label="Combat log">
+    <section className="combat-log-panel" aria-label="战斗日志">
       {summary && (
-        <div className={`combat-log-summary ${summary.tone}`} aria-label="最近战报摘要">
+        <div className={`combat-log-summary ${summary.tone}`} role="status" aria-live="polite" aria-label="最近战报摘要">
           <span className="combat-log-summary-kicker">最近</span>
           <b>来源 {summary.roleLabel}</b>
           {summary.feedback.map(item => (
             <span key={item.kind} className={`combat-log-summary-feedback ${item.kind}`}>{item.label}</span>
           ))}
           {summary.impacts.length > 0 && (
-            <span className="combat-log-summary-impacts" aria-label="影响摘要">
+            <span className="combat-log-summary-impacts" role="list" aria-label="影响摘要">
               {summary.impacts.map(item => (
-                <i key={item.key} className={item.tone || ''} title={item.title || item.label}>{item.label}</i>
+                <i
+                  key={item.key}
+                  className={item.tone || ''}
+                  title={item.title || item.label}
+                  role="listitem"
+                  aria-label={`${item.label}${item.title ? `：${item.title}` : ''}`}
+                >
+                  {item.label}
+                </i>
               ))}
             </span>
           )}
           {summary.headline && <em title={summary.headline}>战报 {summary.headline}</em>}
           {summary.sections.length > 0 && (
-            <span className="combat-log-summary-sections" aria-label="战报结构">
+            <span className="combat-log-summary-sections" role="list" aria-label="战报结构">
               {summary.sections.map(section => (
-                <i key={section.kind}>{section.label} {section.count}</i>
+                <i key={section.kind} role="listitem">{section.label} {section.count}</i>
               ))}
             </span>
           )}
@@ -34,13 +42,13 @@ export default function CombatHudCombatLog({ logs, logsEndRef }) {
         </div>
       )}
 
-      <div className="combat-log">
+      <div className="combat-log" role="log" aria-label="最近战斗日志" aria-live="polite">
         {visibleLogs.map((log, i) => (
           <CombatLogEntry key={log.id || i} log={log} />
         ))}
-        <div ref={logsEndRef} />
+        <div ref={logsEndRef} className="combat-log-end" aria-hidden="true" />
       </div>
-    </div>
+    </section>
   )
 }
 

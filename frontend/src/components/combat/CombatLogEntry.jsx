@@ -7,7 +7,7 @@ export default function CombatLogEntry({ log }) {
   const feedbackClasses = view.feedback.map(item => `feedback-${item.kind}`).join(' ')
 
   return (
-    <article className={`log-entry ${view.tone} ${feedbackClasses}`.trim()}>
+    <article className={`log-entry ${view.tone} ${feedbackClasses}`.trim()} role="listitem" aria-label={`战斗日志 ${view.roleLabel}`}>
       <div className="log-entry-head">
         <span className="log-entry-icon" aria-hidden="true">
           <Icon size={13} />
@@ -17,19 +17,19 @@ export default function CombatLogEntry({ log }) {
 
       <div className="log-entry-body">
         {view.feedback.length > 0 && (
-          <div className="log-feedback-row" aria-label="战斗反馈">
+          <div className="log-feedback-row" role="list" aria-label="战斗反馈">
             {view.feedback.map(item => (
-              <span key={item.kind} className={`log-feedback ${item.kind}`}>{item.label}</span>
+              <span key={item.kind} className={`log-feedback ${item.kind}`} role="listitem" aria-label={item.label}>{item.label}</span>
             ))}
           </div>
         )}
 
         {view.sections.map(section => (
-          <div key={section.kind} className={`log-section ${section.kind}`}>
+          <div key={section.kind} className={`log-section ${section.kind}`} aria-label={`战报${section.label}`}>
             <span className="log-section-label">{section.label}</span>
-            <div className="log-section-items">
+            <div className="log-section-items" role="list">
               {section.items.map((item, index) => (
-                <span key={`${section.kind}-${index}`}>{item}</span>
+                <span key={`${section.kind}-${index}`} role="listitem" aria-label={item}>{item}</span>
               ))}
             </div>
           </div>

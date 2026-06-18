@@ -34,13 +34,14 @@ describe('CombatHudCombatLog', () => {
       />,
     )
 
-    const summary = container.querySelector('.combat-log-summary')
-    expect(summary).toBeTruthy()
+    const panel = screen.getByRole('region', { name: '战斗日志' })
+    const summary = within(panel).getByRole('status', { name: '最近战报摘要' })
     expect(summary).toHaveClass('dmg')
     expect(summary).toHaveTextContent('Latest strike lands.')
     expect(container.querySelector('.combat-log-summary-feedback.hit')).toBeTruthy()
-    expect(container.querySelectorAll('.combat-log-summary-sections i').length).toBeGreaterThan(0)
+    expect(within(summary).getAllByRole('listitem').length).toBeGreaterThan(0)
     expect(container.querySelector('.combat-log-summary-count')).toHaveTextContent('8/9')
+    expect(within(panel).getByRole('log', { name: '最近战斗日志' })).toBeInTheDocument()
   })
 
   it('surfaces AoE and multi-target impact chips in the latest combat summary', () => {
@@ -68,12 +69,12 @@ describe('CombatHudCombatLog', () => {
       />,
     )
 
-    const summary = screen.getByLabelText('最近战报摘要')
-    const impacts = within(summary).getByLabelText('影响摘要')
-    expect(within(impacts).getByText('影响 3 个')).toHaveClass('info')
-    expect(within(impacts).getByText('总伤害 37')).toHaveClass('bad')
-    expect(within(impacts).getByText('友方 1')).toHaveClass('warning')
-    expect(within(impacts).getByText('豁免失败 2')).toHaveClass('bad')
+    const summary = screen.getByRole('status', { name: '最近战报摘要' })
+    const impacts = within(summary).getByRole('list', { name: '影响摘要' })
+    expect(within(impacts).getByRole('listitem', { name: '影响 3 个：Goblin、Cultist、Companion' })).toHaveClass('info')
+    expect(within(impacts).getByRole('listitem', { name: '总伤害 37：Goblin、Cultist、Companion' })).toHaveClass('bad')
+    expect(within(impacts).getByRole('listitem', { name: '友方 1：Companion' })).toHaveClass('warning')
+    expect(within(impacts).getByRole('listitem', { name: '豁免失败 2：Goblin、Cultist' })).toHaveClass('bad')
   })
 
   it('renders combat logs as structured rules, dice, narration, and state rows', () => {
@@ -101,11 +102,11 @@ describe('CombatHudCombatLog', () => {
       />,
     )
 
-    const entry = screen.getByText('玩家').closest('.log-entry')
+    const entry = screen.getByRole('listitem', { name: '战斗日志 玩家' })
     expect(entry).toHaveClass('dmg')
     expect(entry).toHaveClass('feedback-hit')
-    expect(within(entry).getByLabelText('战斗反馈')).toBeInTheDocument()
-    expect(within(entry).getByText('命中')).toHaveClass('log-feedback', 'hit')
+    const feedback = within(entry).getByRole('list', { name: '战斗反馈' })
+    expect(within(feedback).getByRole('listitem', { name: '命中' })).toHaveClass('log-feedback', 'hit')
     expect(within(entry).getByText('规则')).toBeInTheDocument()
     expect(within(entry).getByText('命中 · 21 vs AC13')).toBeInTheDocument()
     expect(within(entry).getByText('骰子')).toBeInTheDocument()
@@ -134,11 +135,12 @@ describe('CombatHudCombatLog', () => {
       />,
     )
 
-    const entry = screen.getByText('系统').closest('.log-entry')
+    const entry = screen.getByRole('listitem', { name: '战斗日志 系统' })
     expect(entry).toHaveClass('feedback-save-failure')
     expect(entry).toHaveClass('feedback-concentration-break')
-    expect(within(entry).getByText('豁免失败')).toHaveClass('log-feedback', 'save-failure')
-    expect(within(entry).getByText('专注中断')).toHaveClass('log-feedback', 'concentration-break')
+    const feedback = within(entry).getByRole('list', { name: '战斗反馈' })
+    expect(within(feedback).getByRole('listitem', { name: '豁免失败' })).toHaveClass('log-feedback', 'save-failure')
+    expect(within(feedback).getByRole('listitem', { name: '专注中断' })).toHaveClass('log-feedback', 'concentration-break')
   })
 
   it('renders defender interception as a visible combat feedback badge', () => {
@@ -168,9 +170,9 @@ describe('CombatHudCombatLog', () => {
       />,
     )
 
-    const entry = screen.getByText('玩家').closest('.log-entry')
+    const entry = screen.getByRole('listitem', { name: '战斗日志 玩家' })
     expect(entry).toHaveClass('feedback-defender-interception')
-    expect(within(entry).getByText('护卫干扰')).toHaveClass('log-feedback', 'defender-interception')
+    expect(within(entry).getByRole('listitem', { name: '护卫干扰' })).toHaveClass('log-feedback', 'defender-interception')
     expect(within(entry).getByText('Shield Guard 护卫干扰：保护 Cult Priest，本次攻击劣势')).toBeInTheDocument()
   })
 
@@ -186,9 +188,10 @@ describe('CombatHudCombatLog', () => {
       />,
     )
 
-    expect(screen.queryByText('日志 0')).not.toBeInTheDocument()
-    expect(screen.queryByText('日志 1')).not.toBeInTheDocument()
-    expect(screen.getByText('日志 2')).toBeInTheDocument()
-    expect(screen.getByText('日志 9')).toBeInTheDocument()
+    const log = screen.getByRole('log', { name: '最近战斗日志' })
+    expect(within(log).queryByText('日志 0')).not.toBeInTheDocument()
+    expect(within(log).queryByText('日志 1')).not.toBeInTheDocument()
+    expect(within(log).getByText('日志 2')).toBeInTheDocument()
+    expect(within(log).getByText('日志 9')).toBeInTheDocument()
   })
 })
