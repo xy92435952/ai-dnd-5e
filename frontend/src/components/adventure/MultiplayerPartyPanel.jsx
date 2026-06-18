@@ -161,32 +161,23 @@ export default function MultiplayerPartyPanel({
   }
 
   return (
-    <div style={{
-      margin: '8px 24px 0',
-      padding: '8px 10px',
-      border: '1px solid rgba(127,232,248,.28)',
-      background: 'rgba(7,18,24,.72)',
-      color: 'var(--parchment)',
-      fontSize: 11,
-      display: 'grid',
-      gap: 8,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--arcane-light)', letterSpacing: '.16em' }}>
+    <section className="multiplayer-party-panel" aria-label="分队协作面板">
+      <div className="multiplayer-party-head" role="group" aria-label="当前分队状态">
+        <span className="multiplayer-party-kicker">
           分队焦点
         </span>
-        <strong style={{ color: 'var(--amber)' }}>{myGroup.name || '当前分队'}</strong>
-        <span style={{ color: 'var(--parchment-dark)' }}>{myGroup.location || '当前位置'}</span>
-        <span style={{ color: 'var(--parchment-dark)' }}>
+        <strong className="multiplayer-party-name">{myGroup.name || '当前分队'}</strong>
+        <span className="multiplayer-party-location">{myGroup.location || '当前位置'}</span>
+        <span className="multiplayer-party-members">
           {memberStatuses.map(item => item.label).join(' / ')}
         </span>
         {intentFeedback.statusLabel && (
-          <span style={{ color: 'var(--emerald-light)', marginLeft: 'auto' }}>
+          <span className="multiplayer-party-status" aria-live="polite">
             {intentFeedback.statusLabel}
           </span>
         )}
         {intentFeedback.readinessLabel && (
-          <span style={{ color: 'var(--parchment-dark)' }}>
+          <span className="multiplayer-party-readiness-label">
             {intentFeedback.readinessLabel}
           </span>
         )}
@@ -195,23 +186,16 @@ export default function MultiplayerPartyPanel({
       {showReadinessBreakdown && (
         <div
           aria-label="分队确认详情"
-          style={{
-            display: 'flex',
-            gap: 6,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}
+          className="multiplayer-party-readiness-detail"
         >
           {readinessChips.map(chip => (
             <span
               key={chip.key}
               title={chip.label}
+              className="multiplayer-party-chip"
               style={{
-                padding: '3px 7px',
-                border: `1px solid ${chip.borderColor}`,
-                background: 'rgba(255,255,255,.035)',
+                '--party-chip-border': chip.borderColor,
                 color: chip.color,
-                whiteSpace: 'nowrap',
               }}
             >
               {chip.label}
@@ -223,18 +207,14 @@ export default function MultiplayerPartyPanel({
       {intentFeedback.readinessPrompt && (
         <div
           aria-label="分队确认提示"
+          className="multiplayer-party-prompt"
           style={{
-            display: 'flex',
-            gap: 8,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            padding: '5px 7px',
-            border: `1px solid ${readinessPromptStyle.borderColor}`,
-            background: readinessPromptStyle.background,
+            '--party-prompt-border': readinessPromptStyle.borderColor,
+            '--party-prompt-bg': readinessPromptStyle.background,
             color: readinessPromptStyle.color,
           }}
         >
-          <strong style={{ color: readinessPromptStyle.color }}>{readinessPromptBadge}</strong>
+          <strong>{readinessPromptBadge}</strong>
           <span>{intentFeedback.readinessPrompt}</span>
         </div>
       )}
@@ -247,28 +227,19 @@ export default function MultiplayerPartyPanel({
       )}
 
       {tableStatus.activeGroup && (
-        <div style={{
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          padding: '5px 7px',
-          border: '1px solid rgba(240,208,96,.18)',
-          background: 'rgba(240,208,96,.07)',
-          color: 'var(--parchment-dark)',
-        }}>
-          <span style={{ color: 'var(--amber)', fontFamily: 'var(--font-mono)', letterSpacing: '.1em' }}>
+        <div className="multiplayer-party-camera" aria-label="当前镜头状态">
+          <span className="multiplayer-party-camera-label">
             当前镜头：{tableStatus.activeGroupLabel}
           </span>
           <span>{tableStatus.activeGroup.location || '当前位置'}</span>
           {tableStatus.nextReadySummary && (
-            <span style={{ color: 'var(--emerald-light)' }}>{tableStatus.nextReadySummary}</span>
+            <span className="multiplayer-party-camera-ready">{tableStatus.nextReadySummary}</span>
           )}
           {tableStatus.processingHint && (
             <span
               aria-label="DM处理提示"
               title={tableStatus.processingHint}
-              style={{ color: 'var(--arcane-light)' }}
+              className="multiplayer-party-camera-hint"
             >
               {tableStatus.processingHint}
             </span>
@@ -277,7 +248,7 @@ export default function MultiplayerPartyPanel({
       )}
 
       {(room.party_groups || []).length > 1 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="multiplayer-party-group-switcher" role="group" aria-label="分队切换">
           {(room.party_groups || []).map(group => {
             const active = group.id === room.active_group_id
             return (
@@ -285,14 +256,7 @@ export default function MultiplayerPartyPanel({
                 key={group.id}
                 onClick={() => focusGroup(group.id)}
                 disabled={controlsDisabled || active}
-                className="btn-ghost"
-                style={{
-                  fontSize: 10,
-                  padding: '4px 8px',
-                  borderColor: active ? 'var(--amber)' : 'rgba(127,232,248,.45)',
-                  color: active ? 'var(--amber)' : 'var(--arcane-light)',
-                  opacity: active ? 1 : 0.86,
-                }}
+                className={`btn-ghost multiplayer-party-focus-btn${active ? ' active' : ''}`}
               >
                 {active ? '焦点 · ' : '切焦点 · '}{group.name || group.id}
               </button>
@@ -302,115 +266,93 @@ export default function MultiplayerPartyPanel({
       )}
 
       {pending.length > 0 && (
-        <div style={{ display: 'grid', gap: 4 }}>
+        <div className="multiplayer-party-pending-list" role="list" aria-label="分队待处理意图">
           {pending.map((action, idx) => (
-            <div key={`${action.user_id}-${idx}`} style={{
-              padding: '4px 6px',
-              borderLeft: '2px solid var(--arcane-light)',
-              background: 'rgba(127,232,248,.08)',
-              color: 'var(--parchment-dark)',
-            }}>
-              <b style={{ color: 'var(--parchment)' }}>{action.display_name || action.user_id}</b>
+            <div key={`${action.user_id}-${idx}`} className="multiplayer-party-pending-item" role="listitem">
+              <b>{action.display_name || action.user_id}</b>
               <span>：{action.text}</span>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ color: 'var(--parchment-dark)' }}>我的状态：{getReadinessLabel(myReadiness)}</span>
+      <div className="multiplayer-party-actions" role="group" aria-label="分队确认操作">
+        <span className="multiplayer-party-status-label">我的状态：{getReadinessLabel(myReadiness)}</span>
         <button
           onClick={() => setReadiness('ready')}
           disabled={controlsDisabled || myReadiness === 'ready'}
-          className="btn-ghost"
-          style={{
-            fontSize: 10,
-            padding: '5px 9px',
-            borderColor: (myReadiness === 'ready' || intentFeedback.needsMyConfirmation) ? 'var(--emerald)' : undefined,
-            color: intentFeedback.needsMyConfirmation ? 'var(--emerald-light)' : undefined,
-          }}
+          className={`btn-ghost multiplayer-party-action-btn${
+            (myReadiness === 'ready' || intentFeedback.needsMyConfirmation) ? ' needs-confirmation' : ''
+          }`}
         >
           我已确认
         </button>
         <button
           onClick={() => setReadiness('waiting')}
           disabled={controlsDisabled || myReadiness === 'waiting'}
-          className="btn-ghost"
-          style={{ fontSize: 10, padding: '5px 9px' }}
+          className="btn-ghost multiplayer-party-action-btn"
         >
           等待补充
         </button>
         <button
           onClick={() => setReadiness('drafting')}
           disabled={controlsDisabled || myReadiness === 'drafting'}
-          className="btn-ghost"
-          style={{ fontSize: 10, padding: '5px 9px' }}
+          className="btn-ghost multiplayer-party-action-btn"
         >
           继续草拟
         </button>
       </div>
 
       {!isMySpeakTurn && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div className="multiplayer-party-intent" role="group" aria-label="分队意图提交">
           <input
             value={actionText}
             onChange={event => setActionText(event.target.value)}
             onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); submitAction() } }}
             disabled={controlsDisabled}
             placeholder="先提交你的分队行动，当前发言者可以一起带给 DM"
-            className="input-fantasy"
-            style={{ flex: 1, minWidth: 180, padding: '6px 8px', fontSize: 11 }}
+            className="input-fantasy multiplayer-party-intent-input"
           />
           <button
             onClick={submitAction}
             disabled={controlsDisabled || !actionText.trim()}
-            className="btn-ghost"
-            style={{ fontSize: 10, padding: '6px 10px' }}
+            className="btn-ghost multiplayer-party-submit-btn"
           >
             提交意图
           </button>
           <button
             onClick={() => submitAction({ confirm: true })}
             disabled={controlsDisabled || !actionText.trim()}
-            className="btn-ghost"
-            style={{
-              fontSize: 10,
-              padding: '6px 10px',
-              borderColor: 'var(--emerald)',
-              color: 'var(--emerald-light)',
-            }}
+            className="btn-ghost multiplayer-party-submit-btn confirm"
           >
             提交并确认
           </button>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="multiplayer-party-create-group" role="group" aria-label="创建或切换分队">
         <input
           value={groupName}
           onChange={event => setGroupName(event.target.value)}
           disabled={controlsDisabled}
           placeholder="新分队名"
-          className="input-fantasy"
-          style={{ width: 120, padding: '5px 8px', fontSize: 10 }}
+          className="input-fantasy multiplayer-party-name-input"
         />
         <input
           value={location}
           onChange={event => setLocation(event.target.value)}
           disabled={controlsDisabled}
           placeholder="位置"
-          className="input-fantasy"
-          style={{ width: 140, padding: '5px 8px', fontSize: 10 }}
+          className="input-fantasy multiplayer-party-location-input"
         />
         <button
           onClick={switchGroup}
           disabled={controlsDisabled || !groupName.trim()}
-          className="btn-ghost"
-          style={{ fontSize: 10, padding: '5px 9px' }}
+          className="btn-ghost multiplayer-party-action-btn"
         >
           切换/创建分队
         </button>
       </div>
-    </div>
+    </section>
   )
 }

@@ -49,6 +49,13 @@ describe('MultiplayerPartyPanel', () => {
       isLoading={false}
     />)
 
+    expect(screen.getByRole('region', { name: '分队协作面板' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '当前分队状态' })).toHaveTextContent('后巷组')
+    expect(screen.getByLabelText('当前镜头状态')).toHaveTextContent('酒馆大厅')
+    expect(screen.getByRole('group', { name: '分队切换' })).toHaveTextContent('焦点 · 酒馆组')
+    expect(screen.getByRole('group', { name: '分队确认操作' })).toHaveTextContent('我的状态：草拟中')
+    expect(screen.getByRole('group', { name: '分队意图提交' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: '创建或切换分队' })).toBeInTheDocument()
     expect(screen.getByText('当前镜头：酒馆组')).toBeInTheDocument()
     expect(screen.getByText('下一处理：酒馆组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
     expect(screen.getByLabelText('DM处理提示')).toHaveTextContent('当前镜头「酒馆组」已全员确认，等待当前发言者处理 1 条意图')
@@ -90,6 +97,8 @@ describe('MultiplayerPartyPanel', () => {
     expect(screen.getByLabelText('分队确认详情')).toHaveTextContent('继续草拟：凯伦')
     expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('确认提示')
     expect(screen.getByLabelText('分队确认提示')).toHaveTextContent('等待凯伦确认当前分队计划。')
+    expect(screen.getByRole('list', { name: '分队待处理意图' })).toHaveTextContent('我：我守住后门。')
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
     expect(screen.getByText(/我守住后门。/)).toBeInTheDocument()
   })
 

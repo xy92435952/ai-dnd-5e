@@ -3964,12 +3964,172 @@ button.companion-signal-item:focus-visible {
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+
+.multiplayer-party-panel {
+  display: grid;
+  gap: 8px;
+  margin: 8px 24px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(127,232,248,.28);
+  background: rgba(7,18,24,.72);
+  color: var(--parchment);
+  font-size: 11px;
+}
+.multiplayer-party-head,
+.multiplayer-party-readiness-detail,
+.multiplayer-party-prompt,
+.multiplayer-party-camera,
+.multiplayer-party-group-switcher,
+.multiplayer-party-actions,
+.multiplayer-party-intent,
+.multiplayer-party-create-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.multiplayer-party-head {
+  gap: 8px;
+}
+.multiplayer-party-kicker,
+.multiplayer-party-camera-label {
+  flex-shrink: 0;
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+}
+.multiplayer-party-kicker {
+  letter-spacing: .16em;
+}
+.multiplayer-party-camera-label {
+  color: var(--amber);
+  letter-spacing: .1em;
+}
+.multiplayer-party-name {
+  color: var(--amber);
+}
+.multiplayer-party-location,
+.multiplayer-party-members,
+.multiplayer-party-readiness-label,
+.multiplayer-party-status-label {
+  color: var(--parchment-dark);
+}
+.multiplayer-party-status {
+  margin-left: auto;
+  color: var(--emerald-light);
+}
+.multiplayer-party-chip {
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid var(--party-chip-border, rgba(226,232,240,.18));
+  background: rgba(255,255,255,.035);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.multiplayer-party-prompt {
+  padding: 5px 7px;
+  border: 1px solid var(--party-prompt-border, rgba(127,232,248,.24));
+  background: var(--party-prompt-bg, rgba(127,232,248,.06));
+}
+.multiplayer-party-prompt span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.multiplayer-party-camera {
+  gap: 8px;
+  padding: 5px 7px;
+  border: 1px solid rgba(240,208,96,.18);
+  background: rgba(240,208,96,.07);
+  color: var(--parchment-dark);
+}
+.multiplayer-party-camera-ready {
+  color: var(--emerald-light);
+}
+.multiplayer-party-camera-hint {
+  color: var(--arcane-light);
+}
+.multiplayer-party-focus-btn {
+  padding: 4px 8px;
+  border-color: rgba(127,232,248,.45);
+  color: var(--arcane-light);
+  font-size: 10px;
+  opacity: .86;
+}
+.multiplayer-party-focus-btn.active {
+  border-color: var(--amber);
+  color: var(--amber);
+  opacity: 1;
+}
+.multiplayer-party-pending-list {
+  display: grid;
+  gap: 4px;
+}
+.multiplayer-party-pending-item {
+  min-width: 0;
+  padding: 4px 6px;
+  border-left: 2px solid var(--arcane-light);
+  background: rgba(127,232,248,.08);
+  color: var(--parchment-dark);
+  overflow-wrap: anywhere;
+}
+.multiplayer-party-pending-item b {
+  color: var(--parchment);
+}
+.multiplayer-party-action-btn,
+.multiplayer-party-submit-btn {
+  padding: 5px 9px;
+  font-size: 10px;
+}
+.multiplayer-party-action-btn.needs-confirmation,
+.multiplayer-party-submit-btn.confirm {
+  border-color: var(--emerald);
+  color: var(--emerald-light);
+}
+.multiplayer-party-intent {
+  flex-wrap: nowrap;
+}
+.multiplayer-party-intent-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+.multiplayer-party-submit-btn {
+  padding: 6px 10px;
+}
+.multiplayer-party-name-input,
+.multiplayer-party-location-input {
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.multiplayer-party-name-input {
+  width: 120px;
+}
+.multiplayer-party-location-input {
+  width: 140px;
+}
 @media (max-width: 720px) {
   .multiplayer-timeline-panel {
     margin-inline: 12px;
   }
   .multiplayer-timeline-lanes {
     grid-template-columns: 1fr;
+  }
+  .multiplayer-party-panel {
+    margin-inline: 12px;
+  }
+  .multiplayer-party-status {
+    margin-left: 0;
+  }
+  .multiplayer-party-intent {
+    flex-wrap: wrap;
+  }
+  .multiplayer-party-intent-input,
+  .multiplayer-party-name-input,
+  .multiplayer-party-location-input {
+    width: 100%;
+    min-width: 0;
   }
 }
 
