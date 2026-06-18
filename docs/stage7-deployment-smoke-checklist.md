@@ -334,8 +334,18 @@ node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure
 node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json
 ```
 
+The same verifier can run from the standard local check entrypoint after the
+frontend build:
+
+```powershell
+$env:RUN_STAGE7_EVIDENCE_GATE='1'
+$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
 When checking a downloaded GitHub Actions JSON artifact without its sibling
-screenshots or local result path, add `--no-file-check`.
+screenshots or local result path, add `--no-file-check` to the direct verifier
+command, or set `STAGE7_EVIDENCE_NO_FILE_CHECK=1` when using `scripts/check.sh`.
 
 Before server pull/restart:
 
