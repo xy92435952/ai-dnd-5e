@@ -3346,6 +3346,39 @@ button.companion-signal-item:focus-visible {
   font-size: 11px;
 }
 
+.rest-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rest-modal-head h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--amber);
+  font-size: 16px;
+}
+.rest-modal-head button {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--parchment-dark);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.rest-modal-head button:hover,
+.rest-modal-head button:focus-visible {
+  border-color: rgba(213,184,121,.35);
+  color: var(--parchment);
+  background: rgba(213,184,121,.08);
+}
 .rest-explainer {
   margin: 0;
   padding: 10px 12px;
@@ -3355,6 +3388,32 @@ button.companion-signal-item:focus-visible {
   color: var(--parchment);
   font-size: 12px;
   line-height: 1.55;
+}
+.rest-selection-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(240,208,96,.26);
+  border-radius: 6px;
+  background: rgba(240,208,96,.07);
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.25;
+}
+.rest-selection-status strong {
+  min-width: 0;
+  color: var(--amber);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.rest-selection-status b {
+  color: var(--parchment);
+  font-size: 10px;
+  white-space: nowrap;
 }
 .rest-options {
   display: grid;
@@ -3473,6 +3532,29 @@ button.companion-signal-item:focus-visible {
   color: var(--parchment-dark);
   font-size: 12px;
   font-style: italic;
+}
+.rest-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.rest-modal-actions .btn-fantasy {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.rest-modal-actions .btn-fantasy.secondary {
+  opacity: .68;
+}
+@media (max-width: 640px) {
+  .rest-options {
+    grid-template-columns: 1fr;
+  }
+  .rest-selection-status {
+    grid-template-columns: 1fr;
+  }
+  .rest-selection-status b {
+    white-space: normal;
+  }
 }
 
 .choice.ended {

@@ -16,6 +16,7 @@ function RestOption({ type, title, subtitle, summary, selected, onSelect }) {
     <button
       className={`btn-fantasy rest-option ${selected ? 'selected' : ''}`}
       aria-pressed={selected}
+      aria-label={`选择${title}`}
       onClick={() => onSelect(type)}
     >
       <div className="rest-option-main">
@@ -76,12 +77,20 @@ export default function RestModal({ party = [], onRest, onClose }) {
 
   return (
     <Overlay onClose={onClose}>
-      <h3 style={{ color: 'var(--amber)', margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <RestIcon size={18} color="var(--amber)" /> 休息
-      </h3>
+      <div className="rest-modal-head">
+        <h3>
+          <RestIcon size={18} color="var(--amber)" /> 休息
+        </h3>
+        <button type="button" onClick={onClose} aria-label="关闭休息面板">×</button>
+      </div>
       <p className="rest-explainer">
         休息会立即调用后端规则结算。下面是根据当前队伍状态推导的确认前预览，最终恢复量以掷骰和服务端结果为准。
       </p>
+      <div className="rest-selection-status" role="status" aria-live="polite">
+        <span>当前选择</span>
+        <strong>{selectedLabel}</strong>
+        <b>{selectedSummary.previews.length} 名角色预览</b>
+      </div>
       <div className="rest-options">
         <RestOption
           type="long"
@@ -101,11 +110,11 @@ export default function RestModal({ party = [], onRest, onClose }) {
         />
       </div>
       <PartyRestPreview preview={selectedSummary.previews} />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={() => onRest(selectedRestType)}>
+      <div className="rest-modal-actions" role="group" aria-label="休息操作">
+        <button className="btn-fantasy" onClick={() => onRest(selectedRestType)} aria-label={`执行${selectedLabel}`}>
           执行{selectedLabel}
         </button>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13, opacity: 0.6 }} onClick={onClose}>取消</button>
+        <button className="btn-fantasy secondary" onClick={onClose} aria-label="取消休息">取消</button>
       </div>
     </Overlay>
   )

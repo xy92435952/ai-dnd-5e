@@ -131,13 +131,14 @@ cd ..
 `npm run test:stage7:reaction` includes the direct combat `ReactionPrompt`,
 Adventure `ExplorationReactionPrompt`, Adventure `LootModal`, Adventure
 `LocationMapModal`, Adventure `AdventureBottomHud`, Adventure `AdventureTopBar`,
-Adventure `CheckpointModal`, Adventure `JournalModal`, `useDialogueWsSync`, and
-`combatReactionPrompt`
+Adventure `CheckpointModal`, Adventure `JournalModal`, Adventure `RestModal`,
+`useDialogueWsSync`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
 privacy projection, combat-log coverage, loot distribution UI coverage, mapped
 location/encounter-template UI coverage, top/bottom tool-entry coverage, and
-checkpoint save-boundary and journal dossier/generation-panel coverage. Keep
-new frontend ReactionPrompt or Adventure WS recovery tests in that gate.
+checkpoint save-boundary, journal dossier/generation-panel, and rest confirmation
+coverage. Keep new frontend ReactionPrompt or Adventure WS recovery tests in
+that gate.
 
 ## CI Release Gate
 
