@@ -1008,7 +1008,7 @@ describe('Adventure render smoke', () => {
       </MemoryRouter>
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Map' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Map: Open mapped locations and encounter templates.' }))
 
     expect(await screen.findByRole('heading', { name: 'Map' })).toBeInTheDocument()
     expect(screen.getAllByText('Construct Patrol').length).toBeGreaterThan(0)

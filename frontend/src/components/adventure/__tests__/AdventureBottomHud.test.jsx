@@ -72,12 +72,23 @@ describe('AdventureBottomHud', () => {
     const tools = screen.getByLabelText('Adventure tools')
     expect(tools).toHaveClass('adventure-bottom-actions')
 
-    fireEvent.click(within(tools).getByRole('button', { name: 'Map' }))
-    fireEvent.click(within(tools).getByRole('button', { name: 'Loot' }))
+    const map = within(tools).getByRole('button', { name: 'Map: Open mapped locations and encounter templates.' })
+    expect(map).toHaveClass('adventure-tool-button')
+    expect(map).toHaveAttribute('title', 'Open mapped locations and encounter templates.')
+    expect(within(map).getByText('2 loc')).toHaveClass('adventure-tool-badge')
+    const loot = within(tools).getByRole('button', { name: 'Loot: Open discovered rewards and party distribution.' })
+    expect(loot).toHaveAttribute('title', 'Open discovered rewards and party distribution.')
+    const journal = within(tools).getByRole('button', { name: 'Journal: Open quests, clues, companions, locations, and decisions.' })
+    expect(journal).toHaveAttribute('title', 'Open quests, clues, companions, locations, and decisions.')
+
+    fireEvent.click(map)
+    fireEvent.click(loot)
+    fireEvent.click(journal)
     fireEvent.click(screen.getByTitle('Alden HP 12/12'))
 
     expect(onOpenMap).toHaveBeenCalledTimes(1)
     expect(onOpenLoot).toHaveBeenCalledTimes(1)
+    expect(onOpenJournal).toHaveBeenCalledTimes(1)
     expect(onOpenCharacter).toHaveBeenCalledWith('char-1')
   })
 
@@ -99,7 +110,12 @@ describe('AdventureBottomHud', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: 'Map' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Loot' })).toBeEnabled()
+    const map = screen.getByRole('button', {
+      name: 'Map unavailable: Map appears after the DM records at least one known location.',
+    })
+    expect(map).toBeDisabled()
+    expect(map).toHaveAttribute('title', 'Map appears after the DM records at least one known location.')
+    expect(screen.queryByText(/loc$/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Loot: Open discovered rewards and party distribution.' })).toBeEnabled()
   })
 })

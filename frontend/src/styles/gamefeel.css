@@ -1584,6 +1584,33 @@ button.companion-signal-item:focus-visible {
   box-sizing: border-box;
   white-space: nowrap;
 }
+.adventure-tool-button {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 62px;
+  max-width: 112px;
+  padding: 6px 9px;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.adventure-tool-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adventure-tool-badge {
+  min-width: 0;
+  padding: 1px 4px;
+  border: 1px solid rgba(127,232,248,.28);
+  border-radius: 3px;
+  background: rgba(47,168,184,.08);
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 1.2;
+}
 .adventure-quest-hud {
   display: flex;
   align-items: center;
