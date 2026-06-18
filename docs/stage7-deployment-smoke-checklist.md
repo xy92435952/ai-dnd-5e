@@ -265,6 +265,11 @@ manifest under `artifacts/`. If `--artifact-tag` or
 `FEATHER_FALL_SMOKE_ARTIFACT_TAG` is omitted, the script uses the current local
 date as `YYYYMMDD`.
 
+The smoke resolves Python from `PYTHON_EXE`, known project virtualenvs, then
+`python3` / `python`. It resolves the browser from
+`FEATHER_FALL_SMOKE_BROWSER_PATH` or `CHROME_PATH`, then common
+Chrome/Chromium/Edge commands and install paths.
+
 Latest local dry-run evidence:
 
 - 2026-06-17: `node scripts\feather_fall_adventure_browser_smoke.mjs --decision decline` passed against a temporary SQLite backend DB and exited cleanly. The run restored the same seeded Adventure prompt, clicked `Decline`, confirmed `pending_exploration_reaction` cleared, applied the saved 6 fall damage so player HP became `22/28`, left the caster's `1st` slot at `1`, and wrote `artifacts\browser-feather-fall-adventure-decline-prompt-20260617.png` plus `artifacts\browser-feather-fall-adventure-decline-resolved-20260617.png`.

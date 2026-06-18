@@ -84,6 +84,10 @@ HTTP refresh, and writes prompt/resolved screenshots plus a JSON manifest under
 set, the script uses the current local date as `YYYYMMDD`.
 Verify the manifest before release handoff with
 `node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json`.
+The smoke resolves Python from `PYTHON_EXE`, known project virtualenvs, then
+`python3` / `python`. It resolves the browser from
+`FEATHER_FALL_SMOKE_BROWSER_PATH` or `CHROME_PATH`, then common
+Chrome/Chromium/Edge commands and install paths.
 
 The same `--slug` is idempotent: rerunning it replaces the previous seeded rows
 with the same deterministic ids instead of accumulating duplicate test data.

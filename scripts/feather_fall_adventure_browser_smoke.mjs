@@ -11,7 +11,7 @@ const backendCwd = path.join(root, 'backend');
 const frontendCwd = path.join(root, 'frontend');
 const backendOrigin = process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8002';
 const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://127.0.0.1:3000';
-const pythonPath = process.env.PYTHON_EXE || path.join(root, '.codex-test-artifacts', 'backend-venv', 'Scripts', 'python.exe');
+const pythonPath = resolvePythonPath();
 const decision = normalizeDecision(process.env.FEATHER_FALL_SMOKE_DECISION || parseDecisionArg() || 'accept');
 const reactionType = decision === 'decline' ? 'decline' : 'feather_fall';
 const decisionButtonText = decision === 'decline' ? 'Decline' : 'Cast Feather Fall';
@@ -74,6 +74,34 @@ function normalizeArtifactTag(value) {
   return tag;
 }
 
+function commandExists(command) {
+  const checker = process.platform === 'win32' ? 'where' : 'command';
+  const args = process.platform === 'win32' ? [command] : ['-v', command];
+  const result = spawnSync(checker, args, { stdio: 'ignore', shell: process.platform !== 'win32' });
+  return result.status === 0;
+}
+
+function resolvePythonPath() {
+  const explicit = process.env.PYTHON_EXE;
+  if (explicit) return explicit;
+
+  const pathCandidates = [
+    path.join(root, '.codex-test-artifacts', 'backend-venv', 'Scripts', 'python.exe'),
+    path.join(root, 'backend', '.venv-codex', 'Scripts', 'python.exe'),
+    path.join(root, 'backend', '.venv-codex', 'bin', 'python'),
+  ];
+  const foundPath = pathCandidates.find(candidate => existsSync(candidate));
+  if (foundPath) return foundPath;
+
+  const commandCandidates = process.platform === 'win32' ? ['python.exe', 'python'] : ['python3', 'python'];
+  const foundCommand = commandCandidates.find(commandExists);
+  if (foundCommand) return foundCommand;
+
+  throw new Error(
+    `No Python executable found. Set PYTHON_EXE or create one of: ${pathCandidates.join(', ')}`,
+  );
+}
+
 function screenshotPath(kind) {
   return artifactPath(kind, 'png');
 }
@@ -100,10 +128,24 @@ function browserPath() {
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   ].filter(Boolean);
   const found = candidates.find(candidate => existsSync(candidate));
-  if (!found) {
-    throw new Error(`No Chrome/Edge browser found. Checked: ${candidates.join(', ')}`);
-  }
-  return found;
+  if (found) return found;
+
+  const commandCandidates = [
+    'google-chrome',
+    'google-chrome-stable',
+    'chromium',
+    'chromium-browser',
+    'microsoft-edge',
+    'microsoft-edge-stable',
+    'msedge',
+  ];
+  const foundCommand = commandCandidates.find(commandExists);
+  if (foundCommand) return foundCommand;
+
+  throw new Error(
+    `No Chrome/Chromium/Edge browser found. Checked paths: ${candidates.join(', ')}; `
+    + `checked commands: ${commandCandidates.join(', ')}`,
+  );
 }
 
 function pipeLogs(proc, label) {
