@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 const { charactersOptionsMock } = vi.hoisted(() => ({
   charactersOptionsMock: vi.fn(),
@@ -22,15 +22,15 @@ const baseDerived = {
   },
 }
 
-function renderModal(player, onSave = vi.fn()) {
+function renderModal(player, onSave = vi.fn(), onClose = vi.fn()) {
   render(
     <PrepareSpellsModal
       player={player}
       onSave={onSave}
-      onClose={() => {}}
+      onClose={onClose}
     />,
   )
-  return onSave
+  return { onSave, onClose }
 }
 
 describe('PrepareSpellsModal', () => {
@@ -54,7 +54,7 @@ describe('PrepareSpellsModal', () => {
         },
       },
     })
-    const onSave = renderModal({
+    const { onSave, onClose } = renderModal({
       id: 'cleric-1',
       name: 'War Cleric',
       char_class: 'Cleric',
@@ -65,8 +65,16 @@ describe('PrepareSpellsModal', () => {
       derived: baseDerived,
     })
 
+    expect(await screen.findByRole('status')).toHaveTextContent('每日准备')
+    expect(screen.getByRole('status')).toHaveTextContent('0/4')
+    expect(screen.getByRole('status')).toHaveTextContent('2 个可选法术')
+    expect(screen.getByLabelText('可准备法术列表')).toHaveAttribute('aria-live', 'polite')
+    fireEvent.click(screen.getByRole('button', { name: '关闭准备法术' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
     fireEvent.click(await screen.findByRole('button', { name: 'Divine Favor' }))
-    fireEvent.click(screen.getByLabelText('Save prepared spells'))
+    const actions = screen.getByRole('group', { name: '准备法术操作' })
+    fireEvent.click(within(actions).getByRole('button', { name: '保存准备法术' }))
 
     expect(onSave).toHaveBeenCalledWith(['Divine Favor'])
   })
@@ -110,7 +118,7 @@ describe('PrepareSpellsModal', () => {
         ],
       },
     })
-    const onSave = renderModal({
+    const { onSave } = renderModal({
       id: 'warlock-1',
       name: 'Pact Warlock',
       char_class: 'Warlock',
@@ -128,8 +136,10 @@ describe('PrepareSpellsModal', () => {
 
     expect(hex).toBeDisabled()
     expect(armor).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('已知施法者')
+    expect(screen.getByRole('status')).toHaveTextContent('已知施法者无需每日准备')
 
-    fireEvent.click(screen.getByLabelText('Save prepared spells'))
+    fireEvent.click(screen.getByLabelText('保存准备法术'))
 
     expect(onSave).toHaveBeenCalledWith(['Hex', 'Armor of Agathys'])
   })
@@ -147,7 +157,7 @@ describe('PrepareSpellsModal', () => {
         ],
       },
     })
-    const onSave = renderModal({
+    const { onSave } = renderModal({
       id: 'paladin-1',
       name: 'Oath Paladin',
       char_class: 'Paladin',
@@ -166,8 +176,10 @@ describe('PrepareSpellsModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Shield of Faith' }))
 
     expect(screen.getByRole('button', { name: 'Wrathful Smite' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Wrathful Smite' })).toHaveClass('capped')
+    expect(screen.getByRole('status')).toHaveTextContent('4/4')
 
-    fireEvent.click(screen.getByLabelText('Save prepared spells'))
+    fireEvent.click(screen.getByLabelText('保存准备法术'))
 
     expect(onSave).toHaveBeenCalledWith(['Bless', 'Command', 'Cure Wounds', 'Shield of Faith'])
   })

@@ -102,6 +102,13 @@ function setsEqual(a, b) {
   return [...a].every(item => b.has(item))
 }
 
+function preparationTypeLabel(type) {
+  if (type === 'known') return '已知施法者'
+  if (type === 'spellbook') return '法术书'
+  if (type === 'prepared') return '每日准备'
+  return '角色法术'
+}
+
 export default function PrepareSpellsModal({ player, onSave, onClose }) {
   const derived = player.derived || {}
   const mods = derived.ability_modifiers || {}
@@ -116,6 +123,7 @@ export default function PrepareSpellsModal({ player, onSave, onClose }) {
   const availableSpellKey = availableSpellNames.join('\u0000')
   const maxPrepared = maxPreparedSpells(player, classKey, spellMod, preparationType)
   const knownCasterLocked = preparationType === 'known'
+  const typeLabel = preparationTypeLabel(preparationType)
 
   const [selected, setSelected] = useState(new Set(player.prepared_spells || []))
 
@@ -157,25 +165,32 @@ export default function PrepareSpellsModal({ player, onSave, onClose }) {
 
   return (
     <Overlay onClose={onClose}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="prepare-modal-head">
         <div>
-          <h3 style={{ color: 'var(--amethyst-light)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h3>
             <BookIcon size={18} color="var(--amethyst-light)" /> 准备法术
           </h3>
-          <p style={{ color: 'var(--parchment-dark)', fontSize: 12, margin: '4px 0 0' }}>
+          <p>
             上限 {selected.size}/{maxPrepared}
           </p>
         </div>
         <button
-          aria-label="Close prepare spells"
+          aria-label="关闭准备法术"
           onClick={onClose}
-          style={{ color: 'var(--parchment-dark)', fontSize: 22, background: 'none', border: 'none', cursor: 'pointer' }}
+          type="button"
         >
-          x
+          ×
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+      <div className="prepare-status" role="status" aria-live="polite">
+        <span>{typeLabel}</span>
+        <strong>{selected.size}/{maxPrepared}</strong>
+        <b>{availableSpellNames.length} 个可选法术</b>
+        {knownCasterLocked && <em>已知施法者无需每日准备</em>}
+      </div>
+
+      <div className="prepare-spell-list" aria-label="可准备法术列表" aria-live="polite">
         {availableSpellNames.map(spell => {
           const selectedSpell = selected.has(spell)
           const canSelect = selectedSpell || selected.size < maxPrepared
@@ -185,36 +200,28 @@ export default function PrepareSpellsModal({ player, onSave, onClose }) {
               onClick={() => toggle(spell)}
               disabled={knownCasterLocked || !canSelect}
               aria-pressed={selectedSpell}
-              className="btn-fantasy"
-              style={{
-                textAlign: 'left',
-                opacity: canSelect ? 1 : 0.4,
-                borderColor: selectedSpell ? 'var(--amethyst)' : undefined,
-                background: selectedSpell ? 'rgba(138,79,212,0.15)' : undefined,
-                color: selectedSpell ? 'var(--amethyst-light)' : undefined,
-              }}
+              className={`btn-fantasy prepare-spell-option ${selectedSpell ? 'selected' : ''} ${!canSelect ? 'capped' : ''}`}
             >
               {selectedSpell ? '\u2713 ' : ''}{spell}
             </button>
           )
         })}
         {availableSpellNames.length === 0 && (
-          <p style={{ gridColumn: '1 / -1', color: 'var(--parchment-dark)', fontSize: 12, margin: 0 }}>
+          <p className="prepare-empty">
             暂无可准备法术
           </p>
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+      <div className="prepare-modal-actions" role="group" aria-label="准备法术操作">
         <button
-          aria-label="Save prepared spells"
+          aria-label="保存准备法术"
           className="btn-gold"
-          style={{ padding: '8px 16px', fontSize: 13 }}
           onClick={() => onSave(knownCasterLocked ? availableSpellNames : [...selected])}
         >
           确认（{selected.size}/{maxPrepared}）
         </button>
-        <button className="btn-fantasy" style={{ padding: '8px 16px', fontSize: 13 }} onClick={onClose}>取消</button>
+        <button className="btn-fantasy" onClick={onClose} aria-label="取消准备法术">取消</button>
       </div>
     </Overlay>
   )

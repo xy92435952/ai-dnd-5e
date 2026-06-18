@@ -132,13 +132,13 @@ cd ..
 Adventure `ExplorationReactionPrompt`, Adventure `LootModal`, Adventure
 `LocationMapModal`, Adventure `AdventureBottomHud`, Adventure `AdventureTopBar`,
 Adventure `CheckpointModal`, Adventure `JournalModal`, Adventure `RestModal`,
-`useDialogueWsSync`, and `combatReactionPrompt`
+Adventure `PrepareSpellsModal`, `useDialogueWsSync`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
 privacy projection, combat-log coverage, loot distribution UI coverage, mapped
 location/encounter-template UI coverage, top/bottom tool-entry coverage, and
-checkpoint save-boundary, journal dossier/generation-panel, and rest confirmation
-coverage. Keep new frontend ReactionPrompt or Adventure WS recovery tests in
-that gate.
+checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
+and spell-preparation coverage. Keep new frontend ReactionPrompt or Adventure WS
+recovery tests in that gate.
 
 ## CI Release Gate
 
