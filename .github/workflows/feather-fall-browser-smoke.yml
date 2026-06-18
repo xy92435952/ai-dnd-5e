@@ -45,6 +45,21 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Check browser availability
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+          elif command -v google-chrome-stable >/dev/null 2>&1; then
+            google-chrome-stable --version
+          elif command -v chromium >/dev/null 2>&1; then
+            chromium --version
+          elif command -v chromium-browser >/dev/null 2>&1; then
+            chromium-browser --version
+          else
+            echo "No Chrome/Chromium browser found on this runner." >&2
+            exit 1
+          fi
+
       - name: Run Feather Fall accept browser smoke
         if: ${{ github.event.inputs.decision == 'both' || github.event.inputs.decision == 'accept' }}
         env:
