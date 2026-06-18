@@ -335,7 +335,7 @@ node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMD
 ```
 
 The same verifier can run from the standard local check entrypoint after the
-frontend build:
+frontend build and any optional evidence-producing browser/load smokes:
 
 ```powershell
 $env:RUN_STAGE7_EVIDENCE_GATE='1'

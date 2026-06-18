@@ -83,22 +83,6 @@ fi
 echo "== Frontend build =="
 (cd "$ROOT_DIR/frontend" && run_npm run build)
 
-if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
-  if [ -z "${STAGE7_EVIDENCE_FILES:-}" ]; then
-    echo "RUN_STAGE7_EVIDENCE_GATE=1 requires STAGE7_EVIDENCE_FILES" >&2
-    exit 1
-  fi
-  echo "== Stage 7 evidence artifact gate =="
-  set -- $STAGE7_EVIDENCE_FILES
-  if [ "${STAGE7_EVIDENCE_NO_FILE_CHECK:-0}" = "1" ]; then
-    set -- --no-file-check "$@"
-  fi
-  (cd "$ROOT_DIR" && node scripts/verify_stage7_evidence.mjs "$@")
-else
-  echo "== Stage 7 evidence artifact gate skipped =="
-  echo "Set RUN_STAGE7_EVIDENCE_GATE=1 with STAGE7_EVIDENCE_FILES to verify smoke result JSON before release handoff."
-fi
-
 if [ "${RUN_MULTIPLAYER_LOADTEST:-0}" = "1" ]; then
   echo "== Multiplayer load smoke =="
   LOADTEST_BASE_URL="${LOADTEST_BASE_URL:-http://127.0.0.1:8002}"
@@ -126,6 +110,22 @@ else
   echo "Set RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID or LOADTEST_SQLITE_DB to run it."
   echo "Set LOADTEST_HOLD_SECONDS to keep sockets open for manual browser observation."
   echo "Set LOADTEST_RESULT_JSON to write a machine-readable load smoke result file."
+fi
+
+if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
+  if [ -z "${STAGE7_EVIDENCE_FILES:-}" ]; then
+    echo "RUN_STAGE7_EVIDENCE_GATE=1 requires STAGE7_EVIDENCE_FILES" >&2
+    exit 1
+  fi
+  echo "== Stage 7 evidence artifact gate =="
+  set -- $STAGE7_EVIDENCE_FILES
+  if [ "${STAGE7_EVIDENCE_NO_FILE_CHECK:-0}" = "1" ]; then
+    set -- --no-file-check "$@"
+  fi
+  (cd "$ROOT_DIR" && node scripts/verify_stage7_evidence.mjs "$@")
+else
+  echo "== Stage 7 evidence artifact gate skipped =="
+  echo "Set RUN_STAGE7_EVIDENCE_GATE=1 with STAGE7_EVIDENCE_FILES to verify smoke result JSON before release handoff."
 fi
 
 echo "== All checks passed =="
