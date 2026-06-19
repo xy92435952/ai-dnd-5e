@@ -4,38 +4,37 @@ export default function CharacterCreateStepSpellsCantrips({ cantripCount, chosen
   if (cantripCount <= 0) return null
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <span style={{ fontSize: '0.875rem', color: 'var(--blue-light)' }}>戏法（0环，无限使用）</span>
-        <span style={{ fontSize: '0.75rem', color: chosenCantrips.length === cantripCount ? 'var(--green-light)' : 'var(--gold)' }}>
+    <section className="spell-choice-section" aria-label="Cantrip choices">
+      <div className="spell-section-title">
+        <span className="t spell-choice-title-cantrip">戏法（0环，无限使用）</span>
+        <span
+          className="count spell-choice-count"
+          data-complete={chosenCantrips.length === cantripCount ? 'true' : 'false'}
+        >
           {chosenCantrips.length}/{cantripCount}
         </span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      <div className="spell-grid" role="list" aria-label="Cantrip options">
         {availableCantrips.map(name => {
           const sel = chosenCantrips.includes(name)
           const dis = !sel && chosenCantrips.length >= cantripCount
           return (
             <button
               key={name}
+              type="button"
               disabled={dis}
               onClick={() => toggleCantrip(name)}
-              className="skill-btn"
-              style={{
-                textAlign: 'left',
-                padding: '8px 12px',
-                borderColor: sel ? 'var(--blue-light)' : 'var(--wood-light)',
-                background: sel ? 'rgba(58,122,170,0.12)' : undefined,
-                color: dis ? 'var(--wood-light)' : sel ? 'var(--blue-light)' : 'var(--parchment)',
-                cursor: dis ? 'not-allowed' : 'pointer',
-                opacity: dis ? 0.4 : 1,
-              }}
+              className={`spell-card cantrip${sel ? ' sel' : ''}${dis ? ' dis' : ''}`}
+              data-selected={sel ? 'true' : 'false'}
+              role="listitem"
+              aria-label={`Cantrip ${name}`}
             >
-              {sel && '\u2713 '}{name}
+              <span className="sp-icon">{sel ? '\u2713' : '○'}</span>
+              <span className="sp-name">{name}</span>
             </button>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }

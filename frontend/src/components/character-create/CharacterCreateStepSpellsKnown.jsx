@@ -4,38 +4,37 @@ export default function CharacterCreateStepSpellsKnown({ spellCount, chosenSpell
   if (spellCount <= 0) return null
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <span style={{ fontSize: '0.875rem', color: '#c084fc' }}>已知法术</span>
-        <span style={{ fontSize: '0.75rem', color: chosenSpells.length === spellCount ? 'var(--green-light)' : 'var(--gold)' }}>
+    <section className="spell-choice-section" aria-label="Known spell choices">
+      <div className="spell-section-title">
+        <span className="t spell-choice-title-known">已知法术</span>
+        <span
+          className="count spell-choice-count"
+          data-complete={chosenSpells.length === spellCount ? 'true' : 'false'}
+        >
           {chosenSpells.length}/{spellCount}
         </span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      <div className="spell-grid" role="list" aria-label="Known spell options">
         {availableSpells.map(name => {
           const sel = chosenSpells.includes(name)
           const dis = !sel && chosenSpells.length >= spellCount
           return (
             <button
               key={name}
+              type="button"
               disabled={dis}
               onClick={() => toggleSpell(name)}
-              className="skill-btn"
-              style={{
-                textAlign: 'left',
-                padding: '8px 12px',
-                borderColor: sel ? '#c084fc' : 'var(--wood-light)',
-                background: sel ? 'rgba(192,132,252,0.12)' : undefined,
-                color: dis ? 'var(--wood-light)' : sel ? '#c084fc' : 'var(--parchment)',
-                cursor: dis ? 'not-allowed' : 'pointer',
-                opacity: dis ? 0.4 : 1,
-              }}
+              className={`spell-card lv1${sel ? ' sel' : ''}${dis ? ' dis' : ''}`}
+              data-selected={sel ? 'true' : 'false'}
+              role="listitem"
+              aria-label={`Known spell ${name}`}
             >
-              {sel && '\u2713 '}{name}
+              <span className="sp-icon">{sel ? '\u2713' : '○'}</span>
+              <span className="sp-name">{name}</span>
             </button>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
