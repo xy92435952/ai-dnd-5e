@@ -5503,6 +5503,18 @@ button.companion-signal-item:focus-visible {
   scrollbar-width: none;
 }
 .init-ribbon::-webkit-scrollbar { display: none; }
+.init-ribbon-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100%;
+}
+.init-ribbon-item {
+  flex-shrink: 0;
+}
+.init-ribbon-spacer {
+  flex: 1;
+}
 .init-ribbon .unit-chip {
   appearance: none;
   position: relative;

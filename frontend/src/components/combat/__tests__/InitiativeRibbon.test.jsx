@@ -41,19 +41,32 @@ describe('InitiativeRibbon', () => {
   it('marks current and next initiative actors', () => {
     render(<InitiativeRibbon initiativeChips={chips} />)
 
-    const order = screen.getByLabelText('Initiative order')
-    expect(within(order).getByText('NOW')).toBeInTheDocument()
-    expect(within(order).getByText('NEXT')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Asha, initiative 18, current turn/ })).toHaveClass('active')
-    expect(screen.getByRole('button', { name: /Goblin Scout, initiative 15, next turn, tactical role 游击/ })).toHaveClass('next')
+    const ribbon = screen.getByRole('region', { name: '先攻顺序' })
+    const order = within(ribbon).getByRole('list', { name: '行动顺序' })
+    expect(within(order).getAllByRole('listitem', { name: /行动顺位/ })).toHaveLength(3)
+    expect(within(order).getByText('当前')).toBeInTheDocument()
+    expect(within(order).getByText('下个')).toBeInTheDocument()
+
+    const currentActor = screen.getByRole('button', { name: /Asha，先攻 18，当前回合，状态 祝福/ })
+    expect(currentActor).toHaveClass('active')
+    expect(currentActor).toHaveAttribute('aria-current', 'true')
+
+    const nextActor = screen.getByRole('button', {
+      name: /Goblin Scout，先攻 15，下一位行动，战术定位 游击，状态 中毒/,
+    })
+    expect(nextActor).toHaveClass('next')
     expect(within(order).getByText('游击')).toHaveAttribute(
       'title',
       '战术定位：游击。倾向攻击边缘或后排，并在安全时撤步拉开距离。',
     )
-    expect(within(order).getByLabelText('Asha conditions: 祝福')).toHaveTextContent('祝')
-    expect(within(order).getByTitle('祝福：激活期间，攻击和豁免获得额外骰。')).toHaveClass('buff')
-    expect(within(order).getByLabelText('Goblin Scout conditions: 中毒')).toHaveTextContent('中')
-    expect(within(order).getByTitle('中毒：攻击骰和属性检定处于劣势。 持续：2 轮。')).toHaveClass('harm')
+
+    const ashaConditions = within(order).getByRole('list', { name: 'Asha 状态：祝福' })
+    expect(within(ashaConditions).getByRole('listitem', { name: '祝福：激活期间，攻击和豁免获得额外骰。' })).toHaveTextContent('祝')
+    expect(within(ashaConditions).getByRole('listitem', { name: '祝福：激活期间，攻击和豁免获得额外骰。' })).toHaveClass('buff')
+
+    const goblinConditions = within(order).getByRole('list', { name: 'Goblin Scout 状态：中毒' })
+    expect(within(goblinConditions).getByRole('listitem', { name: '中毒：攻击骰和属性检定处于劣势。 持续：2 轮。' })).toHaveTextContent('中')
+    expect(within(goblinConditions).getByRole('listitem', { name: '中毒：攻击骰和属性检定处于劣势。 持续：2 轮。' })).toHaveClass('harm')
   })
 
   it('selects living actors and disables defeated actors', () => {
@@ -63,7 +76,7 @@ describe('InitiativeRibbon', () => {
     fireEvent.click(screen.getByRole('button', { name: /Goblin Scout/ }))
     expect(onSelectTarget).toHaveBeenCalledWith('enemy-1')
 
-    const defeated = screen.getByRole('button', { name: /Fallen Guard/ })
+    const defeated = screen.getByRole('button', { name: /Fallen Guard，先攻 4，友方，已倒下/ })
     expect(defeated).toBeDisabled()
   })
 })
