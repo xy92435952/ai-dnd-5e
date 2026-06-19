@@ -410,6 +410,27 @@
   color: var(--emerald-light);
   letter-spacing: .05em;
 }
+.create-basics-detail-button {
+  margin-left: 6px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--amber);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.create-basics-detail-button:hover,
+.create-basics-detail-button:focus-visible {
+  color: var(--flame);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.create-basics-detail-button:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 2px;
+}
 
 /* ── 职业卡片 ─────────────────────────── */
 .class-grid {
@@ -449,6 +470,9 @@
   letter-spacing: .1em;
   margin-top: 2px;
 }
+.create-basics-class-portrait {
+  margin: 0 auto 6px;
+}
 
 .class-details {
   margin-top: 10px;
@@ -476,6 +500,9 @@
   font-size: 10px;
   color: var(--parchment-dark);
   letter-spacing: .08em;
+}
+.create-basics-class-detail-button {
+  margin-left: 10px;
 }
 
 /* ── 子职业 / 战斗风格 ─────────────────── */

@@ -60,8 +60,10 @@ export default function CharacterCreateStepBasicsIdentity({ ctx }) {
             <em>"{RACE_INFO[raceEnKey].description.slice(0, 80)}…"</em>
             {raceEnKey && (
               <button
+                type="button"
+                className="create-basics-detail-button"
+                aria-label={`${form.race} race details`}
                 onClick={() => openModal('race', raceEnKey)}
-                style={{ marginLeft: 6, background: 'none', border: 'none', color: 'var(--amber)', cursor: 'pointer', fontSize: 11 }}
               >
                 【详情】
               </button>
@@ -83,7 +85,7 @@ export default function CharacterCreateStepBasicsIdentity({ ctx }) {
                 className={`class-card ${sel ? 'sel' : ''}`}
                 onClick={() => setForm(f => ({ ...f, char_class: c, subclass: '' }))}
               >
-                <Portrait cls={classKey(c)} size="sm" style={{ margin: '0 auto 6px' }} />
+                <Portrait cls={classKey(c)} size="sm" className="create-basics-class-portrait" />
                 <div className="class-name">{c}</div>
                 <div className="class-prim">{formatHitDieLabel(info?.hit_die)}</div>
               </div>
@@ -106,8 +108,10 @@ export default function CharacterCreateStepBasicsIdentity({ ctx }) {
               {classInfo.armor_proficiency && `护甲：${classInfo.armor_proficiency}`}
               {classEnKey && (
                 <button
+                  type="button"
+                  className="create-basics-detail-button create-basics-class-detail-button"
+                  aria-label={`${form.char_class} class details`}
                   onClick={() => openModal('class', classEnKey)}
-                  style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--amber)', cursor: 'pointer', fontSize: 11 }}
                 >
                   【完整特性】
                 </button>
