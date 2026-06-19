@@ -133,7 +133,7 @@ Combat `CombatHudControls`, Combat `CombatHudSlots`, Combat `CombatHudPips`,
 Combat `CombatHudPortrait`, Combat `CombatHudIntentSummary`, Combat `CombatHudSkillBar`,
 Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon`, Combat `TargetCard`,
 Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat `CombatOutcomeOverlay`,
-Combat `CombatDeathSavePanel`,
+Combat `CombatDeathSavePanel`, Combat `CombatQuickInventory`,
 Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure
 `AdventureStage`, Adventure `StageLeftFigure`, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
@@ -151,7 +151,7 @@ location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 shared adventure modal shell, checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
 spell-preparation, dialogue-history, adventure party status HUD, adventure quest/location HUD,
 adventure stage shell, stage speaker figure, stage dialogue bubble, dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, combat turn-control HUD, combat spell-slot/concentration HUD, combat action-economy HUD, combat identity/status HUD, combat intent summary HUD, combat skill-action HUD, combat log feedback HUD, combat turn banner/action-coach HUD, AI-turn stale reaction cleanup, multiplayer timeline, multiplayer party
-coordination, multiplayer speak-turn, and multiplayer table-decision notice coverage. Keep new
+coordination, multiplayer speak-turn, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## CI Release Gate

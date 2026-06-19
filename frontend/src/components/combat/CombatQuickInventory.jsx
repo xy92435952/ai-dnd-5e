@@ -48,6 +48,7 @@ export default function CombatQuickInventory({
 
   const actionUsed = Boolean(turnState?.action_used)
   const waitingTurn = !isPlayerTurn
+  const busy = Boolean(busyName)
   const disabledReason = disabled
     ? '正在结算或同步战斗'
     : actionUsed
@@ -55,6 +56,8 @@ export default function CombatQuickInventory({
       : waitingTurn
         ? '等待你的回合'
         : ''
+  const statusReason = busy ? '正在使用物品' : disabledReason
+  const controlsDisabled = disabled || actionUsed || waitingTurn || busy
   const formatQuickLabel = (item) => {
     const label = getInventoryItemLabel(item)
     if (item.uses != null) return `${label} (${item.uses})`
@@ -62,7 +65,7 @@ export default function CombatQuickInventory({
   }
 
   const handleUseConsumable = async (item, targetCharacterId = null) => {
-    if (disabled || actionUsed || waitingTurn || busyName) return
+    if (controlsDisabled) return
     setBusyName(item.name)
     setMessage('')
     try {
@@ -82,79 +85,78 @@ export default function CombatQuickInventory({
   }
 
   return (
-    <div style={{
-      padding: '7px 8px',
-      border: '1px solid rgba(201,168,76,.28)',
-      background: 'rgba(10,6,2,.28)',
-      display: 'grid',
-      gap: 5,
-    }}>
-      <div style={{
-        color: 'var(--gold-dim)',
-        fontSize: 9,
-        fontFamily: 'var(--font-mono)',
-        letterSpacing: '.14em',
-        textTransform: 'uppercase',
-      }}>
+    <section
+      className="combat-quick-inventory"
+      aria-label="战斗快捷物品"
+      aria-busy={busy ? 'true' : 'false'}
+    >
+      <div className="combat-quick-inventory-title">
         快捷物品
       </div>
       {consumables.length > 0 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div className="combat-quick-inventory-list" role="list" aria-label="可用快捷物品">
           {consumables.slice(0, 4).map(item => {
             const label = getInventoryItemLabel(item)
             const quickLabel = formatQuickLabel(item)
             const useProfile = getInventoryUseProfile(item)
             if (useProfile.requiresTarget) {
               return (
-                <select
+                <div
                   key={item.key}
-                  aria-label={`用于 ${label}`}
-                  disabled={disabled || actionUsed || waitingTurn || Boolean(busyName)}
-                  title={disabledReason || `用于 ${label}`}
-                  defaultValue=""
-                  onChange={(event) => {
-                    const targetId = event.target.value
-                    event.target.value = ''
-                    if (targetId) handleUseConsumable(item, targetId)
-                  }}
-                  style={{
-                    background: 'rgba(10,6,2,0.65)',
-                    border: '1px solid var(--wood-light)',
-                    color: 'var(--parchment)',
-                    borderRadius: 4,
-                    fontSize: 10,
-                    padding: '4px 6px',
-                    maxWidth: 100,
-                  }}
+                  className="combat-quick-inventory-item"
+                  role="listitem"
+                  aria-label={`快捷物品 ${quickLabel}`}
                 >
-                  <option value="">{quickLabel}</option>
-                  {useTargets.map(target => (
-                    <option key={target.id} value={target.id}>{target.name}</option>
-                  ))}
-                </select>
+                  <select
+                    className="combat-quick-inventory-select"
+                    aria-label={`用于 ${label}`}
+                    disabled={controlsDisabled}
+                    title={statusReason || `用于 ${label}`}
+                    defaultValue=""
+                    onChange={(event) => {
+                      const targetId = event.target.value
+                      event.target.value = ''
+                      if (targetId) handleUseConsumable(item, targetId)
+                    }}
+                  >
+                    <option value="">{quickLabel}</option>
+                    {useTargets.map(target => (
+                      <option key={target.id} value={target.id}>{target.name}</option>
+                    ))}
+                  </select>
+                </div>
               )
             }
             return (
-              <button
+              <div
                 key={item.key}
-                type="button"
-                className="btn-ghost"
-                disabled={disabled || actionUsed || waitingTurn || Boolean(busyName)}
-                onClick={() => handleUseConsumable(item)}
-                aria-label={`使用 ${label}`}
-                title={disabledReason || `使用 ${label}`}
-                style={{ fontSize: 10, padding: '4px 7px' }}
+                className="combat-quick-inventory-item"
+                role="listitem"
+                aria-label={`快捷物品 ${quickLabel}`}
               >
-                {quickLabel}
-              </button>
+                <button
+                  type="button"
+                  className="btn-ghost combat-quick-inventory-action"
+                  disabled={controlsDisabled}
+                  onClick={() => handleUseConsumable(item)}
+                  aria-label={`使用 ${label}`}
+                  title={statusReason || `使用 ${label}`}
+                >
+                  {quickLabel}
+                </button>
+              </div>
             )
           })}
         </div>
       )}
-      {disabledReason && consumables.length > 0 && (
-        <div style={{ color: 'var(--parchment-dark)', fontSize: 10 }}>{disabledReason}</div>
+      {(statusReason || message) && (
+        <div className="combat-quick-inventory-status" role="status" aria-live="polite">
+          {statusReason && consumables.length > 0 && (
+            <div className="combat-quick-inventory-hint">{statusReason}</div>
+          )}
+          {message && <div className="combat-quick-inventory-message">{message}</div>}
+        </div>
       )}
-      {message && <div style={{ color: 'var(--green-light)', fontSize: 10 }}>{message}</div>}
-    </div>
+    </section>
   )
 }

@@ -5955,6 +5955,56 @@ button.companion-signal-item:focus-visible {
   color: var(--parchment-dark);
   font-size: 10px;
 }
+.combat-quick-inventory {
+  display: grid;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid rgba(201,168,76,.28);
+  background: rgba(10,6,2,.28);
+}
+.combat-quick-inventory-title {
+  color: var(--gold-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.combat-quick-inventory-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.combat-quick-inventory-item {
+  min-width: 0;
+}
+.combat-quick-inventory-select {
+  max-width: 122px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--wood-light);
+  border-radius: 4px;
+  background: rgba(10,6,2,.65);
+  color: var(--parchment);
+  font-size: 10px;
+}
+.combat-quick-inventory-action {
+  max-width: 128px;
+  padding: 4px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+.combat-quick-inventory-status {
+  display: grid;
+  gap: 2px;
+  color: var(--parchment-dark);
+  font-size: 10px;
+}
+.combat-quick-inventory-message {
+  color: var(--green-light);
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { charactersApi } from '../../../api/client'
 import CombatQuickInventory from '../CombatQuickInventory'
 
@@ -87,9 +87,16 @@ describe('CombatQuickInventory', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: '使用 治疗药水' })).toHaveTextContent('治疗药水 x2')
+    const panel = screen.getByRole('region', { name: '战斗快捷物品' })
+    expect(panel).toHaveClass('combat-quick-inventory')
+    expect(within(panel).getByText('快捷物品')).toHaveClass('combat-quick-inventory-title')
+    const list = within(panel).getByRole('list', { name: '可用快捷物品' })
+    expect(within(list).getByRole('listitem', { name: '快捷物品 治疗药水 x2' })).toBeInTheDocument()
+    const button = within(list).getByRole('button', { name: '使用 治疗药水' })
+    expect(button).toHaveClass('combat-quick-inventory-action')
+    expect(button).toHaveTextContent('治疗药水 x2')
 
-    fireEvent.click(screen.getByRole('button', { name: '使用 治疗药水' }))
+    fireEvent.click(button)
 
     await waitFor(() => {
       expect(charactersApi.useItem).toHaveBeenCalledWith('char-1', 'Healing Potion', {
@@ -108,7 +115,9 @@ describe('CombatQuickInventory', () => {
         action_used: true,
       }))
     })
-    expect(await screen.findByText('治疗药水 恢复 6 HP')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('治疗药水 恢复 6 HP')
+    })
   })
 
   it('merges added conditions from combat consumable results', async () => {
@@ -197,8 +206,12 @@ describe('CombatQuickInventory', () => {
       />,
     )
 
-    expect(screen.getByText('医疗包 (10)')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('用于 医疗包'), { target: { value: 'ally-1' } })
+    const panel = screen.getByRole('region', { name: '战斗快捷物品' })
+    const list = within(panel).getByRole('list', { name: '可用快捷物品' })
+    expect(within(list).getByRole('listitem', { name: '快捷物品 医疗包 (10)' })).toBeInTheDocument()
+    const targetSelect = within(list).getByRole('combobox', { name: '用于 医疗包' })
+    expect(targetSelect).toHaveClass('combat-quick-inventory-select')
+    fireEvent.change(targetSelect, { target: { value: 'ally-1' } })
 
     await waitFor(() => {
       expect(charactersApi.useItem).toHaveBeenCalledWith('char-1', "Healer's Kit", {
@@ -247,7 +260,7 @@ describe('CombatQuickInventory', () => {
     )
 
     expect(screen.getByRole('button', { name: '使用 治疗药水' })).toBeDisabled()
-    expect(screen.getByText('本回合动作已使用')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('本回合动作已使用')
   })
 
   it('disables consumables outside the player turn', () => {
@@ -269,7 +282,7 @@ describe('CombatQuickInventory', () => {
     )
 
     expect(screen.getByRole('button', { name: '使用 治疗药水' })).toBeDisabled()
-    expect(screen.getByText('等待你的回合')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('等待你的回合')
   })
 
   it('explains disabled consumables while combat is processing or syncing', () => {
@@ -293,6 +306,6 @@ describe('CombatQuickInventory', () => {
     const button = screen.getByRole('button', { name: '使用 治疗药水' })
     expect(button).toBeDisabled()
     expect(button).toHaveAttribute('title', '正在结算或同步战斗')
-    expect(screen.getByText('正在结算或同步战斗')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('正在结算或同步战斗')
   })
 })
