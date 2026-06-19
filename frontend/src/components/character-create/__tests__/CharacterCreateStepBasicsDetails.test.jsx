@@ -105,4 +105,53 @@ describe('CharacterCreateStepBasicsDetails', () => {
     fireEvent.click(backgroundInfo)
     expect(ctx.openModal).toHaveBeenCalledWith('background', 'Sage')
   })
+
+  it('renders basics bonus language choices with stable state and cap-preserving updates', () => {
+    const setBonusLanguages = vi.fn(updater => updater(['Elvish']))
+    const ctx = makeCtx({
+      form: {
+        level: 3,
+        alignment: '中立善良',
+        background: 'Sage',
+        race: 'Half-Elf',
+      },
+      options: {
+        ...makeCtx().options,
+        racial_languages: {
+          'Half-Elf': { fixed: ['Common'], bonus: 1 },
+        },
+        all_languages: ['Common', 'Elvish', 'Dwarvish', 'Draconic'],
+      },
+      bonusLanguages: ['Elvish'],
+      setBonusLanguages,
+    })
+    render(<CharacterCreateStepBasicsDetails ctx={ctx} />)
+
+    const section = screen.getByRole('region', { name: 'Basics bonus language choices' })
+    expect(section).toHaveClass('create-details-language-section')
+
+    const title = section.querySelector('.create-details-language-title')
+    expect(title).toHaveAttribute('data-complete', 'false')
+    expect(title).toHaveTextContent('1/2')
+
+    expect(section.querySelector('.create-details-language-fixed')).toHaveTextContent('Common')
+
+    const list = within(section).getByRole('list', { name: 'Available basics bonus languages' })
+    expect(list).toHaveClass('create-details-language-options')
+
+    const options = within(list).getAllByRole('listitem')
+    expect(options).toHaveLength(2)
+    expect(options[0]).toHaveClass('create-details-language-option')
+
+    const dwarvish = within(options[0]).getByRole('button', { name: 'Dwarvish' })
+    expect(dwarvish).toHaveClass('skill-btn', 'create-details-language-button')
+    expect(dwarvish).toHaveAttribute('data-selected', 'false')
+
+    fireEvent.click(dwarvish)
+    expect(setBonusLanguages).toHaveBeenCalledTimes(1)
+    expect(setBonusLanguages.mock.results[0].value).toEqual(['Elvish', 'Dwarvish'])
+
+    const capUpdater = setBonusLanguages.mock.calls[0][0]
+    expect(capUpdater(['Elvish', 'Draconic'])).toEqual(['Elvish', 'Draconic'])
+  })
 })

@@ -328,6 +328,36 @@
 .create-details-level-range[data-in-range="true"] {
   color: var(--green-light);
 }
+.create-details-language-section {
+  display: block;
+}
+.create-details-language-title {
+  margin: 0 0 6px;
+  color: var(--text-bright);
+  font-size: 0.8rem;
+}
+.create-details-language-title[data-complete="true"] {
+  color: var(--green-light);
+}
+.create-details-language-fixed {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+.create-details-language-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.create-details-language-button {
+  border-color: var(--wood-light);
+  color: var(--text-dim);
+}
+.create-details-language-button[data-selected="true"] {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.2);
+  color: var(--gold);
+}
 @media (max-width: 760px) {
   .create-details-top-grid {
     grid-template-columns: 1fr;
