@@ -154,7 +154,7 @@ describe('Adventure render smoke', () => {
   })
 
   it('单人 Adventure 不探测多人 room 接口', async () => {
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/adventure/sess-1']}>
         <Routes>
           <Route path="/adventure/:sessionId" element={<Adventure />} />
@@ -165,6 +165,13 @@ describe('Adventure render smoke', () => {
     await waitFor(() => {
       expect(getSessionMock).toHaveBeenCalledWith('sess-1')
     })
+    const adventurePage = container.querySelector('.adventure-page')
+    expect(adventurePage?.tagName).toBe('MAIN')
+    expect(adventurePage).toHaveAttribute('aria-label', '冒险主界面')
+    const actionArea = container.querySelector('.adventure-main-stack')
+    expect(actionArea?.tagName).toBe('SECTION')
+    expect(actionArea).toHaveAttribute('aria-label', '冒险行动区')
+    expect(container.querySelector('.adventure-loading-shell')).not.toBeInTheDocument()
     expect(roomsGetMock).not.toHaveBeenCalled()
 
     cleanup()

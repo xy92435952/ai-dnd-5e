@@ -312,8 +312,8 @@ export default function Adventure() {
 
   // 早期 loading 状态
   if (!session) return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1 }}>
-      <div className="panel-ornate" style={{ padding: 28, fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
+    <div className="adventure-loading-shell">
+      <div className="panel-ornate adventure-loading-panel" role="status" aria-live="polite">
         ✦ 召唤冒险中… ✦
       </div>
     </div>
@@ -322,7 +322,7 @@ export default function Adventure() {
   // 对话史册视图（全屏覆盖）
   if (showHistory) {
     return (
-      <div style={{ minHeight: '100vh', height: '100vh', position: 'relative', zIndex: 1 }}>
+      <div className="adventure-history-shell">
         <DialogueHistoryView
           session={session}
           player={player}
@@ -333,7 +333,7 @@ export default function Adventure() {
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#06040a', position: 'relative', zIndex: 1 }}>
+    <main className="adventure-page" aria-label="冒险主界面">
       <DiceRollerOverlay />
       {prepareOpen && player && <PrepareSpellsModal player={player} onSave={handlePrepareSpells} onClose={() => setPrepareOpen(false)} />}
       {checkpointOpen && (
@@ -460,7 +460,7 @@ export default function Adventure() {
       />
 
       {/* ═══ 主舞台区 ═══ */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateRows: '1fr auto auto auto', overflow: 'hidden', minHeight: 0 }}>
+      <section className="adventure-main-stack" aria-label="冒险行动区">
 
         <AdventureStage
           dialogueMode={dialogueMode}
@@ -539,17 +539,13 @@ export default function Adventure() {
           onOpenMap={() => setMapOpen(true)}
           onOpenLoot={() => setLootOpen(true)}
         />
-      </div>
+      </section>
 
       {error && (
-        <div style={{
-          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-          padding: '8px 16px', background: 'rgba(139,32,32,.9)', color: '#fff',
-          border: '1px solid var(--blood)', borderRadius: 4, zIndex: 999, fontSize: 12,
-        }}>
+        <div className="adventure-error-toast" role="alert" aria-live="assertive">
           ⚠ {error}
         </div>
       )}
-    </div>
+    </main>
   )
 }
