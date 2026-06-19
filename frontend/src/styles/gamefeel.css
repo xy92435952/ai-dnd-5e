@@ -1059,6 +1059,31 @@
 .character-sheet-level-up-submit {
   min-width: 112px;
 }
+.character-sheet-level-up-field {
+  margin-top: 10px;
+}
+.character-sheet-level-up-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.character-sheet-level-up-select {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--wood-light);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--parchment);
+}
+.character-sheet-level-up-option-detail {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 760px) {
   .character-sheet-header {

@@ -850,16 +850,22 @@ describe('CharacterSheet inventory integration', () => {
     await screen.findByText(fighter.name)
     const levelUpButton = screen.getByRole('button', { name: 'Level Up' })
     expect(levelUpButton).toBeDisabled()
+    const subclassSelect = screen.getByLabelText('Subclass choice')
+    const fightingStyleSelect = screen.getByLabelText('Fighting style choice')
+    expect(subclassSelect).toHaveClass('character-sheet-level-up-select')
+    expect(fightingStyleSelect).toHaveClass('character-sheet-level-up-select')
+    expect(subclassSelect.closest('.character-sheet-level-up-field')).toBeInTheDocument()
+    expect(fightingStyleSelect.closest('.character-sheet-level-up-field')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Subclass choice'), {
+    fireEvent.change(subclassSelect, {
       target: { value: 'Battle Master' },
     })
-    expect(screen.getByText('Battle Master turns superiority dice into tactical techniques.')).toBeInTheDocument()
+    expect(screen.getByText('Battle Master turns superiority dice into tactical techniques.')).toHaveClass('character-sheet-level-up-option-detail')
     expect(await screen.findByText('Add superiority die to an attack roll.')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Fighting style choice'), {
+    fireEvent.change(fightingStyleSelect, {
       target: { value: 'Defense' },
     })
-    expect(screen.getByText('AC +1 while wearing armor.')).toBeInTheDocument()
+    expect(screen.getByText('AC +1 while wearing armor.')).toHaveClass('character-sheet-level-up-option-detail')
     fireEvent.click(await screen.findByLabelText('Learn maneuver Precision Attack'))
     fireEvent.click(screen.getByLabelText('Learn maneuver Trip Attack'))
     fireEvent.click(screen.getByLabelText('Learn maneuver Disarming Attack'))

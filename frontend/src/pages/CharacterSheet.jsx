@@ -861,10 +861,11 @@ function LevelUpPanel({
       </div>
 
       {hasSubclassChoices && (
-        <div style={{ marginTop: 10 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+        <div className="character-sheet-level-up-field">
+          <label className="character-sheet-level-up-label">
             Subclass
             <select
+              className="character-sheet-level-up-select"
               aria-label="Subclass choice"
               value={selections.subclassName}
               onChange={(event) => onSelectionChange(prev => ({
@@ -872,7 +873,6 @@ function LevelUpPanel({
                 subclassName: event.target.value,
                 maneuvers: event.target.value === 'Battle Master' ? prev.maneuvers : [],
               }))}
-              style={levelUpSelectStyle}
             >
               <option value="">Choose subclass</option>
               {subclassPlan.subclassOptions.map(option => (
@@ -885,17 +885,17 @@ function LevelUpPanel({
       )}
 
       {hasFightingStyleChoices && (
-        <div style={{ marginTop: 10 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+        <div className="character-sheet-level-up-field">
+          <label className="character-sheet-level-up-label">
             Fighting Style
             <select
+              className="character-sheet-level-up-select"
               aria-label="Fighting style choice"
               value={selections.fightingStyleName}
               onChange={(event) => onSelectionChange(prev => ({
                 ...prev,
                 fightingStyleName: event.target.value,
               }))}
-              style={levelUpSelectStyle}
             >
               <option value="">Choose style</option>
               {fightingStylePlan.styleOptions.map(style => (
@@ -1151,7 +1151,7 @@ function LevelUpOptionDetail({ option }) {
   const description = levelUpOptionDescription(option)
   if (!description) return null
   return (
-    <p style={{ color: 'var(--text-dim)', fontSize: 11, lineHeight: 1.4, margin: '6px 0 0' }}>
+    <p className="character-sheet-level-up-option-detail">
       {description}
     </p>
   )
