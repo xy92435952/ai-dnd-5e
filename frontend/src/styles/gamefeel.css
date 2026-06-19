@@ -6005,6 +6005,70 @@ button.companion-signal-item:focus-visible {
 .combat-quick-inventory-message {
   color: var(--green-light);
 }
+.smite-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.6);
+}
+.smite-prompt-dialog {
+  display: grid;
+  gap: 12px;
+  width: min(320px, 100%);
+  padding: 18px;
+  border: 1px solid var(--amber);
+  background: var(--obsidian);
+  box-shadow: 0 18px 42px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.smite-prompt-title {
+  margin: 0;
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1.25;
+}
+.smite-prompt-description {
+  margin: 0;
+  color: var(--parchment-dark);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.smite-prompt-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 6px;
+}
+.smite-prompt-action-item {
+  min-width: 0;
+}
+.smite-prompt-slot {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.1;
+}
+.smite-prompt-dice {
+  color: var(--parchment);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.smite-prompt-cancel {
+  justify-self: stretch;
+  padding: 8px;
+  font-size: 11px;
+}
+.smite-prompt-status {
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;
