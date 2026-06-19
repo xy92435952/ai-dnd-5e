@@ -1135,6 +1135,65 @@
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
+.character-sheet-level-up-asi-group {
+  margin-top: 10px;
+}
+.character-sheet-level-up-asi-title {
+  margin: 0 0 6px;
+  color: var(--gold-dim);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.character-sheet-level-up-asi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+  gap: 8px;
+}
+.character-sheet-level-up-asi-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--wood-light);
+  border-radius: 6px;
+  background: rgba(201,162,76,.06);
+}
+.character-sheet-level-up-asi-copy {
+  min-width: 0;
+}
+.character-sheet-level-up-asi-label {
+  margin: 0;
+  color: var(--parchment);
+  font-size: 12px;
+  font-weight: 700;
+}
+.character-sheet-level-up-asi-projection {
+  margin: 2px 0 0;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.character-sheet-level-up-asi-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.character-sheet-level-up-asi-stepper {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+.character-sheet-level-up-asi-count {
+  min-width: 10px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
 
 @media (max-width: 760px) {
   .character-sheet-header {

@@ -575,8 +575,21 @@ describe('CharacterSheet inventory integration', () => {
     )
 
     await screen.findByText(fighter.name)
-    fireEvent.click(screen.getByLabelText('Increase STR'))
-    fireEvent.click(screen.getByLabelText('Increase CON'))
+    const asiGrid = screen.getByRole('list', { name: 'ASI 0/2' })
+    expect(asiGrid).toHaveClass('character-sheet-level-up-asi-grid')
+    expect(within(asiGrid).getAllByRole('listitem')).toHaveLength(6)
+    const strCard = within(asiGrid).getByRole('listitem', { name: 'STR 16 to 16 selected 0' })
+    expect(strCard).toHaveClass('character-sheet-level-up-asi-card')
+    expect(within(strCard).getByText('STR')).toHaveClass('character-sheet-level-up-asi-label')
+    expect(within(strCard).getByText('16 -> 16')).toHaveClass('character-sheet-level-up-asi-projection')
+    expect(within(strCard).getByText('0')).toHaveClass('character-sheet-level-up-asi-count')
+    const increaseStr = within(strCard).getByLabelText('Increase STR')
+    expect(increaseStr).toHaveClass('character-sheet-level-up-asi-stepper')
+    expect(within(strCard).getByLabelText('Decrease STR')).toBeDisabled()
+    fireEvent.click(increaseStr)
+    expect(within(strCard).getByText('1')).toHaveClass('character-sheet-level-up-asi-count')
+    const conCard = within(asiGrid).getByRole('listitem', { name: 'CON 15 to 15 selected 0' })
+    fireEvent.click(within(conCard).getByLabelText('Increase CON'))
     fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
 
     await waitFor(() => {

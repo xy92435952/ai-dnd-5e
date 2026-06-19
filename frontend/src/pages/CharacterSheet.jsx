@@ -920,11 +920,15 @@ function LevelUpPanel({
       )}
 
       {hasAbilityChoices && (
-        <div style={{ marginTop: 10 }}>
-          <p style={{ color: 'var(--gold-dim)', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
+        <div className="character-sheet-level-up-asi-group">
+          <p className="character-sheet-level-up-asi-title">
             ASI {selectedAbilityTotal}/{abilityPlan.abilityCapacity}
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(142px, 1fr))', gap: 8 }}>
+          <div
+            className="character-sheet-level-up-asi-grid"
+            role="list"
+            aria-label={`ASI ${selectedAbilityTotal}/${abilityPlan.abilityCapacity}`}
+          >
             {Object.entries(ABILITY_LABELS).map(([ability, label]) => {
               const option = abilityPlan.abilityOptions?.[ability] || { score: 10, maxIncrease: 0 }
               const selected = Number(selections.abilityIncreases?.[ability] || 0)
@@ -932,47 +936,37 @@ function LevelUpPanel({
               return (
                 <div
                   key={ability}
-                  style={{
-                    minHeight: 42,
-                    borderRadius: 6,
-                    border: '1px solid var(--wood-light)',
-                    background: 'rgba(201,162,76,0.06)',
-                    padding: '6px 8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                  }}
+                  className="character-sheet-level-up-asi-card"
+                  role="listitem"
+                  aria-label={`${label.en} ${option.score} to ${option.score + selected} selected ${selected}`}
                 >
-                  <div>
-                    <p style={{ color: 'var(--parchment)', fontSize: 12, fontWeight: 700, margin: 0 }}>
+                  <div className="character-sheet-level-up-asi-copy">
+                    <p className="character-sheet-level-up-asi-label">
                       {label.en}
                     </p>
-                    <p style={{ color: 'var(--text-dim)', fontSize: 10, margin: '2px 0 0' }}>
+                    <p className="character-sheet-level-up-asi-projection">
                       {option.score} -&gt; {option.score + selected}
                     </p>
                   </div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <div className="character-sheet-level-up-asi-controls">
                     <button
                       type="button"
                       aria-label={`Decrease ${label.en}`}
-                      className="btn-ghost"
+                      className="btn-ghost character-sheet-level-up-asi-stepper"
                       onClick={() => onAdjustAbility(ability, -1)}
                       disabled={selected <= 0}
-                      style={{ minWidth: 28, minHeight: 28, padding: 0 }}
                     >
                       -
                     </button>
-                    <span style={{ color: 'var(--gold)', fontSize: 12, fontWeight: 700, minWidth: 10, textAlign: 'center' }}>
+                    <span className="character-sheet-level-up-asi-count">
                       {selected}
                     </span>
                     <button
                       type="button"
                       aria-label={`Increase ${label.en}`}
-                      className="btn-ghost"
+                      className="btn-ghost character-sheet-level-up-asi-stepper"
                       onClick={() => onAdjustAbility(ability, 1)}
                       disabled={!canIncrease}
-                      style={{ minWidth: 28, minHeight: 28, padding: 0 }}
                     >
                       +
                     </button>
