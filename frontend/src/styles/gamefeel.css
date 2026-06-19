@@ -2678,11 +2678,74 @@ button.companion-signal-item:focus-visible {
 .room-actions-panel {
   min-width: 0;
 }
+.room-actions-sync-guard {
+  max-width: 560px;
+  margin: 18px auto 0;
+  text-align: left;
+}
+.room-action-row {
+  margin-top: 14px;
+  text-align: center;
+}
+.room-action-row-create,
+.room-action-waiting-host {
+  margin-top: 22px;
+}
+.room-action-row-start {
+  margin-top: 18px;
+}
+.room-action-row-leave {
+  margin-top: 24px;
+}
 .room-action-button {
   max-width: 100%;
   line-height: 1.25;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+.room-action-button-primary,
+.room-action-button-start {
+  padding: 12px 32px;
+  font-size: 14px;
+}
+.room-action-button-ready {
+  padding: 10px 24px;
+  font-size: 12px;
+  letter-spacing: .14em;
+}
+.room-action-button-secondary {
+  padding: 10px 22px;
+  font-size: 12px;
+  letter-spacing: .14em;
+}
+.room-action-button-start {
+  letter-spacing: .18em;
+}
+.room-action-button-start[data-can-start="false"] {
+  opacity: .5;
+}
+.room-action-button-leave {
+  border-color: var(--blood);
+  color: #ffaaaa;
+  font-size: 12px;
+}
+.room-action-hint,
+.room-action-waiting-host {
+  color: var(--parchment-dark);
+  font-family: var(--font-script);
+  font-style: italic;
+}
+.room-action-hint {
+  margin-top: 6px;
+  font-size: 10px;
+}
+.room-action-start-hint {
+  font-size: 11px;
+}
+.room-action-waiting-host {
+  opacity: .7;
+  text-align: center;
+  font-size: 13px;
 }
 
 @media (max-width: 560px) {

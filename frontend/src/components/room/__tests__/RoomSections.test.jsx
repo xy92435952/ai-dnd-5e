@@ -114,10 +114,24 @@ describe('Room sections', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '✦ 创建你的英雄 ✦' }))
-    fireEvent.click(screen.getByRole('button', { name: '✦ 召唤 2 位 AI 队友 ✦' }))
-    fireEvent.click(screen.getByRole('button', { name: '✦ 开启冒险 ✦' }))
-    fireEvent.click(screen.getByRole('button', { name: '⎋ 离开房间' }))
+    const create = screen.getByRole('button', { name: '✦ 创建你的英雄 ✦' })
+    const fillAi = screen.getByRole('button', { name: '✦ 召唤 2 位 AI 队友 ✦' })
+    const start = screen.getByRole('button', { name: '✦ 开启冒险 ✦' })
+    const leave = screen.getByRole('button', { name: '⎋ 离开房间' })
+    expect(create.closest('.room-action-row-create')).toBeInTheDocument()
+    expect(create).toHaveClass('room-action-button-primary')
+    expect(fillAi.closest('.room-action-row-fill-ai')).toBeInTheDocument()
+    expect(fillAi).toHaveClass('room-action-button-secondary')
+    expect(screen.getByText('根据第一位玩家的职业生成互补角色')).toHaveClass('room-action-hint')
+    expect(start.closest('.room-action-row-start')).toBeInTheDocument()
+    expect(start).toHaveClass('room-action-button-start')
+    expect(start).toHaveAttribute('data-can-start', 'true')
+    expect(leave).toHaveClass('room-action-button-leave')
+
+    fireEvent.click(create)
+    fireEvent.click(fillAi)
+    fireEvent.click(start)
+    fireEvent.click(leave)
 
     expect(onCreateChar).toHaveBeenCalledTimes(1)
     expect(onFillAi).toHaveBeenCalledTimes(1)
@@ -154,6 +168,7 @@ describe('Room sections', () => {
     )
 
     expect(screen.getByText('同步暂停')).toBeInTheDocument()
+    expect(screen.getByText('同步暂停').closest('.room-actions-sync-guard')).toBeInTheDocument()
     const ready = screen.getByRole('button', { name: '✦ 确认准备 ✦' })
     const fillAi = screen.getByRole('button', { name: '✦ 召唤 2 位 AI 队友 ✦' })
     const start = screen.getByRole('button', { name: '✦ 开启冒险 ✦' })
@@ -222,7 +237,8 @@ describe('Room sections', () => {
     )
 
     expect(screen.getByRole('button', { name: '✦ 开启冒险 ✦' })).toBeDisabled()
-    expect(screen.getByText('1/2 位玩家已认领，所有真人玩家认领后才能开始')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '✦ 开启冒险 ✦' })).toHaveAttribute('data-can-start', 'false')
+    expect(screen.getByText('1/2 位玩家已认领，所有真人玩家认领后才能开始')).toHaveClass('room-action-start-hint')
   })
 
   it('lets claimed players toggle their start-ready vote', () => {
@@ -247,8 +263,33 @@ describe('Room sections', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '✦ 确认准备 ✦' }))
+    const ready = screen.getByRole('button', { name: '✦ 确认准备 ✦' })
+    expect(ready.closest('.room-action-row-ready')).toBeInTheDocument()
+    expect(ready).toHaveClass('room-action-button-ready')
+    expect(ready).toHaveAttribute('data-ready', 'false')
+    fireEvent.click(ready)
     expect(onToggleStartReady).toHaveBeenCalledWith(true)
     expect(screen.getByText('1/2 位玩家已准备，等待全员确认')).toBeInTheDocument()
+  })
+
+  it('shows a stable waiting-for-host state for non-host players', () => {
+    render(
+      <RoomActionsPanel
+        isHost={false}
+        busy={false}
+        canStart={false}
+        slotsAvailable={0}
+        claimedCount={1}
+        memberCount={2}
+        myMember={{ user_id: 'me', character_id: 'c1' }}
+        onCreateChar={vi.fn()}
+        onToggleStartReady={vi.fn()}
+        onFillAi={vi.fn()}
+        onStart={vi.fn()}
+        onLeave={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('~ 等待房主开启冒险 ~')).toHaveClass('room-action-waiting-host')
   })
 })

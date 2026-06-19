@@ -30,8 +30,7 @@ export default function RoomActionsPanel({
       {syncBlocked && (
         <div
           role="status"
-          className="multiplayer-sync-guard"
-          style={{ margin: '18px auto 0', maxWidth: 560, textAlign: 'left' }}
+          className="multiplayer-sync-guard room-actions-sync-guard"
         >
           <strong>同步暂停</strong>
           <span>{blockReason}</span>
@@ -39,13 +38,12 @@ export default function RoomActionsPanel({
       )}
 
       {myMember && !myMember.character_id && (
-        <div style={{ marginTop: 22, textAlign: 'center' }}>
+        <div className="room-action-row room-action-row-create">
           <button
             onClick={onCreateChar}
             disabled={controlsDisabled}
             title={syncBlocked ? blockReason : '创建你的英雄'}
-            className="btn-gold room-action-button"
-            style={{ padding: '12px 32px', fontSize: 14 }}
+            className="btn-gold room-action-button room-action-button-primary"
           >
             ✦ 创建你的英雄 ✦
           </button>
@@ -53,13 +51,13 @@ export default function RoomActionsPanel({
       )}
 
       {myMember?.character_id && (
-        <div style={{ marginTop: 14, textAlign: 'center' }}>
+        <div className="room-action-row room-action-row-ready">
           <button
             onClick={() => onToggleStartReady?.(!isStartReady)}
             disabled={controlsDisabled}
             title={syncBlocked ? blockReason : isStartReady ? '取消准备' : '确认准备'}
-            className={`${isStartReady ? 'btn-ghost' : 'btn-gold'} room-action-button`}
-            style={{ padding: '10px 24px', fontSize: 12, letterSpacing: '.14em' }}
+            className={`${isStartReady ? 'btn-ghost' : 'btn-gold'} room-action-button room-action-button-ready`}
+            data-ready={isStartReady ? 'true' : 'false'}
           >
             {isStartReady ? '✓ 已准备，取消' : '✦ 确认准备 ✦'}
           </button>
@@ -67,35 +65,34 @@ export default function RoomActionsPanel({
       )}
 
       {isHost && slotsAvailable > 0 && claimedCount >= 1 && (
-        <div style={{ marginTop: 14, textAlign: 'center' }}>
+        <div className="room-action-row room-action-row-fill-ai">
           <button
             onClick={onFillAi}
             disabled={controlsDisabled}
             title={syncBlocked ? blockReason : '召唤 AI 队友补位'}
-            className="btn-ghost room-action-button"
-            style={{ padding: '10px 22px', fontSize: 12, letterSpacing: '.14em' }}
+            className="btn-ghost room-action-button room-action-button-secondary"
           >
             {busy ? '✦ 召唤中… ✦' : `✦ 召唤 ${slotsAvailable} 位 AI 队友 ✦`}
           </button>
-          <div style={{ fontSize: 10, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
+          <div className="room-action-hint">
             根据第一位玩家的职业生成互补角色
           </div>
         </div>
       )}
 
       {isHost && (
-        <div style={{ marginTop: 18, textAlign: 'center' }}>
+        <div className="room-action-row room-action-row-start">
           <button
             onClick={onStart}
             disabled={!canStart || controlsDisabled}
             title={syncBlocked ? blockReason : canStart ? '开启冒险' : startHint}
-            className="btn-gold room-action-button"
-            style={{ padding: '12px 32px', fontSize: 14, letterSpacing: '.18em', opacity: canStart && !controlsDisabled ? 1 : .5 }}
+            className="btn-gold room-action-button room-action-button-start"
+            data-can-start={canStart && !controlsDisabled ? 'true' : 'false'}
           >
             {busy ? '✦ 启动中… ✦' : '✦ 开启冒险 ✦'}
           </button>
           {!syncBlocked && !canStart && (
-            <div style={{ fontSize: 11, color: 'var(--parchment-dark)', marginTop: 6, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
+            <div className="room-action-hint room-action-start-hint">
               {startHint}
             </div>
           )}
@@ -103,13 +100,13 @@ export default function RoomActionsPanel({
       )}
 
       {!isHost && (
-        <div style={{ textAlign: 'center', marginTop: 22, opacity: 0.7, fontSize: 13, fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
+        <div className="room-action-waiting-host">
           ~ 等待房主开启冒险 ~
         </div>
       )}
 
-      <div style={{ textAlign: 'center', marginTop: 24 }}>
-        <button onClick={onLeave} className="btn-ghost room-action-button danger" style={{ fontSize: 12, color: '#ffaaaa', borderColor: 'var(--blood)' }}>
+      <div className="room-action-row room-action-row-leave">
+        <button onClick={onLeave} className="btn-ghost room-action-button room-action-button-leave danger">
           ⎋ 离开房间
         </button>
       </div>
