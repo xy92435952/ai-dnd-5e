@@ -150,7 +150,7 @@ describe('SpellModal', () => {
       />,
     )
 
-    const firstLevelTab = screen.getByRole('button', { name: '1环 (0)' })
+    const firstLevelTab = screen.getByRole('tab', { name: '1 环法术，可用 0' })
     expect(firstLevelTab).toBeDisabled()
     expect(firstLevelTab).toHaveAttribute('title', '没有可用的 1 环法术位')
   })
@@ -177,7 +177,7 @@ describe('SpellModal', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '1环 (1)' }))
+    fireEvent.click(screen.getByRole('tab', { name: '1 环法术，可用 1' }))
     fireEvent.click(screen.getByText('魔法飞弹'))
     const cast = screen.getByRole('button', { name: /^施放/ })
     expect(cast).toBeDisabled()
@@ -211,7 +211,7 @@ describe('SpellModal', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: '3环 (1)' }))
+    fireEvent.click(screen.getByRole('tab', { name: '3 环法术，可用 1' }))
     fireEvent.click(screen.getByText('火球术'))
     const cast = screen.getByRole('button', { name: /^施放/ })
     expect(cast).toBeDisabled()
@@ -261,7 +261,7 @@ describe('SpellModal', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^3\u73af/ }))
+    fireEvent.click(screen.getByRole('tab', { name: '3 环法术，可用 1' }))
     fireEvent.click(screen.getByText('Fireball'))
 
     const plan = screen.getByLabelText('施法计划')
@@ -440,7 +440,7 @@ describe('SpellModal', () => {
       />,
     )
 
-    fireEvent.click(screen.getByTitle('1 环法术'))
+    fireEvent.click(screen.getByRole('tab', { name: '1 环法术，可用 1' }))
     fireEvent.click(screen.getByText('Cure Wounds'))
 
     const cast = screen.getByRole('button', { name: /施放/ })
@@ -480,7 +480,7 @@ describe('SpellModal', () => {
       />,
     )
 
-    const firstLevelTab = screen.getByRole('button', { name: /1\s*环\s*\(1\)/ })
+    const firstLevelTab = screen.getByRole('tab', { name: '1 环法术，可用 1' })
     expect(firstLevelTab).not.toBeDisabled()
     fireEvent.click(firstLevelTab)
     fireEvent.click(screen.getByText('Shield'))

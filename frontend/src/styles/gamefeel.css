@@ -6225,6 +6225,37 @@ button.companion-signal-item:focus-visible {
 .spell-modal-bardic-toggle[data-active="true"] {
   background: rgba(242,209,120,.18);
 }
+.spell-modal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.spell-modal-tab {
+  border: 1px solid var(--wood-light);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--parchment);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.spell-modal-tab.active {
+  border-color: #8a5af6;
+  background: rgba(138,90,246,.25);
+  color: #c084fc;
+}
+.spell-modal-tab.spell-modal-tab-cantrip.active {
+  border-color: var(--blue-light);
+  background: rgba(58,122,170,.25);
+  color: var(--blue-light);
+}
+.spell-modal-tab.empty,
+.spell-modal-tab.disabled {
+  color: var(--wood-light);
+  cursor: not-allowed;
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;

@@ -9,33 +9,34 @@ export default function SpellModalTabs({
   available,
 }) {
   return (
-    <div className="flex gap-1.5 mb-3 flex-wrap">
-      <button onClick={() => { setLevel(0); setSelectedSpell(null) }}
-        className="px-2 py-1 rounded text-xs"
-        style={{
-          background: level===0 ? 'rgba(58,122,170,0.25)' : 'var(--bg)',
-          border: `1px solid ${level===0 ? 'var(--blue-light)' : 'var(--wood-light)'}`,
-          color: level===0 ? 'var(--blue-light)' : cantripCount > 0 ? 'var(--parchment)' : 'var(--wood-light)',
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>
+    <div className="spell-modal-tabs" role="tablist" aria-label="施法环级选择">
+      <button
+        type="button"
+        onClick={() => { setLevel(0); setSelectedSpell(null) }}
+        className={`spell-modal-tab spell-modal-tab-cantrip ${level === 0 ? 'active' : ''} ${cantripCount > 0 ? '' : 'empty'}`}
+        role="tab"
+        aria-selected={level === 0}
+        aria-label={`戏法，可用 ${cantripCount}`}
+      >
         戏法 ({cantripCount})
       </button>
       {[1,2,3,4,5].map(lvl => {
         const cnt = available(lvl)
         const hasSpells = spellList.some(s => s.level <= lvl)
         const disabledReason = cnt <= 0 ? `没有可用的 ${lvl} 环法术位` : !hasSpells ? `没有可用的 ${lvl} 环法术` : ''
+        const canOpen = cnt > 0 && hasSpells
         return (
-          <button key={lvl} onClick={() => { setLevel(lvl); setSelectedSpell(null) }}
-            disabled={cnt <= 0 || !hasSpells}
+          <button
+            key={lvl}
+            type="button"
+            onClick={() => { setLevel(lvl); setSelectedSpell(null) }}
+            disabled={!canOpen}
             title={disabledReason || `${lvl} 环法术`}
-            className="px-2 py-1 rounded text-xs"
-            style={{
-              background: level===lvl ? 'rgba(138,90,246,0.25)' : 'var(--bg)',
-              border: `1px solid ${level===lvl ? '#8a5af6' : 'var(--wood-light)'}`,
-              color: (cnt > 0 && hasSpells) ? (level===lvl ? '#c084fc' : 'var(--parchment)') : 'var(--wood-light)',
-              cursor: (cnt > 0 && hasSpells) ? 'pointer' : 'not-allowed',
-              fontFamily: 'inherit',
-            }}>
+            className={`spell-modal-tab ${level === lvl ? 'active' : ''} ${canOpen ? '' : 'disabled'}`}
+            role="tab"
+            aria-selected={level === lvl}
+            aria-label={`${lvl} 环法术，可用 ${cnt}`}
+          >
             {lvl}环 ({cnt})
           </button>
         )
