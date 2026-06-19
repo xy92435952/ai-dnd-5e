@@ -166,7 +166,9 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('关系：信任')).toBeInTheDocument()
     expect(within(dossier).getByText('好感 +18 · 认可')).toBeInTheDocument()
     expect(within(dossier).getByText('最近好感 +6')).toBeInTheDocument()
-    expect(within(dossier).getByLabelText('艾琳 好感 +18')).toBeInTheDocument()
+    const approvalMeter = within(dossier).getByLabelText('艾琳 好感 +18')
+    expect(approvalMeter).toBeInTheDocument()
+    expect(approvalMeter.querySelector('.journal-approval-meter-fill')).toHaveStyle({ '--journal-approval-fill': '59%' })
     const approvalThresholds = within(dossier).getByLabelText('艾琳 好感阈值')
     expect(within(approvalThresholds).getByText('阶段')).toBeInTheDocument()
     expect(within(approvalThresholds).getByText('认可')).toBeInTheDocument()
@@ -274,6 +276,7 @@ describe('JournalModal', () => {
     const generatedPanel = screen.getByLabelText('生成日志')
     expect(generatedPanel).toHaveAttribute('aria-live', 'polite')
     expect(within(generatedPanel).getByText('点击下方按钮生成本次冒险的叙述日志')).toBeInTheDocument()
+    expect(screen.getAllByText(/暂无/)[0]).toHaveClass('journal-empty-line')
     const actions = screen.getByRole('group', { name: '日志操作' })
 
     fireEvent.click(within(actions).getByRole('button', { name: '重新生成日志' }))

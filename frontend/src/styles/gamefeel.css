@@ -2971,6 +2971,12 @@ button.companion-signal-item:focus-visible {
   color: var(--parchment-dark);
   font-size: 11px;
 }
+.journal-empty-line {
+  margin: 0;
+  color: var(--parchment-dark);
+  font-size: 12px;
+  font-style: italic;
+}
 .journal-quest-timeline {
   display: grid;
   gap: 5px;
@@ -3161,14 +3167,15 @@ button.companion-signal-item:focus-visible {
   border-radius: 999px;
   background: rgba(0,0,0,.28);
 }
-.journal-approval-meter span {
+.journal-approval-meter-fill {
   display: block;
   height: 100%;
+  width: var(--journal-approval-fill, 0%);
   min-width: 2px;
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(213,184,121,.52), rgba(106,196,132,.72));
 }
-.journal-approval-meter.danger span {
+.journal-approval-meter.danger .journal-approval-meter-fill {
   background: linear-gradient(90deg, rgba(115,38,38,.68), rgba(240,64,64,.72));
 }
 .journal-approval-thresholds {
