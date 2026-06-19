@@ -265,9 +265,9 @@ export default function CharacterCreate() {
   }
 
   if (!module) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ color: 'var(--gold)', animation: 'pulse 2s infinite' }}>加载模组信息...</p>
-    </div>
+    <main className="create-loading-shell" aria-label="角色创建加载中">
+      <p className="create-loading-text" role="status">加载模组信息...</p>
+    </main>
   )
 
   const ctx = {
@@ -358,7 +358,7 @@ export default function CharacterCreate() {
   }
 
   return (
-    <div className="create-scene" style={{ maxWidth: 980, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+    <main className="create-scene" aria-label="角色创建">
       <LegendForge
         open={forgeOpen}
         name={form.name}
@@ -373,11 +373,11 @@ export default function CharacterCreate() {
       <InfoModal type={modal.type} itemKey={modal.itemKey} onClose={closeModal} />
 
       {/* 顶部 · 标题 + 英雄预览卡 */}
-      <div className="create-header">
+      <header className="create-header" aria-label="角色创建概要">
         <div className="create-header-main">
           <button
-            className="btn-ghost"
-            style={{ fontSize: 12, padding: '6px 12px', alignSelf: 'flex-start', marginTop: 4 }}
+            type="button"
+            className="btn-ghost create-back-button"
             onClick={() => navigate('/')}
           >⬅ 返回</button>
           <div className="create-header-copy">
@@ -386,7 +386,7 @@ export default function CharacterCreate() {
               className="display-title create-module-title"
               title={module.name}
             >{module.name}</div>
-            <p style={{ fontSize: 11, color: 'var(--parchment-dark)', margin: '2px 0 0', fontFamily: 'var(--font-mono)' }}>
+            <p className="create-module-meta">
               推荐等级 Lv {module.level_min}-{module.level_max}
             </p>
           </div>
@@ -394,42 +394,45 @@ export default function CharacterCreate() {
 
         {/* 右侧实时英雄预览 */}
         {form.char_class && (
-          <div className="hero-preview">
+          <aside className="hero-preview" aria-label={`英雄预览：${form.name || '未命名英雄'}`}>
             <Portrait cls={classKey(form.char_class)} size="md" />
             <div>
               <div className="name">{form.name || '未命名英雄'}</div>
               <div className="sub">{form.race || '—'} · {form.char_class || '—'} · Lv {form.level}</div>
               <div className="align">{form.alignment || ''}{form.background ? ` · ${form.background}` : ''}</div>
             </div>
-          </div>
+          </aside>
         )}
-      </div>
+      </header>
 
       {/* 步骤指示器 · 新版 */}
-      <div className="create-steps">
+      <nav className="create-steps" aria-label="角色创建步骤">
         {STEPS.map((label, i) => {
           const n = i + 1
           const done = step > n
           const cur = step === n
           return (
             <React.Fragment key={i}>
-              <div className={`step-dot ${done ? 'done' : cur ? 'cur' : ''}`}>
+              <div
+                className={`step-dot ${done ? 'done' : cur ? 'cur' : ''}`}
+                aria-current={cur ? 'step' : undefined}
+              >
                 <div className="dot">{done ? '✓' : n}</div>
                 <div className="lbl">{label}</div>
               </div>
-              {i < STEPS.length - 1 && <div className={`step-line ${done ? 'done' : ''}`} />}
+              {i < STEPS.length - 1 && <div className={`step-line ${done ? 'done' : ''}`} aria-hidden="true" />}
             </React.Fragment>
           )
         })}
-      </div>
+      </nav>
 
       {/* 主内容 · 羊皮纸卷轴 */}
-      <div className="create-scroll">
+      <section className="create-scroll" aria-label="角色创建当前步骤">
         <div className="scroll-ornament top">✦ ❧ ✦</div>
 
       {error && (
-        <div className="panel" style={{ padding: '12px', marginBottom: '16px', borderColor: 'var(--red)' }}>
-          <p style={{ color: 'var(--red-light)', fontSize: '0.875rem', margin: 0 }}>! {error}</p>
+        <div className="panel create-error" role="alert">
+          <p className="create-error-text">! {error}</p>
         </div>
       )}
 
@@ -448,111 +451,87 @@ export default function CharacterCreate() {
             这个选择会在冒险创建时锁定，之后不能更改。它会影响叙事语气、节奏、选项设计和队友反应。
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 12,
-            marginTop: 20,
-          }}>
+          <div className="create-dm-style-grid" role="list" aria-label="DM 风格选项">
             {DM_STYLES.map(style => {
               const selected = dmStyle === style.key
               return (
-                <button
-                  key={style.key}
-                  type="button"
-                  onClick={() => setDmStyle(style.key)}
-                  className="panel"
-                  style={{
-                    textAlign: 'left',
-                    padding: 14,
-                    cursor: 'pointer',
-                    borderColor: selected ? style.accent : 'var(--bark-light)',
-                    boxShadow: selected ? `inset 0 0 0 1px ${style.accent}, 0 0 18px -8px ${style.accent}` : 'none',
-                    background: selected
-                      ? `linear-gradient(180deg, ${style.accent}22, rgba(10,6,2,.45))`
-                      : 'rgba(10,6,2,.35)',
-                    minHeight: 118,
-                  }}
-                >
-                  <div style={{
-                    fontFamily: 'var(--font-heading)',
-                    color: selected ? style.accent : 'var(--parchment)',
-                    fontSize: 15,
-                    letterSpacing: '.08em',
-                    marginBottom: 8,
-                  }}>{style.label}</div>
-                  <div style={{
-                    color: 'var(--parchment-dark)',
-                    fontSize: 12,
-                    lineHeight: 1.65,
-                  }}>{style.summary}</div>
-                </button>
+                <div key={style.key} role="listitem" className="create-dm-style-item">
+                  <button
+                    type="button"
+                    onClick={() => setDmStyle(style.key)}
+                    className="panel create-dm-style-card"
+                    aria-pressed={selected}
+                    data-selected={selected ? 'true' : 'false'}
+                    style={{
+                      '--create-dm-style-accent': style.accent,
+                      '--create-dm-style-bg': `${style.accent}22`,
+                    }}
+                  >
+                    <span className="create-dm-style-label">{style.label}</span>
+                    <span className="create-dm-style-copy">{style.summary}</span>
+                  </button>
+                </div>
               )
             })}
           </div>
 
-          <div style={{
-            marginTop: 18,
-            padding: 12,
-            border: '1px solid rgba(216,180,95,.28)',
-            background: 'rgba(216,180,95,.06)',
-            color: 'var(--parchment-dark)',
-            fontSize: 12,
-            lineHeight: 1.7,
-          }}>
-            当前选择：<b style={{ color: getDmStyle(dmStyle).accent }}>{getDmStyle(dmStyle).label}</b>
-            <span style={{ marginLeft: 8 }}>{getDmStyle(dmStyle).summary}</span>
+          <div
+            className="create-dm-style-current"
+            role="status"
+            style={{ '--create-dm-style-accent': getDmStyle(dmStyle).accent }}
+          >
+            当前选择：<span className="create-dm-style-current-label">{getDmStyle(dmStyle).label}</span>
+            <span className="create-dm-style-current-copy">{getDmStyle(dmStyle).summary}</span>
           </div>
         </div>
       )}
 
         <div className="scroll-ornament bottom">✦ ❧ ✦</div>
-      </div>{/* end create-scroll */}
+      </section>{/* end create-scroll */}
 
       {/* 底部全局导航条 */}
-      <div className="create-nav">
+      <nav className="create-nav" aria-label="角色创建导航">
         <button
-          className="btn-ghost"
+          type="button"
+          className="btn-ghost create-nav-back"
           disabled={step === 1}
           onClick={() => setStep(s => Math.max(1, s - 1))}
         >◀ 上一步</button>
         <div className="step-counter">
           {step} / {STEPS.length}
-          <span style={{
-            marginLeft: 8, fontSize: 10,
-            color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)',
-          }}>
+          <span className="step-counter-label">
             {STEPS[step - 1] || ''}
           </span>
         </div>
         {step === styleStep && !isMultiplayerCreate ? (
           // 单人：最后一步是选择 DM 风格 → 开始冒险
           <button
-            className="btn-gold"
+            type="button"
+            className="btn-gold create-nav-action create-nav-start"
             disabled={!dmStyle || companions.length === 0 || generatingParty || saving}
             onClick={handleStartAdventure}
-            style={{ padding: '10px 28px', fontSize: 13, letterSpacing: '.18em' }}
           >{saving ? '✦ 准备中… ✦' : '✦ 开始冒险 ✦'}</button>
         ) : step === partyStep - 1 ? (
           // 倒数第二步 = "装备选择"（或施法的"法术选择"等）
           // 单人：触发创建 + 生成队伍
           // 多人：触发创建 + 认领到房间 + 返回房间页
           <button
-            className="btn-gold"
+            type="button"
+            className="btn-gold create-nav-action create-nav-confirm"
             disabled={saving || !step1Valid || !step2Valid || !step3Valid || !step4Valid || !stepFeatValid}
             onClick={handleSaveAndContinue}
-            style={{ padding: '10px 20px', fontSize: 12, letterSpacing: '.12em' }}
           >{saving
             ? (isMultiplayerCreate ? '✦ 加入房间中… ✦' : '✦ 生成队伍中… ✦')
             : (isMultiplayerCreate ? '✦ 确认并返回房间 ✦' : '✦ 确认并生成队伍 ▶ ✦')
           }</button>
         ) : (
           <button
-            className="btn-gold"
+            type="button"
+            className="btn-gold create-nav-action create-nav-next"
             onClick={() => setStep(s => Math.min(STEPS.length, s + 1))}
           >{STEPS[step] || '下一步'} ▶</button>
         )}
-      </div>
-    </div>
+      </nav>
+    </main>
   )
 }

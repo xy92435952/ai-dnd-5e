@@ -6,9 +6,19 @@
   padding: 20px 28px 80px;
   height: 100%;
   overflow: auto;
-  max-width: 1100px;
+  max-width: 980px;
   margin: 0 auto;
   position: relative;
+}
+.create-loading-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.create-loading-text {
+  color: var(--gold);
+  animation: pulse 2s infinite;
 }
 
 /* ── 顶部：标题 + 英雄预览卡 ─────────────── */
@@ -27,6 +37,12 @@
   gap: 12px;
   min-width: 0;
 }
+.create-back-button {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
 .create-header-copy {
   min-width: 0;
 }
@@ -39,6 +55,12 @@
   letter-spacing: .08em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.create-module-meta {
+  margin: 2px 0 0;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 .hero-preview {
   display: flex;
@@ -161,6 +183,16 @@
 }
 .scroll-ornament.top { margin-bottom: 18px; }
 .scroll-ornament.bottom { margin-top: 18px; }
+.create-error {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-color: var(--red);
+}
+.create-error-text {
+  margin: 0;
+  color: var(--red-light);
+  font-size: .875rem;
+}
 
 /* ── 页面内容 ─────────────────────────── */
 .step-pane {
@@ -184,6 +216,62 @@
   font-size: 13px;
   color: var(--parchment-dark);
   margin-bottom: 10px;
+}
+.create-dm-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+.create-dm-style-item {
+  min-width: 0;
+}
+.create-dm-style-card {
+  width: 100%;
+  min-height: 118px;
+  padding: 14px;
+  border-color: var(--bark-light);
+  background: rgba(10,6,2,.35);
+  text-align: left;
+  cursor: pointer;
+}
+.create-dm-style-card[data-selected="true"] {
+  border-color: var(--create-dm-style-accent);
+  background: linear-gradient(180deg, var(--create-dm-style-bg), rgba(10,6,2,.45));
+  box-shadow: inset 0 0 0 1px var(--create-dm-style-accent), 0 0 18px -8px var(--create-dm-style-accent);
+}
+.create-dm-style-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 15px;
+  letter-spacing: .08em;
+}
+.create-dm-style-card[data-selected="true"] .create-dm-style-label {
+  color: var(--create-dm-style-accent);
+}
+.create-dm-style-copy {
+  display: block;
+  color: var(--parchment-dark);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.create-dm-style-current {
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid rgba(216,180,95,.28);
+  background: rgba(216,180,95,.06);
+  color: var(--parchment-dark);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.create-dm-style-current-label {
+  color: var(--create-dm-style-accent);
+  font-weight: 700;
+}
+.create-dm-style-current-copy {
+  margin-left: 8px;
 }
 
 /* ── 字段通用 ─────────────────────────── */
@@ -1151,6 +1239,23 @@
   letter-spacing: .3em;
 }
 .create-nav .btn-gold { padding: 10px 26px; font-size: 13px; }
+.step-counter-label {
+  margin-left: 8px;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.create-nav-action {
+  letter-spacing: .18em;
+}
+.create-nav-confirm {
+  padding: 10px 20px;
+  font-size: 12px;
+  letter-spacing: .12em;
+}
+.create-nav-start {
+  padding: 10px 28px;
+}
 
 /* ── Range · 金色 ─────────────────────── */
 .range-gold {
