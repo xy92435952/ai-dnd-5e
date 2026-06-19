@@ -154,4 +154,57 @@ describe('CharacterCreateStepBasicsDetails', () => {
     const capUpdater = setBonusLanguages.mock.calls[0][0]
     expect(capUpdater(['Elvish', 'Draconic'])).toEqual(['Elvish', 'Draconic'])
   })
+
+  it('renders narrative notes with stable classes and preserves field updates', () => {
+    const setNarrative = vi.fn()
+    const ctx = makeCtx({
+      narrative: {
+        personality: '沉默寡言',
+        backstory: '来自北地边境。',
+        speech_style: '',
+        combat_preference: '',
+        catchphrase: '',
+      },
+      setNarrative,
+    })
+    const { container } = render(<CharacterCreateStepBasicsDetails ctx={ctx} />)
+
+    const details = screen.getByLabelText('Character narrative notes')
+    expect(details).toHaveClass('create-details-narrative')
+
+    const summary = within(details).getByText('❖ 角色叙事 · 选填').closest('summary')
+    expect(summary).toHaveClass('create-details-narrative-summary')
+    expect(within(summary).getByText('❖ 角色叙事 · 选填')).toHaveClass('create-details-narrative-title')
+    expect(within(summary).getByText(/DM 在你掉线时/)).toHaveClass('create-details-narrative-note')
+
+    const body = container.querySelector('.create-details-narrative-body')
+    expect(body).toBeInTheDocument()
+
+    const fields = body.querySelectorAll('.create-details-narrative-field')
+    expect(fields).toHaveLength(5)
+    expect(fields[0].querySelector('.create-details-narrative-label')).toHaveTextContent('性格')
+    expect(fields[0].querySelector('.create-details-narrative-hint')).toHaveTextContent('沉默寡言')
+
+    const personality = within(fields[0]).getByDisplayValue('沉默寡言')
+    expect(personality).toHaveClass('create-details-narrative-input', 'create-details-narrative-textarea')
+    expect(personality).toHaveAttribute('maxLength', '200')
+
+    fireEvent.change(personality, { target: { value: '谨慎而寡言' } })
+    const personalityUpdater = setNarrative.mock.calls[0][0]
+    expect(personalityUpdater({ personality: '沉默寡言', keep: true })).toEqual({
+      personality: '谨慎而寡言',
+      keep: true,
+    })
+
+    const catchphrase = fields[4].querySelector('input')
+    expect(catchphrase).toHaveClass('create-details-narrative-input')
+    expect(catchphrase).toHaveAttribute('maxLength', '120')
+
+    fireEvent.change(catchphrase, { target: { value: '天黑前必须到达。' } })
+    const catchphraseUpdater = setNarrative.mock.calls[1][0]
+    expect(catchphraseUpdater({ catchphrase: '', keep: true })).toEqual({
+      catchphrase: '天黑前必须到达。',
+      keep: true,
+    })
+  })
 })

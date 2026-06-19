@@ -146,31 +146,17 @@ export default function CharacterCreateStepBasicsDetails({ ctx }) {
       })()}
 
       <details
-        style={{
-          marginTop: 24,
-          padding: '12px 16px',
-          border: '1px solid var(--wood-light)',
-          borderRadius: 6,
-          background: 'rgba(46,31,14,0.4)',
-        }}
+        className="create-details-narrative"
+        aria-label="Character narrative notes"
       >
-        <summary
-          style={{
-            cursor: 'pointer',
-            color: 'var(--gold)',
-            fontFamily: 'var(--font-display)',
-            fontSize: '0.95rem',
-            letterSpacing: '0.1em',
-            userSelect: 'none',
-          }}
-        >
-          ❖ 角色叙事 · 选填
-          <span style={{ marginLeft: 12, fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-body)', letterSpacing: 0 }}>
+        <summary className="create-details-narrative-summary">
+          <span className="create-details-narrative-title">❖ 角色叙事 · 选填</span>
+          <span className="create-details-narrative-note">
             填了 DM 在你掉线时也能"按你的人设"代演，不会出戏
           </span>
         </summary>
 
-        <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+        <div className="create-details-narrative-body">
           {[
             { key: 'personality', label: '性格', hint: '简短描述（如"沉默寡言，只在必要时开口"）', rows: 2 },
             { key: 'backstory', label: '背景故事', hint: 'DM 偶尔会引用，长短不限', rows: 4 },
@@ -178,51 +164,31 @@ export default function CharacterCreateStepBasicsDetails({ ctx }) {
             { key: 'combat_preference', label: '战斗偏好', hint: '激进 / 远程优先 / 优先保护弱小 / ...', rows: 1 },
             { key: 'catchphrase', label: '口头禅', hint: '一句即可（如"天黑前必须到达。"）', rows: 1 },
           ].map(({ key, label, hint, rows }) => (
-            <div key={key}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.8rem',
-                  color: 'var(--text)',
-                  marginBottom: 4,
-                }}
-              >
-                {label}
-                <span style={{ color: 'var(--text-dim)', marginLeft: 8, opacity: 0.7 }}>— {hint}</span>
+            <div key={key} className="create-details-narrative-field">
+              <label className="create-details-narrative-label">
+                <span>{label}</span>
+                <span className="create-details-narrative-hint">— {hint}</span>
               </label>
               {rows > 1 ? (
                 <textarea
+                  className="create-details-narrative-input create-details-narrative-textarea"
                   rows={rows}
                   maxLength={key === 'backstory' ? 800 : 200}
                   value={narrative[key]}
-                  onChange={e => setNarrative(n => ({ ...n, [key]: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.85rem',
-                    background: 'rgba(10,6,4,0.5)',
-                    color: 'var(--parchment)',
-                    border: '1px solid var(--wood-light)',
-                    borderRadius: 4,
-                    resize: 'vertical',
+                  onChange={e => {
+                    const nextValue = e.target.value
+                    setNarrative(n => ({ ...n, [key]: nextValue }))
                   }}
                 />
               ) : (
                 <input
                   type="text"
+                  className="create-details-narrative-input"
                   maxLength={120}
                   value={narrative[key]}
-                  onChange={e => setNarrative(n => ({ ...n, [key]: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.85rem',
-                    background: 'rgba(10,6,4,0.5)',
-                    color: 'var(--parchment)',
-                    border: '1px solid var(--wood-light)',
-                    borderRadius: 4,
+                  onChange={e => {
+                    const nextValue = e.target.value
+                    setNarrative(n => ({ ...n, [key]: nextValue }))
                   }}
                 />
               )}
