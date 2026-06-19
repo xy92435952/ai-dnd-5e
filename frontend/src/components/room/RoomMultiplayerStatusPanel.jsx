@@ -7,23 +7,7 @@ import {
 import MultiplayerSessionStatusBar from '../multiplayer/MultiplayerSessionStatusBar'
 import WebSocketStatusPill from '../multiplayer/WebSocketStatusPill'
 
-const READINESS_PROMPT_TONES = {
-  urgent: {
-    color: 'var(--amber)',
-    borderColor: 'rgba(240,208,96,.34)',
-    background: 'rgba(240,208,96,.08)',
-  },
-  pending: {
-    color: 'var(--parchment-dark)',
-    borderColor: 'rgba(127,232,248,.24)',
-    background: 'rgba(127,232,248,.06)',
-  },
-  ready: {
-    color: 'var(--emerald-light)',
-    borderColor: 'rgba(91,214,138,.3)',
-    background: 'rgba(91,214,138,.07)',
-  },
-}
+const READINESS_PROMPT_TONES = new Set(['urgent', 'pending', 'ready'])
 
 function getReadinessPromptBadge(summary) {
   if (summary.readinessReset) return '需重新确认'
@@ -49,8 +33,8 @@ export default function RoomMultiplayerStatusPanel({
   const blockReason = syncBlockedReason || '房间正在重新同步，请恢复连接后再调整分组。'
 
   return (
-    <div className="panel-ornate" style={{ padding: 14, marginTop: 14 }}>
-      <div style={{ margin: '-8px -24px 12px' }}>
+    <section className="panel-ornate room-multiplayer-status-panel" aria-label="多人房间准备状态">
+      <div className="room-multiplayer-status-bar">
         <MultiplayerSessionStatusBar
           room={room}
           label="联机准备"
@@ -64,31 +48,31 @@ export default function RoomMultiplayerStatusPanel({
       </div>
 
       {syncBlocked && (
-        <div role="status" className="multiplayer-sync-guard" style={{ marginBottom: 10 }}>
+        <div role="status" className="multiplayer-sync-guard room-multiplayer-sync-guard">
           <strong>同步暂停</strong>
           <span>{blockReason}</span>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+      <div className="room-multiplayer-groups">
         {(room.party_groups || []).map(group => {
           const groupSummary = getGroupStatusSummary(room, group)
           const pending = getGroupPendingActions(room, group)
-          const readinessPromptTone = READINESS_PROMPT_TONES[groupSummary.readinessPromptTone]
-            || READINESS_PROMPT_TONES.pending
+          const readinessPromptTone = READINESS_PROMPT_TONES.has(groupSummary.readinessPromptTone)
+            ? groupSummary.readinessPromptTone
+            : 'pending'
           return (
-            <div key={group.id} style={{
-              padding: 10,
-              border: `1px solid ${groupSummary.isActive ? 'var(--amber)' : 'rgba(127,232,248,.28)'}`,
-              background: groupSummary.isActive ? 'rgba(138,90,24,.16)' : 'rgba(7,18,24,.58)',
-              borderRadius: 4,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                <strong style={{ color: groupSummary.isActive ? 'var(--amber)' : 'var(--parchment)', fontFamily: 'var(--font-heading)' }}>
+            <article
+              key={group.id}
+              className="room-multiplayer-group-card"
+              data-active={groupSummary.isActive ? 'true' : 'false'}
+            >
+              <div className="room-multiplayer-group-head">
+                <strong className="room-multiplayer-group-name">
                   {group.name || group.id}
                 </strong>
                 {groupSummary.isActive ? (
-                  <span className="tag tag-gold" style={{ fontSize: 9 }}>焦点</span>
+                  <span className="tag tag-gold room-multiplayer-focus-tag">焦点</span>
                 ) : (
                   <button
                     onClick={() => {
@@ -96,59 +80,42 @@ export default function RoomMultiplayerStatusPanel({
                     }}
                     disabled={controlsDisabled}
                     title={syncBlocked ? blockReason : '设为当前焦点分队'}
-                    className="btn-ghost"
-                    style={{ fontSize: 10, padding: '3px 8px', opacity: controlsDisabled ? 0.6 : 1 }}
+                    className="btn-ghost room-multiplayer-focus-btn"
                   >
                     设为焦点
                   </button>
                 )}
               </div>
-              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--parchment-dark)' }}>
+              <div className="room-multiplayer-group-location">
                 {group.location || '当前位置'}
               </div>
-              <div style={{ marginTop: 6, fontSize: 10, color: 'var(--arcane-light)', fontFamily: 'var(--font-mono)' }}>
+              <div className="room-multiplayer-group-members">
                 {groupSummary.membersLabel}
               </div>
               {groupSummary.readinessPrompt && (
                 <div
+                  className="room-multiplayer-readiness-prompt"
+                  data-tone={readinessPromptTone}
                   aria-label={`${group.name || group.id}确认提示`}
-                  style={{
-                    marginTop: 7,
-                    padding: '4px 6px',
-                    border: `1px solid ${readinessPromptTone.borderColor}`,
-                    background: readinessPromptTone.background,
-                    color: readinessPromptTone.color,
-                    display: 'flex',
-                    gap: 6,
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    fontSize: 10,
-                  }}
                 >
                   <strong>{getReadinessPromptBadge(groupSummary)}</strong>
                   <span>{groupSummary.readinessPrompt}</span>
                 </div>
               )}
               {pending.length > 0 && (
-                <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+                <div className="room-multiplayer-pending-list">
                   {pending.slice(0, 3).map((action, idx) => (
-                    <div key={`${action.user_id}-${idx}`} style={{
-                      padding: '4px 6px',
-                      borderLeft: '2px solid var(--arcane-light)',
-                      color: 'var(--parchment-dark)',
-                      background: 'rgba(127,232,248,.08)',
-                      fontSize: 10,
-                    }}>
-                      <b style={{ color: 'var(--parchment)' }}>{action.display_name || getMemberName(room, action.user_id)}</b>
+                    <div key={`${action.user_id}-${idx}`} className="room-multiplayer-pending-item">
+                      <b>{action.display_name || getMemberName(room, action.user_id)}</b>
                       <span>：{action.text}</span>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </article>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }

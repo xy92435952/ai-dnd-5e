@@ -4563,6 +4563,103 @@ button.companion-signal-item:focus-visible {
   --ws-pill-color: #ffaaaa;
 }
 
+.room-multiplayer-status-panel {
+  margin-top: 14px;
+  padding: 14px;
+}
+.room-multiplayer-status-bar {
+  margin: -8px -24px 12px;
+}
+.room-multiplayer-sync-guard {
+  margin-bottom: 10px;
+}
+.room-multiplayer-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.room-multiplayer-group-card {
+  padding: 10px;
+  border: 1px solid rgba(127,232,248,.28);
+  border-radius: 4px;
+  background: rgba(7,18,24,.58);
+}
+.room-multiplayer-group-card[data-active="true"] {
+  border-color: var(--amber);
+  background: rgba(138,90,24,.16);
+}
+.room-multiplayer-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.room-multiplayer-group-name {
+  color: var(--parchment);
+  font-family: var(--font-heading);
+}
+.room-multiplayer-group-card[data-active="true"] .room-multiplayer-group-name {
+  color: var(--amber);
+}
+.room-multiplayer-focus-tag {
+  font-size: 9px;
+}
+.room-multiplayer-focus-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+.room-multiplayer-focus-btn:disabled {
+  opacity: .6;
+}
+.room-multiplayer-group-location {
+  margin-top: 4px;
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
+.room-multiplayer-group-members {
+  margin-top: 6px;
+  color: var(--arcane-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.room-multiplayer-readiness-prompt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  padding: 4px 6px;
+  border: 1px solid var(--room-readiness-border, rgba(127,232,248,.24));
+  background: var(--room-readiness-bg, rgba(127,232,248,.06));
+  color: var(--room-readiness-color, var(--parchment-dark));
+  font-size: 10px;
+}
+.room-multiplayer-readiness-prompt[data-tone="urgent"] {
+  --room-readiness-border: rgba(240,208,96,.34);
+  --room-readiness-bg: rgba(240,208,96,.08);
+  --room-readiness-color: var(--amber);
+}
+.room-multiplayer-readiness-prompt[data-tone="ready"] {
+  --room-readiness-border: rgba(91,214,138,.3);
+  --room-readiness-bg: rgba(91,214,138,.07);
+  --room-readiness-color: var(--emerald-light);
+}
+.room-multiplayer-pending-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.room-multiplayer-pending-item {
+  padding: 4px 6px;
+  border-left: 2px solid var(--arcane-light);
+  background: rgba(127,232,248,.08);
+  color: var(--parchment-dark);
+  font-size: 10px;
+}
+.room-multiplayer-pending-item b {
+  color: var(--parchment);
+}
+
 .multiplayer-party-panel {
   display: grid;
   gap: 8px;

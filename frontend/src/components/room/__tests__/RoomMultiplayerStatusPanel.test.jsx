@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import RoomMultiplayerStatusPanel from '../RoomMultiplayerStatusPanel'
 
 vi.mock('../../../api/client', () => ({
@@ -43,12 +43,25 @@ describe('RoomMultiplayerStatusPanel', () => {
       />
     )
 
+    const panel = screen.getByRole('region', { name: '多人房间准备状态' })
+    expect(panel).toHaveClass('room-multiplayer-status-panel')
+    expect(panel.querySelector('.room-multiplayer-status-bar')).toBeInTheDocument()
+    expect(panel.querySelector('.room-multiplayer-groups')).toBeInTheDocument()
     expect(screen.getByText('联机准备')).toBeInTheDocument()
     expect(screen.getByText('1/2 已认领角色')).toBeInTheDocument()
     expect(screen.getByText('当前焦点：后巷组')).toBeInTheDocument()
     expect(screen.getByText('下一处理：后巷组 · 1 条待处理 · 全员已确认')).toBeInTheDocument()
-    expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('已就绪')
-    expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('全员已确认，等待 DM 处理。')
+    const activeCard = screen.getByText('后巷组').closest('.room-multiplayer-group-card')
+    expect(activeCard).toHaveAttribute('data-active', 'true')
+    expect(within(activeCard).getByText('焦点')).toHaveClass('room-multiplayer-focus-tag')
+    expect(within(activeCard).getByText('酒馆后巷')).toHaveClass('room-multiplayer-group-location')
+    expect(activeCard.querySelector('.room-multiplayer-group-members')).toHaveTextContent('队友')
+    expect(activeCard.querySelector('.room-multiplayer-pending-item')).toHaveTextContent('队友：我检查后门。')
+    const readiness = screen.getByLabelText('后巷组确认提示')
+    expect(readiness).toHaveClass('room-multiplayer-readiness-prompt')
+    expect(readiness).toHaveAttribute('data-tone', 'ready')
+    expect(readiness).toHaveTextContent('已就绪')
+    expect(readiness).toHaveTextContent('全员已确认，等待 DM 处理。')
     expect(screen.getByText('同步在线')).toBeInTheDocument()
     expect(screen.getByText('房间 234567')).toBeInTheDocument()
   })
@@ -74,6 +87,7 @@ describe('RoomMultiplayerStatusPanel', () => {
       />
     )
 
+    expect(screen.getByLabelText('后巷组确认提示')).toHaveAttribute('data-tone', 'urgent')
     expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('需重新确认')
     expect(screen.getByLabelText('后巷组确认提示')).toHaveTextContent('分队计划已更新，全队确认被重置。')
   })
@@ -102,9 +116,10 @@ describe('RoomMultiplayerStatusPanel', () => {
 
     expect(screen.getByText('正在重连')).toBeInTheDocument()
     expect(screen.getByText('同步中 · 暂停房间变更')).toBeInTheDocument()
-    expect(screen.getByText('同步暂停')).toBeInTheDocument()
+    expect(screen.getByText('同步暂停').closest('.room-multiplayer-sync-guard')).toBeInTheDocument()
     expect(screen.getByTitle('服务器暂不可达或正在重启，正在自动重连。 · 4秒后重试')).toBeInTheDocument()
     const focusButton = screen.getByRole('button', { name: '设为焦点' })
+    expect(focusButton).toHaveClass('room-multiplayer-focus-btn')
     expect(focusButton).toBeDisabled()
     fireEvent.click(focusButton)
     expect(onFocusGroup).not.toHaveBeenCalled()
