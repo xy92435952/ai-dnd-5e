@@ -95,47 +95,25 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 999,
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(2px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
+      className="create-info-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-info-modal-title"
       onClick={onClose}
     >
       <div
-        className="panel"
-        style={{
-          padding: '1.5rem',
-          maxWidth: '480px',
-          width: '100%',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          position: 'relative',
-        }}
+        className="panel create-info-modal-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ color: 'var(--gold)', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', paddingRight: '2rem' }}>
+        <h3 id="create-info-modal-title" className="create-info-modal-title">
           {title}
         </h3>
         {body}
         <button
+          type="button"
+          className="create-info-modal-close"
+          aria-label="Close details"
           onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '0.75rem',
-            right: '0.75rem',
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-dim)',
-            cursor: 'pointer',
-            fontSize: '1.1rem',
-          }}
         >
           &#x2715;
         </button>

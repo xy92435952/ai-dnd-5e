@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import {
   CharacterCreateField,
   CharacterCreateInfoBtn,
+  CharacterCreateInfoModal,
   CharacterCreateSelect,
 } from '../CharacterCreateShared'
 
@@ -62,5 +63,29 @@ describe('CharacterCreate shared controls', () => {
     const selected = screen.getByDisplayValue('中立善良')
     expect(selected).toHaveAttribute('data-selected', 'true')
     expect(selected.querySelector('option[value="中立善良"]')).toHaveClass('create-shared-select-option')
+  })
+
+  it('renders info modal shell with stable classes and preserves close behavior', () => {
+    const onClose = vi.fn()
+    const { container } = render(
+      <CharacterCreateInfoModal type="background" itemKey="Sage" onClose={onClose} />,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: '学者' })
+    expect(dialog).toHaveClass('create-info-modal-backdrop')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+
+    const panel = container.querySelector('.create-info-modal-panel')
+    expect(panel).toHaveClass('panel')
+    expect(screen.getByRole('heading', { name: '学者' })).toHaveClass('create-info-modal-title')
+
+    fireEvent.click(panel)
+    expect(onClose).not.toHaveBeenCalled()
+
+    fireEvent.click(dialog)
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close details' }))
+    expect(onClose).toHaveBeenCalledTimes(2)
   })
 })
