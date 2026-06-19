@@ -49,8 +49,19 @@ export default function Home() {
     finally { setUploading(false); e.target.value = '' }
   }
 
+  const fileInputRef = useRef(null)
   const pollIntervalRef = useRef(null)
   useEffect(() => () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current) }, [])
+
+  const openUploadPicker = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleUploadKeyDown = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    openUploadPicker()
+  }
 
   const pollModuleStatus = (moduleId) => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
@@ -126,32 +137,25 @@ export default function Home() {
           <span>✓ 启蒙圣所已完成 · 所有章节已解锁</span>
           <button
             className="btn-ghost home-tutorial-replay"
-            style={{ padding: '4px 10px', fontSize: 10 }}
             onClick={() => setTutorialOpen(true)}
           >重温教程</button>
         </div>
       )}
 
       {/* 标签栏 */}
-      <div className="home-tabs">
+      <div className="home-tabs" role="tablist" aria-label="大厅内容">
         {[
           { key: 'modules', label: '✦ 模组库' },
           { key: 'saves',   label: '❦ 存档档案' },
         ].map(t => (
           <button
             key={t.key}
-            className={`home-tab ${tab === t.key ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            data-active={tab === t.key ? 'true' : 'false'}
+            className="home-tab"
             onClick={() => setTab(t.key)}
-            style={{
-              flex: 1, textAlign: 'center', padding: '10px 0', cursor: 'pointer',
-              fontSize: 14, border: 'none', background: 'none',
-              color: tab === t.key ? 'var(--amber)' : 'var(--parchment-dark)',
-              borderBottom: tab === t.key ? '2px solid var(--amber)' : '2px solid transparent',
-              transition: 'var(--transition)',
-              fontFamily: 'var(--font-display)',
-              letterSpacing: '.12em',
-              fontWeight: tab === t.key ? 700 : 400,
-            }}
           >
             {t.label}
           </button>
@@ -162,37 +166,38 @@ export default function Home() {
         <div>
           {/* 上传区 */}
           <div
-            onClick={() => document.getElementById('file-input').click()}
-            className="panel"
-            style={{
-              border: '2px dashed var(--bark-light)',
-              padding: '36px 20px', textAlign: 'center', marginBottom: 16,
-              cursor: 'pointer', transition: 'var(--transition)',
-            }}
+            onClick={openUploadPicker}
+            onKeyDown={handleUploadKeyDown}
+            className="panel home-upload-panel"
+            role="button"
+            tabIndex={0}
+            aria-label="上传新模组"
           >
             <input id="file-input" type="file" accept=".pdf,.docx,.doc,.md,.markdown,.txt"
-              style={{ display: 'none' }} onChange={handleFileUpload} />
+              ref={fileInputRef}
+              className="home-upload-input"
+              onChange={handleFileUpload} />
             {uploading ? (
-              <p style={{ color: 'var(--amber)', fontFamily: 'var(--font-display)', letterSpacing: '.2em' }}>⏳ 上传中…</p>
+              <p className="home-upload-status" role="status">⏳ 上传中…</p>
             ) : (
               <>
-                <div style={{ fontSize: 32, color: 'var(--parchment-dark)', marginBottom: 6 }}>✦</div>
-                <p style={{ color: 'var(--parchment)', fontSize: 14, fontFamily: 'var(--font-heading)', margin: 0 }}>点击上传新模组</p>
-                <p style={{ color: 'var(--parchment-dark)', fontSize: 11, marginTop: 4, fontFamily: 'var(--font-mono)' }}>支持 PDF · DOCX · Markdown · TXT</p>
+                <div className="home-upload-icon" aria-hidden="true">✦</div>
+                <p className="home-upload-title">点击上传新模组</p>
+                <p className="home-upload-formats">支持 PDF · DOCX · Markdown · TXT</p>
               </>
             )}
           </div>
 
           {uploadError && (
-            <p style={{ color: '#ffaaaa', fontSize: 12, marginBottom: 12, padding: 8, background: 'rgba(139,32,32,.2)', border: '1px solid var(--blood)', borderRadius: 4 }}>
+            <p className="home-upload-error" role="alert">
               ⚠ {uploadError}
             </p>
           )}
 
           {modules.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0', opacity: 0.5 }}>
-              <div style={{ fontSize: 48, marginBottom: 6 }}>📜</div>
-              <p style={{ fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
+            <div className="home-empty-state" role="status" aria-label="暂无模组">
+              <div className="home-empty-icon" aria-hidden="true">📜</div>
+              <p className="home-empty-text">
                 还没有模组，上传一个开始冒险吧
               </p>
             </div>
@@ -211,9 +216,9 @@ export default function Home() {
       {tab === 'saves' && (
         <div>
           {sessions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0', opacity: 0.5 }}>
-              <div style={{ fontSize: 48, marginBottom: 6 }}>❦</div>
-              <p style={{ fontFamily: 'var(--font-script)', fontStyle: 'italic', color: 'var(--parchment-dark)' }}>
+            <div className="home-empty-state" role="status" aria-label="暂无存档">
+              <div className="home-empty-icon" aria-hidden="true">❦</div>
+              <p className="home-empty-text">
                 还没有存档，选择一个模组开始冒险吧
               </p>
             </div>
