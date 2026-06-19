@@ -26,6 +26,10 @@ describe('AdventureTopBar', () => {
   it('keeps primary navigation and personal tools accessible', () => {
     const props = renderTopBar()
 
+    const topbar = screen.getByRole('banner', { name: '冒险顶部工具栏' })
+    expect(topbar).toHaveClass('adventure-topbar')
+    expect(screen.getByText('Echoes')).toHaveClass('adventure-topbar-save-name')
+    expect(screen.getByText('Moonwell')).toHaveClass('adventure-topbar-module-name')
     const home = screen.getByRole('button', { name: 'Home' })
     const history = screen.getByRole('button', { name: 'Dialogue history' })
     const journal = screen.getByRole('button', { name: 'Open journal' })
@@ -85,5 +89,18 @@ describe('AdventureTopBar', () => {
     expect(rest).toHaveAttribute('title', reason)
     expect(prepare).toBeDisabled()
     expect(prepare).toHaveAttribute('title', reason)
+  })
+
+  it('falls back to default save and module labels inside the stable title shell', () => {
+    renderTopBar({
+      session: {},
+      player: null,
+      canPrepareSpells: false,
+    })
+
+    expect(screen.getByText('我的冒险')).toHaveClass('adventure-topbar-save-name')
+    expect(screen.getByText('未知模组')).toHaveClass('adventure-topbar-module-name')
+    expect(screen.queryByRole('button', { name: 'Prepare spells' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open character sheet' })).not.toBeInTheDocument()
   })
 })

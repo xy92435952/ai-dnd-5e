@@ -48,18 +48,7 @@ export default function AdventureTopBar({
   const loadingTitle = isLoading ? 'Adventure is loading.' : ''
 
   return (
-    <div style={{
-      position: 'relative',
-      padding: '10px 20px',
-      display: 'grid',
-      gridTemplateColumns: '1fr auto 1fr',
-      alignItems: 'center',
-      background: 'linear-gradient(180deg, rgba(16,10,4,.95), rgba(10,6,2,.7))',
-      borderBottom: '1px solid rgba(138,90,24,.4)',
-      boxShadow: 'inset 0 1px 0 rgba(240,208,96,.15)',
-      zIndex: 4,
-      flexShrink: 0,
-    }}>
+    <header className="adventure-topbar" aria-label="冒险顶部工具栏">
       <div className="adventure-topbar-actions">
         <TopBarButton
           label="Home"
@@ -77,14 +66,11 @@ export default function AdventureTopBar({
           ● 存档
         </TopBarButton>
       </div>
-      <div style={{ textAlign: 'center', minWidth: 0, maxWidth: '60vw' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--amber)', letterSpacing: '.3em', opacity: .7 }}>
+      <div className="adventure-topbar-title">
+        <div className="adventure-topbar-save-name">
           {session.save_name || '我的冒险'}
         </div>
-        <div className="display-title" style={{
-          fontSize: 18, letterSpacing: '.12em',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
+        <div className="display-title adventure-topbar-module-name">
           {session.module_name || '未知模组'}
         </div>
       </div>
@@ -132,6 +118,6 @@ export default function AdventureTopBar({
           </TopBarButton>
         )}
       </div>
-    </div>
+    </header>
   )
 }
