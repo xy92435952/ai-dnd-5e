@@ -21,15 +21,22 @@ export default function MultiplayerTurnBar({
   const statusText = syncBlocked ? '同步中 · 暂停战斗操作' : turnStatusText
 
   return (
-    <MultiplayerSessionStatusBar
-      room={room}
-      label="多人战斗"
-      title={syncBlocked ? '同步中' : isMyTurnMP ? '你的回合' : '等待回合'}
-      reason={currentTurnLabel}
-      focusLabel={statusText}
-      tone={!syncBlocked && isMyTurnMP ? 'active' : 'table'}
+    <section
+      className="combat-multiplayer-turn-bar"
+      data-state={syncBlocked ? 'sync-blocked' : isMyTurnMP ? 'active' : 'waiting'}
+      role="region"
+      aria-label="多人战斗回合状态"
     >
-      <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
-    </MultiplayerSessionStatusBar>
+      <MultiplayerSessionStatusBar
+        room={room}
+        label="多人战斗"
+        title={syncBlocked ? '同步中' : isMyTurnMP ? '你的回合' : '等待回合'}
+        reason={currentTurnLabel}
+        focusLabel={statusText}
+        tone={!syncBlocked && isMyTurnMP ? 'active' : 'table'}
+      >
+        <WebSocketStatusPill status={wsStatus} connected={wsConnected} />
+      </MultiplayerSessionStatusBar>
+    </section>
   )
 }

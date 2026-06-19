@@ -4452,6 +4452,83 @@ button.companion-signal-item:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.combat-multiplayer-turn-bar {
+  min-width: 0;
+  flex-shrink: 0;
+}
+.combat-multiplayer-turn-bar .multiplayer-session-status {
+  margin-top: 8px;
+}
+.multiplayer-session-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  row-gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 8px clamp(10px, 3vw, 24px) 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(240,208,96,.24);
+  background: rgba(24,18,10,.78);
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
+.multiplayer-session-status[data-tone="active"] {
+  border-color: rgba(92,211,123,.5);
+  background: linear-gradient(90deg, rgba(42,92,56,.55), rgba(18,34,28,.82));
+}
+.multiplayer-session-status-label,
+.multiplayer-session-status-title,
+.multiplayer-session-status-room {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.multiplayer-session-status-label,
+.multiplayer-session-status-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.multiplayer-session-status-label {
+  color: var(--amber);
+  letter-spacing: .12em;
+}
+.multiplayer-session-status[data-tone="active"] .multiplayer-session-status-label {
+  color: var(--emerald-light);
+}
+.multiplayer-session-status-title {
+  padding: 2px 6px;
+  background: var(--amber);
+  color: var(--void);
+}
+.multiplayer-session-status[data-tone="active"] .multiplayer-session-status-title {
+  background: var(--emerald-light);
+}
+.multiplayer-session-status-reason,
+.multiplayer-session-status-focus,
+.multiplayer-session-status-next {
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.multiplayer-session-status-reason {
+  flex: 1 1 180px;
+  color: var(--parchment);
+}
+.multiplayer-session-status-focus {
+  flex: 1 1 140px;
+  color: var(--arcane-light);
+}
+.multiplayer-session-status-next {
+  flex: 1 1 160px;
+  color: var(--emerald-light);
+}
+.multiplayer-session-status-room {
+  margin-left: auto;
+  color: var(--parchment-dark);
+}
+
 .multiplayer-party-panel {
   display: grid;
   gap: 8px;

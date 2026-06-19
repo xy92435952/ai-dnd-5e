@@ -21,6 +21,10 @@ describe('MultiplayerTurnBar', () => {
       />
     )
 
+    const region = screen.getByRole('region', { name: '多人战斗回合状态' })
+    expect(region).toHaveClass('combat-multiplayer-turn-bar')
+    expect(region).toHaveAttribute('data-state', 'active')
+    expect(screen.getByRole('status', { name: '联机状态' })).toHaveAttribute('data-tone', 'active')
     expect(screen.getByText('轮到 洛林')).toBeInTheDocument()
     expect(screen.getByText(/房间 123456/)).toBeInTheDocument()
   })
@@ -43,6 +47,11 @@ describe('MultiplayerTurnBar', () => {
       />
     )
 
+    expect(screen.getByRole('region', { name: '多人战斗回合状态' })).toHaveAttribute(
+      'data-state',
+      'sync-blocked',
+    )
+    expect(screen.getByRole('status', { name: '联机状态' })).toHaveAttribute('data-tone', 'table')
     expect(screen.getByText('同步中 · 暂停战斗操作')).toBeInTheDocument()
     expect(screen.getByText('正在重连')).toBeInTheDocument()
     expect(screen.getByTitle('服务器暂不可达或正在重启，正在自动重连。 · 2秒后重试')).toBeInTheDocument()
@@ -65,8 +74,29 @@ describe('MultiplayerTurnBar', () => {
       />
     )
 
+    expect(screen.getByRole('region', { name: '多人战斗回合状态' })).toHaveAttribute(
+      'data-state',
+      'sync-blocked',
+    )
     expect(screen.getByText('无房间权限')).toBeInTheDocument()
     expect(screen.getByTitle('当前账号没有这个房间的联机权限，请确认房间码或重新加入。')).toBeInTheDocument()
+  })
+
+  it('marks observer turns as waiting when the room is synced', () => {
+    render(
+      <MultiplayerTurnBar
+        room={room}
+        wsConnected={true}
+        currentTurnLabel="轮到 洛林"
+        isMyTurnMP={false}
+        currentTurnCharacterId="char-1"
+      />
+    )
+
+    expect(screen.getByRole('region', { name: '多人战斗回合状态' })).toHaveAttribute('data-state', 'waiting')
+    expect(screen.getByRole('status', { name: '联机状态' })).toHaveAttribute('data-tone', 'table')
+    expect(screen.getByText('洛林 在线 · 等待其完成回合')).toBeInTheDocument()
+    expect(screen.getByText('同步在线')).toBeInTheDocument()
   })
 
   it('stays hidden for single-player combat', () => {
