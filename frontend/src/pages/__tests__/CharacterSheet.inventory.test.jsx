@@ -794,6 +794,10 @@ describe('CharacterSheet inventory integration', () => {
       target: { value: 'Magic Initiate' },
     })
     expect(screen.getByRole('button', { name: 'Level Up' })).toBeDisabled()
+    expect(screen.getByRole('group', { name: 'Magic Initiate choices' })).toHaveClass(
+      'magic-initiate-choice-fields',
+    )
+    expect(screen.getByLabelText('Magic Initiate class')).toHaveClass('magic-initiate-choice-select')
     expect(screen.getByText('Choose two cantrips')).toHaveClass(
       'character-sheet-level-up-magic-initiate-error',
     )

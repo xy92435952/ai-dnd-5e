@@ -53,6 +53,13 @@ describe('CharacterCreateStepFeats', () => {
 
     render(<Harness />)
 
+    expect(screen.getByRole('group', { name: 'Magic Initiate choices' })).toHaveClass(
+      'magic-initiate-choice-fields',
+    )
+    expect(screen.getByLabelText('Magic Initiate class')).toHaveClass(
+      'magic-initiate-choice-select',
+      'input-fantasy',
+    )
     fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Mage Hand'))
     fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Light'))
     fireEvent.change(screen.getByLabelText('Magic Initiate spell'), {

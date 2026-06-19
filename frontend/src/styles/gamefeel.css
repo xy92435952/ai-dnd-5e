@@ -1104,6 +1104,64 @@
   color: var(--green-light);
   font-size: 12px;
 }
+.magic-initiate-choice-empty {
+  margin: 8px 0 0;
+  color: var(--red-light);
+  font-size: 10px;
+}
+.magic-initiate-choice-fields {
+  margin-top: 8px;
+}
+.magic-initiate-choice-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.magic-initiate-choice-select {
+  min-height: 34px;
+}
+.magic-initiate-choice-cantrip-group,
+.magic-initiate-choice-spell-label {
+  margin-top: 8px;
+}
+.magic-initiate-choice-title {
+  margin: 0 0 4px;
+  color: var(--gold-dim);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.magic-initiate-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+.magic-initiate-choice-card {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--wood-light);
+  border-radius: 6px;
+  background: rgba(10,8,6,0.24);
+  color: var(--parchment);
+  font-size: 11px;
+}
+.magic-initiate-choice-card[data-selected="true"] {
+  border-color: rgba(201,168,76,.62);
+  background: rgba(201,168,76,.14);
+}
+.magic-initiate-choice-card[data-disabled="true"] {
+  opacity: .55;
+}
+.magic-initiate-choice-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .character-sheet-level-up-replacement-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

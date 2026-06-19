@@ -5,34 +5,6 @@ import {
   getMagicInitiateSpellOptions,
 } from '../../utils/characterCreate'
 
-const labelStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-  color: 'var(--text-dim)',
-  fontSize: 11,
-}
-
-const gridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-  gap: 6,
-  marginTop: 6,
-}
-
-const choiceStyle = {
-  minHeight: 34,
-  borderRadius: 6,
-  border: '1px solid var(--wood-light)',
-  background: 'rgba(10,8,6,0.24)',
-  padding: '6px 8px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  color: 'var(--parchment)',
-  fontSize: 11,
-}
-
 export default function MagicInitiateChoiceFields({
   value = {},
   options = {},
@@ -45,6 +17,9 @@ export default function MagicInitiateChoiceFields({
   const selectedCantrips = Array.isArray(value.cantrips) ? value.cantrips : []
   const selectedSpell = value.spell || ''
   const spellOptions = getMagicInitiateSpellOptions(options, selectedClass)
+  const selectClasses = ['magic-initiate-choice-select', selectClassName]
+    .filter(Boolean)
+    .join(' ')
 
   const emit = (patch) => {
     if (!onChange) return
@@ -67,19 +42,19 @@ export default function MagicInitiateChoiceFields({
 
   if (!classOptions.length) {
     return (
-      <p style={{ color: 'var(--red-light)', fontSize: 10, margin: '8px 0 0' }}>
+      <p className="magic-initiate-choice-empty" role="status">
         Magic Initiate options unavailable
       </p>
     )
   }
 
   return (
-    <div style={{ marginTop: 8 }}>
-      <label style={labelStyle}>
+    <div className="magic-initiate-choice-fields" role="group" aria-label="Magic Initiate choices">
+      <label className="magic-initiate-choice-label">
         Magic Initiate class
         <select
           aria-label="Magic Initiate class"
-          className={selectClassName}
+          className={selectClasses}
           value={selectedClass}
           onChange={(event) => emit({
             spellcasting_class: event.target.value,
@@ -97,36 +72,51 @@ export default function MagicInitiateChoiceFields({
 
       {selectedClass && (
         <>
-          <div style={{ marginTop: 8 }}>
-            <p style={{ color: 'var(--gold-dim)', fontSize: 10, fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' }}>
+          <div className="magic-initiate-choice-cantrip-group">
+            <p className="magic-initiate-choice-title">
               Magic Initiate cantrips {selectedCantrips.length}/2
             </p>
-            <div style={gridStyle}>
+            <div
+              className="magic-initiate-choice-grid"
+              role="list"
+              aria-label="Magic Initiate cantrip choices"
+            >
               {spellOptions.cantrips.map((cantrip) => {
                 const name = getMagicInitiateSpellOptionName(cantrip)
                 if (!name) return null
                 const selected = selectedCantrips.includes(name)
+                const disabled = !selected && selectedCantrips.length >= 2
                 return (
-                  <label key={name} style={choiceStyle}>
+                  <label
+                    key={name}
+                    className="magic-initiate-choice-card"
+                    data-selected={selected ? 'true' : 'false'}
+                    data-disabled={disabled ? 'true' : 'false'}
+                    role="listitem"
+                    aria-label={`Magic Initiate cantrip option ${name}`}
+                  >
                     <input
+                      className="magic-initiate-choice-checkbox"
                       type="checkbox"
                       aria-label={`Magic Initiate cantrip ${name}`}
                       checked={selected}
-                      disabled={!selected && selectedCantrips.length >= 2}
+                      disabled={disabled}
                       onChange={() => toggleCantrip(name)}
                     />
-                    <span>{formatMagicInitiateSpellOption(cantrip)}</span>
+                    <span className="magic-initiate-choice-name">
+                      {formatMagicInitiateSpellOption(cantrip)}
+                    </span>
                   </label>
                 )
               })}
             </div>
           </div>
 
-          <label style={{ ...labelStyle, marginTop: 8 }}>
+          <label className="magic-initiate-choice-label magic-initiate-choice-spell-label">
             Magic Initiate spell
             <select
               aria-label="Magic Initiate spell"
-              className={selectClassName}
+              className={selectClasses}
               value={selectedSpell}
               onChange={(event) => emit({ spell: event.target.value })}
               style={selectStyle}
