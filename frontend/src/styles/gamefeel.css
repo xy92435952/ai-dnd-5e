@@ -6342,6 +6342,40 @@ button.companion-signal-item:focus-visible {
   color: var(--wood-light);
   cursor: not-allowed;
 }
+.spell-modal-actions {
+  margin-top: 12px;
+}
+.spell-modal-action-row {
+  display: flex;
+  gap: 8px;
+}
+.spell-modal-cast {
+  flex: 1;
+  border-color: var(--wood);
+  padding: 8px 10px;
+  font-size: 13px;
+  opacity: .45;
+}
+.spell-modal-cast[data-ready="true"] {
+  border-color: #8a5af6;
+  opacity: 1;
+}
+.spell-modal-cast-icon {
+  display: inline;
+  margin-right: 4px;
+  fill: #8a5af6;
+  vertical-align: middle;
+}
+.spell-modal-cancel {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.spell-modal-action-status {
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;

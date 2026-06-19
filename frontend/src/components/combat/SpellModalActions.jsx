@@ -2,22 +2,34 @@ import React from 'react'
 import { SpellIcon } from '../Icons'
 
 export default function SpellModalActions({ canCast, disabledReason = '', selectedSpell, level, onCast, onClose }) {
+  const castLabel = selectedSpell ? `施放【${selectedSpell.name}】` : '施放'
+  const statusText = canCast ? (selectedSpell ? `准备施放 ${selectedSpell.name}` : '请选择法术') : disabledReason
+
   return (
-    <div className="mt-3">
-      <div className="flex gap-2">
-        <button className="flex-1 btn-fantasy py-2 text-sm"
-          style={{ borderColor: canCast ? '#8a5af6' : 'var(--wood)', opacity: canCast ? 1 : 0.4 }}
+    <div className="spell-modal-actions" role="group" aria-label="施法操作">
+      <div className="spell-modal-action-row">
+        <button
+          type="button"
+          className="spell-modal-cast btn-fantasy"
+          data-ready={canCast ? 'true' : 'false'}
           disabled={!canCast}
           title={canCast ? '施放所选法术' : disabledReason}
-          onClick={() => selectedSpell && onCast(selectedSpell, level || 1)}>
-          <SpellIcon size={14} color="#8a5af6" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />
-          施放{selectedSpell ? `【${selectedSpell.name}】` : ''}
+          onClick={() => selectedSpell && onCast(selectedSpell, level || 1)}
+        >
+          <SpellIcon size={14} className="spell-modal-cast-icon" />
+          {castLabel}
         </button>
-        <button className="btn-fantasy px-4 py-2 text-sm" onClick={onClose}>取消</button>
+        <button
+          type="button"
+          className="spell-modal-cancel btn-fantasy"
+          onClick={onClose}
+        >
+          取消
+        </button>
       </div>
-      {!canCast && disabledReason && (
-        <div style={{ color: 'var(--text-dim)', fontSize: 11, marginTop: 6 }}>
-          {disabledReason}
+      {statusText && (
+        <div className="spell-modal-action-status" role="status">
+          {statusText}
         </div>
       )}
     </div>
