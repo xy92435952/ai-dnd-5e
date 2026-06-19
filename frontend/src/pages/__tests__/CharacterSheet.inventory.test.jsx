@@ -394,10 +394,20 @@ describe('CharacterSheet inventory integration', () => {
     )
 
     await screen.findByText('Pact Warlock')
-    fireEvent.change(screen.getByLabelText('Replace known spell'), {
+    const replacementOld = screen.getByLabelText('Replace known spell')
+    const replacementNew = screen.getByLabelText('Replacement spell')
+    const replacementGrid = replacementOld.closest('.character-sheet-level-up-replacement-grid')
+    expect(replacementGrid).toBeInTheDocument()
+    expect(replacementOld).toHaveClass('character-sheet-level-up-select')
+    expect(replacementNew).toHaveClass('character-sheet-level-up-select')
+    expect(replacementOld.closest('.character-sheet-level-up-replacement-label')).toBeInTheDocument()
+    expect(replacementNew.closest('.character-sheet-level-up-replacement-label')).toBeInTheDocument()
+    expect(replacementNew).toBeDisabled()
+    fireEvent.change(replacementOld, {
       target: { value: 'Hellish Rebuke' },
     })
-    fireEvent.change(screen.getByLabelText('Replacement spell'), {
+    expect(replacementNew).not.toBeDisabled()
+    fireEvent.change(replacementNew, {
       target: { value: 'Hex' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))

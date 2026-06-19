@@ -1093,17 +1093,17 @@ function LevelUpPanel({
       )}
 
       {hasReplacementChoices && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginTop: 10 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+        <div className="character-sheet-level-up-replacement-grid">
+          <label className="character-sheet-level-up-label character-sheet-level-up-replacement-label">
             Replace known spell
             <select
+              className="character-sheet-level-up-select"
               aria-label="Replace known spell"
               value={selections.replacementOld}
               onChange={(event) => onSelectionChange(prev => ({
                 ...prev,
                 replacementOld: event.target.value,
               }))}
-              style={levelUpSelectStyle}
             >
               <option value="">None</option>
               {spellPlan.replacementKnownOptions.map(spell => (
@@ -1111,9 +1111,10 @@ function LevelUpPanel({
               ))}
             </select>
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+          <label className="character-sheet-level-up-label character-sheet-level-up-replacement-label">
             Replacement spell
             <select
+              className="character-sheet-level-up-select"
               aria-label="Replacement spell"
               value={selections.replacementNew}
               onChange={(event) => onSelectionChange(prev => ({
@@ -1121,7 +1122,6 @@ function LevelUpPanel({
                 replacementNew: event.target.value,
               }))}
               disabled={!selections.replacementOld}
-              style={levelUpSelectStyle}
             >
               <option value="">None</option>
               {replacementNewOptions.map(spell => (
