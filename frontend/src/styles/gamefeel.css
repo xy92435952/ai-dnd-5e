@@ -2559,6 +2559,64 @@ button.companion-signal-item:focus-visible {
   min-width: 0;
   box-sizing: border-box;
 }
+.room-member-card {
+  padding: 14px;
+}
+.room-member-card[data-online="false"] {
+  opacity: .5;
+}
+.room-member-portrait {
+  position: relative;
+  flex: 0 0 auto;
+}
+.room-member-online-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--void);
+  border-radius: 50%;
+  background: var(--emerald-light);
+  box-shadow: 0 0 8px var(--emerald-light);
+}
+.room-member-card[data-online="false"] .room-member-online-dot {
+  background: var(--bark-light);
+  box-shadow: none;
+}
+.room-member-body {
+  flex: 1;
+  min-width: 0;
+}
+.room-member-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.room-member-name {
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+.room-member-tag {
+  font-size: 9px;
+}
+.room-member-meta,
+.room-member-vote-meta {
+  font-family: var(--font-mono);
+}
+.room-member-meta {
+  margin-top: 2px;
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
+.room-member-vote-meta {
+  margin-top: 6px;
+  color: var(--amber);
+  font-size: 10px;
+}
 .room-ai-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
@@ -2575,6 +2633,17 @@ button.companion-signal-item:focus-visible {
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+}
+.room-member-action {
+  padding: 4px 8px;
+  font-size: 10px;
+}
+.room-member-action:disabled {
+  opacity: .6;
+}
+.room-member-action-danger {
+  border-color: var(--blood);
+  color: #ffaaaa;
 }
 .room-actions-panel {
   min-width: 0;

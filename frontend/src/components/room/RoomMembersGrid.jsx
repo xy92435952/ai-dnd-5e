@@ -31,43 +31,25 @@ export default function RoomMembersGrid({
           <div
             key={member.user_id}
             className="panel-ornate room-member-card"
-            style={{
-              padding: 14,
-              opacity: member.is_online ? 1 : 0.5,
-            }}
+            data-online={member.is_online ? 'true' : 'false'}
           >
-            <div style={{ position: 'relative' }}>
+            <div className="room-member-portrait">
               <Portrait cls={classKey(member.character_name ? 'fighter' : 'dm')} size="md" />
-              <span style={{
-                position: 'absolute',
-                bottom: 0,
-                right: 0,
-                width: 14,
-                height: 14,
-                borderRadius: '50%',
-                background: member.is_online ? 'var(--emerald-light)' : 'var(--bark-light)',
-                border: '2px solid var(--void)',
-                boxShadow: member.is_online ? '0 0 8px var(--emerald-light)' : 'none',
-              }} />
+              <span className="room-member-online-dot" aria-hidden="true" />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{
-                  fontFamily: 'var(--font-heading)',
-                  color: 'var(--parchment)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}>{member.display_name}</span>
-                {member.role === 'host' && <span className="tag tag-gold" style={{ fontSize: 9 }}>★ 房主</span>}
-                {member.user_id === myUserId && <span className="tag tag-blue" style={{ fontSize: 9 }}>我</span>}
+            <div className="room-member-body">
+              <div className="room-member-identity">
+                <span className="room-member-name">{member.display_name}</span>
+                {member.role === 'host' && <span className="tag tag-gold room-member-tag">★ 房主</span>}
+                {member.user_id === myUserId && <span className="tag tag-blue room-member-tag">我</span>}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+              <div className="room-member-meta">
                 {member.character_name
                   ? `角色：${member.character_name}`
                   : (member.is_online ? '○ 尚未选择角色' : '◌ 离线')}
               </div>
               {vote && (
-                <div style={{ fontSize: 10, color: 'var(--amber)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
+                <div className="room-member-vote-meta">
                   移出投票：{yesCount}/{threshold}
                 </div>
               )}
@@ -81,8 +63,7 @@ export default function RoomMembersGrid({
                     }}
                     disabled={disabledHostControls}
                     title={disabledHostControls ? disabledReason : '转让房主'}
-                    className="btn-ghost"
-                    style={{ fontSize: 10, padding: '4px 8px', opacity: disabledHostControls ? 0.6 : 1 }}
+                    className="btn-ghost room-member-action"
                   >
                     转让
                   </button>
@@ -93,8 +74,7 @@ export default function RoomMembersGrid({
                   }}
                   disabled={kickDisabled}
                   title={disabledHostControls ? disabledReason : voteLabel}
-                  className="btn-ghost"
-                  style={{ fontSize: 10, padding: '4px 8px', borderColor: 'var(--blood)', color: '#ffaaaa', opacity: kickDisabled ? 0.6 : 1 }}
+                  className="btn-ghost room-member-action room-member-action-danger"
                 >
                   {voteLabel}
                 </button>

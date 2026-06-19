@@ -156,6 +156,7 @@ Adventure `PrepareSpellsModal`, Adventure `MultiplayerTimelinePanel`,
 Adventure `MultiplayerPartyPanel`, Adventure `MultiplayerSpeakBar`,
 Adventure `MultiplayerTableNotice`,
 Room `RoomMultiplayerStatusPanel`,
+Room member/AI/action sections,
 `DialogueHistoryView`, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
 privacy projection, combat-log coverage, loot distribution UI coverage, mapped
@@ -163,7 +164,7 @@ location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 shared adventure modal shell, checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
 spell-preparation, dialogue-history, adventure party status HUD, adventure quest/location HUD,
 adventure stage shell, stage speaker figure, stage dialogue bubble, dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, combat turn-control HUD, combat spell-slot/concentration HUD, combat action-economy HUD, combat identity/status HUD, combat intent summary HUD, combat skill-action HUD, combat log feedback HUD, combat turn banner/action-coach HUD, AI-turn stale reaction cleanup, multiplayer timeline, multiplayer party
-coordination, multiplayer speak-turn, room multiplayer readiness status, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat overlay alerts, combat multiplayer turn status, shared multiplayer session status, shared websocket status pill, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
+coordination, multiplayer speak-turn, room multiplayer readiness status, room member management cards, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat overlay alerts, combat multiplayer turn status, shared multiplayer session status, shared websocket status pill, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## CI Release Gate

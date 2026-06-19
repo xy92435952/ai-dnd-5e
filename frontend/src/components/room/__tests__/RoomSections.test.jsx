@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import RoomActionsPanel from '../RoomActionsPanel'
 import RoomAiCompanionsSection from '../RoomAiCompanionsSection'
 import RoomMembersGrid from '../RoomMembersGrid'
@@ -23,11 +23,24 @@ describe('Room sections', () => {
     )
 
     expect(screen.getByText('★ 房主')).toBeInTheDocument()
+    const hostCard = screen.getByText('角色：战士').closest('.room-member-card')
+    const guestCard = screen.getByText('队友').closest('.room-member-card')
+    expect(hostCard).toHaveAttribute('data-online', 'true')
+    expect(hostCard.querySelector('.room-member-online-dot')).toBeInTheDocument()
+    expect(hostCard.querySelector('.room-member-tag.tag-blue')).toHaveTextContent('我')
+    expect(within(hostCard).getByText('角色：战士')).toHaveClass('room-member-meta')
+    expect(guestCard).toHaveAttribute('data-online', 'true')
+    expect(within(guestCard).getByText('队友')).toHaveClass('room-member-name')
+    expect(within(guestCard).getByText('○ 尚未选择角色')).toHaveClass('room-member-meta')
     expect(screen.getByText('角色：战士')).toBeInTheDocument()
     expect(screen.getByText('○ 尚未选择角色')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '转让' }))
-    fireEvent.click(screen.getByRole('button', { name: '发起移出投票' }))
+    const transfer = screen.getByRole('button', { name: '转让' })
+    const kick = screen.getByRole('button', { name: '发起移出投票' })
+    expect(transfer).toHaveClass('room-member-action')
+    expect(kick).toHaveClass('room-member-action-danger')
+    fireEvent.click(transfer)
+    fireEvent.click(kick)
     expect(onTransfer).toHaveBeenCalledWith('u2')
     expect(onKick).toHaveBeenCalledWith('u2')
   })
@@ -56,7 +69,7 @@ describe('Room sections', () => {
       />
     )
 
-    expect(screen.getByText('移出投票：1/2')).toBeInTheDocument()
+    expect(screen.getByText('移出投票：1/2')).toHaveClass('room-member-vote-meta')
     expect(screen.getByRole('button', { name: '已赞成 1/2' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: '转让' })).not.toBeInTheDocument()
   })
