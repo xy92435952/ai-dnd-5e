@@ -1084,6 +1084,57 @@
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+.character-sheet-level-up-choice-group {
+  margin-top: 10px;
+}
+.character-sheet-level-up-choice-title {
+  margin: 0 0 6px;
+  color: var(--gold-dim);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.character-sheet-level-up-choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.character-sheet-level-up-choice {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid var(--wood-light);
+  border-radius: 6px;
+  background: rgba(138,90,246,.06);
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
+.character-sheet-level-up-choice.has-description {
+  max-width: 260px;
+}
+.character-sheet-level-up-choice[data-selected="true"] {
+  background: rgba(201,162,76,.12);
+  color: var(--gold);
+}
+.character-sheet-level-up-choice-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.character-sheet-level-up-choice-label {
+  overflow-wrap: anywhere;
+}
+.character-sheet-level-up-choice-description {
+  margin-left: 20px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 760px) {
   .character-sheet-header {

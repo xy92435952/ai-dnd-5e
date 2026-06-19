@@ -861,12 +861,19 @@ describe('CharacterSheet inventory integration', () => {
       target: { value: 'Battle Master' },
     })
     expect(screen.getByText('Battle Master turns superiority dice into tactical techniques.')).toHaveClass('character-sheet-level-up-option-detail')
-    expect(await screen.findByText('Add superiority die to an attack roll.')).toBeInTheDocument()
+    expect(await screen.findByText('Add superiority die to an attack roll.')).toHaveClass('character-sheet-level-up-choice-description')
+    const maneuvers = screen.getByRole('list', { name: 'Maneuvers 0/3' })
+    expect(maneuvers).toHaveClass('character-sheet-level-up-choice-list')
+    expect(within(maneuvers).getAllByRole('listitem')).toHaveLength(4)
+    const precision = within(maneuvers).getByRole('listitem', { name: /Precision Attack/ })
+    expect(precision).toHaveClass('character-sheet-level-up-choice', 'has-description')
+    expect(precision).toHaveAttribute('data-selected', 'false')
     fireEvent.change(fightingStyleSelect, {
       target: { value: 'Defense' },
     })
     expect(screen.getByText('AC +1 while wearing armor.')).toHaveClass('character-sheet-level-up-option-detail')
     fireEvent.click(await screen.findByLabelText('Learn maneuver Precision Attack'))
+    expect(precision).toHaveAttribute('data-selected', 'true')
     fireEvent.click(screen.getByLabelText('Learn maneuver Trip Attack'))
     fireEvent.click(screen.getByLabelText('Learn maneuver Disarming Attack'))
     expect(levelUpButton).not.toBeDisabled()

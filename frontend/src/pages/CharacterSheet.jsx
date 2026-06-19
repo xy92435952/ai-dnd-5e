@@ -1170,40 +1170,30 @@ function LevelUpChoiceGroup({ title, values, selected, onToggle, labelPrefix }) 
     .filter(item => item.value)
 
   return (
-    <div style={{ marginTop: 10 }}>
-      <p style={{ color: 'var(--gold-dim)', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
+    <div className="character-sheet-level-up-choice-group">
+      <p className="character-sheet-level-up-choice-title">
         {title}
       </p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      <div className="character-sheet-level-up-choice-list" role="list" aria-label={title}>
         {items.map(item => (
           <label
             key={item.value}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'flex-start',
-              flexDirection: 'column',
-              gap: 5,
-              minHeight: 28,
-              maxWidth: item.description ? 260 : '100%',
-              padding: '4px 9px',
-              borderRadius: 6,
-              border: '1px solid var(--wood-light)',
-              color: selected.includes(item.value) ? 'var(--gold)' : 'var(--parchment-dark)',
-              background: selected.includes(item.value) ? 'rgba(201,162,76,0.12)' : 'rgba(138,90,246,0.06)',
-              fontSize: 11,
-            }}
+            className={`character-sheet-level-up-choice${item.description ? ' has-description' : ''}`}
+            data-selected={selected.includes(item.value) ? 'true' : 'false'}
+            role="listitem"
+            aria-label={item.label}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span className="character-sheet-level-up-choice-control">
               <input
                 aria-label={`${labelPrefix} ${item.label}`}
                 type="checkbox"
                 checked={selected.includes(item.value)}
                 onChange={() => onToggle(item.value)}
               />
-              <span>{item.label}</span>
+              <span className="character-sheet-level-up-choice-label">{item.label}</span>
             </span>
             {item.description && (
-              <span style={{ color: 'var(--text-dim)', fontSize: 10, lineHeight: 1.35, marginLeft: 20, wordBreak: 'break-word' }}>
+              <span className="character-sheet-level-up-choice-description">
                 {item.description}
               </span>
             )}
