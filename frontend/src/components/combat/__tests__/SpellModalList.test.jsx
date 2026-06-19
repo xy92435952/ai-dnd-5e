@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import SpellModalList from '../SpellModalList'
 
 describe('SpellModalList', () => {
@@ -27,19 +27,90 @@ describe('SpellModalList', () => {
       />,
     )
 
-    const tags = screen.getByLabelText('法术规则 Fireball')
+    const listbox = screen.getByRole('listbox', { name: '可选法术' })
+    const fireball = within(listbox).getByRole('option', { name: '选择 Fireball' })
+    expect(fireball).toHaveClass('spell-modal-list-item', 'is-damage')
+    expect(fireball).toHaveAttribute('aria-selected', 'false')
+
+    const tags = within(fireball).getByRole('list', { name: '法术规则 Fireball' })
     expect(within(tags).getByText('3环')).toBeInTheDocument()
     expect(within(tags).getByText('伤害')).toBeInTheDocument()
     expect(within(tags).getByText('范围')).toBeInTheDocument()
     expect(within(tags).getByText('地点')).toBeInTheDocument()
     expect(within(tags).getByText('敏捷豁免')).toBeInTheDocument()
-    const preview = screen.getByLabelText('法术预览 Fireball')
+    const preview = within(fireball).getByRole('list', { name: '法术预览 Fireball' })
     expect(within(preview).getByText('效果')).toBeInTheDocument()
     expect(within(preview).getByText('伤害 8d6')).toBeInTheDocument()
     expect(within(preview).getByText('结算')).toBeInTheDocument()
     expect(within(preview).getByText('敏捷豁免 · 成功减半')).toBeInTheDocument()
     expect(within(preview).getByText('时机')).toBeInTheDocument()
     expect(within(preview).getByText('1 动作 · 射程 150 ft')).toBeInTheDocument()
+  })
+
+  it('reports an empty spell list as a status message', () => {
+    render(
+      <SpellModalList
+        level={0}
+        shownSpells={[]}
+        cantrips={[]}
+        selectedSpell={null}
+        setSelectedSpell={vi.fn()}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    const status = screen.getByRole('status', { name: '法术列表状态' })
+    expect(status).toHaveClass('spell-modal-list-empty')
+    expect(status).toHaveTextContent('未习得戏法')
+  })
+
+  it('supports pointer, focus, and keyboard selection without changing spell contracts', () => {
+    const setSelectedSpell = vi.fn()
+    const onSpellHover = vi.fn()
+    const fireBolt = {
+      name: 'Fire Bolt',
+      level: 0,
+      type: 'damage',
+      damage: '1d10',
+    }
+    const cureWounds = {
+      name: 'Cure Wounds',
+      level: 1,
+      type: 'heal',
+      heal: '1d8',
+    }
+
+    render(
+      <SpellModalList
+        level={0}
+        shownSpells={[fireBolt, cureWounds]}
+        cantrips={['Fire Bolt']}
+        selectedSpell={fireBolt}
+        setSelectedSpell={setSelectedSpell}
+        onSpellHover={onSpellHover}
+      />,
+    )
+
+    const fireBoltOption = screen.getByRole('option', { name: '已选择 Fire Bolt' })
+    expect(fireBoltOption).toHaveClass('selected', 'is-cantrip')
+    expect(fireBoltOption).toHaveAttribute('aria-selected', 'true')
+    expect(fireBoltOption.querySelector('.spell-modal-list-cantrip')).toHaveTextContent('戏法')
+
+    fireEvent.focus(fireBoltOption)
+    expect(onSpellHover).toHaveBeenCalledWith(fireBolt)
+    fireEvent.blur(fireBoltOption)
+    expect(onSpellHover).toHaveBeenCalledWith(null)
+
+    fireEvent.keyDown(fireBoltOption, { key: ' ' })
+    expect(setSelectedSpell).toHaveBeenCalledWith(null)
+
+    const cureOption = screen.getByRole('option', { name: '选择 Cure Wounds' })
+    expect(cureOption).toHaveClass('is-heal')
+    fireEvent.keyDown(cureOption, { key: 'Enter' })
+    expect(setSelectedSpell).toHaveBeenCalledWith(cureWounds)
+
+    fireEvent.click(cureOption)
+    expect(setSelectedSpell).toHaveBeenCalledWith(cureWounds)
   })
 
   it('shows caster DC and spell attack bonus in pre-selection previews', () => {

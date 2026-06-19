@@ -16,66 +16,89 @@ export default function SpellModalList({
   setSelectedSpell,
   onSpellHover,
 }) {
+  const listStatus = level === 0 ? '未习得戏法' : '当前法术位不足或无可用法术'
+  const selectSpell = (spell, isSelected) => {
+    setSelectedSpell(isSelected ? null : spell)
+  }
+  const handleSpellKeyDown = (event, spell, isSelected) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    selectSpell(spell, isSelected)
+  }
+
+  if (shownSpells.length === 0) {
+    return (
+      <div className="spell-modal-list spell-modal-list-empty" role="status" aria-label="法术列表状态">
+        {listStatus}
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-1.5 overflow-y-auto flex-1" style={{ maxHeight:260 }}>
-      {shownSpells.length === 0 ? (
-        <p className="text-xs text-center py-4" style={{ color: 'var(--text-dim)' }}>
-          {level === 0 ? '未习得戏法' : '当前法术位不足或无可用法术'}
-        </p>
-      ) : shownSpells.map(spell => {
+    <div className="spell-modal-list" role="listbox" aria-label="可选法术">
+      {shownSpells.map(spell => {
         const isSel = selectedSpell?.name === spell.name
         const isCantrip = spell.level === 0 || cantrips?.includes(spell.name)
+        const spellType = String(spell.type || '').toLowerCase()
+        const toneClass = isCantrip ? 'is-cantrip' : spellType === 'heal' ? 'is-heal' : 'is-damage'
         const badges = buildSpellRuleBadges(spell, { isCantrip })
         const previewRows = buildSpellRulePreview(spell, { caster })
         const targetFit = buildSpellTargetFit(spell, { combat, playerId, selectedTarget })
+        const spellOutput = spellType === 'damage' ? spell.damage : spell.heal
         return (
-          <div key={spell.name}
-            onClick={() => setSelectedSpell(isSel ? null : spell)}
+          <div
+            key={spell.name}
+            role="option"
+            aria-selected={isSel}
+            aria-label={`${isSel ? '已选择' : '选择'} ${spell.name}`}
+            tabIndex={0}
+            className={`spell-modal-list-item ${toneClass} ${isSel ? 'selected' : ''}`}
+            onClick={() => selectSpell(spell, isSel)}
+            onKeyDown={(event) => handleSpellKeyDown(event, spell, isSel)}
             onMouseEnter={() => onSpellHover?.(spell)}
             onMouseLeave={() => onSpellHover?.(null)}
-            style={{
-              padding:'8px 10px', borderRadius:6, cursor:'pointer',
-              background: isSel ? (isCantrip ? 'rgba(58,122,170,0.18)' : 'rgba(138,90,246,0.18)') : 'var(--bg)',
-              border: `1px solid ${isSel ? (isCantrip ? 'var(--blue-light)' : '#8a5af6') : 'var(--wood)'}`,
-              transition:'all 0.1s',
-            }}>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold" style={{ color:'var(--parchment)' }}>
+            onFocus={() => onSpellHover?.(spell)}
+            onBlur={() => onSpellHover?.(null)}
+          >
+            <div className="spell-modal-list-head">
+              <span className="spell-modal-list-name">
                 {isCantrip
-                  ? <SpellIcon size={12} color="var(--blue-light)" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />
-                  : spell.type==='heal'
-                    ? <HeartIcon size={12} color="var(--green-light)" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />
-                    : <SpellIcon size={12} color="var(--red-light)" style={{ display:'inline', verticalAlign:'middle', marginRight:4 }} />}
+                  ? <SpellIcon size={12} className="spell-modal-list-icon is-cantrip" />
+                  : spellType === 'heal'
+                    ? <HeartIcon size={12} className="spell-modal-list-icon is-heal" />
+                    : <SpellIcon size={12} className="spell-modal-list-icon is-damage" />}
                 {spell.name}
-                {isCantrip && <span className="ml-1 text-xs" style={{ color:'var(--blue-light)', opacity:0.7 }}>戏法</span>}
+                {isCantrip && <span className="spell-modal-list-cantrip">戏法</span>}
               </span>
-              <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                {spell.type==='damage' ? spell.damage : spell.heal}
-              </span>
+              {spellOutput && <span className="spell-modal-list-output">{spellOutput}</span>}
             </div>
-            <div className="spell-rule-badges" aria-label={`法术规则 ${spell.name}`}>
-              {badges.map(badge => <span key={`${badge.key}-${badge.label}`}>{badge.label}</span>)}
+            <div className="spell-rule-badges" role="list" aria-label={`法术规则 ${spell.name}`}>
+              {badges.map(badge => (
+                <span key={`${badge.key}-${badge.label}`} role="listitem">
+                  {badge.label}
+                </span>
+              ))}
             </div>
             {targetFit.length > 0 && (
-              <div className="spell-target-fit" aria-label={`目标适配 ${spell.name}`}>
+              <div className="spell-target-fit" role="list" aria-label={`目标适配 ${spell.name}`}>
                 {targetFit.map(item => (
-                  <span key={item.key} className={item.tone || ''} title={item.title || item.label}>
+                  <span key={item.key} role="listitem" className={item.tone || ''} title={item.title || item.label}>
                     {item.label}
                   </span>
                 ))}
               </div>
             )}
             {previewRows.length > 0 && (
-              <div className="spell-rule-preview" aria-label={`法术预览 ${spell.name}`}>
+              <div className="spell-rule-preview" role="list" aria-label={`法术预览 ${spell.name}`}>
                 {previewRows.map(row => (
-                  <span key={row.key}>
+                  <span key={row.key} role="listitem">
                     <b>{row.label}</b>
                     {row.value}
                   </span>
                 ))}
               </div>
             )}
-            {spell.desc && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-dim)' }}>{spell.desc}</p>}
+            {spell.desc && <p className="spell-modal-list-desc">{spell.desc}</p>}
           </div>
         )
       })}
