@@ -4373,9 +4373,10 @@ button.companion-signal-item:focus-visible {
   border-radius: 3px;
   background: rgba(240,64,64,.18);
 }
-.rest-member-meter span {
+.rest-member-meter-fill {
   display: block;
   height: 100%;
+  width: var(--rest-hp-pct, 0%);
   border-radius: inherit;
   background: linear-gradient(90deg, var(--blood-light), var(--emerald-light));
 }

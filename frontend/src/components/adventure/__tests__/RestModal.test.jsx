@@ -41,6 +41,8 @@ describe('RestModal', () => {
     const preview = screen.getByLabelText('休息前队伍状态预览')
     expect(within(preview).getByText('Aria')).toBeInTheDocument()
     expect(within(preview).getByText('HP 5/18')).toBeInTheDocument()
+    const hpMeterFill = preview.querySelector('.rest-member-meter-fill')
+    expect(hpMeterFill).toHaveStyle({ '--rest-hp-pct': '27.77777777777778%' })
     expect(within(preview).getByText('生命骰 1/4')).toBeInTheDocument()
     expect(within(preview).getAllByText('法术位 1st+3').length).toBeGreaterThan(0)
     expect(within(preview).getByText('状态 poisoned')).toBeInTheDocument()

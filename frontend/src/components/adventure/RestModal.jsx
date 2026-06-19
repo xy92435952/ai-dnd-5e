@@ -43,27 +43,30 @@ function PartyRestPreview({ preview }) {
 
   return (
     <div className="rest-party-preview" aria-label="休息前队伍状态预览">
-      {preview.map(member => (
-        <section className="rest-member" key={member.id || member.name}>
-          <div className="rest-member-head">
-            <strong>{member.name}</strong>
-            <span>HP {member.hpCurrent}/{member.hpMax || '?'}</span>
-          </div>
-          <div className="rest-member-meter" aria-hidden="true">
-            <span style={{ width: `${member.hpMax ? Math.max(0, Math.min(100, (member.hpCurrent / member.hpMax) * 100)) : 0}%` }} />
-          </div>
-          <div className="rest-member-meta">
-            {member.hitDiceRemaining != null && member.hitDiceTotal != null && (
-              <span>生命骰 {member.hitDiceRemaining}/{member.hitDiceTotal}</span>
-            )}
-            {member.slotRestores.length > 0 && <span>法术位 {member.slotRestores.join('/')}</span>}
-            {member.conditionChanges.length > 0 && <span>状态 {member.conditionChanges.join('/')}</span>}
-          </div>
-          <ul>
-            {member.effects.map(effect => <li key={effect}>{effect}</li>)}
-          </ul>
-        </section>
-      ))}
+      {preview.map(member => {
+        const hpPct = member.hpMax ? Math.max(0, Math.min(100, (member.hpCurrent / member.hpMax) * 100)) : 0
+        return (
+          <section className="rest-member" key={member.id || member.name}>
+            <div className="rest-member-head">
+              <strong>{member.name}</strong>
+              <span>HP {member.hpCurrent}/{member.hpMax || '?'}</span>
+            </div>
+            <div className="rest-member-meter" aria-hidden="true">
+              <span className="rest-member-meter-fill" style={{ '--rest-hp-pct': `${hpPct}%` }} />
+            </div>
+            <div className="rest-member-meta">
+              {member.hitDiceRemaining != null && member.hitDiceTotal != null && (
+                <span>生命骰 {member.hitDiceRemaining}/{member.hitDiceTotal}</span>
+              )}
+              {member.slotRestores.length > 0 && <span>法术位 {member.slotRestores.join('/')}</span>}
+              {member.conditionChanges.length > 0 && <span>状态 {member.conditionChanges.join('/')}</span>}
+            </div>
+            <ul>
+              {member.effects.map(effect => <li key={effect}>{effect}</li>)}
+            </ul>
+          </section>
+        )
+      })}
     </div>
   )
 }
