@@ -188,7 +188,7 @@ export default function LootModal({
       {error && <p className="checkpoint-error">{error}</p>}
 
       {disabled && (
-        <div role="status" className="multiplayer-sync-guard" style={{ margin: '0 0 10px' }}>
+        <div role="status" className="multiplayer-sync-guard adventure-modal-sync-guard">
           <strong>同步暂停</strong>
           <span>{blockReason}</span>
         </div>

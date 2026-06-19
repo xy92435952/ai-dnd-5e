@@ -336,7 +336,7 @@ export default function LocationMapModal({
           {selectedNode?.encounters?.length > 0 && (
             <div className="location-encounter-list" aria-label="Selected encounter templates" aria-live="polite">
               {disabled && onSelectEncounter && (
-                <div role="status" className="multiplayer-sync-guard" style={{ margin: '0 0 10px' }}>
+                <div role="status" className="multiplayer-sync-guard adventure-modal-sync-guard">
                   <strong>同步暂停</strong>
                   <span>{blockReason}</span>
                 </div>

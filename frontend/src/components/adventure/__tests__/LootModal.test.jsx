@@ -118,7 +118,9 @@ describe('LootModal', () => {
     const claim = await screen.findByRole('button', { name: 'Claim 25 gp' })
     expect(screen.getByText('Gate Token')).toBeInTheDocument()
     expect(screen.getByText('Claim for yourself, share to the party stash, or roll for a winner.')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('同步暂停')
+    const syncGuard = screen.getByRole('status')
+    expect(syncGuard).toHaveClass('multiplayer-sync-guard', 'adventure-modal-sync-guard')
+    expect(syncGuard).toHaveTextContent('同步暂停')
     expect(screen.getByText('房间正在重新同步，请恢复连接后再分配战利品。')).toBeInTheDocument()
 
     const split = screen.getByRole('button', { name: 'Split 25 gp' })

@@ -183,7 +183,9 @@ describe('LocationMapModal', () => {
 
     expect(screen.getAllByText('Construct Patrol').length).toBeGreaterThan(0)
     const encounters = screen.getByLabelText('Selected encounter templates')
-    expect(within(encounters).getByText('同步暂停')).toBeInTheDocument()
+    const syncGuard = within(encounters).getByRole('status')
+    expect(syncGuard).toHaveClass('multiplayer-sync-guard', 'adventure-modal-sync-guard')
+    expect(within(syncGuard).getByText('同步暂停')).toBeInTheDocument()
     expect(within(encounters).getAllByText('房间正在重新同步，请恢复连接后再选择遭遇。').length).toBeGreaterThanOrEqual(2)
 
     const selectButton = screen.getByRole('button', { name: 'Set active' })

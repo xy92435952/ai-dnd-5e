@@ -2032,6 +2032,9 @@
   font-size: 11px;
   overflow-wrap: anywhere;
 }
+.adventure-modal-sync-guard {
+  margin: 0 0 10px;
+}
 
 .dialogue-pending-check {
   display: grid;
