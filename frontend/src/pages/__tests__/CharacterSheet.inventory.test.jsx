@@ -642,10 +642,14 @@ describe('CharacterSheet inventory integration', () => {
     expect(screen.getByRole('option', {
       name: /Ritual Caster.*Requires INT or WIS 13/,
     })).toBeDisabled()
+    const featSelect = screen.getByLabelText('Feat choice')
+    expect(featSelect).toHaveClass('character-sheet-level-up-select')
+    expect(featSelect.closest('.character-sheet-level-up-feat-field')).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText('Increase STR'))
-    fireEvent.change(screen.getByLabelText('Feat choice'), {
+    fireEvent.change(featSelect, {
       target: { value: 'Tough' },
     })
+    expect(screen.getByText('+2 HP per level')).toHaveClass('character-sheet-level-up-feat-note-desc')
     fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
 
     await waitFor(() => {
@@ -698,7 +702,12 @@ describe('CharacterSheet inventory integration', () => {
     fireEvent.change(screen.getByLabelText('Feat choice'), {
       target: { value: 'Resilient' },
     })
-    fireEvent.change(screen.getByLabelText('Feat ability choice'), {
+    expect(screen.getByText('Prerequisite: Choose one ability')).toHaveClass('character-sheet-level-up-feat-note-prereq')
+    expect(screen.getByText('Ability +1 and save proficiency')).toHaveClass('character-sheet-level-up-feat-note-desc')
+    const featAbilitySelect = screen.getByLabelText('Feat ability choice')
+    expect(featAbilitySelect).toHaveClass('character-sheet-level-up-select')
+    expect(featAbilitySelect.closest('.character-sheet-level-up-feat-ability-label')).toBeInTheDocument()
+    fireEvent.change(featAbilitySelect, {
       target: { value: 'dex' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))

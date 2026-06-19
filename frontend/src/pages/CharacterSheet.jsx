@@ -979,10 +979,11 @@ function LevelUpPanel({
       )}
 
       {hasFeatChoices && (
-        <div style={{ marginTop: 10 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11 }}>
+        <div className="character-sheet-level-up-field character-sheet-level-up-feat-field">
+          <label className="character-sheet-level-up-label">
             Feat
             <select
+              className="character-sheet-level-up-select"
               aria-label="Feat choice"
               value={selections.featName}
               onChange={(event) => {
@@ -1001,7 +1002,6 @@ function LevelUpPanel({
                   abilityIncreases: {},
                 }))
               }}
-              style={levelUpSelectStyle}
             >
               <option value="">No feat</option>
               {featPlan.featOptions.map(feat => (
@@ -1013,26 +1013,26 @@ function LevelUpPanel({
             </select>
           </label>
           {selectedFeat?.prereq && (
-            <p style={{ color: 'var(--gold-dim)', fontSize: 10, margin: '6px 0 0' }}>
+            <p className="character-sheet-level-up-feat-note character-sheet-level-up-feat-note-prereq">
               Prerequisite: {selectedFeat.prereq}
             </p>
           )}
           {selectedFeat?.unavailableReason && (
-            <p style={{ color: 'var(--red-light)', fontSize: 10, margin: '6px 0 0' }}>
+            <p className="character-sheet-level-up-feat-note character-sheet-level-up-feat-note-error">
               {selectedFeat.unavailableReason}
             </p>
           )}
           {selectedFeatRequiresAbility && (
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-dim)', fontSize: 11, marginTop: 8 }}>
+            <label className="character-sheet-level-up-label character-sheet-level-up-feat-ability-label">
               Ability
               <select
+                className="character-sheet-level-up-select"
                 aria-label="Feat ability choice"
                 value={normalizeFeatAbility(selections.featAbility)}
                 onChange={(event) => onSelectionChange(prev => ({
                   ...prev,
                   featAbility: event.target.value,
                 }))}
-                style={levelUpSelectStyle}
               >
                 {FEAT_ABILITY_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>{option.label}</option>
@@ -1065,7 +1065,7 @@ function LevelUpPanel({
             </>
           )}
           {selectedFeat?.desc && (
-            <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '6px 0 0' }}>
+            <p className="character-sheet-level-up-feat-note character-sheet-level-up-feat-note-desc">
               {selectedFeat.desc}
             </p>
           )}

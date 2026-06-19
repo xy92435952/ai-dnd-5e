@@ -1077,6 +1077,25 @@
   background: var(--bg);
   color: var(--parchment);
 }
+.character-sheet-level-up-feat-ability-label {
+  margin-top: 8px;
+}
+.character-sheet-level-up-feat-note {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+.character-sheet-level-up-feat-note-prereq {
+  color: var(--gold-dim);
+  font-size: 10px;
+}
+.character-sheet-level-up-feat-note-error {
+  color: var(--red-light);
+  font-size: 10px;
+}
+.character-sheet-level-up-feat-note-desc {
+  color: var(--text-dim);
+  font-size: 11px;
+}
 .character-sheet-level-up-option-detail {
   margin: 6px 0 0;
   color: var(--text-dim);
