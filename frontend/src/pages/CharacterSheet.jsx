@@ -543,100 +543,108 @@ export default function CharacterSheet() {
 
         {/* ── Spell Slots ── */}
         {Object.keys(slotsMax).length > 0 && (
-          <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+          <section className="panel character-sheet-spell-slot-panel" aria-label="法术位">
             <SectionTitle>
-              <MagicIcon size={14} color="#8a5af6" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+              <MagicIcon size={14} className="character-sheet-section-icon" />
               法术位
             </SectionTitle>
-            <div className="character-sheet-spell-slot-grid">
+            <div className="character-sheet-spell-slot-grid" role="list" aria-label="法术位列表">
               {Object.entries(slotsMax).map(([lvl, max]) => {
                 const cur = slotsCur[lvl] ?? max
                 return (
-                  <div key={lvl} style={{
-                    padding: '8px 10px', borderRadius: 6,
-                    background: 'rgba(138,90,246,0.08)',
-                    border: '1px solid rgba(138,90,246,0.2)',
-                    textAlign: 'center',
-                  }}>
-                    <p style={{ color: '#8a5af6', fontSize: 10, fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' }}>
+                  <article
+                    key={lvl}
+                    className="character-sheet-spell-slot-card"
+                    role="listitem"
+                    aria-label={`${lvl[0]}环法术位 ${cur}/${max}`}
+                  >
+                    <p className="character-sheet-spell-slot-level">
                       {lvl[0]}环
                     </p>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 3, marginBottom: 4 }}>
+                    <div className="character-sheet-spell-slot-pips" aria-hidden="true">
                       {Array.from({ length: max }).map((_, i) => (
-                        <div key={i} style={{
-                          width: 10, height: 10, borderRadius: '50%',
-                          background: i < cur ? '#8a5af6' : 'var(--wood)',
-                          border: '1.5px solid rgba(138,90,246,0.5)',
-                        }} />
+                        <span
+                          key={i}
+                          className={`character-sheet-spell-slot-pip${i < cur ? ' filled' : ''}`}
+                        />
                       ))}
                     </div>
-                    <p style={{ color: 'var(--parchment)', fontSize: 12, margin: 0 }}>{cur}/{max}</p>
-                  </div>
+                    <p className="character-sheet-spell-slot-count">{cur}/{max}</p>
+                  </article>
                 )
               })}
             </div>
-          </div>
+          </section>
         )}
 
         {/* ── Known / Prepared Spells ── */}
         {((char.cantrips || []).length > 0 || (char.known_spells || []).length > 0) && (
-          <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+          <section className="panel character-sheet-spell-list-panel" aria-label="法术列表">
             <SectionTitle>
-              <BookIcon size={14} color="#8a5af6" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+              <BookIcon size={14} className="character-sheet-section-icon" />
               法术列表
             </SectionTitle>
 
             {(char.cantrips || []).length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <p style={{ color: 'var(--blue-light)', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
+              <div className="character-sheet-spell-group">
+                <p className="character-sheet-spell-group-title character-sheet-spell-group-title-cantrip">
                   戏法 (无限使用)
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                <div className="character-sheet-spell-tag-list" role="list" aria-label="戏法列表">
                   {char.cantrips.map(s => (
-                    <span key={s} style={{
-                      fontSize: 11, padding: '3px 10px', borderRadius: 12,
-                      background: 'rgba(58,122,170,0.12)', border: '1px solid rgba(58,122,170,0.3)',
-                      color: 'var(--blue-light)',
-                    }}>{s}</span>
+                    <span
+                      key={s}
+                      className="character-sheet-spell-tag character-sheet-spell-tag-cantrip"
+                      role="listitem"
+                      aria-label={s}
+                    >
+                      {s}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
 
             {(char.prepared_spells || []).length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                <p style={{ color: '#c084fc', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
+              <div className="character-sheet-spell-group">
+                <p className="character-sheet-spell-group-title character-sheet-spell-group-title-prepared">
                   已准备法术
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                <div className="character-sheet-spell-tag-list" role="list" aria-label="已准备法术列表">
                   {char.prepared_spells.map(s => (
-                    <span key={s} style={{
-                      fontSize: 11, padding: '3px 10px', borderRadius: 12,
-                      background: 'rgba(138,90,246,0.12)', border: '1px solid rgba(138,90,246,0.3)',
-                      color: '#c084fc',
-                    }}>{s}</span>
+                    <span
+                      key={s}
+                      className="character-sheet-spell-tag character-sheet-spell-tag-prepared"
+                      role="listitem"
+                      aria-label={s}
+                    >
+                      {s}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
 
             {(char.known_spells || []).length > 0 && (
-              <div>
-                <p style={{ color: 'var(--parchment-dark)', fontSize: 10, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase' }}>
+              <div className="character-sheet-spell-group">
+                <p className="character-sheet-spell-group-title character-sheet-spell-group-title-known">
                   已知法术
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                <div className="character-sheet-spell-tag-list" role="list" aria-label="已知法术列表">
                   {char.known_spells.map(s => (
-                    <span key={s} style={{
-                      fontSize: 11, padding: '3px 10px', borderRadius: 12,
-                      background: 'rgba(138,90,246,0.06)', border: '1px solid var(--wood-light)',
-                      color: 'var(--parchment-dark)',
-                    }}>{s}</span>
+                    <span
+                      key={s}
+                      className="character-sheet-spell-tag character-sheet-spell-tag-known"
+                      role="listitem"
+                      aria-label={s}
+                    >
+                      {s}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
-          </div>
+          </section>
         )}
 
         {/* ── Class Features ── */}
