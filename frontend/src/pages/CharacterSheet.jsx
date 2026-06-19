@@ -832,24 +832,29 @@ function LevelUpPanel({
     .find(option => levelUpChoiceValue(option) === selections.fightingStyleName)
 
   return (
-    <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+    <section
+      className="panel character-sheet-level-up-panel"
+      aria-label={`Level Up ${plan.currentLevel} to ${plan.nextLevel}`}
+    >
       <SectionTitle>Level Up</SectionTitle>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: hasProgressionChoices ? 12 : 0 }}>
-        <div>
-          <p style={{ color: 'var(--parchment)', fontSize: 14, fontWeight: 700, margin: 0 }}>
+      <div className={`character-sheet-level-up-header${hasProgressionChoices ? ' has-progress' : ''}`}>
+        <div className="character-sheet-level-up-summary">
+          <p
+            className="character-sheet-level-up-level"
+            aria-label={`Level ${plan.currentLevel} to Level ${plan.nextLevel}`}
+          >
             Lv{plan.currentLevel} -&gt; Lv{plan.nextLevel}
           </p>
-          <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: '3px 0 0' }}>
+          <p className="character-sheet-level-up-class">
             {plan.classKey || 'Class'}{spellPlan?.preparationType ? ` / ${spellPlan.preparationType}` : ''}
           </p>
         </div>
         <button
           type="button"
-          className="btn-fantasy"
+          className="btn-fantasy character-sheet-level-up-submit"
           onClick={onLevelUp}
           disabled={busy || !canSubmitLevelUp}
-          style={{ minWidth: 112 }}
         >
           {busy ? 'Leveling...' : 'Level Up'}
         </button>
@@ -1138,7 +1143,7 @@ function LevelUpPanel({
           {notice}
         </p>
       )}
-    </div>
+    </section>
   )
 }
 

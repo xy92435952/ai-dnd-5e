@@ -302,6 +302,13 @@ describe('CharacterSheet inventory integration', () => {
     )
 
     await screen.findByText('Spellbook Wizard')
+    const levelUpPanel = screen.getByRole('region', { name: 'Level Up 3 to 4' })
+    expect(levelUpPanel).toHaveClass('character-sheet-level-up-panel')
+    expect(levelUpPanel.querySelector('.character-sheet-level-up-header')).toHaveClass('has-progress')
+    expect(within(levelUpPanel).getByText('Lv3 -> Lv4')).toHaveClass('character-sheet-level-up-level')
+    expect(within(levelUpPanel).getByLabelText('Level 3 to Level 4')).toHaveTextContent('Lv3 -> Lv4')
+    expect(within(levelUpPanel).getByText('Wizard / spellbook')).toHaveClass('character-sheet-level-up-class')
+    expect(within(levelUpPanel).getByRole('button', { name: 'Level Up' })).toHaveClass('character-sheet-level-up-submit')
     const spellSlots = screen.getByRole('list', { name: '法术位列表' })
     expect(spellSlots).toHaveClass('character-sheet-spell-slot-grid')
     expect(within(spellSlots).getAllByRole('listitem')).toHaveLength(2)
