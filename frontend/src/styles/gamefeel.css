@@ -8160,6 +8160,29 @@ button.companion-signal-item:focus-visible {
   font-size: 12px;
   line-height: 1.4;
 }
+.combat-overlay-error {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 999;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 8px 16px;
+  border: 1px solid var(--blood);
+  border-radius: 4px;
+  background: rgba(139,32,32,.9);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.35;
+  transform: translateX(-50%);
+  box-shadow: 0 14px 38px rgba(0,0,0,.34);
+}
+.combat-overlay-error span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .reaction-outcome-panel {
   flex: 1 0 100%;
   display: grid;

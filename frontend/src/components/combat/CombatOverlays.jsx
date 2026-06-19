@@ -100,20 +100,9 @@ export default function CombatOverlays({
       />
 
       {error && (
-        <div style={{
-          position: 'fixed',
-          bottom: 16,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          padding: '8px 16px',
-          background: 'rgba(139,32,32,.9)',
-          color: '#fff',
-          border: '1px solid var(--blood)',
-          borderRadius: 4,
-          zIndex: 999,
-          fontSize: 12,
-        }}>
-          ⚠ {error}
+        <div className="combat-overlay-error" role="alert">
+          <span aria-hidden="true">⚠</span>
+          <span>{error}</span>
         </div>
       )}
     </>
