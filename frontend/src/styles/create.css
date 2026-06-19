@@ -936,6 +936,35 @@
   font-size: 10px;
   line-height: 1.5;
 }
+.equipment-language-section {
+  margin-top: 12px;
+}
+.equipment-language-title {
+  margin: 0 0 6px;
+  color: var(--text-bright);
+  font-size: 0.8rem;
+}
+.equipment-language-title[data-complete="true"] {
+  color: var(--emerald-light);
+}
+.equipment-language-fixed {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+.equipment-language-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.equipment-language-option {
+  display: inline-flex;
+}
+.equipment-language-button[data-selected="true"] {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.2);
+  color: var(--gold);
+}
 
 .bg-feat {
   margin-top: 6px;

@@ -114,4 +114,41 @@ describe('CharacterCreateStepEquipment', () => {
     expect(backgroundGear).toHaveTextContent('军衔徽记')
     expect(backgroundGear).toHaveTextContent('赌具')
   })
+
+  it('renders bonus language choices with stable equipment-language chrome', () => {
+    const setBonusLanguages = vi.fn(updater => updater(['Elvish']))
+    render(<CharacterCreateStepEquipment ctx={makeCtx({
+      form: { background: 'Sage', race: 'Half-Elf' },
+      options: {
+        ...makeCtx().options,
+        background_features: {
+          Sage: { languages: 1 },
+        },
+        racial_languages: {
+          'Half-Elf': { fixed: ['Common'], bonus: 1 },
+        },
+        all_languages: ['Common', 'Elvish', 'Dwarvish', 'Draconic'],
+      },
+      bonusLanguages: ['Elvish'],
+      setBonusLanguages,
+    })} />)
+
+    const section = screen.getByRole('region', { name: 'Bonus language choices' })
+    expect(section).toHaveClass('equipment-language-section')
+    expect(section.querySelector('.equipment-language-title')).toHaveAttribute('data-complete', 'false')
+    expect(section.querySelector('.equipment-language-fixed')).toHaveTextContent('Common')
+
+    const list = within(section).getByRole('list', { name: 'Available bonus languages' })
+    expect(list).toHaveClass('equipment-language-options')
+    const option = within(list).getAllByRole('listitem')[0]
+    expect(option).toHaveClass('equipment-language-option')
+    const dwarvish = within(option).getByRole('button', { name: 'Dwarvish' })
+    expect(dwarvish).toHaveClass('skill-btn', 'equipment-language-button')
+    expect(dwarvish).toHaveAttribute('data-selected', 'false')
+
+    fireEvent.click(dwarvish)
+
+    expect(setBonusLanguages).toHaveBeenCalledTimes(1)
+    expect(setBonusLanguages.mock.results[0].value).toEqual(['Elvish', 'Dwarvish'])
+  })
 })

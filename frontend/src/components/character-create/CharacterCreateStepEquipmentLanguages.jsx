@@ -16,35 +16,33 @@ export default function CharacterCreateStepEquipmentLanguages({
   const available = (options.all_languages || []).filter(l => !fixed.includes(l) && !bonusLanguages.includes(l))
 
   return (
-    <div>
-      <p style={{ fontSize: '0.8rem', color: 'var(--text-bright)', marginBottom: '6px' }}>
+    <section className="equipment-language-section" aria-label="Bonus language choices">
+      <p className="equipment-language-title" data-complete={bonusLanguages.length === totalBonus ? 'true' : 'false'}>
         额外语言选择（{bonusLanguages.length}/{totalBonus}）
       </p>
-      <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '8px' }}>
+      <p className="equipment-language-fixed">
         种族固定语言：{fixed.join('、')}
       </p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      <div className="equipment-language-options" role="list" aria-label="Available bonus languages">
         {available.map(lang => {
           const sel = bonusLanguages.includes(lang)
           return (
-            <button
-              key={lang}
-              className="skill-btn"
-              style={{
-                borderColor: sel ? 'var(--gold)' : 'var(--wood-light)',
-                background: sel ? 'rgba(201,168,76,0.2)' : undefined,
-                color: sel ? 'var(--gold)' : 'var(--text-dim)',
-              }}
-              onClick={() => setBonusLanguages(prev =>
-                prev.includes(lang) ? prev.filter(l => l !== lang)
-                  : prev.length >= totalBonus ? prev : [...prev, lang]
-              )}
-            >
-              {sel && '\u2713 '}{lang}
-            </button>
+            <div key={lang} className="equipment-language-option" role="listitem">
+              <button
+                type="button"
+                className={`skill-btn equipment-language-button${sel ? ' selected' : ''}`}
+                data-selected={sel ? 'true' : 'false'}
+                onClick={() => setBonusLanguages(prev =>
+                  prev.includes(lang) ? prev.filter(l => l !== lang)
+                    : prev.length >= totalBonus ? prev : [...prev, lang]
+                )}
+              >
+                {sel && '\u2713 '}{lang}
+              </button>
+            </div>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
