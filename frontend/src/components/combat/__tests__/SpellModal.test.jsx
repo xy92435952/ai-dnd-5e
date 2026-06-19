@@ -46,6 +46,10 @@ describe('SpellModal', () => {
       />
     )
 
+    const dialog = screen.getByRole('dialog', { name: '选择法术' })
+    expect(dialog).toHaveClass('spell-modal-dialog')
+    expect(screen.getByRole('button', { name: '关闭施法面板' })).toHaveClass('spell-modal-close')
+
     await waitFor(() => {
       expect(onSpellHover).toHaveBeenCalledWith(fireBolt)
     })
@@ -380,8 +384,32 @@ describe('SpellModal', () => {
 
     const bardic = await screen.findByRole('button', { name: 'Bardic ON · d8' })
     expect(bardic).toHaveAttribute('aria-pressed', 'true')
+    expect(bardic).toHaveClass('spell-modal-bardic-toggle')
+    expect(bardic).toHaveAttribute('data-active', 'true')
     fireEvent.click(bardic)
     expect(onToggleBardicSpellSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes when the backdrop or close button is used', () => {
+    const onClose = vi.fn()
+
+    render(
+      <SpellModal
+        spells={[]}
+        cantrips={[]}
+        slots={{}}
+        onCast={vi.fn()}
+        onClose={onClose}
+        onSpellHover={vi.fn()}
+      />,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: '选择法术' })
+    fireEvent.click(screen.getByRole('button', { name: '关闭施法面板' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(dialog.parentElement)
+    expect(onClose).toHaveBeenCalledTimes(2)
   })
 
   it('blocks healing spells when an enemy is selected', () => {

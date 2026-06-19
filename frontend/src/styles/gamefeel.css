@@ -6161,6 +6161,70 @@ button.companion-signal-item:focus-visible {
   width: 100%;
   font-size: 12px;
 }
+.spell-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.65);
+}
+.spell-modal-dialog {
+  display: flex;
+  flex-direction: column;
+  min-width: min(340px, 100%);
+  max-width: 420px;
+  max-height: 80vh;
+  padding: 20px;
+  overflow: hidden;
+}
+.spell-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.spell-modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--gold);
+  font-size: 14px;
+  font-weight: 700;
+}
+.spell-modal-title-icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+.spell-modal-close {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.spell-modal-bardic-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.spell-modal-bardic-toggle {
+  border: 1px solid rgba(242,209,120,.45);
+  border-radius: 4px;
+  padding: 5px 9px;
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.spell-modal-bardic-toggle[data-active="true"] {
+  background: rgba(242,209,120,.18);
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;

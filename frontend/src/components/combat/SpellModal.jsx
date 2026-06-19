@@ -101,21 +101,27 @@ export default function SpellModal({
   }), [aoeHover, aoeLockedCenter, cantrips, castDisabledReason, combat, level, playerId, selectedSpell, selectedTarget, slots])
 
   return (
-    <div onClick={onClose} style={{
-      position:'fixed', inset:0, zIndex:500,
-      background:'rgba(0,0,0,0.65)',
-      display:'flex', alignItems:'center', justifyContent:'center',
-    }}>
-      <div onClick={e => e.stopPropagation()} className="panel" style={{
-        padding:20, minWidth:340, maxWidth:420,
-        maxHeight:'80vh', display:'flex', flexDirection:'column',
-      }}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-sm" style={{ color:'var(--gold)' }}>
-            <SpellIcon size={14} color="#8a5af6" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+    <div className="spell-modal-backdrop" onClick={onClose}>
+      <section
+        onClick={e => e.stopPropagation()}
+        className="panel spell-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="spell-modal-title"
+      >
+        <div className="spell-modal-head">
+          <h2 id="spell-modal-title" className="spell-modal-title">
+            <SpellIcon size={14} color="#8a5af6" className="spell-modal-title-icon" />
             选择法术
-          </h3>
-          <button onClick={onClose} style={{ color:'var(--text-dim)', fontSize:18, background:'none', border:'none', cursor:'pointer' }}>x</button>
+          </h2>
+          <button
+            type="button"
+            className="spell-modal-close"
+            aria-label="关闭施法面板"
+            onClick={onClose}
+          >
+            ×
+          </button>
         </div>
 
         <SpellModalTabs
@@ -143,20 +149,13 @@ export default function SpellModal({
         <SpellCastPlan plan={castPlan} onResetAoeCenter={onResetAoeCenter} />
 
         {showBardicSpellSave && (
-          <div aria-label="Bardic spell save" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <div className="spell-modal-bardic-row" aria-label="Bardic spell save">
             <button
               type="button"
+              className="spell-modal-bardic-toggle"
               aria-pressed={useBardicSpellSave}
               onClick={onToggleBardicSpellSave}
-              style={{
-                border: '1px solid rgba(242, 209, 120, .45)',
-                background: useBardicSpellSave ? 'rgba(242, 209, 120, .18)' : 'rgba(255,255,255,.06)',
-                color: 'var(--text)',
-                borderRadius: 4,
-                padding: '5px 9px',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}
+              data-active={useBardicSpellSave ? 'true' : 'false'}
             >
               Bardic {useBardicSpellSave ? 'ON' : 'OFF'} · {selectedTargetBardic.die}
             </button>
@@ -171,7 +170,7 @@ export default function SpellModal({
           onCast={onCast}
           onClose={onClose}
         />
-      </div>
+      </section>
     </div>
   )
 }
