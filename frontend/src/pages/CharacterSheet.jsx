@@ -432,82 +432,89 @@ export default function CharacterSheet() {
         </section>
 
         {/* ── Ability Scores ── */}
-        <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+        <section className="panel character-sheet-ability-panel" aria-label="能力值">
           <SectionTitle>能力值</SectionTitle>
-          <div className="character-sheet-ability-grid">
+          <div className="character-sheet-ability-grid" role="list" aria-label="能力值列表">
             {Object.entries(ABILITY_LABELS).map(([key, label]) => {
               const score = scores[key] || 10
               const mod = mods[key] || 0
               return (
-                <div key={key} className="ability-card">
-                  <p style={{ color: 'var(--gold-dim)', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 4px' }}>
+                <article
+                  key={key}
+                  className="ability-card character-sheet-ability-card"
+                  role="listitem"
+                  aria-label={`${label.zh} ${score} ${fmtMod(mod)}`}
+                >
+                  <p className="label character-sheet-ability-label">
                     {label.zh}
                   </p>
-                  <p style={{ color: 'var(--parchment)', fontSize: 22, fontWeight: 700, margin: '0 0 2px' }}>{score}</p>
-                  <p style={{ color: mod >= 0 ? 'var(--green-light)' : 'var(--red-light)', fontSize: 13, fontWeight: 600, margin: 0 }}>
+                  <p className="score character-sheet-ability-score">{score}</p>
+                  <p className={`mod character-sheet-ability-mod${mod < 0 ? ' neg' : ''}`}>
                     {fmtMod(mod)}
                   </p>
-                </div>
+                </article>
               )
             })}
           </div>
-        </div>
+        </section>
 
         <div className="character-sheet-two-column-grid">
           {/* ── Saving Throws ── */}
-          <div className="panel" style={{ padding: 16 }}>
+          <section className="panel character-sheet-check-panel" aria-label="豁免检定">
             <SectionTitle>豁免检定</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div className="character-sheet-check-list" role="list" aria-label="豁免检定列表">
               {Object.entries(ABILITY_LABELS).map(([key, label]) => {
                 const prof = (char.proficient_saves || []).includes(key)
                 const val = saves[key] || (mods[key] || 0)
                 return (
-                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
-                    <div style={{
-                      width: 10, height: 10, borderRadius: '50%',
-                      background: prof ? 'var(--gold)' : 'transparent',
-                      border: `2px solid ${prof ? 'var(--gold)' : 'var(--wood-light)'}`,
-                      flexShrink: 0,
-                    }} />
-                    <span style={{ color: 'var(--text-dim)', fontSize: 11, width: 32 }}>{label.zh}</span>
-                    <span style={{ color: prof ? 'var(--gold)' : 'var(--parchment)', fontSize: 13, fontWeight: prof ? 700 : 400 }}>
+                  <div
+                    key={key}
+                    className="character-sheet-check-row"
+                    data-proficient={prof ? 'true' : 'false'}
+                    role="listitem"
+                    aria-label={`${label.zh} ${fmtMod(val)}${prof ? ' 熟练' : ''}`}
+                  >
+                    <span className="character-sheet-proficiency-dot" aria-hidden="true" />
+                    <span className="character-sheet-check-label">{label.zh}</span>
+                    <span className="character-sheet-check-value">
                       {fmtMod(val)}
                     </span>
                   </div>
                 )
               })}
             </div>
-          </div>
+          </section>
 
           {/* ── Skills ── */}
-          <div className="panel" style={{ padding: 16 }}>
+          <section className="panel character-sheet-check-panel" aria-label="技能">
             <SectionTitle>技能</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 240, overflowY: 'auto' }}>
+            <div className="character-sheet-skill-list" role="list" aria-label="技能列表">
               {ALL_SKILLS.map(skill => {
                 const prof = (char.proficient_skills || []).includes(skill)
                 const abilKey = SKILL_ABILITY_MAP[skill] || 'str'
                 const mod = mods[abilKey] || 0
                 const val = prof ? mod + profBonus : mod
                 return (
-                  <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: prof ? 'var(--gold)' : 'transparent',
-                      border: `1.5px solid ${prof ? 'var(--gold)' : 'var(--wood-light)'}`,
-                      flexShrink: 0,
-                    }} />
-                    <span style={{ color: 'var(--text-dim)', fontSize: 10, flex: 1 }}>
+                  <div
+                    key={skill}
+                    className="character-sheet-skill-row"
+                    data-proficient={prof ? 'true' : 'false'}
+                    role="listitem"
+                    aria-label={`${skill} ${ABILITY_LABELS[abilKey]?.en || abilKey} ${fmtMod(val)}${prof ? ' 熟练' : ''}`}
+                  >
+                    <span className="character-sheet-proficiency-dot character-sheet-proficiency-dot-sm" aria-hidden="true" />
+                    <span className="character-sheet-skill-label">
                       {skill}
-                      <span style={{ color: 'var(--wood-light)', marginLeft: 4 }}>({ABILITY_LABELS[abilKey]?.en})</span>
+                      <span className="character-sheet-skill-ability">({ABILITY_LABELS[abilKey]?.en})</span>
                     </span>
-                    <span style={{ color: prof ? 'var(--gold)' : 'var(--parchment)', fontSize: 12, fontWeight: prof ? 700 : 400 }}>
+                    <span className="character-sheet-check-value">
                       {fmtMod(val)}
                     </span>
                   </div>
                 )
               })}
             </div>
-          </div>
+          </section>
         </div>
 
         <InventoryPanel
