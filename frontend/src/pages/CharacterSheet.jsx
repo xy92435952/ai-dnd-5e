@@ -278,22 +278,22 @@ export default function CharacterSheet() {
 
   if (error && !char) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: 'var(--red-light)', marginBottom: 16 }}>{error}</p>
-          <button className="btn-fantasy" onClick={() => navigate(-1)}>
-            <BackIcon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> 返回
+      <main className="character-sheet-state-shell" aria-label="角色卡加载失败">
+        <div className="character-sheet-state-panel">
+          <p className="character-sheet-state-error" role="alert">{error}</p>
+          <button type="button" className="btn-fantasy character-sheet-state-back" onClick={() => navigate(-1)}>
+            <BackIcon size={14} className="character-sheet-inline-icon" /> 返回
           </button>
         </div>
-      </div>
+      </main>
     )
   }
 
   if (!char) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-        <p style={{ color: 'var(--gold)', animation: 'pulse 1.5s infinite' }}>加载角色数据...</p>
-      </div>
+      <main className="character-sheet-state-shell" aria-label="角色卡加载中">
+        <p className="character-sheet-loading-text" role="status">加载角色数据...</p>
+      </main>
     )
   }
 
@@ -311,12 +311,53 @@ export default function CharacterSheet() {
   const slotsCur = char.spell_slots || {}
 
   const fmtMod = (v) => v >= 0 ? `+${v}` : `${v}`
+  const coreStats = [
+    {
+      key: 'hp',
+      label: '生命值',
+      value: `${hpCur} / ${hpMax}`,
+      tone: 'hp',
+      valueStyle: { '--character-sheet-stat-color': hpColor },
+      icon: <HeartIcon size={12} color={hpColor} className="character-sheet-stat-icon" />,
+      meter: {
+        value: hpCur,
+        max: hpMax,
+        percent: hpPct,
+        color: hpColor,
+      },
+    },
+    {
+      key: 'ac',
+      label: '护甲等级',
+      value: derived.ac || 10,
+      tone: 'ac',
+      icon: <ShieldIcon size={12} color="var(--blue-light)" className="character-sheet-stat-icon" />,
+    },
+    {
+      key: 'initiative',
+      label: '先攻',
+      value: fmtMod(derived.initiative || 0),
+      tone: 'initiative',
+      icon: <DiceD20Icon size={12} color="var(--gold)" className="character-sheet-stat-icon" />,
+    },
+    {
+      key: 'prof-passive',
+      label: '熟练 / 被动感知',
+      value: (
+        <>
+          +{profBonus} <span className="character-sheet-stat-separator">/</span> {passivePerception}
+        </>
+      ),
+      tone: 'passive',
+      compact: true,
+    },
+  ]
 
   return (
-    <div className="character-sheet-page">
+    <main className="character-sheet-page" aria-label={`角色卡：${char.name}`}>
       {/* Header */}
-      <header className="character-sheet-header">
-        <button className="btn-ghost character-sheet-back" style={{ fontSize: 12 }} onClick={() => navigate(-1)}>
+      <header className="character-sheet-header" aria-label="角色卡顶部栏">
+        <button type="button" className="btn-ghost character-sheet-back" onClick={() => navigate(-1)}>
           ⬅ 返回
         </button>
         <div className="display-title character-sheet-header-title">☙ 角色卡 ❧</div>
@@ -326,65 +367,69 @@ export default function CharacterSheet() {
       {/* Main content */}
       <div className="character-sheet-content">
         {error && (
-          <p style={{ color: '#ffaaaa', fontSize: 12, marginBottom: 12, padding: 8, background: 'rgba(139,32,32,.2)', border: '1px solid var(--blood)', borderRadius: 4 }}>{error}</p>
+          <p className="character-sheet-inline-error" role="alert">{error}</p>
         )}
 
         {/* ── Identity Section ── */}
-        <div className="panel-ornate" style={{ padding: 20, marginBottom: 16 }}>
+        <section className="panel-ornate character-sheet-identity-card" aria-label="角色身份">
           <div className="character-sheet-identity-row">
             <Portrait cls={classKey(char.char_class)} size="lg" />
             <div className="character-sheet-identity-body">
-              <div className="display-title character-sheet-name" style={{ fontSize: 24, marginBottom: 4 }}>{char.name}</div>
-              <div className="eyebrow" style={{ marginBottom: 4 }}>
+              <div className="display-title character-sheet-name">{char.name}</div>
+              <div className="eyebrow character-sheet-identity-meta">
                 {char.race} · {char.char_class} · Lv{char.level}
                 {char.subclass && ` · ${char.subclass}`}
               </div>
               {char.background && (
-                <p style={{ color: 'var(--parchment-dark)', fontSize: 12, margin: 0, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
+                <p className="character-sheet-background">
                   {char.background}
                   {char.alignment && ` · ${char.alignment}`}
                 </p>
               )}
             </div>
           </div>
-        </div>
+        </section>
 
         {/* ── Core Stats Row ── */}
-        <div className="character-sheet-core-grid">
-          {/* HP */}
-          <div className="panel" style={{ padding: 12, textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>
-              <HeartIcon size={12} color={hpColor} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} /> 生命值
-            </p>
-            <div style={{ height: 6, background: 'var(--wood)', borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
-              <div style={{ height: '100%', borderRadius: 3, background: hpColor, width: `${hpPct}%`, transition: 'width 0.4s' }} />
-            </div>
-            <p style={{ color: hpColor, fontSize: 18, fontWeight: 700, margin: 0 }}>{hpCur} / {hpMax}</p>
-          </div>
-          {/* AC */}
-          <div className="panel" style={{ padding: 12, textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>
-              <ShieldIcon size={12} color="var(--blue-light)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} /> 护甲等级
-            </p>
-            <p style={{ color: 'var(--blue-light)', fontSize: 26, fontWeight: 700, margin: 0 }}>{derived.ac || 10}</p>
-          </div>
-          {/* Initiative */}
-          <div className="panel" style={{ padding: 12, textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>
-              <DiceD20Icon size={12} color="var(--gold)" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 3 }} /> 先攻
-            </p>
-            <p style={{ color: 'var(--gold)', fontSize: 26, fontWeight: 700, margin: 0 }}>{fmtMod(derived.initiative || 0)}</p>
-          </div>
-          {/* Proficiency & Passive Perception */}
-          <div className="panel" style={{ padding: 12, textAlign: 'center' }}>
-            <p style={{ color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>
-              熟练 / 被动感知
-            </p>
-            <p style={{ color: 'var(--parchment)', fontSize: 18, fontWeight: 700, margin: 0 }}>
-              +{profBonus} <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>/</span> {passivePerception}
-            </p>
-          </div>
-        </div>
+        <section className="character-sheet-core-grid" aria-label="核心数值" role="list">
+          {coreStats.map(stat => (
+            <article
+              key={stat.key}
+              className={`panel character-sheet-stat-card character-sheet-stat-card-${stat.tone}`}
+              role="listitem"
+              aria-label={`${stat.label} ${typeof stat.value === 'string' || typeof stat.value === 'number' ? stat.value : ''}`.trim()}
+            >
+              <p className="character-sheet-stat-label">
+                {stat.icon}
+                {stat.label}
+              </p>
+              {stat.meter && (
+                <div
+                  className="character-sheet-hp-meter"
+                  role="meter"
+                  aria-label="生命值比例"
+                  aria-valuemin="0"
+                  aria-valuemax={stat.meter.max}
+                  aria-valuenow={stat.meter.value}
+                >
+                  <div
+                    className="character-sheet-hp-meter-fill"
+                    style={{
+                      '--character-sheet-hp-width': `${stat.meter.percent}%`,
+                      '--character-sheet-hp-color': stat.meter.color,
+                    }}
+                  />
+                </div>
+              )}
+              <p
+                className={`character-sheet-stat-value${stat.compact ? ' character-sheet-stat-value-compact' : ''}`}
+                style={stat.valueStyle}
+              >
+                {stat.value}
+              </p>
+            </article>
+          ))}
+        </section>
 
         {/* ── Ability Scores ── */}
         <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
@@ -659,7 +704,7 @@ export default function CharacterSheet() {
         {/* Bottom spacer */}
         <div style={{ height: 32 }} />
       </div>
-    </div>
+    </main>
   )
 }
 
@@ -1123,12 +1168,7 @@ const levelUpSelectStyle = {
 
 function SectionTitle({ children }) {
   return (
-    <p style={{
-      color: 'var(--gold)', fontSize: 12, fontWeight: 700,
-      textTransform: 'uppercase', letterSpacing: '0.1em',
-      margin: '0 0 10px', paddingBottom: 6,
-      borderBottom: '1px solid var(--wood)',
-    }}>
+    <p className="character-sheet-section-title">
       {children}
     </p>
   )

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, cleanup, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 const {
@@ -111,19 +111,50 @@ describe('CharacterSheet inventory integration', () => {
       </MemoryRouter>,
     )
 
+    expect(screen.getByRole('status')).toHaveClass('character-sheet-loading-text')
     await screen.findByText(characterFixture.name)
 
-    expect(container.querySelector('.character-sheet-page')).toBeInTheDocument()
-    expect(container.querySelector('.character-sheet-header')).toBeInTheDocument()
+    expect(screen.getByRole('main', { name: `角色卡：${characterFixture.name}` })).toHaveClass('character-sheet-page')
+    expect(screen.getByRole('banner', { name: '角色卡顶部栏' })).toHaveClass('character-sheet-header')
+    expect(screen.getByRole('button', { name: /返回/ })).toHaveClass('character-sheet-back')
     expect(container.querySelector('.character-sheet-header-title')).toBeInTheDocument()
     expect(container.querySelector('.character-sheet-content')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '角色身份' })).toHaveClass('character-sheet-identity-card')
     expect(container.querySelector('.character-sheet-identity-row')).toBeInTheDocument()
     expect(container.querySelector('.character-sheet-identity-body')).toBeInTheDocument()
-    expect(container.querySelector('.character-sheet-core-grid')).toBeInTheDocument()
-    expect(container.querySelectorAll('.character-sheet-core-grid .panel')).toHaveLength(4)
+    expect(container.querySelector('.character-sheet-name')).toHaveTextContent(characterFixture.name)
+    expect(container.querySelector('.character-sheet-identity-meta')).toHaveTextContent('Human · Fighter · Lv1')
+    const stats = screen.getByRole('list', { name: '核心数值' })
+    expect(stats).toHaveClass('character-sheet-core-grid')
+    expect(within(stats).getAllByRole('listitem')).toHaveLength(4)
+    expect(within(stats).getByRole('listitem', { name: '生命值 4 / 12' })).toHaveClass('character-sheet-stat-card-hp')
+    expect(within(stats).getByRole('meter', { name: '生命值比例' })).toHaveAttribute('aria-valuenow', '4')
+    expect(within(stats).getByRole('listitem', { name: '护甲等级 12' })).toHaveClass('character-sheet-stat-card-ac')
+    expect(within(stats).getByRole('listitem', { name: '先攻 +2' })).toHaveClass('character-sheet-stat-card-initiative')
+    expect(container.querySelector('.character-sheet-stat-separator')).toHaveTextContent('/')
+    expect(container.querySelector('.character-sheet-section-title')).toHaveTextContent('能力值')
     expect(container.querySelector('.character-sheet-ability-grid')).toBeInTheDocument()
     expect(container.querySelectorAll('.character-sheet-ability-grid .ability-card')).toHaveLength(6)
     expect(container.querySelectorAll('.character-sheet-two-column-grid').length).toBeGreaterThanOrEqual(2)
+
+    cleanup()
+  })
+
+  it('renders a stable load-failure shell', async () => {
+    charactersGetMock.mockRejectedValue(new Error('角色不存在'))
+    render(
+      <MemoryRouter initialEntries={['/character/missing']}>
+        <Routes>
+          <Route path="/character/:characterId" element={<CharacterSheet />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const shell = await screen.findByRole('main', { name: '角色卡加载失败' })
+    expect(shell).toHaveClass('character-sheet-state-shell')
+    expect(screen.getByRole('alert')).toHaveClass('character-sheet-state-error')
+    expect(screen.getByRole('alert')).toHaveTextContent('角色不存在')
+    expect(screen.getByRole('button', { name: /返回/ })).toHaveClass('character-sheet-state-back')
 
     cleanup()
   })

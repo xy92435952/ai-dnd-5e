@@ -533,6 +533,36 @@
 }
 
 /* Character sheet */
+.character-sheet-state-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg);
+  box-sizing: border-box;
+  padding: 20px;
+}
+.character-sheet-state-panel {
+  text-align: center;
+}
+.character-sheet-state-error {
+  margin: 0 0 16px;
+  color: var(--red-light);
+}
+.character-sheet-state-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.character-sheet-loading-text {
+  color: var(--gold);
+  animation: pulse 1.5s infinite;
+}
+.character-sheet-inline-icon {
+  display: inline;
+  vertical-align: middle;
+  margin-right: 4px;
+}
 .character-sheet-page {
   min-height: 100vh;
   display: flex;
@@ -552,6 +582,9 @@
   backdrop-filter: blur(6px);
   flex-shrink: 0;
   min-width: 0;
+}
+.character-sheet-back {
+  font-size: 12px;
 }
 .character-sheet-back,
 .character-sheet-header-title {
@@ -579,6 +612,19 @@
   box-sizing: border-box;
   overflow-y: auto;
 }
+.character-sheet-inline-error {
+  margin: 0 0 12px;
+  padding: 8px;
+  border: 1px solid var(--blood);
+  border-radius: 4px;
+  background: rgba(139,32,32,.2);
+  color: #ffaaaa;
+  font-size: 12px;
+}
+.character-sheet-identity-card {
+  padding: 20px;
+  margin-bottom: 16px;
+}
 .character-sheet-identity-row {
   display: flex;
   align-items: center;
@@ -593,7 +639,19 @@
   flex: 1;
 }
 .character-sheet-name {
+  margin-bottom: 4px;
+  font-size: 24px;
   overflow-wrap: anywhere;
+}
+.character-sheet-identity-meta {
+  margin-bottom: 4px;
+}
+.character-sheet-background {
+  margin: 0;
+  color: var(--parchment-dark);
+  font-family: var(--font-script);
+  font-size: 12px;
+  font-style: italic;
 }
 .character-sheet-core-grid,
 .character-sheet-ability-grid,
@@ -607,6 +665,59 @@
   gap: 10px;
   margin-bottom: 16px;
 }
+.character-sheet-stat-card {
+  padding: 12px;
+  text-align: center;
+}
+.character-sheet-stat-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin: 0 0 6px;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.character-sheet-stat-icon {
+  display: inline;
+  vertical-align: middle;
+}
+.character-sheet-hp-meter {
+  height: 6px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--wood);
+}
+.character-sheet-hp-meter-fill {
+  height: 100%;
+  width: var(--character-sheet-hp-width);
+  border-radius: 3px;
+  background: var(--character-sheet-hp-color);
+  transition: width .4s;
+}
+.character-sheet-stat-value {
+  margin: 0;
+  color: var(--character-sheet-stat-color, var(--parchment));
+  font-size: 26px;
+  font-weight: 700;
+}
+.character-sheet-stat-card-hp .character-sheet-stat-value,
+.character-sheet-stat-value-compact {
+  font-size: 18px;
+}
+.character-sheet-stat-card-ac .character-sheet-stat-value {
+  color: var(--blue-light);
+}
+.character-sheet-stat-card-initiative .character-sheet-stat-value {
+  color: var(--gold);
+}
+.character-sheet-stat-separator {
+  color: var(--text-dim);
+  font-size: 12px;
+}
 .character-sheet-ability-grid {
   grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
   gap: 8px;
@@ -619,6 +730,16 @@
 .character-sheet-spell-slot-grid {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 100px), 1fr));
   gap: 8px;
+}
+.character-sheet-section-title {
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--wood);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
 }
 
 @media (max-width: 760px) {
