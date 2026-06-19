@@ -295,6 +295,44 @@
   color: var(--parchment-dark);
   opacity: .85;
 }
+.create-details-top-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.create-details-level-row,
+.create-details-background-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.create-details-background-row {
+  gap: 8px;
+}
+.create-details-level-slider {
+  flex: 1;
+  accent-color: var(--gold);
+}
+.create-details-level-value {
+  width: 32px;
+  color: var(--gold);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+}
+.create-details-level-range {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+.create-details-level-range[data-in-range="true"] {
+  color: var(--green-light);
+}
+@media (max-width: 760px) {
+  .create-details-top-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ── 种族卡片 ─────────────────────────── */
 .create-feat-step {

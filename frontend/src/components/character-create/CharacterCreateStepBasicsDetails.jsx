@@ -14,33 +14,34 @@ export default function CharacterCreateStepBasicsDetails({ ctx }) {
     bonusLanguages,
     setBonusLanguages,
   } = ctx
+  const levelInRecommendedRange = form.level >= module.level_min && form.level <= module.level_max
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div className="create-details-top-grid">
         <Field label="等级（1--20）">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="create-details-level">
+            <div className="create-details-level-row">
               <input
                 type="range"
+                className="create-details-level-slider"
                 min={1}
                 max={20}
                 value={form.level}
-                onChange={e => setForm(f => ({ ...f, level: +e.target.value }))}
-                style={{ flex: 1, accentColor: 'var(--gold)' }}
+                onChange={e => {
+                  const nextLevel = +e.target.value
+                  setForm(f => ({ ...f, level: nextLevel }))
+                }}
               />
-              <span style={{ fontSize: '1.25rem', fontWeight: 'bold', width: '32px', textAlign: 'center', color: 'var(--gold)' }}>
+              <span className="create-details-level-value">
                 {form.level}
               </span>
             </div>
             <p
-              style={{
-                fontSize: '0.75rem',
-                marginTop: '4px',
-                color: form.level >= module.level_min && form.level <= module.level_max ? 'var(--green-light)' : 'var(--text-dim)',
-              }}
+              className="create-details-level-range"
+              data-in-range={levelInRecommendedRange ? 'true' : 'false'}
             >
-              {form.level >= module.level_min && form.level <= module.level_max
+              {levelInRecommendedRange
                 ? `\u2713 推荐范围 ${module.level_min}--${module.level_max}`
                 : `推荐 Lv${module.level_min}--${module.level_max}`}
             </p>
@@ -57,7 +58,7 @@ export default function CharacterCreateStepBasicsDetails({ ctx }) {
       </div>
 
       <Field label="背景（可选）">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="create-details-background-row">
           <Select
             value={form.background}
             options={options.backgrounds}
