@@ -19,48 +19,87 @@ export default function TargetCard({
   const badges = buildTargetBadges(entity, prediction)
   const conditionImpactTags = buildConditionImpactTags(entity.conditions || [], entity.condition_durations || {})
   const wrapClassName = inspect ? 'target-card-wrap has-inspect' : 'target-card-wrap'
+  const hpMax = Number(entity.hp_max || 0)
+  const hpCurrent = Number(entity.hp_current ?? 0)
+  const hpPercent = Math.max(0, Math.min(100, (hpCurrent / (hpMax || 1)) * 100))
+  const targetRoleLabel = entity.is_enemy ? '敌人' : entity.is_companion ? '队友' : '友方'
 
   return (
     <div className={wrapClassName}>
-      <div className="target-card">
+      <section className="target-card" aria-label={`当前目标 ${entity.name}`}>
         <div className="target-head">
           <span className="name">{entity.name}</span>
-          <span className="tag">目标</span>
+          <span className="tag">{targetRoleLabel}</span>
         </div>
-        <div className="target-summary-strip" aria-label={`目标摘要 ${entity.name}`}>
+        <div className="target-summary-strip" role="list" aria-label={`目标摘要 ${entity.name}`}>
           {badges.map(badge => (
-            <span key={`${badge.tone}-${badge.label}`} className={badge.tone || ''} title={badge.title || ''}>
+            <span
+              key={`${badge.tone}-${badge.label}`}
+              className={badge.tone || ''}
+              role="listitem"
+              aria-label={badge.title ? `${badge.label}：${badge.title}` : badge.label}
+              title={badge.title || ''}
+            >
               {badge.label}
             </span>
           ))}
         </div>
-        <div className="target-hp-bar">
-          <div style={{ width: `${Math.max(0, Math.min(100, (entity.hp_current / (entity.hp_max || 1)) * 100))}%` }} />
+        <div
+          className="target-hp-bar"
+          role="meter"
+          aria-label={`${entity.name} 生命值 ${hpCurrent}/${hpMax || '?'}`}
+          aria-valuemin={0}
+          aria-valuemax={hpMax || undefined}
+          aria-valuenow={hpMax ? Math.max(0, Math.min(hpCurrent, hpMax)) : undefined}
+          aria-valuetext={`${hpCurrent}/${hpMax || '?'} HP`}
+        >
+          <div style={{ width: `${hpPercent}%` }} />
         </div>
         <div className="hit-pred">
           <span>HP <b>{entity.hp_current}/{entity.hp_max}</b> / AC <b>{entity.ac}</b></span>
         </div>
 
         {ruleTags.length > 0 && (
-          <div className="target-rule-tags" aria-label={`攻击规则标签 ${entity.name}`}>
+          <div className="target-rule-tags" role="list" aria-label={`攻击规则标签 ${entity.name}`}>
             {ruleTags.map(tag => (
-              <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
+              <span
+                key={tag.key}
+                className={tag.tone || ''}
+                role="listitem"
+                aria-label={tag.title ? `${tag.label}：${tag.title}` : tag.label}
+                title={tag.title}
+              >
+                {tag.label}
+              </span>
             ))}
           </div>
         )}
 
         {conditionImpactTags.length > 0 && (
-          <div className="target-condition-impacts" aria-label={`状态影响 ${entity.name}`}>
+          <div className="target-condition-impacts" role="list" aria-label={`状态影响 ${entity.name}`}>
             {conditionImpactTags.map(tag => (
-              <span key={tag.key} className={tag.tone || ''} title={tag.title}>{tag.label}</span>
+              <span
+                key={tag.key}
+                className={tag.tone || ''}
+                role="listitem"
+                aria-label={tag.title ? `${tag.label}：${tag.title}` : tag.label}
+                title={tag.title}
+              >
+                {tag.label}
+              </span>
             ))}
           </div>
         )}
 
         {rows.length > 0 && (
-          <div className="target-preview">
+          <div className="target-preview" role="list" aria-label={`攻击预览 ${entity.name}`}>
             {rows.map(row => (
-              <div key={`${row.label}-${row.value}`} className={`preview-row ${row.tone || ''}`}>
+              <div
+                key={`${row.label}-${row.value}`}
+                className={`preview-row ${row.tone || ''}`}
+                role="listitem"
+                aria-label={`${row.label}：${row.value}`}
+              >
                 <span>{row.label}</span>
                 <b>{row.value}</b>
               </div>
@@ -69,39 +108,45 @@ export default function TargetCard({
         )}
 
         {inspect && (
-          <div className="enemy-inspect-sheet" aria-label={`敌人检视 ${entity.name}`}>
+          <aside className="enemy-inspect-sheet" aria-label={`敌人检视 ${entity.name}`}>
             <div className="enemy-inspect-head">
               <span>检视</span>
               <b>{inspect.revealLabel}</b>
             </div>
-            <div className="enemy-inspect-grid">
+            <div className="enemy-inspect-grid" role="list" aria-label={`检视数值 ${entity.name}`}>
               {inspect.rows.map(row => (
-                <div key={row.label} className={row.hidden ? 'hidden-stat' : ''}>
+                <div
+                  key={row.label}
+                  className={row.hidden ? 'hidden-stat' : ''}
+                  role="listitem"
+                  aria-label={`${row.label}：${row.value}`}
+                >
                   <span>{row.label}</span>
                   <b>{row.value}</b>
                 </div>
               ))}
             </div>
-            <div className="enemy-inspect-lines">
-              <div className={inspect.actionsHidden ? 'hidden-stat' : ''}>
+            <div className="enemy-inspect-lines" role="list" aria-label={`检视情报 ${entity.name}`}>
+              <div className={inspect.actionsHidden ? 'hidden-stat' : ''} role="listitem" aria-label={`动作：${inspect.actions}`}>
                 <span>动作</span>
                 <b>{inspect.actions}</b>
               </div>
-              <div className={inspect.traitsHidden ? 'hidden-stat' : ''}>
+              <div className={inspect.traitsHidden ? 'hidden-stat' : ''} role="listitem" aria-label={`特性：${inspect.traits}`}>
                 <span>特性</span>
                 <b>{inspect.traits}</b>
               </div>
-              <div className={inspect.tacticsHidden ? 'hidden-stat' : ''}>
+              <div className={inspect.tacticsHidden ? 'hidden-stat' : ''} role="listitem" aria-label={`战术：${inspect.tactics}`}>
                 <span>战术</span>
                 <b>{inspect.tactics}</b>
               </div>
             </div>
             {onInspect && (
-              <div className="enemy-inspect-actions" aria-label={`检视操作 ${entity.name}`}>
+              <div className="enemy-inspect-actions" role="group" aria-label={`检视操作 ${entity.name}`}>
                 <button
                   className="btn-fantasy"
                   disabled={!canInspect || inspectBusy}
                   title="用察觉检视敌人态势"
+                  aria-label={`用察觉检视 ${entity.name}`}
                   onClick={() => onInspect('perception')}
                 >
                   察觉
@@ -110,15 +155,16 @@ export default function TargetCard({
                   className="btn-fantasy"
                   disabled={!canInspect || inspectBusy}
                   title="用调查分析敌人信息"
+                  aria-label={`用调查分析 ${entity.name}`}
                   onClick={() => onInspect('investigation')}
                 >
                   调查
                 </button>
               </div>
             )}
-          </div>
+          </aside>
         )}
-      </div>
+      </section>
     </div>
   )
 }

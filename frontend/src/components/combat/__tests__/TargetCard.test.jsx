@@ -21,13 +21,24 @@ describe('TargetCard', () => {
       />,
     )
 
-    const sheet = screen.getByLabelText('敌人检视 Veiled Stalker')
+    const card = screen.getByRole('region', { name: '当前目标 Veiled Stalker' })
+    expect(within(card).getByRole('meter', { name: 'Veiled Stalker 生命值 11/20' })).toHaveAttribute('aria-valuenow', '11')
+
+    const summary = within(card).getByRole('list', { name: '目标摘要 Veiled Stalker' })
+    expect(within(summary).getByRole('listitem', { name: '敌人' })).toBeInTheDocument()
+    expect(within(summary).getByRole('listitem', { name: '受伤' })).toBeInTheDocument()
+    expect(within(summary).getByRole('listitem', { name: 'AC 14' })).toBeInTheDocument()
+
+    const sheet = within(card).getByLabelText('敌人检视 Veiled Stalker')
     expect(sheet).toHaveTextContent('检视')
     expect(sheet).toHaveTextContent('部分')
     expect(sheet).toHaveTextContent('动作')
     expect(sheet).toHaveTextContent('特性')
     expect(sheet).toHaveTextContent('战术')
     expect(within(sheet).getAllByText('未知').length).toBeGreaterThan(0)
+    expect(within(sheet).getByRole('list', { name: '检视数值 Veiled Stalker' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('list', { name: '检视情报 Veiled Stalker' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('listitem', { name: '动作：未知' })).toBeInTheDocument()
     expect(sheet).not.toHaveTextContent('Shadow Strike')
   })
 
@@ -111,9 +122,9 @@ describe('TargetCard', () => {
       />,
     )
 
-    const actions = screen.getByLabelText('检视操作 Masked Cultist')
-    const perception = within(actions).getByRole('button', { name: '察觉' })
-    const investigation = within(actions).getByRole('button', { name: '调查' })
+    const actions = screen.getByRole('group', { name: '检视操作 Masked Cultist' })
+    const perception = within(actions).getByRole('button', { name: '用察觉检视 Masked Cultist' })
+    const investigation = within(actions).getByRole('button', { name: '用调查分析 Masked Cultist' })
     expect(perception).toHaveAttribute('title', '用察觉检视敌人态势')
     expect(investigation).toHaveAttribute('title', '用调查分析敌人信息')
 
@@ -142,7 +153,11 @@ describe('TargetCard', () => {
       />,
     )
 
-    const summary = screen.getByLabelText('目标摘要 Wounded Hobgoblin')
+    const card = screen.getByRole('region', { name: '当前目标 Wounded Hobgoblin' })
+    expect(within(card).getByRole('meter', { name: 'Wounded Hobgoblin 生命值 6/24' })).toHaveAttribute('aria-valuetext', '6/24 HP')
+
+    const summary = within(card).getByRole('list', { name: '目标摘要 Wounded Hobgoblin' })
+    expect(within(summary).getByRole('listitem', { name: '敌人' })).toBeInTheDocument()
     expect(summary).toHaveTextContent('敌人')
     expect(summary).toHaveTextContent('危急')
     expect(summary).toHaveTextContent('游击')
@@ -154,12 +169,16 @@ describe('TargetCard', () => {
     expect(within(summary).getByTitle('战术定位：游击。倾向攻击边缘或后排，并在安全时撤步拉开距离。')).toBeInTheDocument()
     expect(within(summary).getByTitle('恐慌：来源可见时攻击骰和属性检定处于劣势；不能主动靠近来源。 持续：2 轮。')).toBeInTheDocument()
     expect(within(summary).getByTitle('迟缓：速度和动作选项减少；敏捷豁免可能受罚。')).toBeInTheDocument()
+    expect(within(summary).getByRole('listitem', {
+      name: '游击：战术定位：游击。倾向攻击边缘或后排，并在安全时撤步拉开距离。',
+    })).toBeInTheDocument()
 
-    const impacts = screen.getByLabelText('状态影响 Wounded Hobgoblin')
+    const impacts = within(card).getByRole('list', { name: '状态影响 Wounded Hobgoblin' })
     expect(impacts).toHaveTextContent('攻击劣势')
     expect(impacts).toHaveTextContent('移动受限')
     expect(impacts).toHaveTextContent('集火标记')
     expect(impacts).toHaveTextContent('动作受限')
+    expect(within(impacts).getByRole('listitem', { name: /攻击劣势/ })).toBeInTheDocument()
   })
 
   it('renders readable attack rule tags for cover and roll state', () => {
@@ -190,7 +209,11 @@ describe('TargetCard', () => {
       />,
     )
 
-    const tags = screen.getByLabelText('攻击规则标签 Guard Behind Pillar')
+    const card = screen.getByRole('region', { name: '当前目标 Guard Behind Pillar' })
+    const preview = within(card).getByRole('list', { name: '攻击预览 Guard Behind Pillar' })
+    expect(within(preview).getAllByRole('listitem').length).toBeGreaterThan(0)
+
+    const tags = within(card).getByRole('list', { name: '攻击规则标签 Guard Behind Pillar' })
     expect(tags).toHaveTextContent('劣势')
     expect(tags).toHaveTextContent('劣势: 攻击者中毒 +1')
     expect(tags).toHaveTextContent('3/4 掩护 +5 AC')
@@ -198,5 +221,6 @@ describe('TargetCard', () => {
     expect(within(tags).getByTitle(/掷两个 d20，取较低结果/)).toBeInTheDocument()
     expect(within(tags).getByTitle('劣势来源：攻击者中毒 / 目标隐形。')).toBeInTheDocument()
     expect(within(tags).getByTitle('掩护使本次攻击的 AC 从 14 提升到 19。路径经过 3_0 total_cover。')).toBeInTheDocument()
+    expect(within(tags).getByRole('listitem', { name: /3\/4 掩护 \+5 AC/ })).toBeInTheDocument()
   })
 })
