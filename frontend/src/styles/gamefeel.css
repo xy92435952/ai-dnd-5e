@@ -5850,6 +5850,60 @@ button.companion-signal-item:focus-visible {
 .battlefield-legend-item.aoe i { background: #f0d060; }
 .battlefield-legend-item.move i { background: #5fd8e8; }
 .battlefield-legend-item.help i { background: #8aeaa0; }
+
+.combat-outcome-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 10;
+  min-width: min(320px, calc(100vw - 36px));
+  padding: 24px 40px;
+  border: 2px solid var(--blood);
+  background: rgba(10,6,4,.95);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+.combat-outcome-overlay.victory {
+  border-color: var(--emerald);
+}
+.combat-outcome-mark {
+  margin-bottom: 8px;
+  font-size: 48px;
+  line-height: 1;
+}
+.combat-outcome-title {
+  color: var(--blood-light);
+  font-size: 22px;
+}
+.combat-outcome-overlay.victory .combat-outcome-title {
+  color: var(--emerald-light);
+}
+.thrown-recovery-panel {
+  min-width: 240px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(212,175,55,.28);
+}
+.thrown-recovery-row {
+  font-size: 13px;
+}
+.thrown-recovery-row.pending {
+  color: var(--text-muted);
+}
+.thrown-recovery-row.recovered {
+  color: var(--emerald-light);
+}
+.thrown-recovery-row.error {
+  margin-top: 6px;
+  color: var(--blood-light);
+  font-size: 12px;
+}
+.thrown-recovery-panel .btn-secondary {
+  margin-top: 10px;
+}
+.combat-outcome-return {
+  margin-top: 16px;
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;
