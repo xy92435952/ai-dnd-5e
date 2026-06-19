@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import CombatTacticalContextPanel from '../CombatTacticalContextPanel'
 
 describe('CombatTacticalContextPanel', () => {
@@ -31,27 +31,35 @@ describe('CombatTacticalContextPanel', () => {
       />,
     )
 
-    expect(screen.getByLabelText('战术上下文')).toBeTruthy()
-    expect(screen.getByText('Rune Hall Encounter')).toBeTruthy()
-    expect(screen.getAllByText('目标').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getAllByText('地形').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('风险')).toBeTruthy()
-    expect(screen.getByText('强度')).toBeTruthy()
-    expect(screen.getByText('Seal the rift')).toBeTruthy()
-    expect(screen.getByText('altar / oil slick')).toBeTruthy()
-    expect(screen.getByText('fire jet')).toBeTruthy()
-    expect(screen.getByText('困难 / 目标 中等 / 环境 致命')).toBeTruthy()
-    expect(screen.getByLabelText('战术要素明细')).toBeTruthy()
-    expect(screen.getAllByText('敌职').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('防卫 x1 / 控制 x2').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('掩护').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('危险').length).toBeGreaterThan(0)
-    expect(screen.getByText('altar · 1 格')).toBeTruthy()
-    expect(screen.getByText('oil slick · 1 格')).toBeTruthy()
-    expect(screen.getByText('fire jet · 1 格')).toBeTruthy()
-    expect(screen.getByText('困难地形 1')).toBeTruthy()
-    expect(screen.getByText('环境 高压')).toBeTruthy()
-    expect(screen.getByText('预置 2')).toBeTruthy()
+    const panel = screen.getByLabelText('战术上下文')
+    expect(panel).toHaveTextContent('Rune Hall Encounter')
+
+    const metrics = within(panel).getByRole('list', { name: '战术核心指标' })
+    expect(within(metrics).getByRole('listitem', { name: '目标：Seal the rift' })).toBeInTheDocument()
+    expect(within(metrics).getByRole('listitem', { name: '地形：altar / oil slick' })).toBeInTheDocument()
+    expect(within(metrics).getByRole('listitem', { name: '风险：fire jet' })).toBeInTheDocument()
+    expect(within(metrics).getByRole('listitem', {
+      name: '强度：困难 / 目标 中等 / 环境 致命',
+    })).toBeInTheDocument()
+
+    const details = within(panel).getByRole('list', { name: '战术要素明细' })
+    expect(within(details).getByRole('listitem', { name: '敌职：防卫 x1 / 控制 x2' })).toHaveAttribute(
+      'title',
+      '防卫 x1 / 控制 x2',
+    )
+    expect(within(details).getByRole('listitem', { name: '目标：Seal the rift · 1 格' })).toHaveAttribute('title', 'Seal the rift')
+    expect(within(details).getByRole('listitem', { name: '掩护：altar · 1 格' })).toBeInTheDocument()
+    expect(within(details).getByRole('listitem', { name: '地形：oil slick · 1 格' })).toBeInTheDocument()
+    expect(within(details).getByRole('listitem', { name: '危险：fire jet · 1 格' })).toBeInTheDocument()
+
+    const counts = within(panel).getByRole('list', { name: '战术计数' })
+    expect(within(counts).getByRole('listitem', { name: '掩护 1' })).toBeInTheDocument()
+    expect(within(counts).getByRole('listitem', { name: '困难地形 1' })).toBeInTheDocument()
+    expect(within(counts).getByRole('listitem', { name: '危险 1' })).toBeInTheDocument()
+    expect(within(counts).getByRole('listitem', { name: '目标点 1' })).toBeInTheDocument()
+    expect(within(counts).getByRole('listitem', { name: '防卫 x1 / 控制 x2' })).toBeInTheDocument()
+    expect(within(counts).getByRole('listitem', { name: '环境 高压' })).toBeInTheDocument()
+    expect(within(counts).getByRole('listitem', { name: '预置 2' })).toBeInTheDocument()
   })
 
   it('stays hidden when no context exists', () => {
