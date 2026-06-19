@@ -5904,6 +5904,57 @@ button.companion-signal-item:focus-visible {
 .combat-outcome-return {
   margin-top: 16px;
 }
+
+.combat-death-save-panel {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(240,72,56,.38);
+  background: rgba(46,8,8,.42);
+}
+.combat-death-save-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--red-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.combat-death-save-track {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--parchment-dark);
+  letter-spacing: 0;
+}
+.death-save-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.death-save-dots span {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--death-save-tone);
+  background: transparent;
+}
+.death-save-dots span.filled {
+  background: var(--death-save-tone);
+}
+.combat-death-save-action {
+  padding: 6px 8px;
+  font-size: 10px;
+}
+.combat-death-save-bardic {
+  padding: 5px 8px;
+  font-size: 10px;
+}
+.combat-death-save-hint {
+  color: var(--parchment-dark);
+  font-size: 10px;
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;

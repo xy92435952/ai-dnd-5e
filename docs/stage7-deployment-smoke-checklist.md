@@ -133,6 +133,7 @@ Combat `CombatHudControls`, Combat `CombatHudSlots`, Combat `CombatHudPips`,
 Combat `CombatHudPortrait`, Combat `CombatHudIntentSummary`, Combat `CombatHudSkillBar`,
 Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon`, Combat `TargetCard`,
 Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat `CombatOutcomeOverlay`,
+Combat `CombatDeathSavePanel`,
 Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure
 `AdventureStage`, Adventure `StageLeftFigure`, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure

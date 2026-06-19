@@ -3,17 +3,14 @@ import { getBardicInspiration } from '../../utils/bardicInspiration'
 
 function DeathSaveDots({ count = 0, tone }) {
   return (
-    <span style={{ display: 'inline-flex', gap: 3 }}>
+    <span className="death-save-dots" role="list" aria-label={`已标记 ${count}/3`}>
       {[0, 1, 2].map(index => (
         <span
           key={index}
-          style={{
-            width: 7,
-            height: 7,
-            border: `1px solid ${tone}`,
-            background: index < count ? tone : 'transparent',
-            display: 'inline-block',
-          }}
+          className={index < count ? 'filled' : ''}
+          role="listitem"
+          aria-label={`第 ${index + 1} 格${index < count ? '已标记' : '未标记'}`}
+          style={{ '--death-save-tone': tone }}
         />
       ))}
     </span>
@@ -56,53 +53,41 @@ export default function CombatDeathSavePanel({
       : '轮到你时进行 d20 死亡豁免。'
 
   return (
-    <div style={{
-      padding: '8px',
-      border: '1px solid rgba(240,72,56,.38)',
-      background: 'rgba(46,8,8,.42)',
-      display: 'grid',
-      gap: 6,
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 8,
-        color: 'var(--red-light)',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 10,
-        letterSpacing: '.12em',
-        textTransform: 'uppercase',
-      }}>
+    <section className="combat-death-save-panel" aria-label="死亡豁免状态">
+      <div className="combat-death-save-head">
         <span>{title}</span>
-        <span style={{ color: 'var(--parchment-dark)', letterSpacing: 0 }}>
-          成功 <DeathSaveDots count={successes} tone="#6ae884" /> 失败 <DeathSaveDots count={failures} tone="#f04838" />
-        </span>
+        <div className="combat-death-save-track" role="list" aria-label={`死亡豁免进度：成功 ${successes}/3，失败 ${failures}/3`}>
+          <span role="listitem" aria-label={`成功 ${successes}/3`}>
+            成功 <DeathSaveDots count={successes} tone="#6ae884" />
+          </span>
+          <span role="listitem" aria-label={`失败 ${failures}/3`}>
+            失败 <DeathSaveDots count={failures} tone="#f04838" />
+          </span>
+        </div>
       </div>
       <button
         type="button"
-        className="btn-danger"
+        className="btn-danger combat-death-save-action"
         onClick={onDeathSave}
         disabled={!canRoll}
         title={disabledReason || '掷 d20 死亡豁免'}
-        style={{ fontSize: 10, padding: '6px 8px' }}
       >
         {syncBlocked ? '同步中' : lifeState === 'stable' ? '无需检定' : '掷死亡豁免'}
       </button>
       {bardic && lifeState === 'dying' && (
         <button
           type="button"
-          className={useBardicDeathSave ? 'btn-gold' : 'btn-ghost'}
+          className={`${useBardicDeathSave ? 'btn-gold' : 'btn-ghost'} combat-death-save-bardic`}
           onClick={onToggleBardicDeathSave}
           disabled={!canToggleBardic}
           aria-pressed={Boolean(useBardicDeathSave)}
           title={disabledReason || `Bardic Inspiration ${bardic.die}`}
-          style={{ fontSize: 10, padding: '5px 8px' }}
+          aria-label={`Bardic Inspiration ${useBardicDeathSave ? '开启' : '关闭'}，${bardic.die}`}
         >
           Bardic {useBardicDeathSave ? 'ON' : 'OFF'} · {bardic.die}
         </button>
       )}
-      <div style={{ color: 'var(--parchment-dark)', fontSize: 10 }}>{hint}</div>
-    </div>
+      <div className="combat-death-save-hint" role="status" aria-live="polite">{hint}</div>
+    </section>
   )
 }
