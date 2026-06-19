@@ -22,6 +22,10 @@ const {
     max_players: 4,
     is_multiplayer: true,
     game_started: false,
+    dm_style: {
+      label: '战术叙事',
+      summary: '强调阵位与抉择。',
+    },
     members: [
       { user_id: 'me', display_name: '我', role: 'host', character_id: 'c1', character_name: '战士', is_online: true },
       { user_id: 'u2', display_name: '队友', role: 'player', character_id: null, character_name: null, is_online: true },
@@ -87,7 +91,7 @@ describe('Room multiplayer lobby', () => {
   })
 
   it('shows readiness and party group focus controls', async () => {
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/room/sess-1']}>
         <Routes>
           <Route path="/room/:sessionId" element={<Room />} />
@@ -96,6 +100,23 @@ describe('Room multiplayer lobby', () => {
     )
 
     await screen.findByText(/联机准备/)
+    const roomPage = container.querySelector('.room-page')
+    expect(roomPage?.tagName).toBe('MAIN')
+    expect(roomPage).toHaveAttribute('aria-label', '多人房间大厅')
+    const header = container.querySelector('.room-page-header')
+    expect(header).toHaveAttribute('aria-label', '房间摘要')
+    expect(header?.querySelector('.room-page-title')).toHaveTextContent(roomFixture.save_name)
+    const roomCode = container.querySelector('.room-code-pill')
+    expect(roomCode).toHaveAttribute('role', 'group')
+    expect(roomCode).toHaveAttribute('aria-label', '房间码')
+    expect(roomCode?.querySelector('.room-code-label')).toHaveTextContent('房间码')
+    expect(roomCode?.querySelector('.room-code-value')).toHaveTextContent(roomFixture.room_code)
+    expect(screen.getByRole('button', { name: '复制房间码' })).toHaveClass('room-code-copy')
+    const dmStyle = screen.getByRole('note', { name: 'DM 风格' })
+    expect(dmStyle).toHaveClass('room-dm-style')
+    expect(dmStyle.querySelector('.room-dm-style-label')).toHaveTextContent('DM 风格：战术叙事')
+    expect(dmStyle.querySelector('.room-dm-style-summary')).toHaveTextContent('强调阵位与抉择。')
+    expect(dmStyle.querySelector('.room-dm-style-lock')).toHaveTextContent('开始后不可更改')
     expect(screen.getByText(/1\/2 已认领角色/)).toBeInTheDocument()
     expect(screen.getAllByText(/后巷组/).length).toBeGreaterThan(0)
     expect(screen.getByText(/队友 · 已确认/)).toBeInTheDocument()

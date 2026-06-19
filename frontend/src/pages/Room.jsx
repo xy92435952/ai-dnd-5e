@@ -169,8 +169,8 @@ export default function Room() {
 
   if (!room) {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', position: 'relative', zIndex: 1 }}>
-        <div className="panel-ornate" style={{ padding: 28, fontFamily: 'var(--font-script)', fontStyle: 'italic' }}>
+      <div className="room-loading-shell">
+        <div className="panel-ornate room-loading-panel" role="status" aria-live="polite">
           ✦ 召唤房间信息中… ✦
         </div>
       </div>
@@ -190,42 +190,30 @@ export default function Room() {
   const slotsAvailable = Math.max(0, (room.max_players || 4) - memberCount - aiCompanions.length)
 
   return (
-    <div className="room-page">
-      <div className="room-page-header">
+    <main className="room-page" aria-label="多人房间大厅">
+      <header className="room-page-header" aria-label="房间摘要">
         <div className="eyebrow">✦ 多人房间 ✦</div>
-        <div className="display-title" style={{ fontSize: 28, marginTop: 4 }}>{room.save_name || '冒险房间'}</div>
-        <div className="room-code-pill">
-          <span className="eyebrow" style={{ fontSize: 10 }}>房间码</span>
-          <span className="room-code-value" style={{
-            fontFamily: 'var(--font-mono)', fontSize: 18,
-            color: 'var(--amber)', fontWeight: 700, letterSpacing: '.3em',
-          }}>{room.room_code || '—'}</span>
+        <div className="display-title room-page-title">{room.save_name || '冒险房间'}</div>
+        <div className="room-code-pill" role="group" aria-label="房间码">
+          <span className="eyebrow room-code-label">房间码</span>
+          <span className="room-code-value">{room.room_code || '—'}</span>
           <button
+            type="button"
             onClick={copyCode}
             className="room-code-copy"
-            style={{
-              background: 'transparent', border: 'none', color: 'var(--parchment-dark)',
-              cursor: 'pointer', fontSize: 14, padding: '0 4px',
-            }}
+            aria-label={copied ? '房间码已复制' : '复制房间码'}
+            title={copied ? '房间码已复制' : '复制房间码'}
           >{copied ? '✓' : '⎘'}</button>
         </div>
-      </div>
+      </header>
 
       {room.dm_style && (
-        <div className="panel" style={{
-          maxWidth: 560,
-          margin: '0 auto 16px',
-          padding: '10px 14px',
-          textAlign: 'center',
-          color: 'var(--parchment-dark)',
-          fontSize: 12,
-          lineHeight: 1.6,
-        }}>
-          <span style={{ color: 'var(--amber)', fontFamily: 'var(--font-heading)', letterSpacing: '.08em' }}>
+        <div className="panel room-dm-style" role="note" aria-label="DM 风格">
+          <span className="room-dm-style-label">
             DM 风格：{room.dm_style.label}
           </span>
-          <span style={{ marginLeft: 8 }}>{room.dm_style.summary}</span>
-          <div style={{ marginTop: 4, fontSize: 10, fontFamily: 'var(--font-mono)' }}>开始后不可更改</div>
+          <span className="room-dm-style-summary">{room.dm_style.summary}</span>
+          <div className="room-dm-style-lock">开始后不可更改</div>
         </div>
       )}
 
@@ -278,12 +266,8 @@ export default function Room() {
       />
 
       {error && (
-        <div style={{
-          marginTop: 14, padding: 10, fontSize: 12, color: '#ffaaaa',
-          background: 'rgba(139,32,32,.25)', border: '1px solid var(--blood)',
-          borderRadius: 4, fontFamily: 'var(--font-mono)', textAlign: 'center',
-        }}>{error}</div>
+        <div className="room-error" role="alert">{error}</div>
       )}
-    </div>
+    </main>
   )
 }
