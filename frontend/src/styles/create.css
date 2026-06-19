@@ -812,6 +812,27 @@
   background: rgba(138,90,24,.2);
   border-radius: 2px;
 }
+.create-skills-summary-count,
+.create-skills-summary-selected {
+  color: var(--amber);
+}
+.create-skills-summary[data-complete="true"] .create-skills-summary-selected {
+  color: var(--emerald-light);
+}
+.create-skills-info-button {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--amber);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+}
+.create-skills-info-button:hover,
+.create-skills-info-button:focus-visible {
+  color: var(--gold);
+}
 
 .create-note {
   padding: 10px 14px;

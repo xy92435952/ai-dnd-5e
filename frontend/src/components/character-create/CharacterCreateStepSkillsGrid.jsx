@@ -3,7 +3,7 @@ import { SKILL_INFO, ABILITY_ZH } from '../../data/dnd5e.js'
 
 export default function CharacterCreateStepSkillsGrid({ skillConfig, chosenSkills, toggleSkill, openModal }) {
   return (
-    <div className="skill-grid">
+    <div className="skill-grid create-skills-grid" role="list" aria-label="Skill choices">
       {skillConfig.options.map(skill => {
         const sel = chosenSkills.includes(skill)
         const dis = !sel && chosenSkills.length >= skillConfig.count
@@ -12,6 +12,10 @@ export default function CharacterCreateStepSkillsGrid({ skillConfig, chosenSkill
           <div
             key={skill}
             className={`skill-card ${sel ? 'sel' : ''} ${dis ? 'dis' : ''}`}
+            role="listitem"
+            aria-label={`${skill} ${ABILITY_ZH[skillData?.ability] || skillData?.ability || ''}`}
+            data-selected={sel ? 'true' : 'false'}
+            data-disabled={dis ? 'true' : 'false'}
             onClick={() => !dis && toggleSkill(skill)}
           >
             <div className="s-check">{sel ? '✓' : '○'}</div>
@@ -21,15 +25,8 @@ export default function CharacterCreateStepSkillsGrid({ skillConfig, chosenSkill
                 <button
                   type="button"
                   onClick={e => { e.stopPropagation(); openModal('skill', skill) }}
-                  style={{
-                    marginLeft: 6,
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--amber)',
-                    cursor: 'pointer',
-                    fontSize: 10,
-                    padding: 0,
-                  }}
+                  className="create-skills-info-button"
+                  aria-label={`${skill} details`}
                 >
                   ⓘ
                 </button>

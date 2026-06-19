@@ -161,6 +161,7 @@ Room page shell and member/AI/action sections,
 CharacterCreate feat-choice step,
 CharacterCreate companion details,
 CharacterCreate party-size selector,
+CharacterCreate skill choices,
 CharacterCreate spell choices,
 shared `MagicInitiateChoiceFields`,
 `DialogueHistoryView`, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
@@ -170,7 +171,7 @@ location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 home hub shell, room lobby shell, character-create shell, character-sheet shell, shared adventure page shell, shared adventure modal shell, adventure modal sync guard chrome, checkpoint save-boundary, journal dossier/generation-panel and approval meter, rest confirmation and HP preview meter,
 spell-preparation, dialogue-history, adventure top bar shell, adventure party status HUD and portrait sizing, adventure quest/location HUD,
 adventure stage shell, stage speaker figure, stage dialogue bubble, dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, combat turn-control HUD, combat spell-slot/concentration HUD, combat action-economy HUD, combat identity/status HUD, combat intent summary HUD, combat skill-action HUD, combat log feedback HUD, combat turn banner/action-coach HUD, AI-turn stale reaction cleanup, multiplayer timeline, multiplayer party readiness tones
-coordination, multiplayer speak-turn, room page shell, room multiplayer readiness status, room member management cards, room AI companion cards, room lifecycle action controls, character-create feat-choice step, character-create companion details, character-create party-size selector, character-create spell choices, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat overlay alerts, combat multiplayer turn status, shared multiplayer session status, shared websocket status pill, shared Magic Initiate choice fields, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
+coordination, multiplayer speak-turn, room page shell, room multiplayer readiness status, room member management cards, room AI companion cards, room lifecycle action controls, character-create feat-choice step, character-create companion details, character-create party-size selector, character-create skill choices, character-create spell choices, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat overlay alerts, combat multiplayer turn status, shared multiplayer session status, shared websocket status pill, shared Magic Initiate choice fields, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## CI Release Gate
