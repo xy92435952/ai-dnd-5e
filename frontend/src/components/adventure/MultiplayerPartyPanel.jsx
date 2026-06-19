@@ -41,52 +41,25 @@ export default function MultiplayerPartyPanel({
     {
       key: 'summary',
       label: readinessBreakdown.summaryLabel,
-      color: readinessBreakdown.notReadyNames.length ? 'var(--amber)' : 'var(--emerald-light)',
-      borderColor: readinessBreakdown.notReadyNames.length ? 'rgba(240,208,96,.28)' : 'rgba(91,214,138,.28)',
+      tone: readinessBreakdown.notReadyNames.length ? 'urgent' : 'ready',
     },
     {
       key: 'ready',
       label: readinessBreakdown.readyLabel,
-      color: 'var(--emerald-light)',
-      borderColor: 'rgba(91,214,138,.24)',
+      tone: 'ready',
     },
     {
       key: 'waiting',
       label: readinessBreakdown.waitingLabel,
-      color: 'var(--parchment-dark)',
-      borderColor: 'rgba(226,232,240,.18)',
+      tone: 'waiting',
     },
     {
       key: 'drafting',
       label: readinessBreakdown.draftingLabel,
-      color: 'var(--arcane-light)',
-      borderColor: 'rgba(127,232,248,.18)',
+      tone: 'drafting',
     },
   ].filter(item => item.label)
-  const readinessPromptToneStyles = {
-    urgent: {
-      color: 'var(--amber)',
-      borderColor: 'rgba(240,208,96,.34)',
-      background: 'rgba(240,208,96,.08)',
-    },
-    pending: {
-      color: 'var(--parchment-dark)',
-      borderColor: 'rgba(127,232,248,.24)',
-      background: 'rgba(127,232,248,.06)',
-    },
-    waiting: {
-      color: 'var(--parchment-dark)',
-      borderColor: 'rgba(226,232,240,.2)',
-      background: 'rgba(226,232,240,.05)',
-    },
-    ready: {
-      color: 'var(--emerald-light)',
-      borderColor: 'rgba(91,214,138,.3)',
-      background: 'rgba(91,214,138,.07)',
-    },
-  }
-  const readinessPromptStyle = readinessPromptToneStyles[intentFeedback.readinessPromptTone]
-    || readinessPromptToneStyles.pending
+  const readinessPromptTone = intentFeedback.readinessPromptTone || 'pending'
   const readinessPromptBadge = intentFeedback.readinessReset
     ? '需重新确认'
     : intentFeedback.readinessPromptTone === 'ready' ? '已就绪' : '确认提示'
@@ -193,10 +166,7 @@ export default function MultiplayerPartyPanel({
               key={chip.key}
               title={chip.label}
               className="multiplayer-party-chip"
-              style={{
-                '--party-chip-border': chip.borderColor,
-                color: chip.color,
-              }}
+              data-tone={chip.tone}
             >
               {chip.label}
             </span>
@@ -208,11 +178,7 @@ export default function MultiplayerPartyPanel({
         <div
           aria-label="分队确认提示"
           className="multiplayer-party-prompt"
-          style={{
-            '--party-prompt-border': readinessPromptStyle.borderColor,
-            '--party-prompt-bg': readinessPromptStyle.background,
-            color: readinessPromptStyle.color,
-          }}
+          data-tone={readinessPromptTone}
         >
           <strong>{readinessPromptBadge}</strong>
           <span>{intentFeedback.readinessPrompt}</span>
