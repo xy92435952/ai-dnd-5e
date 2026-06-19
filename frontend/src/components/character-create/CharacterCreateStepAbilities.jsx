@@ -26,6 +26,8 @@ export default function CharacterCreateStepAbilities({ ctx }) {
     multiReqMet,
     multiclassEnKey,
   } = ctx
+  const pointsComplete = pointsLeft === 0
+  const pointsFillWidth = `${((POINT_BUY_TOTAL - pointsLeft) / POINT_BUY_TOTAL) * 100}%`
 
   return (
     <div className="step-pane">
@@ -49,22 +51,20 @@ export default function CharacterCreateStepAbilities({ ctx }) {
       </div>
 
       {scoreMethod === 'pointbuy' && (
-        <div className="points-bar">
+        <div
+          className="points-bar"
+          data-complete={pointsComplete ? 'true' : 'false'}
+          style={{ '--points-fill-width': pointsFillWidth }}
+        >
           <div className="label">剩余点数</div>
-          <div className="points-big" style={{ color: pointsLeft === 0 ? 'var(--emerald-light)' : 'var(--amber)' }}>
+          <div className="points-big">
             {pointsLeft}
           </div>
           <div className="track">
-            <div
-              className="fill"
-              style={{
-                width: `${((POINT_BUY_TOTAL - pointsLeft) / POINT_BUY_TOTAL) * 100}%`,
-                background: pointsLeft === 0 ? 'var(--emerald-light)' : 'var(--gold-gradient)',
-              }}
-            />
+            <div className="fill" />
           </div>
           <div className="label">
-            {pointsLeft === 0 ? '✓ 已分配完毕' : `${POINT_BUY_TOTAL - pointsLeft} / ${POINT_BUY_TOTAL}`}
+            {pointsComplete ? '✓ 已分配完毕' : `${POINT_BUY_TOTAL - pointsLeft} / ${POINT_BUY_TOTAL}`}
           </div>
         </div>
       )}
@@ -143,21 +143,20 @@ export default function CharacterCreateStepAbilities({ ctx }) {
 
       {form.multiclassEnabled && form.multiclass_class && Object.keys(multiReqs).length > 0 && (
         <div
-          style={{
-            fontSize: '0.75rem',
-            padding: '8px',
-            borderRadius: '6px',
-            background: multiReqMet ? 'rgba(42,90,42,0.12)' : 'rgba(139,32,32,0.12)',
-            border: `1px solid ${multiReqMet ? 'var(--green)' : 'var(--red)'}`,
-          }}
+          className="ability-multiclass-requirements"
+          data-met={multiReqMet ? 'true' : 'false'}
         >
-          <span style={{ color: multiReqMet ? 'var(--green-light)' : 'var(--red-light)' }}>
+          <span className="ability-multiclass-title">
             双职业（{CLASS_INFO[multiclassEnKey]?.zh || form.multiclass_class}）要求：
           </span>
           {Object.entries(multiReqs).map(([ab, min]) => {
             const met = (finalScores[ab] || 0) >= min
             return (
-              <span key={ab} style={{ marginLeft: '8px', color: met ? 'var(--green-light)' : 'var(--red-light)' }}>
+              <span
+                key={ab}
+                className="ability-multiclass-requirement"
+                data-met={met ? 'true' : 'false'}
+              >
                 {ABILITY_ZH[ab] || ab}&gt;={min}（{finalScores[ab] || 8}）
               </span>
             )

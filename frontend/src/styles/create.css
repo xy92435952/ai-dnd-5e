@@ -592,6 +592,10 @@
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 700;
+  color: var(--amber);
+}
+.points-bar[data-complete="true"] .points-big {
+  color: var(--emerald-light);
 }
 .points-bar .track {
   flex: 1;
@@ -602,7 +606,12 @@
 }
 .points-bar .track .fill {
   height: 100%;
+  width: var(--points-fill-width, 0%);
+  background: var(--gold-gradient);
   transition: width .3s;
+}
+.points-bar[data-complete="true"] .track .fill {
+  background: var(--emerald-light);
 }
 
 /* ── 能力六格 ─────────────────────────── */
@@ -759,6 +768,28 @@
   font-size: 20px;
   font-weight: 700;
   color: var(--amber);
+}
+.ability-multiclass-requirements {
+  padding: 8px;
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  background: rgba(139,32,32,0.12);
+  font-size: 0.75rem;
+}
+.ability-multiclass-requirements[data-met="true"] {
+  border-color: var(--green);
+  background: rgba(42,90,42,0.12);
+}
+.ability-multiclass-title,
+.ability-multiclass-requirement {
+  color: var(--red-light);
+}
+.ability-multiclass-requirement {
+  margin-left: 8px;
+}
+.ability-multiclass-requirements[data-met="true"] .ability-multiclass-title,
+.ability-multiclass-requirement[data-met="true"] {
+  color: var(--green-light);
 }
 
 /* ── 技能网格 ─────────────────────────── */
