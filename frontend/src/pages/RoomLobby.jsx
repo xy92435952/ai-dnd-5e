@@ -61,48 +61,34 @@ export default function RoomLobby() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'grid', placeItems: 'center',
-      padding: 24, position: 'relative', zIndex: 1,
-    }}>
-      <div className="panel-ornate" style={{
-        padding: '36px 40px',
-        width: 460, maxWidth: '92vw',
-        position: 'relative', textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 36, marginBottom: 6 }}>🎲</div>
-        <div className="display-title" style={{ fontSize: 24, letterSpacing: '.12em' }}>多人联机大厅</div>
-        <div className="eyebrow" style={{ marginTop: 6 }}>✦ 与朋友一起进行 AI 跑团 ✦</div>
+    <main className="room-lobby-page" aria-label="多人联机大厅">
+      <section className="panel-ornate room-lobby-panel" aria-label="多人房间入口">
+        <div className="room-lobby-icon" aria-hidden="true">🎲</div>
+        <div className="display-title room-lobby-title">多人联机大厅</div>
+        <div className="eyebrow room-lobby-subtitle">✦ 与朋友一起进行 AI 跑团 ✦</div>
 
         <Divider>❧</Divider>
 
         {/* 切换 */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 14, padding: 4, background: 'rgba(10,6,2,.5)', borderRadius: 24, border: '1px solid var(--bark-light)' }}>
+        <div className="room-lobby-tabs" role="tablist" aria-label="房间入口模式">
           {[
             { key: 'create', label: '创建房间' },
             { key: 'join',   label: '加入房间' },
           ].map(t => (
             <button
               key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              data-active={tab === t.key ? 'true' : 'false'}
+              className="room-lobby-tab"
               onClick={() => { setTab(t.key); setError('') }}
-              style={{
-                flex: 1, padding: '8px 0',
-                background: tab === t.key ? 'var(--gold-gradient)' : 'transparent',
-                color: tab === t.key ? 'var(--void)' : 'var(--parchment-dark)',
-                fontWeight: tab === t.key ? 700 : 400,
-                border: 'none', borderRadius: 20,
-                fontFamily: 'var(--font-heading)',
-                fontSize: 13, letterSpacing: '.15em',
-                cursor: 'pointer',
-                transition: 'var(--transition)',
-              }}
             >{t.label}</button>
           ))}
         </div>
 
         {tab === 'create' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18, textAlign: 'left' }}>
+          <div className="room-lobby-form" role="group" aria-label="创建房间表单">
             <Label>选择模组</Label>
             <select className="input-fantasy" value={moduleId} onChange={(e) => setModuleId(e.target.value)}>
               <option value="">— 请选择 —</option>
@@ -121,84 +107,69 @@ export default function RoomLobby() {
             </select>
 
             <Label>DM 风格（开始后不可更改）</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+            <div className="room-lobby-dm-style-list" role="list" aria-label="DM 风格选项">
               {DM_STYLES.map(style => {
                 const selected = dmStyle === style.key
                 return (
-                  <button
-                    key={style.key}
-                    type="button"
-                    onClick={() => setDmStyle(style.key)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '9px 10px',
-                      border: `1px solid ${selected ? style.accent : 'var(--bark-light)'}`,
-                      background: selected ? `${style.accent}18` : 'rgba(10,6,2,.35)',
-                      color: 'var(--parchment)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span style={{ color: selected ? style.accent : 'var(--parchment)', fontFamily: 'var(--font-heading)' }}>
-                      {style.label}
-                    </span>
-                    <span style={{ display: 'block', marginTop: 3, color: 'var(--parchment-dark)', fontSize: 11 }}>
-                      {style.summary}
-                    </span>
-                  </button>
+                  <div key={style.key} role="listitem" className="room-lobby-dm-style-item">
+                    <button
+                      type="button"
+                      className="room-lobby-dm-style"
+                      aria-pressed={selected}
+                      data-selected={selected ? 'true' : 'false'}
+                      style={{
+                        '--room-lobby-style-accent': style.accent,
+                        '--room-lobby-style-bg': `${style.accent}18`,
+                      }}
+                      onClick={() => setDmStyle(style.key)}
+                    >
+                      <span className="room-lobby-dm-style-label">
+                        {style.label}
+                      </span>
+                      <span className="room-lobby-dm-style-summary">
+                        {style.summary}
+                      </span>
+                    </button>
+                  </div>
                 )
               })}
             </div>
 
-            <button onClick={onCreate} disabled={busy} className="btn-gold"
-              style={{ marginTop: 10, padding: '12px', fontSize: 14, letterSpacing: '.18em' }}>
+            <button onClick={onCreate} disabled={busy} className="btn-gold room-lobby-submit">
               {busy ? '✦ 创建中… ✦' : '✦ 创建并进入房间 ✦'}
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18, textAlign: 'left' }}>
+          <div className="room-lobby-form" role="group" aria-label="加入房间表单">
             <Label>房间码</Label>
             <input
               type="text"
-              className="input-fantasy"
+              className="input-fantasy room-lobby-code-input"
               autoFocus
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="6 位数字"
-              style={{
-                fontSize: 26, letterSpacing: 10, textAlign: 'center',
-                fontFamily: 'var(--font-mono)', fontWeight: 700,
-                color: 'var(--amber)', padding: '14px',
-              }}
             />
-            <button onClick={onJoin} disabled={busy || roomCode.length !== 6} className="btn-gold"
-              style={{ marginTop: 6, padding: '12px', fontSize: 14, letterSpacing: '.18em' }}>
+            <button onClick={onJoin} disabled={busy || roomCode.length !== 6} className="btn-gold room-lobby-submit room-lobby-join-submit">
               {busy ? '✦ 加入中… ✦' : '✦ 加入房间 ✦'}
             </button>
           </div>
         )}
 
         {error && (
-          <div style={{
-            marginTop: 14, padding: 8, fontSize: 12, color: '#ffaaaa',
-            background: 'rgba(139,32,32,.25)', border: '1px solid var(--blood)',
-            borderRadius: 4, fontFamily: 'var(--font-mono)',
-          }}>{error}</div>
+          <div className="room-lobby-error" role="alert">{error}</div>
         )}
 
-        <button onClick={() => nav('/')} className="btn-ghost" style={{ marginTop: 16, width: '100%', fontSize: 12 }}>
+        <button onClick={() => nav('/')} className="btn-ghost room-lobby-back">
           ⬅ 返回主页
         </button>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }
 
 function Label({ children }) {
   return (
-    <label style={{
-      fontSize: 10, color: 'var(--parchment-dark)',
-      letterSpacing: '.2em', textTransform: 'uppercase',
-      marginTop: 4, fontFamily: 'var(--font-mono)',
-    }}>{children}</label>
+    <label className="room-lobby-label">{children}</label>
   )
 }
