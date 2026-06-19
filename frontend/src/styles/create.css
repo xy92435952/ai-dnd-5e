@@ -297,6 +297,64 @@
 }
 
 /* ── 种族卡片 ─────────────────────────── */
+.create-feat-step {
+  gap: 16px;
+}
+.create-feat-choice-card {
+  padding: 12px 16px;
+  border: 1px solid var(--wood-light);
+  border-radius: 8px;
+  background: rgba(10,8,6,.3);
+}
+.create-feat-choice-title {
+  margin: 0 0 8px;
+  color: var(--text-bright);
+  font-size: .8rem;
+  font-weight: 600;
+}
+.create-feat-choice-toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.create-feat-choice-toggle {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: .75rem;
+}
+.create-feat-choice-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.create-feat-select {
+  margin-bottom: 0;
+}
+.create-feat-ability-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: .65rem;
+}
+.create-feat-note {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+.create-feat-note-prereq {
+  color: var(--gold-dim);
+  font-size: .65rem;
+}
+.create-feat-note-error {
+  color: var(--red-light);
+  font-size: .65rem;
+}
+.create-feat-note-desc {
+  color: var(--text-dim);
+  font-size: .7rem;
+}
+
 .race-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

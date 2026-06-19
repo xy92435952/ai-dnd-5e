@@ -36,7 +36,7 @@ export default function CharacterCreateStepFeats({ ctx }) {
   if (!needsASI) return null
 
   return (
-    <div className="step-pane">
+    <div className="step-pane create-feat-step">
       <div className="step-title">✧ 第六章 · 淬炼与专长 ✧</div>
       <div className="step-sub">
         Lv{form.level} — {asiCount} 次属性提升 (ASI) 或专长选择
@@ -64,20 +64,18 @@ export default function CharacterCreateStepFeats({ ctx }) {
         return (
           <div
             key={i}
-            style={{
-              padding: '12px 16px',
-              borderRadius: '8px',
-              border: '1px solid var(--wood-light)',
-              background: 'rgba(10,8,6,0.3)',
-            }}
+            className="create-feat-choice-card"
+            role="group"
+            aria-label={`ASI or feat choice ${i + 1}`}
           >
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-bright)', marginBottom: '8px', fontWeight: 600 }}>
+            <p className="create-feat-choice-title">
               第 {i + 1} 次选择（Lv {asiLevels[i]}）
             </p>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <div className="create-feat-choice-toggle-row">
               <button
-                className={isASI ? 'btn-gold' : 'btn-fantasy'}
-                style={{ flex: 1, padding: '6px 12px', fontSize: '0.75rem' }}
+                type="button"
+                className={`${isASI ? 'btn-gold' : 'btn-fantasy'} create-feat-choice-toggle`}
+                data-selected={isASI ? 'true' : 'false'}
                 onClick={() => {
                   const next = [...chosenFeats]
                   next[i] = { name: '__ASI__', desc: '两项属性各+1' }
@@ -87,8 +85,9 @@ export default function CharacterCreateStepFeats({ ctx }) {
                 +2 属性提升
               </button>
               <button
-                className={(feat && !isASI) ? 'btn-gold' : 'btn-fantasy'}
-                style={{ flex: 1, padding: '6px 12px', fontSize: '0.75rem' }}
+                type="button"
+                className={`${(feat && !isASI) ? 'btn-gold' : 'btn-fantasy'} create-feat-choice-toggle`}
+                data-selected={(feat && !isASI) ? 'true' : 'false'}
                 onClick={() => {
                   const usedNames = chosenFeats.filter(f => f && f.name !== '__ASI__').map(f => f.name)
                   const available = Object.entries(options.feats || {})
@@ -113,11 +112,10 @@ export default function CharacterCreateStepFeats({ ctx }) {
               </button>
             </div>
             {feat && !isASI && (
-              <div>
+              <div className="create-feat-choice-fields">
                 <select
                   value={feat.name}
-                  className="input-fantasy"
-                  style={{ marginBottom: '4px' }}
+                  className="input-fantasy create-feat-select"
                   onChange={e => {
                     const next = [...chosenFeats]
                     next[i] = buildFeatSelection(e.target.value, magicInitiateSpellOptions)
@@ -148,10 +146,10 @@ export default function CharacterCreateStepFeats({ ctx }) {
                   })}
                 </select>
                 {requiresAbility && (
-                  <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  <label className="create-feat-ability-label">
                     Ability
                     <select
-                      className="input-fantasy"
+                      className="input-fantasy create-feat-ability-select"
                       value={normalizeFeatAbility(feat.ability)}
                       onChange={e => {
                         const next = [...chosenFeats]
@@ -178,16 +176,16 @@ export default function CharacterCreateStepFeats({ ctx }) {
                   />
                 )}
                 {featInfo?.prereq && (
-                  <p style={{ fontSize: '0.65rem', color: 'var(--gold-dim)', marginTop: '4px' }}>
+                  <p className="create-feat-note create-feat-note-prereq">
                     Prerequisite: {featInfo.prereq}
                   </p>
                 )}
                 {selectionFailure && (
-                  <p style={{ fontSize: '0.65rem', color: 'var(--red-light)', marginTop: '4px' }}>
+                  <p className="create-feat-note create-feat-note-error">
                     {selectionFailure}
                   </p>
                 )}
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                <p className="create-feat-note create-feat-note-desc">
                   {featInfo?.desc}
                 </p>
               </div>
