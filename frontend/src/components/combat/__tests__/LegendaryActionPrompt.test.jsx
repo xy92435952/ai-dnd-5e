@@ -31,6 +31,10 @@ describe('LegendaryActionPrompt', () => {
     )
 
     const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    expect(dialog).toHaveAttribute('aria-describedby', 'legendary-action-prompt-context')
+    expect(within(dialog).getByRole('group', { name: '可用传奇动作' })).toBeInTheDocument()
+    const actionList = within(dialog).getByRole('list', { name: '传奇动作选项' })
+    expect(within(actionList).getByRole('listitem')).toHaveClass('legendary-action-prompt-item')
     expect(dialog).toHaveTextContent('传奇动作')
     expect(dialog).toHaveTextContent('Ancient Gatekeeper · 2/3')
     expect(dialog).toHaveTextContent('Detect')
@@ -223,6 +227,9 @@ describe('LegendaryActionPrompt', () => {
     )
 
     const dialog = screen.getByRole('dialog', { name: '巢穴动作窗口' })
+    expect(dialog).toHaveAttribute('aria-describedby', 'lair-action-prompt-context')
+    expect(within(dialog).getByRole('group', { name: '可用巢穴动作' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('list', { name: '巢穴动作选项' })).toBeInTheDocument()
     expect(dialog).toHaveTextContent('巢穴动作')
     expect(dialog).toHaveTextContent('Cracked Shrine · 第 2 轮')
     expect(dialog).toHaveTextContent('范围 15ft radius')
@@ -295,5 +302,30 @@ describe('LegendaryActionPrompt', () => {
     const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
     expect(dialog).toHaveTextContent('Wing Gust')
     expect(dialog).toHaveTextContent('目标 Smoke Sentinel · 力量豁免 · DC 16 · 失败推开 5ft')
+  })
+
+  it('reports empty legendary action windows as a status while preserving skip', () => {
+    const onSkip = vi.fn()
+    render(
+      <LegendaryActionPrompt
+        prompt={{
+          actor_id: 'dragon-1',
+          actor_name: 'Ancient Gatekeeper',
+          remaining: 0,
+          uses: 3,
+          actions: [],
+        }}
+        onSkip={onSkip}
+      />,
+    )
+
+    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    expect(dialog.querySelector('.legendary-action-prompt-card')).toBeTruthy()
+    const status = within(dialog).getByRole('status')
+    expect(status).toHaveClass('legendary-action-prompt-empty')
+    expect(status).toHaveTextContent('当前没有可用传奇动作。')
+
+    fireEvent.click(within(dialog).getByRole('button', { name: '跳过传奇动作' }))
+    expect(onSkip).toHaveBeenCalledWith(expect.objectContaining({ actor_id: 'dragon-1' }))
   })
 })

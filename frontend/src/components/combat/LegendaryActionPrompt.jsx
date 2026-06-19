@@ -21,15 +21,23 @@ export default function LegendaryActionPrompt({
     ? `${actorName}${prompt.round_number ? ` · 第 ${prompt.round_number} 轮` : ''}`
     : `${actorName} · ${remaining}/${uses}`
   const skipLabel = isLair ? '跳过巢穴动作' : '跳过传奇动作'
+  const titleId = isLair ? 'lair-action-prompt-title' : 'legendary-action-prompt-title'
+  const contextId = isLair ? 'lair-action-prompt-context' : 'legendary-action-prompt-context'
 
   return (
-    <div className="reaction-prompt-layer" role="dialog" aria-modal="true" aria-label={dialogLabel}>
-      <section className="reaction-prompt-card legendary-action-prompt-card">
+    <div
+      className="reaction-prompt-layer"
+      role="dialog"
+      aria-modal="true"
+      aria-label={dialogLabel}
+      aria-describedby={contextId}
+    >
+      <section className="reaction-prompt-card legendary-action-prompt-card" data-variant={isLair ? 'lair' : 'legendary'}>
         <header className="reaction-prompt-head">
           <span className="reaction-prompt-icon" aria-hidden="true">*</span>
           <div>
-            <p className="reaction-prompt-title">{title}</p>
-            <p className="reaction-prompt-context">{contextLine}</p>
+            <p id={titleId} className="reaction-prompt-title">{title}</p>
+            <p id={contextId} className="reaction-prompt-context">{contextLine}</p>
           </div>
         </header>
 
@@ -39,28 +47,34 @@ export default function LegendaryActionPrompt({
           </div>
         )}
 
-        <div className="reaction-prompt-actions">
-          {actions.length > 0 ? actions.map(action => {
-            const targetRef = Array.isArray(action.target_ids) && action.target_ids.length
-              ? action.target_ids
-              : action.target_id
-            return (
-              <button
-                key={action.id || action.name}
-                className="btn-gold reaction-prompt-action"
-                title={legendaryActionTitle(action)}
-                onClick={() => onUse?.(isLair ? (prompt.source_id || prompt.actor_id) : prompt.actor_id, action.id, targetRef)}
-              >
-                <span>{action.name || action.id}</span>
-                <small>{legendaryActionMeta(action)}</small>
-              </button>
-            )
-          }) : (
-            <div style={{ color: 'var(--parchment-dark)', fontSize: 12 }}>
+        <div className="reaction-prompt-actions" role="group" aria-label={isLair ? '可用巢穴动作' : '可用传奇动作'}>
+          {actions.length > 0 ? (
+            <div className="legendary-action-prompt-list" role="list" aria-label={isLair ? '巢穴动作选项' : '传奇动作选项'}>
+              {actions.map(action => {
+                const targetRef = Array.isArray(action.target_ids) && action.target_ids.length
+                  ? action.target_ids
+                  : action.target_id
+                return (
+                  <div className="legendary-action-prompt-item" role="listitem" key={action.id || action.name}>
+                    <button
+                      type="button"
+                      className="btn-gold reaction-prompt-action"
+                      title={legendaryActionTitle(action)}
+                      onClick={() => onUse?.(isLair ? (prompt.source_id || prompt.actor_id) : prompt.actor_id, action.id, targetRef)}
+                    >
+                      <span>{action.name || action.id}</span>
+                      <small>{legendaryActionMeta(action)}</small>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="legendary-action-prompt-empty" role="status">
               {isLair ? '当前没有可用巢穴动作。' : '当前没有可用传奇动作。'}
             </div>
           )}
-          <button className="btn-ghost reaction-prompt-decline" onClick={() => onSkip?.(prompt)}>
+          <button type="button" className="btn-ghost reaction-prompt-decline" onClick={() => onSkip?.(prompt)}>
             {skipLabel}
           </button>
         </div>

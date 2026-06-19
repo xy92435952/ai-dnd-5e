@@ -131,6 +131,7 @@ cd ..
 `npm run test:stage7:reaction` includes the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,
+Combat `LegendaryActionPrompt`,
 Combat `SpellModal`,
 Combat `SpellModalTabs`,
 Combat `SpellModalList`,
@@ -157,7 +158,7 @@ location/encounter-template UI coverage, top/bottom tool-entry coverage, and
 shared adventure modal shell, checkpoint save-boundary, journal dossier/generation-panel, rest confirmation,
 spell-preparation, dialogue-history, adventure party status HUD, adventure quest/location HUD,
 adventure stage shell, stage speaker figure, stage dialogue bubble, dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, combat turn-control HUD, combat spell-slot/concentration HUD, combat action-economy HUD, combat identity/status HUD, combat intent summary HUD, combat skill-action HUD, combat log feedback HUD, combat turn banner/action-coach HUD, AI-turn stale reaction cleanup, multiplayer timeline, multiplayer party
-coordination, multiplayer speak-turn, combat smite prompt, combat maneuver modal, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
+coordination, multiplayer speak-turn, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
 ## CI Release Gate

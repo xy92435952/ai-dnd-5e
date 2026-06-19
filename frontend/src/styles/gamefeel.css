@@ -8051,6 +8051,12 @@ button.companion-signal-item:focus-visible {
   box-shadow: 0 0 0 1px rgba(255,210,96,.18), 0 18px 48px rgba(0,0,0,.55), 0 0 34px -6px rgba(240,88,40,.75);
   pointer-events: auto;
 }
+.legendary-action-prompt-card {
+  border-color: rgba(240,208,96,.62);
+}
+.legendary-action-prompt-card[data-variant="lair"] {
+  border-color: rgba(95,216,232,.58);
+}
 .reaction-prompt-head {
   display: flex;
   gap: 10px;
@@ -8107,6 +8113,13 @@ button.companion-signal-item:focus-visible {
   gap: 7px;
   margin-top: 12px;
 }
+.legendary-action-prompt-list {
+  display: grid;
+  gap: 7px;
+}
+.legendary-action-prompt-item {
+  min-width: 0;
+}
 .reaction-prompt-action {
   display: flex;
   align-items: center;
@@ -8132,6 +8145,14 @@ button.companion-signal-item:focus-visible {
   color: rgba(124,42,24,.86);
 }
 .reaction-prompt-empty {
+  border: 1px solid rgba(213,184,121,.26);
+  background: rgba(0,0,0,.18);
+  padding: 8px;
+  color: var(--parchment-dark);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.legendary-action-prompt-empty {
   border: 1px solid rgba(213,184,121,.26);
   background: rgba(0,0,0,.18);
   padding: 8px;
