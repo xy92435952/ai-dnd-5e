@@ -1189,6 +1189,30 @@
   letter-spacing: .25em;
 }
 
+.companions-party-size {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--parchment-dark);
+  letter-spacing: .15em;
+}
+.companions-party-size-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.companions-party-size-button {
+  padding: 4px 12px;
+  font-size: 11px;
+}
+.companions-party-size-button[data-selected="true"] {
+  cursor: default;
+}
+
 .companions-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
