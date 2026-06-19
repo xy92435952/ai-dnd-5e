@@ -103,6 +103,25 @@ describe('CharacterSheet inventory integration', () => {
   })
 
   it('renders responsive sheet shell and major stat grids', async () => {
+    const detailedCharacter = {
+      ...characterFixture,
+      fighting_style: 'Defense',
+      feats: [{ name: 'Alert' }],
+      subclass: 'Champion',
+      languages: ['Common', 'Elvish'],
+      tool_proficiencies: ['Thieves Tools'],
+      conditions: ['Poisoned'],
+      condition_durations: { Poisoned: 2 },
+      derived: {
+        ...characterFixture.derived,
+        caster_type: 'martial',
+      },
+    }
+    charactersGetMock.mockResolvedValue(detailedCharacter)
+    gameGetSessionMock.mockResolvedValue({
+      player: detailedCharacter,
+      companions: [{ id: 'ally-1', name: '测试队友' }],
+    })
     const { container } = render(
       <MemoryRouter initialEntries={['/character/char-1?sessionId=sess-1']}>
         <Routes>
@@ -112,9 +131,9 @@ describe('CharacterSheet inventory integration', () => {
     )
 
     expect(screen.getByRole('status')).toHaveClass('character-sheet-loading-text')
-    await screen.findByText(characterFixture.name)
+    await screen.findByText(detailedCharacter.name)
 
-    expect(screen.getByRole('main', { name: `角色卡：${characterFixture.name}` })).toHaveClass('character-sheet-page')
+    expect(screen.getByRole('main', { name: `角色卡：${detailedCharacter.name}` })).toHaveClass('character-sheet-page')
     expect(screen.getByRole('banner', { name: '角色卡顶部栏' })).toHaveClass('character-sheet-header')
     expect(screen.getByRole('button', { name: /返回/ })).toHaveClass('character-sheet-back')
     expect(container.querySelector('.character-sheet-header-title')).toBeInTheDocument()
@@ -152,6 +171,21 @@ describe('CharacterSheet inventory integration', () => {
     expect(athletics).toHaveClass('character-sheet-skill-row')
     expect(within(athletics).getByText('(STR)')).toHaveClass('character-sheet-skill-ability')
     expect(container.querySelectorAll('.character-sheet-two-column-grid').length).toBeGreaterThanOrEqual(2)
+    const features = screen.getByRole('list', { name: '职业特性列表' })
+    expect(features).toHaveClass('character-sheet-feature-list')
+    expect(within(features).getByRole('listitem', { name: '战斗风格 Defense' })).toHaveAttribute('data-tone', 'red')
+    expect(within(features).getByRole('listitem', { name: '专长 Alert' })).toHaveAttribute('data-tone', 'gold')
+    expect(within(features).getByRole('listitem', { name: '子职业 Champion' })).toHaveAttribute('data-tone', 'arcane')
+    expect(within(features).getByRole('listitem', { name: '施法类型 martial' })).toHaveAttribute('data-tone', 'blue')
+    const languages = screen.getByRole('list', { name: '语言列表' })
+    expect(languages).toHaveClass('character-sheet-proficiency-tag-list')
+    expect(within(languages).getByRole('listitem', { name: 'Elvish' })).toHaveClass('character-sheet-proficiency-tag')
+    const tools = screen.getByRole('list', { name: '工具熟练列表' })
+    expect(tools).toHaveClass('character-sheet-proficiency-tag-list')
+    expect(within(tools).getByRole('listitem', { name: 'Thieves Tools' })).toHaveClass('character-sheet-proficiency-tag')
+    const conditions = screen.getByRole('list', { name: '状态条件列表' })
+    expect(conditions).toHaveClass('character-sheet-condition-list')
+    expect(within(conditions).getByRole('listitem', { name: 'Poisoned 2 回合' })).toHaveClass('character-sheet-condition-tag')
 
     cleanup()
   })

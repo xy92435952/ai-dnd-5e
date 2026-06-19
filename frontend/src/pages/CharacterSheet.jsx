@@ -648,72 +648,109 @@ export default function CharacterSheet() {
         )}
 
         {/* ── Class Features ── */}
-        <div className="panel" style={{ padding: 16, marginBottom: 16 }}>
+        <section className="panel character-sheet-feature-panel" aria-label="职业特性">
           <SectionTitle>职业特性</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="character-sheet-feature-list" role="list" aria-label="职业特性列表">
             {char.fighting_style && (
-              <FeatureTag label="战斗风格" value={char.fighting_style} color="var(--red-light)" />
+              <FeatureTag
+                label="战斗风格"
+                value={char.fighting_style}
+                tone="red"
+              />
             )}
             {(char.feats || []).map((f, i) => (
-              <FeatureTag key={i} label="专长" value={typeof f === 'string' ? f : f.name} color="var(--gold)" />
+              <FeatureTag
+                key={i}
+                label="专长"
+                value={typeof f === 'string' ? f : f.name}
+                tone="gold"
+              />
             ))}
             {char.subclass && (
-              <FeatureTag label="子职业" value={char.subclass} color="#8a5af6" />
+              <FeatureTag
+                label="子职业"
+                value={char.subclass}
+                tone="arcane"
+              />
             )}
             {derived.caster_type && (
-              <FeatureTag label="施法类型" value={derived.caster_type} color="var(--blue-light)" />
+              <FeatureTag
+                label="施法类型"
+                value={derived.caster_type}
+                tone="blue"
+              />
             )}
             {!char.fighting_style && !(char.feats || []).length && !char.subclass && !derived.caster_type && (
-              <p style={{ color: 'var(--text-dim)', fontSize: 12 }}>暂无特殊职业特性</p>
+              <p className="character-sheet-empty-note">暂无特殊职业特性</p>
             )}
           </div>
-        </div>
+        </section>
 
         {/* ── Languages & Tools ── */}
         <div className="character-sheet-two-column-grid">
-          <div className="panel" style={{ padding: 16 }}>
+          <section className="panel character-sheet-proficiency-panel" aria-label="语言">
             <SectionTitle>语言</SectionTitle>
             {(char.languages || []).length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {char.languages.map(l => <span key={l} className="tag tag-info">{l}</span>)}
+              <div className="character-sheet-proficiency-tag-list" role="list" aria-label="语言列表">
+                {char.languages.map(l => (
+                  <span
+                    key={l}
+                    className="tag tag-info character-sheet-proficiency-tag"
+                    role="listitem"
+                    aria-label={l}
+                  >
+                    {l}
+                  </span>
+                ))}
               </div>
             ) : (
-              <p style={{ color: 'var(--text-dim)', fontSize: 12 }}>Common</p>
+              <p className="character-sheet-empty-note">Common</p>
             )}
-          </div>
-          <div className="panel" style={{ padding: 16 }}>
+          </section>
+          <section className="panel character-sheet-proficiency-panel" aria-label="工具熟练">
             <SectionTitle>工具熟练</SectionTitle>
             {(char.tool_proficiencies || []).length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {char.tool_proficiencies.map(t => <span key={t} className="tag tag-info">{t}</span>)}
+              <div className="character-sheet-proficiency-tag-list" role="list" aria-label="工具熟练列表">
+                {char.tool_proficiencies.map(t => (
+                  <span
+                    key={t}
+                    className="tag tag-info character-sheet-proficiency-tag"
+                    role="listitem"
+                    aria-label={t}
+                  >
+                    {t}
+                  </span>
+                ))}
               </div>
             ) : (
-              <p style={{ color: 'var(--text-dim)', fontSize: 12 }}>无</p>
+              <p className="character-sheet-empty-note">无</p>
             )}
-          </div>
+          </section>
         </div>
 
         {/* ── Conditions ── */}
         {(char.conditions || []).length > 0 && (
-          <div className="panel" style={{ padding: 16, marginBottom: 16, borderColor: 'var(--red)' }}>
+          <section className="panel character-sheet-condition-panel" aria-label="状态条件">
             <SectionTitle>
-              <span style={{ color: 'var(--red-light)' }}>状态条件</span>
+              <span className="character-sheet-condition-title">状态条件</span>
             </SectionTitle>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div className="character-sheet-condition-list" role="list" aria-label="状态条件列表">
               {char.conditions.map(c => {
                 const dur = (char.condition_durations || {})[c]
+                const label = `${c}${dur != null ? ` ${dur} 回合` : ''}`
                 return (
-                  <span key={c} style={{
-                    fontSize: 12, padding: '4px 12px', borderRadius: 6,
-                    background: 'rgba(139,32,32,0.2)', border: '1px solid var(--red)',
-                    color: 'var(--red-light)', fontWeight: 600,
-                  }}>
+                  <span
+                    key={c}
+                    className="character-sheet-condition-tag"
+                    role="listitem"
+                    aria-label={label}
+                  >
                     {c}{dur != null ? ` (${dur} 回合)` : ''}
                   </span>
                 )
               })}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Bottom spacer */}
@@ -1189,15 +1226,18 @@ function SectionTitle({ children }) {
   )
 }
 
-function FeatureTag({ label, value, color }) {
+function FeatureTag({ label, value, tone = 'gold' }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{label}:</span>
-      <span style={{
-        fontSize: 12, padding: '2px 10px', borderRadius: 10,
-        background: `${color}18`, border: `1px solid ${color}40`,
-        color: color, fontWeight: 600,
-      }}>{value}</span>
+    <div
+      className="character-sheet-feature-row"
+      data-tone={tone}
+      role="listitem"
+      aria-label={`${label} ${value}`}
+    >
+      <span className="character-sheet-feature-label">{label}:</span>
+      <span className="character-sheet-feature-value">
+        {value}
+      </span>
     </div>
   )
 }

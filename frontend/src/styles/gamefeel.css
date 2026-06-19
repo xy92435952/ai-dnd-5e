@@ -936,6 +936,97 @@
   letter-spacing: 0;
   text-transform: uppercase;
 }
+.character-sheet-feature-panel {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.character-sheet-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.character-sheet-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.character-sheet-feature-label {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.character-sheet-feature-value {
+  min-width: 0;
+  padding: 2px 10px;
+  border: 1px solid var(--feature-border);
+  border-radius: 10px;
+  background: var(--feature-bg);
+  color: var(--feature-color);
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.character-sheet-feature-row[data-tone="red"] {
+  --feature-color: var(--red-light);
+  --feature-border: rgba(139,32,32,.4);
+  --feature-bg: rgba(139,32,32,.18);
+}
+.character-sheet-feature-row[data-tone="gold"] {
+  --feature-color: var(--gold);
+  --feature-border: rgba(201,168,76,.4);
+  --feature-bg: rgba(201,168,76,.18);
+}
+.character-sheet-feature-row[data-tone="arcane"] {
+  --feature-color: #8a5af6;
+  --feature-border: rgba(138,90,246,.4);
+  --feature-bg: rgba(138,90,246,.18);
+}
+.character-sheet-feature-row[data-tone="blue"] {
+  --feature-color: var(--blue-light);
+  --feature-border: rgba(58,122,170,.4);
+  --feature-bg: rgba(58,122,170,.18);
+}
+.character-sheet-proficiency-panel {
+  padding: 16px;
+}
+.character-sheet-proficiency-tag-list,
+.character-sheet-condition-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+.character-sheet-proficiency-tag-list {
+  gap: 4px;
+}
+.character-sheet-proficiency-tag {
+  overflow-wrap: anywhere;
+}
+.character-sheet-empty-note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.character-sheet-condition-panel {
+  padding: 16px;
+  margin-bottom: 16px;
+  border-color: var(--red);
+}
+.character-sheet-condition-title {
+  color: var(--red-light);
+}
+.character-sheet-condition-list {
+  gap: 6px;
+}
+.character-sheet-condition-tag {
+  padding: 4px 12px;
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  background: rgba(139,32,32,.2);
+  color: var(--red-light);
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 760px) {
   .character-sheet-header {
