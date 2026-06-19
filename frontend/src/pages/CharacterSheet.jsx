@@ -1058,7 +1058,7 @@ function LevelUpPanel({
                 selectStyle={levelUpSelectStyle}
               />
               {selectedFeatMagicInitiateFailure && (
-                <p style={{ color: 'var(--red-light)', fontSize: 10, margin: '6px 0 0' }}>
+                <p className="character-sheet-level-up-feat-note character-sheet-level-up-feat-note-error character-sheet-level-up-magic-initiate-error">
                   {selectedFeatMagicInitiateFailure}
                 </p>
               )}
@@ -1133,7 +1133,7 @@ function LevelUpPanel({
       )}
 
       {notice && (
-        <p role="status" style={{ color: 'var(--green-light)', fontSize: 12, margin: '10px 0 0' }}>
+        <p role="status" className="character-sheet-level-up-status">
           {notice}
         </p>
       )}

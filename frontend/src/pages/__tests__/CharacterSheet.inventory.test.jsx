@@ -341,7 +341,9 @@ describe('CharacterSheet inventory integration', () => {
         learned_spells: ['Shield', 'Shatter'],
         learned_cantrips: ['Ray of Frost'],
       })
-      expect(screen.getByRole('status')).toHaveTextContent('Level up complete')
+      const status = screen.getByRole('status')
+      expect(status).toHaveTextContent('Level up complete')
+      expect(status).toHaveClass('character-sheet-level-up-status')
     })
 
     cleanup()
@@ -792,6 +794,9 @@ describe('CharacterSheet inventory integration', () => {
       target: { value: 'Magic Initiate' },
     })
     expect(screen.getByRole('button', { name: 'Level Up' })).toBeDisabled()
+    expect(screen.getByText('Choose two cantrips')).toHaveClass(
+      'character-sheet-level-up-magic-initiate-error',
+    )
     fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Mage Hand'))
     fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Light'))
     fireEvent.change(screen.getByLabelText('Magic Initiate spell'), {

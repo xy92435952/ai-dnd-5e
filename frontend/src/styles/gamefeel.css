@@ -1092,9 +1092,17 @@
   color: var(--red-light);
   font-size: 10px;
 }
+.character-sheet-level-up-magic-initiate-error {
+  margin-top: 6px;
+}
 .character-sheet-level-up-feat-note-desc {
   color: var(--text-dim);
   font-size: 11px;
+}
+.character-sheet-level-up-status {
+  margin: 10px 0 0;
+  color: var(--green-light);
+  font-size: 12px;
 }
 .character-sheet-level-up-replacement-grid {
   display: grid;
