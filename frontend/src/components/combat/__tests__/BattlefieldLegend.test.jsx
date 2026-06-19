@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import BattlefieldLegend from '../BattlefieldLegend'
 
 describe('BattlefieldLegend', () => {
@@ -16,7 +16,7 @@ describe('BattlefieldLegend', () => {
       />,
     )
 
-    const legend = screen.getByLabelText('战场图例')
+    const legend = screen.getByRole('list', { name: '战场图例' })
     expect(legend).toHaveTextContent('掩护')
     expect(legend).toHaveTextContent('2')
     expect(legend).toHaveTextContent('危险')
@@ -25,6 +25,39 @@ describe('BattlefieldLegend', () => {
     expect(legend).toHaveTextContent('范围 锥形 已锁定')
     expect(legend).toHaveTextContent('移动')
     expect(legend).not.toHaveTextContent('协助')
+    expect(within(legend).getByRole('listitem', { name: '掩护：2 格' })).toBeInTheDocument()
+    expect(within(legend).getByRole('listitem', { name: '危险：1 格' })).toBeInTheDocument()
+    expect(within(legend).getByRole('listitem', { name: '目标点：1 格' })).toBeInTheDocument()
+    expect(within(legend).getByRole('listitem', { name: '威胁区：2 格' })).toBeInTheDocument()
+    expect(within(legend).getByRole('listitem', { name: '范围 锥形 已锁定：2 格' })).toBeInTheDocument()
+    expect(within(legend).getByRole('listitem', { name: '移动' })).toBeInTheDocument()
+  })
+
+  it('names selected-target cover path context when prediction includes cover cells', () => {
+    render(
+      <BattlefieldLegend
+        prediction={{
+          target_ac: 14,
+          effective_target_ac: 19,
+          cover_bonus: 5,
+          cover_detail: {
+            bonus: 5,
+            raw_bonus: 5,
+            cells: [{ cell: '3_0', terrain: 'total_cover', weight: 2 }],
+          },
+        }}
+      />,
+    )
+
+    const legend = screen.getByRole('list', { name: '战场图例' })
+    const coverPath = within(legend).getByRole('listitem', {
+      name: '3/4 掩护 +5 AC 路径：掩护使本次攻击的 AC 从 14 提升到 19。路径经过 3_0 total_cover。',
+    })
+    expect(coverPath).toHaveClass('cover-path')
+    expect(coverPath).toHaveAttribute(
+      'title',
+      '掩护使本次攻击的 AC 从 14 提升到 19。路径经过 3_0 total_cover。',
+    )
   })
 
   it('stays hidden when no battlefield context is active', () => {

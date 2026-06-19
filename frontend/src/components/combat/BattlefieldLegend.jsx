@@ -31,9 +31,15 @@ export default function BattlefieldLegend({
   if (!items.length) return null
 
   return (
-    <aside className="battlefield-legend" aria-label="战场图例">
+    <aside className="battlefield-legend" aria-label="战场图例" role="list">
       {items.map(item => (
-        <span key={item.key} className={`battlefield-legend-item ${item.key}`} title={item.title || undefined}>
+        <span
+          key={item.key}
+          className={`battlefield-legend-item ${item.key}`}
+          role="listitem"
+          aria-label={legendItemLabel(item)}
+          title={item.title || undefined}
+        >
           <i aria-hidden="true" />
           <b>{item.label}</b>
           {item.count ? <em>{item.count}</em> : null}
@@ -41,6 +47,13 @@ export default function BattlefieldLegend({
       ))}
     </aside>
   )
+}
+
+function legendItemLabel(item = {}) {
+  const parts = [item.label]
+  if (item.count) parts.push(`${item.count} 格`)
+  if (item.title) parts.push(item.title)
+  return parts.join('：')
 }
 
 function buildCoverPathLegendItem(prediction) {
