@@ -7,12 +7,12 @@
  */
 import { Crest, classKey } from './Crests'
 
-export default function Portrait({ cls = 'fighter', size = 'md', wounded = false, style, onClick }) {
+export default function Portrait({ cls = 'fighter', size = 'md', wounded = false, style, onClick, className = '' }) {
   const key = classKey(cls)
   const sizeClass = { sm: 'portrait-sm', md: '', lg: 'portrait-lg', xl: 'portrait-xl' }[size] || ''
   return (
     <div
-      className={`portrait portrait-${key} ${sizeClass} ${wounded ? 'is-wounded' : ''}`}
+      className={`portrait portrait-${key} ${sizeClass} ${wounded ? 'is-wounded' : ''} ${className}`.trim()}
       style={style}
       onClick={onClick}
     >

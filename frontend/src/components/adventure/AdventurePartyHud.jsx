@@ -19,7 +19,7 @@ export default function AdventurePartyHud({ allMembers, onOpenCharacter }) {
             <div className={`party-slot ${active ? 'active' : ''} ${tone}`} aria-hidden="true">
               <div className="frame" />
               <div className="party-slot-avatar">
-                <Portrait cls={ck} size="sm" style={{ width: '100%', height: '100%' }} />
+                <Portrait cls={ck} size="sm" className="party-slot-portrait" />
                 {pct > 0 && pct <= 25 && <span className="avatar-crack" />}
               </div>
               <div className="hp-micro" aria-hidden="true"><div className="fill" style={{ '--hp-pct': `${pct}%` }} /></div>

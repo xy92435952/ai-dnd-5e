@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import AdventurePartyHud from '../AdventurePartyHud'
 
 vi.mock('../../Portrait', () => ({
-  default: () => <div data-testid="portrait" />,
+  default: ({ className }) => <div className={className} data-testid="portrait" />,
 }))
 
 vi.mock('../../Crests', () => ({
@@ -57,7 +57,8 @@ describe('AdventurePartyHud', () => {
     expect(current).toHaveAttribute('title', 'Tired Hero HP 6/6')
     expect(within(current).getByText('Tired Hero HP 6/6')).toHaveClass('party-slot-hp-label')
     expect(currentItem.querySelector('.party-slot')).toHaveClass('active')
-    expect(within(currentItem).getByTestId('portrait')).toBeInTheDocument()
+    expect(currentItem.querySelector('.party-slot-avatar')).toBeInTheDocument()
+    expect(within(currentItem).getByTestId('portrait')).toHaveClass('party-slot-portrait')
 
     const bloodied = within(party).getByRole('button', {
       name: 'Bloodied Mage，Bloodied Mage HP 2/10',
