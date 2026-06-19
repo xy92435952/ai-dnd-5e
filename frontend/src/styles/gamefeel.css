@@ -4528,6 +4528,40 @@ button.companion-signal-item:focus-visible {
   margin-left: auto;
   color: var(--parchment-dark);
 }
+.websocket-status-pill {
+  max-width: none;
+  padding: 2px 7px;
+  border: 1px solid var(--ws-pill-border, var(--wood-light));
+  border-radius: 3px;
+  color: var(--ws-pill-color, var(--parchment-dark));
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.websocket-status-pill.compact {
+  max-width: 220px;
+  white-space: normal;
+}
+.websocket-status-pill[data-state="connected"] {
+  --ws-pill-border: var(--emerald-light);
+  --ws-pill-color: var(--emerald-light);
+}
+.websocket-status-pill[data-state="connecting"],
+.websocket-status-pill[data-state="idle"] {
+  --ws-pill-border: var(--wood-light);
+  --ws-pill-color: var(--parchment-dark);
+}
+.websocket-status-pill[data-state="reconnecting"],
+.websocket-status-pill[data-state="unavailable"] {
+  --ws-pill-border: var(--amber);
+  --ws-pill-color: var(--amber);
+}
+.websocket-status-pill[data-state="auth_error"],
+.websocket-status-pill[data-state="permission_error"],
+.websocket-status-pill[data-state="missing_token"] {
+  --ws-pill-border: var(--blood);
+  --ws-pill-color: #ffaaaa;
+}
 
 .multiplayer-party-panel {
   display: grid;

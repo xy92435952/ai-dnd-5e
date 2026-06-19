@@ -1,37 +1,13 @@
-const TONE = {
-  connected: {
-    border: 'var(--emerald-light)',
-    color: 'var(--emerald-light)',
-  },
-  connecting: {
-    border: 'var(--wood-light)',
-    color: 'var(--parchment-dark)',
-  },
-  reconnecting: {
-    border: 'var(--amber)',
-    color: 'var(--amber)',
-  },
-  unavailable: {
-    border: 'var(--amber)',
-    color: 'var(--amber)',
-  },
-  auth_error: {
-    border: 'var(--blood)',
-    color: '#ffaaaa',
-  },
-  permission_error: {
-    border: 'var(--blood)',
-    color: '#ffaaaa',
-  },
-  missing_token: {
-    border: 'var(--blood)',
-    color: '#ffaaaa',
-  },
-  idle: {
-    border: 'var(--wood-light)',
-    color: 'var(--parchment-dark)',
-  },
-}
+const STATUS_TONES = new Set([
+  'connected',
+  'connecting',
+  'reconnecting',
+  'unavailable',
+  'auth_error',
+  'permission_error',
+  'missing_token',
+  'idle',
+])
 
 function formatRetry(retryInMs) {
   if (!retryInMs) return ''
@@ -56,19 +32,16 @@ export default function WebSocketStatusPill({
   compact = false,
 }) {
   const text = getWebSocketStatusText(status, connected)
-  const tone = TONE[status?.state] || (connected ? TONE.connected : TONE.reconnecting)
+  const tone = STATUS_TONES.has(status?.state)
+    ? status.state
+    : connected ? 'connected' : 'reconnecting'
 
   return (
-    <span title={text.detail || text.label} style={{
-      padding: '2px 7px',
-      border: `1px solid ${tone.border}`,
-      color: tone.color,
-      borderRadius: 3,
-      fontSize: 10,
-      fontFamily: 'var(--font-mono)',
-      whiteSpace: compact ? 'normal' : 'nowrap',
-      maxWidth: compact ? 220 : 'none',
-    }}>
+    <span
+      className={`websocket-status-pill${compact ? ' compact' : ''}`}
+      data-state={tone}
+      title={text.detail || text.label}
+    >
       {text.label}
     </span>
   )
