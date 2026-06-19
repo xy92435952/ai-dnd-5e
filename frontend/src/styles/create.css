@@ -295,6 +295,37 @@
   color: var(--parchment-dark);
   opacity: .85;
 }
+.create-shared-info-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(201,168,76,0.3);
+  border-radius: 50%;
+  background: rgba(201,168,76,0.1);
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+.create-shared-field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+.create-shared-select {
+  background: var(--bg2);
+  color: var(--text-dim);
+}
+.create-shared-select[data-selected="true"] {
+  color: var(--parchment);
+}
+.create-shared-select-option {
+  background: var(--bg2);
+}
 .create-details-top-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

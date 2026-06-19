@@ -147,22 +147,10 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
 export function CharacterCreateInfoBtn({ onClick }) {
   return (
     <button
+      type="button"
+      className="create-shared-info-button"
       onClick={onClick}
       title="查看详情"
-      style={{
-        background: 'rgba(201,168,76,0.1)',
-        border: '1px solid rgba(201,168,76,0.3)',
-        borderRadius: '50%',
-        width: '20px',
-        height: '20px',
-        color: 'var(--gold)',
-        fontSize: '0.7rem',
-        cursor: 'pointer',
-        flexShrink: 0,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
     >
       &#x2139;
     </button>
@@ -171,8 +159,8 @@ export function CharacterCreateInfoBtn({ onClick }) {
 
 export function CharacterCreateField({ label, children }) {
   return (
-    <div>
-      <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '6px', color: 'var(--text)', opacity: 0.7 }}>
+    <div className="create-shared-field">
+      <label className="create-shared-field-label">
         {label}
       </label>
       {children}
@@ -183,14 +171,14 @@ export function CharacterCreateField({ label, children }) {
 export function CharacterCreateSelect({ value, options, placeholder, onChange }) {
   return (
     <select
-      className="input-fantasy"
-      style={{ color: value ? 'var(--parchment)' : 'var(--text-dim)', background: 'var(--bg2)' }}
+      className="input-fantasy create-shared-select"
+      data-selected={value ? 'true' : 'false'}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
-        <option key={o} value={o} style={{ background: 'var(--bg2)' }}>
+        <option key={o} value={o} className="create-shared-select-option">
           {o}
         </option>
       ))}

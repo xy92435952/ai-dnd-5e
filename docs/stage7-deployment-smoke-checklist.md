@@ -168,6 +168,7 @@ CharacterCreate companion details,
 CharacterCreate party-size selector,
 CharacterCreate skill choices,
 CharacterCreate spell choices,
+CharacterCreate shared form controls,
 shared `MagicInitiateChoiceFields`,
 `DialogueHistoryView`, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
