@@ -68,55 +68,35 @@ export default function CharacterCreateStepBasicsFeatures({ ctx }) {
         </div>
       )}
 
-      <div>
+      <div className="create-multiclass">
         <div
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
+          className="create-multiclass-toggle"
+          data-enabled={form.multiclassEnabled ? 'true' : 'false'}
           onClick={() => setForm(f => ({ ...f, multiclassEnabled: !f.multiclassEnabled }))}
         >
-          <div
-            style={{
-              width: '16px',
-              height: '16px',
-              borderRadius: '3px',
-              border: `1px solid ${form.multiclassEnabled ? 'var(--gold)' : 'var(--wood-light)'}`,
-              background: form.multiclassEnabled ? 'rgba(201,168,76,0.2)' : 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.75rem',
-              color: 'var(--gold)',
-            }}
-          >
+          <div className="create-multiclass-checkbox">
             {form.multiclassEnabled && '\u2713'}
           </div>
-          <span style={{ fontSize: '0.875rem', color: form.multiclassEnabled ? 'var(--gold)' : 'var(--text-dim)' }}>
+          <span className="create-multiclass-label">
             启用双职业
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', opacity: 0.5 }}>（可选）</span>
+          <span className="create-multiclass-optional">（可选）</span>
         </div>
 
         {form.multiclassEnabled && (
-          <div
-            style={{
-              marginTop: '12px',
-              padding: '12px',
-              borderRadius: '6px',
-              border: '1px solid var(--wood-light)',
-              background: 'rgba(201,168,76,0.04)',
-            }}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          <div className="create-multiclass-panel">
+            <div className="create-multiclass-fields">
               <Field label="第二职业">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="create-multiclass-class-row">
                   <select
-                    className="input-fantasy"
-                    style={{ color: form.multiclass_class ? 'var(--parchment)' : 'var(--text-dim)', background: 'var(--bg2)' }}
+                    className="input-fantasy create-multiclass-select"
+                    data-selected={form.multiclass_class ? 'true' : 'false'}
                     value={form.multiclass_class}
                     onChange={e => setForm(f => ({ ...f, multiclass_class: e.target.value }))}
                   >
                     <option value="">选择职业</option>
                     {options.classes.filter(c => c !== form.char_class).map(c => (
-                      <option key={c} value={c} style={{ background: 'var(--bg2)' }}>
+                      <option key={c} value={c}>
                         {c}
                       </option>
                     ))}
@@ -133,28 +113,26 @@ export default function CharacterCreateStepBasicsFeatures({ ctx }) {
                   max={Math.max(1, 20 - form.level)}
                   value={form.multiclass_level}
                   onChange={e => setForm(f => ({ ...f, multiclass_level: +e.target.value || 1 }))}
-                  className="input-fantasy"
-                  style={{ textAlign: 'center' }}
+                  className="input-fantasy create-multiclass-level-input"
                 />
               </Field>
             </div>
             {form.multiclass_class && Object.keys(multiReqs).length > 0 && (
               <div
-                style={{
-                  fontSize: '0.75rem',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  background: multiReqMet ? 'rgba(42,90,42,0.12)' : 'rgba(139,32,32,0.12)',
-                  border: `1px solid ${multiReqMet ? 'var(--green)' : 'var(--red)'}`,
-                }}
+                className="create-multiclass-requirements"
+                data-met={multiReqMet ? 'true' : 'false'}
               >
-                <span style={{ color: multiReqMet ? 'var(--green-light)' : 'var(--red-light)' }}>
+                <span className="create-multiclass-requirements-title">
                   {multiReqMet ? '\u2713 已满足' : '\u2717 未满足'} 入门要求：
                 </span>
                 {Object.entries(multiReqs).map(([ab, min]) => {
                   const met = (finalScores[ab] || 0) >= min
                   return (
-                    <span key={ab} style={{ marginLeft: '8px', color: met ? 'var(--green-light)' : 'var(--red-light)' }}>
+                    <span
+                      key={ab}
+                      className="create-multiclass-requirement"
+                      data-met={met ? 'true' : 'false'}
+                    >
                       {ABILITY_ZH[ab] || ab}&gt;={min}（当前{finalScores[ab] || 8}）
                     </span>
                   )
@@ -162,7 +140,7 @@ export default function CharacterCreateStepBasicsFeatures({ ctx }) {
               </div>
             )}
             {!form.multiclass_class && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', opacity: 0.5 }}>
+              <p className="create-multiclass-empty">
                 选择第二职业后将显示入门属性要求
               </p>
             )}

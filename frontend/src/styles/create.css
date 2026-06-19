@@ -535,6 +535,94 @@
   margin-top: 3px;
   line-height: 1.4;
 }
+.create-multiclass {
+  margin-top: 4px;
+}
+.create-multiclass-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.create-multiclass-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--wood-light);
+  border-radius: 3px;
+  color: var(--gold);
+  font-size: 0.75rem;
+}
+.create-multiclass-toggle[data-enabled="true"] .create-multiclass-checkbox {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.2);
+}
+.create-multiclass-label {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+.create-multiclass-toggle[data-enabled="true"] .create-multiclass-label {
+  color: var(--gold);
+}
+.create-multiclass-optional,
+.create-multiclass-empty {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+.create-multiclass-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--wood-light);
+  border-radius: 6px;
+  background: rgba(201,168,76,0.04);
+}
+.create-multiclass-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.create-multiclass-class-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.create-multiclass-select {
+  background: var(--bg2);
+  color: var(--text-dim);
+}
+.create-multiclass-select[data-selected="true"] {
+  color: var(--parchment);
+}
+.create-multiclass-level-input {
+  text-align: center;
+}
+.create-multiclass-requirements {
+  padding: 8px;
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  background: rgba(139,32,32,0.12);
+  font-size: 0.75rem;
+}
+.create-multiclass-requirements[data-met="true"] {
+  border-color: var(--green);
+  background: rgba(42,90,42,0.12);
+}
+.create-multiclass-requirements-title,
+.create-multiclass-requirement {
+  color: var(--red-light);
+}
+.create-multiclass-requirement {
+  margin-left: 8px;
+}
+.create-multiclass-requirements[data-met="true"] .create-multiclass-requirements-title,
+.create-multiclass-requirement[data-met="true"] {
+  color: var(--green-light);
+}
 
 /* ── 能力值 · 方法切换 ─────────────── */
 .method-tabs {
