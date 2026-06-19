@@ -12,56 +12,64 @@ import { MANEUVERS } from '../../data/combat'
 export default function ManeuverModal({ diceType, remaining, onUse, onClose }) {
   const hasDice = remaining > 0
   const unavailableReason = hasDice ? '' : '没有可用优越骰'
+  const handleUse = (maneuverId) => {
+    if (!hasDice) return
+    onUse(maneuverId)
+    onClose()
+  }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.7)' }}
+      className="maneuver-modal-backdrop"
       onClick={onClose}
     >
-      <div
-        className="panel p-5"
-        style={{ background: 'var(--bg2)', borderColor: 'var(--gold)', maxWidth: 400, width: '90%' }}
+      <section
+        className="maneuver-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="maneuver-modal-title"
+        aria-describedby="maneuver-modal-meta"
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <p style={{ color: 'var(--gold)', fontWeight: 700, fontSize: 15, margin: 0 }}>战技选择</p>
-          <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>优越骰: {diceType} × {remaining}</span>
+        <div className="maneuver-modal-head">
+          <h2 id="maneuver-modal-title" className="maneuver-modal-title">战技选择</h2>
+          <div id="maneuver-modal-meta" className="maneuver-modal-meta">
+            优越骰: {diceType} × {remaining}
+          </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="maneuver-modal-list" role="list" aria-label="可用战技">
           {MANEUVERS.map(m => (
-            <button
+            <div
               key={m.id}
-              className="panel"
-              disabled={!hasDice}
-              title={unavailableReason || m.name}
-              aria-disabled={!hasDice}
-              style={{
-                padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10,
-                border: '1px solid var(--wood-light)', background: 'var(--bg)', textAlign: 'left',
-                transition: 'border-color 0.2s',
-                opacity: hasDice ? 1 : 0.45,
-                cursor: hasDice ? 'pointer' : 'not-allowed',
-              }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--wood-light)'}
-              onClick={() => { if (hasDice) { onUse(m.id); onClose() } }}
+              className="maneuver-modal-item"
+              role="listitem"
+              aria-label={`${m.name}：${m.desc}`}
             >
-              <span style={{ fontSize: 20 }}>{m.icon}</span>
-              <div>
-                <p style={{ color: 'var(--text-bright)', fontWeight: 600, fontSize: 13, margin: 0 }}>{m.name}</p>
-                <p style={{ color: 'var(--text-dim)', fontSize: 11, margin: 0 }}>{m.desc}</p>
-              </div>
-            </button>
+              <button
+                type="button"
+                className="maneuver-modal-action"
+                disabled={!hasDice}
+                title={unavailableReason || m.name}
+                aria-disabled={!hasDice}
+                aria-label={`发动战技 ${m.name}。${m.desc}`}
+                onClick={() => handleUse(m.id)}
+              >
+                <span className="maneuver-modal-icon" aria-hidden="true">{m.icon}</span>
+                <span className="maneuver-modal-copy">
+                  <span className="maneuver-modal-name">{m.name}</span>
+                  <span className="maneuver-modal-desc">{m.desc}</span>
+                </span>
+              </button>
+            </div>
           ))}
         </div>
         {!hasDice && (
-          <div style={{ color: 'var(--parchment-dark)', fontSize: 11, marginTop: 10 }}>
+          <div className="maneuver-modal-status" role="status" aria-live="polite">
             {unavailableReason}，无法发动战技。
           </div>
         )}
-        <button className="btn-fantasy" style={{ width: '100%', marginTop: 12, fontSize: 12 }} onClick={onClose}>取消</button>
-      </div>
+        <button type="button" className="btn-fantasy maneuver-modal-cancel" onClick={onClose}>取消</button>
+      </section>
     </div>
   )
 }

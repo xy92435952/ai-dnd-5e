@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import ManeuverModal from '../ManeuverModal'
 
 describe('ManeuverModal', () => {
@@ -16,9 +16,32 @@ describe('ManeuverModal', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /绊摔/ }))
+    const dialog = screen.getByRole('dialog', { name: '战技选择' })
+    expect(dialog).toHaveClass('maneuver-modal-dialog')
+    expect(within(dialog).getByText('优越骰: d8 × 1')).toHaveClass('maneuver-modal-meta')
+    const list = within(dialog).getByRole('list', { name: '可用战技' })
+    expect(within(list).getAllByRole('listitem').length).toBeGreaterThan(1)
+    const trip = within(list).getByRole('button', { name: /发动战技 绊摔/ })
+    expect(trip).toHaveClass('maneuver-modal-action')
+
+    fireEvent.click(trip)
 
     expect(onUse).toHaveBeenCalledWith('trip')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes when the backdrop is clicked', () => {
+    const onClose = vi.fn()
+    render(
+      <ManeuverModal
+        diceType="d10"
+        remaining={2}
+        onUse={vi.fn()}
+        onClose={onClose}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('dialog', { name: '战技选择' }).parentElement)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -35,10 +58,13 @@ describe('ManeuverModal', () => {
       />,
     )
 
-    const trip = screen.getByRole('button', { name: /绊摔/ })
+    const dialog = screen.getByRole('dialog', { name: '战技选择' })
+    const list = within(dialog).getByRole('list', { name: '可用战技' })
+    const trip = within(list).getByRole('button', { name: /发动战技 绊摔/ })
     expect(trip).toBeDisabled()
     expect(trip).toHaveAttribute('title', '没有可用优越骰')
-    expect(screen.getByText('没有可用优越骰，无法发动战技。')).toBeInTheDocument()
+    expect(within(dialog).getByRole('status')).toHaveTextContent('没有可用优越骰，无法发动战技。')
+    expect(within(dialog).getByRole('button', { name: '取消' })).toHaveClass('maneuver-modal-cancel')
 
     fireEvent.click(trip)
     expect(onUse).not.toHaveBeenCalled()

@@ -6069,6 +6069,98 @@ button.companion-signal-item:focus-visible {
   color: var(--parchment-dark);
   font-size: 11px;
 }
+.maneuver-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.7);
+}
+.maneuver-modal-dialog {
+  display: grid;
+  gap: 12px;
+  width: min(400px, 100%);
+  padding: 20px;
+  border: 1px solid var(--gold);
+  background: var(--bg2);
+  box-shadow: 0 20px 44px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.maneuver-modal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.maneuver-modal-title {
+  margin: 0;
+  color: var(--gold);
+  font-size: 15px;
+  font-weight: 700;
+}
+.maneuver-modal-meta {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.maneuver-modal-list {
+  display: grid;
+  gap: 6px;
+}
+.maneuver-modal-item {
+  min-width: 0;
+}
+.maneuver-modal-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--wood-light);
+  background: var(--bg);
+  text-align: left;
+  transition: border-color .2s ease, opacity .2s ease, transform .2s ease;
+}
+.maneuver-modal-action:hover:not(:disabled),
+.maneuver-modal-action:focus-visible {
+  border-color: var(--gold);
+}
+.maneuver-modal-action:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.maneuver-modal-action:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.maneuver-modal-icon {
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+.maneuver-modal-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.maneuver-modal-name {
+  color: var(--text-bright);
+  font-size: 13px;
+  font-weight: 600;
+}
+.maneuver-modal-desc {
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.maneuver-modal-status {
+  color: var(--parchment-dark);
+  font-size: 11px;
+}
+.maneuver-modal-cancel {
+  width: 100%;
+  font-size: 12px;
+}
 @media (max-width: 680px) {
   .tactical-context-panel {
     left: 12px;
