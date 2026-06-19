@@ -56,6 +56,12 @@ describe('CharacterCreateStepPartyCompanions', () => {
 
     const details = screen.getByLabelText('Mara 明细')
     expect(details).not.toHaveAttribute('open')
+    const roleLine = document.querySelector('.cc-role-clamp')
+    expect(roleLine).toHaveClass('cc-role', 'cc-role-clamp')
+    expect(roleLine).toHaveTextContent('谨慎、爱记笔记，遇事先观察再出手。')
+    expect(screen.getByRole('button', { name: /重新生成队伍/ })).toHaveClass(
+      'companions-regenerate-button',
+    )
 
     const summary = within(details).getByText('展开明细')
     fireEvent.click(summary)
@@ -77,5 +83,42 @@ describe('CharacterCreateStepPartyCompanions', () => {
     expect(within(details).getByText('战斗偏好')).toBeInTheDocument()
     expect(within(details).getByText('口头禅')).toBeInTheDocument()
     expect(within(details).getByText('背景')).toBeInTheDocument()
+  })
+
+  it('renders generating and error states with stable companion chrome', () => {
+    const handleGenerateParty = vi.fn()
+    const { rerender } = render(
+      <CharacterCreateStepPartyCompanions
+        companions={[]}
+        generatingParty
+        handleGenerateParty={handleGenerateParty}
+        error=""
+      />,
+    )
+
+    const status = screen.getByRole('status')
+    expect(status).toHaveClass('companions-generating')
+    expect(within(status).getByText(/AI/)).toHaveClass('companions-generating-title')
+    expect(within(status).getByText('根据你的职业分析队伍需求')).toHaveClass(
+      'companions-generating-copy',
+    )
+
+    rerender(
+      <CharacterCreateStepPartyCompanions
+        companions={[makeCompanion()]}
+        generatingParty={false}
+        handleGenerateParty={handleGenerateParty}
+        error="队伍生成失败"
+      />,
+    )
+
+    const retry = screen.getByRole('button', { name: /重新生成队伍/ })
+    expect(retry.closest('.companions-regenerate-row')).toBeInTheDocument()
+    fireEvent.click(retry)
+    expect(handleGenerateParty).toHaveBeenCalledTimes(1)
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveClass('companions-error')
+    expect(alert).toHaveTextContent('队伍生成失败')
   })
 })
