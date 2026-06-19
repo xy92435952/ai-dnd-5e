@@ -2626,6 +2626,36 @@ button.companion-signal-item:focus-visible {
 }
 .room-ai-card {
   gap: 10px;
+  padding: 10px;
+  opacity: .92;
+}
+.room-ai-body {
+  flex: 1;
+  min-width: 0;
+}
+.room-ai-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.room-ai-name {
+  color: var(--parchment);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+}
+.room-ai-tag {
+  border: 1px solid rgba(139,110,230,.6);
+  background: rgba(139,110,230,.25);
+  color: #d4c2ff;
+  font-size: 9px;
+}
+.room-ai-meta {
+  margin-top: 2px;
+  color: var(--parchment-dark);
+  font-family: var(--font-mono);
+  font-size: 10px;
 }
 .room-member-actions {
   display: flex;

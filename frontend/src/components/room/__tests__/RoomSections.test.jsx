@@ -84,8 +84,11 @@ describe('Room sections', () => {
     )
 
     expect(screen.getByText('布兰')).toBeInTheDocument()
-    expect(screen.getByText('Human · Cleric · Lv1')).toBeInTheDocument()
-    expect(screen.getByText('✦ AI')).toBeInTheDocument()
+    const aiCard = screen.getByText('布兰').closest('.room-ai-card')
+    expect(aiCard.querySelector('.room-ai-body')).toBeInTheDocument()
+    expect(within(aiCard).getByText('布兰')).toHaveClass('room-ai-name')
+    expect(within(aiCard).getByText('Human · Cleric · Lv1')).toHaveClass('room-ai-meta')
+    expect(within(aiCard).getByText('✦ AI')).toHaveClass('room-ai-tag')
   })
 
   it('keeps room actions wired through explicit callbacks', () => {

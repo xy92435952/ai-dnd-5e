@@ -13,19 +13,18 @@ export default function RoomAiCompanionsSection({ aiCompanions }) {
           <div
             key={companion.id}
             className="panel-ornate room-ai-card"
-            style={{ padding: 10, opacity: 0.92 }}
           >
             <Portrait cls={classKey(companion.char_class || 'fighter')} size="sm" />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: 'var(--font-heading)', color: 'var(--parchment)', fontSize: 13, fontWeight: 600 }}>
+            <div className="room-ai-body">
+              <div className="room-ai-identity">
+                <span className="room-ai-name">
                   {companion.name}
                 </span>
-                <span className="tag" style={{ fontSize: 9, background: 'rgba(139,110,230,.25)', border: '1px solid rgba(139,110,230,.6)', color: '#d4c2ff' }}>
+                <span className="tag room-ai-tag">
                   ✦ AI
                 </span>
               </div>
-              <div style={{ fontSize: 10, color: 'var(--parchment-dark)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+              <div className="room-ai-meta">
                 {companion.race} · {companion.char_class} · Lv{companion.level}
               </div>
             </div>
