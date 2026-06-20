@@ -43,7 +43,7 @@ describe('CharacterCreateStepAbilities', () => {
 
     const pointsBar = screen.getByText('剩余点数').closest('.points-bar')
     expect(pointsBar).toHaveAttribute('data-complete', 'true')
-    expect(pointsBar).toHaveStyle({ '--points-fill-width': '100%' })
+    expect(pointsBar).toHaveStyle({ '--ability-points-fill-width': '100%' })
     expect(within(pointsBar).getByText('0')).toHaveClass('points-big')
     expect(within(pointsBar).getByText('✓ 已分配完毕')).toHaveClass('label')
     expect(pointsBar.querySelector('.fill')).toHaveClass('fill')
@@ -60,7 +60,7 @@ describe('CharacterCreateStepAbilities', () => {
 
     const pointsBar = screen.getByText('剩余点数').closest('.points-bar')
     expect(pointsBar).toHaveAttribute('data-complete', 'false')
-    expect(pointsBar).toHaveStyle({ '--points-fill-width': '92.5925925925926%' })
+    expect(pointsBar).toHaveStyle({ '--ability-points-fill-width': '92.5925925925926%' })
 
     const strengthPlaque = screen.getByText('STR').closest('.ability-plaque')
     fireEvent.click(within(strengthPlaque).getByRole('button', { name: '+' }))

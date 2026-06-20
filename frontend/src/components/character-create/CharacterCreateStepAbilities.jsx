@@ -54,7 +54,7 @@ export default function CharacterCreateStepAbilities({ ctx }) {
         <div
           className="points-bar"
           data-complete={pointsComplete ? 'true' : 'false'}
-          style={{ '--points-fill-width': pointsFillWidth }}
+          style={{ '--ability-points-fill-width': pointsFillWidth }}
         >
           <div className="label">剩余点数</div>
           <div className="points-big">

@@ -1007,7 +1007,7 @@
 }
 .points-bar .track .fill {
   height: 100%;
-  width: var(--points-fill-width, 0%);
+  width: var(--ability-points-fill-width, 0%);
   background: var(--gold-gradient);
   transition: width .3s;
 }
