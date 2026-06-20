@@ -437,6 +437,9 @@
   text-align: center;
   transition: var(--transition);
 }
+.class-gallery-portrait-slot {
+  margin: 0 auto 10px;
+}
 .class-gallery-class-name {
   margin-bottom: 3px;
   color: var(--parchment);
@@ -444,6 +447,9 @@
   font-size: 18px;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+.class-gallery-key {
+  font-size: 9px;
 }
 .class-gallery-desc {
   margin-top: 6px;

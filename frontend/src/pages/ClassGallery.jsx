@@ -37,11 +37,13 @@ export default function ClassGallery() {
       <div className="class-gallery-grid">
         {ALL_CLASSES.map(c => (
           <div key={c.key} className="panel-ornate class-gallery-card">
-            <Portrait cls={c.key} size="lg" style={{ margin: '0 auto 10px' }} />
+            <div className="class-gallery-portrait-slot">
+              <Portrait cls={c.key} size="lg" />
+            </div>
             <div className="class-gallery-class-name">
               {c.name}
             </div>
-            <div className="eyebrow" style={{ fontSize: 9 }}>{c.key.toUpperCase()}</div>
+            <div className="eyebrow class-gallery-key">{c.key.toUpperCase()}</div>
             <div className="class-gallery-desc">
               "{c.desc}"
             </div>
