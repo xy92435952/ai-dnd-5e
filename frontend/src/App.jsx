@@ -43,10 +43,7 @@ function ScenicBackdrop() {
   const { pathname } = useLocation()
   const isCore = pathname.startsWith('/adventure/') || pathname.startsWith('/combat/')
   return (
-    <div style={{
-      opacity: isCore ? 0.45 : 1,
-      transition: 'opacity .6s ease',
-    }}>
+    <div className="scenic-backdrop" data-core-route={isCore}>
       <AtmosphereBG embers={true} />
     </div>
   )

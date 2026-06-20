@@ -644,6 +644,13 @@ body[data-theme="bg3"].bg-parchment {
   z-index: 0;
   overflow: hidden;
 }
+.scenic-backdrop {
+  opacity: 1;
+  transition: opacity .6s ease;
+}
+.scenic-backdrop[data-core-route="true"] {
+  opacity: .45;
+}
 
 /* 神圣光束 */
 .god-rays {
