@@ -108,22 +108,11 @@ export default function LegendForge({
 
         {/* 纹章圆盘 */}
         <div className="crest-slot">
-          <div style={{
-            width: 180,
-            height: 180,
-            borderRadius: '50%',
-            display: 'grid',
-            placeItems: 'center',
-            background: `radial-gradient(circle at 35% 30%, ${color}, #1a0a02 75%)`,
-            boxShadow: `0 0 40px ${color}, inset 0 0 30px rgba(0,0,0,.5), 0 0 0 3px rgba(240,208,96,.6), 0 0 0 6px rgba(26,14,4,.9), 0 0 0 8px rgba(240,208,96,.3)`,
-          }}>
-            <span style={{
-              fontFamily: 'serif',
-              fontSize: 96,
-              color: '#fff8dd',
-              textShadow: `0 0 20px ${color}, 0 4px 8px #000`,
-              fontWeight: 900,
-            }}>{glyph}</span>
+          <div
+            className="legend-forge-crest-disc"
+            style={{ '--legend-crest-color': color }}
+          >
+            <span className="legend-forge-crest-glyph">{glyph}</span>
           </div>
         </div>
 

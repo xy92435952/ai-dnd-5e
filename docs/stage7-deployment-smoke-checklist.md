@@ -128,7 +128,7 @@ npm run build
 cd ..
 ```
 
-`npm run test:stage7:reaction` includes Home hub shell, Home module/save cards, ClassGallery card chrome, RoomLobby shell, RoomLobby DM-style selection, CharacterCreate shell, CharacterSheet shell, CharacterSheet HP tone,
+`npm run test:stage7:reaction` includes Home hub shell, Home module/save cards, ClassGallery card chrome, RoomLobby shell, RoomLobby DM-style selection, CharacterCreate shell, shared `LegendForge`, CharacterSheet shell, CharacterSheet HP tone,
 Combat page/loading shell, the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,
