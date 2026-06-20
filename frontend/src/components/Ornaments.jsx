@@ -27,11 +27,7 @@ export function HpBar({ cur, max }) {
       <div className={`hp-bar ${tone}`}>
         <div className="fill" style={{ width: `${pct}%` }} />
       </div>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between',
-        fontSize: 10, marginTop: 3,
-        fontFamily: 'var(--font-mono)', color: 'var(--parchment-dark)',
-      }}>
+      <div className="hp-bar-meta">
         <span>HP {cur}/{max}</span>
         <span>{tone === 'low' ? '⚠ 危急' : tone === 'mid' ? '受伤' : '健康'}</span>
       </div>

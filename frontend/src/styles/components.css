@@ -245,6 +245,14 @@
 .hp-bar.high > .fill { background: linear-gradient(90deg, #3a7a48, #6aaa6a); box-shadow: 0 0 8px rgba(95,168,120,.35); }
 .hp-bar.mid > .fill  { background: linear-gradient(90deg, #c47820, #e8a020); box-shadow: 0 0 8px rgba(232,160,32,.35); }
 .hp-bar.low > .fill  { background: linear-gradient(90deg, #8a1a1a, #c83838); box-shadow: 0 0 8px rgba(200,56,56,.4); }
+.hp-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  color: var(--parchment-dark);
+}
 
 /* 法术位宝石点 */
 .spell-slots { display: flex; gap: 4px; flex-wrap: wrap; }
