@@ -357,7 +357,7 @@ export default function DialogueHistoryView({ session, player, onBack }) {
             {/* 当前 · 对话进行中 */}
             {filter === 'all' && (
               <>
-                <div className="hist-current-divider" style={{ marginTop: 24 }}>
+                <div className="hist-current-divider hist-current-divider-spaced">
                   <span className="dot" />
                   <span className="label">当前 · 对话进行中</span>
                   <span className="dot" />

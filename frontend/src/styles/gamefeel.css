@@ -2417,6 +2417,9 @@
   margin: 14px 0 4px;
   opacity: .7;
 }
+.hist-current-divider-spaced {
+  margin-top: 24px;
+}
 .hist-current-divider .dot {
   flex: 1;
   height: 1px;

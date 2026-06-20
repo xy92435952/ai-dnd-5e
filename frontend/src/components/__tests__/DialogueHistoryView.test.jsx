@@ -148,6 +148,7 @@ describe('DialogueHistoryView', () => {
     expect(screen.getByText('The woods grow quiet.')).toBeInTheDocument()
     expect(screen.getByText('I check the wagon tracks.')).toBeInTheDocument()
     expect(screen.getByText('I will watch the ridge.')).toBeInTheDocument()
+    expect(document.querySelector('.hist-current-divider')).toHaveClass('hist-current-divider-spaced')
   })
 
   it('updates the live count and empty state when filters change', () => {
@@ -159,6 +160,7 @@ describe('DialogueHistoryView', () => {
     expect(screen.getByRole('status')).toHaveTextContent('1')
     expect(screen.getByText('Survival check · DC 13')).toBeInTheDocument()
     expect(screen.queryByText('The woods grow quiet.')).not.toBeInTheDocument()
+    expect(document.querySelector('.hist-current-divider')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /仅玩家发言/ }))
     expect(screen.getByRole('status')).toHaveTextContent('仅玩家发言')
