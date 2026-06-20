@@ -62,11 +62,11 @@ export default function AtmosphereBG({ embers = true }) {
     <div className="bg-atmosphere" aria-hidden="true">
       {/* 神圣光束 */}
       <div className="god-rays">
-        <span style={{ '--r': '-14deg', '--l': '18%', '--d': 0.28 }} />
-        <span style={{ '--r': '-6deg',  '--l': '32%', '--d': 0.20 }} />
-        <span style={{ '--r': '4deg',   '--l': '52%', '--d': 0.34 }} />
-        <span style={{ '--r': '12deg',  '--l': '70%', '--d': 0.22 }} />
-        <span style={{ '--r': '20deg',  '--l': '84%', '--d': 0.18 }} />
+        <span className="god-ray god-ray-1" />
+        <span className="god-ray god-ray-2" />
+        <span className="god-ray god-ray-3" />
+        <span className="god-ray god-ray-4" />
+        <span className="god-ray god-ray-5" />
       </div>
 
       {/* ═══ 旋转符文外圈 · 卢恩咒文环 + 十二宫 + 日月 ═══ */}

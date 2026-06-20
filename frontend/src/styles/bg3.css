@@ -658,7 +658,7 @@ body[data-theme="bg3"].bg-parchment {
   overflow: hidden;
   mix-blend-mode: screen;
 }
-.god-rays span {
+.god-ray {
   position: absolute;
   top: -30%;
   left: var(--l);
@@ -675,16 +675,42 @@ body[data-theme="bg3"].bg-parchment {
   filter: blur(14px);
   animation: rayFlicker 7s ease-in-out infinite;
 }
-.god-rays span:nth-child(2) { animation-duration: 9s; animation-delay: -2s; }
-.god-rays span:nth-child(3) {
+.god-ray-1 {
+  --r: -14deg;
+  --l: 18%;
+  --d: .28;
+}
+.god-ray-2 {
+  --r: -6deg;
+  --l: 32%;
+  --d: .2;
+  animation-duration: 9s;
+  animation-delay: -2s;
+}
+.god-ray-3 {
+  --r: 4deg;
+  --l: 52%;
+  --d: .34;
   animation-duration: 11s; animation-delay: -4s;
   background: linear-gradient(180deg,
     rgba(127,232,248,0) 0%,
     rgba(127,232,248,.14) 22%,
     transparent 85%);
 }
-.god-rays span:nth-child(4) { animation-duration: 8s; animation-delay: -1s; }
-.god-rays span:nth-child(5) { animation-duration: 13s; animation-delay: -5s; }
+.god-ray-4 {
+  --r: 12deg;
+  --l: 70%;
+  --d: .22;
+  animation-duration: 8s;
+  animation-delay: -1s;
+}
+.god-ray-5 {
+  --r: 20deg;
+  --l: 84%;
+  --d: .18;
+  animation-duration: 13s;
+  animation-delay: -5s;
+}
 @keyframes rayFlicker {
   0%,100% { opacity: var(--d); transform: rotate(var(--r)) translateX(0); }
   50%     { opacity: calc(var(--d) * 1.4); transform: rotate(calc(var(--r) + .4deg)) translateX(4px); }
