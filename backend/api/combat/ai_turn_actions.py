@@ -52,7 +52,7 @@ async def handle_ai_simple_action(
         condition_end_saves = _tick_log_results(tick_logs, "condition_end_save")
         for log in tick_logs:
             db.add(log)
-        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index) or {}
         await db.commit()
         return {
             "actor_name": actor_name,
@@ -152,7 +152,7 @@ async def handle_ai_simple_action(
         condition_end_saves = _tick_log_results(tick_logs, "condition_end_save")
         for log in tick_logs:
             db.add(log)
-        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index) or {}
         await db.commit()
         return {
             "actor_name": actor_name,
@@ -192,7 +192,7 @@ async def handle_ai_simple_action(
         condition_end_saves = _tick_log_results(tick_logs, "condition_end_save")
         for log in tick_logs:
             db.add(log)
-        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index)
+        advance_result = await advance_ai_turn(combat, session, db, turn_order, next_index) or {}
         await db.commit()
         return {
             "actor_name": actor_name,

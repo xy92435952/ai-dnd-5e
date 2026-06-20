@@ -331,7 +331,18 @@ async def test_prepare_ranged_attack_roll_consumes_thrown_weapon_copy():
         "weapon": "Javelin",
         "resource_type": "thrown_weapon",
         "consumed": True,
+        "quantity_remaining": 0,
         "weapon_removed": True,
+        "recoverable": True,
+        "recovery_timing": "after_combat_search",
+        "recoverable_weapon": {
+            "name": "Javelin",
+            "damage": "1d6",
+            "type": "simple_melee",
+            "properties": ["thrown(30/120)"],
+            "quantity": 1,
+            "equipped": False,
+        },
     }
     assert prepared.pending_attack["weapon_resource"] == prepared.weapon_resource
 

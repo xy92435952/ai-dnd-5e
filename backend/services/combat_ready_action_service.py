@@ -775,6 +775,8 @@ def _ready_leaves_reach_positions_override(
         return None
     positions = dict(combat.entity_positions or {})
     positions[str(moving_id)] = dict(old_pos)
+    combat.entity_positions = positions
+    flag_modified(combat, "entity_positions")
     return positions
 
 

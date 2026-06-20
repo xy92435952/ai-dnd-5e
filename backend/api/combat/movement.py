@@ -365,7 +365,7 @@ async def _apply_stand_up_for_moving_entity(db, session, entity_id: str, turn_st
         result = apply_stand_up_from_prone(
             turn_state,
             character.conditions or [],
-            character.condition_durations or {},
+            getattr(character, "condition_durations", None) or {},
         )
     except MovementRuleError as exc:
         raise HTTPException(400, _movement_rule_error_detail(exc)) from exc

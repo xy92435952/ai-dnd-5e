@@ -134,8 +134,9 @@ async def confirm_pending_spell(
         )
         caster.spell_slots = new_slots
 
+    concentration_effect_updates: list[dict[str, Any]] = []
     if spell.get("concentration"):
-        await set_concentration_with_cleanup(
+        concentration_effect_updates = await set_concentration_with_cleanup(
             db,
             session,
             caster,
@@ -243,6 +244,14 @@ async def confirm_pending_spell(
         maybe_result = check_combat_outcome_func()
         combat_over, outcome = await maybe_result if hasattr(maybe_result, "__await__") else maybe_result
 
+    caster_state = _build_caster_state(
+        caster,
+        caster_entity_id=caster_entity_id,
+        spell_slots=new_slots,
+    )
+    if concentration_effect_updates:
+        caster_state["concentration_effect_updates"] = concentration_effect_updates
+
     return ConfirmedSpellResult(
         narration=mechanical_narration,
         mechanical_narration=mechanical_narration,
@@ -276,14 +285,12 @@ async def confirm_pending_spell(
             ),
             "resurrection": spell_application.resurrection_results,
             "attack": attack_roll,
+            "concentration_effect_updates": concentration_effect_updates,
         },
         concentration_logs=spell_application.concentration_logs,
         wild_magic_logs=wild_magic_logs,
-        caster_state=_build_caster_state(
-            caster,
-            caster_entity_id=caster_entity_id,
-            spell_slots=new_slots,
-        ),
+        caster_state=caster_state,
+        concentration_effect_updates=concentration_effect_updates,
         spell_resource=spell_resource,
     )
 

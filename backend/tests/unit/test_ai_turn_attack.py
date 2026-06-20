@@ -59,7 +59,7 @@ def fake_save_turn_state(combat, entity_id, turn_state):
 async def test_ai_attack_action_records_action_usage(monkeypatch):
     import api.combat.ai_turn_attack as attack
 
-    async def fake_advance_ai_turn(combat, *_args):
+    async def fake_advance_ai_turn(combat, *_args, **_kwargs):
         combat.current_turn_index = 1
 
     async def fake_narrate_batch(_actions):
@@ -142,7 +142,7 @@ async def test_ai_attack_action_records_action_usage(monkeypatch):
 async def test_ai_unreachable_attack_ticks_actor_conditions(monkeypatch):
     import api.combat.ai_turn_attack as attack
 
-    async def fake_advance_ai_turn(combat, *_args):
+    async def fake_advance_ai_turn(combat, *_args, **_kwargs):
         combat.current_turn_index = 1
 
     async def fake_narrate_batch(_actions):

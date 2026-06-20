@@ -996,7 +996,7 @@ async def _apply_legendary_condition_to_target(
             reason="concentration_lost",
         )
 
-    return {
+    result = {
         "condition": condition,
         "applied": True,
         "immune": False,
@@ -1004,9 +1004,11 @@ async def _apply_legendary_condition_to_target(
         "concentration_broken": bool(concentration_log),
         "concentration_check": concentration_log.dice_result if concentration_log else None,
         "concentration_effect_updates": concentration_effect_updates,
-        "ready_action_failed": ready_spell_clear.ready_action_failed if ready_spell_clear else None,
         "_concentration_log": concentration_log,
     }
+    if ready_spell_clear and ready_spell_clear.ready_action_failed:
+        result["ready_action_failed"] = ready_spell_clear.ready_action_failed
+    return result
 
 
 def _legendary_condition(action: dict[str, Any]) -> str | None:

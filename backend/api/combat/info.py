@@ -21,7 +21,7 @@ from api.deps import (
 from services.combat_prediction_service import build_combat_prediction
 from services.combat_skill_bar_service import build_skill_bar
 from services.dnd_rules import get_effective_hp_max
-from services.combat_attack_modifier_service import calculate_cover_info
+from services.combat_attack_modifier_service import apply_ranged_close_penalty, calculate_cover_info
 from services.combat_condition_service import (
     get_attack_modifier_sources,
     get_defense_modifier_sources,
@@ -201,7 +201,21 @@ async def predict_action_endpoint(
     )
 
     attacker_conditions = attacker.conditions or []
-    attack_modifiers = svc.get_attack_modifiers(attacker_conditions, attacker)
+    attack_advantage_sources, attack_disadvantage_sources = get_attack_modifier_sources(
+        attacker_conditions,
+        attacker,
+    )
+    attack_disadvantage, ranged_penalty = apply_ranged_close_penalty(
+        atk_dis=bool(attack_disadvantage_sources),
+        is_ranged=req.is_ranged,
+        attacker_id=req.attacker_id,
+        enemies=list(enemies or []),
+        positions=dict(combat.entity_positions or {}) if combat else {},
+        attacker_derived=a_derived,
+    )
+    if ranged_penalty and "attacker ranged close" not in attack_disadvantage_sources:
+        attack_disadvantage_sources = [*attack_disadvantage_sources, "attacker ranged close"]
+    attack_modifiers = (bool(attack_advantage_sources), bool(attack_disadvantage))
     defense_modifiers = svc.get_defense_modifiers(target_conditions)
 
     return build_combat_prediction(
@@ -217,7 +231,7 @@ async def predict_action_endpoint(
         is_ranged=req.is_ranged,
         attack_modifiers=attack_modifiers,
         defense_modifiers=defense_modifiers,
-        attack_modifier_sources=get_attack_modifier_sources(attacker_conditions, attacker),
+        attack_modifier_sources=(attack_advantage_sources, attack_disadvantage_sources),
         defense_modifier_sources=get_defense_modifier_sources(target_conditions),
         cover_bonus=cover_info.bonus,
         cover_detail=cover_info.to_prediction_detail(),

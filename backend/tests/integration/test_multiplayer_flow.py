@@ -1397,7 +1397,10 @@ async def test_multiplayer_player_action_aggregates_group_actions_on_backend(
     room = (await client.get(f"/game/rooms/{sid}", headers=_h(host["token"]))).json()
     assert room["pending_actions_by_group"]["alley"] == []
     assert room["group_readiness"]["alley"] == {}
-    assert room["pending_actions_by_group"]["tavern"][0]["text"] == "我继续套老板的话。"
+    tavern_pending = room["pending_actions_by_group"]["tavern"][0]
+    assert tavern_pending["redacted"] is True
+    assert tavern_pending["visibility"] == "other_group"
+    assert "text" not in tavern_pending
     assert room["group_readiness"]["tavern"][tavern_player["user_id"]] == "ready"
     assert room["active_group_id"] == "tavern"
 

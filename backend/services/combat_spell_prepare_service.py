@@ -146,8 +146,17 @@ async def prepare_spell_roll(
         if target_turn_state.get("dodging") and "dodging" not in target_conditions:
             target_conditions.append("dodging")
 
-        attacker_advantage, attacker_disadvantage = _spell_attack_modifiers(caster.conditions or [], caster)
-        defense_advantage, defense_disadvantage = _spell_defense_modifiers(target_conditions)
+        attacker_advantage_sources, attacker_disadvantage_sources = _spell_attack_modifier_sources(
+            caster.conditions or [],
+            caster,
+        )
+        defense_advantage_sources, defense_disadvantage_sources = _spell_defense_modifier_sources(
+            target_conditions,
+        )
+        attacker_advantage = bool(attacker_advantage_sources)
+        attacker_disadvantage = bool(attacker_disadvantage_sources)
+        defense_advantage = bool(defense_advantage_sources)
+        defense_disadvantage = bool(defense_disadvantage_sources)
         is_ranged_spell_attack = spell_attack_is_ranged(spell)
         positions = dict(combat_obj.entity_positions or {}) if combat_obj else {}
         cover_bonus = 0
@@ -181,22 +190,27 @@ async def prepare_spell_roll(
             crit_threshold=(caster.derived or {}).get("crit_threshold", 20),
         )
         if d20_value is not None:
-            attack_total = d20_value + attack_roll_result["attack_bonus"] + attack_roll_result.get("condition_modifier", 0)
-            is_crit = d20_value >= (caster.derived or {}).get("crit_threshold", 20)
-            is_fumble = d20_value == 1
-            attack_roll_result = {
-                **attack_roll_result,
-                "d20": d20_value,
-                "attack_total": attack_total,
-                "hit": (not is_fumble) and (is_crit or attack_total >= attack_roll_result["target_ac"]),
-                "is_crit": is_crit,
-                "is_fumble": is_fumble,
-            }
+            attack_roll_result = _apply_frontend_spell_attack_d20(
+                attack_roll_result,
+                d20_value=d20_value,
+                second_d20_value=second_d20_value,
+                advantage=attacker_advantage or defense_advantage,
+                disadvantage=attacker_disadvantage or defense_disadvantage,
+                crit_threshold=(caster.derived or {}).get("crit_threshold", 20),
+            )
         attack_roll_result.update({
             "spell_attack": True,
             "cover_bonus": cover_bonus,
             "advantage": attacker_advantage or defense_advantage,
             "disadvantage": attacker_disadvantage or defense_disadvantage,
+            "advantage_sources": [
+                *attacker_advantage_sources,
+                *defense_advantage_sources,
+            ],
+            "disadvantage_sources": [
+                *attacker_disadvantage_sources,
+                *defense_disadvantage_sources,
+            ],
         })
 
     preview = build_spell_roll_preview(
@@ -247,6 +261,56 @@ async def prepare_spell_roll(
     )
 
 
+def _apply_frontend_spell_attack_d20(
+    attack_roll_result: dict[str, Any],
+    *,
+    d20_value: int,
+    second_d20_value: int | None,
+    advantage: bool,
+    disadvantage: bool,
+    crit_threshold: int,
+) -> dict[str, Any]:
+    d20 = int(d20_value)
+    other_roll = None
+    selection = "single"
+    if second_d20_value is not None and bool(advantage) != bool(disadvantage):
+        second = int(second_d20_value)
+        if advantage:
+            selected = max(d20, second)
+            other_roll = min(d20, second)
+            selection = "advantage"
+        else:
+            selected = min(d20, second)
+            other_roll = max(d20, second)
+            selection = "disadvantage"
+        d20 = selected
+
+    attack_total = (
+        d20
+        + int(attack_roll_result["attack_bonus"])
+        + int(attack_roll_result.get("condition_modifier", 0) or 0)
+    )
+    is_crit = d20 >= int(crit_threshold or 20)
+    is_fumble = d20 == 1
+    updated = {
+        **attack_roll_result,
+        "d20": d20,
+        "attack_total": attack_total,
+        "hit": (not is_fumble) and (is_crit or attack_total >= attack_roll_result["target_ac"]),
+        "is_crit": is_crit,
+        "is_fumble": is_fumble,
+    }
+    if second_d20_value is not None and bool(advantage) != bool(disadvantage):
+        updated.update({
+            "d20_rolls": [int(d20_value), int(second_d20_value)],
+            "selected_d20": d20,
+            "other_roll": other_roll,
+            "d20_selection": selection,
+            "roll_state": selection,
+        })
+    return updated
+
+
 async def _resolve_spell_attack_target(db, target_id: str, enemies: list[dict[str, Any]], *, session=None):
     from models import Character
     from services.session_access_service import assert_character_in_session
@@ -268,16 +332,16 @@ async def _resolve_spell_attack_target(db, target_id: str, enemies: list[dict[st
     return None
 
 
-def _spell_attack_modifiers(conditions: list[str], caster) -> tuple[bool, bool]:
-    from services.combat_condition_service import get_attack_modifiers
+def _spell_attack_modifier_sources(conditions: list[str], caster) -> tuple[list[str], list[str]]:
+    from services.combat_condition_service import get_attack_modifier_sources
 
-    return get_attack_modifiers(conditions, caster)
+    return get_attack_modifier_sources(conditions, caster)
 
 
-def _spell_defense_modifiers(conditions: list[str]) -> tuple[bool, bool]:
-    from services.combat_condition_service import get_defense_modifiers
+def _spell_defense_modifier_sources(conditions: list[str]) -> tuple[list[str], list[str]]:
+    from services.combat_condition_service import get_defense_modifier_sources
 
-    return get_defense_modifiers(conditions)
+    return get_defense_modifier_sources(conditions)
 
 
 def _calculate_spell_cover_bonus(*, grid_data: dict, positions: dict, caster_id: str, target_id: str) -> int:

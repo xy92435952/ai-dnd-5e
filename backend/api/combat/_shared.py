@@ -194,6 +194,7 @@ async def _build_combat_snapshot(
         "turn_states": _project_turn_states_for_viewer(
             combat.turn_states or {},
             viewer_character_id=viewer_character_id,
+            public_ready_action_actor_ids={str(enemy.get("id")) for enemy in enemies if enemy.get("id")},
         ),
     }
 
@@ -294,6 +295,7 @@ def _project_turn_states_for_viewer(
     turn_states: dict,
     *,
     viewer_character_id: str | None,
+    public_ready_action_actor_ids: set[str] | None = None,
 ) -> dict:
     private_keys = {
         "pending_attack",
@@ -305,6 +307,7 @@ def _project_turn_states_for_viewer(
         "resume_spell_reaction",
     }
     projected: dict = {}
+    public_ready_action_actor_ids = public_ready_action_actor_ids or set()
     for entity_id, state in dict(turn_states or {}).items():
         if not isinstance(state, dict):
             projected[entity_id] = state
@@ -319,7 +322,11 @@ def _project_turn_states_for_viewer(
         }
         for key in ("ready_action", "ready_action_expired", "ready_action_failed"):
             if key in public_state:
-                public_state[key] = _redacted_ready_action_payload(public_state.get(key), key)
+                public_state[key] = _redacted_ready_action_payload(
+                    public_state.get(key),
+                    key,
+                    include_trigger_match=str(entity_id) in public_ready_action_actor_ids,
+                )
         if "ready_action_resolved" in public_state:
             public_state["ready_action_resolved"] = _redact_ready_action_result_payload(
                 public_state.get("ready_action_resolved")
@@ -328,20 +335,28 @@ def _project_turn_states_for_viewer(
     return projected
 
 
-def _redacted_ready_action_payload(value, kind: str) -> dict:
+def _redacted_ready_action_payload(
+    value,
+    kind: str,
+    *,
+    include_trigger_match: bool = False,
+) -> dict:
     if not isinstance(value, dict):
         return {
             "type": kind,
             "redacted": True,
             "visibility": "other_character",
         }
-    return {
+    payload = {
         "type": value.get("type") or kind,
         "redacted": True,
         "visibility": "other_character",
         "actor_id": value.get("actor_id"),
         "actor_name": value.get("actor_name"),
     }
+    if include_trigger_match and "trigger_match" in value:
+        payload["trigger_match"] = value.get("trigger_match")
+    return payload
 
 
 def _redact_ready_action_result_payload(value):

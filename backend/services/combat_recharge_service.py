@@ -93,6 +93,8 @@ def normalize_recharge_abilities(monster: dict[str, Any] | None) -> list[dict[st
             "max_targets",
             "target_count",
             "aoe",
+            "push_distance_ft",
+            "pull_distance_ft",
             "half_on_save",
             "condition",
             "condition_name",

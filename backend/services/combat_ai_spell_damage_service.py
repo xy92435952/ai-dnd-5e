@@ -146,6 +146,12 @@ async def apply_ai_damage_spell(
             target_enemy.get("derived", {}).get("hp_max", 10),
         )
         resolution.target_new_hp = target_enemy["hp_current"]
+        resolution.save_result = save_damage["save_result"]
+        resolution.target_state = _enemy_damage_target_state(
+            target_enemy,
+            damage=total_damage,
+            save_result=save_damage["save_result"],
+        )
         resolution.target_name = target_enemy.get("name", "敌人")
         state["enemies"] = enemies
         session.game_state = dict(state)
@@ -175,9 +181,54 @@ async def apply_ai_damage_spell(
             )
             apply_character_damage(target_character, total_damage)
             resolution.target_new_hp = target_character.hp_current
+            resolution.save_result = save_damage["save_result"]
+            resolution.target_state = _character_damage_target_state(
+                target_character,
+                damage=total_damage,
+                save_result=save_damage["save_result"],
+            )
             resolution.target_name = target_character.name
 
     resolution.damage = total_damage
+
+
+def _enemy_damage_target_state(
+    enemy: dict[str, Any],
+    *,
+    damage: int,
+    save_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "target_id": str(enemy.get("id")),
+        "target_name": enemy.get("name", "Enemy"),
+        "is_enemy": True,
+        "hp_current": enemy.get("hp_current", 0),
+        "hp_after": enemy.get("hp_current", 0),
+        "damage": max(0, int(damage or 0)),
+        "conditions": list(enemy.get("conditions", []) or []),
+        "condition_durations": dict(enemy.get("condition_durations", {}) or {}),
+        "save": save_result,
+    }
+
+
+def _character_damage_target_state(
+    character: Character,
+    *,
+    damage: int,
+    save_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "target_id": str(character.id),
+        "target_name": character.name,
+        "is_enemy": False,
+        "hp_current": character.hp_current,
+        "hp_after": character.hp_current,
+        "damage": max(0, int(damage or 0)),
+        "conditions": list(character.conditions or []),
+        "condition_durations": dict(character.condition_durations or {}),
+        "concentration": character.concentration,
+        "save": save_result,
+    }
 
 
 def damage_after_ai_save(

@@ -15,7 +15,10 @@ class WeaponResourceUse:
     resource_type: str | None = None
     consumed: bool = False
     ammo_remaining: int | None = None
+    quantity_remaining: int | None = None
     weapon_removed: bool = False
+    recoverable: bool = False
+    recoverable_weapon: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         if not self.consumed:
@@ -28,8 +31,15 @@ class WeaponResourceUse:
         }
         if self.ammo_remaining is not None:
             payload["ammo_remaining"] = self.ammo_remaining
+        if self.quantity_remaining is not None:
+            payload["quantity_remaining"] = self.quantity_remaining
         if self.weapon_removed:
             payload["weapon_removed"] = True
+        if self.recoverable:
+            payload["recoverable"] = True
+            payload["recovery_timing"] = "after_combat_search"
+            if self.recoverable_weapon:
+                payload["recoverable_weapon"] = deepcopy(self.recoverable_weapon)
         return payload
 
 
@@ -99,12 +109,16 @@ def consume_attack_weapon_resource(
 
         equipment["weapons"] = weapons
         character.equipment = equipment
+        recoverable_weapon = {**weapon, "quantity": 1, "equipped": False}
         return WeaponResourceUse(
             weapon=dict(weapon),
             weapon_name=weapon_name,
             resource_type="thrown_weapon",
             consumed=True,
+            quantity_remaining=max(0, quantity - 1),
             weapon_removed=weapon_removed,
+            recoverable=True,
+            recoverable_weapon=recoverable_weapon,
         )
 
     return WeaponResourceUse(

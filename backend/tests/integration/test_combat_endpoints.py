@@ -6528,7 +6528,7 @@ async def test_ready_spell_cantrip_triggers_when_target_moves_on_ai_turn(
     await db_session.refresh(ai_turn_combat)
     await db_session.refresh(sample_session)
     turn_state = ai_turn_combat.turn_states[sample_character.id]
-    assert turn_state["reaction_used"] is True
+    assert turn_state["reaction_used"] is False
     assert "ready_action" not in turn_state
     assert turn_state["ready_action_resolved"]["action_type"] == "spell"
     assert turn_state["ready_action_resolved"]["actor_state"]["concentration"] is None

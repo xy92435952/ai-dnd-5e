@@ -5,7 +5,9 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from api.combat._shared import (
     _calc_entity_turn_limits,
+    _get_ts,
     _reset_ts,
+    _save_ts,
     _set_active_ai_control_prompt,
     _tick_conditions_char,
     _tick_conditions_enemy,
@@ -145,7 +147,16 @@ async def build_deferred_lair_action_prompt(combat, session, db, turn_order, con
     )
 
 
-async def advance_ai_turn(combat, session, db, turn_order, next_index: int, *, include_lair_prompt: bool = True):
+async def advance_ai_turn(
+    combat,
+    session,
+    db,
+    turn_order,
+    next_index: int,
+    *,
+    include_lair_prompt: bool = True,
+    preserve_turn_states: dict[str, dict] | None = None,
+):
     """Advance combat state to the next turn and reset the next actor's turn state."""
     current_index = combat.current_turn_index or 0
     round_started = next_index == 0
@@ -163,6 +174,21 @@ async def advance_ai_turn(combat, session, db, turn_order, next_index: int, *, i
         expired_ready_action = build_ready_action_expiry(combat, str(next_entity_id))
         next_atk_max, next_move_max = await _calc_entity_turn_limits(db, session, next_entity_id)
         _reset_ts(combat, next_entity_id, attacks_max=next_atk_max, movement_max=next_move_max)
+        preserved_turn_state = (
+            dict(preserve_turn_states.get(str(next_entity_id)) or {})
+            if preserve_turn_states
+            else {}
+        )
+        if preserved_turn_state:
+            next_turn_state = _get_ts(combat, str(next_entity_id))
+            for key in (
+                "ready_action_resolved",
+                "ready_action_failed",
+                "ready_action_expired",
+            ):
+                if key in preserved_turn_state:
+                    next_turn_state[key] = preserved_turn_state[key]
+            _save_ts(combat, str(next_entity_id), next_turn_state)
         confusion_actor = await _confusion_actor_for_turn(db, session, next_turn, str(next_entity_id))
         confusion_turn_result = apply_confusion_turn_start(
             combat,

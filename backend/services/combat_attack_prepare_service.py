@@ -8,6 +8,7 @@ from services.combat_attack_modifier_service import (
     build_weapon_damage_dice,
     calculate_cover_bonus,
     choose_feat_power_attack,
+    WeaponDamageDice,
 )
 from services.combat_action_rules_service import CombatActionRuleError, validate_can_take_action
 from services.combat_ammunition_service import consume_attack_weapon_resource
@@ -27,6 +28,11 @@ from services.combat_attack_targeting_service import get_target_conditions, reso
 from services.combat_defender_reaction_service import apply_defender_interception
 from services.combat_grid_service import check_attack_range
 from services.combat_guiding_bolt_service import consume_guiding_bolt_condition
+from services.combat_monk_martial_arts_service import (
+    build_martial_arts_attack_derived,
+    build_martial_arts_damage_dice,
+    is_martial_arts_attack,
+)
 from services.combat_service import CombatService
 from services.combat_turn_state_service import (
     get_turn_state,
@@ -106,10 +112,13 @@ async def prepare_attack_roll(
         raise CombatAttackRollError(exc.status_code, exc.detail) from exc
 
     max_attacks = combat_service.get_attack_count(player_derived, player_level, player_class)
+    is_martial_arts = is_martial_arts_attack(action_type)
+    is_bonus_action_attack = bool(is_offhand or is_martial_arts)
     turn_state = validate_attack_turn_state(
         turn_state,
         max_attacks=max_attacks,
         is_offhand=is_offhand,
+        is_bonus_action_attack=is_martial_arts,
     )
     if is_offhand:
         validate_two_weapon_fighting_equipment(player)
@@ -140,12 +149,16 @@ async def prepare_attack_roll(
     if not in_range:
         raise CombatAttackRollError(400, range_error or "目标不在攻击范围内")
 
-    weapon_resource_use = consume_attack_weapon_resource(
-        player,
-        is_ranged=is_ranged,
-        weapon_name=weapon_name,
-    )
-    weapon_resource = weapon_resource_use.to_dict() or None
+    if is_martial_arts:
+        weapon_resource_use = None
+        weapon_resource = None
+    else:
+        weapon_resource_use = consume_attack_weapon_resource(
+            player,
+            is_ranged=is_ranged,
+            weapon_name=weapon_name,
+        )
+        weapon_resource = weapon_resource_use.to_dict() or None
 
     player_conditions = list(player.conditions or [])
     target_conditions = await get_target_conditions(db, target, enemies)
@@ -228,8 +241,13 @@ async def prepare_attack_roll(
                 "defender interception",
             )
 
+    attack_source_derived = (
+        build_martial_arts_attack_derived(player, player_derived)
+        if is_martial_arts
+        else player_derived
+    )
     attack_attacker_derived, attack_target_derived = build_attack_deriveds(
-        attacker_derived=player_derived,
+        attacker_derived=attack_source_derived,
         target_derived=target_derived,
         cover_bonus=cover_bonus,
         is_ranged=is_ranged,
@@ -315,12 +333,20 @@ async def prepare_attack_roll(
             session=session,
         )
 
-    weapon_damage = build_weapon_damage_dice(
-        player,
-        is_ranged=is_ranged,
-        is_offhand=is_offhand,
-        weapon=weapon_resource_use.weapon,
-    )
+    if is_martial_arts:
+        martial_damage_dice, martial_hit_die, martial_dmg_mod = build_martial_arts_damage_dice(player)
+        weapon_damage = WeaponDamageDice(
+            damage_dice=martial_damage_dice,
+            hit_die=martial_hit_die,
+            dmg_mod=martial_dmg_mod,
+        )
+    else:
+        weapon_damage = build_weapon_damage_dice(
+            player,
+            is_ranged=is_ranged,
+            is_offhand=is_offhand,
+            weapon=weapon_resource_use.weapon if weapon_resource_use else None,
+        )
 
     pending_attack_id = str(uuid4())
     pending_attack = build_pending_attack(
@@ -348,6 +374,8 @@ async def prepare_attack_roll(
         hit_die=weapon_damage.hit_die,
         dmg_mod=weapon_damage.dmg_mod,
         weapon_resource=weapon_resource,
+        is_martial_arts=is_martial_arts,
+        damage_type="bludgeoning" if is_martial_arts else None,
     )
     if defender_interception:
         pending_attack["defender_interception"] = defender_interception
@@ -355,6 +383,7 @@ async def prepare_attack_roll(
         turn_state,
         max_attacks=max_attacks,
         is_offhand=is_offhand,
+        is_bonus_action_attack=is_bonus_action_attack,
         pending_attack=pending_attack,
     )
     turn_state = record_mobile_opportunity_safe_target(

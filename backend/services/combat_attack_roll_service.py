@@ -10,11 +10,17 @@ class CombatAttackRollError(Exception):
         return self.detail
 
 
-def validate_attack_turn_state(turn_state: dict, *, max_attacks: int, is_offhand: bool) -> dict:
+def validate_attack_turn_state(
+    turn_state: dict,
+    *,
+    max_attacks: int,
+    is_offhand: bool,
+    is_bonus_action_attack: bool = False,
+) -> dict:
     turn_state.setdefault("attacks_made", 0)
     turn_state["attacks_max"] = max_attacks
 
-    if is_offhand:
+    if is_offhand or is_bonus_action_attack:
         if turn_state.get("attacks_made", 0) <= 0:
             raise CombatAttackRollError(400, "副手攻击需要先完成本回合的主手攻击")
         if turn_state.get("bonus_action_used"):
@@ -101,6 +107,8 @@ def build_pending_attack(
     hit_die: int,
     dmg_mod: int,
     weapon_resource: dict | None = None,
+    is_martial_arts: bool = False,
+    damage_type: str | None = None,
 ) -> dict:
     pending = {
         "pending_attack_id": pending_attack_id,
@@ -131,6 +139,10 @@ def build_pending_attack(
     }
     if weapon_resource:
         pending["weapon_resource"] = weapon_resource
+    if is_martial_arts:
+        pending["is_martial_arts"] = True
+    if damage_type:
+        pending["damage_type"] = damage_type
     return pending
 
 
@@ -139,9 +151,10 @@ def consume_attack_turn_state(
     *,
     max_attacks: int,
     is_offhand: bool,
+    is_bonus_action_attack: bool = False,
     pending_attack: dict,
 ) -> dict:
-    if is_offhand:
+    if is_offhand or is_bonus_action_attack:
         turn_state["bonus_action_used"] = True
     else:
         turn_state["attacks_made"] = turn_state.get("attacks_made", 0) + 1

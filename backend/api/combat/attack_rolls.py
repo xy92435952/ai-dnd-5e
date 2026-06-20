@@ -31,7 +31,10 @@ from services.combat_attack_prepare_service import prepare_attack_roll
 from services.combat_attack_roll_service import CombatAttackRollError
 from services.combat_narrator import narrate_action
 from services.combat_outcome_service import check_and_cleanup_combat_outcome
-from services.combat_thrown_recovery_service import public_thrown_recovery_pool
+from services.combat_thrown_recovery_service import (
+    public_thrown_recovery_pool,
+    record_recoverable_thrown_weapon,
+)
 from schemas.combat_responses import CombatActionResult
 from schemas.ws_events import CombatUpdate
 
@@ -111,7 +114,16 @@ async def attack_roll(
     except CombatAttackRollError as exc:
         raise HTTPException(exc.status_code, exc.detail) from exc
     if prepared.weapon_resource and prepared.weapon_resource.get("recoverable"):
-        flag_modified(session, "game_state")
+        recovery_state = record_recoverable_thrown_weapon(
+            session.game_state,
+            character_id=str(player.id),
+            character_name=player.name,
+            weapon_resource=prepared.weapon_resource,
+            source="attack_roll",
+        )
+        if recovery_state is not None:
+            session.game_state = recovery_state
+            flag_modified(session, "game_state")
 
     # Generate vivid narration for miss / fumble (hit narration done in damage-roll)
     miss_narration = ""

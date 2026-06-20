@@ -21,6 +21,7 @@ INSPECT_STAT_KEYS = (
     "vulnerabilities",
     "condition_immunities",
     "actions",
+    "legendary_actions",
     "special_abilities",
     "tactics",
 )
@@ -58,12 +59,13 @@ SKILL_REVEAL_STATS = {
         "vulnerabilities",
         "condition_immunities",
         "actions",
+        "legendary_actions",
         "special_abilities",
     ),
     "arcana": ("cr", "resistances", "immunities", "vulnerabilities", "special_abilities"),
-    "nature": ("cr", "speed", "resistances", "vulnerabilities", "actions", "tactics"),
+    "nature": ("cr", "speed", "resistances", "vulnerabilities", "actions", "legendary_actions", "tactics"),
     "religion": ("cr", "resistances", "immunities", "vulnerabilities", "special_abilities"),
-    "insight": ("actions", "tactics"),
+    "insight": ("actions", "legendary_actions", "tactics"),
 }
 
 

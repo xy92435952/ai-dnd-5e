@@ -76,6 +76,8 @@ async def handle_ai_special_action(
             db,
             session_id=session_id,
             session=session,
+            combat=combat,
+            actor_id=actor_id,
             target=target,
             enemies=enemies,
             ability=ability,
@@ -153,6 +155,25 @@ async def handle_ai_special_action(
             await db.delete(old_combat)
 
     await db.commit()
+    concentration_check = next(
+        (
+            result.get("concentration_check")
+            for result in target_results
+            if isinstance(result.get("concentration_check"), dict)
+        ),
+        None,
+    )
+    concentration_effect_updates = next(
+        (
+            result.get("concentration_effect_updates")
+            for result in target_results
+            if isinstance(result.get("concentration_effect_updates"), list)
+        ),
+        None,
+    )
+    special_action = _public_recharge_ability_payload(ability)
+    special_action["available"] = False
+
     return {
         "actor_name": actor_name,
         "actor_id": actor_id,
@@ -164,12 +185,9 @@ async def handle_ai_special_action(
         "save": save_detail,
         "target_results": target_results,
         "aoe_results": target_results,
-        "special_action": {
-            "ability_id": ability.get("id"),
-            "name": ability.get("name"),
-            "recharge": ability.get("recharge"),
-            "available": False,
-        },
+        "special_action": special_action,
+        "concentration_check": concentration_check,
+        "concentration_effect_updates": concentration_effect_updates or [],
         "target_id": primary_result.get("target_id"),
         "target_new_hp": target_new_hp,
         "target_state": target_state,
@@ -186,6 +204,8 @@ async def _apply_recharge_damage_to_target(
     *,
     session_id: str,
     session,
+    combat,
+    actor_id: str,
     target: dict[str, Any],
     enemies: list[dict[str, Any]],
     ability: dict[str, Any],
@@ -222,15 +242,31 @@ async def _apply_recharge_damage_to_target(
             target_state["condition_durations"] = target_character.condition_durations or {}
             target_state["life_state"] = get_life_state(target_character)
             target_state["concentration"] = target_character.concentration
+            if condition_result.get("concentration_check"):
+                target_state["concentration_check"] = condition_result["concentration_check"]
+            if condition_result.get("concentration_effect_updates"):
+                target_state["concentration_effect_updates"] = condition_result["concentration_effect_updates"]
+        forced_movement = _apply_recharge_forced_movement(
+            combat=combat,
+            actor_id=actor_id,
+            target_id=str(target_character.id),
+            target_name=target_name,
+            ability=ability,
+            save_detail=save_detail,
+        )
         return {
             "target_id": str(target_character.id),
             "target_name": target_name,
+            "is_enemy": False,
             "damage": applied_damage,
             "base_damage": base_damage,
             "damage_after_save": damage_after_save,
             "damage_type": damage_type,
             "save": save_detail,
             "condition_result": condition_result,
+            "concentration_check": (condition_result or {}).get("concentration_check"),
+            "concentration_effect_updates": (condition_result or {}).get("concentration_effect_updates") or [],
+            "forced_movement": forced_movement,
             "target_new_hp": target_character.hp_current,
             "target_state": target_state,
             **target_state,
@@ -262,15 +298,25 @@ async def _apply_recharge_damage_to_target(
         save_detail=save_detail,
     )
     target_state = _enemy_target_state(target_enemy)
+    forced_movement = _apply_recharge_forced_movement(
+        combat=combat,
+        actor_id=actor_id,
+        target_id=str(target_enemy.get("id")),
+        target_name=target_name,
+        ability=ability,
+        save_detail=save_detail,
+    )
     return {
         "target_id": str(target_enemy.get("id")),
         "target_name": target_name,
+        "is_enemy": True,
         "damage": applied_damage,
         "base_damage": base_damage,
         "damage_after_save": damage_after_save,
         "damage_type": damage_type,
         "save": save_detail,
         "condition_result": condition_result,
+        "forced_movement": forced_movement,
         "target_new_hp": target_enemy["hp_current"],
         "target_state": target_state,
         **target_state,
@@ -333,21 +379,27 @@ async def _apply_recharge_condition_to_target(
         durations[condition] = duration_rounds
         target.condition_durations = durations
     concentration_log = break_concentration_if_incapacitated(target, session_id)
+    concentration_effect_updates = []
     if concentration_log:
-        await clear_concentration_effects_for_caster(
+        concentration_effect_updates = await clear_concentration_effects_for_caster(
             db,
             session,
             target.id,
             spell_name=(concentration_log.dice_result or {}).get("spell_name"),
         )
         db.add(concentration_log)
-    return {
+    result = {
         "condition": condition,
         "applied": True,
         "immune": False,
         "duration_rounds": duration_rounds,
         "concentration_broken": bool(concentration_log),
     }
+    if concentration_log:
+        result["concentration_check"] = concentration_log.dice_result
+    if concentration_effect_updates:
+        result["concentration_effect_updates"] = concentration_effect_updates
+    return result
 
 
 def _recharge_condition(ability: dict[str, Any]) -> str | None:
@@ -374,6 +426,158 @@ def _recharge_condition_duration(ability: dict[str, Any]) -> int | None:
         except (TypeError, ValueError):
             continue
     return None
+
+
+def _public_recharge_ability_payload(ability: dict[str, Any]) -> dict[str, Any]:
+    payload = {
+        "ability_id": ability.get("id"),
+        "name": ability.get("name"),
+        "recharge": ability.get("recharge"),
+    }
+    payload["targeting"] = ability.get("targeting")
+    for key in (
+        "threshold",
+        "area",
+        "damage_dice",
+        "damage_type",
+        "save",
+        "save_dc",
+        "half_on_save",
+        "push_distance_ft",
+        "pull_distance_ft",
+        "condition_on_failed_save",
+        "condition_duration_rounds",
+    ):
+        if key in ability:
+            payload[key] = ability.get(key)
+    return payload
+
+
+def _apply_recharge_forced_movement(
+    *,
+    combat,
+    actor_id: str,
+    target_id: str,
+    target_name: str,
+    ability: dict[str, Any],
+    save_detail: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    movement_type = "push"
+    movement_tiles = _recharge_movement_tiles(ability, "push_distance_ft")
+    if movement_tiles <= 0:
+        movement_type = "pull"
+        movement_tiles = _recharge_movement_tiles(ability, "pull_distance_ft")
+    if movement_tiles <= 0:
+        return None
+
+    if save_detail and save_detail.get("success"):
+        return {
+            "type": movement_type,
+            "applied": False,
+            "reason": "save_success",
+            "target_id": str(target_id),
+            "target_name": target_name,
+            "distance_ft": movement_tiles * 5,
+            "requested_distance_ft": movement_tiles * 5,
+            "steps": 0,
+        }
+
+    positions = dict(getattr(combat, "entity_positions", None) or {})
+    actor_position = positions.get(str(actor_id))
+    target_position = positions.get(str(target_id))
+    if not actor_position or not target_position:
+        return {
+            "type": movement_type,
+            "applied": False,
+            "reason": "missing_position",
+            "target_id": str(target_id),
+            "target_name": target_name,
+            "distance_ft": movement_tiles * 5,
+            "requested_distance_ft": movement_tiles * 5,
+            "steps": 0,
+        }
+
+    if movement_type == "pull":
+        dx = int(actor_position.get("x", 0)) - int(target_position.get("x", 0))
+        dy = int(actor_position.get("y", 0)) - int(target_position.get("y", 0))
+    else:
+        dx = int(target_position.get("x", 0)) - int(actor_position.get("x", 0))
+        dy = int(target_position.get("y", 0)) - int(actor_position.get("y", 0))
+    step_x = _sign(dx)
+    step_y = _sign(dy)
+    if step_x == 0 and step_y == 0:
+        return {
+            "type": movement_type,
+            "applied": False,
+            "reason": "same_position",
+            "target_id": str(target_id),
+            "target_name": target_name,
+            "distance_ft": movement_tiles * 5,
+            "requested_distance_ft": movement_tiles * 5,
+            "steps": 0,
+        }
+
+    width, height = _combat_grid_dimensions(combat)
+    occupied = {
+        (int(position.get("x", -999)), int(position.get("y", -999)))
+        for entity_id, position in positions.items()
+        if str(entity_id) != str(target_id) and isinstance(position, dict)
+    }
+
+    current = {"x": int(target_position.get("x", 0)), "y": int(target_position.get("y", 0))}
+    steps = 0
+    blocked_reason = ""
+    for _ in range(movement_tiles):
+        candidate = {"x": current["x"] + step_x, "y": current["y"] + step_y}
+        if not (0 <= candidate["x"] < width and 0 <= candidate["y"] < height):
+            blocked_reason = "out_of_bounds"
+            break
+        if (candidate["x"], candidate["y"]) in occupied:
+            blocked_reason = "occupied"
+            break
+        current = candidate
+        steps += 1
+
+    result = {
+        "type": movement_type,
+        "applied": steps > 0,
+        "target_id": str(target_id),
+        "target_name": target_name,
+        "distance_ft": steps * 5,
+        "requested_distance_ft": movement_tiles * 5,
+        "steps": steps,
+        "from": {"x": int(target_position.get("x", 0)), "y": int(target_position.get("y", 0))},
+        "to": dict(current),
+    }
+    if blocked_reason:
+        result["blocked_reason"] = blocked_reason
+
+    if steps > 0:
+        positions[str(target_id)] = dict(current)
+        combat.entity_positions = positions
+        _safe_flag_modified(combat, "entity_positions")
+
+    return result
+
+
+def _recharge_movement_tiles(ability: dict[str, Any], key: str) -> int:
+    value = ability.get(key)
+    if value is None:
+        return 0
+    try:
+        return max(1, int(value) // 5)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _combat_grid_dimensions(combat) -> tuple[int, int]:
+    grid_data = getattr(combat, "grid_data", None) or {}
+    try:
+        width = int(grid_data.get("width") or 20)
+        height = int(grid_data.get("height") or 12)
+    except (TypeError, ValueError):
+        return 20, 12
+    return max(1, width), max(1, height)
 
 
 def _choose_special_targets(

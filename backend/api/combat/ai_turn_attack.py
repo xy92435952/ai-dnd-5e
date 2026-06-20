@@ -10,6 +10,7 @@ from api.combat._shared import (
     _check_attack_range, _has_ally_adjacent_to,
     _do_concentration_check, _tick_conditions_char, _tick_conditions_enemy,
     _resolve_opportunity_attacks,
+    _set_active_ai_control_prompt,
     svc,
 )
 from api.combat.ai_turn_utils import advance_ai_turn, build_reaction_prompt, tick_ai_actor_conditions
@@ -39,6 +40,7 @@ from services.combat_ready_action_service import (
     matching_ready_action_actor_ids_for_movement,
     resolve_ready_actions_for_movement,
 )
+from services.combat_ready_spell_concentration_service import clear_ready_spell_for_lost_concentration
 from services.combat_reaction_service import build_pending_attack_reaction
 from services.combat_temporary_hp_service import (
     apply_generic_temporary_hp_to_character,
@@ -274,7 +276,14 @@ async def handle_ai_attack_action(
             for log in tick_logs:
                 db.add(log)
 
-            await advance_ai_turn(combat, session, db, turn_order, next_index)
+            advance_result = await advance_ai_turn(
+                combat,
+                session,
+                db,
+                turn_order,
+                next_index,
+                preserve_turn_states=_ready_action_preserved_turn_states(ready_action_results),
+            )
             flag_modified(session, "game_state")
             flag_modified(combat, "entity_positions")
             flag_modified(combat, "turn_states")
@@ -294,6 +303,7 @@ async def handle_ai_attack_action(
                 "entity_positions": dict(combat.entity_positions or {}),
                 "ready_action_results": ready_action_results,
                 "opportunity_attacks": _flatten_opportunity_attacks(opportunity_attacks),
+                **(advance_result or {}),
             }
 
         actor_ts = _get_ts(combat, actor_id)
@@ -585,12 +595,28 @@ async def handle_ai_attack_action(
         if tchar_conc:
             conc_log = await _do_concentration_check(tchar_conc, total_damage, session_id)
             if conc_log and conc_log.dice_result and conc_log.dice_result.get("broke"):
-                await clear_concentration_effects_for_caster(
+                broken_spell_name = conc_log.dice_result.get("spell_name")
+                concentration_effect_updates = await clear_concentration_effects_for_caster(
                     db,
                     session,
                     tchar_conc.id,
-                    spell_name=conc_log.dice_result.get("spell_name"),
+                    spell_name=broken_spell_name,
                 )
+                ready_spell_clear = await clear_ready_spell_for_lost_concentration(
+                    db,
+                    session,
+                    tchar_conc,
+                    concentration_spell_name=broken_spell_name,
+                    reason="concentration_lost",
+                    triggered_by=actor_id,
+                )
+                if target_state is None:
+                    target_state = build_character_target_state(tchar_conc)
+                target_state["concentration"] = None
+                if concentration_effect_updates:
+                    target_state["concentration_effect_updates"] = concentration_effect_updates
+                if ready_spell_clear and ready_spell_clear.ready_action_failed:
+                    target_state["ready_action_failed"] = ready_spell_clear.ready_action_failed
 
     ai_tick_logs = tick_ai_actor_conditions(
         session_id=session_id,
@@ -615,7 +641,14 @@ async def handle_ai_attack_action(
     if conc_log:
         db.add(conc_log)
 
-    await advance_ai_turn(combat, session, db, turn_order, next_index)
+    advance_result = await advance_ai_turn(
+        combat,
+        session,
+        db,
+        turn_order,
+        next_index,
+        preserve_turn_states=_ready_action_preserved_turn_states(ready_action_results),
+    )
 
     player_check = await db.get(Character, session.player_character_id)
     party_characters = [
@@ -650,6 +683,7 @@ async def handle_ai_attack_action(
     player_targeted = target_player is not None
     player_can_react = False
     reaction_prompt = None
+    response_advance_result = dict(advance_result or {})
     if player_targeted and target_player:
         player_ts = _get_ts(combat, target_player.id)
         pending_reaction = build_pending_attack_reaction(
@@ -660,12 +694,32 @@ async def handle_ai_attack_action(
         )
         if pending_reaction:
             player_ts["pending_attack_reaction"] = pending_reaction
-            _save_ts(combat, target_player.id, player_ts)
         player_can_react, has_prompt, reaction_prompt = build_reaction_prompt(
             target_player, player_ts, target_id, actor_name, actor_id, total_damage, result_obj
         )
         if not has_prompt:
             reaction_prompt = None
+        if pending_reaction:
+            if reaction_prompt:
+                if response_advance_result.get("lair_action_prompt"):
+                    pending_reaction["deferred_lair_action"] = {
+                        "current_index": (combat.current_turn_index - 1) % max(len(turn_order), 1),
+                        "next_index": combat.current_turn_index or 0,
+                        "round_started": (combat.current_turn_index or 0) == 0,
+                    }
+                    state = dict(session.game_state or {})
+                    state.pop("lair_action_prompted_round", None)
+                    session.game_state = state
+                    flag_modified(session, "game_state")
+                    _set_active_ai_control_prompt(session)
+                    response_advance_result["lair_action_prompt"] = None
+                if response_advance_result.get("legendary_action_prompt"):
+                    pending_reaction["deferred_legendary_action_prompt"] = response_advance_result.get(
+                        "legendary_action_prompt"
+                    )
+                    response_advance_result["legendary_action_prompt"] = None
+            player_ts["pending_attack_reaction"] = pending_reaction
+            _save_ts(combat, target_player.id, player_ts)
 
     await db.commit()
     return {
@@ -689,6 +743,7 @@ async def handle_ai_attack_action(
         "entity_positions": dict(combat.entity_positions or {}),
         "ready_action_results": ready_action_results,
         "opportunity_attacks": _flatten_opportunity_attacks(opportunity_attacks),
+        **response_advance_result,
     }
 
 
@@ -698,6 +753,19 @@ def _first_movement_stop(opportunity_attacks: list[dict]) -> dict | None:
         if movement_stop:
             return movement_stop
     return None
+
+
+def _ready_action_preserved_turn_states(ready_action_results: list[dict]) -> dict[str, dict]:
+    preserved: dict[str, dict] = {}
+    for result in ready_action_results or []:
+        if not isinstance(result, dict):
+            continue
+        actor_id = result.get("actor_id")
+        turn_state = result.get("turn_state")
+        if actor_id is None or not isinstance(turn_state, dict):
+            continue
+        preserved[str(actor_id)] = dict(turn_state)
+    return preserved
 
 
 def _flatten_opportunity_attacks(opportunity_attacks: list[dict]) -> list[dict]:
