@@ -304,7 +304,7 @@ export default function CharacterSheet() {
   const hpMax = char.hp_max || derived.hp_max || char.hp_current || 1
   const hpCur = char.hp_current || 0
   const hpPct = Math.max(0, Math.min(100, Math.round((hpCur / hpMax) * 100)))
-  const hpColor = hpPct > 60 ? 'var(--green-light)' : hpPct > 30 ? '#f59e0b' : 'var(--red-light)'
+  const hpTone = hpPct > 60 ? 'healthy' : hpPct > 30 ? 'wounded' : 'critical'
   const profBonus = derived.proficiency_bonus || 2
   const passivePerception = 10 + (mods.wis || 0) + ((char.proficient_skills || []).includes('感知') || (char.proficient_skills || []).includes('Perception') ? profBonus : 0)
   const slotsMax = derived.spell_slots_max || {}
@@ -317,13 +317,13 @@ export default function CharacterSheet() {
       label: '生命值',
       value: `${hpCur} / ${hpMax}`,
       tone: 'hp',
-      valueStyle: { '--character-sheet-stat-color': hpColor },
-      icon: <HeartIcon size={12} color={hpColor} className="character-sheet-stat-icon" />,
+      hpTone,
+      icon: <HeartIcon size={12} className="character-sheet-stat-icon character-sheet-hp-icon" />,
       meter: {
         value: hpCur,
         max: hpMax,
         percent: hpPct,
-        color: hpColor,
+        tone: hpTone,
       },
     },
     {
@@ -398,6 +398,7 @@ export default function CharacterSheet() {
               className={`panel character-sheet-stat-card character-sheet-stat-card-${stat.tone}`}
               role="listitem"
               aria-label={`${stat.label} ${typeof stat.value === 'string' || typeof stat.value === 'number' ? stat.value : ''}`.trim()}
+              data-hp-tone={stat.hpTone || undefined}
             >
               <p className="character-sheet-stat-label">
                 {stat.icon}
@@ -411,19 +412,18 @@ export default function CharacterSheet() {
                   aria-valuemin="0"
                   aria-valuemax={stat.meter.max}
                   aria-valuenow={stat.meter.value}
+                  data-hp-tone={stat.meter.tone}
                 >
                   <div
                     className="character-sheet-hp-meter-fill"
                     style={{
                       '--character-sheet-hp-width': `${stat.meter.percent}%`,
-                      '--character-sheet-hp-color': stat.meter.color,
                     }}
                   />
                 </div>
               )}
               <p
                 className={`character-sheet-stat-value${stat.compact ? ' character-sheet-stat-value-compact' : ''}`}
-                style={stat.valueStyle}
               >
                 {stat.value}
               </p>
@@ -754,7 +754,7 @@ export default function CharacterSheet() {
         )}
 
         {/* Bottom spacer */}
-        <div style={{ height: 32 }} />
+        <div className="character-sheet-bottom-spacer" aria-hidden="true" />
       </div>
     </main>
   )

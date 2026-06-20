@@ -764,14 +764,38 @@
   height: 100%;
   width: var(--character-sheet-hp-width);
   border-radius: 3px;
-  background: var(--character-sheet-hp-color);
+  background: var(--green-light);
   transition: width .4s;
+}
+.character-sheet-hp-meter[data-hp-tone="healthy"] .character-sheet-hp-meter-fill {
+  background: var(--green-light);
+}
+.character-sheet-hp-meter[data-hp-tone="wounded"] .character-sheet-hp-meter-fill {
+  background: #f59e0b;
+}
+.character-sheet-hp-meter[data-hp-tone="critical"] .character-sheet-hp-meter-fill {
+  background: var(--red-light);
 }
 .character-sheet-stat-value {
   margin: 0;
-  color: var(--character-sheet-stat-color, var(--parchment));
+  color: var(--parchment);
   font-size: 26px;
   font-weight: 700;
+}
+.character-sheet-stat-card[data-hp-tone="healthy"] .character-sheet-stat-value,
+.character-sheet-stat-card[data-hp-tone="healthy"] .character-sheet-hp-icon {
+  color: var(--green-light);
+  stroke: var(--green-light);
+}
+.character-sheet-stat-card[data-hp-tone="wounded"] .character-sheet-stat-value,
+.character-sheet-stat-card[data-hp-tone="wounded"] .character-sheet-hp-icon {
+  color: #f59e0b;
+  stroke: #f59e0b;
+}
+.character-sheet-stat-card[data-hp-tone="critical"] .character-sheet-stat-value,
+.character-sheet-stat-card[data-hp-tone="critical"] .character-sheet-hp-icon {
+  color: var(--red-light);
+  stroke: var(--red-light);
 }
 .character-sheet-stat-card-hp .character-sheet-stat-value,
 .character-sheet-stat-value-compact {
@@ -1095,6 +1119,9 @@
   font-size: 12px;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+.character-sheet-bottom-spacer {
+  height: 32px;
 }
 .character-sheet-level-up-panel {
   padding: 16px;
