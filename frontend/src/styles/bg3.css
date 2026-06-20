@@ -404,13 +404,13 @@
     0 0 0 1px rgba(138,90,24,.4),
     inset 0 -1px 0 rgba(240,208,96,.1);
 }
-[data-theme="bg3"] .hp-bar > .fill {
+[data-theme="bg3"] .hp-bar > .hp-bar-fill {
   border-radius: 1px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 -1px 2px rgba(0,0,0,.4);
 }
-[data-theme="bg3"] .hp-bar.high > .fill { background: linear-gradient(180deg, #6ac484, #2a6a3a); }
-[data-theme="bg3"] .hp-bar.mid > .fill  { background: linear-gradient(180deg, #f0c864, #8a5a10); }
-[data-theme="bg3"] .hp-bar.low > .fill  { background: linear-gradient(180deg, #f04838, #7a1010); }
+[data-theme="bg3"] .hp-bar.high > .hp-bar-fill { background: linear-gradient(180deg, #6ac484, #2a6a3a); }
+[data-theme="bg3"] .hp-bar.mid > .hp-bar-fill  { background: linear-gradient(180deg, #f0c864, #8a5a10); }
+[data-theme="bg3"] .hp-bar.low > .hp-bar-fill  { background: linear-gradient(180deg, #f04838, #7a1010); }
 
 /* ── 法术位宝石·BG3 ── */
 [data-theme="bg3"] .slot-gem {

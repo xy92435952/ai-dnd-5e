@@ -25,7 +25,7 @@ export function HpBar({ cur, max }) {
   return (
     <div>
       <div className={`hp-bar ${tone}`}>
-        <div className="fill" style={{ width: `${pct}%` }} />
+        <div className="hp-bar-fill" style={{ '--hp-bar-width': `${pct}%` }} />
       </div>
       <div className="hp-bar-meta">
         <span>HP {cur}/{max}</span>

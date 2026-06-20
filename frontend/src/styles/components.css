@@ -437,7 +437,8 @@
   overflow: hidden;
   position: relative;
 }
-.hp-bar > .fill {
+.hp-bar > .hp-bar-fill {
+  width: var(--hp-bar-width, 0%);
   height: 100%;
   border-radius: 3px;
   background: linear-gradient(90deg, #c83838 0%, #e06040 40%, #e8a020 100%);
@@ -445,14 +446,14 @@
   transition: width .5s ease;
   position: relative;
 }
-.hp-bar > .fill::after {
+.hp-bar > .hp-bar-fill::after {
   content: '';
   position: absolute; inset: 0;
   background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,.08) 4px, rgba(255,255,255,.08) 5px);
 }
-.hp-bar.high > .fill { background: linear-gradient(90deg, #3a7a48, #6aaa6a); box-shadow: 0 0 8px rgba(95,168,120,.35); }
-.hp-bar.mid > .fill  { background: linear-gradient(90deg, #c47820, #e8a020); box-shadow: 0 0 8px rgba(232,160,32,.35); }
-.hp-bar.low > .fill  { background: linear-gradient(90deg, #8a1a1a, #c83838); box-shadow: 0 0 8px rgba(200,56,56,.4); }
+.hp-bar.high > .hp-bar-fill { background: linear-gradient(90deg, #3a7a48, #6aaa6a); box-shadow: 0 0 8px rgba(95,168,120,.35); }
+.hp-bar.mid > .hp-bar-fill  { background: linear-gradient(90deg, #c47820, #e8a020); box-shadow: 0 0 8px rgba(232,160,32,.35); }
+.hp-bar.low > .hp-bar-fill  { background: linear-gradient(90deg, #8a1a1a, #c83838); box-shadow: 0 0 8px rgba(200,56,56,.4); }
 .hp-bar-meta {
   display: flex;
   justify-content: space-between;
