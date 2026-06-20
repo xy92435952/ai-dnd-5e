@@ -49,6 +49,10 @@ describe('IsoBattlefield', () => {
     expect(cell.className).toContain('aoe-center')
     expect(cell).toHaveAttribute('role', 'button')
     expect(cell).toHaveAttribute('title', '选择 Target · 范围命中：敌方')
+    const unit = container.querySelector('.iso-unit.enemy')
+    expect(unit).toBeTruthy()
+    expect(unit).not.toHaveAttribute('style')
+    expect(unit.querySelector('.micro-hp .fill')).toHaveAttribute('style')
 
     fireEvent.click(cell)
     expect(onSelectTarget).toHaveBeenCalledWith('enemy')

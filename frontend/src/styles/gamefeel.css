@@ -8265,8 +8265,23 @@ button.companion-signal-item:focus-visible {
   /* HD-2D 默认轻微呼吸 */
   animation: unitIdleBob 2.6s ease-in-out infinite;
 }
-.iso-unit.enemy { animation-delay: -.8s; }
-.iso-unit.ally  { animation-delay: -1.4s; }
+.iso-unit.enemy {
+  --c-light: #f04848;
+  --c-dark: #3a0a0a;
+  --c-glow: #f04848;
+  animation-delay: -.8s;
+}
+.iso-unit.ally  {
+  --c-light: #7fc8f8;
+  --c-dark: #143a5e;
+  --c-glow: #5fb8f8;
+  animation-delay: -1.4s;
+}
+.iso-unit.player {
+  --c-light: #6ae884;
+  --c-dark: #1a4a28;
+  --c-glow: #6ae884;
+}
 @keyframes unitIdleBob {
   0%,100% { transform: translateY(0); }
   50%     { transform: translateY(-2px); }
