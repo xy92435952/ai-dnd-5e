@@ -259,78 +259,38 @@ export default function DiceRollerOverlay() {
   return (
     <>
       {/* 持久化 3D 容器 */}
-      <div id="dice-roller-persistent" style={{
-        position: 'fixed',
-        top: visible ? '50%' : '-9999px',
-        left: visible ? '50%' : '-9999px',
-        transform: visible ? 'translate(-50%, -60%)' : 'none',
-        width: Math.min(480, typeof window !== 'undefined' ? window.innerWidth - 32 : 480),
-        height: 300,
-        zIndex: visible ? 10000 : -1,
-        borderRadius: 16,
-        overflow: 'hidden',
-        pointerEvents: visible ? 'auto' : 'none',
-      }} />
+      <div
+        id="dice-roller-persistent"
+        className="dice-roller-persistent"
+        data-visible={visible}
+      />
 
       {/* 覆盖层 UI */}
       {visible && (
-        <div onClick={phase === 'result' ? dismiss : undefined} style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          cursor: phase === 'result' ? 'pointer' : 'default',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          background: combatActive
-            ? 'radial-gradient(ellipse at center, rgba(40,5,5,0.92), rgba(0,0,0,0.96))'
-            : 'radial-gradient(ellipse at center, rgba(35,25,8,0.90), rgba(0,0,0,0.95))',
-          animation: 'diceFadeIn 0.3s ease',
-        }}>
+        <div
+          className="dice-overlay-shell"
+          data-phase={phase}
+          data-combat={combatActive}
+          onClick={phase === 'result' ? dismiss : undefined}
+        >
           {/* 3D 区域 */}
-          <div style={{
-            width: Math.min(480, typeof window !== 'undefined' ? window.innerWidth - 32 : 480),
-            height: 300,
-            borderRadius: 16,
-            background: 'radial-gradient(ellipse at center, rgba(60,45,25,0.3), rgba(20,15,8,0.5))',
-            border: `1px solid ${phase === 'waiting' ? 'rgba(201,168,76,0.3)' : 'rgba(201,168,76,0.1)'}`,
-            transition: 'border-color 0.3s',
-          }} onClick={e => e.stopPropagation()} />
+          <div
+            className="dice-surface"
+            data-phase={phase}
+            onClick={e => e.stopPropagation()}
+          />
 
           {/* ── 等待点击投掷 ── */}
           {phase === 'waiting' && (
-            <div style={{ textAlign: 'center', marginTop: 20, animation: 'diceFadeIn 0.4s ease' }}>
+            <div className="dice-throw-panel">
               <button
+                className="dice-throw-button"
+                data-combat={combatActive}
                 onClick={handleThrow}
-                style={{
-                  background: combatActive
-                    ? 'linear-gradient(135deg, #7f1d1d, #991b1b)'
-                    : 'linear-gradient(135deg, #78350f, #92400e)',
-                  border: `2px solid ${combatActive ? '#ef4444' : '#f59e0b'}`,
-                  borderRadius: 12,
-                  padding: '14px 40px',
-                  cursor: 'pointer',
-                  color: '#fff',
-                  fontSize: 18,
-                  fontWeight: 800,
-                  fontFamily: 'Georgia, serif',
-                  letterSpacing: 2,
-                  textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                  boxShadow: `0 0 20px ${combatActive ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}, 0 4px 12px rgba(0,0,0,0.4)`,
-                  transition: 'all 0.2s',
-                  animation: 'throwPulse 2s ease-in-out infinite',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'scale(1.08)'
-                  e.currentTarget.style.boxShadow = `0 0 30px ${combatActive ? 'rgba(239,68,68,0.5)' : 'rgba(245,158,11,0.5)'}, 0 6px 20px rgba(0,0,0,0.5)`
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'scale(1)'
-                  e.currentTarget.style.boxShadow = `0 0 20px ${combatActive ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}, 0 4px 12px rgba(0,0,0,0.4)`
-                }}
               >
                 🎲 投掷 {count > 1 ? `${count}` : ''}d{promptData.faces || 20}
               </button>
-              <p style={{
-                fontSize: 11, marginTop: 10, letterSpacing: 1,
-                color: combatActive ? 'rgba(252,165,165,0.4)' : 'rgba(240,208,96,0.4)',
-              }}>
+              <p className="dice-throw-helper" data-combat={combatActive}>
                 点击按钮投出骰子
               </p>
             </div>
@@ -338,11 +298,7 @@ export default function DiceRollerOverlay() {
 
           {/* ── 正在投掷 ── */}
           {phase === 'rolling' && (
-            <p style={{
-              fontSize: 14, fontWeight: 600, marginTop: 16, letterSpacing: 2,
-              color: combatActive ? 'rgba(252,165,165,0.6)' : 'rgba(240,208,96,0.6)',
-              animation: 'diceFadeIn 0.3s ease',
-            }}>
+            <p className="dice-rolling-copy" data-combat={combatActive}>
               骰子飞出...
             </p>
           )}
@@ -374,16 +330,6 @@ export default function DiceRollerOverlay() {
           )}
         </div>
       )}
-
-      <style>{`
-        @keyframes diceFadeIn { from{opacity:0} to{opacity:1} }
-        @keyframes dicePopIn { from{transform:scale(.5) translateY(10px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
-        @keyframes throwPulse {
-          0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.3), 0 4px 12px rgba(0,0,0,0.4); }
-          50% { box-shadow: 0 0 35px rgba(245,158,11,0.5), 0 6px 16px rgba(0,0,0,0.5); }
-        }
-        #dice-roller-persistent canvas { width:100%!important; height:100%!important; display:block; }
-      `}</style>
     </>
   )
 }

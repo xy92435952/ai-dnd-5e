@@ -122,7 +122,123 @@
 /* ── 职业纹章肖像 ──────────────────────────────────────
    纯CSS/SVG，每个职业一个辨识符号
    直径 48px (sm) / 64px (md) / 96px (lg) */
-/* DiceRollerOverlay result chrome */
+/* DiceRollerOverlay chrome */
+@keyframes diceFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dicePopIn {
+  from { transform: scale(.5) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes throwPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, .3), 0 4px 12px rgba(0, 0, 0, .4); }
+  50% { box-shadow: 0 0 35px rgba(245, 158, 11, .5), 0 6px 16px rgba(0, 0, 0, .5); }
+}
+.dice-roller-persistent {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  width: min(480px, calc(100vw - 32px));
+  height: 300px;
+  z-index: -1;
+  border-radius: 16px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.dice-roller-persistent[data-visible="true"] {
+  top: 50%;
+  left: 50%;
+  z-index: 10000;
+  transform: translate(-50%, -60%);
+  pointer-events: auto;
+}
+.dice-roller-persistent canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+.dice-overlay-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(35, 25, 8, .9), rgba(0, 0, 0, .95));
+  animation: diceFadeIn .3s ease;
+}
+.dice-overlay-shell[data-combat="true"] {
+  background: radial-gradient(ellipse at center, rgba(40, 5, 5, .92), rgba(0, 0, 0, .96));
+}
+.dice-overlay-shell[data-phase="result"] {
+  cursor: pointer;
+}
+.dice-surface {
+  width: min(480px, calc(100vw - 32px));
+  height: 300px;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at center, rgba(60, 45, 25, .3), rgba(20, 15, 8, .5));
+  border: 1px solid rgba(201, 168, 76, .1);
+  transition: border-color .3s;
+}
+.dice-surface[data-phase="waiting"] {
+  border-color: rgba(201, 168, 76, .3);
+}
+.dice-throw-panel {
+  text-align: center;
+  margin-top: 20px;
+  animation: diceFadeIn .4s ease;
+}
+.dice-throw-button {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 14px 40px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  font-family: Georgia, serif;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, .5);
+  box-shadow: 0 0 20px rgba(245, 158, 11, .3), 0 4px 12px rgba(0, 0, 0, .4);
+  transition: transform .2s, box-shadow .2s;
+  animation: throwPulse 2s ease-in-out infinite;
+}
+.dice-throw-button[data-combat="true"] {
+  background: linear-gradient(135deg, #7f1d1d, #991b1b);
+  border-color: #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, .3), 0 4px 12px rgba(0, 0, 0, .4);
+}
+.dice-throw-button:hover,
+.dice-throw-button:focus-visible {
+  transform: scale(1.08);
+  box-shadow: 0 0 30px rgba(245, 158, 11, .5), 0 6px 20px rgba(0, 0, 0, .5);
+}
+.dice-throw-button[data-combat="true"]:hover,
+.dice-throw-button[data-combat="true"]:focus-visible {
+  box-shadow: 0 0 30px rgba(239, 68, 68, .5), 0 6px 20px rgba(0, 0, 0, .5);
+}
+.dice-throw-helper {
+  font-size: 11px;
+  margin-top: 10px;
+  letter-spacing: 1px;
+  color: rgba(240, 208, 96, .4);
+}
+.dice-throw-helper[data-combat="true"] {
+  color: rgba(252, 165, 165, .4);
+}
+.dice-rolling-copy {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 16px;
+  letter-spacing: 2px;
+  color: rgba(240, 208, 96, .6);
+  animation: diceFadeIn .3s ease;
+}
+.dice-rolling-copy[data-combat="true"] {
+  color: rgba(252, 165, 165, .6);
+}
 .dice-result-stack {
   text-align: center;
   margin-top: 16px;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { normalizeDiceRollResult } from '../DiceRollerOverlay'
 import DiceRollerOverlay from '../DiceRollerOverlay'
 import { useGameStore } from '../../store/gameStore'
@@ -69,5 +69,34 @@ describe('normalizeDiceRollResult', () => {
     expect(container.querySelector('.dice-result-badge')).toHaveAttribute('data-outcome', 'crit')
     expect(container.querySelector('.dice-result-badge-text')).toHaveTextContent('大成功')
     expect(screen.getByText('点击任意处关闭')).toHaveClass('dice-result-dismiss-hint')
+  })
+  it('renders prompt shell chrome through stable classes and keeps rolling state visible after throw', async () => {
+    useGameStore.setState({ combatActive: true })
+
+    const { container } = render(<DiceRollerOverlay />)
+    const persistent = container.querySelector('#dice-roller-persistent')
+    expect(persistent).toHaveClass('dice-roller-persistent')
+    expect(persistent).toHaveAttribute('data-visible', 'false')
+
+    useGameStore.getState().showDicePrompt({ faces: 12, count: 2 })
+
+    await waitFor(() => {
+      expect(container.querySelector('.dice-overlay-shell')).toHaveAttribute('data-phase', 'waiting')
+    })
+    expect(persistent).toHaveAttribute('data-visible', 'true')
+    expect(container.querySelector('.dice-overlay-shell')).toHaveAttribute('data-combat', 'true')
+    expect(container.querySelector('.dice-surface')).toHaveAttribute('data-phase', 'waiting')
+    expect(container.querySelector('.dice-throw-panel')).toBeInTheDocument()
+
+    const throwButton = container.querySelector('.dice-throw-button')
+    expect(throwButton).toHaveAttribute('data-combat', 'true')
+    expect(throwButton).not.toHaveAttribute('style')
+    expect(container.querySelector('.dice-throw-helper')).toHaveAttribute('data-combat', 'true')
+
+    fireEvent.click(throwButton)
+
+    await waitFor(() => {
+      expect(container.querySelector('.dice-rolling-copy')).toHaveAttribute('data-combat', 'true')
+    })
   })
 })
