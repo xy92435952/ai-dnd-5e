@@ -334,7 +334,7 @@ function TutorialSpotlight({ rect }) {
   if (!rect) {
     return (
       <div className="tut-spotlight">
-        <div className="sp-mask" style={{ clipPath: 'none' }} />
+        <div className="sp-mask sp-mask-clear" />
       </div>
     )
   }
@@ -550,10 +550,7 @@ function TutorialRunner({ chapterId, onExit, onChapterDone }) {
 
       {/* 无 target 但有 glossary：居中右下角展示 */}
       {step.glossary && !rect && (
-        <div
-          className="tut-glossary"
-          style={{ right: 32, top: 120, left: 'auto' }}
-        >
+        <div className="tut-glossary tut-glossary-fallback">
           <div className="g-term">{step.glossary.term}</div>
           {step.glossary.pron && <div className="g-pron">{step.glossary.pron}</div>}
           <div className="g-def">{step.glossary.def}</div>

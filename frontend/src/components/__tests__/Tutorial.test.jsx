@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { TutorialCoach, TutorialEntryCard } from '../Tutorial'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { TutorialCoach, TutorialEntryCard, TutorialHost } from '../Tutorial'
 
 describe('TutorialEntryCard', () => {
   it('renders entry-card chrome through stable classes and opens from card or CTA', () => {
@@ -51,5 +51,30 @@ describe('TutorialEntryCard', () => {
     expect(actionCallout).toBeInTheDocument()
     expect(actionCallout).not.toHaveAttribute('style')
     expect(actionCallout).toHaveTextContent('Roll initiative')
+  })
+
+  it('renders no-target tutorial fallback chrome through stable classes', async () => {
+    const { container } = render(
+      <TutorialHost open initialChapter="create" onClose={vi.fn()} />,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('.tut-coach')).toBeInTheDocument()
+    })
+
+    const mask = container.querySelector('.sp-mask')
+    expect(mask).toHaveClass('sp-mask-clear')
+    expect(mask).not.toHaveAttribute('style')
+
+    fireEvent.click(container.querySelector('.coach-actions .primary'))
+
+    await waitFor(() => {
+      expect(container.querySelector('.tut-glossary')).toBeInTheDocument()
+    })
+
+    const glossary = container.querySelector('.tut-glossary')
+    expect(glossary).toHaveClass('tut-glossary-fallback')
+    expect(glossary).not.toHaveAttribute('style')
+    expect(within(glossary).getByText('种族')).toBeInTheDocument()
   })
 })
