@@ -4371,7 +4371,7 @@ button.companion-signal-item:focus-visible {
 .journal-approval-meter-fill {
   display: block;
   height: 100%;
-  width: var(--journal-approval-fill, 0%);
+  width: var(--journal-approval-meter-width, 0%);
   min-width: 2px;
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(213,184,121,.52), rgba(106,196,132,.72));

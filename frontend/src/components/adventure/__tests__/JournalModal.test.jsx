@@ -168,7 +168,7 @@ describe('JournalModal', () => {
     expect(within(dossier).getByText('最近好感 +6')).toBeInTheDocument()
     const approvalMeter = within(dossier).getByLabelText('艾琳 好感 +18')
     expect(approvalMeter).toBeInTheDocument()
-    expect(approvalMeter.querySelector('.journal-approval-meter-fill')).toHaveStyle({ '--journal-approval-fill': '59%' })
+    expect(approvalMeter.querySelector('.journal-approval-meter-fill')).toHaveStyle({ '--journal-approval-meter-width': '59%' })
     const approvalThresholds = within(dossier).getByLabelText('艾琳 好感阈值')
     expect(within(approvalThresholds).getByText('阶段')).toBeInTheDocument()
     expect(within(approvalThresholds).getByText('认可')).toBeInTheDocument()

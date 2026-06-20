@@ -560,7 +560,7 @@ export default function JournalModal({ session, room, text, loading, initialSect
                   </div>
                   {companion.bond.approval && (
                     <div className={`journal-approval-meter ${companion.bond.approval.tone}`} aria-label={`${companion.name} 好感 ${companion.bond.approval.text}`}>
-                      <span className="journal-approval-meter-fill" style={{ '--journal-approval-fill': companion.bond.approval.fill }} />
+                      <span className="journal-approval-meter-fill" style={{ '--journal-approval-meter-width': companion.bond.approval.fill }} />
                     </div>
                   )}
                   {companion.bond.approval && (
