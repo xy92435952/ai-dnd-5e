@@ -4895,6 +4895,8 @@ button.companion-signal-item:focus-visible {
 }
 .location-map-node {
   position: absolute;
+  left: var(--location-map-node-x, 50%);
+  top: var(--location-map-node-y, 50%);
   transform: translate(-50%, -50%);
   width: 104px;
   min-height: 48px;

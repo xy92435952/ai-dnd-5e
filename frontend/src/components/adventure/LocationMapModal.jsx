@@ -235,7 +235,10 @@ function NodeMarker({ node, selected, onSelect }) {
     <button
       type="button"
       className={className}
-      style={{ left: `${node.x}%`, top: `${node.y}%` }}
+      style={{
+        '--location-map-node-x': `${node.x}%`,
+        '--location-map-node-y': `${node.y}%`,
+      }}
       title={[node.name, node.description, node.encounterNames.join(' / ')].filter(Boolean).join('\n')}
       aria-label={`${node.name}${node.current ? ' current' : ''}${node.visited ? ' visited' : ' unvisited'}`}
       aria-pressed={selected}

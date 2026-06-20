@@ -46,7 +46,16 @@ describe('LocationMapModal', () => {
     expect(screen.getByRole('heading', { name: 'Map' })).toBeInTheDocument()
     expect(screen.getAllByText('Training Yard').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Location map')).toBeInTheDocument()
-    expect(screen.getByLabelText('Training Yard current visited')).toBeInTheDocument()
+    const currentNode = screen.getByLabelText('Training Yard current visited')
+    expect(currentNode).toBeInTheDocument()
+    expect(currentNode).toHaveClass('location-map-node', 'current', 'selected', 'visited')
+    expect(currentNode).not.toHaveClass('has-encounter')
+    expect(currentNode.style.left).toBe('')
+    expect(currentNode.style.top).toBe('')
+    expect(currentNode).toHaveStyle({
+      '--location-map-node-x': '88%',
+      '--location-map-node-y': '50%',
+    })
     expect(screen.queryByLabelText('Vault unvisited')).not.toBeInTheDocument()
 
     const summary = screen.getByLabelText('Map summary')
