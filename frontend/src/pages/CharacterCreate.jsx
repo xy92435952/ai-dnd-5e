@@ -462,10 +462,7 @@ export default function CharacterCreate() {
                     className="panel create-dm-style-card"
                     aria-pressed={selected}
                     data-selected={selected ? 'true' : 'false'}
-                    style={{
-                      '--create-dm-style-accent': style.accent,
-                      '--create-dm-style-bg': `${style.accent}22`,
-                    }}
+                    data-style-key={style.key}
                   >
                     <span className="create-dm-style-label">{style.label}</span>
                     <span className="create-dm-style-copy">{style.summary}</span>
@@ -478,7 +475,7 @@ export default function CharacterCreate() {
           <div
             className="create-dm-style-current"
             role="status"
-            style={{ '--create-dm-style-accent': getDmStyle(dmStyle).accent }}
+            data-style-key={getDmStyle(dmStyle).key}
           >
             当前选择：<span className="create-dm-style-current-label">{getDmStyle(dmStyle).label}</span>
             <span className="create-dm-style-current-copy">{getDmStyle(dmStyle).summary}</span>

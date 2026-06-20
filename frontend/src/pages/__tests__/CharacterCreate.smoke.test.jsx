@@ -240,9 +240,12 @@ describe('CharacterCreate shell polish', () => {
     const epic = within(styles).getByRole('button', { name: /史诗 CRPG/ })
     expect(classic).toHaveClass('create-dm-style-card')
     expect(classic).toHaveAttribute('aria-pressed', 'true')
+    expect(classic).toHaveAttribute('data-style-key', 'classic')
     expect(classic.querySelector('.create-dm-style-label')).toHaveTextContent('经典桌游')
     fireEvent.click(epic)
     expect(epic).toHaveAttribute('data-selected', 'true')
+    expect(epic).toHaveAttribute('data-style-key', 'epic_crpg')
+    expect(container.querySelector('.create-dm-style-current')).toHaveAttribute('data-style-key', 'epic_crpg')
     expect(container.querySelector('.create-dm-style-current')).toHaveTextContent('史诗 CRPG')
 
     const start = screen.getByRole('button', { name: /开始冒险/ })

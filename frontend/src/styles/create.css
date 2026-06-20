@@ -235,6 +235,31 @@
   text-align: left;
   cursor: pointer;
 }
+.create-dm-style-card[data-style-key="classic"],
+.create-dm-style-current[data-style-key="classic"] {
+  --create-dm-style-accent: #d8b45f;
+  --create-dm-style-bg: #d8b45f22;
+}
+.create-dm-style-card[data-style-key="dark_fantasy"],
+.create-dm-style-current[data-style-key="dark_fantasy"] {
+  --create-dm-style-accent: #a64a56;
+  --create-dm-style-bg: #a64a5622;
+}
+.create-dm-style-card[data-style-key="lighthearted"],
+.create-dm-style-current[data-style-key="lighthearted"] {
+  --create-dm-style-accent: #68b684;
+  --create-dm-style-bg: #68b68422;
+}
+.create-dm-style-card[data-style-key="epic_crpg"],
+.create-dm-style-current[data-style-key="epic_crpg"] {
+  --create-dm-style-accent: #7fb8f8;
+  --create-dm-style-bg: #7fb8f822;
+}
+.create-dm-style-card[data-style-key="hardcore"],
+.create-dm-style-current[data-style-key="hardcore"] {
+  --create-dm-style-accent: #d07a3a;
+  --create-dm-style-bg: #d07a3a22;
+}
 .create-dm-style-card[data-selected="true"] {
   border-color: var(--create-dm-style-accent);
   background: linear-gradient(180deg, var(--create-dm-style-bg), rgba(10,6,2,.45));
