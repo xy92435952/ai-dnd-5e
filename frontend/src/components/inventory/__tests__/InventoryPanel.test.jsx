@@ -61,6 +61,8 @@ describe('InventoryPanel', () => {
     expect(container.querySelectorAll('.inventory-section').length).toBeGreaterThanOrEqual(2)
     expect(container.querySelectorAll('.inventory-row').length).toBeGreaterThanOrEqual(2)
     expect(container.querySelector('.inventory-row-actions')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-row-action-button')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-row-select')).toBeInTheDocument()
     expect(container.querySelector('.inventory-item-meta')).toBeInTheDocument()
 
     fireEvent.click(container.querySelector('.inventory-shop-toggle'))
@@ -74,6 +76,7 @@ describe('InventoryPanel', () => {
     expect(container.querySelector('.inventory-shop-grid')).toBeInTheDocument()
     expect(container.querySelector('.inventory-shop-card')).toBeInTheDocument()
     expect(container.querySelector('.inventory-shop-card-footer')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-shop-buy-button')).toBeInTheDocument()
   })
 
   it('equips weapons and merges returned equipment and derived stats', async () => {
@@ -564,6 +567,8 @@ describe('InventoryPanel', () => {
       />,
     )
 
+    expect(screen.getByRole('button', { name: '-1' })).toHaveClass('inventory-ammo-button')
+    expect(screen.getByRole('button', { name: '+1' })).toHaveClass('inventory-ammo-button')
     fireEvent.click(screen.getByRole('button', { name: '-1' }))
 
     await waitFor(() => {

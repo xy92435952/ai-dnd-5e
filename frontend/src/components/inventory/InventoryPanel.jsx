@@ -325,16 +325,16 @@ function InventoryRow({
       <div className="inventory-row-actions">
         {onAmmo && (
           <span className="inventory-ammo-actions">
-            <button type="button" className="btn-ghost" disabled={busy || (item.ammo || 0) <= 0} onClick={() => onAmmo(-1)} style={{ fontSize: 10, padding: '4px 7px' }}>
+            <button type="button" className="btn-ghost inventory-ammo-button" disabled={busy || (item.ammo || 0) <= 0} onClick={() => onAmmo(-1)}>
               -1
             </button>
-            <button type="button" className="btn-ghost" disabled={busy} onClick={() => onAmmo(1)} style={{ fontSize: 10, padding: '4px 7px' }}>
+            <button type="button" className="btn-ghost inventory-ammo-button" disabled={busy} onClick={() => onAmmo(1)}>
               +1
             </button>
           </span>
         )}
         {onPrimary && (
-          <button type="button" className="btn-ghost" disabled={busy} onClick={onPrimary} style={{ fontSize: 10, padding: '4px 8px' }}>
+          <button type="button" className="btn-ghost inventory-row-action-button" disabled={busy} onClick={onPrimary}>
             {primaryLabel}
           </button>
         )}
@@ -349,15 +349,6 @@ function InventoryRow({
               event.target.value = ''
               if (targetId) onUseTarget(targetId)
             }}
-            style={{
-              background: 'rgba(10,6,2,0.65)',
-              border: '1px solid var(--wood-light)',
-              color: 'var(--parchment)',
-              borderRadius: 4,
-              fontSize: 10,
-              padding: '4px 6px',
-              maxWidth: 92,
-            }}
           >
             <option value="">用于</option>
             {useTargets.map(target => (
@@ -366,7 +357,7 @@ function InventoryRow({
           </select>
         )}
         {onSell && (
-          <button type="button" className="btn-ghost" disabled={busy} onClick={onSell} style={{ fontSize: 10, padding: '4px 8px' }}>
+          <button type="button" className="btn-ghost inventory-row-action-button" disabled={busy} onClick={onSell}>
             出售
           </button>
         )}
@@ -380,15 +371,6 @@ function InventoryRow({
               const targetId = event.target.value
               event.target.value = ''
               if (targetId) onTransfer(targetId)
-            }}
-            style={{
-              background: 'rgba(10,6,2,0.65)',
-              border: '1px solid var(--wood-light)',
-              color: 'var(--parchment)',
-              borderRadius: 4,
-              fontSize: 10,
-              padding: '4px 6px',
-              maxWidth: 92,
             }}
           >
             <option value="">给予</option>
@@ -429,7 +411,6 @@ function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
             type="button"
             className={tab === key ? 'btn-gold' : 'btn-ghost'}
             onClick={() => onTab(key)}
-            style={{ fontSize: 10, padding: '5px 10px' }}
           >
             {label}
           </button>
@@ -453,10 +434,9 @@ function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
                 </span>
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="btn-ghost inventory-shop-buy-button"
                   disabled={!affordable || busyKey === `shop-${item.category}-${item.name}`}
                   onClick={() => onBuy(item)}
-                  style={{ fontSize: 10, padding: '4px 8px' }}
                 >
                   购买
                 </button>

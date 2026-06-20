@@ -1551,13 +1551,28 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.inventory-row-action-button {
+  padding: 4px 8px;
+  font-size: 10px;
+}
 .inventory-ammo-actions {
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
+.inventory-ammo-button {
+  padding: 4px 7px;
+  font-size: 10px;
+}
 .inventory-row-select {
   min-width: 0;
+  max-width: 92px;
+  padding: 4px 6px;
+  border: 1px solid var(--wood-light);
+  border-radius: 4px;
+  background: rgba(10,6,2,0.65);
+  color: var(--parchment);
+  font-size: 10px;
 }
 .inventory-shop-panel {
   min-width: 0;
@@ -1635,7 +1650,10 @@
   gap: 3px 5px;
   min-width: 0;
 }
-.inventory-shop-card-footer .btn-ghost {
+.inventory-shop-card-footer .btn-ghost,
+.inventory-shop-buy-button {
+  padding: 4px 8px;
+  font-size: 10px;
   white-space: normal;
   overflow-wrap: anywhere;
 }
