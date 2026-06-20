@@ -10153,7 +10153,8 @@ button.companion-signal-item:focus-visible {
   border: 1px solid rgba(196,40,40,.5);
   margin-top: 6px;
 }
-.target-hp-bar > div {
+.target-hp-fill {
+  width: var(--target-hp-width, 0%);
   height: 100%;
   background: linear-gradient(90deg, #f04040, #8a1818);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.3);

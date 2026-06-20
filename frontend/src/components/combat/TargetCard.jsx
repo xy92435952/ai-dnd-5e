@@ -21,7 +21,7 @@ export default function TargetCard({
   const wrapClassName = inspect ? 'target-card-wrap has-inspect' : 'target-card-wrap'
   const hpMax = Number(entity.hp_max || 0)
   const hpCurrent = Number(entity.hp_current ?? 0)
-  const hpPercent = Math.max(0, Math.min(100, (hpCurrent / (hpMax || 1)) * 100))
+  const hpPercent = Number(Math.max(0, Math.min(100, (hpCurrent / (hpMax || 1)) * 100)).toFixed(2))
   const targetRoleLabel = entity.is_enemy ? '敌人' : entity.is_companion ? '队友' : '友方'
 
   return (
@@ -53,7 +53,10 @@ export default function TargetCard({
           aria-valuenow={hpMax ? Math.max(0, Math.min(hpCurrent, hpMax)) : undefined}
           aria-valuetext={`${hpCurrent}/${hpMax || '?'} HP`}
         >
-          <div style={{ width: `${hpPercent}%` }} />
+          <div
+            className="target-hp-fill"
+            style={{ '--target-hp-width': `${hpPercent}%` }}
+          />
         </div>
         <div className="hit-pred">
           <span>HP <b>{entity.hp_current}/{entity.hp_max}</b> / AC <b>{entity.ac}</b></span>

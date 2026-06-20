@@ -22,7 +22,11 @@ describe('TargetCard', () => {
     )
 
     const card = screen.getByRole('region', { name: '当前目标 Veiled Stalker' })
-    expect(within(card).getByRole('meter', { name: 'Veiled Stalker 生命值 11/20' })).toHaveAttribute('aria-valuenow', '11')
+    const hpMeter = within(card).getByRole('meter', { name: 'Veiled Stalker 生命值 11/20' })
+    expect(hpMeter).toHaveAttribute('aria-valuenow', '11')
+    const hpFill = hpMeter.querySelector('.target-hp-fill')
+    expect(hpFill).toBeInTheDocument()
+    expect(hpFill).toHaveStyle({ '--target-hp-width': '55%' })
 
     const summary = within(card).getByRole('list', { name: '目标摘要 Veiled Stalker' })
     expect(within(summary).getByRole('listitem', { name: '敌人' })).toBeInTheDocument()
