@@ -66,7 +66,9 @@ describe('AdventurePartyHud', () => {
     const bloodiedItem = bloodied.closest('.party-slot-item')
     expect(bloodiedItem.querySelector('.party-slot')).toHaveClass('low')
     expect(bloodiedItem.querySelector('.avatar-crack')).toBeInTheDocument()
-    expect(bloodiedItem.querySelector('.fill')).toHaveStyle({ '--hp-pct': '20%' })
+    const bloodiedHpFill = bloodiedItem.querySelector('.party-slot-hp-fill')
+    expect(bloodiedHpFill).toBeInTheDocument()
+    expect(bloodiedHpFill).toHaveStyle({ '--hp-pct': '20%' })
 
     const unassigned = within(party).getByRole('button', {
       name: 'Unassigned Ally，Unassigned Ally HP 4/8',

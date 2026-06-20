@@ -151,7 +151,7 @@ Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
 `DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `CompanionReactionPanel`, Adventure `DialogueLogList`,
 Adventure `LogLine`, Adventure `LocationMapModal`, Adventure
-`AdventureBottomHud`, Adventure `AdventurePartyHud`, Adventure `AdventureQuestHud`, Adventure `AdventureTopBar`,
+`AdventureBottomHud`, Adventure `AdventurePartyHud` HP microbar chrome, Adventure `AdventureQuestHud`, Adventure `AdventureTopBar`,
 Adventure `CheckpointModal`, Adventure `JournalModal`, Adventure `RestModal`,
 Adventure `PrepareSpellsModal`, Adventure `MultiplayerTimelinePanel`,
 Adventure `MultiplayerPartyPanel`, Adventure `MultiplayerSpeakBar`,

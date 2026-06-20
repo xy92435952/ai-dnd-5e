@@ -6594,14 +6594,14 @@ button.companion-signal-item:focus-visible {
   background: #1a0a04;
   border: 1px solid #0a0604;
 }
-.party-slot .hp-micro .fill {
+.party-slot .hp-micro .party-slot-hp-fill {
   height: 100%;
   width: var(--hp-pct, 0%);
   background: linear-gradient(90deg, #6ac484, #2a6a3a);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
 }
-.party-slot.low .hp-micro .fill { background: linear-gradient(90deg, #f04838, #7a1010); }
-.party-slot.mid .hp-micro .fill { background: linear-gradient(90deg, #f0c864, #8a5a10); }
+.party-slot.low .hp-micro .party-slot-hp-fill { background: linear-gradient(90deg, #f04838, #7a1010); }
+.party-slot.mid .hp-micro .party-slot-hp-fill { background: linear-gradient(90deg, #f0c864, #8a5a10); }
 
 .spell-cast-plan {
   margin-top: 10px;
