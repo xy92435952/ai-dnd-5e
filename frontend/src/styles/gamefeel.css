@@ -8158,6 +8158,8 @@ button.companion-signal-item:focus-visible {
 }
 .iso-grid {
   display: grid;
+  grid-template-columns: var(--iso-grid-columns);
+  grid-template-rows: var(--iso-grid-rows);
   gap: 0;
   padding: max(6px, calc(var(--combat-cell-size) * .15));
   background:

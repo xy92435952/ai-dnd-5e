@@ -44,6 +44,13 @@ describe('IsoBattlefield', () => {
     )
 
     const cell = container.querySelector('.iso-cell')
+    const grid = container.querySelector('.iso-grid')
+    expect(grid).toHaveStyle({
+      '--iso-grid-columns': 'repeat(1, var(--combat-cell-size, 54px))',
+      '--iso-grid-rows': 'repeat(1, var(--combat-cell-size, 54px))',
+    })
+    expect(grid.style.gridTemplateColumns).toBe('')
+    expect(grid.style.gridTemplateRows).toBe('')
     expect(cell).toBeTruthy()
     expect(cell.className).toContain('target')
     expect(cell.className).toContain('aoe-center')
