@@ -138,6 +138,22 @@
   animation-delay: calc(var(--i) * -.7s);
   filter: drop-shadow(0 0 2px rgba(240, 208, 96, .4));
 }
+.fate-line-1,
+.orbit-node-1 { --i: 0; }
+.fate-line-2,
+.orbit-node-2 { --i: 1; }
+.fate-line-3,
+.orbit-node-3 { --i: 2; }
+.fate-line-4,
+.orbit-node-4 { --i: 3; }
+.fate-line-5,
+.orbit-node-5 { --i: 4; }
+.fate-line-6,
+.orbit-node-6 { --i: 5; }
+.fate-line-7,
+.orbit-node-7 { --i: 6; }
+.fate-line-8,
+.orbit-node-8 { --i: 7; }
 @keyframes fateLineFlow {
   from { stroke-dashoffset: 0; }
   to   { stroke-dashoffset: -48; }
@@ -145,6 +161,7 @@
 
 /* ── 8 个轨道节点（整体缓慢旋转，各自闪烁） ── */
 .fate-orbit {
+  --orbit-count: 8;
   position: relative;
   width: 160px;
   height: 160px;
@@ -165,7 +182,7 @@
     0 0 12px rgba(255, 200, 80, .5);
   /* 放到轨道上：先旋转对应角度，再向"上"偏移 */
   transform:
-    rotate(calc(var(--i) * (360deg / var(--n))))
+    rotate(calc(var(--i) * (360deg / var(--orbit-count))))
     translate(0, -78px);
   animation: nodeFlicker 4.2s ease-in-out infinite;
   animation-delay: calc(var(--i) * -.55s);
@@ -360,7 +377,7 @@
   .fate-core      { width: 130px; height: 130px; }
   .fate-lines     { width: 130px; height: 130px; }
   .fate-orbit     { width: 130px; height: 130px; }
-  .fate-orbit .orbit-node { transform: rotate(calc(var(--i) * (360deg / var(--n)))) translate(0, -62px); }
+  .fate-orbit .orbit-node { transform: rotate(calc(var(--i) * (360deg / var(--orbit-count)))) translate(0, -62px); }
   .fate-cursor-orbit { width: 130px; height: 130px; }
   .fate-cursor { transform: translate(0, -62px); }
   @keyframes cursorPulse {

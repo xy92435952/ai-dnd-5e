@@ -92,8 +92,7 @@ export default function DMThinkingOverlay({ visible }) {
                     key={i}
                     x1="0" y1="0"
                     x2={x2} y2={y2}
-                    className="fate-line"
-                    style={{ '--i': i }}
+                    className={`fate-line fate-line-${i + 1}`}
                   />
                 )
               })}
@@ -104,8 +103,7 @@ export default function DMThinkingOverlay({ visible }) {
               {Array.from({ length: ORBIT_NODES }).map((_, i) => (
                 <div
                   key={i}
-                  className="orbit-node"
-                  style={{ '--i': i, '--n': ORBIT_NODES }}
+                  className={`orbit-node orbit-node-${i + 1}`}
                 />
               ))}
             </div>
