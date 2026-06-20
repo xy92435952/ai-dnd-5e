@@ -147,7 +147,7 @@ Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon`, Com
 Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat `CombatOutcomeOverlay`,
 Combat `CombatDeathSavePanel` panel/dot tones, Combat `CombatQuickInventory`, Combat `IsoBattlefield` unit tone chrome, shared inventory gold strip/action controls/tags/row/shop/meta tones,
 Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure
-`AdventureStage`, Adventure `StageLeftFigure`, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
+`AdventureStage`, Adventure `StageLeftFigure` speaker tone chrome, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
 `DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `CompanionReactionPanel`, Adventure `DialogueLogList`,
 Adventure `LogLine`, Adventure `LocationMapModal`, Adventure

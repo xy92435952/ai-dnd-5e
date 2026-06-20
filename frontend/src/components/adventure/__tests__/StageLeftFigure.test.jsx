@@ -28,11 +28,7 @@ describe('StageLeftFigure', () => {
 
     const figure = screen.getByRole('group', { name: '当前说话者：旁白' })
     expect(figure).toHaveClass('stage-figure', 'left', 'stage-speaker-figure', 'dm_narration')
-    expect(figure).toHaveStyle({
-      '--stage-figure-light': '#e8c070',
-      '--stage-figure-dark': '#5a4018',
-      '--stage-figure-text': '#fff6d8',
-    })
+    expect(figure).not.toHaveAttribute('style')
     expect(figure.querySelector('.stage-speaker-silhouette')).toBeInTheDocument()
     expect(within(figure).getByText('DM')).toHaveClass('stage-figure-initial', 'stage-speaker-initial')
     expect(within(figure).getByText('❖ 旁白')).toHaveClass('nameplate', 'stage-speaker-nameplate', 'gold')
@@ -50,7 +46,7 @@ describe('StageLeftFigure', () => {
 
     const npcFigure = screen.getByRole('group', { name: '当前说话者：薇拉' })
     expect(npcFigure).toHaveClass('stage-speaker-figure', 'npc')
-    expect(npcFigure).toHaveStyle({ '--stage-figure-light': '#c44848' })
+    expect(npcFigure).not.toHaveAttribute('style')
     expect(within(npcFigure).getByText('薇')).toHaveClass('stage-speaker-initial')
     expect(within(npcFigure).getByText('❖ 薇拉')).toHaveClass('stage-speaker-nameplate', 'default')
 
@@ -65,7 +61,7 @@ describe('StageLeftFigure', () => {
 
     const companionFigure = screen.getByRole('group', { name: '当前说话者：艾莉' })
     expect(companionFigure).toHaveClass('stage-speaker-figure', 'companion')
-    expect(companionFigure).toHaveStyle({ '--stage-figure-light': '#3ec8d8' })
+    expect(companionFigure).not.toHaveAttribute('style')
     expect(within(companionFigure).getByText('艾')).toHaveClass('stage-speaker-initial')
     expect(within(companionFigure).getByText('◈ 艾莉')).toHaveClass('stage-speaker-nameplate', 'companion')
   })
