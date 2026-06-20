@@ -203,9 +203,9 @@ export default function InventoryPanel({ character, partyMembers = [], onCharact
       </div>
 
       <div className="inventory-gold-strip">
-        <span style={{ fontSize: 16 }}>&#x1F4B0;</span>
-        <span style={{ color: 'var(--gold)', fontSize: 16, fontWeight: 700 }}>{equipment.gold ?? 0}</span>
-        <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>gp</span>
+        <span className="inventory-gold-icon">&#x1F4B0;</span>
+        <span className="inventory-gold-value">{equipment.gold ?? 0}</span>
+        <span className="inventory-gold-unit">gp</span>
         {message && <span className="inventory-message">{message}</span>}
       </div>
 

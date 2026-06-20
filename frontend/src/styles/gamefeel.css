@@ -1448,6 +1448,18 @@
   background: rgba(201,168,76,0.08);
   min-width: 0;
 }
+.inventory-gold-icon {
+  font-size: 16px;
+}
+.inventory-gold-value {
+  color: var(--gold);
+  font-size: 16px;
+  font-weight: 700;
+}
+.inventory-gold-unit {
+  color: var(--text-dim);
+  font-size: 12px;
+}
 .inventory-message {
   margin-left: auto;
   color: var(--green-light);
