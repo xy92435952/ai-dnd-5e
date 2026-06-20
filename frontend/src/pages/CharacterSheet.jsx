@@ -1055,7 +1055,7 @@ function LevelUpPanel({
                   magicInitiateCantrips: choice.cantrips,
                   magicInitiateSpell: choice.spell,
                 }))}
-                selectStyle={levelUpSelectStyle}
+                selectClassName="character-sheet-level-up-select"
               />
               {selectedFeatMagicInitiateFailure && (
                 <p className="character-sheet-level-up-feat-note character-sheet-level-up-feat-note-error character-sheet-level-up-magic-initiate-error">
@@ -1196,15 +1196,6 @@ function LevelUpChoiceGroup({ title, values, selected, onToggle, labelPrefix }) 
       </div>
     </div>
   )
-}
-
-const levelUpSelectStyle = {
-  minHeight: 34,
-  borderRadius: 6,
-  border: '1px solid var(--wood-light)',
-  background: 'var(--bg)',
-  color: 'var(--parchment)',
-  padding: '4px 8px',
 }
 
 function SectionTitle({ children }) {

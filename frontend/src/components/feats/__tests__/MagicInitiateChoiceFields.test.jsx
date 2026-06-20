@@ -42,10 +42,18 @@ describe('MagicInitiateChoiceFields', () => {
 
     const group = screen.getByRole('group', { name: 'Magic Initiate choices' })
     expect(group).toHaveClass('magic-initiate-choice-fields')
-    expect(screen.getByLabelText('Magic Initiate class')).toHaveClass(
+    const classSelect = screen.getByLabelText('Magic Initiate class')
+    expect(classSelect).toHaveClass(
       'magic-initiate-choice-select',
       'input-fantasy',
     )
+    expect(classSelect).not.toHaveAttribute('style')
+    const spellSelect = screen.getByLabelText('Magic Initiate spell')
+    expect(spellSelect).toHaveClass(
+      'magic-initiate-choice-select',
+      'input-fantasy',
+    )
+    expect(spellSelect).not.toHaveAttribute('style')
     expect(screen.getByText('Magic Initiate cantrips 2/2')).toHaveClass('magic-initiate-choice-title')
 
     const cantripList = screen.getByRole('list', { name: 'Magic Initiate cantrip choices' })
@@ -67,7 +75,7 @@ describe('MagicInitiateChoiceFields', () => {
       spell: '',
     })
 
-    fireEvent.change(screen.getByLabelText('Magic Initiate spell'), {
+    fireEvent.change(spellSelect, {
       target: { value: 'Shield' },
     })
     expect(onChange).toHaveBeenCalledWith({

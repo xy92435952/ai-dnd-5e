@@ -172,7 +172,7 @@ CharacterCreate DM-style selection,
 CharacterCreate shared form controls,
 CharacterCreate shared info modal shell,
 CharacterCreate shared info modal body,
-shared `MagicInitiateChoiceFields`,
+shared `MagicInitiateChoiceFields` select chrome,
 `DialogueHistoryView` current-scene divider spacing, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
 privacy projection, combat-log coverage, loot distribution UI coverage, mapped

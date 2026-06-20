@@ -10,7 +10,6 @@ export default function MagicInitiateChoiceFields({
   options = {},
   onChange,
   selectClassName = '',
-  selectStyle = {},
 }) {
   const classOptions = getMagicInitiateClassOptions(options)
   const selectedClass = value.spellcasting_class || ''
@@ -61,7 +60,6 @@ export default function MagicInitiateChoiceFields({
             cantrips: [],
             spell: '',
           })}
-          style={selectStyle}
         >
           <option value="">Choose class</option>
           {classOptions.map(className => (
@@ -119,7 +117,6 @@ export default function MagicInitiateChoiceFields({
               className={selectClasses}
               value={selectedSpell}
               onChange={(event) => emit({ spell: event.target.value })}
-              style={selectStyle}
             >
               <option value="">Choose spell</option>
               {spellOptions.spells.map((spell) => {

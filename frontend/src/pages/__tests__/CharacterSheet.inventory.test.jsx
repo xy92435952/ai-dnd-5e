@@ -802,13 +802,24 @@ describe('CharacterSheet inventory integration', () => {
     expect(screen.getByRole('group', { name: 'Magic Initiate choices' })).toHaveClass(
       'magic-initiate-choice-fields',
     )
-    expect(screen.getByLabelText('Magic Initiate class')).toHaveClass('magic-initiate-choice-select')
+    const magicClassSelect = screen.getByLabelText('Magic Initiate class')
+    const magicSpellSelect = screen.getByLabelText('Magic Initiate spell')
+    expect(magicClassSelect).toHaveClass(
+      'magic-initiate-choice-select',
+      'character-sheet-level-up-select',
+    )
+    expect(magicClassSelect).not.toHaveAttribute('style')
+    expect(magicSpellSelect).toHaveClass(
+      'magic-initiate-choice-select',
+      'character-sheet-level-up-select',
+    )
+    expect(magicSpellSelect).not.toHaveAttribute('style')
     expect(screen.getByText('Choose two cantrips')).toHaveClass(
       'character-sheet-level-up-magic-initiate-error',
     )
     fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Mage Hand'))
     fireEvent.click(screen.getByLabelText('Magic Initiate cantrip Light'))
-    fireEvent.change(screen.getByLabelText('Magic Initiate spell'), {
+    fireEvent.change(magicSpellSelect, {
       target: { value: 'Shield' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Level Up' }))
