@@ -24,6 +24,11 @@ describe('CombatDeathSavePanel', () => {
     expect(within(progress).getByRole('listitem', { name: '成功 1/3' })).toBeInTheDocument()
     expect(within(progress).getByRole('listitem', { name: '失败 2/3' })).toBeInTheDocument()
     expect(within(progress).getAllByRole('listitem', { name: /第 \d 格/ })).toHaveLength(6)
+    const dotItems = within(progress).getAllByRole('listitem', { name: /第 \d 格/ })
+    expect(dotItems[0]).toHaveAttribute('data-tone', 'success')
+    expect(dotItems[0]).not.toHaveAttribute('style')
+    expect(dotItems[3]).toHaveAttribute('data-tone', 'failure')
+    expect(dotItems[3]).not.toHaveAttribute('style')
 
     const button = within(panel).getByRole('button', { name: '掷死亡豁免' })
     expect(button).not.toBeDisabled()

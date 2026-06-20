@@ -10,7 +10,7 @@ function DeathSaveDots({ count = 0, tone }) {
           className={index < count ? 'filled' : ''}
           role="listitem"
           aria-label={`第 ${index + 1} 格${index < count ? '已标记' : '未标记'}`}
-          style={{ '--death-save-tone': tone }}
+          data-tone={tone}
         />
       ))}
     </span>
@@ -58,10 +58,10 @@ export default function CombatDeathSavePanel({
         <span>{title}</span>
         <div className="combat-death-save-track" role="list" aria-label={`死亡豁免进度：成功 ${successes}/3，失败 ${failures}/3`}>
           <span role="listitem" aria-label={`成功 ${successes}/3`}>
-            成功 <DeathSaveDots count={successes} tone="#6ae884" />
+            成功 <DeathSaveDots count={successes} tone="success" />
           </span>
           <span role="listitem" aria-label={`失败 ${failures}/3`}>
-            失败 <DeathSaveDots count={failures} tone="#f04838" />
+            失败 <DeathSaveDots count={failures} tone="failure" />
           </span>
         </div>
       </div>

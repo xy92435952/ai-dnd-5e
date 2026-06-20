@@ -7691,11 +7691,17 @@ button.companion-signal-item:focus-visible {
   display: inline-block;
   width: 7px;
   height: 7px;
-  border: 1px solid var(--death-save-tone);
+  border: 1px solid var(--death-save-dot-color);
   background: transparent;
 }
+.death-save-dots span[data-tone="success"] {
+  --death-save-dot-color: #6ae884;
+}
+.death-save-dots span[data-tone="failure"] {
+  --death-save-dot-color: #f04838;
+}
 .death-save-dots span.filled {
-  background: var(--death-save-tone);
+  background: var(--death-save-dot-color);
 }
 .combat-death-save-action {
   padding: 6px 8px;
