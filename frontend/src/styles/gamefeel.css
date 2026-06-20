@@ -5586,7 +5586,7 @@ button.companion-signal-item:focus-visible {
 .rest-member-meter-fill {
   display: block;
   height: 100%;
-  width: var(--rest-hp-pct, 0%);
+  width: var(--rest-member-hp-width, 0%);
   border-radius: inherit;
   background: linear-gradient(90deg, var(--blood-light), var(--emerald-light));
 }

@@ -52,7 +52,7 @@ function PartyRestPreview({ preview }) {
               <span>HP {member.hpCurrent}/{member.hpMax || '?'}</span>
             </div>
             <div className="rest-member-meter" aria-hidden="true">
-              <span className="rest-member-meter-fill" style={{ '--rest-hp-pct': `${hpPct}%` }} />
+              <span className="rest-member-meter-fill" style={{ '--rest-member-hp-width': `${hpPct}%` }} />
             </div>
             <div className="rest-member-meta">
               {member.hitDiceRemaining != null && member.hitDiceTotal != null && (
