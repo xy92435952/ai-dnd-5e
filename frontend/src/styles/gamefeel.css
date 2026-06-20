@@ -8446,13 +8446,13 @@ button.companion-signal-item:focus-visible {
   z-index: 4;
   box-shadow: 0 2px 3px rgba(0,0,0,.8);
 }
-.iso-unit .micro-hp .fill { height: 100%; background: linear-gradient(90deg, #6ac484, #2a6a3a); }
-.iso-unit .micro-hp .fill {
+.iso-unit .micro-hp .iso-unit-hp-fill {
+  width: var(--iso-unit-hp-width, 0%);
   height: 100%;
   background: linear-gradient(90deg, #6ac484, #2a6a3a);
 }
-.iso-unit.enemy .micro-hp .fill { background: linear-gradient(90deg, #f04838, #7a1010); }
-.iso-unit.low .micro-hp .fill   { background: linear-gradient(90deg, #f04838, #7a1010); }
+.iso-unit.enemy .micro-hp .iso-unit-hp-fill { background: linear-gradient(90deg, #f04838, #7a1010); }
+.iso-unit.low .micro-hp .iso-unit-hp-fill   { background: linear-gradient(90deg, #f04838, #7a1010); }
 
 /* 目标指示环：贴地、顶视、脉动 */
 .iso-unit .target-ring {

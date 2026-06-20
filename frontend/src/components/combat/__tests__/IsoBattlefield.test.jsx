@@ -52,7 +52,9 @@ describe('IsoBattlefield', () => {
     const unit = container.querySelector('.iso-unit.enemy')
     expect(unit).toBeTruthy()
     expect(unit).not.toHaveAttribute('style')
-    expect(unit.querySelector('.micro-hp .fill')).toHaveAttribute('style')
+    const hpFill = unit.querySelector('.micro-hp .iso-unit-hp-fill')
+    expect(hpFill).toBeInTheDocument()
+    expect(hpFill).toHaveStyle({ '--iso-unit-hp-width': '50%' })
 
     fireEvent.click(cell)
     expect(onSelectTarget).toHaveBeenCalledWith('enemy')

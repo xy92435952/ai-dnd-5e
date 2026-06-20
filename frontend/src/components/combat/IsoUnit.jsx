@@ -4,6 +4,7 @@ import { getCombatLifeState, getSpriteKind, isCombatEntityDead } from '../../uti
 export default function IsoUnit({ ent, entId, playerId, isCurTurn, isTarget, isHelpTarget = false }) {
   const lifeState = getCombatLifeState(ent)
   const dead = isCombatEntityDead(ent)
+  const hpPct = Math.max(0, Math.min(100, (ent.hp_current / (ent.hp_max || 1)) * 100))
   return (
     <div
       className={`iso-unit ${ent.is_enemy ? 'enemy' : (entId === playerId ? 'player' : 'ally')} ${isCurTurn ? 'active' : ''} ${isHelpTarget ? 'help-target' : ''} ${(ent.hp_current / (ent.hp_max || 1)) < .34 ? 'low' : ''} life-${lifeState}`}
@@ -15,8 +16,8 @@ export default function IsoUnit({ ent, entId, playerId, isCurTurn, isTarget, isH
       </div>
       <div className="micro-hp">
         <div
-          className="fill"
-          style={{ width: `${Math.max(0, Math.min(100, (ent.hp_current / (ent.hp_max || 1)) * 100))}%` }}
+          className="iso-unit-hp-fill"
+          style={{ '--iso-unit-hp-width': `${hpPct}%` }}
         />
       </div>
       {isTarget && <div className="target-ring" />}
