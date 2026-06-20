@@ -1,6 +1,6 @@
 # Stage 7 Deployment Smoke Checklist
 
-Last updated: 2026-06-18
+Last updated: 2026-06-20
 
 This checklist is the deployment-readiness gate for the current Stage 7 work.
 It focuses on rule trust, multiplayer privacy/reconnect behavior, ReactionPrompt
@@ -143,7 +143,7 @@ Combat `SpellModalList`,
 Combat `SpellModalActions`,
 Combat `CombatHudControls`, Combat `CombatHudSlots`, Combat `CombatHudPips`,
 Combat `CombatHudPortrait`, Combat `CombatHudIntentSummary`, Combat `CombatHudSkillBar`,
-Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon`, Combat `TargetCard`,
+Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon`, Combat `TargetCard`, Combat `CombatStage`,
 Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat `CombatOutcomeOverlay`,
 Combat `CombatDeathSavePanel`, Combat `CombatQuickInventory`, shared inventory gold strip/action controls/tags/row/shop/meta tones,
 Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure

@@ -7433,6 +7433,14 @@ button.companion-signal-item:focus-visible {
   min-height: 0;
   isolation: isolate;
 }
+.combat-stage-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(47,168,184,.08), transparent 60%),
+    radial-gradient(ellipse at 80% 60%, rgba(196,40,40,.1), transparent 55%);
+}
 .tactical-context-panel {
   position: absolute;
   left: 16px;

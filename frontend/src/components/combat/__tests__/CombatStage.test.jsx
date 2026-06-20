@@ -75,6 +75,9 @@ describe('CombatStage', () => {
     )
 
     const coverPathCell = container.querySelector('[data-grid-key="2_0"]')
+    const stageWash = container.querySelector('.combat-stage-wash')
+    expect(stageWash).toBeInTheDocument()
+    expect(stageWash).not.toHaveAttribute('style')
     expect(coverPathCell).toHaveClass('cover-path')
     expect(coverPathCell).toHaveAttribute(
       'title',
