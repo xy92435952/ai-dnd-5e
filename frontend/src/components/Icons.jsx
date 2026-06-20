@@ -4,9 +4,10 @@
  * 灵感来源：game-icons.net (CC BY 3.0)
  */
 
-const Icon = ({ d, size = 24, color = 'currentColor', className = '', style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill={color}
-    className={className} style={{ flexShrink: 0, ...style }}>
+const Icon = ({ d, size = 24, color = 'currentColor', className = '', style, ...svgProps }) => (
+  <svg {...svgProps} width={size} height={size} viewBox="0 0 24 24" fill={color}
+    className={['rpg-icon', className].filter(Boolean).join(' ')}
+    style={style}>
     <path d={d} />
   </svg>
 )

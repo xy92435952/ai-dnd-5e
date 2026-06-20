@@ -4,6 +4,10 @@
 
 /* ── 对话气泡 ─────────────────────────────────────────
    重点优化区域。DM = 羊皮纸卷轴、玩家 = 蓝水晶、队友 = 翡翠苔藓 */
+.rpg-icon {
+  flex-shrink: 0;
+}
+
 .bubble {
   position: relative;
   padding: 16px 22px;
