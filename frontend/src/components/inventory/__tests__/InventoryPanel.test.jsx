@@ -65,6 +65,8 @@ describe('InventoryPanel', () => {
     expect(container.querySelector('.inventory-row-action-button')).toBeInTheDocument()
     expect(container.querySelector('.inventory-row-select')).toBeInTheDocument()
     expect(container.querySelector('.inventory-item-meta')).toBeInTheDocument()
+    expect(screen.getByText('1d8')).toHaveClass('inventory-item-meta-tone')
+    expect(screen.getByText('1d8')).toHaveAttribute('data-tone', 'weapon')
     expect(screen.getByText('已装备')).toHaveClass('inventory-item-tag')
     expect(container.querySelector('.inventory-row[data-equipped="true"]')).toBeInTheDocument()
 
@@ -437,6 +439,8 @@ describe('InventoryPanel', () => {
       />,
     )
 
+    expect(screen.getByText('AC 2')).toHaveClass('inventory-item-meta-tone')
+    expect(screen.getByText('AC 2')).toHaveAttribute('data-tone', 'armor')
     fireEvent.change(screen.getByLabelText('给予 盾牌'), { target: { value: 'ally-1' } })
 
     await waitFor(() => {

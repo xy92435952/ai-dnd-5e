@@ -1563,6 +1563,15 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.inventory-item-meta-tone[data-tone="weapon"] {
+  color: var(--red-light);
+}
+.inventory-item-meta-tone[data-tone="gear"] {
+  color: var(--parchment-dark);
+}
+.inventory-item-meta-tone[data-tone="armor"] {
+  color: var(--blue-light);
+}
 .inventory-row-actions {
   display: flex;
   flex-wrap: wrap;

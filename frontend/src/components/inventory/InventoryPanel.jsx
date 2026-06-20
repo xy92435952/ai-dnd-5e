@@ -300,7 +300,7 @@ function InventoryRow({
   transferTargets = [],
   onTransfer,
 }) {
-  const tone = item.category === 'weapon' ? 'var(--red-light)' : item.category === 'gear' ? 'var(--parchment-dark)' : 'var(--blue-light)'
+  const metaTone = item.category === 'weapon' ? 'weapon' : item.category === 'gear' ? 'gear' : 'armor'
   return (
     <div className="inventory-row" data-equipped={item.equipped ? 'true' : 'false'}>
       <div className="inventory-row-body">
@@ -311,8 +311,8 @@ function InventoryRow({
           {item.quantity > 1 && <span className="tag inventory-item-tag">x{item.quantity}</span>}
         </div>
         <div className="inventory-item-meta">
-          {item.damage && <span style={{ color: tone }}>{item.damage}</span>}
-          {item.ac != null && <span style={{ color: tone }}>AC {item.ac}</span>}
+          {item.damage && <span className="inventory-item-meta-tone" data-tone={metaTone}>{item.damage}</span>}
+          {item.ac != null && <span className="inventory-item-meta-tone" data-tone={metaTone}>AC {item.ac}</span>}
           {item.ammo != null && <span>弹药 {item.ammo}</span>}
           {item.uses != null && <span>剩余 {item.uses} 次</span>}
           {item.cost != null && <span>{item.cost} gp</span>}
