@@ -1,9 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { normalizeDiceRollResult } from '../DiceRollerOverlay'
+import DiceRollerOverlay from '../DiceRollerOverlay'
+import { useGameStore } from '../../store/gameStore'
 
 describe('normalizeDiceRollResult', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    useGameStore.setState({
+      diceRoll: null,
+      dicePrompt: null,
+      combatActive: false,
+    })
   })
 
   it('expands DiceBox grouped rollsArray into raw dice values', () => {
@@ -43,5 +51,23 @@ describe('normalizeDiceRollResult', () => {
     const result = normalizeDiceRollResult(null, 20, 2)
 
     expect(result).toEqual({ total: 21, rolls: [1, 20] })
+  })
+
+  it('renders result chrome through stable classes while preserving dynamic result color', async () => {
+    useGameStore.setState({ combatActive: true })
+
+    const { container } = render(<DiceRollerOverlay />)
+    useGameStore.getState().showDice({ faces: 20, result: 20, label: 'Attack roll' })
+
+    const resultNumber = await screen.findByText('20')
+    expect(resultNumber).toHaveClass('dice-result-number')
+    const resultStack = resultNumber.closest('.dice-result-stack')
+    expect(resultStack).toHaveAttribute('style', '--dice-result-color: #22c55e;')
+
+    expect(screen.getByText('Attack roll')).toHaveClass('dice-result-label')
+    expect(screen.getByText('Attack roll')).toHaveAttribute('data-combat', 'true')
+    expect(container.querySelector('.dice-result-badge')).toHaveAttribute('data-outcome', 'crit')
+    expect(container.querySelector('.dice-result-badge-text')).toHaveTextContent('大成功')
+    expect(screen.getByText('点击任意处关闭')).toHaveClass('dice-result-dismiss-hint')
   })
 })

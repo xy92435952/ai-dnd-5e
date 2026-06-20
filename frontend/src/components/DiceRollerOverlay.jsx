@@ -349,25 +349,27 @@ export default function DiceRollerOverlay() {
 
           {/* ── 结果显示 ── */}
           {phase === 'result' && result > 0 && (
-            <div style={{ textAlign: 'center', marginTop: 16, animation: 'dicePopIn 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}>
-              <p style={{
-                fontSize: 76, fontWeight: 900, lineHeight: 1, margin: 0,
-                fontFamily: 'Georgia, serif', color: numColor,
-                textShadow: `0 0 30px ${numColor}88, 0 0 60px ${numColor}44, 0 4px 10px #000`,
-              }}>{result}</p>
-              {label && <p style={{ fontSize: 14, letterSpacing: 1, marginTop: 8, color: combatActive ? 'rgba(252,165,165,0.7)' : 'rgba(240,208,96,0.7)' }}>{label}</p>}
+            <div
+              className="dice-result-stack"
+              style={{ '--dice-result-color': numColor }}
+            >
+              <p className="dice-result-number">{result}</p>
+              {label && (
+                <p className="dice-result-label" data-combat={combatActive}>
+                  {label}
+                </p>
+              )}
               {(isCrit || isFumble) && (
-                <div style={{
-                  marginTop: 10, padding: '8px 24px', borderRadius: 8, display: 'inline-block',
-                  background: isCrit ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                  border: `1px solid ${isCrit ? '#22c55e55' : '#ef444455'}`,
-                }}>
-                  <p style={{ fontSize: 20, fontWeight: 900, letterSpacing: 2, margin: 0, color: isCrit ? '#22c55e' : '#ef4444' }}>
+                <div
+                  className="dice-result-badge"
+                  data-outcome={isCrit ? 'crit' : 'fumble'}
+                >
+                  <p className="dice-result-badge-text">
                     {isCrit ? '⚡ 大成功！' : '💀 大失败！'}
                   </p>
                 </div>
               )}
-              <p style={{ fontSize: 10, marginTop: 12, opacity: 0.2, color: combatActive ? '#fca5a5' : '#c9a84c' }}>点击任意处关闭</p>
+              <p className="dice-result-dismiss-hint" data-combat={combatActive}>点击任意处关闭</p>
             </div>
           )}
         </div>

@@ -122,6 +122,70 @@
 /* ── 职业纹章肖像 ──────────────────────────────────────
    纯CSS/SVG，每个职业一个辨识符号
    直径 48px (sm) / 64px (md) / 96px (lg) */
+/* DiceRollerOverlay result chrome */
+.dice-result-stack {
+  text-align: center;
+  margin-top: 16px;
+  animation: dicePopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dice-result-number {
+  font-size: 76px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 0;
+  font-family: Georgia, serif;
+  color: var(--dice-result-color);
+  text-shadow:
+    0 0 30px color-mix(in srgb, var(--dice-result-color) 53%, transparent),
+    0 0 60px color-mix(in srgb, var(--dice-result-color) 27%, transparent),
+    0 4px 10px #000;
+}
+.dice-result-label {
+  font-size: 14px;
+  letter-spacing: 1px;
+  margin-top: 8px;
+  color: rgba(240, 208, 96, .7);
+}
+.dice-result-label[data-combat="true"] {
+  color: rgba(252, 165, 165, .7);
+}
+.dice-result-badge {
+  margin-top: 10px;
+  padding: 8px 24px;
+  border-radius: 8px;
+  display: inline-block;
+}
+.dice-result-badge[data-outcome="crit"] {
+  background: rgba(34, 197, 94, .15);
+  border: 1px solid rgba(34, 197, 94, .33);
+}
+.dice-result-badge[data-outcome="fumble"] {
+  background: rgba(239, 68, 68, .15);
+  border: 1px solid rgba(239, 68, 68, .33);
+}
+.dice-result-badge-text {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  margin: 0;
+}
+.dice-result-badge[data-outcome="crit"] .dice-result-badge-text {
+  color: #22c55e;
+}
+.dice-result-badge[data-outcome="fumble"] .dice-result-badge-text {
+  color: #ef4444;
+}
+.dice-result-dismiss-hint {
+  font-size: 10px;
+  margin-top: 12px;
+  opacity: .2;
+  color: #c9a84c;
+}
+.dice-result-dismiss-hint[data-combat="true"] {
+  color: #fca5a5;
+}
+
+/* Character crest portraits */
 .portrait {
   position: relative;
   width: 64px; height: 64px;
