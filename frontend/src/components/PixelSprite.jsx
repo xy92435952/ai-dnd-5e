@@ -399,16 +399,14 @@ function PixelSprite({ kind, size = 44, dead = false, dim = false }) {
   const pixels = useMemo(() => gen(), [gen]);
   const W = 16 * P;   // 32
   const H = 24 * P;   // 48
+  const tone = dead ? 'dead' : dim ? 'dim' : 'default';
   return (
     <svg
       width={size}
       height={size * (H / W)}
       viewBox={`0 0 ${W} ${H}`}
-      style={{
-        imageRendering: 'pixelated',
-        filter: dead ? 'grayscale(1) brightness(.4)' : dim ? 'saturate(.6) brightness(.8)' : 'drop-shadow(0 2px 0 rgba(0,0,0,.8))',
-        pointerEvents: 'none',
-      }}
+      className="pixel-sprite"
+      data-tone={tone}
     >
       {pixels.map(([x, y, c], i) => (
         <rect key={i} x={x*P} y={y*P} width={P} height={P} fill={c} shapeRendering="crispEdges" />

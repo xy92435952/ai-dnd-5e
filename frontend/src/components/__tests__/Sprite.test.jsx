@@ -52,6 +52,12 @@ describe('Sprite', () => {
     await waitFor(() => {
       expect(container.querySelector('svg')).toBeInTheDocument()
     })
+    const fallback = container.querySelector('svg')
+    expect(fallback).toHaveClass('pixel-sprite')
+    expect(fallback).toHaveAttribute('data-tone', 'dead')
+    expect(fallback).toHaveAttribute('width', '44')
+    expect(fallback).toHaveAttribute('height', '66')
+    expect(fallback).not.toHaveAttribute('style')
     expect(container.querySelector('img')).not.toBeInTheDocument()
   })
 })
