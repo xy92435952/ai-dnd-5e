@@ -240,7 +240,7 @@ describe('Combat render smoke', () => {
   it('能从加载态切到战斗 HUD，且不触发 hook 顺序错误', async () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/combat/sess-1']}>
         <Routes>
           <Route path="/combat/:sessionId" element={<Combat />} />
@@ -248,7 +248,11 @@ describe('Combat render smoke', () => {
       </MemoryRouter>
     )
 
+    expect(container.querySelector('.combat-loading-shell')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveClass('combat-loading-text')
+
     await screen.findByText(/结束回合/)
+    expect(container.querySelector('.combat-page-shell')).toBeInTheDocument()
     expect(roomsGetMock).not.toHaveBeenCalled()
 
     const errors = errSpy.mock.calls

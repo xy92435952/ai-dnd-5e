@@ -255,19 +255,16 @@ export default function Combat() {
   // ── 渲染 ───────────────────────────────────────────────
   if (!combat) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div className="combat-loading-shell">
         {error
-          ? <p style={{ color: 'var(--red-light)' }}>{error}</p>
-          : <p className="animate-pulse" style={{ color: 'var(--gold)' }}>加载战斗...</p>}
+          ? <p className="combat-loading-error" role="status">{error}</p>
+          : <p className="combat-loading-text animate-pulse" role="status">加载战斗...</p>}
       </div>
     )
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      background: 'linear-gradient(180deg, #06040a 0%, #0a0604 100%)',
-      position: 'relative', zIndex: 1,
-    }}>
+    <div className="combat-page-shell">
       <DiceRollerOverlay />
 
       <MultiplayerTurnBar

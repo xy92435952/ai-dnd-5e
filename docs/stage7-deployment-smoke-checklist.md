@@ -129,7 +129,7 @@ cd ..
 ```
 
 `npm run test:stage7:reaction` includes Home hub shell, Home module/save cards, RoomLobby shell, RoomLobby DM-style selection, CharacterCreate shell, CharacterSheet shell, CharacterSheet HP tone,
-the direct combat `ReactionPrompt`,
+Combat page/loading shell, the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,
 Combat `LegendaryActionPrompt`,

@@ -6873,6 +6873,29 @@ button.companion-signal-item:focus-visible {
 
 /* ══════════════════════ 战斗 · 游戏化 HUD ══════════════════════ */
 
+.combat-loading-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.combat-loading-text {
+  color: var(--gold);
+}
+.combat-loading-error {
+  color: var(--red-light);
+}
+.combat-page-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #06040a 0%, #0a0604 100%);
+  position: relative;
+  z-index: 1;
+}
+
 /* 回合横幅 */
 .turn-banner {
   position: relative;
