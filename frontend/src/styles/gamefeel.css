@@ -6598,7 +6598,7 @@ button.companion-signal-item:focus-visible {
 }
 .party-slot .hp-micro .party-slot-hp-fill {
   height: 100%;
-  width: var(--hp-pct, 0%);
+  width: var(--party-slot-hp-width, 0%);
   background: linear-gradient(90deg, #6ac484, #2a6a3a);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
 }

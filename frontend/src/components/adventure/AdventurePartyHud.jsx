@@ -23,7 +23,7 @@ export default function AdventurePartyHud({ allMembers, onOpenCharacter }) {
                 {pct > 0 && pct <= 25 && <span className="avatar-crack" />}
               </div>
               <div className="hp-micro" aria-hidden="true">
-                <div className="party-slot-hp-fill" style={{ '--hp-pct': `${pct}%` }} />
+                <div className="party-slot-hp-fill" style={{ '--party-slot-hp-width': `${pct}%` }} />
               </div>
             </div>
             <button
