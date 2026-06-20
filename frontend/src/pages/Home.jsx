@@ -252,13 +252,6 @@ export default function Home() {
                     className="home-save-action"
                     onClick={(e) => handleDeleteSession(s, e)}
                     title={s.is_multiplayer ? '返回房间' : '删除存档'}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--parchment-dark)', padding: 4, fontSize: 16,
-                      transition: 'color 0.2s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--blood-light)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--parchment-dark)'}
                   >{s.is_multiplayer ? '↩' : '🗑'}</button>
                 </div>
               ))}
@@ -283,50 +276,39 @@ export default function Home() {
 function ModuleCard({ m, featured, onSelect, onDelete }) {
   const ready = m.parse_status === 'done'
   return (
-    <div className={`panel-ornate home-module-card ${featured && ready ? 'is-featured' : ''}`} style={{
-      padding: 18,
-      minHeight: 180,
-      position: 'relative', overflow: 'hidden',
-      display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      cursor: ready ? 'pointer' : 'default',
-      opacity: ready ? 1 : 0.65,
-      transition: 'var(--transition)',
-    }} onClick={ready ? onSelect : undefined}>
+    <div
+      className={`panel-ornate home-module-card ${featured && ready ? 'is-featured' : ''}`}
+      data-ready={ready ? 'true' : 'false'}
+      onClick={ready ? onSelect : undefined}
+    >
       {featured && ready && (
-        <div style={{ position: 'absolute', top: 12, right: 12 }}>
-          <span className="tag tag-gold" style={{ fontSize: 10 }}>★ 推荐</span>
+        <div className="home-module-featured">
+          <span className="tag tag-gold home-module-featured-tag">★ 推荐</span>
         </div>
       )}
-      <div>
-        <div style={{ fontSize: 28, marginBottom: 8 }}>📜</div>
-        <div className="display-title home-module-title" style={{ fontSize: 18, lineHeight: 1.3 }}>{m.name}</div>
+      <div className="home-module-body">
+        <div className="home-module-icon" aria-hidden="true">📜</div>
+        <div className="display-title home-module-title">{m.name}</div>
         {m.setting && (
-          <div style={{
-            fontFamily: 'var(--font-script)', fontStyle: 'italic',
-            fontSize: 12, color: 'var(--parchment-dark)',
-            marginTop: 6, lineHeight: 1.5,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>
+          <div className="home-module-setting">
             {m.setting}
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="home-module-meta">
         <StatusBadge status={m.parse_status} />
         {ready && m.level_min != null && (
-          <span className="tag tag-info" style={{ fontSize: 10 }}>Lv {m.level_min}-{m.level_max}</span>
+          <span className="tag tag-info home-module-tag">Lv {m.level_min}-{m.level_max}</span>
         )}
         {ready && m.recommended_party_size != null && (
-          <span className="tag tag-blue" style={{ fontSize: 10 }}>{m.recommended_party_size} 人</span>
+          <span className="tag tag-blue home-module-tag">{m.recommended_party_size} 人</span>
         )}
       </div>
       {ready && (
         <div className="home-card-actions">
           <button className="btn-gold">开始冒险 ►</button>
           <button
-            className="btn-ghost"
-            style={{ padding: '7px 10px', fontSize: 10, borderColor: 'var(--blood)' }}
+            className="btn-ghost home-module-delete"
             onClick={onDelete}
           >删除</button>
         </div>
@@ -345,9 +327,10 @@ function StatusBadge({ status }) {
   }
   const s = map[status] || map.pending
   return (
-    <span className={`tag ${s.cls}`} style={{
-      animation: status === 'processing' ? 'pulse 1.5s infinite' : undefined,
-    }}>
+    <span
+      className={`tag ${s.cls} home-status-badge`}
+      data-processing={status === 'processing' ? 'true' : 'false'}
+    >
       {s.text}
     </span>
   )

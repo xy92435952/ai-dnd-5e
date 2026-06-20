@@ -128,7 +128,7 @@ npm run build
 cd ..
 ```
 
-`npm run test:stage7:reaction` includes Home hub shell, RoomLobby shell, CharacterCreate shell, CharacterSheet shell,
+`npm run test:stage7:reaction` includes Home hub shell, Home module/save cards, RoomLobby shell, CharacterCreate shell, CharacterSheet shell,
 the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,
