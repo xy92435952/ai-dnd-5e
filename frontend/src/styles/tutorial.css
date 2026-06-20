@@ -53,6 +53,15 @@
   border-right: 2px solid rgba(127,232,248,.7);
   pointer-events: none;
 }
+.tut-entry-card .tec-main {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.tut-entry-card .tec-body {
+  flex: 1;
+  min-width: 0;
+}
 .tut-entry-card .tec-icon {
   font-family: var(--font-display, serif);
   font-size: 44px;

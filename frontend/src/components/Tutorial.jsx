@@ -246,9 +246,9 @@ export function TutorialEntryCard({ progress = 0, total = 4, onOpen }) {
   return (
     <div className="tut-entry-card" onClick={onOpen}>
       <div className="tec-corner-br" />
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <div className="tec-main">
         <div className="tec-icon">✦</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="tec-body">
           <div className="tec-kicker">◆ 新手指引 ◆</div>
           <div className="tec-title">圣物殿 · 启蒙</div>
           <div className="tec-sub">
