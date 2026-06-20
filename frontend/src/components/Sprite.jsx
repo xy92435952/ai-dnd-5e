@@ -58,6 +58,7 @@ export default function Sprite({ kind = 'paladin', size = 44, dead = false, dim 
 
   const finalWidth = Math.round(size * scale)
   const finalHeight = Math.round(size * 1.5 * scale)
+  const tone = dead ? 'dead' : dim ? 'dim' : 'default'
 
   // 优先尝试 PNG（当索引加载完成且未失败时）
   if (index && !imgFailed) {
@@ -67,14 +68,8 @@ export default function Sprite({ kind = 'paladin', size = 44, dead = false, dim 
         width={finalWidth}
         height={finalHeight}
         alt=""
-        style={{
-          imageRendering: 'pixelated',
-          filter: dead ? 'grayscale(1) brightness(.4)'
-                : dim  ? 'saturate(.6) brightness(.8)'
-                : 'drop-shadow(0 2px 0 rgba(0,0,0,.8))',
-          pointerEvents: 'none',
-          display: 'block',
-        }}
+        className="sprite-image"
+        data-tone={tone}
         onError={() => setImgFailed(true)}
       />
     )

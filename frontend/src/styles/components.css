@@ -8,6 +8,19 @@
   flex-shrink: 0;
 }
 
+.sprite-image {
+  display: block;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 0 rgba(0,0,0,.8));
+}
+.sprite-image[data-tone="dead"] {
+  filter: grayscale(1) brightness(.4);
+}
+.sprite-image[data-tone="dim"] {
+  filter: saturate(.6) brightness(.8);
+}
+
 .bubble {
   position: relative;
   padding: 16px 22px;
