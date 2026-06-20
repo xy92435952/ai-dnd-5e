@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { TutorialEntryCard } from '../Tutorial'
+import { TutorialCoach, TutorialEntryCard } from '../Tutorial'
 
 describe('TutorialEntryCard', () => {
   it('renders entry-card chrome through stable classes and opens from card or CTA', () => {
@@ -27,5 +27,29 @@ describe('TutorialEntryCard', () => {
 
     fireEvent.click(screen.getByRole('button'))
     expect(onOpen).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders coach action callouts through stable classes while keeping coach placement dynamic', () => {
+    const { container } = render(
+      <TutorialCoach
+        step={{
+          coach: 'Roll initiative before the fight begins.',
+          action: 'Roll initiative',
+          require: 'auto',
+        }}
+        stepIdx={0}
+        total={1}
+        rect={null}
+        onNext={vi.fn()}
+      />,
+    )
+
+    const coach = container.querySelector('.tut-coach')
+    expect(coach).toHaveAttribute('style')
+
+    const actionCallout = container.querySelector('.coach-action-callout')
+    expect(actionCallout).toBeInTheDocument()
+    expect(actionCallout).not.toHaveAttribute('style')
+    expect(actionCallout).toHaveTextContent('Roll initiative')
   })
 })

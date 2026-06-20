@@ -358,7 +358,7 @@ function TutorialSpotlight({ rect }) {
 // ═══════════════════════════════════════════════════════════
 // ④ Coach 对话气泡
 // ═══════════════════════════════════════════════════════════
-function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSkip }) {
+export function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSkip }) {
   const pos = useMemo(() => {
     if (!rect) {
       return { left: window.innerWidth / 2 - 170, top: window.innerHeight - 320, dir: null }
@@ -397,12 +397,7 @@ function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSkip }) {
           : step.coach}
       </div>
       {step.action && (
-        <div style={{
-          marginTop: 10, padding: '6px 10px',
-          background: 'rgba(240,208,96,.1)',
-          borderLeft: '2px solid var(--amber)',
-          fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--amber)',
-        }}>
+        <div className="coach-action-callout">
           ➤ {step.action}
         </div>
       )}

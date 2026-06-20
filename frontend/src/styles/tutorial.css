@@ -473,6 +473,15 @@
   color: #7fe8f8;
   border-radius: 3px;
 }
+.tut-coach .coach-action-callout {
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: rgba(240,208,96,.1);
+  border-left: 2px solid var(--amber);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--amber);
+}
 .tut-coach .coach-tip-hint {
   margin-top: 10px;
   padding: 8px 10px;

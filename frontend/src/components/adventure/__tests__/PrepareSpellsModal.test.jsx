@@ -65,7 +65,9 @@ describe('PrepareSpellsModal', () => {
       derived: baseDerived,
     })
 
-    expect(await screen.findByRole('status')).toHaveTextContent('每日准备')
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('每日准备')
+    })
     expect(screen.getByRole('status')).toHaveTextContent('0/4')
     expect(screen.getByRole('status')).toHaveTextContent('2 个可选法术')
     expect(screen.getByLabelText('可准备法术列表')).toHaveAttribute('aria-live', 'polite')
