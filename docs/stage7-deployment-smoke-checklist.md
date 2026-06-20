@@ -170,6 +170,7 @@ CharacterCreate skill choices,
 CharacterCreate spell choices,
 CharacterCreate shared form controls,
 CharacterCreate shared info modal shell,
+CharacterCreate shared info modal body,
 shared `MagicInitiateChoiceFields`,
 `DialogueHistoryView`, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
