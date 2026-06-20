@@ -50,11 +50,17 @@ describe('InitiativeRibbon', () => {
     const currentActor = screen.getByRole('button', { name: /Asha，先攻 18，当前回合，状态 祝福/ })
     expect(currentActor).toHaveClass('active')
     expect(currentActor).toHaveAttribute('aria-current', 'true')
+    const currentHpFill = currentActor.querySelector('.hp-tick-fill')
+    expect(currentHpFill).toBeInTheDocument()
+    expect(currentHpFill).toHaveStyle({ '--initiative-hp-width': '80%' })
 
     const nextActor = screen.getByRole('button', {
       name: /Goblin Scout，先攻 15，下一位行动，战术定位 游击，状态 中毒/,
     })
     expect(nextActor).toHaveClass('next')
+    const nextHpFill = nextActor.querySelector('.hp-tick-fill')
+    expect(nextHpFill).toBeInTheDocument()
+    expect(nextHpFill).toHaveStyle({ '--initiative-hp-width': '50%' })
     expect(within(order).getByText('游击')).toHaveAttribute(
       'title',
       '战术定位：游击。倾向攻击边缘或后排，并在安全时撤步拉开距离。',

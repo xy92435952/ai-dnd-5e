@@ -49,7 +49,12 @@ export default function InitiativeRibbon({ initiativeChips = [], onSelectTarget 
                   {low && !dead && <span className="avatar-crack" />}
                 </div>
                 <div className="unit-name">{name.slice(0, 4)}</div>
-                <div className="hp-tick"><div className="fill" style={{ width: `${pct}%` }} /></div>
+                <div className="hp-tick">
+                  <div
+                    className="hp-tick-fill"
+                    style={{ '--initiative-hp-width': `${pct}%` }}
+                  />
+                </div>
                 {conditions.length > 0 && (
                   <div
                     className="condition-dots"
