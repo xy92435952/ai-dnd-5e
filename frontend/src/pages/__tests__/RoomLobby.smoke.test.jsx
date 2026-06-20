@@ -77,6 +77,7 @@ describe('RoomLobby multiplayer entry', () => {
     expect(styleButtons.length).toBeGreaterThan(0)
     expect(styleButtons[0]).toHaveAttribute('data-selected', 'true')
     expect(styleButtons[0]).toHaveAttribute('aria-pressed', 'true')
+    expect(styleButtons[0]).toHaveAttribute('data-style-key', 'classic')
     expect(styleButtons[0].querySelector('.room-lobby-dm-style-label')).toBeInTheDocument()
     expect(styleButtons[0].querySelector('.room-lobby-dm-style-summary')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /创建并进入房间/ })).toHaveClass('room-lobby-submit')
@@ -94,12 +95,12 @@ describe('RoomLobby multiplayer entry', () => {
     fireEvent.change(selects[1], { target: { value: '3' } })
     const styleButtons = container.querySelectorAll('.room-lobby-dm-style')
     fireEvent.click(styleButtons[1])
+    expect(styleButtons[1]).toHaveAttribute('data-style-key', 'dark_fantasy')
     fireEvent.click(screen.getByRole('button', { name: /创建并进入房间/ }))
 
     await waitFor(() => {
-      expect(roomCreateMock).toHaveBeenCalledWith('mod-1', 'Friday Table', 3, expect.any(String))
+      expect(roomCreateMock).toHaveBeenCalledWith('mod-1', 'Friday Table', 3, 'dark_fantasy')
     })
-    expect(roomCreateMock.mock.calls[0][3]).not.toBe('')
     expect(navigateMock).toHaveBeenCalledWith('/room/room-1')
 
     cleanup()

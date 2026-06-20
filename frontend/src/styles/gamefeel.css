@@ -3490,6 +3490,26 @@ button.companion-signal-item:focus-visible {
   text-align: left;
   cursor: pointer;
 }
+.room-lobby-dm-style[data-style-key="classic"] {
+  --room-lobby-style-accent: #d8b45f;
+  --room-lobby-style-bg: #d8b45f18;
+}
+.room-lobby-dm-style[data-style-key="dark_fantasy"] {
+  --room-lobby-style-accent: #a64a56;
+  --room-lobby-style-bg: #a64a5618;
+}
+.room-lobby-dm-style[data-style-key="lighthearted"] {
+  --room-lobby-style-accent: #68b684;
+  --room-lobby-style-bg: #68b68418;
+}
+.room-lobby-dm-style[data-style-key="epic_crpg"] {
+  --room-lobby-style-accent: #7fb8f8;
+  --room-lobby-style-bg: #7fb8f818;
+}
+.room-lobby-dm-style[data-style-key="hardcore"] {
+  --room-lobby-style-accent: #d07a3a;
+  --room-lobby-style-bg: #d07a3a18;
+}
 .room-lobby-dm-style[data-selected="true"] {
   border-color: var(--room-lobby-style-accent);
   background: var(--room-lobby-style-bg);

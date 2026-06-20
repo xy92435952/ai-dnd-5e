@@ -117,10 +117,7 @@ export default function RoomLobby() {
                       className="room-lobby-dm-style"
                       aria-pressed={selected}
                       data-selected={selected ? 'true' : 'false'}
-                      style={{
-                        '--room-lobby-style-accent': style.accent,
-                        '--room-lobby-style-bg': `${style.accent}18`,
-                      }}
+                      data-style-key={style.key}
                       onClick={() => setDmStyle(style.key)}
                     >
                       <span className="room-lobby-dm-style-label">
