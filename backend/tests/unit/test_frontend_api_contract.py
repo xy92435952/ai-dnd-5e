@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from main import app
+from tests.route_helpers import iter_effective_routes
 
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -29,7 +30,7 @@ def _frontend_routes() -> set[tuple[str, str]]:
 
 def _backend_routes() -> set[tuple[str, str]]:
     routes: set[tuple[str, str]] = set()
-    for route in app.routes:
+    for route in iter_effective_routes(app):
         path = getattr(route, "path", "")
         methods = getattr(route, "methods", set()) or set()
         for method in methods:

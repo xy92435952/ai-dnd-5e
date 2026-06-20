@@ -5,6 +5,8 @@
 import 层面的错误（拼写 / 循环 import / 缺依赖），直接定位就好。
 """
 
+from tests.route_helpers import iter_effective_routes
+
 
 def test_import_backend_main():
     """main.py 能完整 import。"""
@@ -290,15 +292,18 @@ def test_import_split_multiplayer_dm_agent_modules():
 
 
 def test_combat_routes_registered():
-    """combat 子包对外应暴露 31 个路由（拆分不能漏路由）。"""
+    """combat 子包对外应暴露 33 个路由（拆分不能漏路由）。"""
     from api.combat import router
-    assert len(router.routes) == 33, f"期望 33 个 combat 路由，实际 {len(router.routes)}"
+
+    routes = list(iter_effective_routes(router))
+    assert len(routes) == 33, f"期望 33 个 combat 路由，实际 {len(routes)}"
 
 
 def test_all_app_routes_have_path():
     """主 app 注册的所有 route 都应有 path 和 methods。"""
     import main
-    named = [r for r in main.app.routes if hasattr(r, "path")]
+
+    named = list(iter_effective_routes(main.app))
     # 粗略下界：至少 50 个路由（当前约 71）
     assert len(named) >= 50, f"路由数量异常：{len(named)}"
 
@@ -342,7 +347,7 @@ def test_combat_route_paths_unchanged():
         "/game/spells",
         "/game/spells/class/{class_name}",
     }
-    actual = {r.path for r in router.routes if hasattr(r, "path")}
+    actual = {r.path for r in iter_effective_routes(router)}
     assert actual == expected, f"路由集合变化：缺失={expected-actual}，多余={actual-expected}"
 
 
@@ -364,5 +369,5 @@ def test_game_route_paths_unchanged():
         "/game/sessions/{session_id}/rest",
         "/game/skill-check",
     }
-    actual = {r.path for r in router.routes if hasattr(r, "path")}
+    actual = {r.path for r in iter_effective_routes(router)}
     assert actual == expected, f"game 路由集合变化：缺失={expected-actual}，多余={actual-expected}"
