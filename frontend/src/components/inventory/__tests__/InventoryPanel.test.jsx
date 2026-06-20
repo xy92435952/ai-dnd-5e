@@ -43,7 +43,7 @@ describe('InventoryPanel', () => {
           hp_current: 8,
           equipment: {
             gold: 10,
-            weapons: [{ name: 'Longsword', zh: 'Longsword', damage: '1d8', equipped: false }],
+            weapons: [{ name: 'Longsword', zh: 'Longsword', damage: '1d8', equipped: true }],
             gear: [{ name: 'Rope', zh: 'Rope', cost: 1 }],
           },
         }}
@@ -53,6 +53,7 @@ describe('InventoryPanel', () => {
 
     expect(container.querySelector('.inventory-panel')).toBeInTheDocument()
     expect(container.querySelector('.inventory-panel-header')).toBeInTheDocument()
+    expect(container.querySelector('.inventory-section-title')).toHaveAttribute('data-compact', 'true')
     expect(container.querySelector('.inventory-shop-toggle')).toBeInTheDocument()
     expect(container.querySelector('.inventory-gold-strip')).toBeInTheDocument()
     expect(container.querySelector('.inventory-gold-icon')).toBeInTheDocument()
@@ -64,6 +65,7 @@ describe('InventoryPanel', () => {
     expect(container.querySelector('.inventory-row-action-button')).toBeInTheDocument()
     expect(container.querySelector('.inventory-row-select')).toBeInTheDocument()
     expect(container.querySelector('.inventory-item-meta')).toBeInTheDocument()
+    expect(screen.getByText('已装备')).toHaveClass('inventory-item-tag')
 
     fireEvent.click(container.querySelector('.inventory-shop-toggle'))
 
@@ -151,6 +153,7 @@ describe('InventoryPanel', () => {
       />,
     )
 
+    expect(screen.getByText('消耗品')).toHaveClass('inventory-item-tag')
     fireEvent.click(screen.getByRole('button', { name: '使用' }))
 
     await waitFor(() => {
@@ -584,5 +587,27 @@ describe('InventoryPanel', () => {
       }))
     })
     expect(await screen.findByText('长弓 弹药 19')).toBeInTheDocument()
+  })
+
+  it('renders stacked quantity tags with shared inventory item tag styling', () => {
+    render(
+      <InventoryPanel
+        character={{
+          id: 'char-1',
+          name: '测试战士',
+          hp_current: 8,
+          equipment: {
+            gold: 10,
+            gear: [
+              { name: 'Torch', zh: '火把', cost: 1 },
+              { name: 'Torch', zh: '火把', cost: 1 },
+              { name: 'Torch', zh: '火把', cost: 1 },
+            ],
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByText('x3')).toHaveClass('inventory-item-tag')
   })
 })

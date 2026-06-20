@@ -309,9 +309,9 @@ function InventoryRow({
       <div className="inventory-row-body">
         <div className="inventory-row-title">
           <span className="inventory-item-label">{item.label}</span>
-          {item.equipped && <span className="tag tag-gold" style={{ fontSize: 9 }}>已装备</span>}
-          {item.consumable && <span className="tag tag-info" style={{ fontSize: 9 }}>消耗品</span>}
-          {item.quantity > 1 && <span className="tag" style={{ fontSize: 9 }}>x{item.quantity}</span>}
+          {item.equipped && <span className="tag tag-gold inventory-item-tag">已装备</span>}
+          {item.consumable && <span className="tag tag-info inventory-item-tag">消耗品</span>}
+          {item.quantity > 1 && <span className="tag inventory-item-tag">x{item.quantity}</span>}
         </div>
         <div className="inventory-item-meta">
           {item.damage && <span style={{ color: tone }}>{item.damage}</span>}
@@ -451,12 +451,7 @@ function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
 
 function SectionTitle({ children, compact = false }) {
   return (
-    <p style={{
-      color: 'var(--gold)', fontSize: 12, fontWeight: 700,
-      textTransform: 'uppercase', letterSpacing: '0.1em',
-      margin: compact ? 0 : '0 0 10px', paddingBottom: compact ? 0 : 6,
-      borderBottom: compact ? 'none' : '1px solid var(--wood)',
-    }}>
+    <p className="inventory-section-title" data-compact={compact ? 'true' : 'false'}>
       {children}
     </p>
   )
