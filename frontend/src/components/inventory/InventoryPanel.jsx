@@ -302,10 +302,7 @@ function InventoryRow({
 }) {
   const tone = item.category === 'weapon' ? 'var(--red-light)' : item.category === 'gear' ? 'var(--parchment-dark)' : 'var(--blue-light)'
   return (
-    <div className="inventory-row" style={{
-      background: item.equipped ? 'rgba(201,168,76,0.08)' : 'rgba(10,6,2,0.18)',
-      border: `1px solid ${item.equipped ? 'var(--gold-dim)' : 'var(--wood)'}`,
-    }}>
+    <div className="inventory-row" data-equipped={item.equipped ? 'true' : 'false'}>
       <div className="inventory-row-body">
         <div className="inventory-row-title">
           <span className="inventory-item-label">{item.label}</span>
@@ -427,9 +424,9 @@ function ShopPanel({ shop, tab, onTab, pricing, gold, busyKey, onBuy }) {
               </div>
               <div className="inventory-shop-card-footer">
                 <span className="inventory-shop-price">
-                  <span style={{ color: affordable ? 'var(--gold)' : 'var(--red-light)', fontSize: 11 }}>{item.cost || 0} gp</span>
+                  <span className="inventory-shop-price-current" data-affordable={affordable ? 'true' : 'false'}>{item.cost || 0} gp</span>
                   {item.base_cost != null && item.base_cost !== item.cost && (
-                    <span style={{ color: 'var(--text-dim)', fontSize: 9 }}>原价 {item.base_cost} gp</span>
+                    <span className="inventory-shop-price-base">原价 {item.base_cost} gp</span>
                   )}
                 </span>
                 <button

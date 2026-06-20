@@ -66,6 +66,7 @@ describe('InventoryPanel', () => {
     expect(container.querySelector('.inventory-row-select')).toBeInTheDocument()
     expect(container.querySelector('.inventory-item-meta')).toBeInTheDocument()
     expect(screen.getByText('已装备')).toHaveClass('inventory-item-tag')
+    expect(container.querySelector('.inventory-row[data-equipped="true"]')).toBeInTheDocument()
 
     fireEvent.click(container.querySelector('.inventory-shop-toggle'))
 
@@ -540,8 +541,9 @@ describe('InventoryPanel', () => {
     expect(await screen.findByLabelText('Shop pricing')).toHaveTextContent('市集价格')
     expect(screen.getByLabelText('Shop pricing')).toHaveTextContent('买入 x0.9')
     expect(screen.getByLabelText('Shop pricing')).toHaveTextContent('卖出 55%')
-    expect(screen.getByText('45 gp')).toBeInTheDocument()
-    expect(screen.getByText('原价 50 gp')).toBeInTheDocument()
+    expect(screen.getByText('45 gp')).toHaveClass('inventory-shop-price-current')
+    expect(screen.getByText('45 gp')).toHaveAttribute('data-affordable', 'true')
+    expect(screen.getByText('原价 50 gp')).toHaveClass('inventory-shop-price-base')
   })
 
   it('adjusts ammunition without replacing the rest of the equipment', async () => {

@@ -1523,6 +1523,12 @@
   min-width: 0;
   padding: 8px 10px;
   border-radius: 6px;
+  border: 1px solid var(--wood);
+  background: rgba(10,6,2,0.18);
+}
+.inventory-row[data-equipped="true"] {
+  border-color: var(--gold-dim);
+  background: rgba(201,168,76,0.08);
 }
 .inventory-row-body {
   min-width: 0;
@@ -1667,6 +1673,17 @@
   align-items: baseline;
   gap: 3px 5px;
   min-width: 0;
+}
+.inventory-shop-price-current {
+  color: var(--gold);
+  font-size: 11px;
+}
+.inventory-shop-price-current[data-affordable="false"] {
+  color: var(--red-light);
+}
+.inventory-shop-price-base {
+  color: var(--text-dim);
+  font-size: 9px;
 }
 .inventory-shop-card-footer .btn-ghost,
 .inventory-shop-buy-button {
