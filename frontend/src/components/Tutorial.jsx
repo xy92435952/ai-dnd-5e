@@ -393,7 +393,14 @@ export function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSk
   const isHTML = typeof step.coach === 'string' && step.coach.includes('<')
 
   return (
-    <div className="tut-coach" data-dir={pos.dir} style={{ left: pos.left, top: pos.top }}>
+    <div
+      className="tut-coach"
+      data-dir={pos.dir}
+      style={{
+        '--tutorial-coach-left': `${pos.left}px`,
+        '--tutorial-coach-top': `${pos.top}px`,
+      }}
+    >
       <div className="coach-head">
         <div className="coach-avatar">艾</div>
         <div>

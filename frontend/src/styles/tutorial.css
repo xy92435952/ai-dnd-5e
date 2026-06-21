@@ -385,6 +385,8 @@
 /* ── 教程对话气泡 ── */
 .tut-coach {
   position: fixed;
+  left: var(--tutorial-coach-left);
+  top: var(--tutorial-coach-top);
   z-index: 2200;
   width: 340px;
   padding: 16px 18px 14px;

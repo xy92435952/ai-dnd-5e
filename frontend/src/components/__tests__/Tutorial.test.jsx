@@ -46,6 +46,10 @@ describe('TutorialEntryCard', () => {
 
     const coach = container.querySelector('.tut-coach')
     expect(coach).toHaveAttribute('style')
+    expect(coach.style.getPropertyValue('--tutorial-coach-left')).toBe(`${window.innerWidth / 2 - 170}px`)
+    expect(coach.style.getPropertyValue('--tutorial-coach-top')).toBe(`${window.innerHeight - 320}px`)
+    expect(coach.style.left).toBe('')
+    expect(coach.style.top).toBe('')
 
     const actionCallout = container.querySelector('.coach-action-callout')
     expect(actionCallout).toBeInTheDocument()
