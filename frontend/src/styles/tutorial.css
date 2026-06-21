@@ -642,6 +642,8 @@
 /* ── 术语 glossary 浮层（名词解释）── */
 .tut-glossary {
   position: absolute;
+  left: var(--tutorial-glossary-left);
+  top: var(--tutorial-glossary-top);
   z-index: 2300;
   width: 260px;
   padding: 12px 14px;

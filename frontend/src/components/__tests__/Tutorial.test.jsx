@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { TutorialCoach, TutorialEntryCard, TutorialHost, TutorialSpotlight } from '../Tutorial'
+import { TutorialCoach, TutorialEntryCard, TutorialGlossary, TutorialHost, TutorialSpotlight } from '../Tutorial'
 
 describe('TutorialEntryCard', () => {
   it('renders entry-card chrome through stable classes and opens from card or CTA', () => {
@@ -100,5 +100,28 @@ describe('TutorialEntryCard', () => {
     expect(ring.style.top).toBe('')
     expect(ring.style.width).toBe('')
     expect(ring.style.height).toBe('')
+  })
+
+  it('projects target glossary placement through named CSS variables', () => {
+    const { container } = render(
+      <TutorialGlossary
+        glossary={{
+          term: 'Armor Class',
+          pron: 'AC',
+          def: 'The number an attack must meet or beat.',
+          example: 'A 16 total hits AC 15.',
+        }}
+        rect={{ x: 40, y: 60, w: 120, h: 30 }}
+      />,
+    )
+
+    const glossary = container.querySelector('.tut-glossary')
+    expect(glossary).not.toHaveClass('tut-glossary-fallback')
+    expect(glossary.style.getPropertyValue('--tutorial-glossary-left')).toBe('176px')
+    expect(glossary.style.getPropertyValue('--tutorial-glossary-top')).toBe('60px')
+    expect(glossary.style.left).toBe('')
+    expect(glossary.style.top).toBe('')
+    expect(within(glossary).getByText('Armor Class')).toBeInTheDocument()
+    expect(within(glossary).getByText('AC')).toBeInTheDocument()
   })
 })

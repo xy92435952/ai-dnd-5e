@@ -445,6 +445,29 @@ export function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSk
 // ═══════════════════════════════════════════════════════════
 // ⑤ Spotlight + Coach 组合（runner）
 // ═══════════════════════════════════════════════════════════
+export function TutorialGlossary({ glossary, rect }) {
+  if (!glossary) return null
+
+  const style = rect
+    ? {
+        '--tutorial-glossary-left': `${Math.min(window.innerWidth - 280, rect.x + rect.w + 16)}px`,
+        '--tutorial-glossary-top': `${Math.max(20, rect.y)}px`,
+      }
+    : undefined
+
+  return (
+    <div
+      className={`tut-glossary${rect ? '' : ' tut-glossary-fallback'}`}
+      style={style}
+    >
+      <div className="g-term">{glossary.term}</div>
+      {glossary.pron && <div className="g-pron">{glossary.pron}</div>}
+      <div className="g-def">{glossary.def}</div>
+      {glossary.example && <div className="g-example">{glossary.example}</div>}
+    </div>
+  )
+}
+
 function TutorialRunner({ chapterId, onExit, onChapterDone }) {
   const chapter = TUTORIAL_CONTENT.chapters.find(c => c.id === chapterId)
   const [stepIdx, setStepIdx] = useState(0)
@@ -551,30 +574,10 @@ function TutorialRunner({ chapterId, onExit, onChapterDone }) {
       <TutorialSpotlight rect={rect} />
 
       {/* 术语浮窗 */}
-      {step.glossary && rect && (
-        <div
-          className="tut-glossary"
-          style={{
-            left: Math.min(window.innerWidth - 280, rect.x + rect.w + 16),
-            top: Math.max(20, rect.y),
-          }}
-        >
-          <div className="g-term">{step.glossary.term}</div>
-          {step.glossary.pron && <div className="g-pron">{step.glossary.pron}</div>}
-          <div className="g-def">{step.glossary.def}</div>
-          {step.glossary.example && <div className="g-example">{step.glossary.example}</div>}
-        </div>
-      )}
+      {step.glossary && rect && <TutorialGlossary glossary={step.glossary} rect={rect} />}
 
       {/* 无 target 但有 glossary：居中右下角展示 */}
-      {step.glossary && !rect && (
-        <div className="tut-glossary tut-glossary-fallback">
-          <div className="g-term">{step.glossary.term}</div>
-          {step.glossary.pron && <div className="g-pron">{step.glossary.pron}</div>}
-          <div className="g-def">{step.glossary.def}</div>
-          {step.glossary.example && <div className="g-example">{step.glossary.example}</div>}
-        </div>
-      )}
+      {step.glossary && !rect && <TutorialGlossary glossary={step.glossary} rect={null} />}
 
       {/* Coach 气泡 */}
       <TutorialCoach
