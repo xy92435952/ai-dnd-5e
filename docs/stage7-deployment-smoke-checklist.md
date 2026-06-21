@@ -143,7 +143,7 @@ Combat `SpellModalList`,
 Combat `SpellModalActions`,
 Combat `CombatHudControls`, Combat `CombatHudSlots`, Combat `CombatHudPips`,
 Combat `CombatHudPortrait`, Combat `CombatHudIntentSummary`, Combat `CombatHudSkillBar`,
-Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon` HP tick chrome, Combat `TargetCard` HP meter chrome, Combat `CombatStage`,
+Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon` HP tick chrome, Combat `TargetCard` HP meter chrome, Combat `CombatStage` wash/float-text chrome,
 Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat `CombatOutcomeOverlay`,
 Combat `CombatDeathSavePanel` panel/dot tones, Combat `CombatQuickInventory`, Combat `IsoBattlefield` grid/unit tone/HP fill chrome, shared inventory gold strip/action controls/tags/row/shop/meta tones,
 Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure

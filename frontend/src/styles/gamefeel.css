@@ -8482,6 +8482,8 @@ button.companion-signal-item:focus-visible {
 /* 浮字（伤害 / 未命中 / 暴击）—— HD-2D 八方旅人风 */
 .float-text {
   position: absolute;
+  left: var(--combat-float-x);
+  top: var(--combat-float-y);
   pointer-events: none;
   font-family: var(--font-display);
   font-weight: 900;

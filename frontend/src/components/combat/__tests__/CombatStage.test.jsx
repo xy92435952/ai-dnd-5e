@@ -150,6 +150,53 @@ describe('CombatStage', () => {
     expect(onMoveTo).not.toHaveBeenCalled()
   })
 
+  it('projects floating combat text position through named CSS variables', () => {
+    const { container } = render(
+      <CombatStage
+        viewWidth={1}
+        viewHeight={1}
+        cam={{ x0: 0, y0: 0 }}
+        walls={new Set()}
+        hazards={new Set()}
+        objectives={new Set()}
+        terrainDetails={{}}
+        tacticalContext={{ hasContext: false }}
+        entityPositions={{}}
+        entities={{}}
+        selectedTarget={null}
+        selectedTargetEntity={null}
+        currentTurnCharacterId="player"
+        threatCells={new Set()}
+        aoeCells={{ center: null, ring: new Set() }}
+        moveMode={false}
+        helpMode={false}
+        aoePreview={null}
+        aoeHover={null}
+        aoeLockedCenter={null}
+        playerId="player"
+        prediction={null}
+        canInspectTarget={false}
+        inspectBusy={false}
+        floats={[{ id: 'float-1', kind: 'dmg', x: 42, y: 37, val: '-8' }]}
+        combatOver={false}
+        onSelectTarget={vi.fn()}
+        onInspectTarget={vi.fn()}
+        onHelpTarget={vi.fn()}
+        onMoveTo={vi.fn()}
+        onAoeHover={vi.fn()}
+        onAoeLockCenter={vi.fn()}
+        onReturn={vi.fn()}
+      />,
+    )
+
+    const floatText = container.querySelector('.float-text.dmg')
+    expect(floatText).toHaveTextContent('-8')
+    expect(floatText.style.getPropertyValue('--combat-float-x')).toBe('42%')
+    expect(floatText.style.getPropertyValue('--combat-float-y')).toBe('37%')
+    expect(floatText.style.left).toBe('')
+    expect(floatText.style.top).toBe('')
+  })
+
   it('derives frightened source movement blocking per target cell', () => {
     const onMoveTo = vi.fn()
     const { container } = render(

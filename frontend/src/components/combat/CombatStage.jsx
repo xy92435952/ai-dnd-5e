@@ -104,7 +104,16 @@ export default function CombatStage({
       />
 
       {floats.map(f => (
-        <span key={f.id} className={`float-text ${f.kind}`} style={{ left: `${f.x}%`, top: `${f.y}%` }}>{f.val}</span>
+        <span
+          key={f.id}
+          className={`float-text ${f.kind}`}
+          style={{
+            '--combat-float-x': `${f.x}%`,
+            '--combat-float-y': `${f.y}%`,
+          }}
+        >
+          {f.val}
+        </span>
       ))}
 
       <CombatOutcomeOverlay
