@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { TutorialCoach, TutorialEntryCard, TutorialHost } from '../Tutorial'
+import { TutorialCoach, TutorialEntryCard, TutorialHost, TutorialSpotlight } from '../Tutorial'
 
 describe('TutorialEntryCard', () => {
   it('renders entry-card chrome through stable classes and opens from card or CTA', () => {
@@ -76,5 +76,25 @@ describe('TutorialEntryCard', () => {
     expect(glossary).toHaveClass('tut-glossary-fallback')
     expect(glossary).not.toHaveAttribute('style')
     expect(within(glossary).getByText('种族')).toBeInTheDocument()
+  })
+
+  it('projects spotlight target geometry through named CSS variables', () => {
+    const { container } = render(
+      <TutorialSpotlight rect={{ x: 20, y: 30, w: 100, h: 40 }} />,
+    )
+
+    const mask = container.querySelector('.sp-mask')
+    expect(mask.style.getPropertyValue('--tutorial-spotlight-clip-path')).toContain('12px 22px')
+    expect(mask.style.clipPath).toBe('')
+
+    const ring = container.querySelector('.sp-ring')
+    expect(ring.style.getPropertyValue('--tutorial-spotlight-x')).toBe('12px')
+    expect(ring.style.getPropertyValue('--tutorial-spotlight-y')).toBe('22px')
+    expect(ring.style.getPropertyValue('--tutorial-spotlight-width')).toBe('116px')
+    expect(ring.style.getPropertyValue('--tutorial-spotlight-height')).toBe('56px')
+    expect(ring.style.left).toBe('')
+    expect(ring.style.top).toBe('')
+    expect(ring.style.width).toBe('')
+    expect(ring.style.height).toBe('')
   })
 })

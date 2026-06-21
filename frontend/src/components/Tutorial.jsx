@@ -329,7 +329,7 @@ function TutorialWelcome({ onPickChapter, onClose, progress = {} }) {
 // ═══════════════════════════════════════════════════════════
 // ③ Spotlight（带圆环 + 暗化遮罩）
 // ═══════════════════════════════════════════════════════════
-function TutorialSpotlight({ rect }) {
+export function TutorialSpotlight({ rect }) {
   const pad = 8
   if (!rect) {
     return (
@@ -349,8 +349,19 @@ function TutorialSpotlight({ rect }) {
   )`
   return (
     <div className="tut-spotlight">
-      <div className="sp-mask" style={{ clipPath }} />
-      <div className="sp-ring" style={{ left: x, top: y, width: w, height: h }} />
+      <div
+        className="sp-mask"
+        style={{ '--tutorial-spotlight-clip-path': clipPath }}
+      />
+      <div
+        className="sp-ring"
+        style={{
+          '--tutorial-spotlight-x': `${x}px`,
+          '--tutorial-spotlight-y': `${y}px`,
+          '--tutorial-spotlight-width': `${w}px`,
+          '--tutorial-spotlight-height': `${h}px`,
+        }}
+      />
     </div>
   )
 }

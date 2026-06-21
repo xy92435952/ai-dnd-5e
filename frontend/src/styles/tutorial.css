@@ -340,6 +340,7 @@
   background: rgba(0,0,0,.72);
   pointer-events: auto;
   /* 挖空由 clip-path 在 JS 中设置 */
+  clip-path: var(--tutorial-spotlight-clip-path);
   transition: clip-path .4s cubic-bezier(.2,.9,.3,1);
 }
 .tut-spotlight .sp-mask-clear {
@@ -347,6 +348,10 @@
 }
 .tut-spotlight .sp-ring {
   position: absolute;
+  left: var(--tutorial-spotlight-x);
+  top: var(--tutorial-spotlight-y);
+  width: var(--tutorial-spotlight-width);
+  height: var(--tutorial-spotlight-height);
   border: 2px solid #7fe8f8;
   box-shadow:
     0 0 0 4px rgba(127,232,248,.2),
