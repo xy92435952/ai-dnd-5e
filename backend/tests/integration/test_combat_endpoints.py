@@ -9688,6 +9688,8 @@ async def test_direct_attack_pending_smite_marks_undead_or_fiend_target(
     client, db_session, sample_session, combat_state, sample_user, sample_character, monkeypatch,
 ):
     from sqlalchemy.orm.attributes import flag_modified
+    from services.combat_service import AttackResult
+    import api.combat.attacks as attacks
 
     _patch_smite_narration(monkeypatch)
     headers = await _auth_headers(client, sample_user)
@@ -9715,6 +9717,24 @@ async def test_direct_attack_pending_smite_marks_undead_or_fiend_target(
     flag_modified(sample_character, "derived")
     flag_modified(sample_session, "game_state")
     await db_session.commit()
+
+    def fake_resolve_melee_attack(**_kwargs):
+        return AttackResult(
+            attack_roll={
+                "d20": 12,
+                "attack_bonus": 25,
+                "attack_total": 37,
+                "target_ac": 15,
+                "hit": True,
+                "is_crit": False,
+                "is_fumble": False,
+            },
+            damage=5,
+            damage_roll={"formula": "1d10+3", "rolls": [2], "total": 5},
+            narration="test hit",
+        )
+
+    monkeypatch.setattr(attacks.svc, "resolve_melee_attack", fake_resolve_melee_attack)
 
     action = await client.post(
         f"/game/combat/{sample_session.id}/action",
