@@ -150,7 +150,7 @@ Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`
 `AdventureStage`, Adventure `StageLeftFigure` speaker tone chrome, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
 `DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `CompanionReactionPanel`, Adventure `DialogueLogList`,
-Adventure `LogLine`, Adventure `LocationMapModal` node-position chrome, Adventure
+Adventure `LogLine`, shared light-markdown emphasis chrome, Adventure `LocationMapModal` node-position chrome, Adventure
 `AdventureBottomHud`, Adventure `AdventurePartyHud` HP microbar width chrome, Adventure `AdventureQuestHud`, Adventure `AdventureTopBar`,
 Adventure `CheckpointModal`, Adventure `JournalModal`, Adventure `RestModal`,
 Adventure `PrepareSpellsModal`, Adventure `MultiplayerTimelinePanel`,

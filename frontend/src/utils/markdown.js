@@ -34,7 +34,11 @@ export function renderLightMarkdown(text, accentColor = 'var(--amber)') {
       parts.push(
         React.createElement(
           'strong',
-          { key: `b-${key++}`, style: { color: accentColor, fontWeight: 700, fontStyle: 'normal' } },
+          {
+            key: `b-${key++}`,
+            className: 'light-md-strong',
+            style: { '--light-md-accent-color': accentColor },
+          },
           m[2]
         )
       )
@@ -42,7 +46,7 @@ export function renderLightMarkdown(text, accentColor = 'var(--amber)') {
       parts.push(
         React.createElement(
           'em',
-          { key: `i-${key++}`, style: { fontStyle: 'italic' } },
+          { key: `i-${key++}`, className: 'light-md-em' },
           m[3]
         )
       )

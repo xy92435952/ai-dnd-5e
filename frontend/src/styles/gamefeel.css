@@ -2087,6 +2087,14 @@
 .dialogue-log-line {
   white-space: pre-wrap;
 }
+.light-md-strong {
+  color: var(--light-md-accent-color, var(--amber));
+  font-style: normal;
+  font-weight: 700;
+}
+.light-md-em {
+  font-style: italic;
+}
 .stage-bubble-text strong,
 .stage-bubble-text em,
 .dialogue-log-line strong,

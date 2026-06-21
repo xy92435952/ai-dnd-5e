@@ -16,7 +16,11 @@ describe('StageBubble', () => {
     expect(bubble).toHaveClass('stage-bubble', 'dm', 'is-typing')
     expect(bubble).toHaveAttribute('data-typing-state', 'typing')
     expect(within(bubble).queryByText(/❖/)).not.toBeInTheDocument()
-    expect(within(bubble).getByText('rune')).toHaveStyle({ color: 'var(--amber)' })
+    const strongText = within(bubble).getByText('rune')
+    expect(strongText).toHaveClass('light-md-strong')
+    expect(strongText.style.getPropertyValue('--light-md-accent-color')).toBe('var(--amber)')
+    expect(strongText.style.fontWeight).toBe('')
+    expect(strongText.style.fontStyle).toBe('')
     expect(bubble.querySelector('.stage-bubble-cursor')).toBeInTheDocument()
   })
 
