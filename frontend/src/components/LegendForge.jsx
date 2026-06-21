@@ -98,9 +98,9 @@ export default function LegendForge({
             <span
               key={i}
               style={{
-                '--a': `${s.a}deg`,
-                '--d': `${s.d}px`,
-                animationDelay: `${s.delay}s`,
+                '--legend-spark-angle': `${s.a}deg`,
+                '--legend-spark-distance': `${s.d}px`,
+                '--legend-spark-delay': `${s.delay}s`,
               }}
             />
           ))}

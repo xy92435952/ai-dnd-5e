@@ -180,14 +180,15 @@
   background: radial-gradient(circle, #ffe890, rgba(240, 160, 40, 0));
   border-radius: 50%;
   animation: legendSpark 1.6s ease-out forwards;
-  --a: 0deg;
-  --d: 200px;
-  transform: rotate(var(--a)) translateX(0);
+  animation-delay: var(--legend-spark-delay, 0s);
+  --legend-spark-angle: 0deg;
+  --legend-spark-distance: 200px;
+  transform: rotate(var(--legend-spark-angle)) translateX(0);
 }
 @keyframes legendSpark {
-  0%   { transform: rotate(var(--a)) translateX(0) scale(0);            opacity: 0; }
+  0%   { transform: rotate(var(--legend-spark-angle)) translateX(0) scale(0);            opacity: 0; }
   20%  { opacity: 1; }
-  100% { transform: rotate(var(--a)) translateX(var(--d)) scale(1.5);   opacity: 0; }
+  100% { transform: rotate(var(--legend-spark-angle)) translateX(var(--legend-spark-distance)) scale(1.5);   opacity: 0; }
 }
 .legend-forge .title {
   position: absolute;

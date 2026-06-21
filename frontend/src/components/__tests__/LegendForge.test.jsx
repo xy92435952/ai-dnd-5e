@@ -55,9 +55,12 @@ describe('LegendForge', () => {
 
     const sparks = container.querySelectorAll('.sparks span')
     expect(sparks).toHaveLength(24)
-    expect(sparks[0].getAttribute('style')).toContain('--a:')
-    expect(sparks[0].getAttribute('style')).toContain('--d:')
-    expect(sparks[0].getAttribute('style')).toContain('animation-delay:')
+    expect(sparks[0].style.getPropertyValue('--legend-spark-angle')).toMatch(/\d+deg/)
+    expect(sparks[0].style.getPropertyValue('--legend-spark-distance')).toMatch(/\d+(\.\d+)?px/)
+    expect(sparks[0].style.getPropertyValue('--legend-spark-delay')).toMatch(/\d+(\.\d+)?s/)
+    expect(sparks[0].style.getPropertyValue('--a')).toBe('')
+    expect(sparks[0].style.getPropertyValue('--d')).toBe('')
+    expect(sparks[0].style.animationDelay).toBe('')
 
     expect(audioMock.unlock).toHaveBeenCalledTimes(1)
     vi.advanceTimersByTime(600)
