@@ -57,6 +57,33 @@ describe('TutorialEntryCard', () => {
     expect(actionCallout).toHaveTextContent('Roll initiative')
   })
 
+  it('renders tutorial coach markup through a safe allowlisted renderer', () => {
+    const { container } = render(
+      <TutorialCoach
+        step={{
+          coach: 'Roll <span class="coach-highlight">initiative</span><br/><span class="coach-key">d20</span><i>fast</i><script>bad()</script>',
+          tip: 'Use <span class="coach-highlight">cover</span> before moving.',
+          require: 'auto',
+        }}
+        stepIdx={0}
+        total={1}
+        rect={null}
+        onNext={vi.fn()}
+      />,
+    )
+
+    const coachBody = container.querySelector('.coach-body')
+    expect(within(coachBody).getByText('initiative')).toHaveClass('coach-highlight')
+    expect(within(coachBody).getByText('d20')).toHaveClass('coach-key')
+    expect(coachBody.querySelectorAll('br')).toHaveLength(1)
+    expect(within(coachBody).getByText('fast').tagName).toBe('I')
+    expect(within(coachBody).queryByText('bad()')).not.toBeInTheDocument()
+
+    const tip = container.querySelector('.coach-tip-hint')
+    expect(within(tip).getByText('cover')).toHaveClass('coach-highlight')
+    expect(tip).toHaveTextContent('Use cover before moving.')
+  })
+
   it('renders no-target tutorial fallback chrome through stable classes', async () => {
     const { container } = render(
       <TutorialHost open initialChapter="create" onClose={vi.fn()} />,

@@ -22,7 +22,7 @@
  * 启用完整的 spotlight 引导。
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { Fragment, useState, useEffect, useMemo } from 'react'
 
 // ═══════════════════════════════════════════════════════════
 // TUTORIAL_CONTENT — 真实教学内容
@@ -366,6 +366,52 @@ export function TutorialSpotlight({ rect }) {
   )
 }
 
+const TUTORIAL_ALLOWED_MARKUP_CLASSES = new Set(['coach-highlight', 'coach-key'])
+
+function renderTutorialMarkupNodes(nodes, keyPrefix = 'tutorial-markup') {
+  return Array.from(nodes).map((node, index) => {
+    const key = `${keyPrefix}-${index}`
+
+    if (node.nodeType === 3) return node.textContent
+    if (node.nodeType !== 1) return null
+
+    const tag = node.tagName.toLowerCase()
+    if (tag === 'script' || tag === 'style') return null
+    if (tag === 'br') return <br key={key} />
+
+    const children = renderTutorialMarkupNodes(node.childNodes, key)
+
+    if (tag === 'span') {
+      const className = Array.from(node.classList).find(item => (
+        TUTORIAL_ALLOWED_MARKUP_CLASSES.has(item)
+      ))
+      return className
+        ? <span key={key} className={className}>{children}</span>
+        : <Fragment key={key}>{children}</Fragment>
+    }
+
+    if (tag === 'i' || tag === 'em') {
+      return <i key={key}>{children}</i>
+    }
+
+    return <Fragment key={key}>{children}</Fragment>
+  })
+}
+
+export function renderTutorialMarkup(markup) {
+  if (!markup) return null
+  const text = String(markup)
+  if (!text.includes('<')) return text
+  if (typeof DOMParser === 'undefined') {
+    return text
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
+  }
+
+  const doc = new DOMParser().parseFromString(text, 'text/html')
+  return renderTutorialMarkupNodes(doc.body.childNodes)
+}
+
 // ═══════════════════════════════════════════════════════════
 // ④ Coach 对话气泡
 // ═══════════════════════════════════════════════════════════
@@ -390,8 +436,6 @@ export function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSk
     return { left, top, dir }
   }, [rect, step.dir])
 
-  const isHTML = typeof step.coach === 'string' && step.coach.includes('<')
-
   return (
     <div
       className="tut-coach"
@@ -410,16 +454,18 @@ export function TutorialCoach({ step, stepIdx, total, rect, onPrev, onNext, onSk
         <div className="coach-step">{stepIdx + 1} / {total}</div>
       </div>
       <div className="coach-body">
-        {isHTML
-          ? <span dangerouslySetInnerHTML={{ __html: step.coach }} />
-          : step.coach}
+        {renderTutorialMarkup(step.coach)}
       </div>
       {step.action && (
         <div className="coach-action-callout">
           ➤ {step.action}
         </div>
       )}
-      {step.tip && <div className="coach-tip-hint" dangerouslySetInnerHTML={{ __html: step.tip }} />}
+      {step.tip && (
+        <div className="coach-tip-hint">
+          {renderTutorialMarkup(step.tip)}
+        </div>
+      )}
       <div className="coach-nav">
         <div className="coach-progress">
           {Array.from({ length: total }).map((_, i) => (

@@ -1,6 +1,6 @@
 # Stage 7 Deployment Smoke Checklist
 
-Last updated: 2026-06-20
+Last updated: 2026-06-22
 
 This checklist is the deployment-readiness gate for the current Stage 7 work.
 It focuses on rule trust, multiplayer privacy/reconnect behavior, ReactionPrompt
@@ -128,7 +128,7 @@ npm run build
 cd ..
 ```
 
-`npm run test:stage7:reaction` includes App scenic backdrop shell, shared `AtmosphereBG` god-ray chrome, Home hub shell, Home module/save cards, ClassGallery card chrome, RoomLobby shell, RoomLobby DM-style selection, CharacterCreate shell, shared `DiceRollerOverlay` shell/result chrome, shared `DMThinkingOverlay` fate-node chrome, shared `Icons` chrome, shared `LegendForge` crest/spark chrome, shared `Ornaments` HP fill chrome, shared `Sprite` PNG/fallback chrome, shared tutorial entry/coach position/spotlight/glossary/fallback chrome, CharacterSheet shell, CharacterSheet HP tone/fill chrome,
+`npm run test:stage7:reaction` includes App scenic backdrop shell, shared `AtmosphereBG` god-ray chrome, Home hub shell, Home module/save cards, ClassGallery card chrome, RoomLobby shell, RoomLobby DM-style selection, CharacterCreate shell, shared `DiceRollerOverlay` shell/result chrome, shared `DMThinkingOverlay` fate-node chrome, shared `Icons` chrome, shared `LegendForge` crest/spark chrome, shared `Ornaments` HP fill chrome, shared `Sprite` PNG/fallback chrome, shared tutorial safe-markup/entry/coach position/spotlight/glossary/fallback chrome, CharacterSheet shell, CharacterSheet HP tone/fill chrome,
 Combat page/loading shell, the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,
