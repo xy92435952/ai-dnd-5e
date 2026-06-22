@@ -57,6 +57,8 @@ describe('Home responsive shell', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.setItem('tutorial_seen', '1')
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
     getTutorialProgressMock.mockReturnValue(4)
     moduleDeleteMock.mockResolvedValue({})
     sessionDeleteMock.mockResolvedValue({})
@@ -188,6 +190,40 @@ describe('Home responsive shell', () => {
 
     expect(clickSpy).toHaveBeenCalledTimes(3)
     clickSpy.mockRestore()
+    cleanup()
+  })
+
+  it('confirms logout through the in-app confirmation dialog', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
+    localStorage.setItem('token', 'session-token')
+    localStorage.setItem('user', JSON.stringify({ id: 'user-1' }))
+    const { container } = renderHome()
+
+    await screen.findByText('Road to Candlekeep With An Exceptionally Long Module Name')
+    const logoutButton = container.querySelector('.home-header-actions .btn-ghost:last-child')
+    fireEvent.click(logoutButton)
+
+    const dialog = screen.getByRole('dialog', { name: '退出登录' })
+    expect(dialog).toHaveClass('home-confirm-dialog')
+    expect(screen.getByText('你将返回登录页，当前本地登录状态会被清除。')).toHaveAttribute('id', 'home-confirm-desc')
+    expect(screen.getByRole('group', { name: '退出登录确认操作' })).toHaveClass('home-confirm-actions')
+    expect(screen.getByRole('button', { name: '确认退出' })).toHaveClass('home-confirm-submit')
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(screen.queryByRole('dialog', { name: '退出登录' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('token')).toBe('session-token')
+    expect(localStorage.getItem('user')).toBe(JSON.stringify({ id: 'user-1' }))
+
+    fireEvent.click(logoutButton)
+    fireEvent.click(screen.getByRole('button', { name: '确认退出' }))
+
+    expect(localStorage.getItem('token')).toBeNull()
+    expect(localStorage.getItem('user')).toBeNull()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
     cleanup()
   })
 

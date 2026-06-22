@@ -128,7 +128,7 @@ npm run build
 cd ..
 ```
 
-`npm run test:stage7:reaction` includes App scenic backdrop shell, shared `AtmosphereBG` god-ray chrome, Home hub shell, Home module/save cards/delete-failure inline alert/delete confirmation dialog, ClassGallery card chrome, RoomLobby shell/routed room notice, RoomLobby DM-style selection, CharacterCreate shell, shared `DiceRollerOverlay` shell/result chrome, shared `DMThinkingOverlay` fate-node chrome, shared `Icons` chrome, shared `LegendForge` crest/spark chrome, shared `Ornaments` HP fill chrome, shared `Sprite` PNG/fallback chrome, shared tutorial safe-markup/entry/coach position/spotlight/glossary/fallback chrome, CharacterSheet shell, CharacterSheet HP tone/fill chrome,
+`npm run test:stage7:reaction` includes App scenic backdrop shell, shared `AtmosphereBG` god-ray chrome, Home hub shell, Home module/save cards/delete-failure inline alert/delete/logout confirmation dialogs, ClassGallery card chrome, RoomLobby shell/routed room notice, RoomLobby DM-style selection, CharacterCreate shell, shared `DiceRollerOverlay` shell/result chrome, shared `DMThinkingOverlay` fate-node chrome, shared `Icons` chrome, shared `LegendForge` crest/spark chrome, shared `Ornaments` HP fill chrome, shared `Sprite` PNG/fallback chrome, shared tutorial safe-markup/entry/coach position/spotlight/glossary/fallback chrome, CharacterSheet shell, CharacterSheet HP tone/fill chrome,
 Combat page/loading shell, the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,

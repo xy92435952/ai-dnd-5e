@@ -103,6 +103,13 @@ export default function Home() {
     if (!action) return
     setHomeConfirmAction(null)
     setHomeActionError('')
+    if (action.type === 'logout') {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      navigate('/login')
+      return
+    }
+
     try {
       if (action.type === 'delete-module') {
         await modulesApi.delete(action.id)
@@ -123,11 +130,23 @@ export default function Home() {
   }
 
   const handleLogout = () => {
-    if (!confirm('确认退出登录？')) return
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    navigate('/login')
+    setHomeActionError('')
+    setHomeConfirmAction({ type: 'logout' })
   }
+
+  const isLogoutConfirm = homeConfirmAction?.type === 'logout'
+  const homeConfirmTitle = isLogoutConfirm
+    ? '退出登录'
+    : homeConfirmAction?.type === 'delete-module'
+      ? '删除模组'
+      : '删除存档'
+  const homeConfirmDescription = isLogoutConfirm
+    ? '你将返回登录页，当前本地登录状态会被清除。'
+    : homeConfirmAction?.type === 'delete-module'
+      ? '删除后需要重新上传并解析这个模组。'
+      : '删除后无法恢复这个冒险进度。'
+  const homeConfirmGroupLabel = isLogoutConfirm ? '退出登录确认操作' : '删除确认操作'
+  const homeConfirmSubmitLabel = isLogoutConfirm ? '确认退出' : '确认删除'
 
   return (
     <div className="home-page">
@@ -204,14 +223,12 @@ export default function Home() {
         >
           <div className="home-confirm-panel">
             <h2 id="home-confirm-title">
-              {homeConfirmAction.type === 'delete-module' ? '删除模组' : '删除存档'}
+              {homeConfirmTitle}
             </h2>
             <p id="home-confirm-desc">
-              {homeConfirmAction.type === 'delete-module'
-                ? '删除后需要重新上传并解析这个模组。'
-                : '删除后无法恢复这个冒险进度。'}
+              {homeConfirmDescription}
             </p>
-            <div className="home-confirm-actions" role="group" aria-label="删除确认操作">
+            <div className="home-confirm-actions" role="group" aria-label={homeConfirmGroupLabel}>
               <button
                 type="button"
                 className="btn-ghost home-confirm-cancel"
@@ -224,7 +241,7 @@ export default function Home() {
                 className="btn-gold home-confirm-submit"
                 onClick={confirmHomeAction}
               >
-                确认删除
+                {homeConfirmSubmitLabel}
               </button>
             </div>
           </div>
