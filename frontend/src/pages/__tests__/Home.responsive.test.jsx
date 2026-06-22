@@ -191,19 +191,47 @@ describe('Home responsive shell', () => {
     cleanup()
   })
 
-  it('renders module delete failures inline without using a browser alert', async () => {
-    moduleDeleteMock.mockRejectedValueOnce(new Error('Module delete failed'))
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+  it('cancels module delete from the in-app confirmation dialog', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
     const { container } = renderHome()
 
     await screen.findByText('Road to Candlekeep With An Exceptionally Long Module Name')
     fireEvent.click(container.querySelector('.home-module-delete'))
 
+    const dialog = screen.getByRole('dialog', { name: '删除模组' })
+    expect(dialog).toHaveClass('home-confirm-dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByText('删除后需要重新上传并解析这个模组。')).toHaveAttribute('id', 'home-confirm-desc')
+    expect(screen.getByRole('group', { name: '删除确认操作' })).toHaveClass('home-confirm-actions')
+    expect(moduleDeleteMock).not.toHaveBeenCalled()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(screen.queryByRole('dialog', { name: '删除模组' })).not.toBeInTheDocument()
+    expect(moduleDeleteMock).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    cleanup()
+  })
+
+  it('renders module delete failures inline without using a browser alert', async () => {
+    moduleDeleteMock.mockRejectedValueOnce(new Error('Module delete failed'))
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    const { container } = renderHome()
+
+    await screen.findByText('Road to Candlekeep With An Exceptionally Long Module Name')
+    fireEvent.click(container.querySelector('.home-module-delete'))
+    expect(moduleDeleteMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: '删除模组' })).toHaveClass('home-confirm-dialog')
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
+
     expect(moduleDeleteMock).toHaveBeenCalledWith('module-1')
     const actionError = await screen.findByRole('alert')
     expect(actionError).toHaveClass('home-action-error')
     expect(actionError).toHaveTextContent('Module delete failed')
+    expect(confirmSpy).not.toHaveBeenCalled()
     expect(alertSpy).not.toHaveBeenCalled()
 
     confirmSpy.mockRestore()
@@ -226,7 +254,7 @@ describe('Home responsive shell', () => {
       },
     ])
     sessionDeleteMock.mockRejectedValueOnce(new Error('Session delete failed'))
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     const { container } = renderHome()
 
@@ -234,11 +262,16 @@ describe('Home responsive shell', () => {
     fireEvent.click(screen.getAllByRole('tab')[1])
     await screen.findByText('Solo delete save')
     fireEvent.click(container.querySelector('.home-save-action'))
+    expect(sessionDeleteMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: '删除存档' })).toHaveClass('home-confirm-dialog')
+    expect(screen.getByText('删除后无法恢复这个冒险进度。')).toHaveAttribute('id', 'home-confirm-desc')
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
 
     expect(sessionDeleteMock).toHaveBeenCalledWith('session-delete')
     const actionError = await screen.findByRole('alert')
     expect(actionError).toHaveClass('home-action-error')
     expect(actionError).toHaveTextContent('Session delete failed')
+    expect(confirmSpy).not.toHaveBeenCalled()
     expect(alertSpy).not.toHaveBeenCalled()
 
     confirmSpy.mockRestore()

@@ -17,6 +17,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [homeActionError, setHomeActionError] = useState('')
+  const [homeConfirmAction, setHomeConfirmAction] = useState(null)
   const [tab, setTab] = useState('modules')
   // 新手教程 —— 首次登录自动弹出 welcome；之后从入口卡手动触发
   const [tutorialOpen, setTutorialOpen] = useState(() => {
@@ -41,7 +42,7 @@ export default function Home() {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setUploading(true); setUploadError(''); setHomeActionError('')
+    setUploading(true); setUploadError(''); setHomeActionError(''); setHomeConfirmAction(null)
     try {
       const result = await modulesApi.upload(file)
       setModules(prev => [{ ...result, file_type: file.name.split('.').pop() }, ...prev])
@@ -77,24 +78,42 @@ export default function Home() {
     }, 3000)
   }
 
-  const handleDeleteModule = async (id, e) => {
+  const handleDeleteModule = (id, e) => {
     e.stopPropagation()
     setHomeActionError('')
-    if (!confirm('确定要删除这个模组吗？')) return
-    try { await modulesApi.delete(id); setModules(prev => prev.filter(m => m.id !== id)) }
-    catch (err) { setHomeActionError(err?.message || 'Delete failed. Please try again.') }
+    setHomeConfirmAction({ type: 'delete-module', id })
   }
 
-  const handleDeleteSession = async (session, e) => {
+  const handleDeleteSession = (session, e) => {
     e.stopPropagation()
     if (session.is_multiplayer) {
       navigate(`/room/${session.id}`)
       return
     }
     setHomeActionError('')
-    if (!confirm('确定要删除这个存档吗？删除后无法恢复。')) return
-    try { await gameApi.deleteSession(session.id); setSessions(prev => prev.filter(s => s.id !== session.id)) }
-    catch (err) { setHomeActionError(err?.message || 'Delete failed. Please try again.') }
+    setHomeConfirmAction({ type: 'delete-session', id: session.id })
+  }
+
+  const cancelHomeConfirm = () => {
+    setHomeConfirmAction(null)
+  }
+
+  const confirmHomeAction = async () => {
+    const action = homeConfirmAction
+    if (!action) return
+    setHomeConfirmAction(null)
+    setHomeActionError('')
+    try {
+      if (action.type === 'delete-module') {
+        await modulesApi.delete(action.id)
+        setModules(prev => prev.filter(m => m.id !== action.id))
+      } else if (action.type === 'delete-session') {
+        await gameApi.deleteSession(action.id)
+        setSessions(prev => prev.filter(s => s.id !== action.id))
+      }
+    } catch (err) {
+      setHomeActionError(err?.message || 'Delete failed. Please try again.')
+    }
   }
 
   const handleSelectModule = (m) => {
@@ -161,6 +180,7 @@ export default function Home() {
             onClick={() => {
               setTab(t.key)
               setHomeActionError('')
+              setHomeConfirmAction(null)
             }}
           >
             {t.label}
@@ -172,6 +192,43 @@ export default function Home() {
         <p className="home-action-error" role="alert">
           {homeActionError}
         </p>
+      )}
+
+      {homeConfirmAction && (
+        <div
+          className="home-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="home-confirm-title"
+          aria-describedby="home-confirm-desc"
+        >
+          <div className="home-confirm-panel">
+            <h2 id="home-confirm-title">
+              {homeConfirmAction.type === 'delete-module' ? '删除模组' : '删除存档'}
+            </h2>
+            <p id="home-confirm-desc">
+              {homeConfirmAction.type === 'delete-module'
+                ? '删除后需要重新上传并解析这个模组。'
+                : '删除后无法恢复这个冒险进度。'}
+            </p>
+            <div className="home-confirm-actions" role="group" aria-label="删除确认操作">
+              <button
+                type="button"
+                className="btn-ghost home-confirm-cancel"
+                onClick={cancelHomeConfirm}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn-gold home-confirm-submit"
+                onClick={confirmHomeAction}
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {tab === 'modules' && (

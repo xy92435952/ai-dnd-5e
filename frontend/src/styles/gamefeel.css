@@ -175,6 +175,45 @@
   color: #ffaaaa;
   font-size: 12px;
 }
+.home-confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0,0,0,.5);
+}
+.home-confirm-panel {
+  width: min(420px, 100%);
+  padding: 18px;
+  border: 1px solid rgba(213,184,121,.42);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(28,20,15,.98), rgba(16,12,10,.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,.55);
+}
+.home-confirm-panel h2 {
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+.home-confirm-panel p {
+  margin: 8px 0 0;
+  color: var(--parchment-dark);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.home-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.home-confirm-cancel,
+.home-confirm-submit {
+  min-width: 96px;
+}
 .home-empty-state {
   padding: 48px 0;
   text-align: center;
