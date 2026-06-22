@@ -3827,6 +3827,49 @@ button.companion-signal-item:focus-visible {
   font-family: var(--font-mono);
   font-size: 12px;
 }
+.room-confirm-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0,0,0,.5);
+}
+.room-confirm-panel {
+  width: min(460px, 100%);
+  padding: 18px;
+  border: 1px solid rgba(213,184,121,.42);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(28,20,15,.98), rgba(16,12,10,.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,.55);
+}
+.room-confirm-panel[data-action="leave"],
+.room-confirm-panel[data-action="kick"] {
+  border-color: rgba(180,55,55,.5);
+}
+.room-confirm-panel h2 {
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+.room-confirm-panel p {
+  margin: 8px 0 0;
+  color: var(--parchment-dark);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.room-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.room-confirm-cancel,
+.room-confirm-submit {
+  min-width: 96px;
+}
 .room-members-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));

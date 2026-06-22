@@ -23,6 +23,7 @@ export default function Room() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [roomConfirmAction, setRoomConfirmAction] = useState(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -103,11 +104,52 @@ export default function Room() {
     finally { setBusy(false) }
   }
 
-  const onLeave = async () => {
-    if (!confirm(isHost ? '确认离开？房主将自动转让给下一位，没人时房间会解散。' : '确认离开房间？')) return
-    setBusy(true)
-    try { await roomsApi.leave(sessionId); nav('/lobby') }
-    catch (e) { setError(e.message); setBusy(false) }
+  const cancelRoomConfirm = () => {
+    setRoomConfirmAction(null)
+  }
+
+  const confirmRoomAction = async () => {
+    const action = roomConfirmAction
+    if (!action) return
+    setRoomConfirmAction(null)
+    if (action.type !== 'leave' && roomSyncBlocked) {
+      setError(roomSyncBlockedReason)
+      return
+    }
+
+    setBusy(true); setError('')
+    try {
+      if (action.type === 'leave') {
+        await roomsApi.leave(sessionId)
+        nav('/lobby')
+        return
+      }
+      if (action.type === 'kick') {
+        await roomsApi.kick(sessionId, action.userId)
+        await refresh()
+      } else if (action.type === 'transfer') {
+        await roomsApi.transfer(sessionId, action.userId)
+        await refresh()
+      }
+    } catch (e) {
+      setError(e.message)
+      if (action.type === 'leave') setBusy(false)
+    } finally {
+      if (action.type !== 'leave') setBusy(false)
+    }
+  }
+
+  const onLeave = () => {
+    setError('')
+    setRoomConfirmAction({
+      type: 'leave',
+      title: '离开房间',
+      description: isHost
+        ? '房主离开后会自动转让给下一位成员；如果没有其他成员，房间会解散。'
+        : '你将离开当前房间并返回多人大厅。',
+      actionLabel: '离开房间确认操作',
+      submitLabel: '确认离开',
+    })
   }
 
   const onCreateChar = () => {
@@ -115,22 +157,30 @@ export default function Room() {
     nav(`/setup/${room.module_id}?roomSession=${sessionId}`)
   }
 
-  const onKick = async (uid) => {
+  const onKick = (uid) => {
     if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
-    if (!confirm('发起或赞成移出该成员的投票？达到多数后才会执行。')) return
-    setBusy(true)
-    try { await roomsApi.kick(sessionId, uid); await refresh() }
-    catch (e) { setError(e.message) }
-    finally { setBusy(false) }
+    setError('')
+    setRoomConfirmAction({
+      type: 'kick',
+      userId: uid,
+      title: '移出成员投票',
+      description: '这会发起或赞成移出该成员的投票，达到多数后才会执行。',
+      actionLabel: '移出成员确认操作',
+      submitLabel: '确认投票',
+    })
   }
 
-  const onTransfer = async (uid) => {
+  const onTransfer = (uid) => {
     if (roomSyncBlocked) { setError(roomSyncBlockedReason); return }
-    if (!confirm('确认转让房主权限？')) return
-    setBusy(true)
-    try { await roomsApi.transfer(sessionId, uid); await refresh() }
-    catch (e) { setError(e.message) }
-    finally { setBusy(false) }
+    setError('')
+    setRoomConfirmAction({
+      type: 'transfer',
+      userId: uid,
+      title: '转让房主',
+      description: '确认后该成员会成为新的房主，并接手启动冒险与成员管理权限。',
+      actionLabel: '转让房主确认操作',
+      submitLabel: '确认转让',
+    })
   }
 
   const onFillAi = async () => {
@@ -264,6 +314,41 @@ export default function Room() {
         onStart={onStart}
         onLeave={onLeave}
       />
+
+      {roomConfirmAction && (
+        <div
+          className="room-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="room-confirm-title"
+          aria-describedby="room-confirm-desc"
+        >
+          <div className="room-confirm-panel" data-action={roomConfirmAction.type}>
+            <h2 id="room-confirm-title">
+              {roomConfirmAction.title}
+            </h2>
+            <p id="room-confirm-desc">
+              {roomConfirmAction.description}
+            </p>
+            <div className="room-confirm-actions" role="group" aria-label={roomConfirmAction.actionLabel}>
+              <button
+                type="button"
+                className="btn-ghost room-confirm-cancel"
+                onClick={cancelRoomConfirm}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn-gold room-confirm-submit"
+                onClick={confirmRoomAction}
+              >
+                {roomConfirmAction.submitLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="room-error" role="alert">{error}</div>

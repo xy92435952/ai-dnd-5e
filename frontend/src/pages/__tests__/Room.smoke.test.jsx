@@ -7,6 +7,9 @@ const {
   roomsGetMock,
   roomStartMock,
   setStartReadyMock,
+  roomLeaveMock,
+  roomKickMock,
+  roomTransferMock,
   fillAiMock,
   focusGroupMock,
   wsConnectedMock,
@@ -50,6 +53,9 @@ const {
   roomsGetMock: vi.fn(),
   roomStartMock: vi.fn(),
   setStartReadyMock: vi.fn(),
+  roomLeaveMock: vi.fn(),
+  roomKickMock: vi.fn(),
+  roomTransferMock: vi.fn(),
   fillAiMock: vi.fn(),
   focusGroupMock: vi.fn(),
   wsConnectedMock: vi.fn(),
@@ -62,9 +68,9 @@ vi.mock('../../api/client', () => ({
     get: roomsGetMock,
     start: roomStartMock,
     setStartReady: setStartReadyMock,
-    leave: vi.fn(),
-    kick: vi.fn(),
-    transfer: vi.fn(),
+    leave: roomLeaveMock,
+    kick: roomKickMock,
+    transfer: roomTransferMock,
     fillAi: fillAiMock,
     focusGroup: focusGroupMock,
   },
@@ -96,6 +102,9 @@ describe('Room multiplayer lobby', () => {
     wsStatusMock.mockReturnValue({ state: 'connected', label: '同步在线', detail: '实时同步已连接。' })
     localStorage.setItem('user', JSON.stringify({ user_id: 'me', username: 'me', display_name: '我' }))
     roomsGetMock.mockResolvedValue(roomFixture)
+    roomLeaveMock.mockResolvedValue({})
+    roomKickMock.mockResolvedValue({})
+    roomTransferMock.mockResolvedValue({})
     focusGroupMock.mockResolvedValue({ ...roomFixture, active_group_id: 'alley' })
   })
 
@@ -278,6 +287,94 @@ describe('Room multiplayer lobby', () => {
     expect(alertSpy).not.toHaveBeenCalled()
 
     alertSpy.mockRestore()
+    cleanup()
+  })
+
+  it('confirms room leave through the in-app confirmation dialog', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+          <Route path="/lobby" element={<div data-testid="lobby-page">Lobby</div>} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/联机准备/)
+    fireEvent.click(screen.getByRole('button', { name: '⎋ 离开房间' }))
+
+    const dialog = screen.getByRole('dialog', { name: '离开房间' })
+    expect(dialog).toHaveClass('room-confirm-dialog')
+    expect(screen.getByText('房主离开后会自动转让给下一位成员；如果没有其他成员，房间会解散。')).toHaveAttribute('id', 'room-confirm-desc')
+    expect(screen.getByRole('group', { name: '离开房间确认操作' })).toHaveClass('room-confirm-actions')
+    expect(roomLeaveMock).not.toHaveBeenCalled()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+
+    expect(screen.queryByRole('dialog', { name: '离开房间' })).not.toBeInTheDocument()
+    expect(roomLeaveMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '⎋ 离开房间' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认离开' }))
+
+    await waitFor(() => {
+      expect(roomLeaveMock).toHaveBeenCalledWith('sess-1')
+    })
+    expect(await screen.findByTestId('lobby-page')).toBeInTheDocument()
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    cleanup()
+  })
+
+  it('confirms host member management through the in-app confirmation dialog', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/联机准备/)
+    fireEvent.click(screen.getByRole('button', { name: '转让' }))
+
+    let dialog = screen.getByRole('dialog', { name: '转让房主' })
+    expect(dialog).toHaveClass('room-confirm-dialog')
+    expect(dialog.querySelector('.room-confirm-panel')).toHaveAttribute('data-action', 'transfer')
+    expect(screen.getByText('确认后该成员会成为新的房主，并接手启动冒险与成员管理权限。')).toHaveAttribute('id', 'room-confirm-desc')
+    expect(screen.getByRole('group', { name: '转让房主确认操作' })).toHaveClass('room-confirm-actions')
+    expect(roomTransferMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('dialog', { name: '转让房主' })).not.toBeInTheDocument()
+    expect(roomTransferMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '转让' }))
+    fireEvent.click(screen.getByRole('button', { name: '确认转让' }))
+    await waitFor(() => {
+      expect(roomTransferMock).toHaveBeenCalledWith('sess-1', 'u2')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '发起移出投票' }))
+    dialog = screen.getByRole('dialog', { name: '移出成员投票' })
+    expect(dialog).toHaveClass('room-confirm-dialog')
+    expect(dialog.querySelector('.room-confirm-panel')).toHaveAttribute('data-action', 'kick')
+    expect(screen.getByText('这会发起或赞成移出该成员的投票，达到多数后才会执行。')).toHaveAttribute('id', 'room-confirm-desc')
+    expect(screen.getByRole('group', { name: '移出成员确认操作' })).toHaveClass('room-confirm-actions')
+    expect(roomKickMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '确认投票' }))
+
+    await waitFor(() => {
+      expect(roomKickMock).toHaveBeenCalledWith('sess-1', 'u2')
+    })
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
     cleanup()
   })
 
