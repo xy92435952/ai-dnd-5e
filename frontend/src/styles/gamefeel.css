@@ -165,7 +165,8 @@
   font-family: var(--font-mono);
   font-size: 11px;
 }
-.home-upload-error {
+.home-upload-error,
+.home-action-error {
   margin-bottom: 12px;
   padding: 8px;
   border: 1px solid var(--blood);

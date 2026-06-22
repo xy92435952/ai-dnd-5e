@@ -16,6 +16,7 @@ export default function Home() {
   const [sessions, setSessions] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [homeActionError, setHomeActionError] = useState('')
   const [tab, setTab] = useState('modules')
   // 新手教程 —— 首次登录自动弹出 welcome；之后从入口卡手动触发
   const [tutorialOpen, setTutorialOpen] = useState(() => {
@@ -40,7 +41,7 @@ export default function Home() {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setUploading(true); setUploadError('')
+    setUploading(true); setUploadError(''); setHomeActionError('')
     try {
       const result = await modulesApi.upload(file)
       setModules(prev => [{ ...result, file_type: file.name.split('.').pop() }, ...prev])
@@ -78,9 +79,10 @@ export default function Home() {
 
   const handleDeleteModule = async (id, e) => {
     e.stopPropagation()
+    setHomeActionError('')
     if (!confirm('确定要删除这个模组吗？')) return
     try { await modulesApi.delete(id); setModules(prev => prev.filter(m => m.id !== id)) }
-    catch (err) { alert(err.message) }
+    catch (err) { setHomeActionError(err?.message || 'Delete failed. Please try again.') }
   }
 
   const handleDeleteSession = async (session, e) => {
@@ -89,9 +91,10 @@ export default function Home() {
       navigate(`/room/${session.id}`)
       return
     }
+    setHomeActionError('')
     if (!confirm('确定要删除这个存档吗？删除后无法恢复。')) return
     try { await gameApi.deleteSession(session.id); setSessions(prev => prev.filter(s => s.id !== session.id)) }
-    catch (err) { alert(err.message) }
+    catch (err) { setHomeActionError(err?.message || 'Delete failed. Please try again.') }
   }
 
   const handleSelectModule = (m) => {
@@ -155,12 +158,21 @@ export default function Home() {
             aria-selected={tab === t.key}
             data-active={tab === t.key ? 'true' : 'false'}
             className="home-tab"
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key)
+              setHomeActionError('')
+            }}
           >
             {t.label}
           </button>
         ))}
       </div>
+
+      {homeActionError && (
+        <p className="home-action-error" role="alert">
+          {homeActionError}
+        </p>
+      )}
 
       {tab === 'modules' && (
         <div>

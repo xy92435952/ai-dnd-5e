@@ -4,11 +4,15 @@ import { MemoryRouter } from 'react-router-dom'
 
 const {
   modulesListMock,
+  moduleDeleteMock,
   sessionsListMock,
+  sessionDeleteMock,
   getTutorialProgressMock,
 } = vi.hoisted(() => ({
   modulesListMock: vi.fn(),
+  moduleDeleteMock: vi.fn(),
   sessionsListMock: vi.fn(),
+  sessionDeleteMock: vi.fn(),
   getTutorialProgressMock: vi.fn(),
 }))
 
@@ -17,11 +21,11 @@ vi.mock('../../api/client', () => ({
     list: modulesListMock,
     upload: vi.fn(),
     get: vi.fn(),
-    delete: vi.fn(),
+    delete: moduleDeleteMock,
   },
   gameApi: {
     listSessions: sessionsListMock,
-    deleteSession: vi.fn(),
+    deleteSession: sessionDeleteMock,
   },
 }))
 
@@ -54,6 +58,8 @@ describe('Home responsive shell', () => {
     vi.clearAllMocks()
     localStorage.setItem('tutorial_seen', '1')
     getTutorialProgressMock.mockReturnValue(4)
+    moduleDeleteMock.mockResolvedValue({})
+    sessionDeleteMock.mockResolvedValue({})
     modulesListMock.mockResolvedValue([
       {
         id: 'module-1',
@@ -182,6 +188,61 @@ describe('Home responsive shell', () => {
 
     expect(clickSpy).toHaveBeenCalledTimes(3)
     clickSpy.mockRestore()
+    cleanup()
+  })
+
+  it('renders module delete failures inline without using a browser alert', async () => {
+    moduleDeleteMock.mockRejectedValueOnce(new Error('Module delete failed'))
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    const { container } = renderHome()
+
+    await screen.findByText('Road to Candlekeep With An Exceptionally Long Module Name')
+    fireEvent.click(container.querySelector('.home-module-delete'))
+
+    expect(moduleDeleteMock).toHaveBeenCalledWith('module-1')
+    const actionError = await screen.findByRole('alert')
+    expect(actionError).toHaveClass('home-action-error')
+    expect(actionError).toHaveTextContent('Module delete failed')
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    alertSpy.mockRestore()
+    cleanup()
+  })
+
+  it('renders save delete failures inline without using a browser alert', async () => {
+    sessionsListMock.mockResolvedValue([
+      {
+        id: 'session-delete',
+        save_name: 'Solo delete save',
+        player_name: 'Mira',
+        player_race: 'Human',
+        player_class: 'Wizard',
+        module_name: 'Road to Candlekeep',
+        is_multiplayer: false,
+        combat_active: false,
+        updated_at: '2026-06-02T10:20:30Z',
+      },
+    ])
+    sessionDeleteMock.mockRejectedValueOnce(new Error('Session delete failed'))
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    const { container } = renderHome()
+
+    await screen.findByText('Road to Candlekeep With An Exceptionally Long Module Name')
+    fireEvent.click(screen.getAllByRole('tab')[1])
+    await screen.findByText('Solo delete save')
+    fireEvent.click(container.querySelector('.home-save-action'))
+
+    expect(sessionDeleteMock).toHaveBeenCalledWith('session-delete')
+    const actionError = await screen.findByRole('alert')
+    expect(actionError).toHaveClass('home-action-error')
+    expect(actionError).toHaveTextContent('Session delete failed')
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    alertSpy.mockRestore()
     cleanup()
   })
 })
