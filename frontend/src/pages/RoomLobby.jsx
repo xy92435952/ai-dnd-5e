@@ -7,13 +7,14 @@
  * 视觉来源：design v0.10
  */
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { modulesApi, roomsApi } from '../api/client'
 import { Divider } from '../components/Ornaments'
 import { DM_STYLES, DEFAULT_DM_STYLE } from '../data/dmStyles'
 
 export default function RoomLobby() {
   const nav = useNavigate()
+  const location = useLocation()
   const [modules, setModules] = useState([])
   const [tab, setTab] = useState('create') // 'create' | 'join'
   const [moduleId, setModuleId] = useState('')
@@ -22,7 +23,9 @@ export default function RoomLobby() {
   const [dmStyle, setDmStyle] = useState(DEFAULT_DM_STYLE)
   const [roomCode, setRoomCode] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => (
+    typeof location.state?.roomNotice === 'string' ? location.state.roomNotice : ''
+  ))
 
   useEffect(() => {
     modulesApi.list()

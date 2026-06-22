@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, cleanup, act, within } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 
 const {
   roomFixture,
@@ -78,6 +78,15 @@ vi.mock('../../hooks/useWebSocket', () => ({
 }))
 
 import Room from '../Room'
+
+function LobbyStateProbe() {
+  const location = useLocation()
+  return (
+    <div data-testid="lobby-room-notice">
+      {location.state?.roomNotice || ''}
+    </div>
+  )
+}
 
 describe('Room multiplayer lobby', () => {
   beforeEach(() => {
@@ -243,6 +252,32 @@ describe('Room multiplayer lobby', () => {
     expect(within(newHostCard).getByText(/★ 房主/)).toBeInTheDocument()
     expect(screen.getByText(/等待房主开启冒险/)).toBeInTheDocument()
 
+    cleanup()
+  })
+
+  it('routes dissolved rooms back to the lobby with an inline notice state', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+          <Route path="/lobby" element={<LobbyStateProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(wsHandlers.current).toBeTypeOf('function')
+    })
+
+    act(() => {
+      wsHandlers.current({ type: 'room_dissolved' })
+    })
+
+    expect(await screen.findByTestId('lobby-room-notice')).toHaveTextContent('房间已被解散')
+    expect(alertSpy).not.toHaveBeenCalled()
+
+    alertSpy.mockRestore()
     cleanup()
   })
 

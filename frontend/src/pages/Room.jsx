@@ -71,7 +71,7 @@ export default function Room() {
       case 'game_started':
         nav(`/adventure/${sessionId}`); break
       case 'room_dissolved':
-        alert('房间已被解散'); nav('/lobby'); break
+        nav('/lobby', { state: { roomNotice: '房间已被解散' } }); break
       default: break
     }
   }, [refresh, nav, sessionId])

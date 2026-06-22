@@ -34,9 +34,9 @@ vi.mock('react-router-dom', async () => {
 
 import RoomLobby from '../RoomLobby'
 
-function renderLobby() {
+function renderLobby(initialEntries = ['/lobby']) {
   return render(
-    <MemoryRouter initialEntries={['/lobby']}>
+    <MemoryRouter initialEntries={initialEntries}>
       <Routes>
         <Route path="/lobby" element={<RoomLobby />} />
       </Routes>
@@ -142,6 +142,16 @@ describe('RoomLobby multiplayer entry', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /返回主页/ }))
     expect(navigateMock).toHaveBeenCalledWith('/')
+
+    cleanup()
+  })
+
+  it('renders a routed room notice as the stable lobby alert', async () => {
+    renderLobby([{ pathname: '/lobby', state: { roomNotice: 'Room dissolved by the host' } }])
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveClass('room-lobby-error')
+    expect(alert).toHaveTextContent('Room dissolved by the host')
 
     cleanup()
   })
