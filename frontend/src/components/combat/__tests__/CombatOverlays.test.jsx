@@ -26,6 +26,8 @@ function renderOverlays(overrides = {}) {
       onSkipLairAction={vi.fn()}
       onUseLegendaryAction={vi.fn()}
       onSkipLegendaryAction={vi.fn()}
+      onConfirmForceEndCombat={vi.fn()}
+      onCancelForceEndCombat={vi.fn()}
       {...overrides}
     />,
   )
@@ -68,5 +70,37 @@ describe('CombatOverlays', () => {
     fireEvent.click(screen.getByRole('button', { name: /Seismic Pulse/ }))
     expect(onUseLairAction).toHaveBeenCalledWith('lair-1', 'pulse', undefined)
     expect(onUseLegendaryAction).not.toHaveBeenCalled()
+  })
+
+  it('renders force-end combat confirmation as a stable in-app dialog', () => {
+    const onConfirmForceEndCombat = vi.fn()
+    const onCancelForceEndCombat = vi.fn()
+
+    renderOverlays({
+      forceEndConfirmOpen: true,
+      onConfirmForceEndCombat,
+      onCancelForceEndCombat,
+    })
+
+    const dialog = screen.getByRole('dialog', { name: '强制结束战斗' })
+    expect(dialog).toHaveClass('combat-force-end-confirm')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(screen.getByText('这会立即结束当前战斗并返回冒险场景。')).toHaveAttribute(
+      'id',
+      'combat-force-end-confirm-desc',
+    )
+
+    const actions = screen.getByRole('group', { name: '强制结束战斗操作' })
+    expect(actions).toHaveClass('combat-force-end-confirm-actions')
+    const cancel = screen.getByRole('button', { name: '取消' })
+    const confirm = screen.getByRole('button', { name: '确认结束' })
+    expect(cancel).toHaveClass('combat-force-end-confirm-cancel')
+    expect(confirm).toHaveClass('combat-force-end-confirm-submit')
+
+    fireEvent.click(cancel)
+    fireEvent.click(confirm)
+
+    expect(onCancelForceEndCombat).toHaveBeenCalledTimes(1)
+    expect(onConfirmForceEndCombat).toHaveBeenCalledTimes(1)
   })
 })

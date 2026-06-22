@@ -37,26 +37,41 @@ describe('useCombatNavigationActions', () => {
     expect(navigate).toHaveBeenCalledWith('/adventure/s1')
   })
 
-  it('requires confirmation for force ending combat', async () => {
+  it('opens an in-app confirmation before force ending combat', () => {
     const navigate = vi.fn()
-    globalThis.confirm.mockReturnValue(true)
+    const { result } = renderHook(() => useCombatNavigationActions({ sessionId: 's1', navigate }))
+
+    act(() => result.current.forceEndCombat())
+
+    expect(result.current.forceEndConfirmOpen).toBe(true)
+    expect(globalThis.confirm).not.toHaveBeenCalled()
+    expect(gameApi.endCombat).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
+  it('confirms force ending combat from the in-app confirmation', async () => {
+    const navigate = vi.fn()
     gameApi.endCombat.mockResolvedValue({})
     const { result } = renderHook(() => useCombatNavigationActions({ sessionId: 's1', navigate }))
 
-    await act(async () => result.current.forceEndCombat())
+    act(() => result.current.forceEndCombat())
+    await act(async () => result.current.confirmForceEndCombat())
 
-    expect(globalThis.confirm).toHaveBeenCalledWith('强制结束战斗？')
+    expect(result.current.forceEndConfirmOpen).toBe(false)
+    expect(globalThis.confirm).not.toHaveBeenCalled()
     expect(gameApi.endCombat).toHaveBeenCalledWith('s1')
     expect(navigate).toHaveBeenCalledWith('/adventure/s1')
   })
 
-  it('does not end combat when force confirmation is rejected', async () => {
+  it('does not end combat when the in-app force confirmation is canceled', () => {
     const navigate = vi.fn()
-    globalThis.confirm.mockReturnValue(false)
     const { result } = renderHook(() => useCombatNavigationActions({ sessionId: 's1', navigate }))
 
-    await act(async () => result.current.forceEndCombat())
+    act(() => result.current.forceEndCombat())
+    act(() => result.current.cancelForceEndCombat())
 
+    expect(result.current.forceEndConfirmOpen).toBe(false)
+    expect(globalThis.confirm).not.toHaveBeenCalled()
     expect(gameApi.endCombat).not.toHaveBeenCalled()
     expect(navigate).not.toHaveBeenCalled()
   })

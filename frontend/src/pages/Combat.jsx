@@ -243,7 +243,14 @@ export default function Combat() {
     clearAoePreview,
   } = actions
 
-  const { returnToAdventure, endCombatAndReturn, forceEndCombat } = useCombatNavigationActions({
+  const {
+    returnToAdventure,
+    endCombatAndReturn,
+    forceEndCombat,
+    forceEndConfirmOpen,
+    cancelForceEndCombat,
+    confirmForceEndCombat,
+  } = useCombatNavigationActions({
     sessionId,
     navigate,
   })
@@ -447,6 +454,9 @@ export default function Combat() {
         onSkipLairAction={handleSkipLairAction}
         onUseLegendaryAction={handleLegendaryAction}
         onSkipLegendaryAction={handleSkipLegendaryAction}
+        forceEndConfirmOpen={forceEndConfirmOpen}
+        onConfirmForceEndCombat={confirmForceEndCombat}
+        onCancelForceEndCombat={cancelForceEndCombat}
         error={error}
       />
     </div>

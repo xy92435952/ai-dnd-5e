@@ -9883,6 +9883,45 @@ button.companion-signal-item:focus-visible {
   font-size: 12px;
   line-height: 1.4;
 }
+.combat-force-end-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0,0,0,.58);
+}
+.combat-force-end-confirm-panel {
+  width: min(420px, 100%);
+  padding: 18px;
+  border: 1px solid rgba(213,184,121,.42);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(28,20,15,.98), rgba(16,12,10,.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,.55);
+}
+.combat-force-end-confirm-panel h2 {
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+.combat-force-end-confirm-panel p {
+  margin: 8px 0 0;
+  color: var(--parchment-dark);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.combat-force-end-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.combat-force-end-confirm-cancel,
+.combat-force-end-confirm-submit {
+  min-width: 104px;
+}
 .combat-overlay-error {
   position: fixed;
   left: 50%;

@@ -39,6 +39,9 @@ export default function CombatOverlays({
   onSkipLairAction,
   onUseLegendaryAction,
   onSkipLegendaryAction,
+  forceEndConfirmOpen,
+  onConfirmForceEndCombat,
+  onCancelForceEndCombat,
   error,
 }) {
   return (
@@ -98,6 +101,39 @@ export default function CombatOverlays({
         onUse={onUseLegendaryAction}
         onSkip={onSkipLegendaryAction}
       />
+
+      {forceEndConfirmOpen && (
+        <div
+          className="combat-force-end-confirm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="combat-force-end-confirm-title"
+          aria-describedby="combat-force-end-confirm-desc"
+        >
+          <div className="combat-force-end-confirm-panel">
+            <h2 id="combat-force-end-confirm-title">强制结束战斗</h2>
+            <p id="combat-force-end-confirm-desc">
+              这会立即结束当前战斗并返回冒险场景。
+            </p>
+            <div className="combat-force-end-confirm-actions" role="group" aria-label="强制结束战斗操作">
+              <button
+                type="button"
+                className="btn-ghost combat-force-end-confirm-cancel"
+                onClick={onCancelForceEndCombat}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn-gold combat-force-end-confirm-submit"
+                onClick={onConfirmForceEndCombat}
+              >
+                确认结束
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="combat-overlay-error" role="alert">

@@ -144,7 +144,7 @@ Combat `SpellModalActions`,
 Combat `CombatHudControls`, Combat `CombatHudSlots`, Combat `CombatHudPips`,
 Combat `CombatHudPortrait`, Combat `CombatHudIntentSummary`, Combat `CombatHudSkillBar`,
 Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon` HP tick chrome, Combat `TargetCard` HP meter chrome, Combat `CombatStage` wash/float-text chrome,
-Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat `CombatOutcomeOverlay`,
+Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat force-end inline confirmation, Combat `CombatOutcomeOverlay`,
 Combat `CombatDeathSavePanel` panel/dot tones, Combat `CombatQuickInventory`, Combat `IsoBattlefield` grid/unit tone/HP fill chrome, shared inventory gold strip/action controls/tags/row/shop/meta tones,
 Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure
 `AdventureStage`, Adventure `StageLeftFigure` speaker tone chrome, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
@@ -173,7 +173,7 @@ CharacterCreate shared form controls,
 CharacterCreate shared info modal shell,
 CharacterCreate shared info modal body,
 shared `MagicInitiateChoiceFields` select chrome,
-`DialogueHistoryView` current-scene divider spacing, `useDialogueWsSync`, `useCombatAiTurns`, and `combatReactionPrompt`
+`DialogueHistoryView` current-scene divider spacing, `useDialogueWsSync`, `useCombatAiTurns`, `useCombatNavigationActions`, and `combatReactionPrompt`
 utility regressions in addition to Adventure/Combat page smoke, hook recovery,
 privacy projection, combat-log coverage, loot distribution UI coverage, mapped
 location/encounter-template UI coverage, top/bottom tool-entry coverage, and
