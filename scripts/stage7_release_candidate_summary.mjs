@@ -33,6 +33,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     branch: '',
     evidenceFiles: [],
+    format: 'markdown',
     headSha: '',
     help: false,
     noCi: false,
@@ -56,6 +57,19 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
     if (arg === '--wait') {
       args.wait = true;
+      continue;
+    }
+    if (arg === '--json') {
+      args.format = 'json';
+      continue;
+    }
+    if (arg === '--format') {
+      args.format = argv[index + 1] || '';
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--format=')) {
+      args.format = arg.slice('--format='.length);
       continue;
     }
     if (arg === '--repo') {
@@ -140,7 +154,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <md-file>] [--evidence <file>...]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
@@ -340,7 +354,7 @@ function formatJobRows(summary) {
   ].join('\n');
 }
 
-export function buildReleaseCandidateSummary({
+export function buildReleaseCandidatePayload({
   branch,
   evidenceFiles = [],
   generatedAt = new Date().toISOString(),
@@ -352,7 +366,71 @@ export function buildReleaseCandidateSummary({
 }) {
   const treeClean = gitStatus.trim().length === 0;
   const ciReady = requiredJobSummary ? requiredJobSummary.ok : false;
-  const ready = treeClean && ciReady;
+  const requiredJobs = requiredJobSummary
+    ? requiredJobSummary.rows.map(row => ({
+      conclusion: row.conclusion,
+      name: row.name,
+      ok: row.ok,
+      reason: row.reason,
+      status: row.status,
+      url: row.url,
+    }))
+    : [];
+
+  return {
+    branch: branch || '',
+    ci: {
+      checked: Boolean(requiredJobSummary),
+      ready: ciReady,
+      requiredJobs,
+      run: run
+        ? {
+          conclusion: run.conclusion || '',
+          headSha: run.head_sha || '',
+          id: run.id,
+          name: run.name || '',
+          status: run.status || '',
+          url: run.html_url || '',
+        }
+        : null,
+    },
+    evidenceFiles,
+    generatedAt,
+    headSha: headSha || '',
+    ready: treeClean && ciReady,
+    repo: repo || '',
+    workingTree: {
+      clean: treeClean,
+      status: gitStatus,
+    },
+  };
+}
+
+export function buildReleaseCandidateJson(options) {
+  return `${JSON.stringify(buildReleaseCandidatePayload(options), null, 2)}\n`;
+}
+
+export function buildReleaseCandidateSummary(options) {
+  const {
+    branch,
+    evidenceFiles = [],
+    generatedAt = new Date().toISOString(),
+    gitStatus = '',
+    headSha,
+    repo,
+    requiredJobSummary = null,
+    run = null,
+  } = options;
+  const payload = buildReleaseCandidatePayload({
+    branch,
+    evidenceFiles,
+    generatedAt,
+    gitStatus,
+    headSha,
+    repo,
+    requiredJobSummary,
+    run,
+  });
   const runLabel = run
     ? markdownLink(`${run.name || 'workflow'} #${run.id}`, run.html_url)
     : 'not checked';
@@ -361,11 +439,11 @@ export function buildReleaseCandidateSummary({
   return [
     '# Stage 7 Release Candidate Summary',
     '',
-    `Generated: ${generatedAt}`,
-    `Repository: ${repo || 'unknown'}`,
-    `Branch: ${branch || 'unknown'}`,
-    `Commit: ${headSha || 'unknown'}`,
-    `Working tree: ${treeClean ? 'clean' : 'dirty'}`,
+    `Generated: ${payload.generatedAt}`,
+    `Repository: ${payload.repo || 'unknown'}`,
+    `Branch: ${payload.branch || 'unknown'}`,
+    `Commit: ${payload.headSha || 'unknown'}`,
+    `Working tree: ${payload.workingTree.clean ? 'clean' : 'dirty'}`,
     `CI run: ${runLabel} (${runState})`,
     '',
     '## Required CI Jobs',
@@ -378,7 +456,7 @@ export function buildReleaseCandidateSummary({
     '',
     '## Decision',
     '',
-    `Ready for deployment handoff: ${ready ? 'yes' : 'no'}`,
+    `Ready for deployment handoff: ${payload.ready ? 'yes' : 'no'}`,
     '',
   ].join('\n');
 }
@@ -399,6 +477,9 @@ export async function runCli(argv = process.argv.slice(2), {
   if (args.help) {
     console.log(usage());
     return 0;
+  }
+  if (args.format !== 'markdown' && args.format !== 'json') {
+    throw new Error('--format must be markdown or json.');
   }
 
   const local = getLocalReleaseContext();
@@ -438,7 +519,7 @@ export async function runCli(argv = process.argv.slice(2), {
     }
   }
 
-  const summary = buildReleaseCandidateSummary({
+  const summaryOptions = {
     branch,
     evidenceFiles: args.evidenceFiles,
     gitStatus: local.status,
@@ -446,7 +527,10 @@ export async function runCli(argv = process.argv.slice(2), {
     repo,
     requiredJobSummary,
     run,
-  });
+  };
+  const summary = args.format === 'json'
+    ? buildReleaseCandidateJson(summaryOptions)
+    : buildReleaseCandidateSummary(summaryOptions);
 
   if (args.output) {
     const outputPath = await writeOutput(args.output, summary);

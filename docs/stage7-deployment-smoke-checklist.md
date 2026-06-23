@@ -429,6 +429,13 @@ Actions until the required jobs have final conclusions, and fails unless
 node scripts\stage7_release_candidate_summary.mjs --wait --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.md
 ```
 
+For automation or CI log parsing, emit the same release-candidate decision as
+JSON:
+
+```powershell
+node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.json
+```
+
 Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke
 or multiplayer load-smoke artifacts that should be listed in the handoff note.
 Use `--run-id <id>` when checking a specific workflow run instead of the latest

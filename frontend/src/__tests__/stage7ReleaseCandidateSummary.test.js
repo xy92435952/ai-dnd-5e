@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildReleaseCandidateJson,
+  buildReleaseCandidatePayload,
   buildReleaseCandidateSummary,
   findRunForHead,
   inferGitHubRepo,
@@ -139,6 +141,8 @@ describe('Stage 7 release candidate summary', () => {
       '--repo',
       'xy92435952/ai-dnd-5e',
       '--branch=main',
+      '--format',
+      'json',
       '--head',
       'abc123',
       '--wait',
@@ -154,6 +158,7 @@ describe('Stage 7 release candidate summary', () => {
     ])).toMatchObject({
       branch: 'main',
       evidenceFiles: ['artifacts/manifest.json', 'artifacts/load.json'],
+      format: 'json',
       headSha: 'abc123',
       output: 'artifacts/summary.md',
       pollSeconds: 5,
@@ -161,6 +166,13 @@ describe('Stage 7 release candidate summary', () => {
       runId: '42',
       timeoutSeconds: 1200,
       wait: true,
+    })
+  })
+
+  it('supports the JSON output shortcut option', () => {
+    expect(parseArgs(['--json', '--repo', 'xy92435952/ai-dnd-5e'])).toMatchObject({
+      format: 'json',
+      repo: 'xy92435952/ai-dnd-5e',
     })
   })
 
@@ -237,6 +249,75 @@ describe('Stage 7 release candidate summary', () => {
     expect(sleepCalls).toEqual([1000])
     expect(result.run.status).toBe('completed')
     expect(result.requiredJobSummary.ok).toBe(true)
+  })
+
+  it('builds a machine-readable release candidate payload', () => {
+    const payload = buildReleaseCandidatePayload({
+      branch: 'main',
+      evidenceFiles: ['artifacts/load.json'],
+      generatedAt: '2026-06-23T12:00:00.000Z',
+      gitStatus: '',
+      headSha: '8e51fc0',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        head_sha: '8e51fc011111111111111111111111111111111',
+        html_url: 'https://github.test/actions/runs/102',
+        id: 102,
+        name: 'CI',
+        status: 'completed',
+      },
+    })
+
+    expect(payload).toMatchObject({
+      branch: 'main',
+      ci: {
+        checked: true,
+        ready: true,
+        run: {
+          conclusion: 'success',
+          headSha: '8e51fc011111111111111111111111111111111',
+          id: 102,
+          status: 'completed',
+        },
+      },
+      evidenceFiles: ['artifacts/load.json'],
+      headSha: '8e51fc0',
+      ready: true,
+      repo: 'xy92435952/ai-dnd-5e',
+      workingTree: {
+        clean: true,
+      },
+    })
+    expect(payload.ci.requiredJobs.map(job => job.name)).toEqual([
+      'backend',
+      'frontend',
+      'frontend-prod-build',
+    ])
+  })
+
+  it('renders JSON output that automation can parse', () => {
+    const json = buildReleaseCandidateJson({
+      branch: 'main',
+      generatedAt: '2026-06-23T12:00:00.000Z',
+      gitStatus: ' M scripts/stage7_release_candidate_summary.mjs',
+      headSha: '8e51fc0',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        id: 103,
+        name: 'CI',
+        status: 'completed',
+      },
+    })
+    const payload = JSON.parse(json)
+
+    expect(json.endsWith('\n')).toBe(true)
+    expect(payload.ready).toBe(false)
+    expect(payload.workingTree.clean).toBe(false)
+    expect(payload.ci.requiredJobs.every(job => job.ok)).toBe(true)
   })
 
   it('waits for GitHub to create a run for the pushed commit', async () => {
