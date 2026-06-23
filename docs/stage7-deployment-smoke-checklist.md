@@ -437,8 +437,8 @@ top-level `ready` only becomes `true` when the working tree is clean, the
 workflow run is `completed/success`, and all required jobs are
 `completed/success`. When the workflow or any required job is not ready, both
 Markdown and JSON output include `ci.blockers` entries with the blocker name,
-status/conclusion reason, and GitHub link so CI failures can be inspected before
-resuming polish work:
+status/conclusion reason, GitHub link, and job log API URL when GitHub exposes
+one, so CI failures can be inspected before resuming polish work:
 
 ```powershell
 node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.json

@@ -267,6 +267,11 @@ function normalizeCiConclusion(conclusion, status) {
   return status !== 'completed' ? 'pending' : 'missing';
 }
 
+function jobLogsUrl(job) {
+  if (!job?.url) return '';
+  return `${job.url.replace(/\/$/, '')}/logs`;
+}
+
 export function summarizeRequiredCiJobs(jobs, requiredJobs = REQUIRED_STAGE7_CI_JOBS) {
   const rows = requiredJobs.map(name => {
     const job = jobs.find(candidate => candidate.name === name);
@@ -279,6 +284,8 @@ export function summarizeRequiredCiJobs(jobs, requiredJobs = REQUIRED_STAGE7_CI_
 
     return {
       conclusion,
+      id: job?.id || null,
+      logsUrl: jobLogsUrl(job),
       name,
       ok,
       reason,
@@ -383,7 +390,9 @@ export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) 
     return [
       {
         conclusion: 'not checked',
+        id: null,
         kind: 'ci',
+        logsUrl: '',
         name: 'CI check',
         reason: 'not checked',
         status: 'not checked',
@@ -399,7 +408,9 @@ export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) 
     const conclusion = normalizeCiConclusion(run?.conclusion, status);
     blockers.push({
       conclusion,
+      id: run?.id || null,
       kind: 'workflow',
+      logsUrl: '',
       name: run ? `${run.name || 'workflow'} #${run.id}` : 'workflow run',
       reason: run ? `${status}/${conclusion}` : 'missing',
       status,
@@ -412,7 +423,9 @@ export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) 
     .forEach(row => {
       blockers.push({
         conclusion: row.conclusion,
+        id: row.id,
         kind: 'job',
+        logsUrl: row.logsUrl,
         name: row.name,
         reason: row.reason,
         status: row.status,
@@ -439,7 +452,8 @@ function formatCiBlockers(blockers) {
   if (!blockers?.length) return '- None.';
   return blockers.map(blocker => {
     const label = markdownLink(blocker.name, blocker.url);
-    return `- ${label}: ${blocker.reason}`;
+    const logs = blocker.logsUrl ? ` (logs: ${markdownLink('download', blocker.logsUrl)})` : '';
+    return `- ${label}: ${blocker.reason}${logs}`;
   }).join('\n');
 }
 
@@ -463,6 +477,8 @@ export function buildReleaseCandidatePayload({
   const requiredJobs = requiredJobSummary
     ? requiredJobSummary.rows.map(row => ({
       conclusion: row.conclusion,
+      id: row.id,
+      logsUrl: row.logsUrl,
       name: row.name,
       ok: row.ok,
       reason: row.reason,

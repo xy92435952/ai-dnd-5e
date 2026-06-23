@@ -19,11 +19,13 @@ import {
 } from '../../../scripts/stage7_release_candidate_summary.mjs'
 
 function successfulJobs() {
-  return REQUIRED_STAGE7_CI_JOBS.map(name => ({
+  return REQUIRED_STAGE7_CI_JOBS.map((name, index) => ({
     conclusion: 'success',
     html_url: `https://github.test/jobs/${name}`,
+    id: 1000 + index,
     name,
     status: 'completed',
+    url: `https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/${1000 + index}`,
   }))
 }
 
@@ -126,14 +128,18 @@ describe('Stage 7 release candidate summary', () => {
       {
         conclusion: 'failure',
         html_url: 'https://github.test/jobs/backend',
+        id: 201,
         name: 'backend',
         status: 'completed',
+        url: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/201',
       },
       {
         conclusion: null,
         html_url: 'https://github.test/jobs/frontend',
+        id: 202,
         name: 'frontend',
         status: 'in_progress',
+        url: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/202',
       },
     ])
     const run = {
@@ -165,7 +171,9 @@ describe('Stage 7 release candidate summary', () => {
     expect(payload.ci.blockers).toEqual([
       {
         conclusion: 'failure',
+        id: 99,
         kind: 'workflow',
+        logsUrl: '',
         name: 'CI #99',
         reason: 'completed/failure',
         status: 'completed',
@@ -173,7 +181,9 @@ describe('Stage 7 release candidate summary', () => {
       },
       {
         conclusion: 'failure',
+        id: 201,
         kind: 'job',
+        logsUrl: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/201/logs',
         name: 'backend',
         reason: 'completed/failure',
         status: 'completed',
@@ -181,7 +191,9 @@ describe('Stage 7 release candidate summary', () => {
       },
       {
         conclusion: 'pending',
+        id: 202,
         kind: 'job',
+        logsUrl: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/202/logs',
         name: 'frontend',
         reason: 'in_progress/pending',
         status: 'in_progress',
@@ -189,7 +201,9 @@ describe('Stage 7 release candidate summary', () => {
       },
       {
         conclusion: 'missing',
+        id: null,
         kind: 'job',
+        logsUrl: '',
         name: 'frontend-prod-build',
         reason: 'missing',
         status: 'missing',
@@ -198,8 +212,8 @@ describe('Stage 7 release candidate summary', () => {
     ])
     expect(markdown).toContain('## CI Blockers')
     expect(markdown).toContain('- [CI #99](https://github.test/actions/runs/99): completed/failure')
-    expect(markdown).toContain('- [backend](https://github.test/jobs/backend): completed/failure')
-    expect(markdown).toContain('- [frontend](https://github.test/jobs/frontend): in_progress/pending')
+    expect(markdown).toContain('- [backend](https://github.test/jobs/backend): completed/failure (logs: [download](https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/201/logs))')
+    expect(markdown).toContain('- [frontend](https://github.test/jobs/frontend): in_progress/pending (logs: [download](https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/202/logs))')
     expect(markdown).toContain('- frontend-prod-build: missing')
   })
 
@@ -426,6 +440,10 @@ describe('Stage 7 release candidate summary', () => {
       'frontend',
       'frontend-prod-build',
     ])
+    expect(payload.ci.requiredJobs[0]).toMatchObject({
+      id: 1000,
+      logsUrl: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/1000/logs',
+    })
   })
 
   it('blocks deployment readiness when requested evidence verification fails', () => {
