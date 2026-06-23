@@ -34,6 +34,7 @@ export function inferGitHubRepo(remoteUrl) {
 
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
+    blockerLogDir: '',
     branch: '',
     evidenceFiles: [],
     evidenceNoFileCheck: false,
@@ -71,6 +72,15 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
     if (arg === '--require-evidence') {
       args.evidenceRequired = true;
+      continue;
+    }
+    if (arg === '--download-blocker-logs') {
+      args.blockerLogDir = argv[index + 1] || '';
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--download-blocker-logs=')) {
+      args.blockerLogDir = arg.slice('--download-blocker-logs='.length);
       continue;
     }
     if (arg === '--wait') {
@@ -172,7 +182,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--evidence-no-file-check]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--evidence-no-file-check] [--download-blocker-logs <dir>]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
@@ -180,6 +190,7 @@ export function usage() {
     'Use --no-ci only to draft a local summary without contacting GitHub.',
     'Use --verify-evidence to require the listed Stage 7 JSON evidence files to pass scripts/verify_stage7_evidence.mjs.',
     'Use --require-evidence when the release handoff must include at least one listed evidence file.',
+    'Use --download-blocker-logs to save logs for failed or pending required CI job blockers.',
   ].join('\n');
 }
 
@@ -212,6 +223,18 @@ async function githubJson(url, { fetchImpl = globalThis.fetch, token } = {}) {
     throw new Error(`GitHub API request failed (${response.status}): ${text}`);
   }
   return JSON.parse(text);
+}
+
+async function githubText(url, { fetchImpl = globalThis.fetch, token } = {}) {
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('No fetch implementation available for GitHub API requests.');
+  }
+  const response = await fetchImpl(url, { headers: githubHeaders(token) });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`GitHub API request failed (${response.status}): ${text}`);
+  }
+  return text;
 }
 
 export class RunNotFoundError extends Error {
@@ -457,8 +480,68 @@ function formatCiBlockers(blockers) {
   }).join('\n');
 }
 
+function safeFileStem(value) {
+  return String(value || 'ci-job')
+    .replace(/[^a-z0-9._-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'ci-job';
+}
+
+export async function downloadCiBlockerLogs(blockers, {
+  fetchImpl = globalThis.fetch,
+  outputDir = '',
+  token,
+} = {}) {
+  if (!outputDir) return [];
+  const jobBlockers = (blockers || []).filter(blocker => blocker.kind === 'job' && blocker.logsUrl);
+  if (!jobBlockers.length) return [];
+
+  const fullDir = path.resolve(outputDir);
+  await mkdir(fullDir, { recursive: true });
+
+  const results = [];
+  for (const blocker of jobBlockers) {
+    const fileName = `${safeFileStem(blocker.name)}-${blocker.id || 'unknown'}.log`;
+    const filePath = path.join(fullDir, fileName);
+    try {
+      const text = await githubText(blocker.logsUrl, { fetchImpl, token });
+      await writeFile(filePath, text, 'utf8');
+      results.push({
+        error: '',
+        id: blocker.id,
+        name: blocker.name,
+        ok: true,
+        path: filePath,
+        url: blocker.logsUrl,
+      });
+    } catch (error) {
+      results.push({
+        error: error.message || String(error),
+        id: blocker.id,
+        name: blocker.name,
+        ok: false,
+        path: filePath,
+        url: blocker.logsUrl,
+      });
+    }
+  }
+
+  return results;
+}
+
+function formatDownloadedLogs(downloadedLogs) {
+  if (!downloadedLogs?.length) return '- None.';
+  return downloadedLogs.map(result => {
+    if (result.ok) {
+      return `- ${result.name}: saved to ${result.path}`;
+    }
+    return `- ${result.name}: failed to download (${result.error || 'unknown error'})`;
+  }).join('\n');
+}
+
 export function buildReleaseCandidatePayload({
   branch,
+  downloadedLogs = [],
   evidenceFiles = [],
   evidenceSummary = null,
   generatedAt = new Date().toISOString(),
@@ -492,6 +575,7 @@ export function buildReleaseCandidatePayload({
     ci: {
       blockers: ciBlockers,
       checked: Boolean(requiredJobSummary),
+      downloadedLogs,
       ready: ciReady,
       requiredJobsReady,
       requiredJobs,
@@ -539,6 +623,7 @@ export function buildReleaseCandidateJson(options) {
 export function buildReleaseCandidateSummary(options) {
   const {
     branch,
+    downloadedLogs = [],
     evidenceFiles = [],
     evidenceSummary = null,
     generatedAt = new Date().toISOString(),
@@ -550,6 +635,7 @@ export function buildReleaseCandidateSummary(options) {
   } = options;
   const payload = buildReleaseCandidatePayload({
     branch,
+    downloadedLogs,
     evidenceFiles,
     evidenceSummary,
     generatedAt,
@@ -581,6 +667,10 @@ export function buildReleaseCandidateSummary(options) {
     '## CI Blockers',
     '',
     formatCiBlockers(payload.ci.blockers),
+    '',
+    '## CI Log Downloads',
+    '',
+    formatDownloadedLogs(downloadedLogs),
     '',
     '## Evidence Files',
     '',
@@ -696,8 +786,17 @@ export async function runCli(argv = process.argv.slice(2), {
     }
   }
 
+  const downloadedLogs = args.blockerLogDir
+    ? await downloadCiBlockerLogs(buildCiBlockers({ requiredJobSummary, run }), {
+      fetchImpl,
+      outputDir: args.blockerLogDir,
+      token,
+    })
+    : [];
+
   const summaryOptions = {
     branch,
+    downloadedLogs,
     evidenceFiles: args.evidenceFiles,
     evidenceSummary: args.evidenceVerified || args.evidenceRequired
       ? verifyEvidenceFiles(args.evidenceFiles, {

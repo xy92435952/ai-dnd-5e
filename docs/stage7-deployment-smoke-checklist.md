@@ -461,6 +461,11 @@ environment. `--head` may be a full commit SHA or an unambiguous short SHA of at
 least seven characters; in wait mode the helper also keeps polling while GitHub
 has not yet created a run for the pushed commit.
 
+When the release candidate is blocked by failed or pending required CI jobs,
+add `--download-blocker-logs artifacts\stage7-ci-logs-YYYYMMDD` to save any
+available job logs referenced by `ci.blockers` before reproducing and fixing the
+failure.
+
 Verify machine-readable smoke evidence before handoff:
 
 ```powershell

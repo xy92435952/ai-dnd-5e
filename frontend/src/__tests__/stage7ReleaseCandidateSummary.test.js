@@ -8,6 +8,7 @@ import {
   buildReleaseCandidateJson,
   buildReleaseCandidatePayload,
   buildReleaseCandidateSummary,
+  downloadCiBlockerLogs,
   findRunForHead,
   inferGitHubRepo,
   matchesHeadSha,
@@ -33,6 +34,14 @@ function responseJson(data) {
   return {
     ok: true,
     text: async () => JSON.stringify(data),
+  }
+}
+
+function responseText(text, { ok = true, status = 200 } = {}) {
+  return {
+    ok,
+    status,
+    text: async () => text,
   }
 }
 
@@ -281,6 +290,8 @@ describe('Stage 7 release candidate summary', () => {
       '--run-id=42',
       '--output',
       'artifacts/summary.md',
+      '--download-blocker-logs',
+      'artifacts/ci-logs',
       '--timeout-seconds',
       '1200',
       '--verify-evidence',
@@ -297,6 +308,7 @@ describe('Stage 7 release candidate summary', () => {
       evidenceVerified: true,
       format: 'json',
       headSha: 'abc123',
+      blockerLogDir: 'artifacts/ci-logs',
       output: 'artifacts/summary.md',
       pollSeconds: 5,
       repo: 'xy92435952/ai-dnd-5e',
@@ -444,6 +456,71 @@ describe('Stage 7 release candidate summary', () => {
       id: 1000,
       logsUrl: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/1000/logs',
     })
+  })
+
+  it('downloads blocker job logs into a handoff directory', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-ci-logs-'))
+    const requiredJobSummary = summarizeRequiredCiJobs([
+      {
+        conclusion: 'failure',
+        html_url: 'https://github.test/jobs/backend',
+        id: 301,
+        name: 'backend',
+        status: 'completed',
+        url: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/301',
+      },
+      {
+        conclusion: 'failure',
+        html_url: 'https://github.test/jobs/frontend',
+        id: 302,
+        name: 'frontend',
+        status: 'completed',
+        url: 'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/302/',
+      },
+    ])
+    const blockers = buildCiBlockers({
+      requiredJobSummary,
+      run: {
+        conclusion: 'failure',
+        id: 7,
+        name: 'CI',
+        status: 'completed',
+      },
+    })
+    const fetchCalls = []
+    const results = await downloadCiBlockerLogs(blockers, {
+      fetchImpl: async url => {
+        fetchCalls.push(url)
+        return responseText(`log from ${url}`)
+      },
+      outputDir: dir,
+    })
+    const markdown = buildReleaseCandidateSummary({
+      branch: 'main',
+      downloadedLogs: results,
+      gitStatus: '',
+      headSha: 'ca41259',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary,
+      run: {
+        conclusion: 'failure',
+        id: 7,
+        name: 'CI',
+        status: 'completed',
+      },
+    })
+
+    expect(fetchCalls).toEqual([
+      'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/301/logs',
+      'https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/302/logs',
+    ])
+    expect(results).toHaveLength(2)
+    expect(path.basename(results[0].path)).toBe('backend-301.log')
+    expect(path.basename(results[1].path)).toBe('frontend-302.log')
+    expect(fs.readFileSync(results[0].path, 'utf8')).toContain('/jobs/301/logs')
+    expect(markdown).toContain('## CI Log Downloads')
+    expect(markdown).toContain(`- backend: saved to ${results[0].path}`)
+    expect(markdown).toContain(`- frontend: saved to ${results[1].path}`)
   })
 
   it('blocks deployment readiness when requested evidence verification fails', () => {
