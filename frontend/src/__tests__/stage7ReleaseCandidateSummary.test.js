@@ -442,6 +442,61 @@ describe('Stage 7 release candidate summary', () => {
     expect(result.requiredJobSummary.ok).toBe(true)
   })
 
+  it('retries transient GitHub API failures while waiting for CI', async () => {
+    const sleepCalls = []
+    const fetchCalls = []
+    const result = await waitForRequiredCiJobs({
+      branch: 'main',
+      fetchImpl: async url => {
+        fetchCalls.push(url)
+        if (fetchCalls.length === 1) {
+          throw new TypeError('fetch failed')
+        }
+        if (url.includes('/jobs')) {
+          return responseJson({ jobs: successfulJobs() })
+        }
+        return responseJson({
+          conclusion: 'success',
+          id: 110,
+          name: 'CI',
+          status: 'completed',
+        })
+      },
+      headSha: 'abc123',
+      pollSeconds: 1,
+      repo: 'xy92435952/ai-dnd-5e',
+      runId: '110',
+      sleepImpl: async ms => {
+        sleepCalls.push(ms)
+      },
+      timeoutSeconds: 60,
+    })
+
+    expect(sleepCalls).toEqual([1000])
+    expect(fetchCalls).toHaveLength(3)
+    expect(result.run.id).toBe(110)
+    expect(result.requiredJobSummary.ok).toBe(true)
+  })
+
+  it('does not retry non-transient GitHub API failures', async () => {
+    const sleepCalls = []
+
+    await expect(waitForRequiredCiJobs({
+      branch: 'main',
+      fetchImpl: async () => responseText('not found', { ok: false, status: 404 }),
+      headSha: 'abc123',
+      pollSeconds: 1,
+      repo: 'xy92435952/ai-dnd-5e',
+      runId: '404',
+      sleepImpl: async ms => {
+        sleepCalls.push(ms)
+      },
+      timeoutSeconds: 60,
+    })).rejects.toThrow('GitHub API request failed (404): not found')
+
+    expect(sleepCalls).toEqual([])
+  })
+
   it('builds a machine-readable release candidate payload', () => {
     const payload = buildReleaseCandidatePayload({
       branch: 'main',

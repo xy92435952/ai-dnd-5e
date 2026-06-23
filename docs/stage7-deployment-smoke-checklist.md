@@ -480,6 +480,11 @@ a directory, repository, head SHA, output path, or evidence file. Inline empty
 values such as `--repo=` and invalid wait values such as `--poll-seconds=0` or
 `--timeout-seconds=not-a-number` also fail before any GitHub API request is
 made.
+During `--wait`, transient GitHub API errors such as a network-level
+`fetch failed`, API timeout, `429`, or `5xx` response are retried on the normal
+poll cadence until the timeout expires. Non-transient API failures, such as a
+bad repository or missing run ID, still fail immediately so CI triage does not
+hide configuration mistakes.
 
 Verify machine-readable smoke evidence before handoff:
 

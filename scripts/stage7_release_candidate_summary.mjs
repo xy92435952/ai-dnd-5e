@@ -242,6 +242,42 @@ function githubHeaders(token = process.env.GITHUB_TOKEN || '') {
   return headers;
 }
 
+class GitHubApiRequestError extends Error {
+  constructor(message, { status = 0, transient = false } = {}) {
+    super(message);
+    this.name = 'GitHubApiRequestError';
+    this.status = status;
+    this.transient = transient;
+  }
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || status >= 500;
+}
+
+function transientErrorCode(error) {
+  return error?.code || error?.cause?.code || '';
+}
+
+function isTransientGitHubApiError(error) {
+  if (error instanceof GitHubApiRequestError) {
+    return error.transient;
+  }
+  const message = error?.message || String(error || '');
+  const code = transientErrorCode(error);
+  return (
+    error?.name === 'AbortError'
+    || error?.name === 'TimeoutError'
+    || error?.name === 'TypeError'
+    || /fetch failed|network|socket|timeout|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN/i.test(message)
+    || /ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN/i.test(code)
+  );
+}
+
+function errorMessage(error) {
+  return error?.message || String(error || 'unknown error');
+}
+
 async function githubJson(url, { fetchImpl = globalThis.fetch, token } = {}) {
   if (typeof fetchImpl !== 'function') {
     throw new Error('No fetch implementation available for GitHub API requests.');
@@ -249,7 +285,10 @@ async function githubJson(url, { fetchImpl = globalThis.fetch, token } = {}) {
   const response = await fetchImpl(url, { headers: githubHeaders(token) });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`GitHub API request failed (${response.status}): ${text}`);
+    throw new GitHubApiRequestError(`GitHub API request failed (${response.status}): ${text}`, {
+      status: response.status,
+      transient: isRetryableStatus(response.status),
+    });
   }
   return JSON.parse(text);
 }
@@ -261,7 +300,10 @@ async function githubText(url, { fetchImpl = globalThis.fetch, token } = {}) {
   const response = await fetchImpl(url, { headers: githubHeaders(token) });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`GitHub API request failed (${response.status}): ${text}`);
+    throw new GitHubApiRequestError(`GitHub API request failed (${response.status}): ${text}`, {
+      status: response.status,
+      transient: isRetryableStatus(response.status),
+    });
   }
   return text;
 }
@@ -389,33 +431,40 @@ export async function waitForRequiredCiJobs({
   const startedAt = Date.now();
 
   for (;;) {
-    let run;
     try {
-      run = await fetchRunForHead({ repo, branch, headSha, runId, fetchImpl, token });
+      const run = await fetchRunForHead({ repo, branch, headSha, runId, fetchImpl, token });
+      const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
+      const requiredJobSummary = summarizeRequiredCiJobs(jobs);
+
+      if (hasRequiredJobFailure(requiredJobSummary) || run.status === 'completed') {
+        return { jobs, requiredJobSummary, run };
+      }
     } catch (error) {
-      if (!(error instanceof RunNotFoundError)) {
-        throw error;
-      }
-
       const elapsedMs = Date.now() - startedAt;
-      if (elapsedMs >= timeoutSeconds * 1000) {
-        throw new Error(`Timed out waiting for a GitHub Actions run for ${headSha} on ${branch} after ${timeoutSeconds}s.`);
+      if (error instanceof RunNotFoundError) {
+        if (elapsedMs >= timeoutSeconds * 1000) {
+          throw new Error(`Timed out waiting for a GitHub Actions run for ${headSha} on ${branch} after ${timeoutSeconds}s.`);
+        }
+
+        await sleepImpl(pollSeconds * 1000);
+        continue;
       }
 
-      await sleepImpl(pollSeconds * 1000);
-      continue;
-    }
+      if (isTransientGitHubApiError(error)) {
+        if (elapsedMs >= timeoutSeconds * 1000) {
+          throw new Error(`Timed out waiting for GitHub Actions after ${timeoutSeconds}s. Last GitHub API error: ${errorMessage(error)}.`);
+        }
 
-    const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
-    const requiredJobSummary = summarizeRequiredCiJobs(jobs);
+        await sleepImpl(pollSeconds * 1000);
+        continue;
+      }
 
-    if (hasRequiredJobFailure(requiredJobSummary) || run.status === 'completed') {
-      return { jobs, requiredJobSummary, run };
+      throw error;
     }
 
     const elapsedMs = Date.now() - startedAt;
     if (elapsedMs >= timeoutSeconds * 1000) {
-      throw new Error(`Timed out waiting for GitHub Actions run ${run.id} after ${timeoutSeconds}s.`);
+      throw new Error(`Timed out waiting for GitHub Actions run for ${headSha} after ${timeoutSeconds}s.`);
     }
 
     await sleepImpl(pollSeconds * 1000);
