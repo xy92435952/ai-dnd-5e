@@ -8579,7 +8579,7 @@ button.companion-signal-item:focus-visible {
   font-family: var(--font-display);
   font-weight: 900;
   font-style: italic;
-  letter-spacing: -.02em;
+  letter-spacing: 0;
   /* 多重描边：黑→深棕→金色高光，八方旅人式立体感 */
   text-shadow:
     -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000,
