@@ -419,6 +419,20 @@ Keep the local or CI evidence from this checklist with the release note:
 - CI `frontend-prod-build` result when frontend dependencies or build tooling
   changed
 
+Generate a release-candidate handoff summary after CI has finished for the
+candidate commit. The script checks the selected run and fails unless
+`backend`, `frontend`, and `frontend-prod-build` are all completed with
+`success`:
+
+```powershell
+node scripts\stage7_release_candidate_summary.mjs --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.md
+```
+
+Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke
+or multiplayer load-smoke artifacts that should be listed in the handoff note.
+Use `--run-id <id>` when checking a specific workflow run instead of the latest
+run for the current commit.
+
 Verify machine-readable smoke evidence before handoff:
 
 ```powershell
