@@ -40,6 +40,21 @@ function requiredOptionValue(argv, index, optionName) {
   return value;
 }
 
+function requiredInlineOptionValue(value, optionName) {
+  if (!value) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function parsePositiveSeconds(value, optionName) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`${optionName} must be a positive number.`);
+  }
+  return seconds;
+}
+
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     blockerLogDir: '',
@@ -88,7 +103,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--download-blocker-logs=')) {
-      args.blockerLogDir = arg.slice('--download-blocker-logs='.length);
+      args.blockerLogDir = requiredInlineOptionValue(arg.slice('--download-blocker-logs='.length), '--download-blocker-logs');
       continue;
     }
     if (arg === '--wait') {
@@ -105,7 +120,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--format=')) {
-      args.format = arg.slice('--format='.length);
+      args.format = requiredInlineOptionValue(arg.slice('--format='.length), '--format');
       continue;
     }
     if (arg === '--repo') {
@@ -114,7 +129,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--repo=')) {
-      args.repo = arg.slice('--repo='.length);
+      args.repo = requiredInlineOptionValue(arg.slice('--repo='.length), '--repo');
       continue;
     }
     if (arg === '--branch') {
@@ -123,7 +138,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--branch=')) {
-      args.branch = arg.slice('--branch='.length);
+      args.branch = requiredInlineOptionValue(arg.slice('--branch='.length), '--branch');
       continue;
     }
     if (arg === '--head') {
@@ -132,7 +147,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--head=')) {
-      args.headSha = arg.slice('--head='.length);
+      args.headSha = requiredInlineOptionValue(arg.slice('--head='.length), '--head');
       continue;
     }
     if (arg === '--run-id') {
@@ -141,7 +156,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--run-id=')) {
-      args.runId = arg.slice('--run-id='.length);
+      args.runId = requiredInlineOptionValue(arg.slice('--run-id='.length), '--run-id');
       continue;
     }
     if (arg === '--output') {
@@ -150,25 +165,31 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--output=')) {
-      args.output = arg.slice('--output='.length);
+      args.output = requiredInlineOptionValue(arg.slice('--output='.length), '--output');
       continue;
     }
     if (arg === '--poll-seconds') {
-      args.pollSeconds = Number(requiredOptionValue(argv, index, arg));
+      args.pollSeconds = parsePositiveSeconds(requiredOptionValue(argv, index, arg), arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--poll-seconds=')) {
-      args.pollSeconds = Number(arg.slice('--poll-seconds='.length));
+      args.pollSeconds = parsePositiveSeconds(
+        requiredInlineOptionValue(arg.slice('--poll-seconds='.length), '--poll-seconds'),
+        '--poll-seconds',
+      );
       continue;
     }
     if (arg === '--timeout-seconds') {
-      args.timeoutSeconds = Number(requiredOptionValue(argv, index, arg));
+      args.timeoutSeconds = parsePositiveSeconds(requiredOptionValue(argv, index, arg), arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--timeout-seconds=')) {
-      args.timeoutSeconds = Number(arg.slice('--timeout-seconds='.length));
+      args.timeoutSeconds = parsePositiveSeconds(
+        requiredInlineOptionValue(arg.slice('--timeout-seconds='.length), '--timeout-seconds'),
+        '--timeout-seconds',
+      );
       continue;
     }
     if (arg === '--evidence') {
@@ -177,7 +198,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg.startsWith('--evidence=')) {
-      args.evidenceFiles.push(arg.slice('--evidence='.length));
+      args.evidenceFiles.push(requiredInlineOptionValue(arg.slice('--evidence='.length), '--evidence'));
       continue;
     }
     args.evidenceFiles.push(arg);

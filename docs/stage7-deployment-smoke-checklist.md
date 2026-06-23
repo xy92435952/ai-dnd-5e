@@ -469,7 +469,10 @@ add `--download-blocker-logs artifacts\stage7-ci-logs-YYYYMMDD` to save any
 available job logs referenced by `ci.blockers` before reproducing and fixing the
 failure. Release-summary options that require values fail fast when the value is
 missing, so a following flag such as `--json` cannot be accidentally consumed as
-a directory, repository, head SHA, output path, or evidence file.
+a directory, repository, head SHA, output path, or evidence file. Inline empty
+values such as `--repo=` and invalid wait values such as `--poll-seconds=0` or
+`--timeout-seconds=not-a-number` also fail before any GitHub API request is
+made.
 
 Verify machine-readable smoke evidence before handoff:
 

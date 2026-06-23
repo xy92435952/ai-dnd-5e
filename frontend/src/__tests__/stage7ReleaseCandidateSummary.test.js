@@ -333,8 +333,31 @@ describe('Stage 7 release candidate summary', () => {
     expect(() => parseArgs(['--download-blocker-logs', '--json'])).toThrow(
       '--download-blocker-logs requires a value.',
     )
+    expect(() => parseArgs(['--download-blocker-logs='])).toThrow('--download-blocker-logs requires a value.')
+    expect(() => parseArgs(['--format='])).toThrow('--format requires a value.')
     expect(() => parseArgs(['--repo'])).toThrow('--repo requires a value.')
+    expect(() => parseArgs(['--repo='])).toThrow('--repo requires a value.')
+    expect(() => parseArgs(['--branch', '--json'])).toThrow('--branch requires a value.')
+    expect(() => parseArgs(['--branch='])).toThrow('--branch requires a value.')
+    expect(() => parseArgs(['--head', '--wait'])).toThrow('--head requires a value.')
+    expect(() => parseArgs(['--head='])).toThrow('--head requires a value.')
+    expect(() => parseArgs(['--run-id', '--wait'])).toThrow('--run-id requires a value.')
+    expect(() => parseArgs(['--run-id='])).toThrow('--run-id requires a value.')
+    expect(() => parseArgs(['--output', '--json'])).toThrow('--output requires a value.')
+    expect(() => parseArgs(['--output='])).toThrow('--output requires a value.')
     expect(() => parseArgs(['--evidence', '--verify-evidence'])).toThrow('--evidence requires a value.')
+    expect(() => parseArgs(['--evidence='])).toThrow('--evidence requires a value.')
+  })
+
+  it('fails fast when release handoff wait values are invalid', () => {
+    expect(() => parseArgs(['--poll-seconds', '--wait'])).toThrow('--poll-seconds requires a value.')
+    expect(() => parseArgs(['--poll-seconds='])).toThrow('--poll-seconds requires a value.')
+    expect(() => parseArgs(['--poll-seconds', '0'])).toThrow('--poll-seconds must be a positive number.')
+    expect(() => parseArgs(['--poll-seconds=not-a-number'])).toThrow('--poll-seconds must be a positive number.')
+    expect(() => parseArgs(['--timeout-seconds', '--wait'])).toThrow('--timeout-seconds requires a value.')
+    expect(() => parseArgs(['--timeout-seconds='])).toThrow('--timeout-seconds requires a value.')
+    expect(() => parseArgs(['--timeout-seconds', '-1'])).toThrow('--timeout-seconds must be a positive number.')
+    expect(() => parseArgs(['--timeout-seconds=not-a-number'])).toThrow('--timeout-seconds must be a positive number.')
   })
 
   it('supports the JSON output shortcut option', () => {
