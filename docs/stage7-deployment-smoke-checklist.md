@@ -438,7 +438,10 @@ workflow run is `completed/success`, and all required jobs are
 `completed/success`. When the workflow or any required job is not ready, both
 Markdown and JSON output include `ci.blockers` entries with the blocker name,
 status/conclusion reason, GitHub link, and job log API URL when GitHub exposes
-one, so CI failures can be inspected before resuming polish work:
+one, so CI failures can be inspected before resuming polish work. The summary
+also includes a `decisionBlockers` list and a Markdown `Decision Blockers`
+section that gathers dirty working tree, CI, and evidence-verification blockers
+into one final handoff diagnosis:
 
 ```powershell
 node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.json

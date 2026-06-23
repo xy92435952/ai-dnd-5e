@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import {
   buildCiBlockers,
+  buildDecisionBlockers,
   buildReleaseCandidateJson,
   buildReleaseCandidatePayload,
   buildReleaseCandidateSummary,
@@ -176,6 +177,10 @@ describe('Stage 7 release candidate summary', () => {
     })
 
     expect(buildCiBlockers({ requiredJobSummary, run })).toEqual(payload.ci.blockers)
+    expect(buildDecisionBlockers({
+      ciBlockers: payload.ci.blockers,
+      gitStatus: '',
+    })).toEqual(payload.decisionBlockers)
     expect(payload.ready).toBe(false)
     expect(payload.ci.blockers).toEqual([
       {
@@ -224,6 +229,8 @@ describe('Stage 7 release candidate summary', () => {
     expect(markdown).toContain('- [backend](https://github.test/jobs/backend): completed/failure (logs: [download](https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/201/logs))')
     expect(markdown).toContain('- [frontend](https://github.test/jobs/frontend): in_progress/pending (logs: [download](https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/202/logs))')
     expect(markdown).toContain('- frontend-prod-build: missing')
+    expect(markdown).toContain('## Decision Blockers')
+    expect(markdown).toContain('CI [backend](https://github.test/jobs/backend): completed/failure; logs: [download](https://api.github.test/repos/xy92435952/ai-dnd-5e/actions/jobs/201/logs)')
   })
 
   it('renders a handoff summary with CI links, evidence, and the final decision', () => {
@@ -252,6 +259,8 @@ describe('Stage 7 release candidate summary', () => {
     expect(markdown).toContain('| [backend](https://github.test/jobs/backend) | completed | success | pass |')
     expect(markdown).toContain('## CI Blockers')
     expect(markdown).toContain('- None.')
+    expect(markdown).toContain('## Decision Blockers')
+    expect(markdown).toContain('- None.')
     expect(markdown).toContain('artifacts/browser-feather-fall-adventure-manifest-20260623.json')
     expect(markdown).toContain('Evidence verification: not checked')
     expect(markdown).toContain('Ready for deployment handoff: yes')
@@ -273,6 +282,8 @@ describe('Stage 7 release candidate summary', () => {
     })
 
     expect(markdown).toContain('Working tree: dirty')
+    expect(markdown).toContain('## Decision Blockers')
+    expect(markdown).toContain('- Working tree: dirty (M frontend/src/App.jsx)')
     expect(markdown).toContain('Ready for deployment handoff: no')
   })
 
@@ -559,7 +570,14 @@ describe('Stage 7 release candidate summary', () => {
       error: 'ready must be true',
       ok: false,
     })
+    expect(payload.decisionBlockers).toContainEqual({
+      category: 'evidence',
+      detail: 'ready must be true',
+      name: 'evidence verification',
+      reason: 'failed',
+    })
     expect(markdown).toContain('Evidence verification: fail: ready must be true')
+    expect(markdown).toContain('- Evidence verification: ready must be true')
     expect(markdown).toContain('Ready for deployment handoff: no')
   })
 

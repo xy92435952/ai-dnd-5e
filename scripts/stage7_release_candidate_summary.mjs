@@ -547,6 +547,63 @@ function formatDownloadedLogs(downloadedLogs) {
   }).join('\n');
 }
 
+export function buildDecisionBlockers({
+  ciBlockers = [],
+  evidenceSummary = null,
+  gitStatus = '',
+} = {}) {
+  const blockers = [];
+  const status = gitStatus.trim();
+  if (status) {
+    blockers.push({
+      category: 'working-tree',
+      detail: status,
+      name: 'working tree',
+      reason: 'dirty',
+    });
+  }
+
+  ciBlockers.forEach(blocker => {
+    blockers.push({
+      category: 'ci',
+      detail: blocker.reason,
+      logsUrl: blocker.logsUrl || '',
+      name: blocker.name,
+      reason: blocker.reason,
+      url: blocker.url || '',
+    });
+  });
+
+  if (evidenceSummary && evidenceSummary.ok !== true) {
+    blockers.push({
+      category: 'evidence',
+      detail: evidenceSummary.error || 'unknown error',
+      name: 'evidence verification',
+      reason: 'failed',
+    });
+  }
+
+  return blockers;
+}
+
+function formatDecisionBlockers(blockers) {
+  if (!blockers?.length) return '- None.';
+  return blockers.map(blocker => {
+    if (blocker.category === 'ci') {
+      const label = markdownLink(blocker.name, blocker.url);
+      const logs = blocker.logsUrl ? `; logs: ${markdownLink('download', blocker.logsUrl)}` : '';
+      return `- CI ${label}: ${blocker.reason}${logs}`;
+    }
+    if (blocker.category === 'working-tree') {
+      return `- Working tree: ${blocker.reason} (${blocker.detail})`;
+    }
+    if (blocker.category === 'evidence') {
+      return `- Evidence verification: ${blocker.detail}`;
+    }
+    return `- ${blocker.name}: ${blocker.reason}`;
+  }).join('\n');
+}
+
 export function buildReleaseCandidatePayload({
   branch,
   downloadedLogs = [],
@@ -565,6 +622,11 @@ export function buildReleaseCandidatePayload({
   const ciReady = requiredJobsReady && runReady;
   const ciBlockers = buildCiBlockers({ requiredJobSummary, run });
   const evidenceReady = evidenceSummary ? evidenceSummary.ok === true : true;
+  const decisionBlockers = buildDecisionBlockers({
+    ciBlockers,
+    evidenceSummary,
+    gitStatus,
+  });
   const requiredJobs = requiredJobSummary
     ? requiredJobSummary.rows.map(row => ({
       conclusion: row.conclusion,
@@ -615,6 +677,7 @@ export function buildReleaseCandidatePayload({
       },
     generatedAt,
     headSha: headSha || '',
+    decisionBlockers,
     ready: treeClean && ciReady && evidenceReady,
     repo: repo || '',
     workingTree: {
@@ -685,6 +748,10 @@ export function buildReleaseCandidateSummary(options) {
     formatEvidenceFiles(evidenceFiles),
     '',
     `Evidence verification: ${formatEvidenceVerification(evidenceSummary)}`,
+    '',
+    '## Decision Blockers',
+    '',
+    formatDecisionBlockers(payload.decisionBlockers),
     '',
     '## Decision',
     '',
