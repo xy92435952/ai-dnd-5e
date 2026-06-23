@@ -17,11 +17,30 @@ describe('AtmosphereBG', () => {
       expect(ray).not.toHaveAttribute('style')
     })
 
-    const dustParticle = container.querySelector('.dust span')
-    expect(dustParticle).toBeInTheDocument()
-    expect(dustParticle).toHaveAttribute('style')
+    const dustParticles = Array.from(container.querySelectorAll('.dust span'))
+    expect(dustParticles).toHaveLength(60)
+    expect(dustParticles[0]).toHaveAttribute('style')
 
     const embers = container.querySelector('.embers')
     expect(embers).toHaveStyle({ display: 'none' })
+    expect(embers.children).toHaveLength(0)
+  })
+
+  it('clears and rebuilds ember particles when the ember layer toggles', () => {
+    const { container, rerender } = render(<AtmosphereBG />)
+
+    const embers = container.querySelector('.embers')
+    expect(embers).toHaveStyle({ display: 'block' })
+    expect(embers.querySelectorAll('.ember')).toHaveLength(40)
+
+    rerender(<AtmosphereBG embers={false} />)
+
+    expect(embers).toHaveStyle({ display: 'none' })
+    expect(embers.children).toHaveLength(0)
+
+    rerender(<AtmosphereBG />)
+
+    expect(embers).toHaveStyle({ display: 'block' })
+    expect(embers.querySelectorAll('.ember')).toHaveLength(40)
   })
 })

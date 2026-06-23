@@ -22,7 +22,7 @@ export default function AtmosphereBG({ embers = true }) {
     // 漂浮尘埃
     const dustEl = dustRef.current
     if (dustEl) {
-      dustEl.innerHTML = ''
+      dustEl.replaceChildren()
       for (let i = 0; i < 60; i++) {
         const d = document.createElement('span')
         d.style.left = (Math.random() * 100) + '%'
@@ -40,12 +40,12 @@ export default function AtmosphereBG({ embers = true }) {
     const embersEl = embersRef.current
     if (!embersEl) return
     if (!embers) {
-      embersEl.innerHTML = ''
+      embersEl.replaceChildren()
       embersEl.style.display = 'none'
       return
     }
     embersEl.style.display = 'block'
-    embersEl.innerHTML = ''
+    embersEl.replaceChildren()
     for (let i = 0; i < 40; i++) {
       const e = document.createElement('div')
       e.className = 'ember'
