@@ -132,7 +132,7 @@ cd ..
 Combat page/loading shell, the direct combat `ReactionPrompt`,
 Combat `SmitePrompt`,
 Combat `ManeuverModal`,
-Combat `LegendaryActionPrompt`,
+Combat `LegendaryActionPrompt` title/context dialog linkage,
 Combat `CombatOverlays`,
 Combat `MultiplayerTurnBar`,
 shared `MultiplayerSessionStatusBar`,

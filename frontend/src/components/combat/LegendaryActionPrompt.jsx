@@ -15,7 +15,6 @@ export default function LegendaryActionPrompt({
     : (prompt.actor_name || '传奇敌人')
   const remaining = prompt.remaining ?? 0
   const uses = prompt.uses ?? 0
-  const dialogLabel = isLair ? '巢穴动作窗口' : '传奇动作窗口'
   const title = isLair ? '巢穴动作' : '传奇动作'
   const contextLine = isLair
     ? `${actorName}${prompt.round_number ? ` · 第 ${prompt.round_number} 轮` : ''}`
@@ -29,7 +28,7 @@ export default function LegendaryActionPrompt({
       className="reaction-prompt-layer"
       role="dialog"
       aria-modal="true"
-      aria-label={dialogLabel}
+      aria-labelledby={titleId}
       aria-describedby={contextId}
     >
       <section className="reaction-prompt-card legendary-action-prompt-card" data-variant={isLair ? 'lair' : 'legendary'}>

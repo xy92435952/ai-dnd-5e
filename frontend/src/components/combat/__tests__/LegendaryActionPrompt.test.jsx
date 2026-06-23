@@ -30,7 +30,8 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
+    expect(dialog).toHaveAttribute('aria-labelledby', 'legendary-action-prompt-title')
     expect(dialog).toHaveAttribute('aria-describedby', 'legendary-action-prompt-context')
     expect(within(dialog).getByRole('group', { name: '可用传奇动作' })).toBeInTheDocument()
     const actionList = within(dialog).getByRole('list', { name: '传奇动作选项' })
@@ -72,7 +73,7 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
     expect(dialog).toHaveTextContent('Tail Strike')
     expect(dialog).toHaveTextContent('消耗 1 · 剩余 1 · 目标 Smoke Sentinel · 命中 +7 · 伤害 1d8+3 bludgeoning')
     expect(within(dialog).getByTitle(
@@ -107,7 +108,7 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
     expect(dialog).toHaveTextContent('Wing Buffet')
     expect(dialog).toHaveTextContent('消耗 2 · 剩余 0 · 目标 Smoke Sentinel · 敏捷豁免 · DC 15 · 成功半伤 · 伤害 2d6 bludgeoning')
     expect(within(dialog).getByTitle(
@@ -145,7 +146,7 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
     expect(dialog).toHaveTextContent('Wing Buffet')
     expect(dialog).toHaveTextContent('影响 2 · 目标 Smoke Sentinel、Mara Quickstep · 敏捷豁免')
     fireEvent.click(screen.getByRole('button', { name: /Wing Buffet/ }))
@@ -226,7 +227,8 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '巢穴动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '巢穴动作' })
+    expect(dialog).toHaveAttribute('aria-labelledby', 'lair-action-prompt-title')
     expect(dialog).toHaveAttribute('aria-describedby', 'lair-action-prompt-context')
     expect(within(dialog).getByRole('group', { name: '可用巢穴动作' })).toBeInTheDocument()
     expect(within(dialog).getByRole('list', { name: '巢穴动作选项' })).toBeInTheDocument()
@@ -268,7 +270,7 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
     expect(dialog).toHaveTextContent('Mind Lock')
     expect(dialog).toHaveTextContent('目标 Smoke Sentinel · 感知豁免 · DC 15 · 失败附加')
     expect(dialog).not.toHaveTextContent('伤害')
@@ -299,7 +301,7 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
     expect(dialog).toHaveTextContent('Wing Gust')
     expect(dialog).toHaveTextContent('目标 Smoke Sentinel · 力量豁免 · DC 16 · 失败推开 5ft')
   })
@@ -319,7 +321,7 @@ describe('LegendaryActionPrompt', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '传奇动作窗口' })
+    const dialog = screen.getByRole('dialog', { name: '传奇动作' })
     expect(dialog.querySelector('.legendary-action-prompt-card')).toBeTruthy()
     const status = within(dialog).getByRole('status')
     expect(status).toHaveClass('legendary-action-prompt-empty')

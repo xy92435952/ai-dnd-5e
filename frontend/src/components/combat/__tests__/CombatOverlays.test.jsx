@@ -64,8 +64,8 @@ describe('CombatOverlays', () => {
       onUseLegendaryAction,
     })
 
-    expect(screen.getByRole('dialog', { name: '巢穴动作窗口' })).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: '传奇动作窗口' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: '巢穴动作' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '传奇动作' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Seismic Pulse/ }))
     expect(onUseLairAction).toHaveBeenCalledWith('lair-1', 'pulse', undefined)
