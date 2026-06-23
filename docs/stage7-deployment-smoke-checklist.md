@@ -186,6 +186,9 @@ frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 Shared `juice` flash feedback coverage is also in this gate through
 `src/__tests__/juice.test.js`, protecting the stable `.jc-flash` stylesheet
 chrome and the runtime `--jc-flash-color` / `--jc-flash-duration` variables.
+BG3 stylesheet chrome coverage is included through
+`src/__tests__/bg3Styles.test.js`, guarding against stale inline-style
+attribute selectors such as `[style*=...]` in `styles/bg3.css`.
 
 ## CI Release Gate
 

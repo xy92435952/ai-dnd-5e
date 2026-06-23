@@ -514,12 +514,6 @@
 }
 [data-theme="bg3"] .ability-card .label { color: var(--amber); }
 
-/* ── 检定卡紫色浮雕 → 改成青绿 arcane ── */
-[data-theme="bg3"] .panel-ornate[style*="amethyst"],
-[data-theme="bg3"] .check-prompt {
-  /* 已由行内 style 控制，hover 会覆盖 */
-}
-
 /* ── BG3 标志"分支式引导线" · 可选装饰 ── */
 [data-theme="bg3"] .divider::before,
 [data-theme="bg3"] .divider::after {
