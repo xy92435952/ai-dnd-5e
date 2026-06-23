@@ -32,6 +32,14 @@ export function inferGitHubRepo(remoteUrl) {
   return `${match[1]}/${match[2]}`;
 }
 
+function requiredOptionValue(argv, index, optionName) {
+  const value = argv[index + 1] || '';
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     blockerLogDir: '',
@@ -75,7 +83,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--download-blocker-logs') {
-      args.blockerLogDir = argv[index + 1] || '';
+      args.blockerLogDir = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -92,7 +100,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--format') {
-      args.format = argv[index + 1] || '';
+      args.format = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -101,7 +109,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--repo') {
-      args.repo = argv[index + 1] || '';
+      args.repo = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -110,7 +118,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--branch') {
-      args.branch = argv[index + 1] || '';
+      args.branch = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -119,7 +127,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--head') {
-      args.headSha = argv[index + 1] || '';
+      args.headSha = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -128,7 +136,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--run-id') {
-      args.runId = argv[index + 1] || '';
+      args.runId = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -137,7 +145,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--output') {
-      args.output = argv[index + 1] || '';
+      args.output = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
@@ -146,7 +154,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--poll-seconds') {
-      args.pollSeconds = Number(argv[index + 1] || '');
+      args.pollSeconds = Number(requiredOptionValue(argv, index, arg));
       index += 1;
       continue;
     }
@@ -155,7 +163,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--timeout-seconds') {
-      args.timeoutSeconds = Number(argv[index + 1] || '');
+      args.timeoutSeconds = Number(requiredOptionValue(argv, index, arg));
       index += 1;
       continue;
     }
@@ -164,7 +172,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--evidence') {
-      args.evidenceFiles.push(argv[index + 1] || '');
+      args.evidenceFiles.push(requiredOptionValue(argv, index, arg));
       index += 1;
       continue;
     }

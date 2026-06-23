@@ -318,6 +318,14 @@ describe('Stage 7 release candidate summary', () => {
     })
   })
 
+  it('fails fast when release handoff options are missing required values', () => {
+    expect(() => parseArgs(['--download-blocker-logs', '--json'])).toThrow(
+      '--download-blocker-logs requires a value.',
+    )
+    expect(() => parseArgs(['--repo'])).toThrow('--repo requires a value.')
+    expect(() => parseArgs(['--evidence', '--verify-evidence'])).toThrow('--evidence requires a value.')
+  })
+
   it('supports the JSON output shortcut option', () => {
     expect(parseArgs(['--json', '--repo', 'xy92435952/ai-dnd-5e'])).toMatchObject({
       format: 'json',

@@ -464,7 +464,9 @@ has not yet created a run for the pushed commit.
 When the release candidate is blocked by failed or pending required CI jobs,
 add `--download-blocker-logs artifacts\stage7-ci-logs-YYYYMMDD` to save any
 available job logs referenced by `ci.blockers` before reproducing and fixing the
-failure.
+failure. Release-summary options that require values fail fast when the value is
+missing, so a following flag such as `--json` cannot be accidentally consumed as
+a directory, repository, head SHA, output path, or evidence file.
 
 Verify machine-readable smoke evidence before handoff:
 
