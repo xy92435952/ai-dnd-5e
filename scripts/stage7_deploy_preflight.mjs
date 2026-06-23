@@ -21,6 +21,21 @@ function runGit(args, fallback = '') {
   }
 }
 
+function requiredOptionValue(argv, index, optionName) {
+  const value = argv[index + 1] || '';
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function requiredInlineOptionValue(value, optionName) {
+  if (!value) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     allowDirty: false,
@@ -45,30 +60,30 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--format') {
-      args.format = argv[index + 1] || '';
+      args.format = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--format=')) {
-      args.format = arg.slice('--format='.length);
+      args.format = requiredInlineOptionValue(arg.slice('--format='.length), '--format');
       continue;
     }
     if (arg === '--output') {
-      args.output = argv[index + 1] || '';
+      args.output = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--output=')) {
-      args.output = arg.slice('--output='.length);
+      args.output = requiredInlineOptionValue(arg.slice('--output='.length), '--output');
       continue;
     }
     if (arg === '--path') {
-      args.paths.push(argv[index + 1] || '');
+      args.paths.push(requiredOptionValue(argv, index, arg));
       index += 1;
       continue;
     }
     if (arg.startsWith('--path=')) {
-      args.paths.push(arg.slice('--path='.length));
+      args.paths.push(requiredInlineOptionValue(arg.slice('--path='.length), '--path'));
       continue;
     }
     args.paths.push(arg);

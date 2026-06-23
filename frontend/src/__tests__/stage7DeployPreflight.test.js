@@ -128,6 +128,15 @@ describe('Stage 7 deploy preflight', () => {
     })
   })
 
+  it('fails fast when deploy preflight options are missing required values', () => {
+    expect(() => parseArgs(['--format', '--json'])).toThrow('--format requires a value.')
+    expect(() => parseArgs(['--format='])).toThrow('--format requires a value.')
+    expect(() => parseArgs(['--output', '--path', 'backend/.env'])).toThrow('--output requires a value.')
+    expect(() => parseArgs(['--output='])).toThrow('--output requires a value.')
+    expect(() => parseArgs(['--path', '--json'])).toThrow('--path requires a value.')
+    expect(() => parseArgs(['--path='])).toThrow('--path requires a value.')
+  })
+
   it('exposes the deploy preflight as an opt-in check.sh gate', () => {
     const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
     const checkScript = readFileSync(path.join(repoRoot, 'scripts', 'check.sh'), 'utf8')

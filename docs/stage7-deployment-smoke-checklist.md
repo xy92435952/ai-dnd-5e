@@ -535,7 +535,10 @@ running through `scripts/check.sh`, use `RUN_STAGE7_DEPLOY_PREFLIGHT=1` for the
 release handoff gate. `STAGE7_DEPLOY_PREFLIGHT_ALLOW_DIRTY=1`,
 `STAGE7_DEPLOY_PREFLIGHT_FORMAT`, and `STAGE7_DEPLOY_PREFLIGHT_OUTPUT` are
 available for draft/local logging, but dirty overrides should stay out of the
-server update handoff.
+server update handoff. Deploy-preflight options that require values fail fast
+when the value is missing, so a following flag such as `--json`, `--path`, or
+`--output` cannot be accidentally consumed as a format, artifact path, or
+ignored-path entry.
 
 After server update:
 
