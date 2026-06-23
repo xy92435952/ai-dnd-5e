@@ -281,12 +281,18 @@ export function TutorialEntryCard({ progress = 0, total = 4, onOpen }) {
 function TutorialWelcome({ onPickChapter, onClose, progress = {} }) {
   const chs = TUTORIAL_CONTENT.chapters
   return (
-    <div className="tut-overlay" role="dialog" aria-modal="true">
+    <div
+      className="tut-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tutorial-welcome-title"
+      aria-describedby="tutorial-welcome-lead"
+    >
       <div className="tut-welcome">
         <div className="tw-ornament">✦ ❧ ✦</div>
         <div className="tw-kicker">◆ TUTORIAL · 启蒙圣所 ◆</div>
-        <h2 className="tw-title">新冒险者指南</h2>
-        <p className="tw-lead">
+        <h2 id="tutorial-welcome-title" className="tw-title">新冒险者指南</h2>
+        <p id="tutorial-welcome-lead" className="tw-lead">
           欢迎，年轻的灵魂。<br />
           在踏入广阔的费伦之前，让我——地下城主艾尔德林——<br />
           引你走过骰子与命运交织的第一程。

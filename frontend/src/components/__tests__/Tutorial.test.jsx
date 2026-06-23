@@ -84,6 +84,20 @@ describe('TutorialEntryCard', () => {
     expect(tip).toHaveTextContent('Use cover before moving.')
   })
 
+  it('labels the welcome dialog with stable title and description references', () => {
+    const { container } = render(
+      <TutorialHost open onClose={vi.fn()} />,
+    )
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveClass('tut-overlay')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'tutorial-welcome-title')
+    expect(dialog).toHaveAttribute('aria-describedby', 'tutorial-welcome-lead')
+    expect(container.querySelector('#tutorial-welcome-title')).toHaveClass('tw-title')
+    expect(container.querySelector('#tutorial-welcome-lead')).toHaveClass('tw-lead')
+  })
+
   it('renders no-target tutorial fallback chrome through stable classes', async () => {
     const { container } = render(
       <TutorialHost open initialChapter="create" onClose={vi.fn()} />,
