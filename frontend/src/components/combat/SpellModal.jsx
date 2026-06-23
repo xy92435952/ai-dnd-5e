@@ -99,6 +99,7 @@ export default function SpellModal({
     aoeLockedCenter,
     disabledReason: castDisabledReason,
   }), [aoeHover, aoeLockedCenter, cantrips, castDisabledReason, combat, level, playerId, selectedSpell, selectedTarget, slots])
+  const castPlanId = 'spell-modal-cast-plan'
 
   return (
     <div className="spell-modal-backdrop" onClick={onClose}>
@@ -108,6 +109,7 @@ export default function SpellModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="spell-modal-title"
+        aria-describedby={castPlanId}
       >
         <div className="spell-modal-head">
           <h2 id="spell-modal-title" className="spell-modal-title">
@@ -146,7 +148,7 @@ export default function SpellModal({
           onSpellHover={onSpellHover}
         />
 
-        <SpellCastPlan plan={castPlan} onResetAoeCenter={onResetAoeCenter} />
+        <SpellCastPlan id={castPlanId} plan={castPlan} onResetAoeCenter={onResetAoeCenter} />
 
         {showBardicSpellSave && (
           <div className="spell-modal-bardic-row" aria-label="Bardic spell save">

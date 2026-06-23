@@ -1,10 +1,10 @@
 import React from 'react'
 
-export default function SpellCastPlan({ plan, onResetAoeCenter = null }) {
+export default function SpellCastPlan({ plan, onResetAoeCenter = null, id = undefined }) {
   if (!plan) return null
 
   return (
-    <section className={`spell-cast-plan ${plan.tone}`} aria-label="施法计划">
+    <section id={id} className={`spell-cast-plan ${plan.tone}`} aria-label="施法计划">
       <div className="spell-cast-plan-head">
         <span>施法计划</span>
         <b>{plan.status}</b>

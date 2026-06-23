@@ -48,12 +48,15 @@ describe('SpellModal', () => {
 
     const dialog = screen.getByRole('dialog', { name: '选择法术' })
     expect(dialog).toHaveClass('spell-modal-dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'spell-modal-title')
+    expect(dialog).toHaveAttribute('aria-describedby', 'spell-modal-cast-plan')
     expect(screen.getByRole('button', { name: '关闭施法面板' })).toHaveClass('spell-modal-close')
 
     await waitFor(() => {
       expect(onSpellHover).toHaveBeenCalledWith(fireBolt)
     })
-    expect(screen.getByRole('region', { name: '施法计划' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '施法计划' })).toHaveAttribute('id', 'spell-modal-cast-plan')
     const preflight = screen.getByLabelText('施法预检')
     expect(within(preflight).getByText('消耗')).toBeInTheDocument()
     expect(within(preflight).getByText('戏法')).toBeInTheDocument()
