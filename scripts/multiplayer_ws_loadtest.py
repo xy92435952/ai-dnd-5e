@@ -79,6 +79,27 @@ class LoadTestError(RuntimeError):
     pass
 
 
+def positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def positive_float(value: str) -> float:
+    parsed = float(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive number")
+    return parsed
+
+
+def non_negative_float(value: str) -> float:
+    parsed = float(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be greater than or equal to 0")
+    return parsed
+
+
 def build_hold_observer(base_url: str, room: RoomRecord | None) -> dict[str, Any] | None:
     if room is None:
         return None
@@ -1173,15 +1194,15 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8002")
     parser.add_argument("--users", type=int, default=50)
     parser.add_argument("--prefix", default="")
-    parser.add_argument("--http-concurrency", type=int, default=10)
-    parser.add_argument("--auth-concurrency", type=int, default=1)
-    parser.add_argument("--auth-delay", type=float, default=0.5)
-    parser.add_argument("--auth-retries", type=int, default=5)
+    parser.add_argument("--http-concurrency", type=positive_int, default=10)
+    parser.add_argument("--auth-concurrency", type=positive_int, default=1)
+    parser.add_argument("--auth-delay", type=non_negative_float, default=0.5)
+    parser.add_argument("--auth-retries", type=positive_int, default=5)
     parser.add_argument("--module-id", default="")
     parser.add_argument(
         "--seed-sqlite-module",
@@ -1190,13 +1211,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--keep-seeded-module", action="store_true")
     parser.add_argument("--no-auto-module", action="store_true")
-    parser.add_argument("--module-timeout", type=float, default=90)
-    parser.add_argument("--module-poll-interval", type=float, default=1.0)
-    parser.add_argument("--ws-concurrency", type=int, default=25)
-    parser.add_argument("--http-timeout", type=float, default=30)
+    parser.add_argument("--module-timeout", type=positive_float, default=90)
+    parser.add_argument("--module-poll-interval", type=positive_float, default=1.0)
+    parser.add_argument("--ws-concurrency", type=positive_int, default=25)
+    parser.add_argument("--http-timeout", type=positive_float, default=30)
     parser.add_argument(
         "--hold-seconds",
-        type=float,
+        type=non_negative_float,
         default=0,
         help=(
             "After the automated WS checks pass, keep rooms and sockets open for "
@@ -1213,7 +1234,7 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional path where the final JSON result should be written for later audit.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main() -> int:

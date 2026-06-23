@@ -398,7 +398,11 @@ For direct low-level script debugging, pass the same hold window as
 `--hold-seconds 90` to `scripts\multiplayer_ws_loadtest.py`. Pass
 `--result-json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json`, or set
 `LOADTEST_RESULT_JSON` through `scripts/check.sh`, to keep the final load-smoke
-summary as an ignored local evidence file under `artifacts/`.
+summary as an ignored local evidence file under `artifacts/`. Load-smoke tuning
+values such as HTTP/auth/WS concurrency, retries, HTTP/module timeouts, and
+module poll interval must be positive; `--hold-seconds` may be `0` but cannot be
+negative, so a mistyped pressure-test command fails before creating users or
+WebSocket connections.
 
 The GitHub Actions workflow `Multiplayer Load Smoke` runs the same style of
 check on demand, verifies the load-smoke result JSON with

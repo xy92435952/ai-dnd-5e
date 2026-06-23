@@ -68,6 +68,10 @@ Verify the result before release handoff with
 The verifier checks the 50-user/13-room shape, room-size totals and max-player
 limits, WebSocket count, cleanup flags, timing summary values, and any hold
 observer fields.
+Load-smoke tuning values such as HTTP/auth/WS concurrency, retries,
+HTTP/module timeouts, and module poll interval must be positive. `--hold-seconds`
+may be `0` but cannot be negative, so invalid pressure-test tuning fails before
+creating users, rooms, or WebSocket connections.
 To generate and verify the JSON in one `scripts/check.sh` run, also set
 `RUN_STAGE7_EVIDENCE_GATE=1`; the check script adds `LOADTEST_RESULT_JSON` to
 the evidence gate automatically.

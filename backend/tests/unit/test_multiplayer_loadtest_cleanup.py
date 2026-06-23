@@ -14,6 +14,7 @@ from scripts.multiplayer_ws_loadtest import (
     UserRecord,
     build_hold_observer,
     cleanup_rooms,
+    parse_args,
     verify_cleanup_effects,
     verify_room_access_isolation,
     verify_session_snapshots,
@@ -126,6 +127,63 @@ class FakeCleanupClient:
 
 def _user(name):
     return UserRecord(username=name, token=f"{name}-token", user_id=f"{name}-id")
+
+
+def test_parse_args_accepts_valid_load_smoke_tuning_options():
+    args = parse_args([
+        "--http-concurrency",
+        "12",
+        "--auth-concurrency",
+        "2",
+        "--auth-delay",
+        "0",
+        "--auth-retries",
+        "3",
+        "--module-timeout",
+        "30",
+        "--module-poll-interval",
+        "0.25",
+        "--ws-concurrency",
+        "10",
+        "--http-timeout",
+        "15",
+        "--hold-seconds",
+        "0",
+        "--result-json",
+        "artifacts/load.json",
+    ])
+
+    assert args.http_concurrency == 12
+    assert args.auth_concurrency == 2
+    assert args.auth_delay == 0
+    assert args.auth_retries == 3
+    assert args.module_timeout == 30
+    assert args.module_poll_interval == 0.25
+    assert args.ws_concurrency == 10
+    assert args.http_timeout == 15
+    assert args.hold_seconds == 0
+    assert args.result_json == "artifacts/load.json"
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("--http-concurrency", "0"),
+        ("--auth-concurrency", "0"),
+        ("--auth-retries", "0"),
+        ("--module-timeout", "0"),
+        ("--module-poll-interval", "0"),
+        ("--ws-concurrency", "0"),
+        ("--http-timeout", "0"),
+        ("--hold-seconds", "-1"),
+    ],
+)
+def test_parse_args_rejects_invalid_load_smoke_tuning_options(option, value, capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        parse_args([option, value])
+
+    assert exc_info.value.code == 2
+    assert "error:" in capsys.readouterr().err
 
 
 def test_build_hold_observer_exposes_browser_login_context():
