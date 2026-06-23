@@ -17,7 +17,7 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
     if (!info) return null
     title = info.zh
     body = (
-      <div className="create-info-modal-body">
+      <div id="create-info-modal-desc" className="create-info-modal-body">
         <p className="create-info-modal-copy">{info.description}</p>
         <div className="create-info-modal-tag-row" aria-label="Race summary">
           <span className="tag tag-info">速度 {info.speed}尺</span>
@@ -42,7 +42,7 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
     if (!info) return null
     title = info.zh
     body = (
-      <div className="create-info-modal-body">
+      <div id="create-info-modal-desc" className="create-info-modal-body">
         <div className="create-info-modal-tag-row" aria-label="Class summary">
           <span className="tag tag-level">生命骰 {info.hit_die}</span>
           <span className="tag tag-ok">{info.primary_ability}</span>
@@ -83,7 +83,7 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
     if (!info) return null
     title = `${itemKey}（${info.en}）`
     body = (
-      <div className="create-info-modal-body">
+      <div id="create-info-modal-desc" className="create-info-modal-body">
         <span className="tag tag-level create-info-modal-inline-tag">
           关联属性：{ABILITY_ZH[info.ability] || info.ability}
         </span>
@@ -95,7 +95,7 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
     if (!info) return null
     title = info.zh
     body = (
-      <div className="create-info-modal-body">
+      <div id="create-info-modal-desc" className="create-info-modal-body">
         <p className="create-info-modal-copy">{info.desc}</p>
       </div>
     )
@@ -109,6 +109,7 @@ export function CharacterCreateInfoModal({ type, itemKey, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-info-modal-title"
+      aria-describedby="create-info-modal-desc"
       onClick={onClose}
     >
       <div

@@ -74,10 +74,13 @@ describe('CharacterCreate shared controls', () => {
     const dialog = screen.getByRole('dialog', { name: '学者' })
     expect(dialog).toHaveClass('create-info-modal-backdrop')
     expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'create-info-modal-title')
+    expect(dialog).toHaveAttribute('aria-describedby', 'create-info-modal-desc')
 
     const panel = container.querySelector('.create-info-modal-panel')
     expect(panel).toHaveClass('panel')
     expect(screen.getByRole('heading', { name: '学者' })).toHaveClass('create-info-modal-title')
+    expect(container.querySelector('#create-info-modal-desc')).toHaveClass('create-info-modal-body')
 
     fireEvent.click(panel)
     expect(onClose).not.toHaveBeenCalled()

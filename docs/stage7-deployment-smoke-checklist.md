@@ -170,7 +170,7 @@ CharacterCreate skill choices,
 CharacterCreate spell choices,
 CharacterCreate DM-style selection,
 CharacterCreate shared form controls,
-CharacterCreate shared info modal shell,
+CharacterCreate shared info modal shell/description linkage,
 CharacterCreate shared info modal body,
 shared `MagicInitiateChoiceFields` select chrome,
 `DialogueHistoryView` current-scene divider spacing, `useDialogueWsSync`, `useCombatAiTurns`, `useCombatNavigationActions`, and `combatReactionPrompt`
