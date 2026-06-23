@@ -434,7 +434,10 @@ or multiplayer load-smoke artifacts that should be listed in the handoff note.
 Use `--run-id <id>` when checking a specific workflow run instead of the latest
 run for the current commit. The default wait cadence is 20 seconds with a
 30-minute timeout; override with `--poll-seconds` and `--timeout-seconds` for a
-slower or faster environment.
+slower or faster environment. `--head` may be a full commit SHA or an
+unambiguous short SHA of at least seven characters; in wait mode the helper
+also keeps polling while GitHub has not yet created a run for the pushed
+commit.
 
 Verify machine-readable smoke evidence before handoff:
 

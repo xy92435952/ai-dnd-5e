@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildReleaseCandidateSummary,
+  findRunForHead,
   inferGitHubRepo,
+  matchesHeadSha,
   parseArgs,
   REQUIRED_STAGE7_CI_JOBS,
   summarizeRequiredCiJobs,
@@ -33,6 +35,17 @@ function createFetchSequence({ runs, jobs }) {
       return responseJson({ jobs: jobQueue.shift() || [] })
     }
     return responseJson(runQueue.shift() || runs.at(-1))
+  }
+}
+
+function createWorkflowFetchSequence({ workflowRuns, jobs }) {
+  const workflowRunQueue = [...workflowRuns]
+  const jobQueue = [...jobs]
+  return async url => {
+    if (url.includes('/jobs')) {
+      return responseJson({ jobs: jobQueue.shift() || [] })
+    }
+    return responseJson({ workflow_runs: workflowRunQueue.shift() || workflowRuns.at(-1) })
   }
 }
 
@@ -157,6 +170,20 @@ describe('Stage 7 release candidate summary', () => {
     expect(inferGitHubRepo('https://example.test/not-github.git')).toBe('')
   })
 
+  it('matches full and short GitHub head SHAs safely', () => {
+    const fullSha = 'e82779916ef4b7db62dc106dfc7987b1be2c14dd'
+    const otherSha = 'b5ebadbb4af505a7ef6728d500edab0e47b21150'
+
+    expect(matchesHeadSha(fullSha, fullSha)).toBe(true)
+    expect(matchesHeadSha(fullSha, 'e827799')).toBe(true)
+    expect(matchesHeadSha(fullSha, 'e82779')).toBe(false)
+    expect(matchesHeadSha(fullSha, otherSha)).toBe(false)
+    expect(findRunForHead([
+      { head_sha: otherSha, id: 1 },
+      { head_sha: fullSha, id: 2 },
+    ], 'e827799')).toMatchObject({ id: 2 })
+  })
+
   it('waits for required GitHub Actions jobs to reach final success', async () => {
     const sleepCalls = []
     const result = await waitForRequiredCiJobs({
@@ -209,6 +236,41 @@ describe('Stage 7 release candidate summary', () => {
 
     expect(sleepCalls).toEqual([1000])
     expect(result.run.status).toBe('completed')
+    expect(result.requiredJobSummary.ok).toBe(true)
+  })
+
+  it('waits for GitHub to create a run for the pushed commit', async () => {
+    const sleepCalls = []
+    const result = await waitForRequiredCiJobs({
+      branch: 'main',
+      fetchImpl: createWorkflowFetchSequence({
+        workflowRuns: [
+          [],
+          [
+            {
+              conclusion: 'success',
+              head_sha: 'e82779916ef4b7db62dc106dfc7987b1be2c14dd',
+              id: 102,
+              name: 'CI',
+              status: 'completed',
+            },
+          ],
+        ],
+        jobs: [
+          successfulJobs(),
+        ],
+      }),
+      headSha: 'e827799',
+      pollSeconds: 1,
+      repo: 'xy92435952/ai-dnd-5e',
+      sleepImpl: async ms => {
+        sleepCalls.push(ms)
+      },
+      timeoutSeconds: 60,
+    })
+
+    expect(sleepCalls).toEqual([1000])
+    expect(result.run.id).toBe(102)
     expect(result.requiredJobSummary.ok).toBe(true)
   })
 

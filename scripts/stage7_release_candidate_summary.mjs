@@ -180,6 +180,23 @@ async function githubJson(url, { fetchImpl = globalThis.fetch, token } = {}) {
   return JSON.parse(text);
 }
 
+export class RunNotFoundError extends Error {
+  constructor({ branch, headSha }) {
+    super(`No GitHub Actions run found for ${headSha} on ${branch}.`);
+    this.name = 'RunNotFoundError';
+  }
+}
+
+export function matchesHeadSha(candidateSha, requestedSha) {
+  if (!candidateSha || !requestedSha) return false;
+  if (candidateSha === requestedSha) return true;
+  return requestedSha.length >= 7 && candidateSha.startsWith(requestedSha);
+}
+
+export function findRunForHead(runs, headSha) {
+  return runs.find(candidate => matchesHeadSha(candidate.head_sha, headSha));
+}
+
 export async function fetchRunForHead({
   repo,
   branch,
@@ -195,9 +212,9 @@ export async function fetchRunForHead({
   const query = new URLSearchParams({ branch, per_page: '20' });
   const data = await githubJson(`https://api.github.com/repos/${repo}/actions/runs?${query}`, { fetchImpl, token });
   const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
-  const run = runs.find(candidate => candidate.head_sha === headSha);
+  const run = findRunForHead(runs, headSha);
   if (!run) {
-    throw new Error(`No GitHub Actions run found for ${headSha} on ${branch}.`);
+    throw new RunNotFoundError({ branch, headSha });
   }
   return run;
 }
@@ -269,7 +286,23 @@ export async function waitForRequiredCiJobs({
   const startedAt = Date.now();
 
   for (;;) {
-    const run = await fetchRunForHead({ repo, branch, headSha, runId, fetchImpl, token });
+    let run;
+    try {
+      run = await fetchRunForHead({ repo, branch, headSha, runId, fetchImpl, token });
+    } catch (error) {
+      if (!(error instanceof RunNotFoundError)) {
+        throw error;
+      }
+
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs >= timeoutSeconds * 1000) {
+        throw new Error(`Timed out waiting for a GitHub Actions run for ${headSha} on ${branch} after ${timeoutSeconds}s.`);
+      }
+
+      await sleepImpl(pollSeconds * 1000);
+      continue;
+    }
+
     const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
     const requiredJobSummary = summarizeRequiredCiJobs(jobs);
 
