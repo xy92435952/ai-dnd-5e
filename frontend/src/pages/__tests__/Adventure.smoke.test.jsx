@@ -240,7 +240,7 @@ describe('Adventure render smoke', () => {
       </MemoryRouter>
     )
 
-    expect(await screen.findByRole('dialog', { name: 'Exploration reaction prompt' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Feather Fall' })).toBeInTheDocument()
 
     wsConnectedMock.mockReturnValue(true)
     view.rerender(
@@ -255,7 +255,7 @@ describe('Adventure render smoke', () => {
       expect(getSessionMock).toHaveBeenCalledTimes(2)
     })
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Exploration reaction prompt' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Feather Fall' })).not.toBeInTheDocument()
     })
 
     cleanup()
@@ -325,7 +325,7 @@ describe('Adventure render smoke', () => {
       </MemoryRouter>
     )
 
-    expect(await screen.findByRole('dialog', { name: 'Exploration reaction prompt' })).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', { name: 'Feather Fall' })).toBeInTheDocument()
     await waitFor(() => {
       expect(wsEventHandlerRef.current).toEqual(expect.any(Function))
     })
@@ -347,7 +347,7 @@ describe('Adventure render smoke', () => {
       expect(getSessionMock).toHaveBeenCalledTimes(2)
     })
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Exploration reaction prompt' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: 'Feather Fall' })).not.toBeInTheDocument()
     })
 
     cleanup()

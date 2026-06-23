@@ -24,11 +24,23 @@ describe('ExplorationReactionPrompt', () => {
     const onResolve = vi.fn()
     render(<ExplorationReactionPrompt prompt={prompt()} onResolve={onResolve} />)
 
-    expect(screen.getByText('Feather Fall')).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Feather Fall' })
+    expect(dialog).toHaveClass('exploration-reaction-prompt')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'exploration-reaction-prompt-title')
+    expect(dialog).toHaveAttribute(
+      'aria-describedby',
+      'exploration-reaction-prompt-body exploration-reaction-prompt-meta exploration-reaction-prompt-outcomes',
+    )
+    expect(screen.getByText('Feather Fall')).toHaveAttribute('id', 'exploration-reaction-prompt-title')
+    expect(screen.getByText(/can protect/)).toHaveAttribute('id', 'exploration-reaction-prompt-body')
     expect(screen.getByText(/Prevents 9 fall damage/)).toBeInTheDocument()
     expect(screen.getByText('Costs 1st spell slot + reaction')).toBeInTheDocument()
-    expect(screen.getByLabelText('Reaction outcome preview')).toHaveTextContent('Cast prevents 9 fall damage.')
-    expect(screen.getByLabelText('Reaction outcome preview')).toHaveTextContent('Decline lets Scout take the saved fall damage.')
+    expect(screen.getByText('Costs 1st spell slot + reaction').parentElement).toHaveAttribute('id', 'exploration-reaction-prompt-meta')
+    const outcomes = screen.getByLabelText('Reaction outcome preview')
+    expect(outcomes).toHaveAttribute('id', 'exploration-reaction-prompt-outcomes')
+    expect(outcomes).toHaveTextContent('Cast prevents 9 fall damage.')
+    expect(outcomes).toHaveTextContent('Decline lets Scout take the saved fall damage.')
 
     fireEvent.click(screen.getByRole('button', { name: /Cast Feather Fall/ }))
     fireEvent.click(screen.getByRole('button', { name: /Decline/ }))

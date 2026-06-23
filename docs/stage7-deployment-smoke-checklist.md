@@ -146,7 +146,7 @@ Combat `CombatHudPortrait`, Combat `CombatHudIntentSummary`, Combat `CombatHudSk
 Combat `CombatHudCombatLog`, Combat `TurnBanner`, Combat `InitiativeRibbon` HP tick chrome, Combat `TargetCard` HP meter chrome, Combat `CombatStage` wash/float-text chrome,
 Combat `CombatTacticalContextPanel`, Combat `BattlefieldLegend`, Combat force-end inline confirmation, Combat Cutting Words contested-check inline confirmation, Combat `CombatOutcomeOverlay` title/recovery description linkage,
 Combat `CombatDeathSavePanel` panel/dot tones, Combat `CombatQuickInventory`, Combat `IsoBattlefield` grid/unit tone/HP fill chrome, shared inventory gold strip/action controls/tags/row/shop/meta tones,
-Adventure page shell, Adventure `ExplorationReactionPrompt`, Adventure `Overlay`, Adventure `LootModal`, Adventure
+Adventure page shell, Adventure `ExplorationReactionPrompt` dialog title/description linkage, Adventure `Overlay`, Adventure `LootModal`, Adventure
 `AdventureStage`, Adventure `StageLeftFigure` speaker tone chrome, Adventure `StageBubble`, Adventure `DialoguePanel`, Adventure `DialogueChoices`, Adventure `DialogueResponseBox`, Adventure
 `DialogueRecoveryAffordances`, Adventure `DialogueFreeSpeak`, Adventure
 `DialoguePendingCheck`, Adventure `DialogueStagePlayer`, Adventure `CompanionReactionPanel`, Adventure `DialogueLogList`,

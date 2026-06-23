@@ -18,18 +18,30 @@ export default function ExplorationReactionPrompt({
   const cost = option.cost || (slot ? `${slot} spell slot + reaction` : 'reaction')
   const damageLabel = `${prevented} fall damage`
 
+  const titleId = 'exploration-reaction-prompt-title'
+  const bodyId = 'exploration-reaction-prompt-body'
+  const metaId = 'exploration-reaction-prompt-meta'
+  const outcomesId = 'exploration-reaction-prompt-outcomes'
+
   return (
-    <div className="exploration-reaction-prompt" role="dialog" aria-label="Exploration reaction prompt" aria-live="polite">
+    <div
+      className="exploration-reaction-prompt"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={`${bodyId} ${metaId} ${outcomesId}`}
+      aria-live="polite"
+    >
       <div className="exploration-reaction-prompt__eyebrow">Reaction</div>
-      <div className="exploration-reaction-prompt__title">Feather Fall</div>
-      <div className="exploration-reaction-prompt__body">
+      <div id={titleId} className="exploration-reaction-prompt__title">Feather Fall</div>
+      <div id={bodyId} className="exploration-reaction-prompt__body">
         <b>{reactorName}</b> can protect <b>{targetName}</b> from <b>{trapName}</b>.
       </div>
-      <div className="exploration-reaction-prompt__meta">
+      <div id={metaId} className="exploration-reaction-prompt__meta">
         <span>Prevents {damageLabel}</span>
         <span>Costs {cost}</span>
       </div>
-      <div className="exploration-reaction-prompt__outcomes" aria-label="Reaction outcome preview">
+      <div id={outcomesId} className="exploration-reaction-prompt__outcomes" aria-label="Reaction outcome preview">
         <span><b>Cast</b> prevents {damageLabel}.</span>
         <span><b>Decline</b> lets {targetName} take the saved fall damage.</span>
       </div>
