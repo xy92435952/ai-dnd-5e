@@ -189,6 +189,11 @@ chrome and the runtime `--jc-flash-color` / `--jc-flash-duration` variables.
 BG3 stylesheet chrome coverage is included through
 `src/__tests__/bg3Styles.test.js`, guarding against stale inline-style
 attribute selectors such as `[style*=...]` in `styles/bg3.css`.
+Unsafe DOM sink coverage is included through
+`src/utils/__tests__/unsafeDomApis.test.js`, guarding production frontend
+source against `dangerouslySetInnerHTML`, `innerHTML` / `outerHTML` writes,
+`style.cssText`, `insertAdjacentHTML`, `document.write`, `eval`, and
+`new Function`.
 
 ## CI Release Gate
 
