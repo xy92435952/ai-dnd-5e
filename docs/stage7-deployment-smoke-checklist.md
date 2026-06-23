@@ -488,9 +488,16 @@ and `RUN_STAGE7_EVIDENCE_GATE=1` are both set without `LOADTEST_RESULT_JSON`,
 Before server pull/restart:
 
 ```powershell
+node scripts\stage7_deploy_preflight.mjs
+node scripts\stage7_deploy_preflight.mjs --json --output artifacts\stage7-deploy-preflight-YYYYMMDD.json
+
 git status --short
 git check-ignore -v backend\.env frontend\dist backend\.venv
 ```
+
+The preflight helper fails when source changes are still uncommitted or when
+the local-only deployment paths above are not covered by gitignore rules. Use
+`--allow-dirty` only for draft local checks, not for a release handoff.
 
 After server update:
 
