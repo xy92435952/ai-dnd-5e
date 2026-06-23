@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 import {
   buildReleaseCandidateJson,
@@ -10,6 +13,7 @@ import {
   parseArgs,
   REQUIRED_STAGE7_CI_JOBS,
   summarizeRequiredCiJobs,
+  verifyEvidenceFiles,
   waitForRequiredCiJobs,
 } from '../../../scripts/stage7_release_candidate_summary.mjs'
 
@@ -49,6 +53,33 @@ function createWorkflowFetchSequence({ workflowRuns, jobs }) {
     }
     return responseJson({ workflow_runs: workflowRunQueue.shift() || workflowRuns.at(-1) })
   }
+}
+
+function writePostdeployEvidence(overrides = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-release-evidence-'))
+  const filePath = path.join(dir, 'postdeploy.json')
+  const data = {
+    generatedAt: '2026-06-24T00:00:00.000Z',
+    healthChecks: [
+      {
+        body: {
+          status: 'ok',
+        },
+        error: '',
+        ok: true,
+        status: 200,
+        statusOk: true,
+        url: 'http://127.0.0.1:8000/health',
+      },
+    ],
+    healthReady: true,
+    logChecks: [],
+    logsReady: true,
+    ready: true,
+    ...overrides,
+  }
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+  return filePath
 }
 
 describe('Stage 7 release candidate summary', () => {
@@ -114,6 +145,7 @@ describe('Stage 7 release candidate summary', () => {
     expect(markdown).toContain('Repository: xy92435952/ai-dnd-5e')
     expect(markdown).toContain('| [backend](https://github.test/jobs/backend) | completed | success | pass |')
     expect(markdown).toContain('artifacts/browser-feather-fall-adventure-manifest-20260623.json')
+    expect(markdown).toContain('Evidence verification: not checked')
     expect(markdown).toContain('Ready for deployment handoff: yes')
   })
 
@@ -152,12 +184,16 @@ describe('Stage 7 release candidate summary', () => {
       'artifacts/summary.md',
       '--timeout-seconds',
       '1200',
+      '--verify-evidence',
+      '--evidence-no-file-check',
       '--evidence',
       'artifacts/manifest.json',
       'artifacts/load.json',
     ])).toMatchObject({
       branch: 'main',
       evidenceFiles: ['artifacts/manifest.json', 'artifacts/load.json'],
+      evidenceNoFileCheck: true,
+      evidenceVerified: true,
       format: 'json',
       headSha: 'abc123',
       output: 'artifacts/summary.md',
@@ -255,6 +291,10 @@ describe('Stage 7 release candidate summary', () => {
     const payload = buildReleaseCandidatePayload({
       branch: 'main',
       evidenceFiles: ['artifacts/load.json'],
+      evidenceSummary: {
+        ok: true,
+        output: 'Verified 1 Stage 7 evidence file(s).',
+      },
       generatedAt: '2026-06-23T12:00:00.000Z',
       gitStatus: '',
       headSha: '8e51fc0',
@@ -283,6 +323,10 @@ describe('Stage 7 release candidate summary', () => {
         },
       },
       evidenceFiles: ['artifacts/load.json'],
+      evidenceVerification: {
+        checked: true,
+        ok: true,
+      },
       headSha: '8e51fc0',
       ready: true,
       repo: 'xy92435952/ai-dnd-5e',
@@ -295,6 +339,54 @@ describe('Stage 7 release candidate summary', () => {
       'frontend',
       'frontend-prod-build',
     ])
+  })
+
+  it('blocks deployment readiness when requested evidence verification fails', () => {
+    const common = {
+      branch: 'main',
+      evidenceFiles: ['artifacts/bad.json'],
+      evidenceSummary: {
+        error: 'ready must be true',
+        ok: false,
+      },
+      gitStatus: '',
+      headSha: 'f91ec63',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        id: 2,
+        name: 'CI',
+        status: 'completed',
+      },
+    }
+    const payload = buildReleaseCandidatePayload(common)
+    const markdown = buildReleaseCandidateSummary(common)
+
+    expect(payload.ready).toBe(false)
+    expect(payload.evidenceVerification).toMatchObject({
+      checked: true,
+      error: 'ready must be true',
+      ok: false,
+    })
+    expect(markdown).toContain('Evidence verification: fail: ready must be true')
+    expect(markdown).toContain('Ready for deployment handoff: no')
+  })
+
+  it('verifies listed Stage 7 evidence files through the shared verifier', () => {
+    const goodEvidence = writePostdeployEvidence()
+    const badEvidence = writePostdeployEvidence({
+      healthChecks: [],
+      healthReady: false,
+      ready: false,
+    })
+
+    expect(verifyEvidenceFiles([goodEvidence])).toMatchObject({
+      ok: true,
+    })
+    expect(verifyEvidenceFiles([badEvidence])).toMatchObject({
+      ok: false,
+    })
   })
 
   it('keeps the release candidate non-ready until the workflow run is complete', () => {

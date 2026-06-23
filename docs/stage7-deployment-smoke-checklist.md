@@ -441,15 +441,20 @@ workflow run is `completed/success`, and all required jobs are
 node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.json
 ```
 
-Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke
-or multiplayer load-smoke artifacts that should be listed in the handoff note.
-Use `--run-id <id>` when checking a specific workflow run instead of the latest
-run for the current commit. The default wait cadence is 20 seconds with a
-30-minute timeout; override with `--poll-seconds` and `--timeout-seconds` for a
-slower or faster environment. `--head` may be a full commit SHA or an
-unambiguous short SHA of at least seven characters; in wait mode the helper
-also keeps polling while GitHub has not yet created a run for the pushed
-commit.
+Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke,
+multiplayer load-smoke, or post-deploy healthcheck artifacts that should be
+listed in the handoff note. Add `--verify-evidence` when the evidence files are
+Stage 7 machine-readable JSON; the release summary then runs
+`scripts/verify_stage7_evidence.mjs`, records the result, and keeps top-level
+`ready=false` if any listed evidence fails verification. Use
+`--evidence-no-file-check` only for downloaded JSON artifacts whose sibling
+screenshots or local result path are not present. Use `--run-id <id>` when
+checking a specific workflow run instead of the latest run for the current
+commit. The default wait cadence is 20 seconds with a 30-minute timeout;
+override with `--poll-seconds` and `--timeout-seconds` for a slower or faster
+environment. `--head` may be a full commit SHA or an unambiguous short SHA of at
+least seven characters; in wait mode the helper also keeps polling while GitHub
+has not yet created a run for the pushed commit.
 
 Verify machine-readable smoke evidence before handoff:
 

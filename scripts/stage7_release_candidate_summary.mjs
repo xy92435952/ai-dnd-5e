@@ -2,9 +2,12 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REQUIRED_STAGE7_CI_JOBS = ['backend', 'frontend', 'frontend-prod-build'];
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(SCRIPT_DIR, '..');
 
 function runGit(args, fallback = '') {
   try {
@@ -33,6 +36,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     branch: '',
     evidenceFiles: [],
+    evidenceNoFileCheck: false,
+    evidenceVerified: false,
     format: 'markdown',
     headSha: '',
     help: false,
@@ -53,6 +58,14 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
     if (arg === '--no-ci') {
       args.noCi = true;
+      continue;
+    }
+    if (arg === '--verify-evidence') {
+      args.evidenceVerified = true;
+      continue;
+    }
+    if (arg === '--evidence-no-file-check') {
+      args.evidenceNoFileCheck = true;
       continue;
     }
     if (arg === '--wait') {
@@ -154,12 +167,13 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--evidence-no-file-check]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
     '',
     'Use --no-ci only to draft a local summary without contacting GitHub.',
+    'Use --verify-evidence to require the listed Stage 7 JSON evidence files to pass scripts/verify_stage7_evidence.mjs.',
   ].join('\n');
 }
 
@@ -346,6 +360,12 @@ function formatEvidenceFiles(evidenceFiles) {
   return evidenceFiles.map(file => `- ${file}`).join('\n');
 }
 
+function formatEvidenceVerification(evidenceSummary) {
+  if (!evidenceSummary) return 'not checked';
+  if (evidenceSummary.ok) return 'pass';
+  return `fail: ${evidenceSummary.error || 'unknown error'}`;
+}
+
 function formatJobRows(summary) {
   if (!summary) return '_CI was not checked._';
   return [
@@ -361,6 +381,7 @@ function formatJobRows(summary) {
 export function buildReleaseCandidatePayload({
   branch,
   evidenceFiles = [],
+  evidenceSummary = null,
   generatedAt = new Date().toISOString(),
   gitStatus = '',
   headSha,
@@ -372,6 +393,7 @@ export function buildReleaseCandidatePayload({
   const requiredJobsReady = requiredJobSummary?.ok === true;
   const runReady = isRunReady(run);
   const ciReady = requiredJobsReady && runReady;
+  const evidenceReady = evidenceSummary ? evidenceSummary.ok === true : true;
   const requiredJobs = requiredJobSummary
     ? requiredJobSummary.rows.map(row => ({
       conclusion: row.conclusion,
@@ -403,9 +425,22 @@ export function buildReleaseCandidatePayload({
         : null,
     },
     evidenceFiles,
+    evidenceVerification: evidenceSummary
+      ? {
+        checked: true,
+        error: evidenceSummary.error || '',
+        ok: evidenceSummary.ok,
+        output: evidenceSummary.output || '',
+      }
+      : {
+        checked: false,
+        error: '',
+        ok: true,
+        output: '',
+      },
     generatedAt,
     headSha: headSha || '',
-    ready: treeClean && ciReady,
+    ready: treeClean && ciReady && evidenceReady,
     repo: repo || '',
     workingTree: {
       clean: treeClean,
@@ -422,6 +457,7 @@ export function buildReleaseCandidateSummary(options) {
   const {
     branch,
     evidenceFiles = [],
+    evidenceSummary = null,
     generatedAt = new Date().toISOString(),
     gitStatus = '',
     headSha,
@@ -432,6 +468,7 @@ export function buildReleaseCandidateSummary(options) {
   const payload = buildReleaseCandidatePayload({
     branch,
     evidenceFiles,
+    evidenceSummary,
     generatedAt,
     gitStatus,
     headSha,
@@ -462,11 +499,48 @@ export function buildReleaseCandidateSummary(options) {
     '',
     formatEvidenceFiles(evidenceFiles),
     '',
+    `Evidence verification: ${formatEvidenceVerification(evidenceSummary)}`,
+    '',
     '## Decision',
     '',
     `Ready for deployment handoff: ${payload.ready ? 'yes' : 'no'}`,
     '',
   ].join('\n');
+}
+
+export function verifyEvidenceFiles(evidenceFiles, {
+  noFileCheck = false,
+} = {}) {
+  if (!evidenceFiles.length) {
+    return {
+      error: '',
+      ok: true,
+      output: 'No optional evidence files listed.',
+    };
+  }
+
+  const args = [path.join(SCRIPT_DIR, 'verify_stage7_evidence.mjs')];
+  if (noFileCheck) args.push('--no-file-check');
+  args.push(...evidenceFiles);
+
+  try {
+    const output = execFileSync(process.execPath, args, {
+      cwd: ROOT_DIR,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    return {
+      error: '',
+      ok: true,
+      output,
+    };
+  } catch (error) {
+    return {
+      error: (error.stderr || error.stdout || error.message || String(error)).trim(),
+      ok: false,
+      output: (error.stdout || '').trim(),
+    };
+  }
 }
 
 async function writeOutput(filePath, text) {
@@ -530,6 +604,9 @@ export async function runCli(argv = process.argv.slice(2), {
   const summaryOptions = {
     branch,
     evidenceFiles: args.evidenceFiles,
+    evidenceSummary: args.evidenceVerified
+      ? verifyEvidenceFiles(args.evidenceFiles, { noFileCheck: args.evidenceNoFileCheck })
+      : null,
     gitStatus: local.status,
     headSha,
     repo,
