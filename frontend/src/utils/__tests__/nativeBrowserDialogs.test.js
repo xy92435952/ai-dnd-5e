@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcRoot = path.resolve(__dirname, '..', '..')
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx'])
-const nativeDialogCallPattern = /(?<![\w$])(?:(?:window|globalThis)\s*\.\s*)?(alert|confirm|prompt)\s*\(/g
+const nativeDialogCallPattern = /(?<![\w$])(?:(?:window|globalThis)\s*(?:\.|\?\.)\s*)?(alert|confirm|prompt)\s*(?:\?\.)?\s*\(/g
 
 function shouldScanFile(filePath) {
   const normalized = filePath.split(path.sep).join('/')
@@ -26,7 +26,19 @@ function collectSourceFiles(dir) {
   })
 }
 
+function hasNativeDialogCall(line) {
+  nativeDialogCallPattern.lastIndex = 0
+  return nativeDialogCallPattern.test(line)
+}
+
 describe('native browser dialog policy', () => {
+  it('detects optional chaining browser dialog calls', () => {
+    expect(hasNativeDialogCall('globalThis.confirm?.("Use it?")')).toBe(true)
+    expect(hasNativeDialogCall('window?.alert?.("Blocked")')).toBe(true)
+    expect(hasNativeDialogCall('prompt?.("Name")')).toBe(true)
+    expect(hasNativeDialogCall('const reactionPrompt = buildPrompt()')).toBe(false)
+  })
+
   it('keeps production source free of blocking browser dialogs', () => {
     const offenders = []
 
@@ -35,8 +47,7 @@ describe('native browser dialog policy', () => {
       const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/)
 
       lines.forEach((line, index) => {
-        nativeDialogCallPattern.lastIndex = 0
-        if (nativeDialogCallPattern.test(line)) {
+        if (hasNativeDialogCall(line)) {
           offenders.push(`${relativePath}:${index + 1}: ${line.trim()}`)
         }
       })

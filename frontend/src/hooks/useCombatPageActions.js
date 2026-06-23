@@ -4,7 +4,7 @@
  * 把 WS 事件分发、技能点击路由、移动操作、AoE hover 这类“页面知道很多、
  * 但单个子组件不该知道”的动作收拢在一起，Combat.jsx 只保留布局和状态拼装。
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { gameApi, roomsApi } from '../api/client'
 import { rollDice3D } from '../components/DiceRollerOverlay'
 import { buildSpellAoePreview, getAoePreviewCenterKey, getCombatTurnToken, getSkillUnavailableReason } from '../utils/combat'
@@ -311,10 +311,32 @@ export function useCombatPageActions({
   const actorId = playerId || myCharacterId
   const actor = actorId ? (entities?.[actorId] || combat?.entities?.[actorId] || null) : null
   const [readyMoveDraft, setReadyMoveDraft] = useState(null)
+  const [cuttingWordsConfirm, setCuttingWordsConfirm] = useState(null)
+  const cuttingWordsConfirmResolverRef = useRef(null)
 
   useEffect(() => {
     if (!moveMode && readyMoveDraft) setReadyMoveDraft(null)
   }, [moveMode, readyMoveDraft])
+
+  useEffect(() => () => {
+    cuttingWordsConfirmResolverRef.current?.(false)
+    cuttingWordsConfirmResolverRef.current = null
+  }, [])
+
+  const resolveCuttingWordsConfirm = useCallback((confirmed) => {
+    const resolver = cuttingWordsConfirmResolverRef.current
+    cuttingWordsConfirmResolverRef.current = null
+    setCuttingWordsConfirm(null)
+    resolver?.(confirmed)
+  }, [])
+
+  const confirmCuttingWordsCheck = useCallback(() => {
+    resolveCuttingWordsConfirm(true)
+  }, [resolveCuttingWordsConfirm])
+
+  const cancelCuttingWordsCheck = useCallback(() => {
+    resolveCuttingWordsConfirm(false)
+  }, [resolveCuttingWordsConfirm])
 
   const onWsEvent = useCallback((event) => {
     switch (event.type) {
@@ -527,9 +549,18 @@ export function useCombatPageActions({
       ...(actor || {}),
       turn_state: combat?.turn_states?.[actorId],
     }),
-    confirmCuttingWordsAbilityCheck: ({ die }) => (
-      globalThis.confirm?.(`Use Cutting Words ${die} on the target's contested check?`) ?? false
-    ),
+    confirmCuttingWordsAbilityCheck: ({ die, faces, actionType, targetId }) => new Promise((resolve) => {
+      const target = targetId ? (entities?.[targetId] || combat?.entities?.[targetId]) : null
+      cuttingWordsConfirmResolverRef.current?.(false)
+      cuttingWordsConfirmResolverRef.current = resolve
+      setCuttingWordsConfirm({
+        actionType,
+        die,
+        faces,
+        targetId,
+        targetName: target?.name || targetId || 'target',
+      })
+    }),
     rollCuttingWordsDie: (faces) => rollDice3D(faces, 1),
     showDice,
     getActorId: () => actorId,
@@ -845,5 +876,8 @@ export function useCombatPageActions({
     handleHelpTarget,
     handleInspectTarget,
     handleSpellHover,
+    cuttingWordsConfirm,
+    confirmCuttingWordsCheck,
+    cancelCuttingWordsCheck,
   }
 }

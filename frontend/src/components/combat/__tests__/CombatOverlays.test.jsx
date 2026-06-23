@@ -103,4 +103,49 @@ describe('CombatOverlays', () => {
     expect(onCancelForceEndCombat).toHaveBeenCalledTimes(1)
     expect(onConfirmForceEndCombat).toHaveBeenCalledTimes(1)
   })
+
+  it('renders Cutting Words contested-check confirmation as a stable in-app dialog', () => {
+    const onConfirmCuttingWordsCheck = vi.fn()
+    const onCancelCuttingWordsCheck = vi.fn()
+
+    renderOverlays({
+      cuttingWordsConfirm: {
+        actionType: 'grapple',
+        die: 'd8',
+        faces: 8,
+        targetId: 'enemy-1',
+        targetName: 'Training Dummy',
+      },
+      onConfirmCuttingWordsCheck,
+      onCancelCuttingWordsCheck,
+    })
+
+    const dialog = screen.getByRole('dialog', { name: 'Use Cutting Words?' })
+    expect(dialog).toHaveClass('combat-cutting-words-confirm')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog.querySelector('.combat-cutting-words-confirm-panel')).toHaveAttribute('data-action', 'grapple')
+    expect(screen.getByText("Spend Bardic Inspiration to subtract d8 from Training Dummy's contested check.")).toHaveAttribute(
+      'id',
+      'combat-cutting-words-confirm-desc',
+    )
+
+    const context = screen.getByRole('group', { name: 'Cutting Words roll context' })
+    expect(context).toHaveClass('combat-cutting-words-confirm-meta')
+    expect(context).toHaveTextContent('d8')
+    expect(context).toHaveTextContent('Grapple')
+    expect(context).toHaveTextContent('Training Dummy')
+
+    const actions = screen.getByRole('group', { name: 'Cutting Words confirmation actions' })
+    expect(actions).toHaveClass('combat-cutting-words-confirm-actions')
+    const cancel = screen.getByRole('button', { name: 'Skip' })
+    const confirm = screen.getByRole('button', { name: 'Use Cutting Words' })
+    expect(cancel).toHaveClass('combat-cutting-words-confirm-cancel')
+    expect(confirm).toHaveClass('combat-cutting-words-confirm-submit')
+
+    fireEvent.click(cancel)
+    fireEvent.click(confirm)
+
+    expect(onCancelCuttingWordsCheck).toHaveBeenCalledTimes(1)
+    expect(onConfirmCuttingWordsCheck).toHaveBeenCalledTimes(1)
+  })
 })

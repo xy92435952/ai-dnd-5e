@@ -178,7 +178,17 @@ export function useCombatRuntime({
     onCombatEnded: handleCombatEnded,
   })
 
-  const { onWsEvent, onSkillClick, handleMoveTo, handleHelpTarget, handleInspectTarget, handleSpellHover } = useCombatPageActions({
+  const {
+    onWsEvent,
+    onSkillClick,
+    handleMoveTo,
+    handleHelpTarget,
+    handleInspectTarget,
+    handleSpellHover,
+    cuttingWordsConfirm,
+    confirmCuttingWordsCheck,
+    cancelCuttingWordsCheck,
+  } = useCombatPageActions({
     sessionId,
     setRoom,
     myCharacterId,
@@ -270,6 +280,7 @@ export function useCombatRuntime({
     useBardicSpellSave,
     setUseBardicSpellSave,
     reactionPrompt,
+    cuttingWordsConfirm,
     legendaryActionPrompt,
     lairActionPrompt,
     prediction,
@@ -287,6 +298,8 @@ export function useCombatRuntime({
       handleHelpTarget: guardCombatAction(handleHelpTarget),
       handleInspectTarget: guardCombatAction(handleInspectTarget),
       handleSpellHover,
+      confirmCuttingWordsCheck,
+      cancelCuttingWordsCheck,
       handleEndTurn: guardCombatAction(flow.handleEndTurn),
       handleDelayTurn: guardCombatAction(flow.handleDelayTurn),
       handleCastSpell: guardCombatAction(flow.handleCastSpell),

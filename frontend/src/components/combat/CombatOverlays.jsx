@@ -4,6 +4,19 @@ import SmitePrompt from './SmitePrompt'
 import ReactionPrompt from './ReactionPrompt'
 import LegendaryActionPrompt from './LegendaryActionPrompt'
 
+function formatCuttingWordsAction(actionType) {
+  switch (actionType) {
+    case 'grapple':
+      return 'Grapple'
+    case 'shove':
+      return 'Shove'
+    case 'grapple_escape':
+      return 'Escape grapple'
+    default:
+      return 'Contested check'
+  }
+}
+
 export default function CombatOverlays({
   smitePrompt,
   playerSpellSlots,
@@ -30,11 +43,14 @@ export default function CombatOverlays({
   onUseManeuver,
   onCloseManeuver,
   reactionPrompt,
+  cuttingWordsConfirm,
   lairActionPrompt,
   legendaryActionPrompt,
   currentCharacterId,
   onReact,
   onCancelReaction,
+  onConfirmCuttingWordsCheck,
+  onCancelCuttingWordsCheck,
   onUseLairAction,
   onSkipLairAction,
   onUseLegendaryAction,
@@ -44,6 +60,10 @@ export default function CombatOverlays({
   onCancelForceEndCombat,
   error,
 }) {
+  const cuttingWordsDie = cuttingWordsConfirm?.die || `d${cuttingWordsConfirm?.faces || 6}`
+  const cuttingWordsTargetName = cuttingWordsConfirm?.targetName || cuttingWordsConfirm?.targetId || 'the target'
+  const cuttingWordsAction = formatCuttingWordsAction(cuttingWordsConfirm?.actionType)
+
   return (
     <>
       <SmitePrompt
@@ -88,6 +108,44 @@ export default function CombatOverlays({
         onReact={onReact}
         onCancel={onCancelReaction}
       />
+
+      {cuttingWordsConfirm && (
+        <div
+          className="combat-cutting-words-confirm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="combat-cutting-words-confirm-title"
+          aria-describedby="combat-cutting-words-confirm-desc"
+        >
+          <div className="combat-cutting-words-confirm-panel" data-action={cuttingWordsConfirm.actionType || 'contested_check'}>
+            <h2 id="combat-cutting-words-confirm-title">Use Cutting Words?</h2>
+            <p id="combat-cutting-words-confirm-desc">
+              Spend Bardic Inspiration to subtract {cuttingWordsDie} from {cuttingWordsTargetName}'s contested check.
+            </p>
+            <div className="combat-cutting-words-confirm-meta" role="group" aria-label="Cutting Words roll context">
+              <span>{cuttingWordsDie}</span>
+              <span>{cuttingWordsAction}</span>
+              <span>{cuttingWordsTargetName}</span>
+            </div>
+            <div className="combat-cutting-words-confirm-actions" role="group" aria-label="Cutting Words confirmation actions">
+              <button
+                type="button"
+                className="btn-ghost combat-cutting-words-confirm-cancel"
+                onClick={onCancelCuttingWordsCheck}
+              >
+                Skip
+              </button>
+              <button
+                type="button"
+                className="btn-gold combat-cutting-words-confirm-submit"
+                onClick={onConfirmCuttingWordsCheck}
+              >
+                Use Cutting Words
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <LegendaryActionPrompt
         prompt={lairActionPrompt}

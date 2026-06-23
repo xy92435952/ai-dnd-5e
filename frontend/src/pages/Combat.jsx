@@ -100,6 +100,7 @@ export default function Combat() {
     useBardicSpellSave,
     setUseBardicSpellSave,
     reactionPrompt,
+    cuttingWordsConfirm,
     legendaryActionPrompt,
     lairActionPrompt,
     prediction,
@@ -221,6 +222,8 @@ export default function Combat() {
     handleHelpTarget,
     handleInspectTarget,
     handleSpellHover,
+    confirmCuttingWordsCheck,
+    cancelCuttingWordsCheck,
     handleEndTurn,
     handleDelayTurn,
     handleEndConcentration,
@@ -445,11 +448,14 @@ export default function Combat() {
         onUseManeuver={handleManeuver}
         onCloseManeuver={() => setManeuverModalOpen(false)}
         reactionPrompt={reactionPrompt}
+        cuttingWordsConfirm={cuttingWordsConfirm}
         lairActionPrompt={lairActionPrompt}
         legendaryActionPrompt={legendaryActionPrompt}
         currentCharacterId={effectivePlayerId || playerId}
         onReact={handleReaction}
         onCancelReaction={handleCancelReaction}
+        onConfirmCuttingWordsCheck={confirmCuttingWordsCheck}
+        onCancelCuttingWordsCheck={cancelCuttingWordsCheck}
         onUseLairAction={handleLairAction}
         onSkipLairAction={handleSkipLairAction}
         onUseLegendaryAction={handleLegendaryAction}

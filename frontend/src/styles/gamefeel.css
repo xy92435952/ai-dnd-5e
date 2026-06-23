@@ -9965,7 +9965,8 @@ button.companion-signal-item:focus-visible {
   font-size: 12px;
   line-height: 1.4;
 }
-.combat-force-end-confirm {
+.combat-force-end-confirm,
+.combat-cutting-words-confirm {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -9974,7 +9975,8 @@ button.companion-signal-item:focus-visible {
   padding: 20px;
   background: rgba(0,0,0,.58);
 }
-.combat-force-end-confirm-panel {
+.combat-force-end-confirm-panel,
+.combat-cutting-words-confirm-panel {
   width: min(420px, 100%);
   padding: 18px;
   border: 1px solid rgba(213,184,121,.42);
@@ -9982,26 +9984,44 @@ button.companion-signal-item:focus-visible {
   background: linear-gradient(180deg, rgba(28,20,15,.98), rgba(16,12,10,.98));
   box-shadow: 0 22px 60px rgba(0,0,0,.55);
 }
-.combat-force-end-confirm-panel h2 {
+.combat-force-end-confirm-panel h2,
+.combat-cutting-words-confirm-panel h2 {
   margin: 0;
   color: var(--gold);
   font-family: var(--font-heading);
   font-size: 18px;
 }
-.combat-force-end-confirm-panel p {
+.combat-force-end-confirm-panel p,
+.combat-cutting-words-confirm-panel p {
   margin: 8px 0 0;
   color: var(--parchment-dark);
   font-size: 13px;
   line-height: 1.45;
 }
-.combat-force-end-confirm-actions {
+.combat-cutting-words-confirm-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.combat-cutting-words-confirm-meta span {
+  padding: 3px 7px;
+  border: 1px solid rgba(213,184,121,.32);
+  color: rgba(232,200,160,.84);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.combat-force-end-confirm-actions,
+.combat-cutting-words-confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 16px;
 }
 .combat-force-end-confirm-cancel,
-.combat-force-end-confirm-submit {
+.combat-force-end-confirm-submit,
+.combat-cutting-words-confirm-cancel,
+.combat-cutting-words-confirm-submit {
   min-width: 104px;
 }
 .combat-overlay-error {
