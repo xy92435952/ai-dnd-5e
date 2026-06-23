@@ -6,6 +6,7 @@ import {
   parseArgs,
   REQUIRED_STAGE7_CI_JOBS,
   summarizeRequiredCiJobs,
+  waitForRequiredCiJobs,
 } from '../../../scripts/stage7_release_candidate_summary.mjs'
 
 function successfulJobs() {
@@ -15,6 +16,24 @@ function successfulJobs() {
     name,
     status: 'completed',
   }))
+}
+
+function responseJson(data) {
+  return {
+    ok: true,
+    text: async () => JSON.stringify(data),
+  }
+}
+
+function createFetchSequence({ runs, jobs }) {
+  const runQueue = [...runs]
+  const jobQueue = [...jobs]
+  return async url => {
+    if (url.includes('/jobs')) {
+      return responseJson({ jobs: jobQueue.shift() || [] })
+    }
+    return responseJson(runQueue.shift() || runs.at(-1))
+  }
 }
 
 describe('Stage 7 release candidate summary', () => {
@@ -109,9 +128,13 @@ describe('Stage 7 release candidate summary', () => {
       '--branch=main',
       '--head',
       'abc123',
+      '--wait',
+      '--poll-seconds=5',
       '--run-id=42',
       '--output',
       'artifacts/summary.md',
+      '--timeout-seconds',
+      '1200',
       '--evidence',
       'artifacts/manifest.json',
       'artifacts/load.json',
@@ -120,8 +143,11 @@ describe('Stage 7 release candidate summary', () => {
       evidenceFiles: ['artifacts/manifest.json', 'artifacts/load.json'],
       headSha: 'abc123',
       output: 'artifacts/summary.md',
+      pollSeconds: 5,
       repo: 'xy92435952/ai-dnd-5e',
       runId: '42',
+      timeoutSeconds: 1200,
+      wait: true,
     })
   })
 
@@ -129,5 +155,113 @@ describe('Stage 7 release candidate summary', () => {
     expect(inferGitHubRepo('git@github.com:xy92435952/ai-dnd-5e.git')).toBe('xy92435952/ai-dnd-5e')
     expect(inferGitHubRepo('https://github.com/xy92435952/ai-dnd-5e.git')).toBe('xy92435952/ai-dnd-5e')
     expect(inferGitHubRepo('https://example.test/not-github.git')).toBe('')
+  })
+
+  it('waits for required GitHub Actions jobs to reach final success', async () => {
+    const sleepCalls = []
+    const result = await waitForRequiredCiJobs({
+      branch: 'main',
+      fetchImpl: createFetchSequence({
+        runs: [
+          {
+            conclusion: null,
+            id: 100,
+            name: 'CI',
+            status: 'in_progress',
+          },
+          {
+            conclusion: 'success',
+            id: 100,
+            name: 'CI',
+            status: 'completed',
+          },
+        ],
+        jobs: [
+          [
+            {
+              conclusion: null,
+              name: 'backend',
+              status: 'in_progress',
+            },
+            {
+              conclusion: 'success',
+              name: 'frontend',
+              status: 'completed',
+            },
+            {
+              conclusion: 'success',
+              name: 'frontend-prod-build',
+              status: 'completed',
+            },
+          ],
+          successfulJobs(),
+        ],
+      }),
+      headSha: 'abc123',
+      pollSeconds: 1,
+      repo: 'xy92435952/ai-dnd-5e',
+      runId: '100',
+      sleepImpl: async ms => {
+        sleepCalls.push(ms)
+      },
+      timeoutSeconds: 60,
+    })
+
+    expect(sleepCalls).toEqual([1000])
+    expect(result.run.status).toBe('completed')
+    expect(result.requiredJobSummary.ok).toBe(true)
+  })
+
+  it('stops waiting when a required GitHub Actions job fails', async () => {
+    const sleepCalls = []
+    const result = await waitForRequiredCiJobs({
+      branch: 'main',
+      fetchImpl: createFetchSequence({
+        runs: [
+          {
+            conclusion: null,
+            id: 101,
+            name: 'CI',
+            status: 'in_progress',
+          },
+        ],
+        jobs: [
+          [
+            {
+              conclusion: 'failure',
+              html_url: 'https://github.test/jobs/backend',
+              name: 'backend',
+              status: 'completed',
+            },
+            {
+              conclusion: null,
+              name: 'frontend',
+              status: 'in_progress',
+            },
+            {
+              conclusion: 'success',
+              name: 'frontend-prod-build',
+              status: 'completed',
+            },
+          ],
+        ],
+      }),
+      headSha: 'abc123',
+      pollSeconds: 1,
+      repo: 'xy92435952/ai-dnd-5e',
+      runId: '101',
+      sleepImpl: async ms => {
+        sleepCalls.push(ms)
+      },
+      timeoutSeconds: 60,
+    })
+
+    expect(sleepCalls).toEqual([])
+    expect(result.requiredJobSummary.ok).toBe(false)
+    expect(result.requiredJobSummary.rows.find(row => row.name === 'backend')).toMatchObject({
+      conclusion: 'failure',
+      ok: false,
+      reason: 'completed/failure',
+    })
   })
 })

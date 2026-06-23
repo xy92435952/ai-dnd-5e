@@ -420,18 +420,21 @@ Keep the local or CI evidence from this checklist with the release note:
   changed
 
 Generate a release-candidate handoff summary after CI has finished for the
-candidate commit. The script checks the selected run and fails unless
+candidate commit. Use `--wait` after a fresh push so the script polls GitHub
+Actions until the required jobs have final conclusions, and fails unless
 `backend`, `frontend`, and `frontend-prod-build` are all completed with
 `success`:
 
 ```powershell
-node scripts\stage7_release_candidate_summary.mjs --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.md
+node scripts\stage7_release_candidate_summary.mjs --wait --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.md
 ```
 
 Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke
 or multiplayer load-smoke artifacts that should be listed in the handoff note.
 Use `--run-id <id>` when checking a specific workflow run instead of the latest
-run for the current commit.
+run for the current commit. The default wait cadence is 20 seconds with a
+30-minute timeout; override with `--poll-seconds` and `--timeout-seconds` for a
+slower or faster environment.
 
 Verify machine-readable smoke evidence before handoff:
 

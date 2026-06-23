@@ -37,8 +37,11 @@ export function parseArgs(argv = process.argv.slice(2)) {
     help: false,
     noCi: false,
     output: '',
+    pollSeconds: 20,
     repo: '',
     runId: '',
+    timeoutSeconds: 1800,
+    wait: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -49,6 +52,10 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
     if (arg === '--no-ci') {
       args.noCi = true;
+      continue;
+    }
+    if (arg === '--wait') {
+      args.wait = true;
       continue;
     }
     if (arg === '--repo') {
@@ -96,6 +103,24 @@ export function parseArgs(argv = process.argv.slice(2)) {
       args.output = arg.slice('--output='.length);
       continue;
     }
+    if (arg === '--poll-seconds') {
+      args.pollSeconds = Number(argv[index + 1] || '');
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--poll-seconds=')) {
+      args.pollSeconds = Number(arg.slice('--poll-seconds='.length));
+      continue;
+    }
+    if (arg === '--timeout-seconds') {
+      args.timeoutSeconds = Number(argv[index + 1] || '');
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--timeout-seconds=')) {
+      args.timeoutSeconds = Number(arg.slice('--timeout-seconds='.length));
+      continue;
+    }
     if (arg === '--evidence') {
       args.evidenceFiles.push(argv[index + 1] || '');
       index += 1;
@@ -115,7 +140,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <md-file>] [--evidence <file>...]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <md-file>] [--evidence <file>...]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
@@ -212,6 +237,55 @@ export function summarizeRequiredCiJobs(jobs, requiredJobs = REQUIRED_STAGE7_CI_
   };
 }
 
+function validateWaitOptions({ pollSeconds, timeoutSeconds }) {
+  if (!Number.isFinite(pollSeconds) || pollSeconds <= 0) {
+    throw new Error('--poll-seconds must be a positive number.');
+  }
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) {
+    throw new Error('--timeout-seconds must be a positive number.');
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function hasRequiredJobFailure(requiredJobSummary) {
+  return requiredJobSummary.rows.some(row => row.status === 'completed' && row.conclusion !== 'success');
+}
+
+export async function waitForRequiredCiJobs({
+  repo,
+  branch,
+  headSha,
+  runId,
+  fetchImpl = globalThis.fetch,
+  token,
+  pollSeconds = 20,
+  timeoutSeconds = 1800,
+  sleepImpl = sleep,
+}) {
+  validateWaitOptions({ pollSeconds, timeoutSeconds });
+  const startedAt = Date.now();
+
+  for (;;) {
+    const run = await fetchRunForHead({ repo, branch, headSha, runId, fetchImpl, token });
+    const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
+    const requiredJobSummary = summarizeRequiredCiJobs(jobs);
+
+    if (requiredJobSummary.ok || hasRequiredJobFailure(requiredJobSummary) || run.status === 'completed') {
+      return { jobs, requiredJobSummary, run };
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= timeoutSeconds * 1000) {
+      throw new Error(`Timed out waiting for GitHub Actions run ${run.id} after ${timeoutSeconds}s.`);
+    }
+
+    await sleepImpl(pollSeconds * 1000);
+  }
+}
+
 function markdownLink(label, url) {
   return url ? `[${label}](${url})` : label;
 }
@@ -285,6 +359,7 @@ async function writeOutput(filePath, text) {
 
 export async function runCli(argv = process.argv.slice(2), {
   fetchImpl = globalThis.fetch,
+  sleepImpl = sleep,
   token = process.env.GITHUB_TOKEN,
 } = {}) {
   const args = parseArgs(argv);
@@ -308,9 +383,26 @@ export async function runCli(argv = process.argv.slice(2), {
   let run = null;
   let requiredJobSummary = null;
   if (!args.noCi) {
-    run = await fetchRunForHead({ repo, branch, headSha, runId: args.runId, fetchImpl, token });
-    const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
-    requiredJobSummary = summarizeRequiredCiJobs(jobs);
+    if (args.wait) {
+      const result = await waitForRequiredCiJobs({
+        repo,
+        branch,
+        headSha,
+        runId: args.runId,
+        fetchImpl,
+        pollSeconds: args.pollSeconds,
+        sleepImpl,
+        timeoutSeconds: args.timeoutSeconds,
+        token,
+      });
+      run = result.run;
+      requiredJobSummary = result.requiredJobSummary;
+    } else {
+      validateWaitOptions({ pollSeconds: args.pollSeconds, timeoutSeconds: args.timeoutSeconds });
+      run = await fetchRunForHead({ repo, branch, headSha, runId: args.runId, fetchImpl, token });
+      const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
+      requiredJobSummary = summarizeRequiredCiJobs(jobs);
+    }
   }
 
   const summary = buildReleaseCandidateSummary({
