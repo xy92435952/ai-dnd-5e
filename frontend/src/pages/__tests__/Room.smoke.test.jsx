@@ -329,7 +329,7 @@ describe('Room multiplayer lobby', () => {
     cleanup()
   })
 
-  it('confirms host member management through the in-app confirmation dialog', async () => {
+  it('confirms host transfer through the in-app confirmation dialog', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
     render(
       <MemoryRouter initialEntries={['/room/sess-1']}>
@@ -342,7 +342,7 @@ describe('Room multiplayer lobby', () => {
     await screen.findByText(/联机准备/)
     fireEvent.click(screen.getByRole('button', { name: '转让' }))
 
-    let dialog = screen.getByRole('dialog', { name: '转让房主' })
+    const dialog = screen.getByRole('dialog', { name: '转让房主' })
     expect(dialog).toHaveClass('room-confirm-dialog')
     expect(dialog.querySelector('.room-confirm-panel')).toHaveAttribute('data-action', 'transfer')
     expect(screen.getByText('确认后该成员会成为新的房主，并接手启动冒险与成员管理权限。')).toHaveAttribute('id', 'room-confirm-desc')
@@ -358,9 +358,26 @@ describe('Room multiplayer lobby', () => {
     await waitFor(() => {
       expect(roomTransferMock).toHaveBeenCalledWith('sess-1', 'u2')
     })
+    expect(confirmSpy).not.toHaveBeenCalled()
+
+    confirmSpy.mockRestore()
+    cleanup()
+  })
+
+  it('confirms kick votes through the in-app confirmation dialog', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockImplementation(() => true)
+    render(
+      <MemoryRouter initialEntries={['/room/sess-1']}>
+        <Routes>
+          <Route path="/room/:sessionId" element={<Room />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await screen.findByText(/联机准备/)
 
     fireEvent.click(screen.getByRole('button', { name: '发起移出投票' }))
-    dialog = screen.getByRole('dialog', { name: '移出成员投票' })
+    const dialog = screen.getByRole('dialog', { name: '移出成员投票' })
     expect(dialog).toHaveClass('room-confirm-dialog')
     expect(dialog.querySelector('.room-confirm-panel')).toHaveAttribute('data-action', 'kick')
     expect(screen.getByText('这会发起或赞成移出该成员的投票，达到多数后才会执行。')).toHaveAttribute('id', 'room-confirm-desc')
