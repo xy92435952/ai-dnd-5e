@@ -261,11 +261,17 @@ export async function fetchRunJobs({ repo, runId, fetchImpl = globalThis.fetch, 
   return Array.isArray(data.jobs) ? data.jobs : [];
 }
 
+function normalizeCiConclusion(conclusion, status) {
+  if (conclusion) return conclusion;
+  if (!status || status === 'missing') return 'missing';
+  return status !== 'completed' ? 'pending' : 'missing';
+}
+
 export function summarizeRequiredCiJobs(jobs, requiredJobs = REQUIRED_STAGE7_CI_JOBS) {
   const rows = requiredJobs.map(name => {
     const job = jobs.find(candidate => candidate.name === name);
     const status = job?.status || 'missing';
-    const conclusion = job?.conclusion || 'missing';
+    const conclusion = normalizeCiConclusion(job?.conclusion, status);
     const ok = status === 'completed' && conclusion === 'success';
     const reason = job
       ? (ok ? 'success' : `${status}/${conclusion}`)
@@ -372,6 +378,51 @@ function formatEvidenceVerification(evidenceSummary) {
   return `fail: ${evidenceSummary.error || 'unknown error'}`;
 }
 
+export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) {
+  if (!requiredJobSummary) {
+    return [
+      {
+        conclusion: 'not checked',
+        kind: 'ci',
+        name: 'CI check',
+        reason: 'not checked',
+        status: 'not checked',
+        url: '',
+      },
+    ];
+  }
+
+  const blockers = [];
+
+  if (!isRunReady(run)) {
+    const status = run?.status || 'missing';
+    const conclusion = normalizeCiConclusion(run?.conclusion, status);
+    blockers.push({
+      conclusion,
+      kind: 'workflow',
+      name: run ? `${run.name || 'workflow'} #${run.id}` : 'workflow run',
+      reason: run ? `${status}/${conclusion}` : 'missing',
+      status,
+      url: run?.html_url || '',
+    });
+  }
+
+  requiredJobSummary.rows
+    .filter(row => !row.ok)
+    .forEach(row => {
+      blockers.push({
+        conclusion: row.conclusion,
+        kind: 'job',
+        name: row.name,
+        reason: row.reason,
+        status: row.status,
+        url: row.url,
+      });
+    });
+
+  return blockers;
+}
+
 function formatJobRows(summary) {
   if (!summary) return '_CI was not checked._';
   return [
@@ -382,6 +433,14 @@ function formatJobRows(summary) {
       return `| ${label} | ${row.status} | ${row.conclusion} | ${row.ok ? 'pass' : `fail: ${row.reason}`} |`;
     }),
   ].join('\n');
+}
+
+function formatCiBlockers(blockers) {
+  if (!blockers?.length) return '- None.';
+  return blockers.map(blocker => {
+    const label = markdownLink(blocker.name, blocker.url);
+    return `- ${label}: ${blocker.reason}`;
+  }).join('\n');
 }
 
 export function buildReleaseCandidatePayload({
@@ -399,6 +458,7 @@ export function buildReleaseCandidatePayload({
   const requiredJobsReady = requiredJobSummary?.ok === true;
   const runReady = isRunReady(run);
   const ciReady = requiredJobsReady && runReady;
+  const ciBlockers = buildCiBlockers({ requiredJobSummary, run });
   const evidenceReady = evidenceSummary ? evidenceSummary.ok === true : true;
   const requiredJobs = requiredJobSummary
     ? requiredJobSummary.rows.map(row => ({
@@ -414,6 +474,7 @@ export function buildReleaseCandidatePayload({
   return {
     branch: branch || '',
     ci: {
+      blockers: ciBlockers,
       checked: Boolean(requiredJobSummary),
       ready: ciReady,
       requiredJobsReady,
@@ -500,6 +561,10 @@ export function buildReleaseCandidateSummary(options) {
     '## Required CI Jobs',
     '',
     formatJobRows(requiredJobSummary),
+    '',
+    '## CI Blockers',
+    '',
+    formatCiBlockers(payload.ci.blockers),
     '',
     '## Evidence Files',
     '',

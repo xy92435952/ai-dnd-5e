@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import {
+  buildCiBlockers,
   buildReleaseCandidateJson,
   buildReleaseCandidatePayload,
   buildReleaseCandidateSummary,
@@ -120,6 +121,88 @@ describe('Stage 7 release candidate summary', () => {
     })
   })
 
+  it('surfaces actionable CI blockers for failed handoff checks', () => {
+    const requiredJobSummary = summarizeRequiredCiJobs([
+      {
+        conclusion: 'failure',
+        html_url: 'https://github.test/jobs/backend',
+        name: 'backend',
+        status: 'completed',
+      },
+      {
+        conclusion: null,
+        html_url: 'https://github.test/jobs/frontend',
+        name: 'frontend',
+        status: 'in_progress',
+      },
+    ])
+    const run = {
+      conclusion: 'failure',
+      html_url: 'https://github.test/actions/runs/99',
+      id: 99,
+      name: 'CI',
+      status: 'completed',
+    }
+    const payload = buildReleaseCandidatePayload({
+      branch: 'main',
+      gitStatus: '',
+      headSha: '85405ad',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary,
+      run,
+    })
+    const markdown = buildReleaseCandidateSummary({
+      branch: 'main',
+      gitStatus: '',
+      headSha: '85405ad',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary,
+      run,
+    })
+
+    expect(buildCiBlockers({ requiredJobSummary, run })).toEqual(payload.ci.blockers)
+    expect(payload.ready).toBe(false)
+    expect(payload.ci.blockers).toEqual([
+      {
+        conclusion: 'failure',
+        kind: 'workflow',
+        name: 'CI #99',
+        reason: 'completed/failure',
+        status: 'completed',
+        url: 'https://github.test/actions/runs/99',
+      },
+      {
+        conclusion: 'failure',
+        kind: 'job',
+        name: 'backend',
+        reason: 'completed/failure',
+        status: 'completed',
+        url: 'https://github.test/jobs/backend',
+      },
+      {
+        conclusion: 'pending',
+        kind: 'job',
+        name: 'frontend',
+        reason: 'in_progress/pending',
+        status: 'in_progress',
+        url: 'https://github.test/jobs/frontend',
+      },
+      {
+        conclusion: 'missing',
+        kind: 'job',
+        name: 'frontend-prod-build',
+        reason: 'missing',
+        status: 'missing',
+        url: '',
+      },
+    ])
+    expect(markdown).toContain('## CI Blockers')
+    expect(markdown).toContain('- [CI #99](https://github.test/actions/runs/99): completed/failure')
+    expect(markdown).toContain('- [backend](https://github.test/jobs/backend): completed/failure')
+    expect(markdown).toContain('- [frontend](https://github.test/jobs/frontend): in_progress/pending')
+    expect(markdown).toContain('- frontend-prod-build: missing')
+  })
+
   it('renders a handoff summary with CI links, evidence, and the final decision', () => {
     const requiredJobSummary = summarizeRequiredCiJobs(successfulJobs())
     const markdown = buildReleaseCandidateSummary({
@@ -144,6 +227,8 @@ describe('Stage 7 release candidate summary', () => {
     expect(markdown).toContain('# Stage 7 Release Candidate Summary')
     expect(markdown).toContain('Repository: xy92435952/ai-dnd-5e')
     expect(markdown).toContain('| [backend](https://github.test/jobs/backend) | completed | success | pass |')
+    expect(markdown).toContain('## CI Blockers')
+    expect(markdown).toContain('- None.')
     expect(markdown).toContain('artifacts/browser-feather-fall-adventure-manifest-20260623.json')
     expect(markdown).toContain('Evidence verification: not checked')
     expect(markdown).toContain('Ready for deployment handoff: yes')
