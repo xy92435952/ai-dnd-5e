@@ -448,7 +448,16 @@ async function writeJsonArtifact(filePath, value) {
 
 async function readUiState(cdp) {
   return evalPage(cdp, `(() => {
-    const dialog = document.querySelector('[role="dialog"][aria-label="Exploration reaction prompt"]');
+    const textFromIds = (value) => (value || '')
+      .split(/\\s+/)
+      .map((id) => document.getElementById(id)?.textContent || '')
+      .join(' ')
+      .replace(/\\s+/g, ' ')
+      .trim();
+    const dialog = Array.from(document.querySelectorAll('[role="dialog"].exploration-reaction-prompt'))
+      .find((candidate) => textFromIds(candidate.getAttribute('aria-labelledby')).includes('Feather Fall')) || null;
+    const dialogName = dialog ? textFromIds(dialog.getAttribute('aria-labelledby')) : '';
+    const dialogDescription = dialog ? textFromIds(dialog.getAttribute('aria-describedby')) : '';
     const buttons = Array.from(document.querySelectorAll('button')).map((button) => ({
       text: (button.innerText || '').replace(/\\s+/g, ' ').trim(),
       disabled: button.disabled,
@@ -458,6 +467,8 @@ async function readUiState(cdp) {
       path: window.location.pathname,
       text: document.body?.innerText || '',
       dialogVisible: Boolean(dialog),
+      dialogName,
+      dialogDescription,
       dialogText: dialog ? (dialog.innerText || '').replace(/\\s+/g, ' ').trim() : '',
       buttons,
       castButtonVisible: buttons.some(button => button.text.includes('Cast Feather Fall')),
@@ -647,11 +658,11 @@ async function main() {
       const state = await readUiState(cdp);
       lastUiState = state;
       return state.dialogVisible
-        && state.dialogText.includes('Feather Fall')
+        && state.dialogName.includes('Feather Fall')
         && state.dialogText.includes('Mara Quickstep')
         && state.dialogText.includes('Smoke Sentinel')
         && state.dialogText.includes('Gatehouse drop shaft')
-        && state.dialogText.includes('Prevents 6 fall damage')
+        && state.dialogDescription.includes('Prevents 6 fall damage')
         && state.castButtonVisible
         && state.declineButtonVisible
         ? state
