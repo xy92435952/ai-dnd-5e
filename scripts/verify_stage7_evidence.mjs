@@ -106,6 +106,11 @@ function verifyFeatherFall(filePath, data, { noFileCheck }) {
     data.assertions.actual_caster_1st_slots === data.assertions.expected_caster_1st_slots,
     `${filePath}: actual_caster_1st_slots must match expected_caster_1st_slots`,
   );
+  ensure(typeof data.prompt?.dialogName === 'string' && data.prompt.dialogName.includes('Feather Fall'), `${filePath}: prompt.dialogName must include Feather Fall`);
+  ensure(typeof data.prompt?.dialogDescription === 'string' && data.prompt.dialogDescription.includes(`Prevents ${data.assertions.fall_damage} fall damage`), `${filePath}: prompt.dialogDescription must include prevented fall damage`);
+  ensure(data.prompt.dialogDescription.includes('Costs'), `${filePath}: prompt.dialogDescription must include reaction cost`);
+  ensure(data.prompt.dialogDescription.includes(`Cast prevents ${data.assertions.fall_damage} fall damage`), `${filePath}: prompt.dialogDescription must include cast outcome`);
+  ensure(data.prompt.dialogDescription.includes('Decline lets'), `${filePath}: prompt.dialogDescription must include decline outcome`);
   const expectedHpFromDecision = data.decision === 'decline'
     ? Math.max(0, data.assertions.before_hp - data.assertions.fall_damage)
     : data.assertions.before_hp;

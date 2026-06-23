@@ -450,7 +450,10 @@ async function readUiState(cdp) {
   return evalPage(cdp, `(() => {
     const textFromIds = (value) => (value || '')
       .split(/\\s+/)
-      .map((id) => document.getElementById(id)?.textContent || '')
+      .map((id) => {
+        const node = document.getElementById(id);
+        return node?.innerText || node?.textContent || '';
+      })
       .join(' ')
       .replace(/\\s+/g, ' ')
       .trim();
@@ -698,6 +701,8 @@ async function main() {
         companion_id: seed.companion_ids[0],
       },
       prompt: {
+        dialogName: promptState.dialogName,
+        dialogDescription: promptState.dialogDescription,
         dialogText: promptState.dialogText,
         buttons: promptState.buttons,
       },
