@@ -19,21 +19,26 @@ export default function CombatOutcomeOverlay({
     && recoverableThrownWeapons.length > 0
     && typeof onRecoverThrownWeapons === 'function'
   )
+  const hasRecoveryPanel = isVictory && (canRecoverThrownWeapons || recoveredSummary || recoveryError)
+  const titleId = 'combat-outcome-title'
+  const recoveryPanelId = 'combat-outcome-recovery'
 
   return (
     <section
       className={`combat-outcome-overlay ${isVictory ? 'victory' : 'defeat'}`}
       role="dialog"
       aria-modal="true"
-      aria-label={isVictory ? '战斗胜利结算' : '战斗失败结算'}
+      aria-labelledby={titleId}
+      aria-describedby={hasRecoveryPanel ? recoveryPanelId : undefined}
     >
       <div className="combat-outcome-mark" aria-hidden="true">{isVictory ? '胜' : '败'}</div>
-      <div className="display-title combat-outcome-title">
+      <div id={titleId} className="display-title combat-outcome-title">
         {isVictory ? '战斗胜利' : '全队阵亡'}
       </div>
 
-      {isVictory && (canRecoverThrownWeapons || recoveredSummary || recoveryError) && (
+      {hasRecoveryPanel && (
         <div
+          id={recoveryPanelId}
           data-testid="thrown-recovery-panel"
           className="thrown-recovery-panel"
           role="region"

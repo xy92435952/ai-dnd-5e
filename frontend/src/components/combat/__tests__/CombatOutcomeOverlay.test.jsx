@@ -22,11 +22,15 @@ describe('CombatOutcomeOverlay', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '战斗胜利结算' })
+    const dialog = screen.getByRole('dialog', { name: '战斗胜利' })
     expect(dialog).toHaveClass('victory')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'combat-outcome-title')
+    expect(dialog).toHaveAttribute('aria-describedby', 'combat-outcome-recovery')
     expect(within(dialog).getByText('战斗胜利')).toHaveClass('combat-outcome-title')
 
     const recovery = within(dialog).getByRole('region', { name: '投掷武器回收' })
+    expect(recovery).toHaveAttribute('id', 'combat-outcome-recovery')
     expect(recovery).toHaveAttribute('data-testid', 'thrown-recovery-panel')
     expect(within(recovery).getByRole('status')).toHaveTextContent('可回收 Javelin x1')
 
@@ -83,8 +87,10 @@ describe('CombatOutcomeOverlay', () => {
       />,
     )
 
-    const dialog = screen.getByRole('dialog', { name: '战斗失败结算' })
+    const dialog = screen.getByRole('dialog', { name: '全队阵亡' })
     expect(dialog).toHaveClass('defeat')
+    expect(dialog).toHaveAttribute('aria-labelledby', 'combat-outcome-title')
+    expect(dialog).not.toHaveAttribute('aria-describedby')
     expect(screen.queryByTestId('thrown-recovery-panel')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '回收投掷武器' })).not.toBeInTheDocument()
   })
@@ -94,7 +100,7 @@ describe('CombatOutcomeOverlay', () => {
 
     render(<CombatOutcomeOverlay combatOver="victory" onReturn={onReturn} />)
 
-    const dialog = screen.getByRole('dialog', { name: '战斗胜利结算' })
+    const dialog = screen.getByRole('dialog', { name: '战斗胜利' })
     expect(within(dialog).getByText('战斗胜利')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /返回冒险/ }))
     expect(onReturn).toHaveBeenCalledTimes(1)
