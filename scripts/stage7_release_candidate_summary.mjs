@@ -37,6 +37,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     branch: '',
     evidenceFiles: [],
     evidenceNoFileCheck: false,
+    evidenceRequired: false,
     evidenceVerified: false,
     format: 'markdown',
     headSha: '',
@@ -66,6 +67,10 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
     if (arg === '--evidence-no-file-check') {
       args.evidenceNoFileCheck = true;
+      continue;
+    }
+    if (arg === '--require-evidence') {
+      args.evidenceRequired = true;
       continue;
     }
     if (arg === '--wait') {
@@ -167,13 +172,14 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--evidence-no-file-check]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--evidence-no-file-check]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
     '',
     'Use --no-ci only to draft a local summary without contacting GitHub.',
     'Use --verify-evidence to require the listed Stage 7 JSON evidence files to pass scripts/verify_stage7_evidence.mjs.',
+    'Use --require-evidence when the release handoff must include at least one listed evidence file.',
   ].join('\n');
 }
 
@@ -510,8 +516,16 @@ export function buildReleaseCandidateSummary(options) {
 
 export function verifyEvidenceFiles(evidenceFiles, {
   noFileCheck = false,
+  requireEvidence = false,
 } = {}) {
   if (!evidenceFiles.length) {
+    if (requireEvidence) {
+      return {
+        error: 'At least one Stage 7 evidence file is required.',
+        ok: false,
+        output: '',
+      };
+    }
     return {
       error: '',
       ok: true,
@@ -604,8 +618,11 @@ export async function runCli(argv = process.argv.slice(2), {
   const summaryOptions = {
     branch,
     evidenceFiles: args.evidenceFiles,
-    evidenceSummary: args.evidenceVerified
-      ? verifyEvidenceFiles(args.evidenceFiles, { noFileCheck: args.evidenceNoFileCheck })
+    evidenceSummary: args.evidenceVerified || args.evidenceRequired
+      ? verifyEvidenceFiles(args.evidenceFiles, {
+        noFileCheck: args.evidenceNoFileCheck,
+        requireEvidence: args.evidenceRequired,
+      })
       : null,
     gitStatus: local.status,
     headSha,

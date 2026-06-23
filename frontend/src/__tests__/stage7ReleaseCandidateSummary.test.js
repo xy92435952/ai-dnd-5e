@@ -186,6 +186,7 @@ describe('Stage 7 release candidate summary', () => {
       '1200',
       '--verify-evidence',
       '--evidence-no-file-check',
+      '--require-evidence',
       '--evidence',
       'artifacts/manifest.json',
       'artifacts/load.json',
@@ -193,6 +194,7 @@ describe('Stage 7 release candidate summary', () => {
       branch: 'main',
       evidenceFiles: ['artifacts/manifest.json', 'artifacts/load.json'],
       evidenceNoFileCheck: true,
+      evidenceRequired: true,
       evidenceVerified: true,
       format: 'json',
       headSha: 'abc123',
@@ -387,6 +389,47 @@ describe('Stage 7 release candidate summary', () => {
     expect(verifyEvidenceFiles([badEvidence])).toMatchObject({
       ok: false,
     })
+  })
+
+  it('can require at least one evidence file for release handoff readiness', () => {
+    const evidenceSummary = verifyEvidenceFiles([], { requireEvidence: true })
+    const payload = buildReleaseCandidatePayload({
+      branch: 'main',
+      evidenceFiles: [],
+      evidenceSummary,
+      gitStatus: '',
+      headSha: 'd5b9fc7',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        id: 2,
+        name: 'CI',
+        status: 'completed',
+      },
+    })
+    const markdown = buildReleaseCandidateSummary({
+      branch: 'main',
+      evidenceFiles: [],
+      evidenceSummary,
+      gitStatus: '',
+      headSha: 'd5b9fc7',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        id: 2,
+        name: 'CI',
+        status: 'completed',
+      },
+    })
+
+    expect(evidenceSummary).toMatchObject({
+      error: 'At least one Stage 7 evidence file is required.',
+      ok: false,
+    })
+    expect(payload.ready).toBe(false)
+    expect(markdown).toContain('Evidence verification: fail: At least one Stage 7 evidence file is required.')
   })
 
   it('keeps the release candidate non-ready until the workflow run is complete', () => {

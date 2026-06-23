@@ -446,7 +446,9 @@ multiplayer load-smoke, or post-deploy healthcheck artifacts that should be
 listed in the handoff note. Add `--verify-evidence` when the evidence files are
 Stage 7 machine-readable JSON; the release summary then runs
 `scripts/verify_stage7_evidence.mjs`, records the result, and keeps top-level
-`ready=false` if any listed evidence fails verification. Use
+`ready=false` if any listed evidence fails verification. Add `--require-evidence`
+when the changed area requires smoke or post-deploy artifacts; this keeps the
+summary non-ready if no evidence file was listed at all. Use
 `--evidence-no-file-check` only for downloaded JSON artifacts whose sibling
 screenshots or local result path are not present. Use `--run-id <id>` when
 checking a specific workflow run instead of the latest run for the current
