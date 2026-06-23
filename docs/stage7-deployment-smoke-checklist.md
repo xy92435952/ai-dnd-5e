@@ -480,6 +480,12 @@ node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMD
 node scripts\verify_stage7_evidence.mjs artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json
 ```
 
+The verifier can also be pinned to a specific artifact shape with
+`--type feather-fall`, `--type multiplayer-load`, or
+`--type postdeploy-healthcheck`. `--type` values are validated before any JSON
+artifact is read, so a missing, empty, or unsupported value fails fast instead
+of producing a misleading evidence-type inference result.
+
 For Feather Fall browser manifests, the verifier checks the decision path,
 reaction type, prompt dialog name/description semantics, prompt cleanup,
 expected-vs-actual HP, and the caster's first level slot count in addition to

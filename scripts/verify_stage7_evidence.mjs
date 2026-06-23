@@ -6,6 +6,29 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
+const VALID_EVIDENCE_TYPES = ['auto', 'feather-fall', 'multiplayer-load', 'postdeploy-healthcheck'];
+
+function requiredOptionValue(argv, index, optionName) {
+  const value = argv[index + 1] || '';
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function requiredInlineOptionValue(value, optionName) {
+  if (!value) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function validateEvidenceType(type) {
+  if (!VALID_EVIDENCE_TYPES.includes(type)) {
+    throw new Error(`--type must be one of: ${VALID_EVIDENCE_TYPES.join(', ')}.`);
+  }
+  return type;
+}
 
 function parseArgs(argv = process.argv.slice(2)) {
   const result = {
@@ -17,12 +40,12 @@ function parseArgs(argv = process.argv.slice(2)) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--type') {
-      result.type = argv[index + 1] || '';
+      result.type = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--type=')) {
-      result.type = arg.slice('--type='.length);
+      result.type = requiredInlineOptionValue(arg.slice('--type='.length), '--type');
       continue;
     }
     if (arg === '--no-file-check') {
@@ -36,6 +59,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     result.files.push(arg);
   }
 
+  result.type = validateEvidenceType(result.type);
   return result;
 }
 
