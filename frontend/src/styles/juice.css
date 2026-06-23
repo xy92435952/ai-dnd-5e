@@ -26,6 +26,15 @@
   20%  { opacity: 1; }
   100% { opacity: 0; }
 }
+.jc-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--jc-flash-color, rgba(255, 240, 200, .6));
+  pointer-events: none;
+  z-index: 9999;
+  animation: jcFlash var(--jc-flash-duration, 260ms) ease-out forwards;
+  mix-blend-mode: screen;
+}
 
 /* ── 浮动反馈字 ── */
 .jc-floater {

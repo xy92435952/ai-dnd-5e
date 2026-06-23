@@ -183,6 +183,10 @@ adventure stage shell, stage speaker figure, stage dialogue bubble, dialogue pan
 coordination, multiplayer speak-turn, room page shell, room multiplayer readiness status, room member management cards, room AI companion cards, room lifecycle action controls, character-create ability score controls, character-create basics multiclass controls, character-create equipment language choices, character-create feat-choice step, character-create companion details, character-create party-size selector, character-create skill choices, character-create spell choices, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat overlay alerts, combat multiplayer turn status, shared multiplayer session status, shared websocket status pill, shared Magic Initiate choice fields, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 
+Shared `juice` flash feedback coverage is also in this gate through
+`src/__tests__/juice.test.js`, protecting the stable `.jc-flash` stylesheet
+chrome and the runtime `--jc-flash-color` / `--jc-flash-duration` variables.
+
 ## CI Release Gate
 
 The GitHub Actions workflow `.github/workflows/ci.yml` mirrors the deploy-safe

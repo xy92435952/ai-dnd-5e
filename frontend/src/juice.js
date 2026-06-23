@@ -137,13 +137,9 @@ function shake(el, intensity = 8, duration = 380) {
 function flash(el, color = 'rgba(255,240,200,.6)', duration = 260) {
   if (!el) return
   const f = document.createElement('div')
-  f.style.cssText = [
-    'position:absolute', 'inset:0',
-    `background:${color}`,
-    'pointer-events:none', 'z-index:9999',
-    `animation:jcFlash ${duration}ms ease-out forwards`,
-    'mix-blend-mode:screen',
-  ].join(';')
+  f.className = 'jc-flash'
+  f.style.setProperty('--jc-flash-color', color)
+  f.style.setProperty('--jc-flash-duration', `${duration}ms`)
   const prev = getComputedStyle(el).position
   if (prev === 'static') el.style.position = 'relative'
   el.appendChild(f)
