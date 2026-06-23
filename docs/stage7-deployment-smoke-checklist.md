@@ -418,6 +418,8 @@ Keep the local or CI evidence from this checklist with the release note:
   or privacy changed
 - CI `frontend-prod-build` result when frontend dependencies or build tooling
   changed
+- Stage 7 post-deploy healthcheck Markdown/JSON when a server pull/restart was
+  performed
 
 Generate a release-candidate handoff summary after CI has finished for the
 candidate commit. Use `--wait` after a fresh push so the script polls GitHub
@@ -530,6 +532,16 @@ Log checks:
 ```bash
 sudo journalctl -u ai-trpg -n 100 --no-pager
 sudo tail -n 100 /var/log/nginx/error.log
+```
+
+For a reusable post-deploy handoff artifact, run the Stage 7 healthcheck helper
+against the public and local health URLs. Pass copied or captured log snippets
+with `--log-file`; the helper fails if a health endpoint does not return
+`{"status":"ok"}` or if a log file contains `Traceback`, `ERROR`, or `500`:
+
+```powershell
+node scripts\stage7_postdeploy_healthcheck.mjs --url http://127.0.0.1:8000/health --url https://your-domain.example/api/health --log-file artifacts\server-journal-YYYYMMDD.log --log-file artifacts\nginx-error-YYYYMMDD.log
+node scripts\stage7_postdeploy_healthcheck.mjs --json --output artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json --url https://your-domain.example/api/health
 ```
 
 After restart, run at least one browser session through login, Adventure load,
