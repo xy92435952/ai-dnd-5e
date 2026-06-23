@@ -91,6 +91,21 @@ describe('Stage 7 post-deploy healthcheck', () => {
     })
   })
 
+  it('fails fast when post-deploy healthcheck options are missing or invalid', () => {
+    expect(() => parseArgs(['--format', '--json'])).toThrow('--format requires a value.')
+    expect(() => parseArgs(['--format='])).toThrow('--format requires a value.')
+    expect(() => parseArgs(['--output', '--url', 'https://example.test/api/health'])).toThrow('--output requires a value.')
+    expect(() => parseArgs(['--output='])).toThrow('--output requires a value.')
+    expect(() => parseArgs(['--url', '--json'])).toThrow('--url requires a value.')
+    expect(() => parseArgs(['--url='])).toThrow('--url requires a value.')
+    expect(() => parseArgs(['--log-file', '--json'])).toThrow('--log-file requires a value.')
+    expect(() => parseArgs(['--log-file='])).toThrow('--log-file requires a value.')
+    expect(() => parseArgs(['--timeout-ms', '--url', 'https://example.test/api/health'])).toThrow('--timeout-ms requires a value.')
+    expect(() => parseArgs(['--timeout-ms='])).toThrow('--timeout-ms requires a value.')
+    expect(() => parseArgs(['--timeout-ms', '0'])).toThrow('--timeout-ms must be a positive number.')
+    expect(() => parseArgs(['--timeout-ms=not-a-number'])).toThrow('--timeout-ms must be a positive number.')
+  })
+
   it('accepts HTTP 2xx health JSON with status ok', async () => {
     const result = await checkHealthUrl('https://example.test/api/health', {
       fetchImpl: async () => response({

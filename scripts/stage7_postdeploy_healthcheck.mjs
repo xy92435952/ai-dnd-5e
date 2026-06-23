@@ -22,6 +22,29 @@ export const DEFAULT_LOG_PATTERNS = [
   },
 ];
 
+function requiredOptionValue(argv, index, optionName) {
+  const value = argv[index + 1] || '';
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function requiredInlineOptionValue(value, optionName) {
+  if (!value) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function parsePositiveTimeoutMs(value, optionName) {
+  const timeoutMs = Number(value);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error(`${optionName} must be a positive number.`);
+  }
+  return timeoutMs;
+}
+
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     format: 'markdown',
@@ -43,48 +66,51 @@ export function parseArgs(argv = process.argv.slice(2)) {
       continue;
     }
     if (arg === '--format') {
-      args.format = argv[index + 1] || '';
+      args.format = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--format=')) {
-      args.format = arg.slice('--format='.length);
+      args.format = requiredInlineOptionValue(arg.slice('--format='.length), '--format');
       continue;
     }
     if (arg === '--output') {
-      args.output = argv[index + 1] || '';
+      args.output = requiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--output=')) {
-      args.output = arg.slice('--output='.length);
+      args.output = requiredInlineOptionValue(arg.slice('--output='.length), '--output');
       continue;
     }
     if (arg === '--timeout-ms') {
-      args.timeoutMs = Number(argv[index + 1] || 0);
+      args.timeoutMs = parsePositiveTimeoutMs(requiredOptionValue(argv, index, arg), arg);
       index += 1;
       continue;
     }
     if (arg.startsWith('--timeout-ms=')) {
-      args.timeoutMs = Number(arg.slice('--timeout-ms='.length));
+      args.timeoutMs = parsePositiveTimeoutMs(
+        requiredInlineOptionValue(arg.slice('--timeout-ms='.length), '--timeout-ms'),
+        '--timeout-ms',
+      );
       continue;
     }
     if (arg === '--url') {
-      args.urls.push(argv[index + 1] || '');
+      args.urls.push(requiredOptionValue(argv, index, arg));
       index += 1;
       continue;
     }
     if (arg.startsWith('--url=')) {
-      args.urls.push(arg.slice('--url='.length));
+      args.urls.push(requiredInlineOptionValue(arg.slice('--url='.length), '--url'));
       continue;
     }
     if (arg === '--log-file') {
-      args.logFiles.push(argv[index + 1] || '');
+      args.logFiles.push(requiredOptionValue(argv, index, arg));
       index += 1;
       continue;
     }
     if (arg.startsWith('--log-file=')) {
-      args.logFiles.push(arg.slice('--log-file='.length));
+      args.logFiles.push(requiredInlineOptionValue(arg.slice('--log-file='.length), '--log-file'));
       continue;
     }
     args.urls.push(arg);
@@ -92,9 +118,6 @@ export function parseArgs(argv = process.argv.slice(2)) {
 
   args.urls = args.urls.filter(Boolean);
   args.logFiles = args.logFiles.filter(Boolean);
-  if (!Number.isFinite(args.timeoutMs) || args.timeoutMs <= 0) {
-    args.timeoutMs = 10_000;
-  }
   return args;
 }
 
