@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -122,5 +126,16 @@ describe('Stage 7 deploy preflight', () => {
       output: 'artifacts/preflight.json',
       paths: ['backend/.env', 'frontend/dist'],
     })
+  })
+
+  it('exposes the deploy preflight as an opt-in check.sh gate', () => {
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+    const checkScript = readFileSync(path.join(repoRoot, 'scripts', 'check.sh'), 'utf8')
+
+    expect(checkScript).toContain('RUN_STAGE7_DEPLOY_PREFLIGHT')
+    expect(checkScript).toContain('STAGE7_DEPLOY_PREFLIGHT_ALLOW_DIRTY')
+    expect(checkScript).toContain('STAGE7_DEPLOY_PREFLIGHT_FORMAT')
+    expect(checkScript).toContain('STAGE7_DEPLOY_PREFLIGHT_OUTPUT')
+    expect(checkScript).toContain('node scripts/stage7_deploy_preflight.mjs')
   })
 })

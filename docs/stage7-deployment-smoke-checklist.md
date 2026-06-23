@@ -1,6 +1,6 @@
 # Stage 7 Deployment Smoke Checklist
 
-Last updated: 2026-06-23
+Last updated: 2026-06-24
 
 This checklist is the deployment-readiness gate for the current Stage 7 work.
 It focuses on rule trust, multiplayer privacy/reconnect behavior, ReactionPrompt
@@ -491,13 +491,21 @@ Before server pull/restart:
 node scripts\stage7_deploy_preflight.mjs
 node scripts\stage7_deploy_preflight.mjs --json --output artifacts\stage7-deploy-preflight-YYYYMMDD.json
 
+$env:RUN_STAGE7_DEPLOY_PREFLIGHT='1'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+
 git status --short
 git check-ignore -v backend\.env frontend\dist backend\.venv
 ```
 
 The preflight helper fails when source changes are still uncommitted or when
 the local-only deployment paths above are not covered by gitignore rules. Use
-`--allow-dirty` only for draft local checks, not for a release handoff.
+`--allow-dirty` only for draft local checks, not for a release handoff. When
+running through `scripts/check.sh`, use `RUN_STAGE7_DEPLOY_PREFLIGHT=1` for the
+release handoff gate. `STAGE7_DEPLOY_PREFLIGHT_ALLOW_DIRTY=1`,
+`STAGE7_DEPLOY_PREFLIGHT_FORMAT`, and `STAGE7_DEPLOY_PREFLIGHT_OUTPUT` are
+available for draft/local logging, but dirty overrides should stay out of the
+server update handoff.
 
 After server update:
 

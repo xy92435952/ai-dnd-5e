@@ -161,4 +161,22 @@ else
   echo "Use STAGE7_EVIDENCE_FILES for existing artifacts, or run Feather Fall/load smoke in the same check script for auto-discovery."
 fi
 
+if [ "${RUN_STAGE7_DEPLOY_PREFLIGHT:-0}" = "1" ]; then
+  echo "== Stage 7 deploy preflight =="
+  set --
+  if [ "${STAGE7_DEPLOY_PREFLIGHT_ALLOW_DIRTY:-0}" = "1" ]; then
+    set -- "$@" --allow-dirty
+  fi
+  if [ -n "${STAGE7_DEPLOY_PREFLIGHT_FORMAT:-}" ]; then
+    set -- "$@" --format "$STAGE7_DEPLOY_PREFLIGHT_FORMAT"
+  fi
+  if [ -n "${STAGE7_DEPLOY_PREFLIGHT_OUTPUT:-}" ]; then
+    set -- "$@" --output "$STAGE7_DEPLOY_PREFLIGHT_OUTPUT"
+  fi
+  (cd "$ROOT_DIR" && node scripts/stage7_deploy_preflight.mjs "$@")
+else
+  echo "== Stage 7 deploy preflight skipped =="
+  echo "Set RUN_STAGE7_DEPLOY_PREFLIGHT=1 before server pull/restart to verify clean git state and ignored local deploy paths."
+fi
+
 echo "== All checks passed =="
