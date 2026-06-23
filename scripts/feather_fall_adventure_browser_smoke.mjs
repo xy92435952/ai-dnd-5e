@@ -29,11 +29,26 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function requiredOptionValue(args, index, optionName) {
+  const value = args[index + 1] || '';
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
+function requiredInlineOptionValue(value, optionName) {
+  if (!value) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return value;
+}
+
 function parseDecisionArg(args = process.argv.slice(2)) {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === '--decision') return args[index + 1] || '';
-    if (arg.startsWith('--decision=')) return arg.slice('--decision='.length);
+    if (arg === '--decision') return requiredOptionValue(args, index, arg);
+    if (arg.startsWith('--decision=')) return requiredInlineOptionValue(arg.slice('--decision='.length), '--decision');
     if (['accept', 'cast', 'feather_fall', 'feather-fall', 'decline', 'pass'].includes(arg)) {
       return arg;
     }
@@ -44,8 +59,8 @@ function parseDecisionArg(args = process.argv.slice(2)) {
 function parseArgValue(name, args = process.argv.slice(2)) {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === name) return args[index + 1] || '';
-    if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
+    if (arg === name) return requiredOptionValue(args, index, name);
+    if (arg.startsWith(`${name}=`)) return requiredInlineOptionValue(arg.slice(name.length + 1), name);
   }
   return '';
 }

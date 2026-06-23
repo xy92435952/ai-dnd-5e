@@ -344,7 +344,10 @@ the seeded Adventure page, verifies the Feather Fall panel text, clicks either
 state through refresh, and writes prompt/resolved screenshots plus a JSON
 manifest under `artifacts/`. If `--artifact-tag` or
 `FEATHER_FALL_SMOKE_ARTIFACT_TAG` is omitted, the script uses the current local
-date as `YYYYMMDD`.
+date as `YYYYMMDD`. Explicit `--decision` and `--artifact-tag` options require
+values and fail fast when a following flag or empty inline value is provided, so
+browser-smoke evidence cannot silently fall back to the accept path or default
+date tag after a mistyped command.
 
 The smoke resolves Python from `PYTHON_EXE`, known project virtualenvs, then
 `python3` / `python`. It resolves the browser from

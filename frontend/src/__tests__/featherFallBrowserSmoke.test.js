@@ -7,9 +7,24 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const verifyScript = path.join(repoRoot, 'scripts', 'verify_stage7_evidence.mjs')
+const smokeScript = path.join(repoRoot, 'scripts', 'feather_fall_adventure_browser_smoke.mjs')
 
 function readSmokeScript() {
-  return fs.readFileSync(path.join(repoRoot, 'scripts', 'feather_fall_adventure_browser_smoke.mjs'), 'utf8')
+  return fs.readFileSync(smokeScript, 'utf8')
+}
+
+function runSmokeScript(args) {
+  return execFileSync(process.execPath, [
+    smokeScript,
+    ...args,
+  ], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      PYTHON_EXE: process.execPath,
+    },
+    stdio: 'pipe',
+  })
 }
 
 function validManifest(overrides = {}) {
@@ -65,6 +80,14 @@ describe('Feather Fall browser smoke selector contract', () => {
     expect(source).toContain("state.dialogName.includes('Feather Fall')")
     expect(source).toContain("state.dialogDescription.includes('Prevents 6 fall damage')")
     expect(source).not.toContain('[role="dialog"][aria-label="Exploration reaction prompt"]')
+  })
+
+  it('fails fast when smoke option values are missing', () => {
+    expect(() => runSmokeScript(['--decision'])).toThrow(/--decision requires a value/)
+    expect(() => runSmokeScript(['--decision', '--artifact-tag', 'unit'])).toThrow(/--decision requires a value/)
+    expect(() => runSmokeScript(['--decision='])).toThrow(/--decision requires a value/)
+    expect(() => runSmokeScript(['--artifact-tag'])).toThrow(/--artifact-tag requires a value/)
+    expect(() => runSmokeScript(['--artifact-tag='])).toThrow(/--artifact-tag requires a value/)
   })
 
   it('requires dialog name and description in release evidence manifests', () => {
