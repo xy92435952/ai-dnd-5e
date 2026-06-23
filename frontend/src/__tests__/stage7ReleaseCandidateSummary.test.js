@@ -297,6 +297,28 @@ describe('Stage 7 release candidate summary', () => {
     ])
   })
 
+  it('keeps the release candidate non-ready until the workflow run is complete', () => {
+    const payload = buildReleaseCandidatePayload({
+      branch: 'main',
+      gitStatus: '',
+      headSha: 'cff20f0',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: '',
+        head_sha: 'cff20f064d6a2ed8620dc697674c23e022e36070',
+        id: 104,
+        name: 'CI',
+        status: 'in_progress',
+      },
+    })
+
+    expect(payload.ci.requiredJobsReady).toBe(true)
+    expect(payload.ci.runReady).toBe(false)
+    expect(payload.ci.ready).toBe(false)
+    expect(payload.ready).toBe(false)
+  })
+
   it('renders JSON output that automation can parse', () => {
     const json = buildReleaseCandidateJson({
       branch: 'main',
@@ -318,6 +340,45 @@ describe('Stage 7 release candidate summary', () => {
     expect(payload.ready).toBe(false)
     expect(payload.workingTree.clean).toBe(false)
     expect(payload.ci.requiredJobs.every(job => job.ok)).toBe(true)
+  })
+
+  it('waits for workflow completion after the required jobs succeed', async () => {
+    const sleepCalls = []
+    const result = await waitForRequiredCiJobs({
+      branch: 'main',
+      fetchImpl: createFetchSequence({
+        runs: [
+          {
+            conclusion: '',
+            id: 105,
+            name: 'CI',
+            status: 'in_progress',
+          },
+          {
+            conclusion: 'success',
+            id: 105,
+            name: 'CI',
+            status: 'completed',
+          },
+        ],
+        jobs: [
+          successfulJobs(),
+          successfulJobs(),
+        ],
+      }),
+      headSha: 'cff20f0',
+      pollSeconds: 1,
+      repo: 'xy92435952/ai-dnd-5e',
+      runId: '105',
+      sleepImpl: async ms => {
+        sleepCalls.push(ms)
+      },
+      timeoutSeconds: 60,
+    })
+
+    expect(sleepCalls).toEqual([1000])
+    expect(result.run.status).toBe('completed')
+    expect(result.requiredJobSummary.ok).toBe(true)
   })
 
   it('waits for GitHub to create a run for the pushed commit', async () => {

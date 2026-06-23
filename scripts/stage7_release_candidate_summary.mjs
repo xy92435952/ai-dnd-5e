@@ -285,6 +285,10 @@ function hasRequiredJobFailure(requiredJobSummary) {
   return requiredJobSummary.rows.some(row => row.status === 'completed' && row.conclusion !== 'success');
 }
 
+function isRunReady(run) {
+  return run?.status === 'completed' && run?.conclusion === 'success';
+}
+
 export async function waitForRequiredCiJobs({
   repo,
   branch,
@@ -320,7 +324,7 @@ export async function waitForRequiredCiJobs({
     const jobs = await fetchRunJobs({ repo, runId: run.id, fetchImpl, token });
     const requiredJobSummary = summarizeRequiredCiJobs(jobs);
 
-    if (requiredJobSummary.ok || hasRequiredJobFailure(requiredJobSummary) || run.status === 'completed') {
+    if (hasRequiredJobFailure(requiredJobSummary) || run.status === 'completed') {
       return { jobs, requiredJobSummary, run };
     }
 
@@ -365,7 +369,9 @@ export function buildReleaseCandidatePayload({
   run = null,
 }) {
   const treeClean = gitStatus.trim().length === 0;
-  const ciReady = requiredJobSummary ? requiredJobSummary.ok : false;
+  const requiredJobsReady = requiredJobSummary?.ok === true;
+  const runReady = isRunReady(run);
+  const ciReady = requiredJobsReady && runReady;
   const requiredJobs = requiredJobSummary
     ? requiredJobSummary.rows.map(row => ({
       conclusion: row.conclusion,
@@ -382,7 +388,9 @@ export function buildReleaseCandidatePayload({
     ci: {
       checked: Boolean(requiredJobSummary),
       ready: ciReady,
+      requiredJobsReady,
       requiredJobs,
+      runReady,
       run: run
         ? {
           conclusion: run.conclusion || '',
@@ -528,8 +536,9 @@ export async function runCli(argv = process.argv.slice(2), {
     requiredJobSummary,
     run,
   };
+  const releasePayload = buildReleaseCandidatePayload(summaryOptions);
   const summary = args.format === 'json'
-    ? buildReleaseCandidateJson(summaryOptions)
+    ? `${JSON.stringify(releasePayload, null, 2)}\n`
     : buildReleaseCandidateSummary(summaryOptions);
 
   if (args.output) {
@@ -539,9 +548,7 @@ export async function runCli(argv = process.argv.slice(2), {
     console.log(summary);
   }
 
-  const treeClean = local.status.trim().length === 0;
-  const ciReady = requiredJobSummary?.ok === true;
-  return treeClean && ciReady ? 0 : 1;
+  return releasePayload.ready ? 0 : 1;
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
