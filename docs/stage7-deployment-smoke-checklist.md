@@ -457,6 +457,7 @@ Verify machine-readable smoke evidence before handoff:
 node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json
+node scripts\verify_stage7_evidence.mjs artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json
 ```
 
 For Feather Fall browser manifests, the verifier checks the decision path,
@@ -466,14 +467,16 @@ screenshot paths. For multiplayer load result
 JSON, it checks the 50-user/13-room shape, that room sizes are positive and
 stay at or below `max_players=4`, that room sizes sum to users, that WebSocket
 connections match users, cleanup flags, timing summary values, and optional
-hold observer fields.
+hold observer fields. For post-deploy healthcheck JSON, it checks that at least
+one health URL returned HTTP 2xx JSON with `status="ok"` and that any captured
+log files had no `Traceback`, `ERROR`, or `500` matches.
 
 The same verifier can run from the standard local check entrypoint after the
 frontend build and any optional evidence-producing browser/load smokes:
 
 ```powershell
 $env:RUN_STAGE7_EVIDENCE_GATE='1'
-$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json'
+$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 

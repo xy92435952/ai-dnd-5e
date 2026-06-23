@@ -42,11 +42,12 @@ function parseArgs(argv = process.argv.slice(2)) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/verify_stage7_evidence.mjs [--type feather-fall|multiplayer-load|auto] [--no-file-check] <json-file> [more-json-files...]',
+    '  node scripts/verify_stage7_evidence.mjs [--type feather-fall|multiplayer-load|postdeploy-healthcheck|auto] [--no-file-check] <json-file> [more-json-files...]',
     '',
     'Checks:',
     '  feather-fall       verifies browser smoke manifest fields and screenshot paths',
     '  multiplayer-load   verifies load smoke result fields and summary counts',
+    '  postdeploy-healthcheck verifies post-deploy health URL and log scan results',
     '  auto               infers the type from the JSON payload',
   ].join('\n');
 }
@@ -65,6 +66,9 @@ function inferType(data) {
   if (data?.mode === 'feather-fall-adventure-browser-smoke') return 'feather-fall';
   if (data?.base_url && Array.isArray(data?.room_sizes) && Object.prototype.hasOwnProperty.call(data, 'cleanup_ok')) {
     return 'multiplayer-load';
+  }
+  if (Array.isArray(data?.healthChecks) && Array.isArray(data?.logChecks) && Object.prototype.hasOwnProperty.call(data, 'healthReady')) {
+    return 'postdeploy-healthcheck';
   }
   return 'unknown';
 }
@@ -178,6 +182,37 @@ function verifyMultiplayerLoad(filePath, data, { noFileCheck }) {
   }
 }
 
+function verifyPostdeployHealthcheck(filePath, data) {
+  ensure(data.ready === true, `${filePath}: ready must be true`);
+  ensure(data.healthReady === true, `${filePath}: healthReady must be true`);
+  ensure(data.logsReady === true, `${filePath}: logsReady must be true`);
+  ensure(typeof data.generatedAt === 'string' && data.generatedAt.length > 0, `${filePath}: generatedAt missing`);
+  ensure(Array.isArray(data.healthChecks) && data.healthChecks.length > 0, `${filePath}: healthChecks must include at least one URL`);
+  ensure(Array.isArray(data.logChecks), `${filePath}: logChecks must be an array`);
+
+  data.healthChecks.forEach((check, index) => {
+    const label = `${filePath}: healthChecks[${index}]`;
+    ensure(check && typeof check === 'object', `${label} must be an object`);
+    ensure(typeof check.url === 'string' && check.url.length > 0, `${label}.url missing`);
+    ensure(check.ok === true, `${label}.ok must be true`);
+    ensure(check.statusOk === true, `${label}.statusOk must be true`);
+    ensureNumber(check.status, `${label}.status missing`);
+    ensure(check.status >= 200 && check.status < 300, `${label}.status must be HTTP 2xx`);
+    ensure(check.body && check.body.status === 'ok', `${label}.body.status must be ok`);
+    ensure(!check.error, `${label}.error must be empty`);
+  });
+
+  data.logChecks.forEach((check, index) => {
+    const label = `${filePath}: logChecks[${index}]`;
+    ensure(check && typeof check === 'object', `${label} must be an object`);
+    ensure(typeof check.file === 'string' && check.file.length > 0, `${label}.file missing`);
+    ensure(check.ok === true, `${label}.ok must be true`);
+    ensure(Array.isArray(check.matches), `${label}.matches must be an array`);
+    ensure(check.matches.length === 0, `${label}.matches must be empty`);
+    ensure(!check.error, `${label}.error must be empty`);
+  });
+}
+
 async function main() {
   const args = parseArgs();
   if (args.help || args.files.length === 0) {
@@ -198,7 +233,11 @@ async function main() {
       verifyMultiplayerLoad(fullPath, data, args);
       continue;
     }
-    fail(`${fullPath}: could not infer evidence type; pass --type feather-fall or --type multiplayer-load`);
+    if (type === 'postdeploy-healthcheck') {
+      verifyPostdeployHealthcheck(fullPath, data, args);
+      continue;
+    }
+    fail(`${fullPath}: could not infer evidence type; pass --type feather-fall, --type multiplayer-load, or --type postdeploy-healthcheck`);
   }
 
   console.log(`Verified ${args.files.length} Stage 7 evidence file(s).`);

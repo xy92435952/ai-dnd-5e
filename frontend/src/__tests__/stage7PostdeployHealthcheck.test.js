@@ -1,3 +1,9 @@
+import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -11,12 +17,53 @@ import {
   scanLogText,
 } from '../../../scripts/stage7_postdeploy_healthcheck.mjs'
 
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+const verifyScript = path.join(repoRoot, 'scripts', 'verify_stage7_evidence.mjs')
+
 function response({ body, ok = true, status = 200 }) {
   return {
     json: async () => body,
     ok,
     status,
   }
+}
+
+function validEvidence(overrides = {}) {
+  return {
+    generatedAt: '2026-06-24T00:00:00.000Z',
+    healthChecks: [
+      {
+        body: {
+          status: 'ok',
+          version: '0.1.0',
+        },
+        error: '',
+        ok: true,
+        status: 200,
+        statusOk: true,
+        url: 'https://example.test/api/health',
+      },
+    ],
+    healthReady: true,
+    logChecks: [
+      {
+        error: '',
+        file: 'artifacts/server.log',
+        matches: [],
+        ok: true,
+      },
+    ],
+    logsReady: true,
+    ready: true,
+    ...overrides,
+  }
+}
+
+function writeEvidence(data) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-postdeploy-'))
+  const filePath = path.join(dir, 'postdeploy.json')
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+  return filePath
 }
 
 describe('Stage 7 post-deploy healthcheck', () => {
@@ -182,5 +229,38 @@ describe('Stage 7 post-deploy healthcheck', () => {
       logsReady: true,
       ready: true,
     })
+  })
+
+  it('is accepted by the Stage 7 evidence verifier', () => {
+    const goodEvidence = writeEvidence(validEvidence())
+
+    expect(() => execFileSync(process.execPath, [
+      verifyScript,
+      goodEvidence,
+    ], { cwd: repoRoot, stdio: 'pipe' })).not.toThrow()
+
+    const badEvidence = writeEvidence(validEvidence({
+      logChecks: [
+        {
+          error: '',
+          file: 'artifacts/server.log',
+          matches: [
+            {
+              label: 'ERROR',
+              line: 3,
+              text: 'ERROR request failed',
+            },
+          ],
+          ok: false,
+        },
+      ],
+      logsReady: false,
+      ready: false,
+    }))
+
+    expect(() => execFileSync(process.execPath, [
+      verifyScript,
+      badEvidence,
+    ], { cwd: repoRoot, stdio: 'pipe' })).toThrow(/ready must be true/)
   })
 })
