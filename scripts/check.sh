@@ -141,6 +141,40 @@ else
   echo "If RUN_STAGE7_EVIDENCE_GATE=1 is also set, check.sh writes a default load-smoke result JSON."
 fi
 
+if [ "${RUN_STAGE7_POSTDEPLOY_HEALTHCHECK:-0}" = "1" ]; then
+  echo "== Stage 7 post-deploy healthcheck =="
+  if [ -z "${STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT:-}" ] && [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
+    STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT="artifacts/stage7-postdeploy-healthcheck-$(date +%Y%m%d_%H%M%S).json"
+    echo "STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT not set; writing evidence to $STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT"
+  fi
+
+  set --
+  if [ -n "${STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT:-}" ]; then
+    set -- "$@" --json --output "$STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT"
+  fi
+  if [ -n "${STAGE7_POSTDEPLOY_TIMEOUT_MS:-}" ]; then
+    set -- "$@" --timeout-ms "$STAGE7_POSTDEPLOY_TIMEOUT_MS"
+  fi
+  if [ -n "${STAGE7_POSTDEPLOY_HEALTH_URLS:-}" ]; then
+    for health_url in $STAGE7_POSTDEPLOY_HEALTH_URLS; do
+      set -- "$@" --url "$health_url"
+    done
+  fi
+  if [ -n "${STAGE7_POSTDEPLOY_LOG_FILES:-}" ]; then
+    for log_file in $STAGE7_POSTDEPLOY_LOG_FILES; do
+      set -- "$@" --log-file "$log_file"
+    done
+  fi
+
+  (cd "$ROOT_DIR" && node scripts/stage7_postdeploy_healthcheck.mjs "$@")
+  if [ -n "${STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT:-}" ]; then
+    add_stage7_evidence_file "$STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT"
+  fi
+else
+  echo "== Stage 7 post-deploy healthcheck skipped =="
+  echo "Set RUN_STAGE7_POSTDEPLOY_HEALTHCHECK=1 after server pull/restart to verify /health and captured logs."
+fi
+
 if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
   stage7_evidence_input=${STAGE7_EVIDENCE_FILES:-$stage7_evidence_files}
   if [ -z "$stage7_evidence_input" ]; then

@@ -263,4 +263,15 @@ describe('Stage 7 post-deploy healthcheck', () => {
       badEvidence,
     ], { cwd: repoRoot, stdio: 'pipe' })).toThrow(/ready must be true/)
   })
+
+  it('exposes the post-deploy healthcheck as an opt-in check.sh evidence gate', () => {
+    const checkScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'check.sh'), 'utf8')
+
+    expect(checkScript).toContain('RUN_STAGE7_POSTDEPLOY_HEALTHCHECK')
+    expect(checkScript).toContain('STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT')
+    expect(checkScript).toContain('STAGE7_POSTDEPLOY_HEALTH_URLS')
+    expect(checkScript).toContain('STAGE7_POSTDEPLOY_LOG_FILES')
+    expect(checkScript).toContain('node scripts/stage7_postdeploy_healthcheck.mjs')
+    expect(checkScript).toContain('add_stage7_evidence_file "$STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT"')
+  })
 })
