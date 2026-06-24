@@ -146,15 +146,17 @@ describe('Stage 7 post-deploy healthcheck', () => {
       'Traceback (most recent call last):',
       'ERROR failed request',
       'GET /game/action 500',
+      'traceback replayed by worker stderr',
+      'upstream error while proxying request',
     ].join('\n'))
 
-    expect(matches.map(match => match.label)).toEqual(['Traceback', 'ERROR', '500'])
+    expect(matches.map(match => match.label)).toEqual(['Traceback', 'ERROR', '500', 'Traceback', 'ERROR'])
 
     const clean = await checkLogFile('/var/log/app.log', {
       readFileImpl: async () => 'INFO boot complete\nINFO health ok',
     })
     const dirty = await checkLogFile('/var/log/app.log', {
-      readFileImpl: async () => 'ERROR request failed',
+      readFileImpl: async () => 'error request failed',
     })
 
     expect(clean).toMatchObject({

@@ -590,6 +590,8 @@ For a reusable post-deploy handoff artifact, run the Stage 7 healthcheck helper
 against the public and local health URLs. Pass copied or captured log snippets
 with `--log-file`; the helper fails if a health endpoint does not return
 `{"status":"ok"}` or if a log file contains `Traceback`, `ERROR`, or `500`.
+`Traceback` and `ERROR` are matched case-insensitively so copied server logs do
+not pass just because stderr or nginx used lowercase markers.
 Post-deploy healthcheck options that require values fail fast when the value is
 missing, and `--timeout-ms` must be a positive number, so after-restart
 evidence cannot silently run against the wrong URL, log file, output path, or
@@ -616,6 +618,7 @@ open two users in the same room and confirm:
 - refresh restores the reactor's own pending prompt and does not leak it to an
   observer
 - server logs stay free of `Traceback`, `ERROR`, and `500` during the check
+  regardless of marker casing
 
 ## Stop Conditions
 

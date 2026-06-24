@@ -10,11 +10,11 @@ export const DEFAULT_HEALTH_URLS = [
 export const DEFAULT_LOG_PATTERNS = [
   {
     label: 'Traceback',
-    pattern: /\bTraceback\b/,
+    pattern: /\btraceback\b/i,
   },
   {
     label: 'ERROR',
-    pattern: /\bERROR\b/,
+    pattern: /\berror\b/i,
   },
   {
     label: '500',
