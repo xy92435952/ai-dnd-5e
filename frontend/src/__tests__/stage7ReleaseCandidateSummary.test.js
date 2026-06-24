@@ -828,6 +828,22 @@ describe('Stage 7 release candidate summary', () => {
     })
   })
 
+  it('reports all missing public deployment evidence requirements together', () => {
+    const localPostdeploy = writePostdeployEvidence()
+
+    expect(verifyEvidenceFiles([localPostdeploy], {
+      requiredEvidenceTypes: ['public-browser-smoke'],
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+    })).toMatchObject({
+      error: 'Missing required Stage 7 evidence type(s): public-browser-smoke; Missing required Stage 7 post-deploy health URL(s): https://example.com/api/health',
+      foundPostdeployHealthUrls: ['http://127.0.0.1:8000/health'],
+      foundTypes: ['postdeploy-healthcheck'],
+      ok: false,
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+      requiredTypes: ['public-browser-smoke', 'postdeploy-healthcheck'],
+    })
+  })
+
   it('blocks release readiness when a required evidence type is absent', () => {
     const evidenceSummary = verifyEvidenceFiles([writePostdeployEvidence()], {
       requiredEvidenceTypes: ['public-browser-smoke'],

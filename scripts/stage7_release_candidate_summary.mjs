@@ -616,6 +616,20 @@ function missingRequiredValues(foundValues, requiredValues) {
   return requiredValues.filter(value => !found.has(value));
 }
 
+function formatEvidenceRequirementError({
+  missingHealthUrls = [],
+  missingTypes = [],
+} = {}) {
+  const errors = [];
+  if (missingTypes.length) {
+    errors.push(`Missing required Stage 7 evidence type(s): ${missingTypes.join(', ')}`);
+  }
+  if (missingHealthUrls.length) {
+    errors.push(`Missing required Stage 7 post-deploy health URL(s): ${missingHealthUrls.join(', ')}`);
+  }
+  return errors.join('; ');
+}
+
 export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) {
   if (!requiredJobSummary) {
     return [
@@ -982,7 +996,10 @@ export function verifyEvidenceFiles(evidenceFiles, {
   if (!evidenceFiles.length) {
     if (requiredTypes.length) {
       return {
-        error: `Missing required Stage 7 evidence type(s): ${requiredTypes.join(', ')}`,
+        error: formatEvidenceRequirementError({
+          missingHealthUrls: requiredHealthUrls,
+          missingTypes: requiredTypes,
+        }),
         foundPostdeployHealthUrls: [],
         foundTypes: [],
         ok: false,
@@ -1027,21 +1044,14 @@ export function verifyEvidenceFiles(evidenceFiles, {
     const foundTypes = collectEvidenceTypes(evidenceRecords);
     const foundPostdeployHealthUrls = collectPostdeployHealthUrls(evidenceRecords);
     const missingTypes = missingEvidenceTypes(foundTypes, requiredTypes);
-    if (missingTypes.length) {
-      return {
-        error: `Missing required Stage 7 evidence type(s): ${missingTypes.join(', ')}`,
-        foundPostdeployHealthUrls,
-        foundTypes,
-        ok: false,
-        output,
-        requiredPostdeployHealthUrls: requiredHealthUrls,
-        requiredTypes,
-      };
-    }
     const missingHealthUrls = missingRequiredValues(foundPostdeployHealthUrls, requiredHealthUrls);
-    if (missingHealthUrls.length) {
+    const requirementError = formatEvidenceRequirementError({
+      missingHealthUrls,
+      missingTypes,
+    });
+    if (requirementError) {
       return {
-        error: `Missing required Stage 7 post-deploy health URL(s): ${missingHealthUrls.join(', ')}`,
+        error: requirementError,
         foundPostdeployHealthUrls,
         foundTypes,
         ok: false,
