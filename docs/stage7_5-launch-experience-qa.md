@@ -6,7 +6,14 @@ that CI and health checks are green.
 
 ## Current Scope
 
-The first reusable Stage 7.5 gate is:
+Stage 7.5 has two evidence layers:
+
+- a read-only public UI smoke that verifies the deployed shell without mutating
+  shared public data
+- a resettable smoke seed that creates a disposable public session for the
+  mutating exploration-to-combat path
+
+The reusable read-only gate is:
 
 ```powershell
 node scripts\stage7_5_launch_experience_smoke.mjs --frontend-origin https://www.ai5edm.top --username test --password <password> --exploration-session-id <non-combat-session-id> --combat-session-id <combat-active-session-id> --output artifacts\stage7_5-launch-experience-result-YYYYMMDD.json
@@ -28,6 +35,31 @@ The smoke intentionally avoids story and combat mutations. It does not advance
 the story, claim loot, attack, or end turns against public data. Opening Journal
 may still trigger the app's normal journal-generation request when the session
 has no generated journal text yet.
+
+## Resettable Seed
+
+After deploying a main build that includes the Stage 7.5 seed, reset the public
+smoke account on the server with:
+
+```bash
+cd /opt/ai-trpg/app/backend
+python seed_smoke_scenario.py --slug stage7_5_launch --variant stage7-5 --username test --password 123456
+```
+
+This attaches the deterministic Stage 7.5 smoke module, party, session, visible
+loot, and password reset to the existing `test` user when it exists. The printed
+JSON includes:
+
+- `stage7_5.exploration_session_id`
+- `stage7_5.combat_session_id`
+- `stage7_5.combat_choice_text`
+- `stage7_5.gold_loot_id`
+- `stage7_5.gear_loot_id`
+
+For the `stage7-5` variant, exploration and combat use the same session id. The
+session starts with `combat_active=false`; clicking/submitting the fixed
+`combat_choice_text` through `/game/action` starts a controlled combat handoff
+without invoking the DM agent.
 
 ## Evidence Covered
 
@@ -73,12 +105,12 @@ Stage 7.5 completion claim.
 ## Mutating QA Requirement
 
 Full combat-round QA should not run against a shared long-lived public save by
-default. Use one of these approaches before marking Stage 7.5 complete:
+default. The preferred path is now the server-side `stage7-5` seed command above
+rather than a public reset endpoint. Before marking Stage 7.5 complete, use that
+seed or an equivalent disposable public session to capture current evidence for:
 
-- create a disposable public smoke account/session that can be reset after each
-  run
-- add a server-side public smoke seed endpoint guarded for deployment QA
-- run the local deterministic smoke seed and record that public mutating QA is
-  deferred with a clear release-risk decision
-
-The preferred production-like path is a disposable public smoke session.
+- real Adventure tool inspection on the seeded session
+- real exploration choice submission that starts combat
+- at least one complete combat round or an explicit blocker
+- loot/journal follow-up after the combat path
+- no P0/P1 issues left open

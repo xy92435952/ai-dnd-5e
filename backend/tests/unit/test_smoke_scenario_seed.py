@@ -1,7 +1,12 @@
 from sqlalchemy import func, select
 
 from models import Character, CombatState, GameLog, Module, Session, User
-from services.smoke_scenario_seed import seed_smoke_scenario
+from services.smoke_scenario_seed import (
+    STAGE7_5_COMBAT_CHOICE_TEXT,
+    STAGE7_5_GOLD_LOOT_ID,
+    STAGE7_5_TOKEN_LOOT_ID,
+    seed_smoke_scenario,
+)
 
 
 async def _count(db_session, model) -> int:
@@ -115,6 +120,63 @@ async def test_seed_smoke_scenario_can_prepare_feather_fall_variant(db_session):
     assert prompt["trap_resolution"]["final_damage"] == 6
     assert session.game_state["last_turn"]["pending_exploration_reaction_id"] == prompt["id"]
     assert "Feather Fall prompt" in combat.combat_log[-1]
+
+
+async def test_seed_smoke_scenario_can_prepare_stage7_5_variant(db_session):
+    result = await seed_smoke_scenario(
+        db_session,
+        slug="stage7_5_launch",
+        variant="stage7-5",
+    )
+
+    session = await db_session.get(Session, result.session_id)
+    combat = await db_session.get(CombatState, result.combat_state_id)
+    loot_items = session.game_state["loot_pool"]["items"]
+
+    assert result.variant == "stage7_5"
+    assert result.stage7_5["exploration_session_id"] == result.session_id
+    assert result.stage7_5["combat_session_id"] == result.session_id
+    assert result.stage7_5["combat_choice_text"] == STAGE7_5_COMBAT_CHOICE_TEXT
+    assert "--username test --password 123456" in result.stage7_5["reset_command"]
+    assert session.combat_active is False
+    assert session.game_state["scenario_seed_variant"] == "stage7_5"
+    assert session.game_state["stage7_5_progress"] == "exploration_ready"
+    assert session.game_state["last_turn"]["player_choices"][0]["text"] == STAGE7_5_COMBAT_CHOICE_TEXT
+    assert {item["id"] for item in loot_items} >= {STAGE7_5_GOLD_LOOT_ID, STAGE7_5_TOKEN_LOOT_ID}
+    assert all(item["status"] == "available" for item in loot_items if item["id"] in {STAGE7_5_GOLD_LOOT_ID, STAGE7_5_TOKEN_LOOT_ID})
+    assert combat.turn_order == []
+    assert combat.entity_positions == {}
+
+
+async def test_seed_smoke_scenario_can_attach_stage7_5_to_existing_user(db_session):
+    existing = User(
+        id="existing-user",
+        username="test",
+        password_hash="old-hash",
+        display_name="Existing Test User",
+    )
+    db_session.add(existing)
+    await db_session.commit()
+
+    result = await seed_smoke_scenario(
+        db_session,
+        slug="stage7_5_launch",
+        variant="stage7-5",
+        username="test",
+        password="123456",
+    )
+
+    user = await db_session.get(User, "existing-user")
+    session = await db_session.get(Session, result.session_id)
+    module = await db_session.get(Module, result.module_id)
+    hero = await db_session.get(Character, result.character_id)
+
+    assert result.user_id == "existing-user"
+    assert result.username == "test"
+    assert user.password_hash != "old-hash"
+    assert session.user_id == "existing-user"
+    assert module.user_id == "existing-user"
+    assert hero.user_id == "existing-user"
 
 
 async def test_seed_smoke_scenario_is_idempotent_for_same_slug(db_session):

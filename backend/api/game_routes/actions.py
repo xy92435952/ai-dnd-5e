@@ -27,6 +27,7 @@ from services.game_combat_action_service import execute_natural_language_combat_
 from services.game_exploration_service import execute_exploration_action
 from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
+from services.smoke_scenario_seed import try_execute_stage7_5_seed_action
 from services import room_service
 from services.dm_thinking_service import clear_dm_thinking, start_dm_thinking
 from services.game_action_idempotency_service import (
@@ -204,6 +205,19 @@ async def _run_player_action(
     after_multiplayer_success.multiplayer_table_decision = (
         multiplayer_decision.table_decision if multiplayer_decision else {}
     )
+
+    stage7_5_result = await try_execute_stage7_5_seed_action(
+        db=db,
+        session=session,
+        module=module,
+        characters=characters,
+        actor_user_id=user_id,
+        action_text=effective_action_text,
+        action_source=action_source,
+    )
+    if stage7_5_result is not None:
+        await clear_dm_thinking(db, session, actor_user_id=user_id, broadcast_room=True)
+        return stage7_5_result
 
     return await execute_exploration_action(
         db=db,

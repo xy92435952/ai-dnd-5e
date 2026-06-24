@@ -326,9 +326,15 @@ Useful variants:
 python seed_smoke_scenario.py --slug codex_reaction --variant reaction
 python seed_smoke_scenario.py --slug codex_death_save --variant death-save
 python seed_smoke_scenario.py --slug codex_feather_fall --variant feather-fall
+python seed_smoke_scenario.py --slug stage7_5_launch --variant stage7-5 --username test --password 123456
 ```
 
 See `docs/smoke-seed-scenario.md` for cleanup commands and seeded credentials.
+
+The `stage7-5` variant is the resettable public Stage 7.5 launch-experience
+seed. It starts in exploration, exposes the Journal / Map / Loot path with
+visible `25 gp` and `Gate Token` loot, and uses a deterministic `/game/action`
+choice to turn the same session into combat without a live DM-agent call.
 
 For the Feather Fall variant, login as the printed seeded user, open the
 Adventure session, confirm the pending Feather Fall panel is visible, then call
@@ -701,6 +707,18 @@ browser error events, but it intentionally avoids story advancement, loot
 claiming, attacks, and end-turn mutations. Treat it as launch-readiness evidence
 and as a prerequisite for Stage 7.5, not as the full mutating combat-round QA.
 See `docs/stage7_5-launch-experience-qa.md` for the completion rules.
+
+For the mutating Stage 7.5 path, deploy the current main build and reset the
+public smoke session on the server before running browser evidence:
+
+```bash
+cd /opt/ai-trpg/app/backend
+python seed_smoke_scenario.py --slug stage7_5_launch --variant stage7-5 --username test --password 123456
+```
+
+Use the printed `stage7_5.combat_choice_text` to trigger the real
+exploration-to-combat handoff. Do not mark Stage 7.5 complete until the
+mutating combat-round and loot/journal follow-up evidence is current.
 
 When multiplayer or WS paths changed, open two users in the same room and confirm:
 

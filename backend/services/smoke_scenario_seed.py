@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import bcrypt
-from sqlalchemy import delete, select
+from sqlalchemy import delete, inspect as sa_inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from models import Character, CombatState, GameLog, Module, Session, User
 from services.character_creation_service import build_starting_equipment
@@ -24,6 +25,10 @@ from services.exploration_reaction_service import maybe_create_feather_fall_prom
 
 SMOKE_USER_PASSWORD = "smoke-password"
 SMOKE_SCENARIO_VERSION = 1
+STAGE7_5_COMBAT_CHOICE_TEXT = "Secure the gate and start the Stage 7.5 training fight."
+STAGE7_5_SECONDARY_CHOICE_TEXT = "Review the map, journal, and loot before the training fight."
+STAGE7_5_GOLD_LOOT_ID = "loot_gold_1"
+STAGE7_5_TOKEN_LOOT_ID = "loot_gear_gate_token_0"
 
 
 @dataclass(frozen=True)
@@ -38,9 +43,10 @@ class SmokeScenarioResult:
     companion_ids: tuple[str, ...]
     session_id: str
     combat_state_id: str
+    stage7_5: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "slug": self.slug,
             "variant": self.variant,
             "username": self.username,
@@ -56,6 +62,9 @@ class SmokeScenarioResult:
                 "password": self.password,
             },
         }
+        if self.stage7_5:
+            payload["stage7_5"] = self.stage7_5
+        return payload
 
 
 async def seed_smoke_scenario(
@@ -64,6 +73,7 @@ async def seed_smoke_scenario(
     slug: str = "codex_smoke",
     password: str = SMOKE_USER_PASSWORD,
     variant: str = "standard",
+    username: str | None = None,
 ) -> SmokeScenarioResult:
     """Create or replace a deterministic smoke-test module, party, session and combat."""
     clean_slug = _clean_slug(slug)
@@ -72,15 +82,17 @@ async def seed_smoke_scenario(
 
     await _delete_existing(db, ids)
 
-    user = User(
-        id=ids.user_id,
-        username=f"test_{clean_slug}",
-        password_hash=bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"),
-        display_name="Smoke Test Player",
+    user = await _resolve_seed_user(
+        db,
+        ids=ids,
+        clean_slug=clean_slug,
+        password=password,
+        username=username,
     )
+    owner_user_id = str(user.id)
     module = Module(
         id=ids.module_id,
-        user_id=ids.user_id,
+        user_id=owner_user_id,
         name=f"__test_module_smoke_{clean_slug}",
         file_path="seeded://smoke-scenario",
         file_type="seed",
@@ -93,7 +105,7 @@ async def seed_smoke_scenario(
     )
     hero = _build_character(
         character_id=ids.character_id,
-        user_id=ids.user_id,
+        user_id=owner_user_id,
         name="Smoke Sentinel",
         race="Human",
         char_class="Fighter",
@@ -128,7 +140,7 @@ async def seed_smoke_scenario(
     )
     session = Session(
         id=ids.session_id,
-        user_id=ids.user_id,
+        user_id=owner_user_id,
         module_id=ids.module_id,
         player_character_id=ids.character_id,
         current_scene=(
@@ -266,8 +278,7 @@ async def seed_smoke_scenario(
     _apply_smoke_variant(clean_variant, ids, hero, companion, session, combat, game_state)
     session.game_state = game_state
 
-    db.add_all([
-        user,
+    add_items = [
         module,
         hero,
         companion,
@@ -285,13 +296,16 @@ async def seed_smoke_scenario(
             content="Smoke seed prepared combat, trap, quest, and checkpoint state.",
             log_type="system",
         ),
-    ])
+    ]
+    if sa_inspect(user).transient:
+        add_items.insert(0, user)
+    db.add_all(add_items)
     await db.commit()
 
     return SmokeScenarioResult(
         slug=clean_slug,
         variant=clean_variant,
-        user_id=ids.user_id,
+        user_id=owner_user_id,
         username=user.username,
         password=password,
         module_id=ids.module_id,
@@ -299,6 +313,7 @@ async def seed_smoke_scenario(
         companion_ids=(ids.companion_id,),
         session_id=ids.session_id,
         combat_state_id=ids.combat_state_id,
+        stage7_5=_build_stage7_5_result_payload(clean_variant, ids),
     )
 
 
@@ -487,6 +502,207 @@ def build_smoke_enemies() -> list[dict[str, Any]]:
     ]
 
 
+def build_stage7_5_exploration_choices() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "stage7_5_start_training_fight",
+            "text": STAGE7_5_COMBAT_CHOICE_TEXT,
+            "skill_check": False,
+            "kind": "combat",
+            "tags": [{"kind": "combat", "label": "Stage 7.5"}],
+        },
+        {
+            "id": "stage7_5_review_tools",
+            "text": STAGE7_5_SECONDARY_CHOICE_TEXT,
+            "skill_check": False,
+            "kind": "exploration",
+            "tags": [{"kind": "exploration", "label": "Tools"}],
+        },
+    ]
+
+
+def stage7_5_training_enemies() -> list[dict[str, Any]]:
+    enemies = build_smoke_enemies()
+    if enemies:
+        enemies[0] = {
+            **enemies[0],
+            "hp_current": 4,
+            "hp_max": 4,
+            "xp": 25,
+            "derived": {
+                **dict(enemies[0].get("derived") or {}),
+                "hp_max": 4,
+            },
+            "tactics": "Stay in place for the Stage 7.5 deterministic first-round UI smoke.",
+        }
+    if len(enemies) > 1:
+        enemies[1] = {
+            **enemies[1],
+            "hp_current": 6,
+            "hp_max": 6,
+            "xp": 25,
+            "derived": {
+                **dict(enemies[1].get("derived") or {}),
+                "hp_max": 6,
+            },
+            "tactics": "Skirmish only after the player first-round smoke action resolves.",
+        }
+    return enemies
+
+
+def _ensure_stage7_5_loot_state(game_state: dict[str, Any]) -> dict[str, Any]:
+    loot_pool = game_state.get("loot_pool")
+    if not isinstance(loot_pool, dict):
+        loot_pool = {"version": 1, "items": []}
+    items_by_id = {
+        str(item.get("id")): item
+        for item in list(loot_pool.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    items_by_id[STAGE7_5_GOLD_LOOT_ID] = {
+        "id": STAGE7_5_GOLD_LOOT_ID,
+        "name": "25 gp",
+        "category": "gold",
+        "amount": 25,
+        "status": "available",
+        "discovered": True,
+        "source": "stage7_5_seed",
+        "description": "Deployment QA coin reward for split/claim smoke.",
+        **{
+            key: value
+            for key, value in dict(items_by_id.get(STAGE7_5_GOLD_LOOT_ID) or {}).items()
+            if key in {"status", "claimed_by_character_id", "claimed_by_name", "claim_mode", "split_allocations"}
+        },
+    }
+    items_by_id[STAGE7_5_TOKEN_LOOT_ID] = {
+        "id": STAGE7_5_TOKEN_LOOT_ID,
+        "name": "Gate Token",
+        "category": "gear",
+        "status": "available",
+        "discovered": True,
+        "source": "stage7_5_seed",
+        "rarity": "common",
+        "description": "A brass token used to stabilize one minor gate surge.",
+        "item": {
+            "name": "Gate Token",
+            "description": "A brass token used to stabilize one minor gate surge.",
+        },
+        **{
+            key: value
+            for key, value in dict(items_by_id.get(STAGE7_5_TOKEN_LOOT_ID) or {}).items()
+            if key in {"status", "claimed_by_character_id", "claimed_by_name", "claim_mode", "shared_with_party", "roll_allocations"}
+        },
+    }
+    loot_pool["items"] = list(items_by_id.values())
+    game_state["loot_pool"] = loot_pool
+    return game_state
+
+
+async def try_execute_stage7_5_seed_action(
+    *,
+    db: AsyncSession,
+    session: Session,
+    module: Module | None,
+    characters: list[Character],
+    actor_user_id: str,
+    action_text: str,
+    action_source: str,
+) -> dict[str, Any] | None:
+    """Deterministic /game/action path for the resettable Stage 7.5 smoke seed."""
+    state = dict(session.game_state or {})
+    seed = state.get("scenario_seed") if isinstance(state.get("scenario_seed"), dict) else {}
+    if session.is_multiplayer:
+        return None
+    if state.get("scenario_seed_variant") != "stage7_5":
+        return None
+    if seed.get("slug") != "stage7_5_launch":
+        return None
+
+    normalized = " ".join(str(action_text or "").split()).lower()
+    if normalized != STAGE7_5_COMBAT_CHOICE_TEXT.lower():
+        return {
+            "type": "stage7_5_review",
+            "narrative": (
+                "Stage 7.5 smoke review: the map, journal, and loot tools are available. "
+                "Use the training-fight choice when you are ready to verify combat handoff."
+            ),
+            "companion_reactions": "Mara Quickstep checks the route markers and keeps the training yard in sight.",
+            "dice_display": [],
+            "player_choices": build_stage7_5_exploration_choices(),
+            "needs_check": {"required": False},
+            "combat_triggered": False,
+            "combat_ended": False,
+            "combat_end_result": None,
+            "combat_update": None,
+            "visibility": {},
+            "table_reason": "",
+            "table_decision": {},
+            "exploration_reaction_prompt": None,
+            "errors": [],
+        }
+
+    from models import GameLog
+    from services.game_combat_setup_service import init_combat
+
+    state = _ensure_stage7_5_loot_state(state)
+    state.update({
+        "scenario_seed_variant": "stage7_5",
+        "stage7_5_progress": "combat_started",
+        "player_choices": [],
+        "last_turn": {
+            "player_choices": [],
+            "needs_check": None,
+            "last_actor_user_id": actor_user_id,
+            "action_type": "stage7_5_combat_trigger",
+            "source": action_source,
+        },
+    })
+    session.game_state = state
+    flag_modified(session, "game_state")
+    session.current_scene = (
+        "The sparring gate locks open and two weakened constructs step into the "
+        "training yard for the Stage 7.5 launch-experience combat round."
+    )
+    await init_combat(
+        session=session,
+        initial_enemies=stage7_5_training_enemies(),
+        characters=characters,
+        module=module,
+        db=db,
+    )
+    await _prepare_stage7_5_combat_state(db, session, characters)
+    db.add(GameLog(
+        session_id=session.id,
+        role="dm",
+        content=(
+            "Stage 7.5 smoke: the gatehouse drill escalates into a controlled "
+            "combat handoff with weakened constructs."
+        ),
+        log_type="narrative",
+    ))
+    await db.commit()
+    return {
+        "type": "stage7_5_combat_trigger",
+        "narrative": (
+            "The gatehouse locks into training mode. The construct nearest you "
+            "sparks and staggers, ready for a deterministic first strike."
+        ),
+        "companion_reactions": "Mara Quickstep points to the damaged construct: \"Clean hit, then check the spoils.\"",
+        "dice_display": [],
+        "player_choices": [],
+        "needs_check": {"required": False},
+        "combat_triggered": True,
+        "combat_ended": False,
+        "combat_end_result": None,
+        "combat_update": None,
+        "visibility": {},
+        "table_reason": "",
+        "table_decision": {},
+        "exploration_reaction_prompt": None,
+        "errors": [],
+    }
+
+
 async def _delete_existing(db: AsyncSession, ids: "_SmokeIds") -> None:
     await db.execute(delete(GameLog).where(GameLog.session_id == ids.session_id))
     await db.execute(delete(CombatState).where(CombatState.session_id == ids.session_id))
@@ -495,6 +711,71 @@ async def _delete_existing(db: AsyncSession, ids: "_SmokeIds") -> None:
     await db.execute(delete(Module).where(Module.id == ids.module_id))
     await db.execute(delete(User).where(User.id == ids.user_id))
     await db.commit()
+
+
+async def _prepare_stage7_5_combat_state(
+    db: AsyncSession,
+    session: Session,
+    characters: list[Character],
+) -> None:
+    result = await db.execute(select(CombatState).where(CombatState.session_id == session.id))
+    combat = result.scalars().first()
+    if not combat:
+        return
+    hero_id = str(session.player_character_id or "")
+    if hero_id:
+        _set_current_turn(combat, hero_id)
+    turn_states = dict(combat.turn_states or {})
+    for character in characters:
+        turn_states.setdefault(str(character.id), dict(DEFAULT_TURN_STATE))
+    state = dict(session.game_state or {})
+    for enemy in state.get("enemies", []) or []:
+        enemy_id = str(enemy.get("id") or "")
+        if not enemy_id:
+            continue
+        turn_states.setdefault(enemy_id, dict(DEFAULT_TURN_STATE))
+        if str(enemy.get("name") or "") == "Clockwork Training Construct":
+            enemy["hp_current"] = min(int(enemy.get("hp_current") or 4), 4)
+            enemy["hp_max"] = 4
+            enemy["xp"] = 25
+            derived = dict(enemy.get("derived") or {})
+            derived["hp_max"] = 4
+            enemy["derived"] = derived
+    combat.turn_states = turn_states
+    flag_modified(combat, "turn_states")
+    session.game_state = state
+    flag_modified(session, "game_state")
+
+
+async def _resolve_seed_user(
+    db: AsyncSession,
+    *,
+    ids: "_SmokeIds",
+    clean_slug: str,
+    password: str,
+    username: str | None,
+) -> User:
+    requested_username = (username or "").strip()
+    if requested_username:
+        result = await db.execute(select(User).where(User.username == requested_username))
+        existing = result.scalar_one_or_none()
+        if existing:
+            existing.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            if not existing.display_name:
+                existing.display_name = "Stage 7.5 Smoke Player"
+            return existing
+        return User(
+            id=ids.user_id,
+            username=requested_username,
+            password_hash=bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"),
+            display_name="Stage 7.5 Smoke Player",
+        )
+    return User(
+        id=ids.user_id,
+        username=f"test_{clean_slug}",
+        password_hash=bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"),
+        display_name="Smoke Test Player",
+    )
 
 
 def _build_character(
@@ -580,9 +861,12 @@ def _normalize_variant(variant: str | None) -> str:
         "deathsave": "death_save",
         "death_saves": "death_save",
         "featherfall": "feather_fall",
+        "stage7.5": "stage7_5",
+        "stage7-5": "stage7_5",
+        "stage75": "stage7_5",
     }
     value = aliases.get(value, value)
-    allowed = {"standard", "death_save", "reaction", "feather_fall"}
+    allowed = {"standard", "death_save", "reaction", "feather_fall", "stage7_5"}
     if value not in allowed:
         raise ValueError(f"Unsupported smoke scenario variant: {variant}")
     return value
@@ -611,6 +895,29 @@ def _apply_smoke_variant(
     combat_log = list(combat.combat_log or [])
     turn_states = dict(combat.turn_states or {})
     hero_state = dict(turn_states.get(ids.character_id) or DEFAULT_TURN_STATE)
+
+    if variant == "stage7_5":
+        session.combat_active = False
+        session.current_scene = (
+            "Stage 7.5 launch QA begins at the Clockwork Crossing. The party can "
+            "review the map, journal, and loot tools before starting a controlled "
+            "training fight."
+        )
+        game_state["stage7_5_progress"] = "exploration_ready"
+        game_state["player_choices"] = build_stage7_5_exploration_choices()
+        game_state["last_turn"] = {
+            "player_choices": build_stage7_5_exploration_choices(),
+            "needs_check": None,
+            "action_type": "stage7_5_seed_start",
+            "source": "seed",
+        }
+        game_state = _ensure_stage7_5_loot_state(game_state)
+        game_state["enemies"] = []
+        combat.turn_order = []
+        combat.entity_positions = {}
+        combat.turn_states = {}
+        combat.combat_log = ["Stage 7.5 smoke begins in exploration before combat handoff."]
+        return
 
     if variant == "death_save":
         hero.hp_current = 0
@@ -750,6 +1057,25 @@ def _apply_smoke_variant(
         session.current_scene = (
             "A construct strike has landed, but Smoke Sentinel can still answer with Shield."
         )
+
+
+def _build_stage7_5_result_payload(variant: str, ids: "_SmokeIds") -> dict[str, Any] | None:
+    if variant != "stage7_5":
+        return None
+    return {
+        "exploration_session_id": ids.session_id,
+        "combat_session_id": ids.session_id,
+        "player_character_id": ids.character_id,
+        "combat_choice_text": STAGE7_5_COMBAT_CHOICE_TEXT,
+        "secondary_choice_text": STAGE7_5_SECONDARY_CHOICE_TEXT,
+        "gold_loot_id": STAGE7_5_GOLD_LOOT_ID,
+        "gear_loot_id": STAGE7_5_TOKEN_LOOT_ID,
+        "reset_command": (
+            "cd /opt/ai-trpg/app/backend && "
+            "python seed_smoke_scenario.py --slug stage7_5_launch "
+            "--variant stage7-5 --username test --password 123456"
+        ),
+    }
 
 
 class _SmokeIds:

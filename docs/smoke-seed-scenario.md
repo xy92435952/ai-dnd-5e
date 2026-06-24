@@ -39,6 +39,7 @@ Use `--variant` for focused combat edge-case QA:
 python seed_smoke_scenario.py --slug qa_reaction --variant reaction
 python seed_smoke_scenario.py --slug qa_death_save --variant death-save
 python seed_smoke_scenario.py --slug qa_feather_fall --variant feather-fall
+python seed_smoke_scenario.py --slug stage7_5_launch --variant stage7-5 --username test --password 123456
 ```
 
 - `standard`: default playable exploration + active combat seed.
@@ -50,6 +51,9 @@ python seed_smoke_scenario.py --slug qa_feather_fall --variant feather-fall
   prompt after a fixed 6-damage fall trap. The player remains unharmed until
   the prompt is accepted or declined through
   `/game/sessions/{session_id}/exploration-reaction`.
+- `stage7-5`: starts in exploration with deterministic Stage 7.5 choices,
+  visible `25 gp` and `Gate Token` loot, and a fixed LLM-free `/game/action`
+  choice that turns the same session into a controlled combat handoff.
 
 ## What It Seeds
 
@@ -67,6 +71,22 @@ Focused variants may adjust that baseline. For example, `feather-fall` pauses
 the seed in exploration instead of active combat and temporarily equips the AI
 companion with Feather Fall so Adventure restore can show the non-combat
 ReactionPrompt without invoking the LLM.
+
+The `stage7-5` variant is intended for resettable public launch-experience QA.
+It can attach the deterministic smoke module/session/characters to an existing
+public account without deleting that account:
+
+```bash
+cd /opt/ai-trpg/app/backend
+python seed_smoke_scenario.py --slug stage7_5_launch --variant stage7-5 --username test --password 123456
+```
+
+The printed JSON includes `stage7_5.exploration_session_id`,
+`stage7_5.combat_session_id`, `stage7_5.combat_choice_text`, and loot ids for
+the visible gold/token rewards. For this variant the exploration and combat
+session ids are the same: the session starts with `combat_active=false`, then
+the fixed choice starts combat through the normal `/game/action` route without
+calling the DM agent.
 
 For a full local browser verification of the `feather-fall` Adventure prompt,
 run from the repository root:
