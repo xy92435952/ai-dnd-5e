@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REQUIRED_STAGE7_CI_JOBS = ['backend', 'frontend', 'frontend-prod-build'];
+export const VALID_STAGE7_EVIDENCE_TYPES = [
+  'feather-fall',
+  'multiplayer-load',
+  'postdeploy-healthcheck',
+  'local-http-smoke',
+  'public-browser-smoke',
+];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(SCRIPT_DIR, '..');
@@ -55,6 +63,17 @@ function parsePositiveSeconds(value, optionName) {
   return seconds;
 }
 
+function normalizeRequiredEvidenceTypes(types = []) {
+  return [...new Set(types.filter(Boolean))];
+}
+
+function validateRequiredEvidenceType(type) {
+  if (!VALID_STAGE7_EVIDENCE_TYPES.includes(type)) {
+    throw new Error(`--require-evidence-type must be one of: ${VALID_STAGE7_EVIDENCE_TYPES.join(', ')}.`);
+  }
+  return type;
+}
+
 export function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     blockerLogDir: '',
@@ -70,6 +89,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     output: '',
     pollSeconds: 20,
     repo: '',
+    requiredEvidenceTypes: [],
     runId: '',
     timeoutSeconds: 1800,
     wait: false,
@@ -95,6 +115,17 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
     if (arg === '--require-evidence') {
       args.evidenceRequired = true;
+      continue;
+    }
+    if (arg === '--require-evidence-type') {
+      args.requiredEvidenceTypes.push(validateRequiredEvidenceType(requiredOptionValue(argv, index, arg)));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--require-evidence-type=')) {
+      args.requiredEvidenceTypes.push(validateRequiredEvidenceType(
+        requiredInlineOptionValue(arg.slice('--require-evidence-type='.length), '--require-evidence-type'),
+      ));
       continue;
     }
     if (arg === '--download-blocker-logs') {
@@ -208,13 +239,18 @@ export function parseArgs(argv = process.argv.slice(2)) {
   }
 
   args.evidenceFiles = args.evidenceFiles.filter(Boolean);
+  args.requiredEvidenceTypes = normalizeRequiredEvidenceTypes(args.requiredEvidenceTypes);
+  if (args.requiredEvidenceTypes.length) {
+    args.evidenceRequired = true;
+    args.evidenceVerified = true;
+  }
   return args;
 }
 
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--evidence-no-file-check] [--download-blocker-logs <dir>]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--require-evidence-type <type>] [--evidence-no-file-check] [--download-blocker-logs <dir>]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
@@ -222,6 +258,7 @@ export function usage() {
     'Use --no-ci only to draft a local summary without contacting GitHub.',
     'Use --verify-evidence to require the listed Stage 7 JSON evidence files to pass scripts/verify_stage7_evidence.mjs.',
     'Use --require-evidence when the release handoff must include at least one listed evidence file.',
+    `Use --require-evidence-type to require specific verified evidence types: ${VALID_STAGE7_EVIDENCE_TYPES.join(', ')}.`,
     'Use --download-blocker-logs to save logs for failed or pending required CI job blockers.',
   ].join('\n');
 }
@@ -489,6 +526,38 @@ function formatEvidenceVerification(evidenceSummary) {
   return `fail: ${evidenceSummary.error || 'unknown error'}`;
 }
 
+function resolveEvidencePath(filePath) {
+  return path.isAbsolute(filePath) ? filePath : path.resolve(ROOT_DIR, filePath);
+}
+
+function readEvidenceJson(filePath) {
+  const fullPath = resolveEvidencePath(filePath);
+  const raw = readFileSync(fullPath, 'utf8').replace(/^\uFEFF/, '');
+  return JSON.parse(raw);
+}
+
+export function inferEvidenceType(data) {
+  if (data?.mode === 'feather-fall-adventure-browser-smoke') return 'feather-fall';
+  if (data?.base_url && Array.isArray(data?.room_sizes) && Object.prototype.hasOwnProperty.call(data, 'cleanup_ok')) {
+    return 'multiplayer-load';
+  }
+  if (Array.isArray(data?.healthChecks) && Array.isArray(data?.logChecks) && Object.prototype.hasOwnProperty.call(data, 'healthReady')) {
+    return 'postdeploy-healthcheck';
+  }
+  if (data?.mode === 'stage7-local-http-smoke') return 'local-http-smoke';
+  if (data?.mode === 'stage7-public-browser-smoke') return 'public-browser-smoke';
+  return 'unknown';
+}
+
+function collectEvidenceTypes(evidenceFiles) {
+  return normalizeRequiredEvidenceTypes(evidenceFiles.map(filePath => inferEvidenceType(readEvidenceJson(filePath))));
+}
+
+function missingEvidenceTypes(foundTypes, requiredTypes) {
+  const found = new Set(foundTypes);
+  return requiredTypes.filter(type => !found.has(type));
+}
+
 export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) {
   if (!requiredJobSummary) {
     return [
@@ -739,14 +808,18 @@ export function buildReleaseCandidatePayload({
       ? {
         checked: true,
         error: evidenceSummary.error || '',
+        foundTypes: evidenceSummary.foundTypes || [],
         ok: evidenceSummary.ok,
         output: evidenceSummary.output || '',
+        requiredTypes: evidenceSummary.requiredTypes || [],
       }
       : {
         checked: false,
         error: '',
+        foundTypes: [],
         ok: true,
         output: '',
+        requiredTypes: [],
       },
     generatedAt,
     headSha: headSha || '',
@@ -836,19 +909,34 @@ export function buildReleaseCandidateSummary(options) {
 export function verifyEvidenceFiles(evidenceFiles, {
   noFileCheck = false,
   requireEvidence = false,
+  requiredEvidenceTypes = [],
 } = {}) {
+  const requiredTypes = normalizeRequiredEvidenceTypes(requiredEvidenceTypes);
   if (!evidenceFiles.length) {
+    if (requiredTypes.length) {
+      return {
+        error: `Missing required Stage 7 evidence type(s): ${requiredTypes.join(', ')}`,
+        foundTypes: [],
+        ok: false,
+        output: '',
+        requiredTypes,
+      };
+    }
     if (requireEvidence) {
       return {
         error: 'At least one Stage 7 evidence file is required.',
+        foundTypes: [],
         ok: false,
         output: '',
+        requiredTypes,
       };
     }
     return {
       error: '',
+      foundTypes: [],
       ok: true,
       output: 'No optional evidence files listed.',
+      requiredTypes,
     };
   }
 
@@ -862,16 +950,31 @@ export function verifyEvidenceFiles(evidenceFiles, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
+    const foundTypes = collectEvidenceTypes(evidenceFiles);
+    const missingTypes = missingEvidenceTypes(foundTypes, requiredTypes);
+    if (missingTypes.length) {
+      return {
+        error: `Missing required Stage 7 evidence type(s): ${missingTypes.join(', ')}`,
+        foundTypes,
+        ok: false,
+        output,
+        requiredTypes,
+      };
+    }
     return {
       error: '',
+      foundTypes,
       ok: true,
       output,
+      requiredTypes,
     };
   } catch (error) {
     return {
       error: (error.stderr || error.stdout || error.message || String(error)).trim(),
+      foundTypes: [],
       ok: false,
       output: (error.stdout || '').trim(),
+      requiredTypes,
     };
   }
 }
@@ -946,10 +1049,11 @@ export async function runCli(argv = process.argv.slice(2), {
     branch,
     downloadedLogs,
     evidenceFiles: args.evidenceFiles,
-    evidenceSummary: args.evidenceVerified || args.evidenceRequired
+    evidenceSummary: args.evidenceVerified || args.evidenceRequired || args.requiredEvidenceTypes.length
       ? verifyEvidenceFiles(args.evidenceFiles, {
         noFileCheck: args.evidenceNoFileCheck,
         requireEvidence: args.evidenceRequired,
+        requiredEvidenceTypes: args.requiredEvidenceTypes,
       })
       : null,
     gitStatus: local.status,

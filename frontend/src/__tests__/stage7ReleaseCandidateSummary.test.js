@@ -95,6 +95,60 @@ function writePostdeployEvidence(overrides = {}) {
   return filePath
 }
 
+function writePublicBrowserSmokeEvidence(overrides = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-release-public-browser-'))
+  const adventurePath = path.join(dir, 'adventure.png')
+  const combatPath = path.join(dir, 'combat.png')
+  fs.writeFileSync(adventurePath, 'png', 'utf8')
+  fs.writeFileSync(combatPath, 'png', 'utf8')
+  const filePath = path.join(dir, 'public-browser-smoke.json')
+  const data = {
+    ok: true,
+    mode: 'stage7-public-browser-smoke',
+    created_at: '2026-06-24T06:40:01.278Z',
+    frontend_origin: 'https://example.com',
+    session_id: 'session-1',
+    username: 'stage7-public-user',
+    checks: {
+      login_path: '/',
+      login_token_present: true,
+      adventure_path: '/adventure/session-1',
+      adventure_loaded: true,
+      session_api_ok: true,
+      session_id_matches: true,
+      session_combat_active: true,
+      current_scene_present: true,
+      combat_path: '/combat/session-1',
+      combat_loaded: true,
+      combat_api_ok: true,
+      combat_round: 1,
+      combat_turn_order_count: 4,
+      combat_entities_count: 4,
+      skill_bar_entity_id: 'char-1',
+      skill_bar_count: 10,
+      skill_bar_dom_count: 10,
+    },
+    assertions: {
+      login_ok: true,
+      adventure_loaded: true,
+      combat_loaded: true,
+      combat_session_active: true,
+      skill_bar_loaded: true,
+      no_browser_errors: true,
+    },
+    browser: {
+      errors: [],
+    },
+    screenshots: {
+      adventure: adventurePath,
+      combat: combatPath,
+    },
+    ...overrides,
+  }
+  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+  return filePath
+}
+
 describe('Stage 7 release candidate summary', () => {
   it('requires the deployment-blocking CI jobs to be completed successfully', () => {
     const summary = summarizeRequiredCiJobs(successfulJobs())
@@ -308,6 +362,9 @@ describe('Stage 7 release candidate summary', () => {
       '--verify-evidence',
       '--evidence-no-file-check',
       '--require-evidence',
+      '--require-evidence-type',
+      'public-browser-smoke',
+      '--require-evidence-type=postdeploy-healthcheck',
       '--evidence',
       'artifacts/manifest.json',
       'artifacts/load.json',
@@ -317,6 +374,7 @@ describe('Stage 7 release candidate summary', () => {
       evidenceNoFileCheck: true,
       evidenceRequired: true,
       evidenceVerified: true,
+      requiredEvidenceTypes: ['public-browser-smoke', 'postdeploy-healthcheck'],
       format: 'json',
       headSha: 'abc123',
       blockerLogDir: 'artifacts/ci-logs',
@@ -347,6 +405,11 @@ describe('Stage 7 release candidate summary', () => {
     expect(() => parseArgs(['--output='])).toThrow('--output requires a value.')
     expect(() => parseArgs(['--evidence', '--verify-evidence'])).toThrow('--evidence requires a value.')
     expect(() => parseArgs(['--evidence='])).toThrow('--evidence requires a value.')
+    expect(() => parseArgs(['--require-evidence-type', '--json'])).toThrow('--require-evidence-type requires a value.')
+    expect(() => parseArgs(['--require-evidence-type='])).toThrow('--require-evidence-type requires a value.')
+    expect(() => parseArgs(['--require-evidence-type', 'browser-smoke'])).toThrow(
+      '--require-evidence-type must be one of: feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke, public-browser-smoke.',
+    )
     expect(() => parseArgs(['--verify-evidnce'])).toThrow('Unknown option: --verify-evidnce')
   })
 
@@ -674,6 +737,71 @@ describe('Stage 7 release candidate summary', () => {
     expect(verifyEvidenceFiles([badEvidence])).toMatchObject({
       ok: false,
     })
+  })
+
+  it('requires specific Stage 7 evidence types for final handoff readiness', () => {
+    const postdeployEvidence = writePostdeployEvidence()
+    const publicBrowserEvidence = writePublicBrowserSmokeEvidence()
+
+    expect(verifyEvidenceFiles([], {
+      requiredEvidenceTypes: ['public-browser-smoke'],
+    })).toMatchObject({
+      error: 'Missing required Stage 7 evidence type(s): public-browser-smoke',
+      foundTypes: [],
+      ok: false,
+      requiredTypes: ['public-browser-smoke'],
+    })
+
+    expect(verifyEvidenceFiles([postdeployEvidence], {
+      requiredEvidenceTypes: ['public-browser-smoke'],
+    })).toMatchObject({
+      error: 'Missing required Stage 7 evidence type(s): public-browser-smoke',
+      foundTypes: ['postdeploy-healthcheck'],
+      ok: false,
+      requiredTypes: ['public-browser-smoke'],
+    })
+
+    expect(verifyEvidenceFiles([postdeployEvidence, publicBrowserEvidence], {
+      requiredEvidenceTypes: ['public-browser-smoke', 'postdeploy-healthcheck'],
+    })).toMatchObject({
+      foundTypes: ['postdeploy-healthcheck', 'public-browser-smoke'],
+      ok: true,
+      requiredTypes: ['public-browser-smoke', 'postdeploy-healthcheck'],
+    })
+  })
+
+  it('blocks release readiness when a required evidence type is absent', () => {
+    const evidenceSummary = verifyEvidenceFiles([writePostdeployEvidence()], {
+      requiredEvidenceTypes: ['public-browser-smoke'],
+    })
+    const common = {
+      branch: 'main',
+      evidenceFiles: ['artifacts/postdeploy.json'],
+      evidenceSummary,
+      gitStatus: '',
+      headSha: 'd5b9fc7',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        id: 2,
+        name: 'CI',
+        status: 'completed',
+      },
+    }
+    const payload = buildReleaseCandidatePayload(common)
+    const markdown = buildReleaseCandidateSummary(common)
+
+    expect(payload.ready).toBe(false)
+    expect(payload.evidenceVerification).toMatchObject({
+      checked: true,
+      error: 'Missing required Stage 7 evidence type(s): public-browser-smoke',
+      foundTypes: ['postdeploy-healthcheck'],
+      ok: false,
+      requiredTypes: ['public-browser-smoke'],
+    })
+    expect(markdown).toContain('Evidence verification: fail: Missing required Stage 7 evidence type(s): public-browser-smoke')
+    expect(markdown).toContain('Ready for deployment handoff: no')
   })
 
   it('can require at least one evidence file for release handoff readiness', () => {

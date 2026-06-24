@@ -469,6 +469,13 @@ into one final handoff diagnosis:
 node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --output artifacts\stage7-release-candidate-summary-YYYYMMDD.json
 ```
 
+For the final public-deployment handoff, require the evidence types that prove
+the deployed origin was actually exercised after restart:
+
+```powershell
+node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --verify-evidence --require-evidence-type public-browser-smoke --require-evidence-type postdeploy-healthcheck --evidence artifacts\stage7-public-browser-smoke-YYYYMMDD.json --evidence artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json --output artifacts\stage7-release-candidate-summary-public-YYYYMMDD.json
+```
+
 Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke,
 multiplayer load-smoke, local HTTP smoke, public browser smoke, or post-deploy
 healthcheck artifacts that should be listed in the handoff note. Add
@@ -477,7 +484,12 @@ Stage 7 machine-readable JSON; the release summary then runs
 `scripts/verify_stage7_evidence.mjs`, records the result, and keeps top-level
 `ready=false` if any listed evidence fails verification. Add `--require-evidence`
 when the changed area requires smoke or post-deploy artifacts; this keeps the
-summary non-ready if no evidence file was listed at all. Use
+summary non-ready if no evidence file was listed at all. Add
+`--require-evidence-type <type>` when a handoff must include a particular
+verified artifact shape, such as `public-browser-smoke` and
+`postdeploy-healthcheck` for final public deployment; the option implies
+evidence verification and keeps the summary non-ready until every required type
+is present in the listed JSON files. Use
 `--evidence-no-file-check` only for downloaded JSON artifacts whose sibling
 screenshots or local result path are not present. Use `--run-id <id>` when
 checking a specific workflow run instead of the latest run for the current
