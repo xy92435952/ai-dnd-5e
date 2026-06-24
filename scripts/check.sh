@@ -175,12 +175,54 @@ else
   echo "Set RUN_STAGE7_POSTDEPLOY_HEALTHCHECK=1 after server pull/restart to verify /health and captured logs."
 fi
 
+if [ "${RUN_STAGE7_PUBLIC_BROWSER_SMOKE:-0}" = "1" ]; then
+  echo "== Stage 7 public browser smoke =="
+  if [ -z "${STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT:-}" ] && [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
+    STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT="artifacts/stage7-public-browser-smoke-$(date +%Y%m%d_%H%M%S).json"
+    echo "STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT not set; writing evidence to $STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT"
+  fi
+
+  set --
+  if [ -n "${STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT:-}" ]; then
+    set -- "$@" --output "$STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT"
+  fi
+  if [ -n "${STAGE7_PUBLIC_BROWSER_SMOKE_ARTIFACT_TAG:-}" ]; then
+    set -- "$@" --artifact-tag "$STAGE7_PUBLIC_BROWSER_SMOKE_ARTIFACT_TAG"
+  fi
+  if [ -n "${STAGE7_PUBLIC_BROWSER_SMOKE_TIMEOUT_MS:-}" ]; then
+    set -- "$@" --timeout-ms "$STAGE7_PUBLIC_BROWSER_SMOKE_TIMEOUT_MS"
+  fi
+  if [ -n "${STAGE7_PUBLIC_BROWSER_PATH:-}" ]; then
+    set -- "$@" --browser-path "$STAGE7_PUBLIC_BROWSER_PATH"
+  fi
+  if [ -n "${STAGE7_PUBLIC_FRONTEND_ORIGIN:-}" ]; then
+    set -- "$@" --frontend-origin "$STAGE7_PUBLIC_FRONTEND_ORIGIN"
+  fi
+  if [ -n "${STAGE7_PUBLIC_USERNAME:-}" ]; then
+    set -- "$@" --username "$STAGE7_PUBLIC_USERNAME"
+  fi
+  if [ -n "${STAGE7_PUBLIC_PASSWORD:-}" ]; then
+    set -- "$@" --password "$STAGE7_PUBLIC_PASSWORD"
+  fi
+  if [ -n "${STAGE7_PUBLIC_SESSION_ID:-}" ]; then
+    set -- "$@" --session-id "$STAGE7_PUBLIC_SESSION_ID"
+  fi
+
+  (cd "$ROOT_DIR" && node scripts/stage7_public_browser_smoke.mjs "$@")
+  if [ -n "${STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT:-}" ]; then
+    add_stage7_evidence_file "$STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT"
+  fi
+else
+  echo "== Stage 7 public browser smoke skipped =="
+  echo "Set RUN_STAGE7_PUBLIC_BROWSER_SMOKE=1 after deployment with STAGE7_PUBLIC_FRONTEND_ORIGIN, STAGE7_PUBLIC_USERNAME, STAGE7_PUBLIC_PASSWORD, and STAGE7_PUBLIC_SESSION_ID."
+fi
+
 if [ "${RUN_STAGE7_EVIDENCE_GATE:-0}" = "1" ]; then
   stage7_evidence_input=${STAGE7_EVIDENCE_FILES:-$stage7_evidence_files}
   if [ -z "$stage7_evidence_input" ]; then
     echo "RUN_STAGE7_EVIDENCE_GATE=1 needs evidence JSON files." >&2
     echo "Set STAGE7_EVIDENCE_FILES, or run an evidence-producing smoke in the same check script." >&2
-    echo "Examples: RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE=1 or RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID/LOADTEST_SQLITE_DB." >&2
+    echo "Examples: RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE=1, RUN_MULTIPLAYER_LOADTEST=1 with LOADTEST_MODULE_ID/LOADTEST_SQLITE_DB, RUN_STAGE7_POSTDEPLOY_HEALTHCHECK=1, or RUN_STAGE7_PUBLIC_BROWSER_SMOKE=1." >&2
     exit 1
   fi
   echo "== Stage 7 evidence artifact gate =="

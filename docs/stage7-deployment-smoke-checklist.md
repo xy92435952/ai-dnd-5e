@@ -435,6 +435,9 @@ Keep the local or CI evidence from this checklist with the release note:
 - Local HTTP smoke result JSON and backend logs when release-readiness depends
   on API health, login, Adventure session restore, Combat load, and skill-bar
   load without a public deployment target yet
+- Public browser smoke result JSON and screenshots after deployment, covering
+  public-origin login, Adventure load, Combat load, same-origin `/api` session
+  and combat calls, and skill-bar rendering
 - CI `frontend-prod-build` result when frontend dependencies or build tooling
   changed
 - Stage 7 post-deploy healthcheck Markdown/JSON when a server pull/restart was
@@ -467,8 +470,9 @@ node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy9243595
 ```
 
 Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke,
-multiplayer load-smoke, local HTTP smoke, or post-deploy healthcheck artifacts
-that should be listed in the handoff note. Add `--verify-evidence` when the evidence files are
+multiplayer load-smoke, local HTTP smoke, public browser smoke, or post-deploy
+healthcheck artifacts that should be listed in the handoff note. Add
+`--verify-evidence` when the evidence files are
 Stage 7 machine-readable JSON; the release summary then runs
 `scripts/verify_stage7_evidence.mjs`, records the result, and keeps top-level
 `ready=false` if any listed evidence fails verification. Add `--require-evidence`
@@ -506,17 +510,19 @@ node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure
 node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json
 node scripts\verify_stage7_evidence.mjs artifacts\stage7-local-http-smoke-YYYYMMDD.json
+node scripts\verify_stage7_evidence.mjs artifacts\stage7-public-browser-smoke-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json
 ```
 
 The verifier can also be pinned to a specific artifact shape with
 `--type feather-fall`, `--type multiplayer-load`, or
-`--type postdeploy-healthcheck`, or `--type local-http-smoke`. `--type` values
-are validated before any JSON artifact is read, so a missing, empty, or
-unsupported value fails fast instead of producing a misleading evidence-type
-inference result. The verifier also requires at least one evidence JSON file and
-rejects unknown `--` options, so a copied command with a missing path or
-misspelled flag cannot pass as a successful evidence check.
+`--type postdeploy-healthcheck`, `--type local-http-smoke`, or
+`--type public-browser-smoke`. `--type` values are validated before any JSON
+artifact is read, so a missing, empty, or unsupported value fails fast instead
+of producing a misleading evidence-type inference result. The verifier also
+requires at least one evidence JSON file and rejects unknown `--` options, so a
+copied command with a missing path or misspelled flag cannot pass as a
+successful evidence check.
 
 For Feather Fall browser manifests, the verifier checks the decision path,
 reaction type, prompt dialog name/description semantics, prompt cleanup,
@@ -528,7 +534,11 @@ connections match users, cleanup flags, timing summary values, and optional
 hold observer fields. For local HTTP smoke JSON, it checks `/health`, login,
 Adventure session restore, Combat load, skill-bar load, matching seeded
 session/character IDs, positive combat/skill counts, and backend logs for
-`Traceback`, `ERROR`, or `500`. For post-deploy healthcheck JSON, it checks that
+`Traceback`, `ERROR`, or `500`. For public browser smoke JSON, it checks that
+the public login route leaves `/login`, the Adventure and Combat routes render,
+same-origin `/api` session/combat calls succeed, the session is combat-active,
+the skill bar exists in both API data and DOM, screenshots exist, and captured
+browser error events are empty. For post-deploy healthcheck JSON, it checks that
 at least one health URL returned HTTP 2xx JSON with `status="ok"` and that any
 captured log files had no `Traceback`, `ERROR`, or `500` matches.
 
@@ -537,7 +547,7 @@ frontend build and any optional evidence-producing browser/load smokes:
 
 ```powershell
 $env:RUN_STAGE7_EVIDENCE_GATE='1'
-$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json artifacts\stage7-local-http-smoke-YYYYMMDD.json artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json'
+$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json artifacts\stage7-local-http-smoke-YYYYMMDD.json artifacts\stage7-public-browser-smoke-YYYYMMDD.json artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
@@ -545,8 +555,9 @@ When checking a downloaded GitHub Actions JSON artifact without its sibling
 screenshots or local result path, add `--no-file-check` to the direct verifier
 command, or set `STAGE7_EVIDENCE_NO_FILE_CHECK=1` when using `scripts/check.sh`.
 When `STAGE7_EVIDENCE_FILES` is omitted, `scripts/check.sh` verifies the
-manifest/result JSON files generated by any Feather Fall browser smoke or
-multiplayer load smoke or post-deploy healthcheck run in the same invocation.
+manifest/result JSON files generated by any Feather Fall browser smoke,
+multiplayer load smoke, public browser smoke, or post-deploy healthcheck run in
+the same invocation.
 If `RUN_MULTIPLAYER_LOADTEST=1` and `RUN_STAGE7_EVIDENCE_GATE=1` are both set
 without `LOADTEST_RESULT_JSON`, `scripts/check.sh` writes a default ignored
 evidence file at `artifacts/multiplayer-load-smoke-<LOADTEST_PREFIX>.json` and
@@ -555,6 +566,10 @@ verifies it. If `RUN_STAGE7_POSTDEPLOY_HEALTHCHECK=1` and
 `STAGE7_POSTDEPLOY_HEALTHCHECK_OUTPUT`, `scripts/check.sh` writes a default
 ignored evidence file at `artifacts/stage7-postdeploy-healthcheck-YYYYMMDD_HHMMSS.json`
 and verifies it.
+If `RUN_STAGE7_PUBLIC_BROWSER_SMOKE=1` and `RUN_STAGE7_EVIDENCE_GATE=1` are
+both set without `STAGE7_PUBLIC_BROWSER_SMOKE_OUTPUT`, `scripts/check.sh`
+writes a default ignored evidence file at
+`artifacts/stage7-public-browser-smoke-YYYYMMDD_HHMMSS.json` and verifies it.
 
 Before server pull/restart:
 
@@ -631,8 +646,29 @@ $env:STAGE7_POSTDEPLOY_LOG_FILES='artifacts\server-journal-YYYYMMDD.log artifact
 ```
 
 After restart, run at least one browser session through login, Adventure load,
-and Combat load on the public origin. When multiplayer or WS paths changed,
-open two users in the same room and confirm:
+and Combat load on the public origin. Prefer the reusable public browser smoke
+when a deployed smoke user and combat-active session are available:
+
+```powershell
+node scripts\stage7_public_browser_smoke.mjs --frontend-origin https://your-domain.example --username stage7-smoke-user --password <password> --session-id <combat-active-session-id> --output artifacts\stage7-public-browser-smoke-YYYYMMDD.json
+
+$env:RUN_STAGE7_PUBLIC_BROWSER_SMOKE='1'
+$env:RUN_STAGE7_EVIDENCE_GATE='1'
+$env:STAGE7_PUBLIC_FRONTEND_ORIGIN='https://your-domain.example'
+$env:STAGE7_PUBLIC_USERNAME='stage7-smoke-user'
+$env:STAGE7_PUBLIC_PASSWORD='<password>'
+$env:STAGE7_PUBLIC_SESSION_ID='<combat-active-session-id>'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
+The public browser smoke opens the public login page, submits the credentials,
+loads `/adventure/{session_id}` and `/combat/{session_id}`, verifies same-origin
+`/api/game/sessions`, `/api/game/combat`, and `/skill-bar` calls from the
+browser context, captures Adventure/Combat screenshots, and fails if browser
+error events are recorded. The session must already be combat-active; create or
+preserve a deployment smoke session before running this gate.
+
+When multiplayer or WS paths changed, open two users in the same room and confirm:
 
 - both clients show connected realtime sync
 - private ReactionPrompt or exploration reaction text only appears for the

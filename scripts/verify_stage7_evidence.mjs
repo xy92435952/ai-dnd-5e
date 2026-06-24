@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
-const VALID_EVIDENCE_TYPES = ['auto', 'feather-fall', 'multiplayer-load', 'postdeploy-healthcheck', 'local-http-smoke'];
+const VALID_EVIDENCE_TYPES = ['auto', 'feather-fall', 'multiplayer-load', 'postdeploy-healthcheck', 'local-http-smoke', 'public-browser-smoke'];
 
 function requiredOptionValue(argv, index, optionName) {
   const value = argv[index + 1] || '';
@@ -69,13 +69,14 @@ function parseArgs(argv = process.argv.slice(2)) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/verify_stage7_evidence.mjs [--type feather-fall|multiplayer-load|postdeploy-healthcheck|local-http-smoke|auto] [--no-file-check] <json-file> [more-json-files...]',
+    '  node scripts/verify_stage7_evidence.mjs [--type feather-fall|multiplayer-load|postdeploy-healthcheck|local-http-smoke|public-browser-smoke|auto] [--no-file-check] <json-file> [more-json-files...]',
     '',
     'Checks:',
     '  feather-fall       verifies browser smoke manifest fields and screenshot paths',
     '  multiplayer-load   verifies load smoke result fields and summary counts',
     '  postdeploy-healthcheck verifies post-deploy health URL and log scan results',
     '  local-http-smoke   verifies local HTTP health, login, Adventure, Combat, and skill-bar smoke results',
+    '  public-browser-smoke verifies public-origin login, Adventure, Combat, and skill-bar browser smoke results',
     '  auto               infers the type from the JSON payload',
   ].join('\n');
 }
@@ -99,6 +100,7 @@ function inferType(data) {
     return 'postdeploy-healthcheck';
   }
   if (data?.mode === 'stage7-local-http-smoke') return 'local-http-smoke';
+  if (data?.mode === 'stage7-public-browser-smoke') return 'public-browser-smoke';
   return 'unknown';
 }
 
@@ -297,6 +299,50 @@ function verifyLocalHttpSmoke(filePath, data, { noFileCheck }) {
   }
 }
 
+function verifyPublicBrowserSmoke(filePath, data, { noFileCheck }) {
+  ensure(data.ok === true, `${filePath}: ok must be true`);
+  ensure(data.mode === 'stage7-public-browser-smoke', `${filePath}: unexpected mode ${data.mode}`);
+  ensure(typeof data.created_at === 'string' && data.created_at.length > 0, `${filePath}: created_at missing`);
+  ensure(typeof data.frontend_origin === 'string' && /^https?:\/\//.test(data.frontend_origin), `${filePath}: frontend_origin must be an http(s) origin`);
+  ensure(typeof data.session_id === 'string' && data.session_id.length > 0, `${filePath}: session_id missing`);
+  ensure(typeof data.username === 'string' && data.username.length > 0, `${filePath}: username missing`);
+
+  const checks = data.checks || {};
+  ensure(checks.login_token_present === true, `${filePath}: checks.login_token_present must be true`);
+  ensure(checks.login_path && checks.login_path !== '/login', `${filePath}: checks.login_path must leave /login`);
+  ensure(checks.adventure_loaded === true, `${filePath}: checks.adventure_loaded must be true`);
+  ensure(checks.session_api_ok === true, `${filePath}: checks.session_api_ok must be true`);
+  ensure(checks.session_id_matches === true, `${filePath}: checks.session_id_matches must be true`);
+  ensure(checks.session_combat_active === true, `${filePath}: checks.session_combat_active must be true`);
+  ensure(checks.current_scene_present === true, `${filePath}: checks.current_scene_present must be true`);
+  ensure(checks.combat_loaded === true, `${filePath}: checks.combat_loaded must be true`);
+  ensure(checks.combat_api_ok === true, `${filePath}: checks.combat_api_ok must be true`);
+  ensureNumber(checks.combat_round, `${filePath}: checks.combat_round missing`);
+  ensure(checks.combat_round >= 1, `${filePath}: checks.combat_round must be at least 1`);
+  ensureNumber(checks.combat_turn_order_count, `${filePath}: checks.combat_turn_order_count missing`);
+  ensure(checks.combat_turn_order_count >= 2, `${filePath}: checks.combat_turn_order_count must include player and enemies`);
+  ensureNumber(checks.combat_entities_count, `${filePath}: checks.combat_entities_count missing`);
+  ensure(checks.combat_entities_count >= 2, `${filePath}: checks.combat_entities_count must include player and enemies`);
+  ensureNumber(checks.skill_bar_count, `${filePath}: checks.skill_bar_count missing`);
+  ensure(checks.skill_bar_count > 0, `${filePath}: checks.skill_bar_count must be positive`);
+  ensureNumber(checks.skill_bar_dom_count, `${filePath}: checks.skill_bar_dom_count missing`);
+  ensure(checks.skill_bar_dom_count > 0, `${filePath}: checks.skill_bar_dom_count must be positive`);
+
+  const assertions = data.assertions || {};
+  for (const key of ['login_ok', 'adventure_loaded', 'combat_loaded', 'combat_session_active', 'skill_bar_loaded', 'no_browser_errors']) {
+    ensure(assertions[key] === true, `${filePath}: assertions.${key} must be true`);
+  }
+  ensure(Array.isArray(data.browser?.errors), `${filePath}: browser.errors must be an array`);
+  ensure(data.browser.errors.length === 0, `${filePath}: browser.errors must be empty`);
+
+  if (!noFileCheck) {
+    ensure(typeof data.screenshots?.adventure === 'string' && data.screenshots.adventure.length > 0, `${filePath}: screenshots.adventure missing`);
+    ensure(typeof data.screenshots?.combat === 'string' && data.screenshots.combat.length > 0, `${filePath}: screenshots.combat missing`);
+    ensurePathExists(path.isAbsolute(data.screenshots.adventure) ? data.screenshots.adventure : path.resolve(root, data.screenshots.adventure), `${filePath}: screenshots.adventure`);
+    ensurePathExists(path.isAbsolute(data.screenshots.combat) ? data.screenshots.combat : path.resolve(root, data.screenshots.combat), `${filePath}: screenshots.combat`);
+  }
+}
+
 async function main() {
   const args = parseArgs();
   if (args.help) {
@@ -328,7 +374,11 @@ async function main() {
       verifyLocalHttpSmoke(fullPath, data, args);
       continue;
     }
-    fail(`${fullPath}: could not infer evidence type; pass --type feather-fall, --type multiplayer-load, --type postdeploy-healthcheck, or --type local-http-smoke`);
+    if (type === 'public-browser-smoke') {
+      verifyPublicBrowserSmoke(fullPath, data, args);
+      continue;
+    }
+    fail(`${fullPath}: could not infer evidence type; pass --type feather-fall, --type multiplayer-load, --type postdeploy-healthcheck, --type local-http-smoke, or --type public-browser-smoke`);
   }
 
   console.log(`Verified ${args.files.length} Stage 7 evidence file(s).`);
