@@ -684,6 +684,24 @@ from the browser context. It captures route/Combat screenshots and fails if
 browser error events are recorded. The session must already be combat-active;
 create or preserve a deployment smoke session before running this gate.
 
+For Stage 7.5 launch-experience QA, run the broader public UI smoke after the
+baseline Stage 7 evidence is green and the public site has both a non-combat
+Adventure session and a combat-active session available:
+
+```powershell
+node scripts\stage7_5_launch_experience_smoke.mjs --frontend-origin https://your-domain.example --username stage7-smoke-user --password <password> --exploration-session-id <non-combat-session-id> --combat-session-id <combat-active-session-id> --output artifacts\stage7_5-launch-experience-result-YYYYMMDD.json
+```
+
+The Stage 7.5 launch-experience smoke logs in through the deployed frontend,
+checks a non-combat Adventure shell, opens Journal / Map / Loot, verifies the
+loot API, verifies the Adventure-to-Combat handoff for a combat-active session,
+then checks Combat, combat API, skill-bar API/DOM, battlefield units, end-turn
+control presence, and combat log presence. It captures screenshots and rejects
+browser error events, but it intentionally avoids story advancement, loot
+claiming, attacks, and end-turn mutations. Treat it as launch-readiness evidence
+and as a prerequisite for Stage 7.5, not as the full mutating combat-round QA.
+See `docs/stage7_5-launch-experience-qa.md` for the completion rules.
+
 When multiplayer or WS paths changed, open two users in the same room and confirm:
 
 - both clients show connected realtime sync
