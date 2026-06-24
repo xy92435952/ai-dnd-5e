@@ -6,12 +6,10 @@ const {
   modulesListMock,
   roomCreateMock,
   roomJoinMock,
-  navigateMock,
 } = vi.hoisted(() => ({
   modulesListMock: vi.fn(),
   roomCreateMock: vi.fn(),
   roomJoinMock: vi.fn(),
-  navigateMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
@@ -24,14 +22,6 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  }
-})
-
 import RoomLobby from '../RoomLobby'
 
 function renderLobby(initialEntries = ['/lobby']) {
@@ -39,6 +29,8 @@ function renderLobby(initialEntries = ['/lobby']) {
     <MemoryRouter initialEntries={initialEntries}>
       <Routes>
         <Route path="/lobby" element={<RoomLobby />} />
+        <Route path="/room/:sessionId" element={<div data-testid="room-route">room loaded</div>} />
+        <Route path="/" element={<div data-testid="home-route">home loaded</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -101,7 +93,7 @@ describe('RoomLobby multiplayer entry', () => {
     await waitFor(() => {
       expect(roomCreateMock).toHaveBeenCalledWith('mod-1', 'Friday Table', 3, 'dark_fantasy')
     })
-    expect(navigateMock).toHaveBeenCalledWith('/room/room-1')
+    expect(await screen.findByTestId('room-route')).toHaveTextContent('room loaded')
 
     cleanup()
   })
@@ -126,7 +118,7 @@ describe('RoomLobby multiplayer entry', () => {
     await waitFor(() => {
       expect(roomJoinMock).toHaveBeenCalledWith('123456')
     })
-    expect(navigateMock).toHaveBeenCalledWith('/room/room-2')
+    expect(await screen.findByTestId('room-route')).toHaveTextContent('room loaded')
 
     cleanup()
   })
@@ -141,7 +133,7 @@ describe('RoomLobby multiplayer entry', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('请先选择模组')
 
     fireEvent.click(screen.getByRole('button', { name: /返回主页/ }))
-    expect(navigateMock).toHaveBeenCalledWith('/')
+    expect(await screen.findByTestId('home-route')).toHaveTextContent('home loaded')
 
     cleanup()
   })

@@ -8,14 +8,12 @@ const {
   createMock,
   generatePartyMock,
   createSessionMock,
-  navigateMock,
 } = vi.hoisted(() => ({
   moduleGetMock: vi.fn(),
   optionsMock: vi.fn(),
   createMock: vi.fn(),
   generatePartyMock: vi.fn(),
   createSessionMock: vi.fn(),
-  navigateMock: vi.fn(),
 }))
 
 vi.mock('../../api/client', () => ({
@@ -34,14 +32,6 @@ vi.mock('../../api/client', () => ({
     claimChar: vi.fn(),
   },
 }))
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  }
-})
 
 vi.mock('../../components/LegendForge', () => ({
   default: ({ open, onDone }) => open ? (
@@ -139,6 +129,7 @@ function renderCreate(route = '/setup/mod-1') {
     <MemoryRouter initialEntries={[route]}>
       <Routes>
         <Route path="/setup/:moduleId" element={<CharacterCreate />} />
+        <Route path="/adventure/:sessionId" element={<div data-testid="adventure-route">adventure loaded</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -261,7 +252,7 @@ describe('CharacterCreate shell polish', () => {
       }))
     })
     fireEvent.click(await screen.findByTestId('legend-forge'))
-    expect(navigateMock).toHaveBeenCalledWith('/adventure/session-1')
+    expect(await screen.findByTestId('adventure-route')).toHaveTextContent('adventure loaded')
 
     cleanup()
   })

@@ -182,6 +182,9 @@ spell-preparation, dialogue-history, adventure top bar shell, adventure party st
 adventure stage shell, stage speaker figure, stage dialogue bubble, dialogue panel shell, player response composer, stage dialogue playback, companion reaction panel, chat-log display, choice-list skill-check preview, skill-check pending-roll UI, combat turn-control HUD, combat spell-slot/concentration HUD, combat action-economy HUD, combat identity/status HUD, combat intent summary HUD, combat skill-action HUD, combat log feedback HUD, combat turn banner/action-coach HUD, AI-turn stale reaction cleanup, multiplayer timeline, multiplayer party readiness tones
 coordination, multiplayer speak-turn, room page shell, room multiplayer readiness status, room member management cards, room AI companion cards, room lifecycle action controls, character-create ability score controls, character-create basics multiclass controls, character-create equipment language choices, character-create feat-choice step, character-create companion details, character-create party-size selector, character-create skill choices, character-create spell choices, combat smite prompt, combat maneuver modal, combat legendary/lair action prompt, combat overlay alerts, combat multiplayer turn status, shared multiplayer session status, shared websocket status pill, shared Magic Initiate choice fields, combat spell modal shell, combat spell modal tabs, combat spell modal list, combat spell modal actions, combat quick-inventory, and multiplayer table-decision notice coverage. Keep new
 frontend ReactionPrompt or Adventure WS recovery tests in that gate.
+Router navigation smoke tests in this gate should prefer real `MemoryRouter`
+routes and path assertions over mocking `react-router-dom`, so the full
+parallel frontend suite does not leak router mocks into unrelated page imports.
 
 Shared `juice` flash feedback coverage is also in this gate through
 `src/__tests__/juice.test.js`, protecting the stable `.jc-flash` stylesheet
@@ -499,7 +502,10 @@ The verifier can also be pinned to a specific artifact shape with
 `--type feather-fall`, `--type multiplayer-load`, or
 `--type postdeploy-healthcheck`. `--type` values are validated before any JSON
 artifact is read, so a missing, empty, or unsupported value fails fast instead
-of producing a misleading evidence-type inference result.
+of producing a misleading evidence-type inference result. The verifier also
+requires at least one evidence JSON file and rejects unknown `--` options,
+so a copied command with a missing path or misspelled flag cannot pass as a
+successful evidence check.
 
 For Feather Fall browser manifests, the verifier checks the decision path,
 reaction type, prompt dialog name/description semantics, prompt cleanup,

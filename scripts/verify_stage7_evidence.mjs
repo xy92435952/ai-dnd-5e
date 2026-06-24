@@ -56,6 +56,9 @@ function parseArgs(argv = process.argv.slice(2)) {
       result.help = true;
       continue;
     }
+    if (arg.startsWith('--')) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
     result.files.push(arg);
   }
 
@@ -239,9 +242,12 @@ function verifyPostdeployHealthcheck(filePath, data) {
 
 async function main() {
   const args = parseArgs();
-  if (args.help || args.files.length === 0) {
+  if (args.help) {
     console.log(usage());
     return 0;
+  }
+  if (args.files.length === 0) {
+    fail('At least one Stage 7 evidence file is required.');
   }
 
   for (const file of args.files) {

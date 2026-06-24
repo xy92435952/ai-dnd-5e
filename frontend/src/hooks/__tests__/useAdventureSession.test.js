@@ -5,6 +5,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
+import { createElement } from 'react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 
 vi.mock('../../api/client', () => ({
   gameApi: {
@@ -12,21 +14,28 @@ vi.mock('../../api/client', () => ({
   },
 }))
 
-const mockNavigate = vi.fn()
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  }
-})
-
 import { gameApi } from '../../api/client'
 import { useAdventureSession } from '../useAdventureSession'
 
+let currentPath = '/'
+
+function LocationProbe() {
+  currentPath = useLocation().pathname
+  return null
+}
+
+function routerWrapper({ children }) {
+  return createElement(
+    MemoryRouter,
+    { initialEntries: ['/adventure/s1'] },
+    createElement(LocationProbe),
+    children,
+  )
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
+  currentPath = '/'
 })
 
 
@@ -41,13 +50,13 @@ describe('useAdventureSession', () => {
     })
 
     const { result } = renderHook(() =>
-      useAdventureSession({ sessionId: 's1' })
+      useAdventureSession({ sessionId: 's1' }), { wrapper: routerWrapper }
     )
 
     await waitFor(() => expect(result.current.session).not.toBeNull())
     expect(result.current.player).toEqual({ id: 'p1', name: '战士' })
     expect(result.current.companions).toHaveLength(1)
-    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(currentPath).toBe('/adventure/s1')
   })
 
   it('combat_active=true 时自动 navigate 到 /combat/{id}', async () => {
@@ -59,9 +68,9 @@ describe('useAdventureSession', () => {
       logs: [],
     })
 
-    renderHook(() => useAdventureSession({ sessionId: 's2' }))
+    renderHook(() => useAdventureSession({ sessionId: 's2' }), { wrapper: routerWrapper })
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/combat/s2'))
+    await waitFor(() => expect(currentPath).toBe('/combat/s2'))
   })
 
   it('调用 onLoaded 回调，传入 session 数据', async () => {
@@ -74,7 +83,7 @@ describe('useAdventureSession', () => {
       logs: [{ id: 'l1', role: 'dm', content: '...', log_type: 'narrative' }],
     })
 
-    renderHook(() => useAdventureSession({ sessionId: 's3', onLoaded }))
+    renderHook(() => useAdventureSession({ sessionId: 's3', onLoaded }), { wrapper: routerWrapper })
 
     await waitFor(() => expect(onLoaded).toHaveBeenCalled())
     const data = onLoaded.mock.calls[0][0]
@@ -89,8 +98,8 @@ describe('useAdventureSession', () => {
       combat_active: true,
       player: null, companions: [], logs: [],
     })
-    renderHook(() => useAdventureSession({ sessionId: 's4', onLoaded }))
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalled())
+    renderHook(() => useAdventureSession({ sessionId: 's4', onLoaded }), { wrapper: routerWrapper })
+    await waitFor(() => expect(currentPath).toBe('/combat/s4'))
     expect(onLoaded).not.toHaveBeenCalled()
   })
 
@@ -98,7 +107,7 @@ describe('useAdventureSession', () => {
     const onError = vi.fn()
     gameApi.getSession.mockRejectedValue(new Error('boom'))
 
-    renderHook(() => useAdventureSession({ sessionId: 's5', onError }))
+    renderHook(() => useAdventureSession({ sessionId: 's5', onError }), { wrapper: routerWrapper })
 
     await waitFor(() => expect(onError).toHaveBeenCalled())
     expect(onError.mock.calls[0][0]).toBeInstanceOf(Error)
@@ -111,7 +120,7 @@ describe('useAdventureSession', () => {
       player: null, companions: [], logs: [],
     })
 
-    const { result } = renderHook(() => useAdventureSession({ sessionId: 's6' }))
+    const { result } = renderHook(() => useAdventureSession({ sessionId: 's6' }), { wrapper: routerWrapper })
     await waitFor(() => expect(result.current.session).not.toBeNull())
 
     expect(gameApi.getSession).toHaveBeenCalledTimes(1)

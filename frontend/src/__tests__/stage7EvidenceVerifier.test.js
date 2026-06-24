@@ -64,6 +64,8 @@ function writeManifest(data) {
 
 describe('Stage 7 evidence verifier CLI', () => {
   it('fails fast when type options are missing or invalid', () => {
+    expect(() => runVerifier([])).toThrow(/At least one Stage 7 evidence file is required/)
+    expect(() => runVerifier(['--typo'])).toThrow(/Unknown option: --typo/)
     expect(() => runVerifier(['--type'])).toThrow(/--type requires a value/)
     expect(() => runVerifier(['--type', '--no-file-check'])).toThrow(/--type requires a value/)
     expect(() => runVerifier(['--type='])).toThrow(/--type requires a value/)
