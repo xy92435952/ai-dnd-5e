@@ -365,6 +365,8 @@ describe('Stage 7 release candidate summary', () => {
       '--require-evidence-type',
       'public-browser-smoke',
       '--require-evidence-type=postdeploy-healthcheck',
+      '--require-postdeploy-health-url',
+      'https://example.com/api/health',
       '--evidence',
       'artifacts/manifest.json',
       'artifacts/load.json',
@@ -375,6 +377,7 @@ describe('Stage 7 release candidate summary', () => {
       evidenceRequired: true,
       evidenceVerified: true,
       requiredEvidenceTypes: ['public-browser-smoke', 'postdeploy-healthcheck'],
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
       format: 'json',
       headSha: 'abc123',
       blockerLogDir: 'artifacts/ci-logs',
@@ -409,6 +412,12 @@ describe('Stage 7 release candidate summary', () => {
     expect(() => parseArgs(['--require-evidence-type='])).toThrow('--require-evidence-type requires a value.')
     expect(() => parseArgs(['--require-evidence-type', 'browser-smoke'])).toThrow(
       '--require-evidence-type must be one of: feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke, public-browser-smoke.',
+    )
+    expect(() => parseArgs(['--require-postdeploy-health-url', '--json'])).toThrow(
+      '--require-postdeploy-health-url requires a value.',
+    )
+    expect(() => parseArgs(['--require-postdeploy-health-url='])).toThrow(
+      '--require-postdeploy-health-url requires a value.',
     )
     expect(() => parseArgs(['--verify-evidnce'])).toThrow('Unknown option: --verify-evidnce')
   })
@@ -770,6 +779,55 @@ describe('Stage 7 release candidate summary', () => {
     })
   })
 
+  it('requires exact post-deploy health URLs for public deployment handoff readiness', () => {
+    const localPostdeploy = writePostdeployEvidence()
+    const publicPostdeploy = writePostdeployEvidence({
+      healthChecks: [
+        {
+          body: {
+            status: 'ok',
+          },
+          error: '',
+          ok: true,
+          status: 200,
+          statusOk: true,
+          url: 'https://example.com/api/health',
+        },
+      ],
+    })
+
+    expect(parseArgs([
+      '--require-postdeploy-health-url',
+      'https://example.com/api/health',
+    ])).toMatchObject({
+      evidenceRequired: true,
+      evidenceVerified: true,
+      requiredEvidenceTypes: ['postdeploy-healthcheck'],
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+    })
+
+    expect(verifyEvidenceFiles([localPostdeploy], {
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+    })).toMatchObject({
+      error: 'Missing required Stage 7 post-deploy health URL(s): https://example.com/api/health',
+      foundPostdeployHealthUrls: ['http://127.0.0.1:8000/health'],
+      foundTypes: ['postdeploy-healthcheck'],
+      ok: false,
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+      requiredTypes: ['postdeploy-healthcheck'],
+    })
+
+    expect(verifyEvidenceFiles([publicPostdeploy], {
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+    })).toMatchObject({
+      foundPostdeployHealthUrls: ['https://example.com/api/health'],
+      foundTypes: ['postdeploy-healthcheck'],
+      ok: true,
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+      requiredTypes: ['postdeploy-healthcheck'],
+    })
+  })
+
   it('blocks release readiness when a required evidence type is absent', () => {
     const evidenceSummary = verifyEvidenceFiles([writePostdeployEvidence()], {
       requiredEvidenceTypes: ['public-browser-smoke'],
@@ -801,6 +859,41 @@ describe('Stage 7 release candidate summary', () => {
       requiredTypes: ['public-browser-smoke'],
     })
     expect(markdown).toContain('Evidence verification: fail: Missing required Stage 7 evidence type(s): public-browser-smoke')
+    expect(markdown).toContain('Ready for deployment handoff: no')
+  })
+
+  it('blocks release readiness when a required post-deploy health URL is absent', () => {
+    const evidenceSummary = verifyEvidenceFiles([writePostdeployEvidence()], {
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+    })
+    const common = {
+      branch: 'main',
+      evidenceFiles: ['artifacts/postdeploy-local.json'],
+      evidenceSummary,
+      gitStatus: '',
+      headSha: 'd5b9fc7',
+      repo: 'xy92435952/ai-dnd-5e',
+      requiredJobSummary: summarizeRequiredCiJobs(successfulJobs()),
+      run: {
+        conclusion: 'success',
+        id: 2,
+        name: 'CI',
+        status: 'completed',
+      },
+    }
+    const payload = buildReleaseCandidatePayload(common)
+    const markdown = buildReleaseCandidateSummary(common)
+
+    expect(payload.ready).toBe(false)
+    expect(payload.evidenceVerification).toMatchObject({
+      checked: true,
+      error: 'Missing required Stage 7 post-deploy health URL(s): https://example.com/api/health',
+      foundPostdeployHealthUrls: ['http://127.0.0.1:8000/health'],
+      ok: false,
+      requiredPostdeployHealthUrls: ['https://example.com/api/health'],
+      requiredTypes: ['postdeploy-healthcheck'],
+    })
+    expect(markdown).toContain('Evidence verification: fail: Missing required Stage 7 post-deploy health URL(s): https://example.com/api/health')
     expect(markdown).toContain('Ready for deployment handoff: no')
   })
 

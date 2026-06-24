@@ -63,8 +63,12 @@ function parsePositiveSeconds(value, optionName) {
   return seconds;
 }
 
+function normalizeRequiredValues(values = []) {
+  return [...new Set(values.map(value => String(value).trim()).filter(Boolean))];
+}
+
 function normalizeRequiredEvidenceTypes(types = []) {
-  return [...new Set(types.filter(Boolean))];
+  return normalizeRequiredValues(types);
 }
 
 function validateRequiredEvidenceType(type) {
@@ -72,6 +76,14 @@ function validateRequiredEvidenceType(type) {
     throw new Error(`--require-evidence-type must be one of: ${VALID_STAGE7_EVIDENCE_TYPES.join(', ')}.`);
   }
   return type;
+}
+
+function validateRequiredPostdeployHealthUrl(url, optionName = '--require-postdeploy-health-url') {
+  const trimmed = String(url || '').trim();
+  if (!trimmed) {
+    throw new Error(`${optionName} requires a value.`);
+  }
+  return trimmed;
 }
 
 export function parseArgs(argv = process.argv.slice(2)) {
@@ -90,6 +102,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     pollSeconds: 20,
     repo: '',
     requiredEvidenceTypes: [],
+    requiredPostdeployHealthUrls: [],
     runId: '',
     timeoutSeconds: 1800,
     wait: false,
@@ -125,6 +138,19 @@ export function parseArgs(argv = process.argv.slice(2)) {
     if (arg.startsWith('--require-evidence-type=')) {
       args.requiredEvidenceTypes.push(validateRequiredEvidenceType(
         requiredInlineOptionValue(arg.slice('--require-evidence-type='.length), '--require-evidence-type'),
+      ));
+      continue;
+    }
+    if (arg === '--require-postdeploy-health-url') {
+      args.requiredPostdeployHealthUrls.push(validateRequiredPostdeployHealthUrl(
+        requiredOptionValue(argv, index, arg),
+      ));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--require-postdeploy-health-url=')) {
+      args.requiredPostdeployHealthUrls.push(validateRequiredPostdeployHealthUrl(
+        requiredInlineOptionValue(arg.slice('--require-postdeploy-health-url='.length), '--require-postdeploy-health-url'),
       ));
       continue;
     }
@@ -239,8 +265,12 @@ export function parseArgs(argv = process.argv.slice(2)) {
   }
 
   args.evidenceFiles = args.evidenceFiles.filter(Boolean);
+  args.requiredPostdeployHealthUrls = normalizeRequiredValues(args.requiredPostdeployHealthUrls);
+  if (args.requiredPostdeployHealthUrls.length) {
+    args.requiredEvidenceTypes.push('postdeploy-healthcheck');
+  }
   args.requiredEvidenceTypes = normalizeRequiredEvidenceTypes(args.requiredEvidenceTypes);
-  if (args.requiredEvidenceTypes.length) {
+  if (args.requiredEvidenceTypes.length || args.requiredPostdeployHealthUrls.length) {
     args.evidenceRequired = true;
     args.evidenceVerified = true;
   }
@@ -250,7 +280,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export function usage() {
   return [
     'Usage:',
-    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--require-evidence-type <type>] [--evidence-no-file-check] [--download-blocker-logs <dir>]',
+    '  node scripts/stage7_release_candidate_summary.mjs [--format markdown|json] [--json] [--wait] [--poll-seconds 20] [--timeout-seconds 1800] [--repo owner/name] [--branch main] [--head <sha>] [--run-id <id>] [--output <file>] [--evidence <file>...] [--verify-evidence] [--require-evidence] [--require-evidence-type <type>] [--require-postdeploy-health-url <url>] [--evidence-no-file-check] [--download-blocker-logs <dir>]',
     '',
     'Checks the latest GitHub Actions run for the selected commit and requires:',
     `  ${REQUIRED_STAGE7_CI_JOBS.join(', ')}`,
@@ -259,6 +289,7 @@ export function usage() {
     'Use --verify-evidence to require the listed Stage 7 JSON evidence files to pass scripts/verify_stage7_evidence.mjs.',
     'Use --require-evidence when the release handoff must include at least one listed evidence file.',
     `Use --require-evidence-type to require specific verified evidence types: ${VALID_STAGE7_EVIDENCE_TYPES.join(', ')}.`,
+    'Use --require-postdeploy-health-url to require a verified post-deploy healthcheck for an exact URL.',
     'Use --download-blocker-logs to save logs for failed or pending required CI job blockers.',
   ].join('\n');
 }
@@ -549,13 +580,40 @@ export function inferEvidenceType(data) {
   return 'unknown';
 }
 
-function collectEvidenceTypes(evidenceFiles) {
-  return normalizeRequiredEvidenceTypes(evidenceFiles.map(filePath => inferEvidenceType(readEvidenceJson(filePath))));
+function collectEvidenceRecords(evidenceFiles) {
+  return evidenceFiles.map(filePath => {
+    const data = readEvidenceJson(filePath);
+    return {
+      data,
+      filePath,
+      type: inferEvidenceType(data),
+    };
+  });
+}
+
+function collectEvidenceTypes(evidenceRecords) {
+  return normalizeRequiredEvidenceTypes(evidenceRecords.map(record => record.type));
+}
+
+function collectPostdeployHealthUrls(evidenceRecords) {
+  const urls = evidenceRecords.flatMap(record => {
+    if (record.type !== 'postdeploy-healthcheck') return [];
+    if (!Array.isArray(record.data?.healthChecks)) return [];
+    return record.data.healthChecks
+      .map(check => String(check?.url || '').trim())
+      .filter(Boolean);
+  });
+  return normalizeRequiredValues(urls);
 }
 
 function missingEvidenceTypes(foundTypes, requiredTypes) {
   const found = new Set(foundTypes);
   return requiredTypes.filter(type => !found.has(type));
+}
+
+function missingRequiredValues(foundValues, requiredValues) {
+  const found = new Set(foundValues);
+  return requiredValues.filter(value => !found.has(value));
 }
 
 export function buildCiBlockers({ requiredJobSummary = null, run = null } = {}) {
@@ -808,17 +866,21 @@ export function buildReleaseCandidatePayload({
       ? {
         checked: true,
         error: evidenceSummary.error || '',
+        foundPostdeployHealthUrls: evidenceSummary.foundPostdeployHealthUrls || [],
         foundTypes: evidenceSummary.foundTypes || [],
         ok: evidenceSummary.ok,
         output: evidenceSummary.output || '',
+        requiredPostdeployHealthUrls: evidenceSummary.requiredPostdeployHealthUrls || [],
         requiredTypes: evidenceSummary.requiredTypes || [],
       }
       : {
         checked: false,
         error: '',
+        foundPostdeployHealthUrls: [],
         foundTypes: [],
         ok: true,
         output: '',
+        requiredPostdeployHealthUrls: [],
         requiredTypes: [],
       },
     generatedAt,
@@ -910,32 +972,43 @@ export function verifyEvidenceFiles(evidenceFiles, {
   noFileCheck = false,
   requireEvidence = false,
   requiredEvidenceTypes = [],
+  requiredPostdeployHealthUrls = [],
 } = {}) {
-  const requiredTypes = normalizeRequiredEvidenceTypes(requiredEvidenceTypes);
+  const requiredHealthUrls = normalizeRequiredValues(requiredPostdeployHealthUrls);
+  const requiredTypes = normalizeRequiredEvidenceTypes([
+    ...requiredEvidenceTypes,
+    ...(requiredHealthUrls.length ? ['postdeploy-healthcheck'] : []),
+  ]);
   if (!evidenceFiles.length) {
     if (requiredTypes.length) {
       return {
         error: `Missing required Stage 7 evidence type(s): ${requiredTypes.join(', ')}`,
+        foundPostdeployHealthUrls: [],
         foundTypes: [],
         ok: false,
         output: '',
+        requiredPostdeployHealthUrls: requiredHealthUrls,
         requiredTypes,
       };
     }
     if (requireEvidence) {
       return {
         error: 'At least one Stage 7 evidence file is required.',
+        foundPostdeployHealthUrls: [],
         foundTypes: [],
         ok: false,
         output: '',
+        requiredPostdeployHealthUrls: requiredHealthUrls,
         requiredTypes,
       };
     }
     return {
       error: '',
+      foundPostdeployHealthUrls: [],
       foundTypes: [],
       ok: true,
       output: 'No optional evidence files listed.',
+      requiredPostdeployHealthUrls: requiredHealthUrls,
       requiredTypes,
     };
   }
@@ -950,30 +1023,50 @@ export function verifyEvidenceFiles(evidenceFiles, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
-    const foundTypes = collectEvidenceTypes(evidenceFiles);
+    const evidenceRecords = collectEvidenceRecords(evidenceFiles);
+    const foundTypes = collectEvidenceTypes(evidenceRecords);
+    const foundPostdeployHealthUrls = collectPostdeployHealthUrls(evidenceRecords);
     const missingTypes = missingEvidenceTypes(foundTypes, requiredTypes);
     if (missingTypes.length) {
       return {
         error: `Missing required Stage 7 evidence type(s): ${missingTypes.join(', ')}`,
+        foundPostdeployHealthUrls,
         foundTypes,
         ok: false,
         output,
+        requiredPostdeployHealthUrls: requiredHealthUrls,
+        requiredTypes,
+      };
+    }
+    const missingHealthUrls = missingRequiredValues(foundPostdeployHealthUrls, requiredHealthUrls);
+    if (missingHealthUrls.length) {
+      return {
+        error: `Missing required Stage 7 post-deploy health URL(s): ${missingHealthUrls.join(', ')}`,
+        foundPostdeployHealthUrls,
+        foundTypes,
+        ok: false,
+        output,
+        requiredPostdeployHealthUrls: requiredHealthUrls,
         requiredTypes,
       };
     }
     return {
       error: '',
+      foundPostdeployHealthUrls,
       foundTypes,
       ok: true,
       output,
+      requiredPostdeployHealthUrls: requiredHealthUrls,
       requiredTypes,
     };
   } catch (error) {
     return {
       error: (error.stderr || error.stdout || error.message || String(error)).trim(),
+      foundPostdeployHealthUrls: [],
       foundTypes: [],
       ok: false,
       output: (error.stdout || '').trim(),
+      requiredPostdeployHealthUrls: requiredHealthUrls,
       requiredTypes,
     };
   }
@@ -1049,11 +1142,12 @@ export async function runCli(argv = process.argv.slice(2), {
     branch,
     downloadedLogs,
     evidenceFiles: args.evidenceFiles,
-    evidenceSummary: args.evidenceVerified || args.evidenceRequired || args.requiredEvidenceTypes.length
+    evidenceSummary: args.evidenceVerified || args.evidenceRequired || args.requiredEvidenceTypes.length || args.requiredPostdeployHealthUrls.length
       ? verifyEvidenceFiles(args.evidenceFiles, {
         noFileCheck: args.evidenceNoFileCheck,
         requireEvidence: args.evidenceRequired,
         requiredEvidenceTypes: args.requiredEvidenceTypes,
+        requiredPostdeployHealthUrls: args.requiredPostdeployHealthUrls,
       })
       : null,
     gitStatus: local.status,

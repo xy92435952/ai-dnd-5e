@@ -473,7 +473,7 @@ For the final public-deployment handoff, require the evidence types that prove
 the deployed origin was actually exercised after restart:
 
 ```powershell
-node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --verify-evidence --require-evidence-type public-browser-smoke --require-evidence-type postdeploy-healthcheck --evidence artifacts\stage7-public-browser-smoke-YYYYMMDD.json --evidence artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json --output artifacts\stage7-release-candidate-summary-public-YYYYMMDD.json
+node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy92435952/ai-dnd-5e --branch main --verify-evidence --require-evidence-type public-browser-smoke --require-evidence-type postdeploy-healthcheck --require-postdeploy-health-url https://your-domain.example/api/health --evidence artifacts\stage7-public-browser-smoke-YYYYMMDD.json --evidence artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json --output artifacts\stage7-release-candidate-summary-public-YYYYMMDD.json
 ```
 
 Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke,
@@ -489,7 +489,10 @@ summary non-ready if no evidence file was listed at all. Add
 verified artifact shape, such as `public-browser-smoke` and
 `postdeploy-healthcheck` for final public deployment; the option implies
 evidence verification and keeps the summary non-ready until every required type
-is present in the listed JSON files. Use
+is present in the listed JSON files. Add `--require-postdeploy-health-url <url>`
+for final public deployment so a local-only post-deploy healthcheck cannot
+satisfy the handoff; the URL must exactly match a `healthChecks[].url` entry in
+a verified `postdeploy-healthcheck` JSON file. Use
 `--evidence-no-file-check` only for downloaded JSON artifacts whose sibling
 screenshots or local result path are not present. Use `--run-id <id>` when
 checking a specific workflow run instead of the latest run for the current
