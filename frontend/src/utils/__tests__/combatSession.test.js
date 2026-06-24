@@ -5,6 +5,7 @@ import {
   mergeCombatSessionLogs,
   resolveCombatReactionPrompt,
 } from '../combatSession'
+import { buildCombatLogView } from '../combatLog'
 
 describe('applyCombatSessionSnapshot', () => {
   function createSetters(overrides = {}) {
@@ -145,6 +146,56 @@ describe('applyCombatSessionSnapshot', () => {
     expect(mergeCombatSessionLogs([persistedReactionLog], [localReactionLog])).toEqual([
       persistedReactionLog,
     ])
+  })
+
+  it('restores persisted attack modifier source logs after a combat reload', () => {
+    const setters = createSetters()
+    const combatData = {
+      turn_order: [
+        { character_id: 'char-1', name: 'Tester', is_player: true },
+      ],
+      turn_states: {
+        'char-1': { action_used: false },
+      },
+    }
+    const sessionData = {
+      player: { id: 'char-1', char_class: 'Fighter', level: 3 },
+      logs: [
+        {
+          id: 'persisted-dodge-log',
+          role: 'enemy',
+          content: 'Dodge Pressure Duelist misses the guarded hero.',
+          log_type: 'combat',
+          dice_result: {
+            attack: {
+              d20: 6,
+              attack_bonus: 5,
+              attack_total: 11,
+              target_ac: 16,
+              hit: false,
+              roll_state: 'disadvantage',
+              disadvantage: true,
+              disadvantage_sources: ['target dodging'],
+            },
+          },
+        },
+      ],
+    }
+
+    applyCombatSessionSnapshot({ combatData, sessionData, ...setters })
+
+    const syncLogs = setters.setLogs.mock.calls[0][0]
+    const restoredLogs = syncLogs([])
+    expect(restoredLogs).toHaveLength(1)
+    expect(buildCombatLogView(restoredLogs[0]).sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: [
+        '未命中 · 11 vs AC16',
+        '劣势',
+        '劣势: 目标闪避',
+      ],
+    })
   })
 
   it('returns the current controlled player entry instead of the first player in initiative', () => {
