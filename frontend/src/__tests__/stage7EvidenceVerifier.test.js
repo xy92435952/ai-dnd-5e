@@ -55,10 +55,71 @@ function validFeatherFallManifest(overrides = {}) {
   }
 }
 
+function validLocalHttpSmoke(overrides = {}) {
+  return {
+    ok: true,
+    mode: 'stage7-local-http-smoke',
+    created_at: '2026-06-24T04:40:01.2789481Z',
+    base_url: 'http://127.0.0.1:8002',
+    health: {
+      status: 'ok',
+      version: '0.1.0',
+    },
+    seed: {
+      username: 'test_stage7_local',
+      module_id: 'module-1',
+      character_id: 'char-1',
+      session_id: 'session-1',
+      combat_state_id: 'combat-1',
+    },
+    checks: {
+      login_token_present: true,
+      session_id: 'session-1',
+      session_combat_active: true,
+      current_scene_present: true,
+      combat_session_id: 'session-1',
+      combat_round: 1,
+      combat_turn_order_count: 4,
+      combat_entities_count: 4,
+      skill_bar_entity_id: 'char-1',
+      skill_bar_count: 10,
+    },
+    assertions: {
+      health_ok: true,
+      login_ok: true,
+      adventure_session_loaded: true,
+      combat_loaded: true,
+      skill_bar_loaded: true,
+    },
+    logs: {
+      stdout: 'stdout.log',
+      stderr: 'stderr.log',
+    },
+    ...overrides,
+  }
+}
+
 function writeManifest(data) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-evidence-verifier-'))
   const filePath = path.join(dir, 'manifest.json')
   fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
+  return filePath
+}
+
+function writeLocalHttpSmoke(data, { stdout = '', stderr = '' } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-local-http-smoke-'))
+  const stdoutPath = path.join(dir, 'stdout.log')
+  const stderrPath = path.join(dir, 'stderr.log')
+  fs.writeFileSync(stdoutPath, stdout, 'utf8')
+  fs.writeFileSync(stderrPath, stderr, 'utf8')
+  const filePath = path.join(dir, 'local-http-smoke.json')
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    ...data,
+    logs: {
+      stdout: stdoutPath,
+      stderr: stderrPath,
+    },
+  }, null, 2)}\n`, 'utf8')
   return filePath
 }
 
@@ -70,7 +131,7 @@ describe('Stage 7 evidence verifier CLI', () => {
     expect(() => runVerifier(['--type', '--no-file-check'])).toThrow(/--type requires a value/)
     expect(() => runVerifier(['--type='])).toThrow(/--type requires a value/)
     expect(() => runVerifier(['--type', 'browser-smoke'])).toThrow(
-      /--type must be one of: auto, feather-fall, multiplayer-load, postdeploy-healthcheck/,
+      /--type must be one of: auto, feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke/,
     )
   })
 
@@ -83,5 +144,29 @@ describe('Stage 7 evidence verifier CLI', () => {
       '--no-file-check',
       manifest,
     ])).toContain('Verified 1 Stage 7 evidence file(s).')
+  })
+
+  it('accepts local HTTP smoke artifacts as Stage 7 evidence', () => {
+    const manifest = writeLocalHttpSmoke(validLocalHttpSmoke(), {
+      stdout: 'INFO: 127.0.0.1:8002 - "GET /health HTTP/1.1" 200 OK\n',
+      stderr: '',
+    })
+
+    expect(runVerifier([
+      '--type',
+      'local-http-smoke',
+      manifest,
+    ])).toContain('Verified 1 Stage 7 evidence file(s).')
+  })
+
+  it('rejects local HTTP smoke logs with stop markers', () => {
+    const manifest = writeLocalHttpSmoke(validLocalHttpSmoke(), {
+      stdout: 'INFO: started\n',
+      stderr: 'Traceback (most recent call last):\n',
+    })
+
+    expect(() => runVerifier([
+      manifest,
+    ])).toThrow(/stderr log contains stop markers/)
   })
 })

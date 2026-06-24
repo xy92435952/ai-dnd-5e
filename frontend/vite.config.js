@@ -58,5 +58,13 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.js'],
     css: false,                             // 测试不需要解析 css，加快速度
     include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    deps: {
+      optimizer: {
+        client: {
+          enabled: true,
+          include: ['react-router', 'react-router-dom', 'cookie'],
+        },
+      },
+    },
   },
 })

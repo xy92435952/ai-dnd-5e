@@ -185,6 +185,10 @@ frontend ReactionPrompt or Adventure WS recovery tests in that gate.
 Router navigation smoke tests in this gate should prefer real `MemoryRouter`
 routes and path assertions over mocking `react-router-dom`, so the full
 parallel frontend suite does not leak router mocks into unrelated page imports.
+The Vitest client dependency optimizer intentionally includes `react-router`,
+`react-router-dom`, and `cookie`; keep that guard while React Router's cookie
+dependency can be externalized as CommonJS and fail `MemoryRouter` tests before
+assertions with a missing `parse` named export.
 
 Shared `juice` flash feedback coverage is also in this gate through
 `src/__tests__/juice.test.js`, protecting the stable `.jc-flash` stylesheet
@@ -428,6 +432,9 @@ Keep the local or CI evidence from this checklist with the release note:
   reaction UX changed
 - Multiplayer load smoke result JSON and backend log when WS, rooms, reconnect,
   or privacy changed
+- Local HTTP smoke result JSON and backend logs when release-readiness depends
+  on API health, login, Adventure session restore, Combat load, and skill-bar
+  load without a public deployment target yet
 - CI `frontend-prod-build` result when frontend dependencies or build tooling
   changed
 - Stage 7 post-deploy healthcheck Markdown/JSON when a server pull/restart was
@@ -460,8 +467,8 @@ node scripts\stage7_release_candidate_summary.mjs --wait --json --repo xy9243595
 ```
 
 Add `--evidence <json-or-screenshot-path>` for any Feather Fall browser smoke,
-multiplayer load-smoke, or post-deploy healthcheck artifacts that should be
-listed in the handoff note. Add `--verify-evidence` when the evidence files are
+multiplayer load-smoke, local HTTP smoke, or post-deploy healthcheck artifacts
+that should be listed in the handoff note. Add `--verify-evidence` when the evidence files are
 Stage 7 machine-readable JSON; the release summary then runs
 `scripts/verify_stage7_evidence.mjs`, records the result, and keeps top-level
 `ready=false` if any listed evidence fails verification. Add `--require-evidence`
@@ -498,17 +505,18 @@ Verify machine-readable smoke evidence before handoff:
 node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json
+node scripts\verify_stage7_evidence.mjs artifacts\stage7-local-http-smoke-YYYYMMDD.json
 node scripts\verify_stage7_evidence.mjs artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json
 ```
 
 The verifier can also be pinned to a specific artifact shape with
 `--type feather-fall`, `--type multiplayer-load`, or
-`--type postdeploy-healthcheck`. `--type` values are validated before any JSON
-artifact is read, so a missing, empty, or unsupported value fails fast instead
-of producing a misleading evidence-type inference result. The verifier also
-requires at least one evidence JSON file and rejects unknown `--` options,
-so a copied command with a missing path or misspelled flag cannot pass as a
-successful evidence check.
+`--type postdeploy-healthcheck`, or `--type local-http-smoke`. `--type` values
+are validated before any JSON artifact is read, so a missing, empty, or
+unsupported value fails fast instead of producing a misleading evidence-type
+inference result. The verifier also requires at least one evidence JSON file and
+rejects unknown `--` options, so a copied command with a missing path or
+misspelled flag cannot pass as a successful evidence check.
 
 For Feather Fall browser manifests, the verifier checks the decision path,
 reaction type, prompt dialog name/description semantics, prompt cleanup,
@@ -517,16 +525,19 @@ screenshot paths. For multiplayer load result
 JSON, it checks the 50-user/13-room shape, that room sizes are positive and
 stay at or below `max_players=4`, that room sizes sum to users, that WebSocket
 connections match users, cleanup flags, timing summary values, and optional
-hold observer fields. For post-deploy healthcheck JSON, it checks that at least
-one health URL returned HTTP 2xx JSON with `status="ok"` and that any captured
-log files had no `Traceback`, `ERROR`, or `500` matches.
+hold observer fields. For local HTTP smoke JSON, it checks `/health`, login,
+Adventure session restore, Combat load, skill-bar load, matching seeded
+session/character IDs, positive combat/skill counts, and backend logs for
+`Traceback`, `ERROR`, or `500`. For post-deploy healthcheck JSON, it checks that
+at least one health URL returned HTTP 2xx JSON with `status="ok"` and that any
+captured log files had no `Traceback`, `ERROR`, or `500` matches.
 
 The same verifier can run from the standard local check entrypoint after the
 frontend build and any optional evidence-producing browser/load smokes:
 
 ```powershell
 $env:RUN_STAGE7_EVIDENCE_GATE='1'
-$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json'
+$env:STAGE7_EVIDENCE_FILES='artifacts\browser-feather-fall-adventure-manifest-YYYYMMDD.json artifacts\browser-feather-fall-adventure-decline-manifest-YYYYMMDD.json artifacts\multiplayer-load-smoke-YYYYMMDD_HHMM.json artifacts\stage7-local-http-smoke-YYYYMMDD.json artifacts\stage7-postdeploy-healthcheck-YYYYMMDD.json'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
