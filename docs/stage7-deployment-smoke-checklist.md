@@ -660,9 +660,9 @@ $env:STAGE7_POSTDEPLOY_LOG_FILES='artifacts\server-journal-YYYYMMDD.log artifact
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 ```
 
-After restart, run at least one browser session through login, Adventure load,
-and Combat load on the public origin. Prefer the reusable public browser smoke
-when a deployed smoke user and combat-active session are available:
+After restart, run at least one browser session through login, the Adventure
+route, and Combat load on the public origin. Prefer the reusable public browser
+smoke when a deployed smoke user and combat-active session are available:
 
 ```powershell
 node scripts\stage7_public_browser_smoke.mjs --frontend-origin https://your-domain.example --username stage7-smoke-user --password <password> --session-id <combat-active-session-id> --output artifacts\stage7-public-browser-smoke-YYYYMMDD.json
@@ -677,11 +677,12 @@ $env:STAGE7_PUBLIC_SESSION_ID='<combat-active-session-id>'
 ```
 
 The public browser smoke opens the public login page, submits the credentials,
-loads `/adventure/{session_id}` and `/combat/{session_id}`, verifies same-origin
-`/api/game/sessions`, `/api/game/combat`, and `/skill-bar` calls from the
-browser context, captures Adventure/Combat screenshots, and fails if browser
-error events are recorded. The session must already be combat-active; create or
-preserve a deployment smoke session before running this gate.
+loads `/adventure/{session_id}`, accepts either a rendered Adventure shell or the
+combat-active handoff to `/combat/{session_id}`, then verifies Combat,
+same-origin `/api/game/sessions`, `/api/game/combat`, and `/skill-bar` calls
+from the browser context. It captures route/Combat screenshots and fails if
+browser error events are recorded. The session must already be combat-active;
+create or preserve a deployment smoke session before running this gate.
 
 When multiplayer or WS paths changed, open two users in the same room and confirm:
 

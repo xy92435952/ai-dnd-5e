@@ -310,7 +310,13 @@ function verifyPublicBrowserSmoke(filePath, data, { noFileCheck }) {
   const checks = data.checks || {};
   ensure(checks.login_token_present === true, `${filePath}: checks.login_token_present must be true`);
   ensure(checks.login_path && checks.login_path !== '/login', `${filePath}: checks.login_path must leave /login`);
-  ensure(checks.adventure_loaded === true, `${filePath}: checks.adventure_loaded must be true`);
+  const adventureRouteReady = checks.adventure_loaded === true
+    || checks.adventure_redirected_to_combat === true
+    || checks.adventure_route_ready === true;
+  ensure(
+    adventureRouteReady,
+    `${filePath}: checks.adventure_loaded or checks.adventure_redirected_to_combat must be true`,
+  );
   ensure(checks.session_api_ok === true, `${filePath}: checks.session_api_ok must be true`);
   ensure(checks.session_id_matches === true, `${filePath}: checks.session_id_matches must be true`);
   ensure(checks.session_combat_active === true, `${filePath}: checks.session_combat_active must be true`);

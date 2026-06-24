@@ -18,7 +18,10 @@ function passingChecks(overrides = {}) {
   return {
     login_path: '/',
     login_token_present: true,
+    adventure_path: '/adventure/session-1',
     adventure_loaded: true,
+    adventure_redirected_to_combat: false,
+    adventure_route_ready: true,
     session_api_ok: true,
     session_id_matches: true,
     session_combat_active: true,
@@ -82,7 +85,7 @@ describe('Stage 7 public browser smoke helper', () => {
     )
   })
 
-  it('marks the payload ready only when public login, Adventure, Combat, skill-bar, and browser checks pass', () => {
+  it('marks the payload ready only when public login, Adventure route, Combat, skill-bar, and browser checks pass', () => {
     const payload = buildPublicBrowserPayload({
       browserErrors: [],
       checks: passingChecks(),
@@ -96,6 +99,7 @@ describe('Stage 7 public browser smoke helper', () => {
     expect(payload.assertions).toMatchObject({
       login_ok: true,
       adventure_loaded: true,
+      adventure_route_ready: true,
       combat_loaded: true,
       combat_session_active: true,
       skill_bar_loaded: true,
@@ -113,6 +117,25 @@ describe('Stage 7 public browser smoke helper', () => {
     expect(blocked.ok).toBe(false)
     expect(blocked.assertions.skill_bar_loaded).toBe(false)
     expect(blocked.assertions.no_browser_errors).toBe(false)
+  })
+
+  it('accepts the combat-active Adventure route handoff as ready evidence', () => {
+    const payload = buildPublicBrowserPayload({
+      browserErrors: [],
+      checks: passingChecks({
+        adventure_path: '/combat/session-1',
+        adventure_loaded: false,
+        adventure_redirected_to_combat: true,
+        adventure_route_ready: true,
+      }),
+      frontendOrigin: 'https://example.com',
+      sessionId: 'session-1',
+      username: 'stage7-user',
+    })
+
+    expect(payload.ok).toBe(true)
+    expect(payload.assertions.adventure_loaded).toBe(true)
+    expect(payload.assertions.adventure_route_ready).toBe(true)
   })
 
   it('collects blocking browser errors while ignoring benign aborted network loads', () => {

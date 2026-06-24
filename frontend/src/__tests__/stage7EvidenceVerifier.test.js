@@ -112,6 +112,8 @@ function validPublicBrowserSmoke(overrides = {}) {
       login_token_present: true,
       adventure_path: '/adventure/session-1',
       adventure_loaded: true,
+      adventure_redirected_to_combat: false,
+      adventure_route_ready: true,
       session_api_ok: true,
       session_id_matches: true,
       session_combat_active: true,
@@ -129,6 +131,7 @@ function validPublicBrowserSmoke(overrides = {}) {
     assertions: {
       login_ok: true,
       adventure_loaded: true,
+      adventure_route_ready: true,
       combat_loaded: true,
       combat_session_active: true,
       skill_bar_loaded: true,
@@ -235,6 +238,25 @@ describe('Stage 7 evidence verifier CLI', () => {
 
   it('accepts public browser smoke artifacts as Stage 7 evidence', () => {
     const manifest = writePublicBrowserSmoke(validPublicBrowserSmoke())
+
+    expect(runVerifier([
+      '--type',
+      'public-browser-smoke',
+      manifest,
+    ])).toContain('Verified 1 Stage 7 evidence file(s).')
+  })
+
+  it('accepts public browser smoke artifacts that hand off from Adventure to Combat', () => {
+    const base = validPublicBrowserSmoke()
+    const manifest = writePublicBrowserSmoke(validPublicBrowserSmoke({
+      checks: {
+        ...base.checks,
+        adventure_path: '/combat/session-1',
+        adventure_loaded: false,
+        adventure_redirected_to_combat: true,
+        adventure_route_ready: true,
+      },
+    }))
 
     expect(runVerifier([
       '--type',

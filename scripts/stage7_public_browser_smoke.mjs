@@ -461,6 +461,59 @@ async function readPageState(cdp) {
   }))()`);
 }
 
+function expectedCombatPath(sessionId) {
+  return `/combat/${sessionId}`;
+}
+
+function isAdventureRouteReady(state, sessionId) {
+  if (!state) return false;
+  if (state.adventureLoaded === true) return true;
+  return state.path === expectedCombatPath(sessionId) && state.combatLoaded === true;
+}
+
+function buildPublicBrowserChecks({
+  combatApi = null,
+  combatState = null,
+  loginState = null,
+  sessionApi = null,
+  sessionBody = null,
+  sessionId = '',
+  skillBarApi = null,
+  skillBarCount = 0,
+  adventureState = null,
+} = {}) {
+  const adventureRedirectedToCombat = Boolean(
+    adventureState
+      && adventureState.path === expectedCombatPath(sessionId)
+      && adventureState.combatLoaded === true,
+  );
+  const combatEntities = combatApi?.body?.entities && typeof combatApi.body.entities === 'object'
+    ? Object.keys(combatApi.body.entities).length
+    : 0;
+
+  return {
+    login_path: loginState?.path || '',
+    login_token_present: loginState?.tokenPresent === true,
+    adventure_path: adventureState?.path || '',
+    adventure_loaded: adventureState?.adventureLoaded === true,
+    adventure_redirected_to_combat: adventureRedirectedToCombat,
+    adventure_route_ready: adventureState?.adventureLoaded === true || adventureRedirectedToCombat,
+    session_api_ok: sessionApi?.ok === true,
+    session_id_matches: sessionBody?.id === sessionId || sessionBody?.session_id === sessionId,
+    session_combat_active: sessionBody?.combat_active === true,
+    current_scene_present: Boolean(sessionBody?.current_scene || sessionBody?.game_state?.current_scene),
+    combat_path: combatState?.path || '',
+    combat_loaded: combatState?.combatLoaded === true,
+    combat_api_ok: combatApi?.ok === true,
+    combat_round: Number(combatApi?.body?.round_number || combatApi?.body?.round || 0),
+    combat_turn_order_count: Array.isArray(combatApi?.body?.turn_order) ? combatApi.body.turn_order.length : 0,
+    combat_entities_count: combatEntities,
+    skill_bar_entity_id: skillBarApi?.body?.entity_id || '',
+    skill_bar_count: Number(skillBarCount || 0),
+    skill_bar_dom_count: Number(combatState?.skillButtonCount || 0),
+  };
+}
+
 async function submitLogin(cdp, username, password) {
   return evalPage(cdp, `(() => {
     const usernameInput = document.querySelector('input[autocomplete="username"]');
@@ -553,9 +606,13 @@ export function buildPublicBrowserPayload({
   sessionId = '',
   username = '',
 } = {}) {
+  const adventureRouteReady = checks.adventure_route_ready === true
+    || checks.adventure_loaded === true
+    || checks.adventure_redirected_to_combat === true;
   const assertions = {
     login_ok: checks.login_token_present === true && checks.login_path !== '/login',
-    adventure_loaded: checks.adventure_loaded === true && checks.session_api_ok === true,
+    adventure_loaded: adventureRouteReady && checks.session_api_ok === true,
+    adventure_route_ready: adventureRouteReady && checks.session_api_ok === true,
     combat_loaded: checks.combat_loaded === true && checks.combat_api_ok === true,
     combat_session_active: checks.session_combat_active === true,
     skill_bar_loaded: Number(checks.skill_bar_count || 0) > 0 && Number(checks.skill_bar_dom_count || 0) > 0,
@@ -623,6 +680,15 @@ export async function runCli(argv = process.argv.slice(2)) {
   let cdp = null;
   let payload = null;
   let profileDir = '';
+  let loginState = null;
+  let adventureState = null;
+  let combatState = null;
+  let sessionApi = null;
+  let sessionBody = null;
+  let combatApi = null;
+  let skillBarApi = null;
+  let skillBarCount = 0;
+  let lastPageState = null;
 
   try {
     await mkdir(path.join(root, 'artifacts'), { recursive: true });
@@ -676,36 +742,40 @@ export async function runCli(argv = process.argv.slice(2)) {
     await navigate(cdp, `${args.frontendOrigin}/login`);
     await waitFor('public login form', async () => {
       const state = await readPageState(cdp);
+      lastPageState = state;
       return state.loginFormVisible ? state : null;
     }, args.timeoutMs, 250);
     const submitted = await submitLogin(cdp, args.username, args.password);
     assert(submitted.ok, submitted.reason || 'login submit failed');
 
-    const loginState = await waitFor('public login token', async () => {
+    loginState = await waitFor('public login token', async () => {
       const state = await readPageState(cdp);
+      lastPageState = state;
       return state.tokenPresent && state.path !== '/login' ? state : null;
     }, args.timeoutMs, 250);
 
     await navigate(cdp, `${args.frontendOrigin}/adventure/${args.sessionId}?stage7PublicSmoke=1`);
-    const adventureState = await waitFor('public Adventure page', async () => {
+    adventureState = await waitFor('public Adventure route', async () => {
       const state = await readPageState(cdp);
-      return state.adventureLoaded ? state : null;
+      lastPageState = state;
+      return isAdventureRouteReady(state, args.sessionId) ? state : null;
     }, args.timeoutMs, 250);
-    const sessionApi = await fetchApiJson(cdp, `/api/game/sessions/${args.sessionId}`, args.timeoutMs);
-    const sessionBody = sessionApi.body || {};
+    sessionApi = await fetchApiJson(cdp, `/api/game/sessions/${args.sessionId}`, args.timeoutMs);
+    sessionBody = sessionApi.body || {};
     assert(sessionApi.ok, `session API failed with HTTP ${sessionApi.status}`);
     assert(sessionBody.combat_active === true, 'public smoke session must be combat_active=true to verify Combat load');
     assert(sessionBody.player?.id, 'session API did not include player.id');
     await screenshot(cdp, adventureScreenshot);
 
     await navigate(cdp, `${args.frontendOrigin}/combat/${args.sessionId}?stage7PublicSmoke=1`);
-    const combatState = await waitFor('public Combat page', async () => {
+    combatState = await waitFor('public Combat page', async () => {
       const state = await readPageState(cdp);
+      lastPageState = state;
       return state.combatLoaded ? state : null;
     }, args.timeoutMs, 250);
-    const combatApi = await fetchApiJson(cdp, `/api/game/combat/${args.sessionId}`, args.timeoutMs);
+    combatApi = await fetchApiJson(cdp, `/api/game/combat/${args.sessionId}`, args.timeoutMs);
     assert(combatApi.ok, `combat API failed with HTTP ${combatApi.status}`);
-    const skillBarApi = await fetchApiJson(
+    skillBarApi = await fetchApiJson(
       cdp,
       `/api/game/combat/${args.sessionId}/skill-bar?entity_id=${encodeURIComponent(sessionBody.player.id)}`,
       args.timeoutMs,
@@ -713,30 +783,20 @@ export async function runCli(argv = process.argv.slice(2)) {
     assert(skillBarApi.ok, `skill-bar API failed with HTTP ${skillBarApi.status}`);
     await screenshot(cdp, combatScreenshot);
 
-    const skillBarCount = Array.isArray(skillBarApi.body?.bar) ? skillBarApi.body.bar.length : 0;
+    skillBarCount = Array.isArray(skillBarApi.body?.bar) ? skillBarApi.body.bar.length : 0;
     payload = buildPublicBrowserPayload({
       browserErrors: collectBlockingBrowserEvents(cdp.events),
-      checks: {
-        login_path: loginState.path,
-        login_token_present: loginState.tokenPresent,
-        adventure_path: adventureState.path,
-        adventure_loaded: adventureState.adventureLoaded,
-        session_api_ok: sessionApi.ok,
-        session_id_matches: sessionBody.id === args.sessionId || sessionBody.session_id === args.sessionId,
-        session_combat_active: sessionBody.combat_active === true,
-        current_scene_present: Boolean(sessionBody.current_scene || sessionBody.game_state?.current_scene),
-        combat_path: combatState.path,
-        combat_loaded: combatState.combatLoaded,
-        combat_api_ok: combatApi.ok,
-        combat_round: Number(combatApi.body?.round_number || combatApi.body?.round || 0),
-        combat_turn_order_count: Array.isArray(combatApi.body?.turn_order) ? combatApi.body.turn_order.length : 0,
-        combat_entities_count: combatApi.body?.entities && typeof combatApi.body.entities === 'object'
-          ? Object.keys(combatApi.body.entities).length
-          : 0,
-        skill_bar_entity_id: skillBarApi.body?.entity_id || '',
-        skill_bar_count: skillBarCount,
-        skill_bar_dom_count: combatState.skillButtonCount,
-      },
+      checks: buildPublicBrowserChecks({
+        combatApi,
+        combatState,
+        loginState,
+        sessionApi,
+        sessionBody,
+        sessionId: args.sessionId,
+        skillBarApi,
+        skillBarCount,
+        adventureState,
+      }),
       frontendOrigin: args.frontendOrigin,
       screenshots: {
         adventure: adventureScreenshot,
@@ -746,12 +806,36 @@ export async function runCli(argv = process.argv.slice(2)) {
       username: args.username,
     });
   } catch (error) {
+    let failureState = lastPageState;
+    if (cdp) {
+      failureState = await readPageState(cdp).catch(() => failureState);
+      await screenshot(cdp, adventureScreenshot).catch(() => {});
+    }
+    if (!adventureState && failureState) adventureState = failureState;
+    if (!combatState && failureState?.path === expectedCombatPath(args.sessionId)) combatState = failureState;
+    const checks = buildPublicBrowserChecks({
+      combatApi,
+      combatState,
+      loginState,
+      sessionApi,
+      sessionBody,
+      sessionId: args.sessionId,
+      skillBarApi,
+      skillBarCount,
+      adventureState,
+    });
+    if (failureState) {
+      checks.failure_path = failureState.path;
+      checks.failure_token_present = failureState.tokenPresent === true;
+      checks.failure_login_form_visible = failureState.loginFormVisible === true;
+      checks.failure_text = failureState.text || '';
+    }
     payload = buildPublicBrowserPayload({
       browserErrors: [
         ...collectBlockingBrowserEvents(cdp?.events || []),
         { method: 'Smoke.failure', message: error.message || String(error) },
       ],
-      checks: {},
+      checks,
       frontendOrigin: args.frontendOrigin,
       screenshots: {
         adventure: adventureScreenshot,
