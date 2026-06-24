@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 
 from models import Character, CombatState, GameLog, Module, Session, User
 from services.smoke_scenario_seed import (
@@ -177,6 +177,32 @@ async def test_seed_smoke_scenario_can_attach_stage7_5_to_existing_user(db_sessi
     assert session.user_id == "existing-user"
     assert module.user_id == "existing-user"
     assert hero.user_id == "existing-user"
+
+
+async def test_seed_smoke_scenario_flushes_fk_parents_before_dependents(db_session, engine):
+    insert_tables = []
+
+    def record_insert_order(_conn, _cursor, statement, _parameters, _context, _executemany):
+        normalized = " ".join(statement.lower().split())
+        if normalized.startswith("insert into "):
+            table_name = normalized.split()[2].strip('"')
+            insert_tables.append(table_name)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", record_insert_order)
+    try:
+        await seed_smoke_scenario(db_session, slug="postgres fk order")
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", record_insert_order)
+
+    first_insert = {
+        table_name: insert_tables.index(table_name)
+        for table_name in set(insert_tables)
+    }
+    assert first_insert["modules"] < first_insert["sessions"]
+    assert first_insert["users"] < first_insert["characters"]
+    assert first_insert["sessions"] < first_insert["characters"]
+    assert first_insert["sessions"] < first_insert["combat_states"]
+    assert first_insert["sessions"] < first_insert["game_logs"]
 
 
 async def test_seed_smoke_scenario_is_idempotent_for_same_slug(db_session):

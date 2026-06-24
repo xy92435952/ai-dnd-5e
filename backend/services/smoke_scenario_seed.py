@@ -278,12 +278,18 @@ async def seed_smoke_scenario(
     _apply_smoke_variant(clean_variant, ids, hero, companion, session, combat, game_state)
     session.game_state = game_state
 
-    add_items = [
-        module,
-        hero,
-        companion,
-        session,
-        combat,
+    if sa_inspect(user).transient:
+        db.add(user)
+        await db.flush()
+    db.add(module)
+    await db.flush()
+    db.add(session)
+    await db.flush()
+    db.add_all([hero, companion])
+    await db.flush()
+    db.add(combat)
+    await db.flush()
+    db.add_all([
         GameLog(
             session_id=ids.session_id,
             role="dm",
@@ -296,10 +302,7 @@ async def seed_smoke_scenario(
             content="Smoke seed prepared combat, trap, quest, and checkpoint state.",
             log_type="system",
         ),
-    ]
-    if sa_inspect(user).transient:
-        add_items.insert(0, user)
-    db.add_all(add_items)
+    ])
     await db.commit()
 
     return SmokeScenarioResult(
@@ -706,8 +709,8 @@ async def try_execute_stage7_5_seed_action(
 async def _delete_existing(db: AsyncSession, ids: "_SmokeIds") -> None:
     await db.execute(delete(GameLog).where(GameLog.session_id == ids.session_id))
     await db.execute(delete(CombatState).where(CombatState.session_id == ids.session_id))
-    await db.execute(delete(Session).where(Session.id == ids.session_id))
     await db.execute(delete(Character).where(Character.id.in_([ids.character_id, ids.companion_id])))
+    await db.execute(delete(Session).where(Session.id == ids.session_id))
     await db.execute(delete(Module).where(Module.id == ids.module_id))
     await db.execute(delete(User).where(User.id == ids.user_id))
     await db.commit()
