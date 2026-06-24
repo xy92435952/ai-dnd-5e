@@ -90,6 +90,16 @@ describe('Feather Fall browser smoke selector contract', () => {
     expect(() => runSmokeScript(['--artifact-tag='])).toThrow(/--artifact-tag requires a value/)
   })
 
+  it('fails fast for unknown smoke options and prints help without starting smoke', () => {
+    expect(() => runSmokeScript(['--typo'])).toThrow(/Unknown option: --typo/)
+
+    const helpOutput = runSmokeScript(['--help']).toString('utf8')
+
+    expect(helpOutput).toContain('Usage:')
+    expect(helpOutput).toContain('--decision accept|decline')
+    expect(helpOutput).not.toContain('feather-fall-adventure-browser-smoke')
+  })
+
   it('requires dialog name and description in release evidence manifests', () => {
     const goodManifest = writeManifest(validManifest())
 

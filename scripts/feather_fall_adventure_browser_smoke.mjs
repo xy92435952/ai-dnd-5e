@@ -9,6 +9,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
 const backendCwd = path.join(root, 'backend');
 const frontendCwd = path.join(root, 'frontend');
+validateArgs();
 const backendOrigin = process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8002';
 const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://127.0.0.1:3000';
 const pythonPath = resolvePythonPath();
@@ -20,6 +21,41 @@ const artifactTag = normalizeArtifactTag(process.env.FEATHER_FALL_SMOKE_ARTIFACT
 const promptScreenshotPath = screenshotPath('prompt');
 const resolvedScreenshotPath = screenshotPath('resolved');
 const manifestPath = artifactPath('manifest', 'json');
+
+function usage() {
+  return [
+    'Usage:',
+    '  node scripts/feather_fall_adventure_browser_smoke.mjs [--decision accept|decline] [--artifact-tag <tag>]',
+    '',
+    'Runs the Stage 7 Adventure Feather Fall browser smoke against a temporary backend/frontend.',
+    'Use --decision decline to verify the decline path. The default decision is accept.',
+  ].join('\n');
+}
+
+function validateArgs(args = process.argv.slice(2)) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--help' || arg === '-h') {
+      console.log(usage());
+      process.exit(0);
+    }
+    if (arg === '--decision' || arg === '--artifact-tag') {
+      requiredOptionValue(args, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--decision=') || arg.startsWith('--artifact-tag=')) {
+      continue;
+    }
+    if (['accept', 'cast', 'feather_fall', 'feather-fall', 'decline', 'pass'].includes(arg)) {
+      continue;
+    }
+    if (arg.startsWith('--')) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
