@@ -720,6 +720,17 @@ Use the printed `stage7_5.combat_choice_text` to trigger the real
 exploration-to-combat handoff. Do not mark Stage 7.5 complete until the
 mutating combat-round and loot/journal follow-up evidence is current.
 
+The preferred mutating evidence command is:
+
+```powershell
+node scripts\stage7_5_launch_experience_smoke.mjs --mutating --frontend-origin https://www.ai5edm.top --username test --password 123456 --exploration-session-id <stage7_5-session-id> --output artifacts\stage7_5-mutating-result-YYYYMMDD.json
+```
+
+This mode opens Adventure tools, clicks the fixed Stage 7.5 exploration choice,
+resolves a deterministic attack-roll / damage-roll / end-turn sequence in the
+same authenticated browser session, claims `Gate Token` to party stash, and
+records the before/after HP, turn-token, loot, and log checks in the artifact.
+
 When multiplayer or WS paths changed, open two users in the same room and confirm:
 
 - both clients show connected realtime sync

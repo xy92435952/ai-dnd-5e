@@ -8,6 +8,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
+const DEFAULT_STAGE7_5_COMBAT_CHOICE_TEXT = 'Secure the gate and start the Stage 7.5 training fight.';
+const DEFAULT_STAGE7_5_CLAIM_LOOT_ID = 'loot_gear_gate_token_0';
 
 function requiredOptionValue(argv, index, optionName) {
   const value = argv[index + 1] || '';
@@ -30,6 +32,13 @@ function parsePositiveMs(value, optionName) {
     throw new Error(`${optionName} must be a positive number.`);
   }
   return timeoutMs;
+}
+
+function parseBooleanOption(value, optionName) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  throw new Error(`${optionName} must be a boolean value.`);
 }
 
 function todayTag() {
@@ -65,10 +74,15 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
   const args = {
     artifactTag: env.STAGE7_5_ARTIFACT_TAG || todayTag(),
     browserPath: env.STAGE7_5_BROWSER_PATH || env.CHROME_PATH || '',
+    claimLootId: env.STAGE7_5_CLAIM_LOOT_ID || DEFAULT_STAGE7_5_CLAIM_LOOT_ID,
+    combatChoiceText: env.STAGE7_5_COMBAT_CHOICE_TEXT || DEFAULT_STAGE7_5_COMBAT_CHOICE_TEXT,
     combatSessionId: env.STAGE7_5_COMBAT_SESSION_ID || '',
     explorationSessionId: env.STAGE7_5_EXPLORATION_SESSION_ID || '',
     frontendOrigin: env.STAGE7_5_FRONTEND_ORIGIN || '',
     help: false,
+    mutating: env.STAGE7_5_MUTATING
+      ? parseBooleanOption(env.STAGE7_5_MUTATING, 'STAGE7_5_MUTATING')
+      : false,
     output: env.STAGE7_5_OUTPUT || '',
     password: env.STAGE7_5_PASSWORD || '',
     timeoutMs: env.STAGE7_5_TIMEOUT_MS
@@ -81,6 +95,14 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     const arg = argv[index];
     if (arg === '--help' || arg === '-h') {
       args.help = true;
+      continue;
+    }
+    if (arg === '--mutating') {
+      args.mutating = true;
+      continue;
+    }
+    if (arg === '--no-mutating') {
+      args.mutating = false;
       continue;
     }
     if (arg === '--frontend-origin') {
@@ -126,6 +148,24 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     }
     if (arg.startsWith('--combat-session-id=')) {
       args.combatSessionId = requiredInlineOptionValue(arg.slice('--combat-session-id='.length), '--combat-session-id');
+      continue;
+    }
+    if (arg === '--combat-choice-text') {
+      args.combatChoiceText = requiredOptionValue(argv, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--combat-choice-text=')) {
+      args.combatChoiceText = requiredInlineOptionValue(arg.slice('--combat-choice-text='.length), '--combat-choice-text');
+      continue;
+    }
+    if (arg === '--claim-loot-id') {
+      args.claimLootId = requiredOptionValue(argv, index, arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--claim-loot-id=')) {
+      args.claimLootId = requiredInlineOptionValue(arg.slice('--claim-loot-id='.length), '--claim-loot-id');
       continue;
     }
     if (arg === '--artifact-tag') {
@@ -176,6 +216,11 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
   if (args.help) return args;
   args.frontendOrigin = normalizeOrigin(args.frontendOrigin);
   args.artifactTag = normalizeArtifactTag(args.artifactTag);
+  args.combatChoiceText = String(args.combatChoiceText || '').trim();
+  args.claimLootId = String(args.claimLootId || '').trim();
+  if (args.mutating && !args.combatSessionId) {
+    args.combatSessionId = args.explorationSessionId;
+  }
   return args;
 }
 
@@ -183,13 +228,16 @@ export function usage() {
   return [
     'Usage:',
     '  node scripts/stage7_5_launch_experience_smoke.mjs --frontend-origin <origin> --username <user> --password <pass> --exploration-session-id <id> --combat-session-id <id> [--artifact-tag <tag>] [--output <json-file>]',
+    '  node scripts/stage7_5_launch_experience_smoke.mjs --mutating --frontend-origin <origin> --username <user> --password <pass> --exploration-session-id <stage7_5-session-id> [--combat-choice-text <text>] [--claim-loot-id <loot-id>]',
     '',
     'Runs Stage 7.5 launch-experience QA against a public deployment.',
     'This smoke avoids story/combat mutations: it opens Adventure tools, verifies Combat readiness, and captures screenshots without claiming loot, attacking, or ending turns.',
+    'With --mutating, it uses a resettable Stage 7.5 seed session to click the fixed exploration choice, resolve one deterministic attack/damage/end-turn sequence, and claim the Gate Token to party stash.',
     'Note: opening Journal may trigger the app\'s normal journal-generation request when the session has no generated journal text yet.',
     '',
     'Environment variables are also supported:',
     '  STAGE7_5_FRONTEND_ORIGIN, STAGE7_5_USERNAME, STAGE7_5_PASSWORD, STAGE7_5_EXPLORATION_SESSION_ID, STAGE7_5_COMBAT_SESSION_ID',
+    '  STAGE7_5_MUTATING, STAGE7_5_COMBAT_CHOICE_TEXT, STAGE7_5_CLAIM_LOOT_ID',
   ].join('\n');
 }
 
@@ -199,7 +247,9 @@ export function validateRequiredArgs(args) {
   if (!args.username) missing.push('--username');
   if (!args.password) missing.push('--password');
   if (!args.explorationSessionId) missing.push('--exploration-session-id');
-  if (!args.combatSessionId) missing.push('--combat-session-id');
+  if (!args.combatSessionId && !args.mutating) missing.push('--combat-session-id');
+  if (args.mutating && !args.combatChoiceText) missing.push('--combat-choice-text');
+  if (args.mutating && !args.claimLootId) missing.push('--claim-loot-id');
   if (missing.length) {
     throw new Error(`Missing required Stage 7.5 smoke option(s): ${missing.join(', ')}.`);
   }
@@ -525,6 +575,25 @@ async function clickFirst(cdp, selectors) {
   })()`);
 }
 
+async function clickChoiceByText(cdp, text) {
+  return evalPage(cdp, `(() => {
+    const expected = ${JSON.stringify(text)}.replace(/\\s+/g, ' ').trim();
+    const buttons = Array.from(document.querySelectorAll('.choice-list button.choice, button.choice'));
+    for (const button of buttons) {
+      const label = (button.innerText || button.textContent || '').replace(/\\s+/g, ' ').trim();
+      if (label.includes(expected) && !button.disabled) {
+        button.click();
+        return { ok: true, label };
+      }
+    }
+    return {
+      ok: false,
+      expected,
+      labels: buttons.map(button => (button.innerText || button.textContent || '').replace(/\\s+/g, ' ').trim()).slice(0, 8),
+    };
+  })()`);
+}
+
 async function closeTopOverlay(cdp) {
   return evalPage(cdp, `(() => {
     const panel = document.querySelector('.adventure-overlay-panel');
@@ -550,6 +619,161 @@ async function fetchApiJson(cdp, urlPath, timeoutMs = 30000) {
     try { body = text ? JSON.parse(text) : null; } catch { body = text; }
     return { ok: response.ok, status: response.status, body };
   }))()`, timeoutMs);
+}
+
+async function postApiJson(cdp, urlPath, payload = {}, timeoutMs = 30000) {
+  return evalPage(cdp, `(() => fetch(${JSON.stringify(urlPath)}, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: localStorage.getItem('token') ? 'Bearer ' + localStorage.getItem('token') : '',
+    },
+    body: JSON.stringify(${JSON.stringify(payload)}),
+  }).then(async (response) => {
+    const text = await response.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+    return { ok: response.ok, status: response.status, body };
+  }))()`, timeoutMs);
+}
+
+function combatTurnToken(combatBody = {}) {
+  const turnOrder = Array.isArray(combatBody.turn_order) ? combatBody.turn_order : [];
+  const turnIndex = Number(combatBody.current_turn_index || 0);
+  const current = turnOrder[turnIndex] || {};
+  const actorId = current.character_id || current.id || '';
+  return `${combatBody.round_number || 1}:${turnIndex}:${actorId}`;
+}
+
+function combatCurrentActorId(combatBody = {}) {
+  const turnOrder = Array.isArray(combatBody.turn_order) ? combatBody.turn_order : [];
+  const turnIndex = Number(combatBody.current_turn_index || 0);
+  const current = turnOrder[turnIndex] || {};
+  return current.character_id || current.id || '';
+}
+
+function combatEntity(combatBody = {}, entityId = '') {
+  return (combatBody.entities && combatBody.entities[entityId]) || null;
+}
+
+function firstLiveEnemy(combatBody = {}) {
+  const entries = Object.entries(combatBody.entities || {})
+    .filter(([, entity]) => entity?.is_enemy && Number(entity.hp_current || 0) > 0)
+    .map(([id, entity]) => ({ id: entity.id || id, ...entity }));
+  entries.sort((a, b) => Number(a.hp_current || 0) - Number(b.hp_current || 0));
+  return entries[0] || null;
+}
+
+async function runMutatingCombatRound({
+  cdp,
+  sessionId,
+  playerId,
+  claimLootId,
+  timeoutMs,
+}) {
+  const beforeCombatApi = await fetchApiJson(cdp, `/api/game/combat/${sessionId}`, timeoutMs);
+  assert(beforeCombatApi.ok, `mutating combat API failed with HTTP ${beforeCombatApi.status}`);
+  const beforeCombat = beforeCombatApi.body || {};
+  const currentActorId = combatCurrentActorId(beforeCombat);
+  assert(currentActorId === playerId, `mutating combat expected player turn ${playerId}, got ${currentActorId || 'none'}`);
+  const target = firstLiveEnemy(beforeCombat);
+  assert(target?.id, 'mutating combat could not find a live enemy target');
+  const beforeTargetHp = Number(target.hp_current || 0);
+  const attackTurnToken = combatTurnToken(beforeCombat);
+
+  const attackApi = await postApiJson(
+    cdp,
+    `/api/game/combat/${sessionId}/attack-roll`,
+    {
+      entity_id: playerId,
+      target_id: target.id,
+      action_type: 'ranged',
+      d20_value: 19,
+      expected_turn_token: attackTurnToken,
+    },
+    timeoutMs,
+  );
+  assert(attackApi.ok, `mutating attack-roll failed with HTTP ${attackApi.status}: ${JSON.stringify(attackApi.body)}`);
+  assert(attackApi.body?.hit === true, 'mutating attack-roll did not hit with fixed d20=19');
+  assert(attackApi.body?.pending_attack_id, 'mutating attack-roll did not return pending_attack_id');
+
+  const damageApi = await postApiJson(
+    cdp,
+    `/api/game/combat/${sessionId}/damage-roll`,
+    {
+      pending_attack_id: attackApi.body.pending_attack_id,
+      damage_values: [4],
+    },
+    timeoutMs,
+  );
+  assert(damageApi.ok, `mutating damage-roll failed with HTTP ${damageApi.status}: ${JSON.stringify(damageApi.body)}`);
+
+  const afterDamageCombatApi = await fetchApiJson(cdp, `/api/game/combat/${sessionId}`, timeoutMs);
+  assert(afterDamageCombatApi.ok, `post-damage combat API failed with HTTP ${afterDamageCombatApi.status}`);
+  const afterDamageTarget = combatEntity(afterDamageCombatApi.body || {}, target.id);
+  const afterDamageTargetHp = Number(afterDamageTarget?.hp_current || 0);
+  assert(
+    afterDamageTargetHp < beforeTargetHp || afterDamageTarget?.life_state === 'dead',
+    `mutating damage did not reduce target HP (${beforeTargetHp} -> ${afterDamageTargetHp})`,
+  );
+
+  const endTurnToken = combatTurnToken(afterDamageCombatApi.body || {});
+  const endTurnApi = await postApiJson(
+    cdp,
+    `/api/game/combat/${sessionId}/end-turn`,
+    { expected_turn_token: endTurnToken },
+    timeoutMs,
+  );
+  assert(endTurnApi.ok, `mutating end-turn failed with HTTP ${endTurnApi.status}: ${JSON.stringify(endTurnApi.body)}`);
+
+  const afterEndTurnCombatApi = await fetchApiJson(cdp, `/api/game/combat/${sessionId}`, timeoutMs);
+  assert(afterEndTurnCombatApi.ok, `post-end-turn combat API failed with HTTP ${afterEndTurnCombatApi.status}`);
+  const afterEndTurnToken = combatTurnToken(afterEndTurnCombatApi.body || {});
+  assert(afterEndTurnToken !== endTurnToken, 'mutating end-turn did not advance the turn token');
+
+  const lootClaimApi = await postApiJson(
+    cdp,
+    `/api/game/sessions/${sessionId}/loot/claim`,
+    {
+      character_id: playerId,
+      loot_id: claimLootId,
+      claim_mode: 'party_stash',
+    },
+    timeoutMs,
+  );
+  assert(lootClaimApi.ok, `mutating loot claim failed with HTTP ${lootClaimApi.status}: ${JSON.stringify(lootClaimApi.body)}`);
+
+  const afterLootApi = await fetchApiJson(cdp, `/api/game/sessions/${sessionId}/loot`, timeoutMs);
+  assert(afterLootApi.ok, `post-claim loot API failed with HTTP ${afterLootApi.status}`);
+  const claimedLoot = (afterLootApi.body?.items || []).find(item => String(item.id) === String(claimLootId));
+  assert(claimedLoot?.status === 'claimed', 'mutating loot claim did not persist claimed status');
+
+  const afterSessionApi = await fetchApiJson(cdp, `/api/game/sessions/${sessionId}`, timeoutMs);
+  assert(afterSessionApi.ok, `post-mutating session API failed with HTTP ${afterSessionApi.status}`);
+
+  return {
+    enabled: true,
+    attack_roll_ok: attackApi.ok === true,
+    damage_roll_ok: damageApi.ok === true,
+    end_turn_ok: endTurnApi.ok === true,
+    turn_advanced: afterEndTurnToken !== endTurnToken,
+    loot_claim_ok: lootClaimApi.ok === true && claimedLoot?.status === 'claimed',
+    target_id: target.id,
+    target_name: target.name || target.id,
+    before_target_hp: beforeTargetHp,
+    after_damage_target_hp: afterDamageTargetHp,
+    target_hp_reduced: afterDamageTargetHp < beforeTargetHp || afterDamageTarget?.life_state === 'dead',
+    attack_total: attackApi.body?.attack_total,
+    target_ac: attackApi.body?.target_ac,
+    pending_attack_id: attackApi.body?.pending_attack_id,
+    attack_turn_token: attackTurnToken,
+    end_turn_token: endTurnToken,
+    after_end_turn_token: afterEndTurnToken,
+    loot_id: claimLootId,
+    loot_claim_mode: lootClaimApi.body?.claimed?.claim_mode || 'party_stash',
+    session_logs_count: Array.isArray(afterSessionApi.body?.logs) ? afterSessionApi.body.logs.length : 0,
+  };
 }
 
 function browserEventSummary(event) {
@@ -608,6 +832,7 @@ function buildChecks({
   loginState = null,
   lootState = null,
   mapState = null,
+  mutating = null,
 } = {}) {
   const explorationBody = explorationSessionApi?.body || {};
   const explorationGameState = explorationBody.game_state || {};
@@ -615,6 +840,7 @@ function buildChecks({
   const combatBody = combatApi?.body || {};
   const combatSkillBarCount = Array.isArray(combatSkillBarApi?.body?.bar) ? combatSkillBarApi.body.bar.length : 0;
   const lootItems = Array.isArray(explorationLootApi?.body?.items) ? explorationLootApi.body.items.length : 0;
+  const mutatingEnabled = mutating?.enabled === true;
 
   return {
     login_path: loginState?.path || '',
@@ -661,6 +887,16 @@ function buildChecks({
     combat_log_present: combatState?.combatLogPresent === true,
     combat_log_items_count: Number(combatState?.combatLogItems || 0),
     combat_reaction_prompt_present: combatState?.reactionPromptPresent === true,
+    mutating_enabled: mutatingEnabled,
+    mutating_exploration_choice_clicked: mutatingEnabled ? mutating.exploration_choice_clicked === true : false,
+    mutating_combat_handoff_ok: mutatingEnabled ? mutating.combat_handoff_ok === true : false,
+    mutating_attack_roll_ok: mutatingEnabled ? mutating.attack_roll_ok === true : false,
+    mutating_damage_roll_ok: mutatingEnabled ? mutating.damage_roll_ok === true : false,
+    mutating_target_hp_reduced: mutatingEnabled ? mutating.target_hp_reduced === true : false,
+    mutating_end_turn_ok: mutatingEnabled ? mutating.end_turn_ok === true : false,
+    mutating_turn_advanced: mutatingEnabled ? mutating.turn_advanced === true : false,
+    mutating_loot_claim_ok: mutatingEnabled ? mutating.loot_claim_ok === true : false,
+    mutating_session_logs_count: mutatingEnabled ? Number(mutating.session_logs_count || 0) : 0,
   };
 }
 
@@ -671,6 +907,7 @@ export function buildLaunchExperiencePayload({
   combatSessionId = '',
   explorationSessionId = '',
   frontendOrigin = '',
+  mutating = null,
   screenshots = {},
   username = '',
 } = {}) {
@@ -701,6 +938,18 @@ export function buildLaunchExperiencePayload({
       && checks.combat_skill_bar_dom_count > 0
       && checks.combat_end_turn_present === true
       && checks.combat_log_present === true,
+    mutating_round_trip: checks.mutating_enabled !== true
+      || (
+        checks.mutating_exploration_choice_clicked === true
+        && checks.mutating_combat_handoff_ok === true
+        && checks.mutating_attack_roll_ok === true
+        && checks.mutating_damage_roll_ok === true
+        && checks.mutating_target_hp_reduced === true
+        && checks.mutating_end_turn_ok === true
+        && checks.mutating_turn_advanced === true
+        && checks.mutating_loot_claim_ok === true
+        && checks.mutating_session_logs_count > 0
+      ),
     no_browser_errors: browserErrors.length === 0,
   };
   const ok = Object.values(assertions).every(Boolean);
@@ -717,12 +966,19 @@ export function buildLaunchExperiencePayload({
     browser: {
       errors: browserErrors,
     },
+    mutating,
     screenshots,
-    notes: [
-      'Stage 7.5 public UI QA avoids advancing story, claiming loot, attacking, or ending turns.',
-      'Opening Journal may trigger the app\'s normal journal-generation request when generated journal text is empty.',
-      'Full mutating round-trip QA still requires a resettable smoke session or an explicit mutating run.',
-    ],
+    notes: mutating?.enabled
+      ? [
+          'Stage 7.5 mutating QA requires a freshly reset stage7-5 smoke seed.',
+          'The mutating run clicks the fixed exploration choice, resolves one deterministic combat turn slice, and claims Gate Token to party stash.',
+          'Opening Journal may trigger the app\'s normal journal-generation request when generated journal text is empty.',
+        ]
+      : [
+          'Stage 7.5 public UI QA avoids advancing story, claiming loot, attacking, or ending turns.',
+          'Opening Journal may trigger the app\'s normal journal-generation request when generated journal text is empty.',
+          'Full mutating round-trip QA still requires a resettable smoke session or an explicit mutating run.',
+        ],
   };
 }
 
@@ -768,6 +1024,7 @@ export async function runCli(argv = process.argv.slice(2)) {
   const mapScreenshot = defaultArtifactPath('map', args.artifactTag, 'png');
   const lootScreenshot = defaultArtifactPath('loot', args.artifactTag, 'png');
   const combatScreenshot = defaultArtifactPath('combat', args.artifactTag, 'png');
+  const mutatingCombatScreenshot = defaultArtifactPath('combat-mutating', args.artifactTag, 'png');
   const debugPort = randomPort();
   const chromeDebug = { exit: null, stdout: '', stderr: '' };
   let chrome = null;
@@ -785,6 +1042,7 @@ export async function runCli(argv = process.argv.slice(2)) {
   let combatSessionApi = null;
   let combatApi = null;
   let combatSkillBarApi = null;
+  let mutatingResult = args.mutating ? { enabled: true } : null;
   let lastPageState = null;
 
   try {
@@ -901,12 +1159,29 @@ export async function runCli(argv = process.argv.slice(2)) {
     await screenshot(cdp, lootScreenshot);
     await closeTopOverlay(cdp);
 
-    await navigate(cdp, `${args.frontendOrigin}/adventure/${args.combatSessionId}?stage7_5Smoke=1`);
-    await waitFor('Stage 7.5 Adventure-to-Combat handoff', async () => {
-      const state = await readPageState(cdp);
-      lastPageState = state;
-      return state.path === `/combat/${args.combatSessionId}` && state.combatLoaded ? state : null;
-    }, args.timeoutMs, 250);
+    if (args.mutating) {
+      const choiceClicked = await clickChoiceByText(cdp, args.combatChoiceText);
+      assert(choiceClicked.ok, `Stage 7.5 combat choice missing: ${JSON.stringify(choiceClicked)}`);
+      mutatingResult = {
+        ...mutatingResult,
+        exploration_choice_clicked: true,
+        combat_choice_text: args.combatChoiceText,
+        combat_choice_label: choiceClicked.label,
+      };
+      await waitFor('Stage 7.5 mutating Adventure-to-Combat handoff', async () => {
+        const state = await readPageState(cdp);
+        lastPageState = state;
+        return state.path === `/combat/${args.combatSessionId}` && state.combatLoaded ? state : null;
+      }, args.timeoutMs, 250);
+      mutatingResult.combat_handoff_ok = true;
+    } else {
+      await navigate(cdp, `${args.frontendOrigin}/adventure/${args.combatSessionId}?stage7_5Smoke=1`);
+      await waitFor('Stage 7.5 Adventure-to-Combat handoff', async () => {
+        const state = await readPageState(cdp);
+        lastPageState = state;
+        return state.path === `/combat/${args.combatSessionId}` && state.combatLoaded ? state : null;
+      }, args.timeoutMs, 250);
+    }
 
     await navigate(cdp, `${args.frontendOrigin}/combat/${args.combatSessionId}?stage7_5Smoke=1`);
     combatState = await waitFor('Stage 7.5 Combat page', async () => {
@@ -933,6 +1208,33 @@ export async function runCli(argv = process.argv.slice(2)) {
     assert(combatSkillBarApi.ok, `combat skill-bar API failed with HTTP ${combatSkillBarApi.status}`);
     await screenshot(cdp, combatScreenshot);
 
+    if (args.mutating) {
+      mutatingResult = {
+        ...mutatingResult,
+        ...(await runMutatingCombatRound({
+          cdp,
+          sessionId: args.combatSessionId,
+          playerId,
+          claimLootId: args.claimLootId,
+          timeoutMs: args.timeoutMs,
+        })),
+      };
+      await navigate(cdp, `${args.frontendOrigin}/combat/${args.combatSessionId}?stage7_5Smoke=1&mutating=1`);
+      combatState = await waitFor('Stage 7.5 post-mutating Combat page', async () => {
+        const state = await readPageState(cdp);
+        lastPageState = state;
+        return state.combatLoaded ? state : null;
+      }, args.timeoutMs, 250);
+      combatSessionApi = await fetchApiJson(cdp, `/api/game/sessions/${args.combatSessionId}`, args.timeoutMs);
+      combatApi = await fetchApiJson(cdp, `/api/game/combat/${args.combatSessionId}`, args.timeoutMs);
+      combatSkillBarApi = await fetchApiJson(
+        cdp,
+        `/api/game/combat/${args.combatSessionId}/skill-bar?entity_id=${encodeURIComponent(playerId)}`,
+        args.timeoutMs,
+      );
+      await screenshot(cdp, mutatingCombatScreenshot);
+    }
+
     payload = buildLaunchExperiencePayload({
       browserErrors: collectBlockingBrowserEvents(cdp.events),
       checks: buildChecks({
@@ -947,16 +1249,19 @@ export async function runCli(argv = process.argv.slice(2)) {
         loginState,
         lootState,
         mapState,
+        mutating: mutatingResult,
       }),
       combatSessionId: args.combatSessionId,
       explorationSessionId: args.explorationSessionId,
       frontendOrigin: args.frontendOrigin,
+      mutating: mutatingResult,
       screenshots: {
         exploration: explorationScreenshot,
         journal: journalScreenshot,
         map: mapScreenshot,
         loot: lootScreenshot,
         combat: combatScreenshot,
+        ...(args.mutating ? { combat_mutating: mutatingCombatScreenshot } : {}),
       },
       username: args.username,
     });
@@ -978,6 +1283,7 @@ export async function runCli(argv = process.argv.slice(2)) {
       loginState,
       lootState,
       mapState,
+      mutating: mutatingResult,
     });
     if (failureState) {
       checks.failure_path = failureState.path;
@@ -994,12 +1300,14 @@ export async function runCli(argv = process.argv.slice(2)) {
       combatSessionId: args.combatSessionId,
       explorationSessionId: args.explorationSessionId,
       frontendOrigin: args.frontendOrigin,
+      mutating: mutatingResult,
       screenshots: {
         exploration: explorationScreenshot,
         journal: journalScreenshot,
         map: mapScreenshot,
         loot: lootScreenshot,
         combat: combatScreenshot,
+        ...(args.mutating ? { combat_mutating: mutatingCombatScreenshot } : {}),
         failure: defaultArtifactPath('failure', args.artifactTag, 'png'),
       },
       username: args.username,

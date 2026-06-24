@@ -77,6 +77,7 @@ describe('Stage 7.5 launch-experience smoke helper', () => {
     expect(args.combatSessionId).toBe('combat-1')
     expect(args.artifactTag).toBe('stage7_5-20260624')
     expect(args.timeoutMs).toBe(30000)
+    expect(args.mutating).toBe(false)
 
     const envArgs = parseArgs([], {
       STAGE7_5_FRONTEND_ORIGIN: 'https://prod.example',
@@ -85,6 +86,7 @@ describe('Stage 7.5 launch-experience smoke helper', () => {
       STAGE7_5_EXPLORATION_SESSION_ID: 'env-explore',
       STAGE7_5_COMBAT_SESSION_ID: 'env-combat',
       STAGE7_5_ARTIFACT_TAG: 'env-tag',
+      STAGE7_5_MUTATING: 'true',
     })
     expect(envArgs.frontendOrigin).toBe('https://prod.example')
     expect(envArgs.username).toBe('env-user')
@@ -92,12 +94,39 @@ describe('Stage 7.5 launch-experience smoke helper', () => {
     expect(envArgs.explorationSessionId).toBe('env-explore')
     expect(envArgs.combatSessionId).toBe('env-combat')
     expect(envArgs.artifactTag).toBe('env-tag')
+    expect(envArgs.mutating).toBe(true)
+  })
+
+  it('supports resettable mutating Stage 7.5 options', () => {
+    const args = parseArgs([
+      '--mutating',
+      '--frontend-origin',
+      'https://example.com/',
+      '--username',
+      'test',
+      '--password',
+      '123456',
+      '--exploration-session-id',
+      'stage7-5-session',
+      '--combat-choice-text',
+      'Start the training fight',
+      '--claim-loot-id',
+      'loot-token',
+    ], {})
+
+    expect(args.mutating).toBe(true)
+    expect(args.explorationSessionId).toBe('stage7-5-session')
+    expect(args.combatSessionId).toBe('stage7-5-session')
+    expect(args.combatChoiceText).toBe('Start the training fight')
+    expect(args.claimLootId).toBe('loot-token')
+    expect(() => validateRequiredArgs(args)).not.toThrow()
   })
 
   it('fails fast for invalid or missing required options', () => {
     expect(() => parseArgs(['--frontend-origin'], {})).toThrow(/--frontend-origin requires a value/)
     expect(() => parseArgs(['--combat-session-id='], {})).toThrow(/--combat-session-id requires a value/)
     expect(() => parseArgs(['--timeout-ms=0'], {})).toThrow(/--timeout-ms must be a positive number/)
+    expect(() => parseArgs([], { STAGE7_5_MUTATING: 'maybe' })).toThrow(/STAGE7_5_MUTATING must be a boolean/)
     expect(() => parseArgs(['--typo'], {})).toThrow(/Unknown option: --typo/)
     expect(() => normalizeOrigin('ftp://example.com')).toThrow(/http\(s\) origin/)
 
@@ -140,6 +169,57 @@ describe('Stage 7.5 launch-experience smoke helper', () => {
     expect(blocked.assertions.exploration_tools_ready).toBe(false)
     expect(blocked.assertions.combat_controls_ready).toBe(false)
     expect(blocked.assertions.no_browser_errors).toBe(false)
+  })
+
+  it('requires mutating round-trip evidence only when mutating mode is enabled', () => {
+    const payload = buildLaunchExperiencePayload({
+      browserErrors: [],
+      checks: passingChecks({
+        mutating_enabled: true,
+        mutating_exploration_choice_clicked: true,
+        mutating_combat_handoff_ok: true,
+        mutating_attack_roll_ok: true,
+        mutating_damage_roll_ok: true,
+        mutating_target_hp_reduced: true,
+        mutating_end_turn_ok: true,
+        mutating_turn_advanced: true,
+        mutating_loot_claim_ok: true,
+        mutating_session_logs_count: 6,
+      }),
+      combatSessionId: 'stage7-5-session',
+      explorationSessionId: 'stage7-5-session',
+      frontendOrigin: 'https://example.com',
+      mutating: { enabled: true, target_id: 'enemy_smoke_construct' },
+      username: 'test',
+    })
+
+    expect(payload.ok).toBe(true)
+    expect(payload.assertions.mutating_round_trip).toBe(true)
+    expect(payload.mutating.enabled).toBe(true)
+
+    const blocked = buildLaunchExperiencePayload({
+      browserErrors: [],
+      checks: passingChecks({
+        mutating_enabled: true,
+        mutating_exploration_choice_clicked: true,
+        mutating_combat_handoff_ok: true,
+        mutating_attack_roll_ok: true,
+        mutating_damage_roll_ok: true,
+        mutating_target_hp_reduced: true,
+        mutating_end_turn_ok: true,
+        mutating_turn_advanced: true,
+        mutating_loot_claim_ok: false,
+        mutating_session_logs_count: 6,
+      }),
+      combatSessionId: 'stage7-5-session',
+      explorationSessionId: 'stage7-5-session',
+      frontendOrigin: 'https://example.com',
+      mutating: { enabled: true },
+      username: 'test',
+    })
+
+    expect(blocked.ok).toBe(false)
+    expect(blocked.assertions.mutating_round_trip).toBe(false)
   })
 
   it('collects blocking browser errors while ignoring benign aborted network loads', () => {

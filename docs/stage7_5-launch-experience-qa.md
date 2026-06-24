@@ -26,6 +26,9 @@ Supported environment variables:
 - `STAGE7_5_PASSWORD`
 - `STAGE7_5_EXPLORATION_SESSION_ID`
 - `STAGE7_5_COMBAT_SESSION_ID`
+- `STAGE7_5_MUTATING`
+- `STAGE7_5_COMBAT_CHOICE_TEXT`
+- `STAGE7_5_CLAIM_LOOT_ID`
 - `STAGE7_5_ARTIFACT_TAG`
 - `STAGE7_5_OUTPUT`
 - `STAGE7_5_TIMEOUT_MS`
@@ -60,6 +63,20 @@ For the `stage7-5` variant, exploration and combat use the same session id. The
 session starts with `combat_active=false`; clicking/submitting the fixed
 `combat_choice_text` through `/game/action` starts a controlled combat handoff
 without invoking the DM agent.
+
+After reset, run the mutating smoke against that same session id:
+
+```powershell
+node scripts\stage7_5_launch_experience_smoke.mjs --mutating --frontend-origin https://www.ai5edm.top --username test --password 123456 --exploration-session-id <stage7_5-session-id> --output artifacts\stage7_5-mutating-result-YYYYMMDD.json
+```
+
+The mutating mode still logs in through the deployed frontend and opens
+Adventure tools first. It then clicks the fixed exploration choice, waits for
+the real combat route, uses the authenticated browser session to resolve one
+deterministic attack-roll / damage-roll / end-turn sequence, claims the
+`Gate Token` to the party stash, refreshes Combat, and records the before/after
+HP, turn-token, loot, and log checks in the JSON artifact. The default
+`claim_loot_id` is `loot_gear_gate_token_0`.
 
 ## Evidence Covered
 
@@ -114,3 +131,7 @@ seed or an equivalent disposable public session to capture current evidence for:
 - at least one complete combat round or an explicit blocker
 - loot/journal follow-up after the combat path
 - no P0/P1 issues left open
+
+The `--mutating` smoke is the preferred evidence generator for those bullets.
+Run it only after the public server has been updated and the seed command has
+freshly reset the session.
