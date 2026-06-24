@@ -37,6 +37,36 @@ describe('combatLog', () => {
     ])
   })
 
+  it('surfaces attack advantage and disadvantage sources as rule rows', () => {
+    const view = buildCombatLogView({
+      role: 'enemy',
+      log_type: 'combat',
+      content: 'Dodge Pressure Duelist swings at the guarded hero.',
+      dice_result: {
+        attack: {
+          d20: 6,
+          attack_bonus: 5,
+          attack_total: 11,
+          target_ac: 16,
+          hit: false,
+          roll_state: 'disadvantage',
+          disadvantage: true,
+          disadvantage_sources: ['target dodging'],
+        },
+      },
+    })
+
+    expect(view.sections.find(section => section.kind === 'rules')).toEqual({
+      kind: 'rules',
+      label: '规则',
+      items: [
+        '未命中 · 11 vs AC16',
+        '劣势',
+        '劣势: 目标闪避',
+      ],
+    })
+  })
+
   it('summarizes result payload state changes without depending on narration text', () => {
     expect(buildCombatStateChangeSummary({
       target_id: 'enemy-1',

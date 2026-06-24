@@ -143,6 +143,37 @@ describe('CombatHudCombatLog', () => {
     expect(within(feedback).getByRole('listitem', { name: '专注中断' })).toHaveClass('log-feedback', 'concentration-break')
   })
 
+  it('renders attack disadvantage sources in combat log rules', () => {
+    render(
+      <CombatHudCombatLog
+        logs={[
+          {
+            id: 'dodge-miss-1',
+            role: 'enemy',
+            content: 'Dodge Pressure Duelist misses the guarded hero.',
+            log_type: 'combat',
+            dice_result: {
+              attack: {
+                d20: 6,
+                attack_bonus: 5,
+                attack_total: 11,
+                target_ac: 16,
+                hit: false,
+                roll_state: 'disadvantage',
+                disadvantage: true,
+                disadvantage_sources: ['target dodging'],
+              },
+            },
+          },
+        ]}
+      />,
+    )
+
+    const entry = screen.getByRole('listitem', { name: '战斗日志 敌人' })
+    expect(within(entry).getByText('劣势')).toBeInTheDocument()
+    expect(within(entry).getByText('劣势: 目标闪避')).toBeInTheDocument()
+  })
+
   it('renders defender interception as a visible combat feedback badge', () => {
     render(
       <CombatHudCombatLog

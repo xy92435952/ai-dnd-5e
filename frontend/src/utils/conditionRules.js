@@ -2,6 +2,7 @@ const CONDITION_LABELS = {
   blinded: '目盲',
   charmed: '魅惑',
   deafened: '耳聋',
+  dodging: '闪避',
   frightened: '恐慌',
   grappled: '被擒抱',
   hidden: '隐藏',
@@ -79,6 +80,7 @@ const CONDITION_RULES = {
   blinded: '无法看见；攻击它的攻击具有优势，它的攻击具有劣势。',
   charmed: '不能攻击魅惑者；魅惑者对它进行社交检定有优势。',
   deafened: '无法听见，且自动失败基于听觉的检定。',
+  dodging: '专注于躲避攻击；攻击它的攻击骰具有劣势。',
   frightened: '来源可见时攻击骰和属性检定处于劣势；不能主动靠近来源。',
   grappled: '速度变为 0，直到擒抱结束。',
   hidden: '位置未被可靠掌握；不能被普通单体攻击直接指定。',
@@ -133,6 +135,9 @@ const CONDITION_IMPACTS = {
   ],
   deafened: [
     impact('hearing_fail', '听觉失败', '基于听觉的检定会失败或被阻断。', 'warning'),
+  ],
+  dodging: [
+    impact('hit_disadv', '受击劣势', '攻击此生物具有劣势。', 'good'),
   ],
   frightened: [
     impact('attack_disadv', '攻击劣势', '来源可见时，攻击骰和检定处于劣势。'),

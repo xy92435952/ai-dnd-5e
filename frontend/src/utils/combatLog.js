@@ -1,4 +1,5 @@
 import { buildHazardDiceResult, localizedDamageType, localizedSaveAbility } from './combatHazards'
+import { buildCombatRuleTags } from './combatRuleTags'
 
 const ROLE_LABELS = {
   player: '玩家',
@@ -58,6 +59,37 @@ function formatAttackRule(attack = {}) {
           : null
   const compare = total !== null && targetAc !== null ? `${total} vs AC${targetAc}` : ''
   return compact([outcome, compare]).join(' · ')
+}
+
+function formatAttackModifierRules(attack = {}) {
+  if (!attack || typeof attack !== 'object') return []
+  const rollState = String(attack.roll_state || attack.rollState || '').trim().toLowerCase()
+  const advantageSources = attack.advantage_sources ?? attack.advantageSources
+  const disadvantageSources = attack.disadvantage_sources ?? attack.disadvantageSources
+  const prediction = {
+    advantage: Boolean(attack.advantage) || rollState === 'advantage',
+    disadvantage: Boolean(attack.disadvantage) || rollState === 'disadvantage',
+    advantage_sources: advantageSources,
+    disadvantage_sources: disadvantageSources,
+  }
+  const hasModifier = (
+    prediction.advantage
+    || prediction.disadvantage
+    || (Array.isArray(advantageSources) ? advantageSources.length > 0 : Boolean(advantageSources))
+    || (Array.isArray(disadvantageSources) ? disadvantageSources.length > 0 : Boolean(disadvantageSources))
+  )
+  if (!hasModifier) return []
+
+  const visibleRuleKeys = new Set([
+    'flat-roll',
+    'advantage',
+    'disadvantage',
+    'advantage-source',
+    'disadvantage-source',
+  ])
+  return buildCombatRuleTags(prediction)
+    .filter(tag => visibleRuleKeys.has(tag.key))
+    .map(tag => tag.label)
 }
 
 function formatDefenderInterception(interception = null) {
@@ -877,6 +909,7 @@ export function buildCombatLogView(log = {}) {
   const rules = compact([
     log.rule_result,
     formatAttackRule(attack),
+    ...formatAttackModifierRules(attack),
     formatDefenderInterception(attack.defender_interception),
     formatContestRule(dice),
     ...formatHazardRules(dice),
