@@ -29,6 +29,8 @@ describe('Stage 7 deploy preflight', () => {
       'backend/.env',
       'frontend/dist',
       'backend/.venv',
+      'artifacts',
+      '.codex-test-artifacts',
     ])
   })
 
@@ -68,6 +70,8 @@ describe('Stage 7 deploy preflight', () => {
           pattern: '',
           source: '',
         },
+        ignored('artifacts', 'artifacts/'),
+        ignored('.codex-test-artifacts', '.codex-test-artifacts/'),
       ],
     })
 

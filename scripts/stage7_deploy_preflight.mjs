@@ -8,6 +8,8 @@ export const DEFAULT_DEPLOY_IGNORE_PATHS = [
   'backend/.env',
   'frontend/dist',
   'backend/.venv',
+  'artifacts',
+  '.codex-test-artifacts',
 ];
 
 function runGit(args, fallback = '') {

@@ -546,12 +546,14 @@ $env:RUN_STAGE7_DEPLOY_PREFLIGHT='1'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
 
 git status --short
-git check-ignore -v backend\.env frontend\dist backend\.venv
+git check-ignore -v backend\.env frontend\dist backend\.venv artifacts .codex-test-artifacts
 ```
 
 The preflight helper fails when source changes are still uncommitted or when
-the local-only deployment paths above are not covered by gitignore rules. Use
-`--allow-dirty` only for draft local checks, not for a release handoff. When
+the local-only deployment paths above are not covered by gitignore rules. This
+includes generated release evidence in `artifacts/` and isolated test/build
+worktrees in `.codex-test-artifacts/`. Use `--allow-dirty` only for draft local
+checks, not for a release handoff. When
 running through `scripts/check.sh`, use `RUN_STAGE7_DEPLOY_PREFLIGHT=1` for the
 release handoff gate. `STAGE7_DEPLOY_PREFLIGHT_ALLOW_DIRTY=1`,
 `STAGE7_DEPLOY_PREFLIGHT_FORMAT`, and `STAGE7_DEPLOY_PREFLIGHT_OUTPUT` are
