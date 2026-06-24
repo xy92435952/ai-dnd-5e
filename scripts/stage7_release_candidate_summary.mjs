@@ -201,6 +201,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
       args.evidenceFiles.push(requiredInlineOptionValue(arg.slice('--evidence='.length), '--evidence'));
       continue;
     }
+    if (arg.startsWith('--')) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
     args.evidenceFiles.push(arg);
   }
 

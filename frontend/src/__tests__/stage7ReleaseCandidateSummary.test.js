@@ -347,6 +347,7 @@ describe('Stage 7 release candidate summary', () => {
     expect(() => parseArgs(['--output='])).toThrow('--output requires a value.')
     expect(() => parseArgs(['--evidence', '--verify-evidence'])).toThrow('--evidence requires a value.')
     expect(() => parseArgs(['--evidence='])).toThrow('--evidence requires a value.')
+    expect(() => parseArgs(['--verify-evidnce'])).toThrow('Unknown option: --verify-evidnce')
   })
 
   it('fails fast when release handoff wait values are invalid', () => {
