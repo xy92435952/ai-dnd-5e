@@ -49,6 +49,12 @@ these artifact-backed items automatically:
   `scripts/verify_stage7_evidence.mjs --type stage7.5-launch-smoke`
 - `production-parity.postdeploy-healthcheck` must pass
   `scripts/verify_stage7_evidence.mjs --type postdeploy-healthcheck`
+- `account-module-character.fresh-character-create`,
+  `loot-economy.gold-or-shop-economy`,
+  `multiplayer.two-browser-room-join`,
+  `multiplayer.speak-turn-handoff`, and
+  `multiplayer.combat-sync-or-blocker` must reference a
+  `stage8-public-evidence-smoke` artifact whose matching assertion is `true`
 - `production-parity.github-actions-green` must include
   `checks.required_jobs_ok=true` or `checks.jobs` containing `backend`,
   `frontend`, and `frontend-prod-build`
@@ -119,7 +125,8 @@ Required local targets:
 Manual/public evidence:
 
 - login/register sanity on the deployed origin
-- at least one fresh character-create path
+- at least one fresh character-create path verified by
+  `scripts/stage8_public_evidence_smoke.mjs`
 
 ### adventure
 
@@ -185,7 +192,8 @@ Manual/public evidence:
 
 - party-stash claim
 - gold split or documented substitute
-- shop buy/sell smoke before promotion
+- shop buy/sell smoke before promotion, verified by
+  `scripts/stage8_public_evidence_smoke.mjs`
 
 ### multiplayer
 
@@ -206,9 +214,17 @@ Required local targets:
 
 Manual/public evidence:
 
-- two-browser room join
-- speak-turn handoff
-- combat refresh/sync or a documented blocker
+- two-client room join over the deployed API/WebSocket proxy
+- speak-turn handoff over WebSocket
+- combat refresh/sync over WebSocket, or a documented blocker
+
+`scripts/stage8_public_evidence_smoke.mjs` covers the first two items by
+logging in the smoke account, registering a disposable guest, creating a
+two-player room, opening two WebSocket clients, and advancing speak turn from
+host to guest. Combat sync remains a separate assertion: pass
+`--attempt-combat-sync` only when the deployed target has a deterministic
+multiplayer combat path, or record a documented blocker for
+`combat-sync-or-blocker`.
 
 ### production-parity
 
@@ -221,6 +237,10 @@ Required local targets:
 - `scripts/verify_stage7_evidence.mjs`
 - `scripts/stage7_5_launch_experience_smoke.mjs`
 - `scripts/stage8_comprehensive_gate.mjs`
+- `scripts/stage8_public_evidence_smoke.mjs`
+- `deploy.sh`
+- `update_server.sh`
+- `frontend/nginx.conf`
 - `backend/tests/unit/test_smoke_scenario_seed.py`
 - `frontend/src/__tests__/stage7EvidenceVerifier.test.js`
 - `frontend/src/__tests__/stage7_5LaunchExperienceSmoke.test.js`
@@ -269,6 +289,23 @@ Require the full Stage 8 suite evidence manifest:
 
 ```powershell
 node scripts\stage8_comprehensive_gate.mjs --json --require-suite-evidence --evidence-manifest artifacts\stage8-evidence-YYYYMMDD-COMMIT.json
+```
+
+Generate a Stage 8 public API/WebSocket evidence artifact:
+
+```powershell
+node scripts\stage8_public_evidence_smoke.mjs --frontend-origin https://www.ai5edm.top --username test --password 123456 --module-id <parsed-module-id> --output artifacts\stage8-public-evidence-YYYYMMDD-COMMIT.json --allow-combat-sync-blocker
+```
+
+If the deployed nginx config was created before Stage 8, update to the latest
+`main` and rerun `update_server.sh`; the update script now backs up the detected
+nginx app config and inserts the `/api/ws/` WebSocket proxy when it is missing.
+
+If a deterministic multiplayer combat path is available on the deployed target,
+attempt the combat-sync assertion:
+
+```powershell
+node scripts\stage8_public_evidence_smoke.mjs --frontend-origin https://www.ai5edm.top --username test --password 123456 --module-id <parsed-module-id> --output artifacts\stage8-public-evidence-YYYYMMDD-COMMIT.json --attempt-combat-sync
 ```
 
 Run the same full manifest gate from the standard check script:

@@ -12,6 +12,83 @@ set -e
 APP_DIR="/opt/ai-trpg"
 REPO_DIR="$APP_DIR/app"
 
+ensure_nginx_websocket_proxy() {
+    if ! command -v nginx &>/dev/null; then
+        return 0
+    fi
+
+    local nginx_conf=""
+    for f in /etc/nginx/conf.d/*.conf /etc/nginx/sites-enabled/*; do
+        [ -f "$f" ] || continue
+        if sudo grep -qE "location /api/|proxy_pass .*127\.0\.0\.1:8000|proxy_pass .*:8000" "$f"; then
+            nginx_conf="$f"
+            break
+        fi
+    done
+
+    if [ -z "$nginx_conf" ]; then
+        echo "  Nginx: 未找到应用代理配置，跳过 /api/ws 自动修复"
+        return 0
+    fi
+
+    if sudo grep -q "location /api/ws" "$nginx_conf"; then
+        echo "  Nginx: /api/ws WebSocket 代理已存在"
+        return 0
+    fi
+
+    if ! command -v python3 &>/dev/null; then
+        echo "  Nginx: 缺少 python3，无法自动插入 /api/ws 代理；请手动配置"
+        return 0
+    fi
+
+    local backup="${nginx_conf}.stage8-ws.$(date +%Y%m%d%H%M%S).bak"
+    sudo cp "$nginx_conf" "$backup"
+    echo "  Nginx: 正在为 $nginx_conf 添加 /api/ws WebSocket 代理（备份: $backup）"
+
+    if sudo python3 - "$nginx_conf" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+if "location /api/ws" in text:
+    raise SystemExit(0)
+
+match = re.search(r"(?m)^(?P<indent>\s*)location\s+/api/\s*\{", text)
+if not match:
+    raise SystemExit("Could not find location /api/ block.")
+
+indent = match.group("indent")
+block = f"""{indent}# Backend WebSocket proxy (frontend uses /api/ws/sessions/...)
+{indent}location /api/ws/ {{
+{indent}    proxy_pass http://127.0.0.1:8000/ws/;
+{indent}    proxy_http_version 1.1;
+{indent}    proxy_set_header Upgrade $http_upgrade;
+{indent}    proxy_set_header Connection "upgrade";
+{indent}    proxy_set_header Host $host;
+{indent}    proxy_set_header X-Real-IP $remote_addr;
+{indent}    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+{indent}    proxy_read_timeout 3600s;
+{indent}    proxy_send_timeout 3600s;
+{indent}}}
+
+"""
+path.write_text(text[:match.start()] + block + text[match.start():], encoding="utf-8")
+PY
+    then
+        if sudo nginx -t >/dev/null 2>&1; then
+            echo "  Nginx: /api/ws WebSocket 代理已添加"
+        else
+            echo "  Nginx: 新配置校验失败，已恢复备份"
+            sudo cp "$backup" "$nginx_conf"
+        fi
+    else
+        echo "  Nginx: 自动插入 /api/ws 代理失败，已恢复备份"
+        sudo cp "$backup" "$nginx_conf"
+    fi
+}
+
 echo "══════════════════════════════════════"
 echo "  AI跑团平台 — 更新到最新版本"
 echo "══════════════════════════════════════"
@@ -87,6 +164,7 @@ fi
 
 # ── Nginx reload（如果有）──
 if command -v nginx &>/dev/null; then
+    ensure_nginx_websocket_proxy
     sudo nginx -s reload 2>/dev/null && echo "  Nginx 已重载" || true
 fi
 

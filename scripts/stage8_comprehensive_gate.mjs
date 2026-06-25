@@ -4,10 +4,27 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { STAGE8_PUBLIC_EVIDENCE_ASSERTIONS } from './stage8_public_evidence_smoke.mjs';
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
 
 export const STAGE8_REQUIRED_CI_JOBS = ['backend', 'frontend', 'frontend-prod-build'];
+
+export const STAGE8_DEPLOYMENT_WS_PROXY_FILES = [
+  {
+    file: 'deploy.sh',
+    proxyPass: 'http://127.0.0.1:8000/ws/',
+  },
+  {
+    file: 'update_server.sh',
+    proxyPass: 'http://127.0.0.1:8000/ws/',
+  },
+  {
+    file: 'frontend/nginx.conf',
+    proxyPass: 'http://backend:8000/ws/',
+  },
+];
 
 export const STAGE8_SUITES = [
   {
@@ -30,6 +47,8 @@ export const STAGE8_SUITES = [
       {
         id: 'fresh-character-create',
         label: 'fresh character-create path',
+        verifierAssertion: STAGE8_PUBLIC_EVIDENCE_ASSERTIONS['fresh-character-create'],
+        verifierType: 'stage8-public-evidence-smoke',
       },
     ],
   },
@@ -102,6 +121,8 @@ export const STAGE8_SUITES = [
       {
         id: 'gold-or-shop-economy',
         label: 'gold split or shop buy/sell smoke',
+        verifierAssertion: STAGE8_PUBLIC_EVIDENCE_ASSERTIONS['gold-or-shop-economy'],
+        verifierType: 'stage8-public-evidence-smoke',
       },
     ],
   },
@@ -122,14 +143,20 @@ export const STAGE8_SUITES = [
       {
         id: 'two-browser-room-join',
         label: 'two-browser room join',
+        verifierAssertion: STAGE8_PUBLIC_EVIDENCE_ASSERTIONS['two-browser-room-join'],
+        verifierType: 'stage8-public-evidence-smoke',
       },
       {
         id: 'speak-turn-handoff',
         label: 'speak-turn handoff',
+        verifierAssertion: STAGE8_PUBLIC_EVIDENCE_ASSERTIONS['speak-turn-handoff'],
+        verifierType: 'stage8-public-evidence-smoke',
       },
       {
         id: 'combat-sync-or-blocker',
         label: 'combat refresh/sync or documented blocker',
+        verifierAssertion: STAGE8_PUBLIC_EVIDENCE_ASSERTIONS['combat-sync-or-blocker'],
+        verifierType: 'stage8-public-evidence-smoke',
       },
     ],
   },
@@ -141,6 +168,10 @@ export const STAGE8_SUITES = [
       'scripts/verify_stage7_evidence.mjs',
       'scripts/stage7_5_launch_experience_smoke.mjs',
       'scripts/stage8_comprehensive_gate.mjs',
+      'scripts/stage8_public_evidence_smoke.mjs',
+      'deploy.sh',
+      'update_server.sh',
+      'frontend/nginx.conf',
       'backend/tests/unit/test_smoke_scenario_seed.py',
       'frontend/src/__tests__/stage7EvidenceVerifier.test.js',
       'frontend/src/__tests__/stage7_5LaunchExperienceSmoke.test.js',
@@ -300,6 +331,41 @@ export function checkMatrixFiles(suites = STAGE8_SUITES) {
   });
 }
 
+export function checkDeploymentWebSocketProxyFiles(files = STAGE8_DEPLOYMENT_WS_PROXY_FILES) {
+  return files.map(({ file, proxyPass }) => {
+    const fullPath = resolvePath(file);
+    if (!existsSync(fullPath)) {
+      return {
+        file,
+        ok: false,
+        checks: {
+          exists: false,
+          location: false,
+          proxy_pass: false,
+          upgrade_header: false,
+          connection_upgrade: false,
+          long_read_timeout: false,
+        },
+      };
+    }
+
+    const source = readFileSync(fullPath, 'utf8').replace(/^\uFEFF/, '');
+    const checks = {
+      exists: true,
+      location: /location\s+\/api\/ws\//.test(source),
+      proxy_pass: source.includes(`proxy_pass ${proxyPass};`),
+      upgrade_header: /proxy_set_header\s+Upgrade\s+\\?\$http_upgrade;/.test(source),
+      connection_upgrade: /proxy_set_header\s+Connection\s+"upgrade";/.test(source),
+      long_read_timeout: /proxy_read_timeout\s+3600s;/.test(source),
+    };
+    return {
+      file,
+      ok: Object.values(checks).every(Boolean),
+      checks,
+    };
+  });
+}
+
 function verifyStage7Evidence(files, {
   noFileCheck = false,
   type = 'auto',
@@ -351,6 +417,69 @@ function verifyStage75Evidence(files, noFileCheck = false) {
   return verifyStage7Evidence(files, {
     noFileCheck,
     type: 'stage7.5-launch-smoke',
+  });
+}
+
+function verifyStage8PublicEvidence(files, assertion) {
+  if (files.length === 0) {
+    return {
+      ok: false,
+      files: [],
+      output: '',
+      error: 'No Stage 8 public evidence files provided.',
+    };
+  }
+  const missingAssertion = String(assertion || '').trim();
+  if (!missingAssertion) {
+    return {
+      ok: false,
+      files,
+      output: '',
+      error: 'Stage 8 public evidence verifier needs a verifierAssertion.',
+    };
+  }
+
+  const errors = [];
+  const outputs = [];
+  for (const file of files) {
+    try {
+      const { data } = loadJson(file);
+      if (data?.mode !== 'stage8-public-evidence-smoke') {
+        errors.push(`${file}: mode must be stage8-public-evidence-smoke`);
+        continue;
+      }
+      if (data?.error) {
+        errors.push(`${file}: artifact includes error: ${data.error}`);
+        continue;
+      }
+      if (data?.assertions?.[missingAssertion] !== true) {
+        errors.push(`${file}: assertions.${missingAssertion} must be true`);
+        continue;
+      }
+      outputs.push(`${file}: assertions.${missingAssertion}=true`);
+    } catch (error) {
+      errors.push(`${file}: ${error.message || String(error)}`);
+    }
+  }
+  return {
+    ok: errors.length === 0,
+    files,
+    output: outputs.join('\n'),
+    error: errors.join('\n'),
+  };
+}
+
+function verifyEvidenceByType(files, {
+  noFileCheck = false,
+  assertion = '',
+  type = 'auto',
+} = {}) {
+  if (type === 'stage8-public-evidence-smoke') {
+    return verifyStage8PublicEvidence(files, assertion);
+  }
+  return verifyStage7Evidence(files, {
+    noFileCheck,
+    type,
   });
 }
 
@@ -527,7 +656,8 @@ function evaluatePassingEvidence(item, requirement, {
         error: `${requirement.id} requires a JSON artifact file verified as ${requirement.verifierType}.`,
       };
     }
-    const verified = verifyStage7Evidence([file], {
+    const verified = verifyEvidenceByType([file], {
+      assertion: requirement.verifierAssertion,
       noFileCheck: evidenceNoFileCheck,
       type: requirement.verifierType,
     });
@@ -560,7 +690,8 @@ function evaluatePassingEvidence(item, requirement, {
   }
 
   if (file && item.verifier_type) {
-    const verified = verifyStage7Evidence([file], {
+    const verified = verifyEvidenceByType([file], {
+      assertion: item.verifier_assertion || item.verifierAssertion || requirement.verifierAssertion,
       noFileCheck: evidenceNoFileCheck,
       type: item.verifier_type,
     });
@@ -763,6 +894,8 @@ function loadAndEvaluateManifest(filePath, args) {
 export function buildStage8GatePayload(args) {
   const suites = checkMatrixFiles();
   const matrixOk = suites.every(suite => suite.ok);
+  const deploymentWsProxy = checkDeploymentWebSocketProxyFiles();
+  const deploymentWsProxyOk = deploymentWsProxy.every(file => file.ok);
   const stage75Evidence = args.requireStage75Evidence || args.stage75Evidence.length > 0
     ? verifyStage75Evidence(args.stage75Evidence, args.evidenceNoFileCheck)
     : {
@@ -786,11 +919,13 @@ export function buildStage8GatePayload(args) {
       };
   const suiteEvidenceOk = args.requireSuiteEvidence ? suiteEvidence.ok === true : suiteEvidence.ok !== false;
   return {
-    ok: matrixOk && stage75EvidenceOk && suiteEvidenceOk,
+    ok: matrixOk && deploymentWsProxyOk && stage75EvidenceOk && suiteEvidenceOk,
     matrix_ok: matrixOk,
+    deployment_ws_proxy_ok: deploymentWsProxyOk,
     stage7_5_evidence_ok: stage75Evidence.ok,
     suite_evidence_ok: suiteEvidence.ok,
     suites,
+    deployment_ws_proxy: deploymentWsProxy,
     stage7_5_evidence: stage75Evidence,
     suite_evidence: suiteEvidence,
   };
@@ -807,6 +942,7 @@ function renderMarkdown(payload) {
     '',
     `Ready: ${payload.ok ? 'yes' : 'no'}`,
     `Matrix: ${payload.matrix_ok ? 'ok' : 'fail'}`,
+    `Deployment WS proxy: ${payload.deployment_ws_proxy_ok ? 'ok' : 'fail'}`,
     `Stage 7.5 evidence: ${payload.stage7_5_evidence_ok === null ? 'not required' : payload.stage7_5_evidence_ok ? 'ok' : 'fail'}`,
     `Suite evidence: ${payload.suite_evidence_ok === null ? 'not required' : payload.suite_evidence_ok ? 'ok' : 'fail'}`,
     '',

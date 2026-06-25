@@ -19,7 +19,8 @@
         {
           "id": "fresh-character-create",
           "result": "pass",
-          "notes": "A fresh character-create path completed on the deployed origin."
+          "file": "artifacts/stage8-public-evidence-YYYYMMDD-COMMIT.json",
+          "notes": "Stage 8 public evidence smoke created and restored a fresh character on the deployed origin."
         }
       ]
     },
@@ -64,10 +65,8 @@
         {
           "id": "gold-or-shop-economy",
           "result": "pass",
-          "notes": "Gold split or shop buy/sell smoke passed.",
-          "checks": {
-            "gold_or_shop_smoke_ok": true
-          }
+          "file": "artifacts/stage8-public-evidence-YYYYMMDD-COMMIT.json",
+          "notes": "Stage 8 public evidence smoke patched gold, bought an item, and sold it back."
         }
       ]
     },
@@ -76,17 +75,20 @@
         {
           "id": "two-browser-room-join",
           "result": "pass",
-          "notes": "Two-browser room join passed on current target."
+          "file": "artifacts/stage8-public-evidence-YYYYMMDD-COMMIT.json",
+          "notes": "Stage 8 public evidence smoke connected host and guest WebSocket clients in one room."
         },
         {
           "id": "speak-turn-handoff",
           "result": "pass",
-          "notes": "Speak-turn handoff passed on current target."
+          "file": "artifacts/stage8-public-evidence-YYYYMMDD-COMMIT.json",
+          "notes": "Stage 8 public evidence smoke advanced speak turn from host to guest."
         },
         {
           "id": "combat-sync-or-blocker",
           "result": "pass",
-          "notes": "Combat refresh/sync passed, or replace this item with a documented blocker."
+          "file": "artifacts/stage8-public-evidence-YYYYMMDD-COMMIT.json",
+          "notes": "Stage 8 public evidence smoke verified multiplayer combat sync. If not yet available, remove this evidence item and add a documented blocker for combat-sync-or-blocker."
         }
       ]
     },

@@ -7,9 +7,15 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildArtifact as buildStage8PublicArtifact,
+  parseArgs as parseStage8PublicArgs,
+} from '../../../scripts/stage8_public_evidence_smoke.mjs'
+
+import {
   STAGE8_REQUIRED_CI_JOBS,
   STAGE8_SUITES,
   buildStage8GatePayload,
+  checkDeploymentWebSocketProxyFiles,
   checkMatrixFiles,
   evaluateStage8EvidenceManifest,
   parseArgs,
@@ -157,10 +163,112 @@ function writePostdeployHealthArtifact(overrides = {}) {
   return filePath
 }
 
-function writeFullStage8Manifest({ healthArtifact, mutate, stage75Artifact } = {}) {
+function writeStage8PublicEvidenceArtifact(overrides = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage8-public-evidence-'))
+  const filePath = path.join(dir, 'stage8-public-evidence.json')
+  const base = buildStage8PublicArtifact({
+    allowCombatSyncBlocker: false,
+    apiOrigin: 'https://www.ai5edm.top/api',
+    characterEconomy: {
+      character: {
+        detail_ok: true,
+        hp_current: 11,
+        hp_max: 11,
+        id: 'character-stage8',
+        name: 'Stage8 Hero',
+      },
+      checks: {
+        character_detail_ok: true,
+        fresh_character_create_ok: true,
+        gold_decreased_on_buy: true,
+        gold_increased_on_sell: true,
+        gold_patch_ok: true,
+        shop_buy_ok: true,
+        shop_inventory_ok: true,
+        shop_sell_ok: true,
+      },
+      economy: {
+        buy_cost: 50,
+        buy_gold_remaining: 60,
+        gold_after_patch: 110,
+        item_category: 'gear',
+        item_name: 'Healing Potion',
+        sell_gold_remaining: 85,
+        sell_price: 25,
+        shop_inventory_ok: true,
+      },
+    },
+    createdAt: '2026-06-25T00:25:59.282Z',
+    frontendOrigin: 'https://www.ai5edm.top',
+    module: {
+      id: 'module-stage8',
+      name: 'Stage8 Module',
+      source: 'existing',
+    },
+    multiplayer: {
+      checks: {
+        combat_sync_ok: true,
+        game_started_ok: true,
+        guest_joined_ok: true,
+        guest_ws_pong_ok: true,
+        host_ws_pong_ok: true,
+        speak_turn_handoff_ok: true,
+        two_browser_room_join_ok: true,
+        websocket_online_ok: true,
+      },
+      combat_sync: {
+        attempted: true,
+        combat_active_guest: true,
+        combat_active_host: true,
+        combat_sync: true,
+      },
+      guest: {
+        registered: true,
+        user_id: 'guest-user',
+        username: 'stage8_guest',
+      },
+      room: {
+        current_speaker_after_handoff: 'guest-user',
+        current_speaker_initial: 'host-user',
+        guest_character_id: 'guest-character',
+        host_character_id: 'host-character',
+        member_count: 2,
+        room_code: '234567',
+        session_id: 'session-stage8',
+      },
+      websocket: {
+        guest_event_count: 4,
+        host_event_count: 4,
+      },
+    },
+    username: 'test',
+    user: {
+      token: 'token',
+      user_id: 'host-user',
+    },
+    wsApiBase: 'https://www.ai5edm.top/api',
+  })
+  const payload = {
+    ...base,
+    ...overrides,
+    assertions: {
+      ...base.assertions,
+      ...(overrides.assertions || {}),
+    },
+    checks: {
+      ...base.checks,
+      ...(overrides.checks || {}),
+    },
+  }
+  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
+  return filePath
+}
+
+function writeFullStage8Manifest({ healthArtifact, mutate, publicStage8Artifact, stage75Artifact } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage8-manifest-'))
   const stage75 = stage75Artifact || writeStage75SmokeArtifact()
   const health = healthArtifact || writePostdeployHealthArtifact()
+  const publicStage8 = publicStage8Artifact || writeStage8PublicEvidenceArtifact()
   const filePath = path.join(dir, 'stage8-evidence-manifest.json')
   const manifest = {
     stage: 'stage8',
@@ -183,8 +291,8 @@ function writeFullStage8Manifest({ healthArtifact, mutate, stage75Artifact } = {
           {
             id: 'fresh-character-create',
             result: 'pass',
-            command: 'npm --prefix frontend run test:stage7:reaction',
-            notes: 'Fresh character-create flow is covered by the public checklist and local smoke.',
+            file: publicStage8,
+            notes: 'Stage 8 public API smoke created and restored a fresh character.',
           },
         ],
       },
@@ -230,10 +338,8 @@ function writeFullStage8Manifest({ healthArtifact, mutate, stage75Artifact } = {
           {
             id: 'gold-or-shop-economy',
             result: 'pass',
-            command: 'backend inventory and session loot endpoint tests',
-            checks: {
-              gold_or_shop_smoke_ok: true,
-            },
+            file: publicStage8,
+            notes: 'Stage 8 public API smoke patched gold, bought an item, and sold it back.',
           },
         ],
       },
@@ -242,20 +348,20 @@ function writeFullStage8Manifest({ healthArtifact, mutate, stage75Artifact } = {
           {
             id: 'two-browser-room-join',
             result: 'pass',
-            command: 'backend multiplayer happy path and realtime websocket tests',
-            notes: 'Room create/join and realtime websocket coverage is green locally.',
+            file: publicStage8,
+            notes: 'Stage 8 public API/WS smoke connected host and guest clients in one room.',
           },
           {
             id: 'speak-turn-handoff',
             result: 'pass',
-            command: 'frontend MultiplayerSpeakBar and backend realtime tests',
-            notes: 'Speak-turn handoff is covered by local suite evidence.',
+            file: publicStage8,
+            notes: 'Stage 8 public API/WS smoke advanced speaker from host to guest.',
           },
           {
             id: 'combat-sync-or-blocker',
             result: 'pass',
-            command: 'frontend MultiplayerTurnBar plus backend multiplayer combat refresh tests',
-            notes: 'Combat refresh/sync path has local coverage.',
+            file: publicStage8,
+            notes: 'Stage 8 public API/WS smoke verified a multiplayer combat sync artifact.',
           },
         ],
       },
@@ -324,10 +430,49 @@ describe('Stage 8 comprehensive gate', () => {
     expect(STAGE8_SUITES.every(suite => suite.evidenceRequirements.length > 0)).toBe(true)
   })
 
+  it('parses the Stage 8 public evidence smoke options with API and WS defaults', () => {
+    const args = parseStage8PublicArgs([
+      '--frontend-origin',
+      'https://www.ai5edm.top/',
+      '--username',
+      'test',
+      '--password',
+      '123456',
+      '--artifact-tag',
+      '20260625-test',
+      '--allow-combat-sync-blocker',
+    ], {})
+
+    expect(args.frontendOrigin).toBe('https://www.ai5edm.top')
+    expect(args.apiOrigin).toBe('https://www.ai5edm.top/api')
+    expect(args.wsApiBase).toBe('https://www.ai5edm.top/api')
+    expect(args.output).toContain('stage8-public-evidence-20260625-test.json')
+    expect(args.allowCombatSyncBlocker).toBe(true)
+  })
+
   it('reports the required suite files that are present in the repo', () => {
     const suites = checkMatrixFiles()
     expect(suites).toHaveLength(STAGE8_SUITES.length)
     expect(suites.every(suite => suite.ok)).toBe(true)
+  })
+
+  it('keeps deployment WebSocket proxy templates wired for public multiplayer smoke', () => {
+    const proxyFiles = checkDeploymentWebSocketProxyFiles()
+
+    expect(proxyFiles).toHaveLength(3)
+    expect(proxyFiles.map(file => file.file)).toEqual([
+      'deploy.sh',
+      'update_server.sh',
+      'frontend/nginx.conf',
+    ])
+    expect(proxyFiles.every(file => file.ok)).toBe(true)
+    for (const file of proxyFiles) {
+      expect(file.checks.location).toBe(true)
+      expect(file.checks.proxy_pass).toBe(true)
+      expect(file.checks.upgrade_header).toBe(true)
+      expect(file.checks.connection_upgrade).toBe(true)
+      expect(file.checks.long_read_timeout).toBe(true)
+    }
   })
 
   it('reports missing files in a custom suite without hiding the missing paths', () => {
@@ -376,6 +521,7 @@ describe('Stage 8 comprehensive gate', () => {
 
     expect(payload.ok).toBe(true)
     expect(payload.matrix_ok).toBe(true)
+    expect(payload.deployment_ws_proxy_ok).toBe(true)
     expect(payload.stage7_5_evidence_ok).toBeNull()
     expect(payload.suite_evidence_ok).toBeNull()
   })
@@ -487,6 +633,24 @@ describe('Stage 8 comprehensive gate', () => {
 
     expect(output).toContain('"suite_evidence_ok": false')
     expect(output).toContain('gold-or-shop-economy evidence is missing')
+  })
+
+  it('fails when a Stage 8 public evidence artifact is missing the required assertion', () => {
+    const invalidPublicEvidence = writeStage8PublicEvidenceArtifact({
+      assertions: {
+        gold_or_shop_economy: false,
+      },
+    })
+    const manifest = writeFullStage8Manifest({ publicStage8Artifact: invalidPublicEvidence })
+    const output = runStage8([
+      '--json',
+      '--require-suite-evidence',
+      '--evidence-manifest',
+      manifest,
+    ], { expectFailure: true })
+
+    expect(output).toContain('"suite_evidence_ok": false')
+    expect(output).toContain('assertions.gold_or_shop_economy must be true')
   })
 
   it('accepts documented blockers only when blocker mode is explicit', () => {
