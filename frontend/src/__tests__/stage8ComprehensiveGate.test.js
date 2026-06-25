@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildArtifact as buildStage8PublicArtifact,
   parseArgs as parseStage8PublicArgs,
+  webSocketClientKind,
 } from '../../../scripts/stage8_public_evidence_smoke.mjs'
 
 import {
@@ -448,6 +449,11 @@ describe('Stage 8 comprehensive gate', () => {
     expect(args.wsApiBase).toBe('https://www.ai5edm.top/api')
     expect(args.output).toContain('stage8-public-evidence-20260625-test.json')
     expect(args.allowCombatSyncBlocker).toBe(true)
+  })
+
+  it('falls back to the built-in Node WebSocket client when global WebSocket is unavailable', () => {
+    expect(webSocketClientKind({})).toBe('node-fallback')
+    expect(webSocketClientKind({ WebSocket: class FakeWebSocket {} })).toBe('native')
   })
 
   it('reports the required suite files that are present in the repo', () => {

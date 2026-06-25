@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
+import net from 'node:net';
 import path from 'node:path';
+import tls from 'node:tls';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -10,6 +13,7 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MODULE_POLL_MS = 180_000;
 const DEFAULT_SHOP_SETUP_GOLD = 100;
 const DEFAULT_COMBAT_ACTION_TEXT = 'We enter the training yard together and engage the sentries in combat.';
+const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const SMOKE_MODULE_TEXT = `Stage 8 Public Evidence Module
 
 Name: The Clockwork Gatehouse
@@ -135,6 +139,10 @@ export function defaultApiOrigin(frontendOrigin) {
 
 export function defaultOutputPath(artifactTag) {
   return path.resolve(root, 'artifacts', `stage8-public-evidence-${artifactTag}.json`);
+}
+
+export function webSocketClientKind(globalObject = globalThis) {
+  return typeof globalObject.WebSocket === 'function' ? 'native' : 'node-fallback';
 }
 
 export function parseArgs(argv = process.argv.slice(2), env = process.env) {
@@ -761,10 +769,229 @@ function parseWsData(data) {
   return JSON.parse(String(data));
 }
 
+function encodeWsFrame(payload, opcode = 0x1) {
+  const body = Buffer.isBuffer(payload) ? payload : Buffer.from(String(payload), 'utf8');
+  const headerLength = body.length < 126 ? 6 : body.length <= 0xffff ? 8 : 14;
+  const frame = Buffer.allocUnsafe(headerLength + body.length);
+  frame[0] = 0x80 | opcode;
+  if (body.length < 126) {
+    frame[1] = 0x80 | body.length;
+    randomBytes(4).copy(frame, 2);
+    const maskOffset = 2;
+    const bodyOffset = 6;
+    for (let index = 0; index < body.length; index += 1) {
+      frame[bodyOffset + index] = body[index] ^ frame[maskOffset + (index % 4)];
+    }
+    return frame;
+  }
+  if (body.length <= 0xffff) {
+    frame[1] = 0x80 | 126;
+    frame.writeUInt16BE(body.length, 2);
+    randomBytes(4).copy(frame, 4);
+    const maskOffset = 4;
+    const bodyOffset = 8;
+    for (let index = 0; index < body.length; index += 1) {
+      frame[bodyOffset + index] = body[index] ^ frame[maskOffset + (index % 4)];
+    }
+    return frame;
+  }
+  frame[1] = 0x80 | 127;
+  frame.writeBigUInt64BE(BigInt(body.length), 2);
+  randomBytes(4).copy(frame, 10);
+  const maskOffset = 10;
+  const bodyOffset = 14;
+  for (let index = 0; index < body.length; index += 1) {
+    frame[bodyOffset + index] = body[index] ^ frame[maskOffset + (index % 4)];
+  }
+  return frame;
+}
+
+function decodeWsFrames(buffer) {
+  const frames = [];
+  let offset = 0;
+  while (buffer.length - offset >= 2) {
+    const first = buffer[offset];
+    const second = buffer[offset + 1];
+    const opcode = first & 0x0f;
+    const masked = (second & 0x80) !== 0;
+    let length = second & 0x7f;
+    let headerLength = 2;
+    if (length === 126) {
+      if (buffer.length - offset < 4) break;
+      length = buffer.readUInt16BE(offset + 2);
+      headerLength = 4;
+    } else if (length === 127) {
+      if (buffer.length - offset < 10) break;
+      const bigLength = buffer.readBigUInt64BE(offset + 2);
+      if (bigLength > BigInt(Number.MAX_SAFE_INTEGER)) {
+        throw new SmokeError('WebSocket frame is too large for the Stage 8 smoke client.');
+      }
+      length = Number(bigLength);
+      headerLength = 10;
+    }
+    const maskLength = masked ? 4 : 0;
+    const frameLength = headerLength + maskLength + length;
+    if (buffer.length - offset < frameLength) break;
+    const mask = masked ? buffer.subarray(offset + headerLength, offset + headerLength + 4) : null;
+    const payloadStart = offset + headerLength + maskLength;
+    const payload = Buffer.from(buffer.subarray(payloadStart, payloadStart + length));
+    if (mask) {
+      for (let index = 0; index < payload.length; index += 1) {
+        payload[index] ^= mask[index % 4];
+      }
+    }
+    frames.push({ opcode, payload });
+    offset += frameLength;
+  }
+  return {
+    frames,
+    remaining: buffer.subarray(offset),
+  };
+}
+
+async function connectNodeWebSocket(url, timeoutMs) {
+  const parsed = new URL(url);
+  const secure = parsed.protocol === 'wss:';
+  if (!secure && parsed.protocol !== 'ws:') {
+    throw new SmokeError(`Unsupported WebSocket protocol: ${parsed.protocol}`, { url });
+  }
+  const port = parsed.port ? Number(parsed.port) : secure ? 443 : 80;
+  const host = parsed.hostname;
+  const pathAndQuery = `${parsed.pathname || '/'}${parsed.search || ''}`;
+  const key = randomBytes(16).toString('base64');
+  const expectedAccept = createHash('sha1').update(`${key}${WS_GUID}`).digest('base64');
+  const socket = secure
+    ? tls.connect({ host, port, servername: host })
+    : net.connect({ host, port });
+
+  let buffer = Buffer.alloc(0);
+  let open = false;
+  const listeners = {
+    close: [],
+    error: [],
+    message: [],
+    open: [],
+  };
+  const emit = (type, event = {}) => {
+    for (const listener of [...listeners[type]]) {
+      listener(event);
+    }
+  };
+  const api = {
+    addEventListener(type, listener, options = {}) {
+      if (!listeners[type]) return;
+      if (options.once) {
+        const wrapped = event => {
+          api.removeEventListener(type, wrapped);
+          listener(event);
+        };
+        listeners[type].push(wrapped);
+      } else {
+        listeners[type].push(listener);
+      }
+    },
+    close() {
+      try {
+        if (!socket.destroyed) socket.write(encodeWsFrame(Buffer.alloc(0), 0x8));
+      } catch {}
+      try { socket.end(); } catch {}
+      try { socket.destroy(); } catch {}
+    },
+    send(payload) {
+      if (!open) {
+        throw new SmokeError('WebSocket is not open yet.', { url });
+      }
+      socket.write(encodeWsFrame(payload, 0x1));
+    },
+    removeEventListener(type, listener) {
+      if (!listeners[type]) return;
+      const index = listeners[type].indexOf(listener);
+      if (index !== -1) listeners[type].splice(index, 1);
+    },
+  };
+
+  const fail = error => {
+    emit('error', { error, message: error.message || String(error) });
+  };
+
+  socket.on('error', fail);
+  socket.on('close', () => emit('close'));
+  const sendHandshake = () => {
+    const hostHeader = parsed.port ? `${host}:${parsed.port}` : host;
+    socket.write([
+      `GET ${pathAndQuery} HTTP/1.1`,
+      `Host: ${hostHeader}`,
+      'Upgrade: websocket',
+      'Connection: Upgrade',
+      `Sec-WebSocket-Key: ${key}`,
+      'Sec-WebSocket-Version: 13',
+      '',
+      '',
+    ].join('\r\n'));
+  };
+  if (secure) {
+    socket.once('secureConnect', sendHandshake);
+  } else {
+    socket.once('connect', sendHandshake);
+  }
+  socket.on('data', chunk => {
+    try {
+      buffer = Buffer.concat([buffer, chunk]);
+      if (!open) {
+        const headerEnd = buffer.indexOf('\r\n\r\n');
+        if (headerEnd === -1) return;
+        const headerText = buffer.subarray(0, headerEnd).toString('latin1');
+        const lines = headerText.split('\r\n');
+        const statusLine = lines.shift() || '';
+        const status = Number(statusLine.match(/^HTTP\/\d(?:\.\d)?\s+(\d+)/)?.[1] || 0);
+        const headers = new Map(lines.map(line => {
+          const separator = line.indexOf(':');
+          return separator === -1
+            ? [line.toLowerCase(), '']
+            : [line.slice(0, separator).trim().toLowerCase(), line.slice(separator + 1).trim()];
+        }));
+        if (status !== 101 || headers.get('sec-websocket-accept') !== expectedAccept) {
+          throw new SmokeError('WebSocket fallback handshake failed.', {
+            headers: Object.fromEntries(headers),
+            status,
+            statusLine,
+            url,
+          });
+        }
+        open = true;
+        buffer = buffer.subarray(headerEnd + 4);
+        emit('open');
+      }
+      const decoded = decodeWsFrames(buffer);
+      buffer = decoded.remaining;
+      for (const frame of decoded.frames) {
+        if (frame.opcode === 0x1) {
+          emit('message', { data: frame.payload.toString('utf8') });
+        } else if (frame.opcode === 0x8) {
+          api.close();
+        } else if (frame.opcode === 0x9) {
+          socket.write(encodeWsFrame(frame.payload, 0xA));
+        }
+      }
+    } catch (error) {
+      fail(error);
+      api.close();
+    }
+  });
+  return api;
+}
+
+async function createSmokeWebSocket(url, timeoutMs) {
+  if (webSocketClientKind() === 'native') {
+    return new WebSocket(url);
+  }
+  return connectNodeWebSocket(url, timeoutMs);
+}
+
 async function connectWsClient({ label, sessionId, timeoutMs, token, wsApiBase }) {
   const events = [];
   const url = wsUrl(wsApiBase, sessionId, token);
-  const ws = new WebSocket(url);
+  const ws = await createSmokeWebSocket(url, timeoutMs);
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       try { ws.close(); } catch {}
