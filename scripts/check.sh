@@ -95,10 +95,23 @@ if [ "${RUN_STAGE8_COMPREHENSIVE_GATE:-0}" = "1" ]; then
       set -- "$@" --stage7-5-evidence "$evidence_file"
     done
   fi
+  if [ "${STAGE8_REQUIRE_SUITE_EVIDENCE:-0}" = "1" ]; then
+    set -- "$@" --require-suite-evidence
+  fi
+  if [ -n "${STAGE8_EVIDENCE_MANIFEST:-}" ]; then
+    set -- "$@" --evidence-manifest "$STAGE8_EVIDENCE_MANIFEST"
+  fi
+  if [ "${STAGE8_ALLOW_BLOCKERS:-0}" = "1" ]; then
+    set -- "$@" --allow-blockers
+  fi
+  if [ "${STAGE8_EVIDENCE_NO_FILE_CHECK:-0}" = "1" ]; then
+    set -- "$@" --evidence-no-file-check
+  fi
   (cd "$ROOT_DIR" && node scripts/stage8_comprehensive_gate.mjs "$@")
 else
   echo "== Stage 8 comprehensive matrix gate skipped =="
   echo "Set RUN_STAGE8_COMPREHENSIVE_GATE=1 to verify the Stage 8 required-suite matrix."
+  echo "Set STAGE8_REQUIRE_SUITE_EVIDENCE=1 with STAGE8_EVIDENCE_MANIFEST to require every Stage 8 evidence item."
 fi
 
 if [ "${RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE:-0}" = "1" ]; then

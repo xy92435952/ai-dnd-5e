@@ -12,6 +12,93 @@ Fast unit/integration tests can satisfy local behavior. Browser, public, and
 PostgreSQL-specific behavior needs explicit smoke artifacts or a documented
 blocker.
 
+The executable gate has two layers:
+
+- local matrix integrity: required backend/frontend/script targets still exist
+- suite evidence manifest: every public/manual/production-parity item below is
+  marked `pass` with supporting details or `blocked` with a reason and
+  `next_action`
+
+Use `--allow-blockers` only for an audit handoff where the blocker is accepted
+as known work. Do not use blocker mode to mark a launch promotion ready.
+
+## Evidence Manifest
+
+`scripts/stage8_comprehensive_gate.mjs --require-suite-evidence` reads a JSON
+manifest through `--evidence-manifest <file>`. The manifest may store suites as
+an object keyed by suite id or as an array of `{ "id": "<suite>" }` records.
+Start from `docs/stage8-evidence-manifest-template.json` when preparing a
+current release artifact.
+
+Required evidence ids:
+
+- `account-module-character`: `deployed-login`, `fresh-character-create`
+- `adventure`: `exploration-tools`, `skill-check-path`
+- `combat`: `stage7.5-mutating-smoke`, `combat-log-reload`
+- `loot-economy`: `party-stash-claim`, `gold-or-shop-economy`
+- `multiplayer`: `two-browser-room-join`, `speak-turn-handoff`,
+  `combat-sync-or-blocker`
+- `production-parity`: `github-actions-green`, `postdeploy-healthcheck`,
+  `postgres-seed-reset`
+
+Each `pass` evidence item must include supporting detail such as `notes`,
+`command`, `url`, `checks`, or a JSON artifact `file`. The gate re-verifies
+these artifact-backed items automatically:
+
+- `combat.stage7.5-mutating-smoke` must pass
+  `scripts/verify_stage7_evidence.mjs --type stage7.5-launch-smoke`
+- `production-parity.postdeploy-healthcheck` must pass
+  `scripts/verify_stage7_evidence.mjs --type postdeploy-healthcheck`
+- `production-parity.github-actions-green` must include
+  `checks.required_jobs_ok=true` or `checks.jobs` containing `backend`,
+  `frontend`, and `frontend-prod-build`
+- `production-parity.postgres-seed-reset` must include
+  `checks.seed_reset_ok=true` or `checks.postgres_seed_reset_ok=true`
+
+Minimal manifest shape:
+
+```json
+{
+  "stage": "stage8",
+  "generated_at": "2026-06-25T00:00:00.000Z",
+  "release": {
+    "branch": "main",
+    "commit": "<commit>",
+    "frontend_origin": "https://www.ai5edm.top",
+    "health_url": "https://www.ai5edm.top/api/health"
+  },
+  "suites": {
+    "combat": {
+      "evidence": [
+        {
+          "id": "stage7.5-mutating-smoke",
+          "result": "pass",
+          "file": "artifacts/stage7_5-mutating-result-YYYYMMDD-COMMIT.json"
+        }
+      ]
+    }
+  }
+}
+```
+
+Documented blocker shape:
+
+```json
+{
+  "suites": {
+    "multiplayer": {
+      "blockers": [
+        {
+          "covers": ["combat-sync-or-blocker"],
+          "reason": "Public two-browser combat sync needs a second disposable smoke account.",
+          "next_action": "Create the account, rerun room join, then replace this blocker with pass evidence."
+        }
+      ]
+    }
+  }
+}
+```
+
 ## Suites
 
 ### account-module-character
@@ -176,6 +263,27 @@ $env:RUN_STAGE8_COMPREHENSIVE_GATE='1'
 $env:STAGE8_REQUIRE_STAGE7_5_EVIDENCE='1'
 $env:STAGE8_STAGE7_5_EVIDENCE_FILES='artifacts/stage7_5-mutating-result-YYYYMMDD.json'
 & 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
+Require the full Stage 8 suite evidence manifest:
+
+```powershell
+node scripts\stage8_comprehensive_gate.mjs --json --require-suite-evidence --evidence-manifest artifacts\stage8-evidence-YYYYMMDD-COMMIT.json
+```
+
+Run the same full manifest gate from the standard check script:
+
+```powershell
+$env:RUN_STAGE8_COMPREHENSIVE_GATE='1'
+$env:STAGE8_REQUIRE_SUITE_EVIDENCE='1'
+$env:STAGE8_EVIDENCE_MANIFEST='artifacts/stage8-evidence-YYYYMMDD-COMMIT.json'
+& 'C:\Program Files\Git\bin\bash.exe' scripts/check.sh
+```
+
+Audit with documented blockers, without treating the release as launch-ready:
+
+```powershell
+node scripts\stage8_comprehensive_gate.mjs --json --require-suite-evidence --evidence-manifest artifacts\stage8-evidence-YYYYMMDD-COMMIT.json --allow-blockers
 ```
 
 Full local release gate:

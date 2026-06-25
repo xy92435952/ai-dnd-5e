@@ -1,0 +1,121 @@
+{
+  "stage": "stage8",
+  "generated_at": "2026-06-25T00:00:00.000Z",
+  "release": {
+    "branch": "main",
+    "commit": "<commit>",
+    "frontend_origin": "https://www.ai5edm.top",
+    "health_url": "https://www.ai5edm.top/api/health"
+  },
+  "suites": {
+    "account-module-character": {
+      "evidence": [
+        {
+          "id": "deployed-login",
+          "result": "pass",
+          "url": "https://www.ai5edm.top/",
+          "notes": "Public login/register sanity passed."
+        },
+        {
+          "id": "fresh-character-create",
+          "result": "pass",
+          "notes": "A fresh character-create path completed on the deployed origin."
+        }
+      ]
+    },
+    "adventure": {
+      "evidence": [
+        {
+          "id": "exploration-tools",
+          "result": "pass",
+          "file": "artifacts/stage7_5-mutating-result-YYYYMMDD-COMMIT.json",
+          "notes": "Adventure loaded and Journal, Map, and Loot opened from the same public session."
+        },
+        {
+          "id": "skill-check-path",
+          "result": "pass",
+          "notes": "Skill-check click path passed, or Stage 7.5 public replacement path was accepted."
+        }
+      ]
+    },
+    "combat": {
+      "evidence": [
+        {
+          "id": "stage7.5-mutating-smoke",
+          "result": "pass",
+          "file": "artifacts/stage7_5-mutating-result-YYYYMMDD-COMMIT.json"
+        },
+        {
+          "id": "combat-log-reload",
+          "result": "pass",
+          "file": "artifacts/stage7_5-mutating-result-YYYYMMDD-COMMIT.json",
+          "notes": "Combat log persisted after the mutating attack/damage/end-turn refresh."
+        }
+      ]
+    },
+    "loot-economy": {
+      "evidence": [
+        {
+          "id": "party-stash-claim",
+          "result": "pass",
+          "file": "artifacts/stage7_5-mutating-result-YYYYMMDD-COMMIT.json",
+          "notes": "Gate Token or equivalent gear loot was claimed to party stash."
+        },
+        {
+          "id": "gold-or-shop-economy",
+          "result": "pass",
+          "notes": "Gold split or shop buy/sell smoke passed.",
+          "checks": {
+            "gold_or_shop_smoke_ok": true
+          }
+        }
+      ]
+    },
+    "multiplayer": {
+      "evidence": [
+        {
+          "id": "two-browser-room-join",
+          "result": "pass",
+          "notes": "Two-browser room join passed on current target."
+        },
+        {
+          "id": "speak-turn-handoff",
+          "result": "pass",
+          "notes": "Speak-turn handoff passed on current target."
+        },
+        {
+          "id": "combat-sync-or-blocker",
+          "result": "pass",
+          "notes": "Combat refresh/sync passed, or replace this item with a documented blocker."
+        }
+      ]
+    },
+    "production-parity": {
+      "evidence": [
+        {
+          "id": "github-actions-green",
+          "result": "pass",
+          "url": "https://github.com/xy92435952/ai-dnd-5e/actions",
+          "checks": {
+            "required_jobs_ok": true,
+            "jobs": ["backend", "frontend", "frontend-prod-build"]
+          }
+        },
+        {
+          "id": "postdeploy-healthcheck",
+          "result": "pass",
+          "file": "artifacts/stage7-postdeploy-healthcheck-YYYYMMDD-COMMIT.json",
+          "required_url": "https://www.ai5edm.top/api/health"
+        },
+        {
+          "id": "postgres-seed-reset",
+          "result": "pass",
+          "command": "python seed_smoke_scenario.py --slug stage7_5_launch --variant stage7-5 --username test --password 123456",
+          "checks": {
+            "seed_reset_ok": true
+          }
+        }
+      ]
+    }
+  }
+}
