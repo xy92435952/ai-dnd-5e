@@ -148,6 +148,100 @@ function validPublicBrowserSmoke(overrides = {}) {
   }
 }
 
+function validStage75LaunchSmoke(overrides = {}) {
+  return {
+    ok: true,
+    mode: 'stage7.5-launch-experience-smoke',
+    created_at: '2026-06-25T00:25:59.282Z',
+    frontend_origin: 'https://example.com',
+    username: 'test',
+    exploration_session_id: 'stage7-5-session',
+    combat_session_id: 'stage7-5-session',
+    checks: {
+      login_path: '/',
+      login_token_present: true,
+      exploration_session_api_ok: true,
+      exploration_session_combat_inactive: true,
+      exploration_player_present: true,
+      exploration_current_scene_present: true,
+      exploration_location_graph_present: true,
+      adventure_path: '/adventure/stage7-5-session',
+      adventure_loaded: true,
+      adventure_dialogue_panel_present: true,
+      adventure_response_box_present: true,
+      adventure_recovery_buttons_count: 3,
+      adventure_free_speak_present: true,
+      adventure_top_buttons_count: 6,
+      adventure_tool_buttons_count: 3,
+      journal_opened: true,
+      map_opened: true,
+      loot_opened: true,
+      exploration_loot_api_ok: true,
+      exploration_loot_items_count: 2,
+      combat_path: '/combat/stage7-5-session',
+      combat_loaded: true,
+      combat_session_api_ok: true,
+      combat_player_present: true,
+      combat_api_ok: true,
+      combat_session_active: true,
+      combat_round: 1,
+      combat_turn_order_count: 4,
+      combat_entities_count: 4,
+      combat_units_dom_count: 2,
+      combat_enemy_dom_count: 0,
+      combat_skill_bar_api_ok: true,
+      combat_skill_bar_count: 10,
+      combat_skill_bar_dom_count: 10,
+      combat_end_turn_present: true,
+      combat_end_turn_disabled: true,
+      combat_log_present: true,
+      combat_log_items_count: 16,
+      combat_reaction_prompt_present: false,
+      mutating_enabled: true,
+      mutating_exploration_choice_clicked: true,
+      mutating_combat_handoff_ok: true,
+      mutating_attack_roll_ok: true,
+      mutating_damage_roll_ok: true,
+      mutating_target_hp_reduced: true,
+      mutating_end_turn_ok: true,
+      mutating_turn_advanced: true,
+      mutating_loot_claim_ok: true,
+      mutating_session_logs_count: 7,
+    },
+    assertions: {
+      login_ok: true,
+      exploration_adventure_ready: true,
+      exploration_tools_ready: true,
+      combat_ready: true,
+      combat_controls_ready: true,
+      mutating_round_trip: true,
+      no_browser_errors: true,
+    },
+    browser: {
+      errors: [],
+    },
+    mutating: {
+      enabled: true,
+      target_id: 'enemy-smoke',
+      before_target_hp: 4,
+      after_damage_target_hp: 0,
+      target_hp_reduced: true,
+      turn_advanced: true,
+      loot_claim_ok: true,
+      loot_id: 'loot_gear_gate_token_0',
+    },
+    screenshots: {
+      exploration: 'exploration.png',
+      journal: 'journal.png',
+      map: 'map.png',
+      loot: 'loot.png',
+      combat: 'combat.png',
+      combat_mutating: 'combat-mutating.png',
+    },
+    ...overrides,
+  }
+}
+
 function writeManifest(data) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-evidence-verifier-'))
   const filePath = path.join(dir, 'manifest.json')
@@ -189,6 +283,23 @@ function writePublicBrowserSmoke(data, { adventure = 'png', combat = 'png' } = {
   return filePath
 }
 
+function writeStage75LaunchSmoke(data) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stage7-5-launch-smoke-'))
+  const screenshots = {}
+  for (const key of ['exploration', 'journal', 'map', 'loot', 'combat', 'combat_mutating']) {
+    if (!data.screenshots?.[key]) continue
+    const screenshotPath = path.join(dir, `${key}.png`)
+    fs.writeFileSync(screenshotPath, 'png', 'utf8')
+    screenshots[key] = screenshotPath
+  }
+  const filePath = path.join(dir, 'stage7-5-launch-smoke.json')
+  fs.writeFileSync(filePath, `${JSON.stringify({
+    ...data,
+    screenshots,
+  }, null, 2)}\n`, 'utf8')
+  return filePath
+}
+
 describe('Stage 7 evidence verifier CLI', () => {
   it('fails fast when type options are missing or invalid', () => {
     expect(() => runVerifier([])).toThrow(/At least one Stage 7 evidence file is required/)
@@ -197,7 +308,7 @@ describe('Stage 7 evidence verifier CLI', () => {
     expect(() => runVerifier(['--type', '--no-file-check'])).toThrow(/--type requires a value/)
     expect(() => runVerifier(['--type='])).toThrow(/--type requires a value/)
     expect(() => runVerifier(['--type', 'browser-smoke'])).toThrow(
-      /--type must be one of: auto, feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke, public-browser-smoke/,
+      /--type must be one of: auto, feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke, public-browser-smoke, stage7\.5-launch-smoke/,
     )
   })
 
@@ -275,5 +386,69 @@ describe('Stage 7 evidence verifier CLI', () => {
     expect(() => runVerifier([
       manifest,
     ])).toThrow(/browser\.errors must be empty/)
+  })
+
+  it('accepts Stage 7.5 launch-experience mutating smoke artifacts as evidence', () => {
+    const manifest = writeStage75LaunchSmoke(validStage75LaunchSmoke())
+
+    expect(runVerifier([
+      '--type',
+      'stage7.5-launch-smoke',
+      manifest,
+    ])).toContain('Verified 1 Stage 7 evidence file(s).')
+  })
+
+  it('accepts Stage 7.5 read-only launch-experience smoke artifacts as evidence', () => {
+    const base = validStage75LaunchSmoke()
+    const manifest = writeStage75LaunchSmoke(validStage75LaunchSmoke({
+      checks: {
+        ...base.checks,
+        exploration_loot_items_count: 0,
+        mutating_enabled: false,
+        mutating_exploration_choice_clicked: false,
+        mutating_combat_handoff_ok: false,
+        mutating_attack_roll_ok: false,
+        mutating_damage_roll_ok: false,
+        mutating_target_hp_reduced: false,
+        mutating_end_turn_ok: false,
+        mutating_turn_advanced: false,
+        mutating_loot_claim_ok: false,
+        mutating_session_logs_count: 0,
+      },
+      mutating: null,
+      screenshots: {
+        exploration: 'exploration.png',
+        journal: 'journal.png',
+        map: 'map.png',
+        loot: 'loot.png',
+        combat: 'combat.png',
+      },
+    }))
+
+    expect(runVerifier([
+      manifest,
+    ])).toContain('Verified 1 Stage 7 evidence file(s).')
+  })
+
+  it('rejects Stage 7.5 mutating artifacts that do not prove loot persistence', () => {
+    const base = validStage75LaunchSmoke()
+    const manifest = writeStage75LaunchSmoke(validStage75LaunchSmoke({
+      checks: {
+        ...base.checks,
+        mutating_loot_claim_ok: false,
+      },
+      assertions: {
+        ...base.assertions,
+        mutating_round_trip: false,
+      },
+      mutating: {
+        ...base.mutating,
+        loot_claim_ok: false,
+      },
+    }))
+
+    expect(() => runVerifier([
+      manifest,
+    ])).toThrow(/assertions\.mutating_round_trip must be true/)
   })
 })

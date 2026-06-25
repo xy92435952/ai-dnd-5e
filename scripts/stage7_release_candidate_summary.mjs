@@ -12,6 +12,7 @@ export const VALID_STAGE7_EVIDENCE_TYPES = [
   'postdeploy-healthcheck',
   'local-http-smoke',
   'public-browser-smoke',
+  'stage7.5-launch-smoke',
 ];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -577,6 +578,7 @@ export function inferEvidenceType(data) {
   }
   if (data?.mode === 'stage7-local-http-smoke') return 'local-http-smoke';
   if (data?.mode === 'stage7-public-browser-smoke') return 'public-browser-smoke';
+  if (data?.mode === 'stage7.5-launch-experience-smoke') return 'stage7.5-launch-smoke';
   return 'unknown';
 }
 

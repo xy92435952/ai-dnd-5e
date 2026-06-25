@@ -6,7 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
-const VALID_EVIDENCE_TYPES = ['auto', 'feather-fall', 'multiplayer-load', 'postdeploy-healthcheck', 'local-http-smoke', 'public-browser-smoke'];
+const VALID_EVIDENCE_TYPES = [
+  'auto',
+  'feather-fall',
+  'multiplayer-load',
+  'postdeploy-healthcheck',
+  'local-http-smoke',
+  'public-browser-smoke',
+  'stage7.5-launch-smoke',
+];
 
 function requiredOptionValue(argv, index, optionName) {
   const value = argv[index + 1] || '';
@@ -69,7 +77,7 @@ function parseArgs(argv = process.argv.slice(2)) {
 function usage() {
   return [
     'Usage:',
-    '  node scripts/verify_stage7_evidence.mjs [--type feather-fall|multiplayer-load|postdeploy-healthcheck|local-http-smoke|public-browser-smoke|auto] [--no-file-check] <json-file> [more-json-files...]',
+    '  node scripts/verify_stage7_evidence.mjs [--type feather-fall|multiplayer-load|postdeploy-healthcheck|local-http-smoke|public-browser-smoke|stage7.5-launch-smoke|auto] [--no-file-check] <json-file> [more-json-files...]',
     '',
     'Checks:',
     '  feather-fall       verifies browser smoke manifest fields and screenshot paths',
@@ -77,6 +85,7 @@ function usage() {
     '  postdeploy-healthcheck verifies post-deploy health URL and log scan results',
     '  local-http-smoke   verifies local HTTP health, login, Adventure, Combat, and skill-bar smoke results',
     '  public-browser-smoke verifies public-origin login, Adventure, Combat, and skill-bar browser smoke results',
+    '  stage7.5-launch-smoke verifies public launch-experience Adventure, Combat, mutating round-trip, and screenshots',
     '  auto               infers the type from the JSON payload',
   ].join('\n');
 }
@@ -101,6 +110,7 @@ function inferType(data) {
   }
   if (data?.mode === 'stage7-local-http-smoke') return 'local-http-smoke';
   if (data?.mode === 'stage7-public-browser-smoke') return 'public-browser-smoke';
+  if (data?.mode === 'stage7.5-launch-experience-smoke') return 'stage7.5-launch-smoke';
   return 'unknown';
 }
 
@@ -349,6 +359,113 @@ function verifyPublicBrowserSmoke(filePath, data, { noFileCheck }) {
   }
 }
 
+function verifyStage75LaunchSmoke(filePath, data, { noFileCheck }) {
+  ensure(data.ok === true, `${filePath}: ok must be true`);
+  ensure(data.mode === 'stage7.5-launch-experience-smoke', `${filePath}: unexpected mode ${data.mode}`);
+  ensure(typeof data.created_at === 'string' && data.created_at.length > 0, `${filePath}: created_at missing`);
+  ensure(typeof data.frontend_origin === 'string' && /^https?:\/\//.test(data.frontend_origin), `${filePath}: frontend_origin must be an http(s) origin`);
+  ensure(typeof data.username === 'string' && data.username.length > 0, `${filePath}: username missing`);
+  ensure(typeof data.exploration_session_id === 'string' && data.exploration_session_id.length > 0, `${filePath}: exploration_session_id missing`);
+  ensure(typeof data.combat_session_id === 'string' && data.combat_session_id.length > 0, `${filePath}: combat_session_id missing`);
+
+  const checks = data.checks || {};
+  ensure(checks.login_token_present === true, `${filePath}: checks.login_token_present must be true`);
+  ensure(checks.login_path && checks.login_path !== '/login', `${filePath}: checks.login_path must leave /login`);
+  ensure(checks.exploration_session_api_ok === true, `${filePath}: checks.exploration_session_api_ok must be true`);
+  ensure(checks.exploration_player_present === true, `${filePath}: checks.exploration_player_present must be true`);
+  ensure(checks.exploration_current_scene_present === true, `${filePath}: checks.exploration_current_scene_present must be true`);
+  ensure(checks.exploration_location_graph_present === true, `${filePath}: checks.exploration_location_graph_present must be true`);
+  ensure(checks.adventure_loaded === true, `${filePath}: checks.adventure_loaded must be true`);
+  ensure(checks.adventure_dialogue_panel_present === true, `${filePath}: checks.adventure_dialogue_panel_present must be true`);
+  ensure(checks.adventure_response_box_present === true, `${filePath}: checks.adventure_response_box_present must be true`);
+  ensureNumber(checks.adventure_recovery_buttons_count, `${filePath}: checks.adventure_recovery_buttons_count missing`);
+  ensure(checks.adventure_recovery_buttons_count >= 1, `${filePath}: checks.adventure_recovery_buttons_count must be positive`);
+  ensure(checks.adventure_free_speak_present === true, `${filePath}: checks.adventure_free_speak_present must be true`);
+  ensureNumber(checks.adventure_tool_buttons_count, `${filePath}: checks.adventure_tool_buttons_count missing`);
+  ensure(checks.adventure_tool_buttons_count >= 3, `${filePath}: checks.adventure_tool_buttons_count must include Journal, Map, and Loot`);
+  ensure(checks.journal_opened === true, `${filePath}: checks.journal_opened must be true`);
+  ensure(checks.map_opened === true, `${filePath}: checks.map_opened must be true`);
+  ensure(checks.loot_opened === true, `${filePath}: checks.loot_opened must be true`);
+  ensure(checks.exploration_loot_api_ok === true, `${filePath}: checks.exploration_loot_api_ok must be true`);
+
+  ensure(checks.combat_loaded === true, `${filePath}: checks.combat_loaded must be true`);
+  ensure(checks.combat_session_api_ok === true, `${filePath}: checks.combat_session_api_ok must be true`);
+  ensure(checks.combat_player_present === true, `${filePath}: checks.combat_player_present must be true`);
+  ensure(checks.combat_api_ok === true, `${filePath}: checks.combat_api_ok must be true`);
+  ensure(checks.combat_session_active === true, `${filePath}: checks.combat_session_active must be true`);
+  ensureNumber(checks.combat_round, `${filePath}: checks.combat_round missing`);
+  ensure(checks.combat_round >= 1, `${filePath}: checks.combat_round must be at least 1`);
+  ensureNumber(checks.combat_turn_order_count, `${filePath}: checks.combat_turn_order_count missing`);
+  ensure(checks.combat_turn_order_count >= 2, `${filePath}: checks.combat_turn_order_count must include player and enemies`);
+  ensureNumber(checks.combat_entities_count, `${filePath}: checks.combat_entities_count missing`);
+  ensure(checks.combat_entities_count >= 2, `${filePath}: checks.combat_entities_count must include player and enemies`);
+  ensure(checks.combat_skill_bar_api_ok === true, `${filePath}: checks.combat_skill_bar_api_ok must be true`);
+  ensureNumber(checks.combat_skill_bar_count, `${filePath}: checks.combat_skill_bar_count missing`);
+  ensure(checks.combat_skill_bar_count > 0, `${filePath}: checks.combat_skill_bar_count must be positive`);
+  ensureNumber(checks.combat_skill_bar_dom_count, `${filePath}: checks.combat_skill_bar_dom_count missing`);
+  ensure(checks.combat_skill_bar_dom_count > 0, `${filePath}: checks.combat_skill_bar_dom_count must be positive`);
+  ensure(checks.combat_end_turn_present === true, `${filePath}: checks.combat_end_turn_present must be true`);
+  ensure(checks.combat_log_present === true, `${filePath}: checks.combat_log_present must be true`);
+  ensureNumber(checks.combat_log_items_count, `${filePath}: checks.combat_log_items_count missing`);
+  ensure(checks.combat_log_items_count > 0, `${filePath}: checks.combat_log_items_count must be positive`);
+
+  const assertions = data.assertions || {};
+  for (const key of [
+    'login_ok',
+    'exploration_adventure_ready',
+    'exploration_tools_ready',
+    'combat_ready',
+    'combat_controls_ready',
+    'mutating_round_trip',
+    'no_browser_errors',
+  ]) {
+    ensure(assertions[key] === true, `${filePath}: assertions.${key} must be true`);
+  }
+  ensure(Array.isArray(data.browser?.errors), `${filePath}: browser.errors must be an array`);
+  ensure(data.browser.errors.length === 0, `${filePath}: browser.errors must be empty`);
+
+  if (checks.mutating_enabled === true) {
+    for (const key of [
+      'mutating_exploration_choice_clicked',
+      'mutating_combat_handoff_ok',
+      'mutating_attack_roll_ok',
+      'mutating_damage_roll_ok',
+      'mutating_target_hp_reduced',
+      'mutating_end_turn_ok',
+      'mutating_turn_advanced',
+      'mutating_loot_claim_ok',
+    ]) {
+      ensure(checks[key] === true, `${filePath}: checks.${key} must be true`);
+    }
+    ensureNumber(checks.mutating_session_logs_count, `${filePath}: checks.mutating_session_logs_count missing`);
+    ensure(checks.mutating_session_logs_count > 0, `${filePath}: checks.mutating_session_logs_count must be positive`);
+    ensure(data.mutating && data.mutating.enabled === true, `${filePath}: mutating.enabled must be true`);
+    ensure(typeof data.mutating.target_id === 'string' && data.mutating.target_id.length > 0, `${filePath}: mutating.target_id missing`);
+    ensureNumber(data.mutating.before_target_hp, `${filePath}: mutating.before_target_hp missing`);
+    ensureNumber(data.mutating.after_damage_target_hp, `${filePath}: mutating.after_damage_target_hp missing`);
+    ensure(data.mutating.after_damage_target_hp < data.mutating.before_target_hp, `${filePath}: mutating target HP must be reduced`);
+    ensure(data.mutating.turn_advanced === true, `${filePath}: mutating.turn_advanced must be true`);
+    ensure(data.mutating.loot_claim_ok === true, `${filePath}: mutating.loot_claim_ok must be true`);
+    ensure(typeof data.mutating.loot_id === 'string' && data.mutating.loot_id.length > 0, `${filePath}: mutating.loot_id missing`);
+  }
+
+  if (!noFileCheck) {
+    for (const key of ['exploration', 'journal', 'map', 'loot', 'combat']) {
+      ensure(typeof data.screenshots?.[key] === 'string' && data.screenshots[key].length > 0, `${filePath}: screenshots.${key} missing`);
+      ensurePathExists(path.isAbsolute(data.screenshots[key]) ? data.screenshots[key] : path.resolve(root, data.screenshots[key]), `${filePath}: screenshots.${key}`);
+    }
+    if (checks.mutating_enabled === true) {
+      ensure(typeof data.screenshots?.combat_mutating === 'string' && data.screenshots.combat_mutating.length > 0, `${filePath}: screenshots.combat_mutating missing`);
+      ensurePathExists(
+        path.isAbsolute(data.screenshots.combat_mutating)
+          ? data.screenshots.combat_mutating
+          : path.resolve(root, data.screenshots.combat_mutating),
+        `${filePath}: screenshots.combat_mutating`,
+      );
+    }
+  }
+}
+
 async function main() {
   const args = parseArgs();
   if (args.help) {
@@ -384,7 +501,11 @@ async function main() {
       verifyPublicBrowserSmoke(fullPath, data, args);
       continue;
     }
-    fail(`${fullPath}: could not infer evidence type; pass --type feather-fall, --type multiplayer-load, --type postdeploy-healthcheck, --type local-http-smoke, or --type public-browser-smoke`);
+    if (type === 'stage7.5-launch-smoke') {
+      verifyStage75LaunchSmoke(fullPath, data, args);
+      continue;
+    }
+    fail(`${fullPath}: could not infer evidence type; pass --type feather-fall, --type multiplayer-load, --type postdeploy-healthcheck, --type local-http-smoke, --type public-browser-smoke, or --type stage7.5-launch-smoke`);
   }
 
   console.log(`Verified ${args.files.length} Stage 7 evidence file(s).`);

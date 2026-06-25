@@ -84,6 +84,23 @@ else
   echo "Set RUN_STAGE7_REACTION_GATE=1 to rerun the focused backend/frontend ReactionPrompt recovery/privacy gates."
 fi
 
+if [ "${RUN_STAGE8_COMPREHENSIVE_GATE:-0}" = "1" ]; then
+  echo "== Stage 8 comprehensive matrix gate =="
+  set --
+  if [ "${STAGE8_REQUIRE_STAGE7_5_EVIDENCE:-0}" = "1" ]; then
+    set -- "$@" --require-stage7-5-evidence
+  fi
+  if [ -n "${STAGE8_STAGE7_5_EVIDENCE_FILES:-}" ]; then
+    for evidence_file in $STAGE8_STAGE7_5_EVIDENCE_FILES; do
+      set -- "$@" --stage7-5-evidence "$evidence_file"
+    done
+  fi
+  (cd "$ROOT_DIR" && node scripts/stage8_comprehensive_gate.mjs "$@")
+else
+  echo "== Stage 8 comprehensive matrix gate skipped =="
+  echo "Set RUN_STAGE8_COMPREHENSIVE_GATE=1 to verify the Stage 8 required-suite matrix."
+fi
+
 if [ "${RUN_STAGE7_FEATHER_FALL_BROWSER_SMOKE:-0}" = "1" ]; then
   FEATHER_FALL_ARTIFACT_TAG="$(feather_fall_artifact_tag)"
   echo "== Stage 7 Feather Fall browser smoke: accept =="

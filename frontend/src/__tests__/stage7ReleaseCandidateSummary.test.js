@@ -12,6 +12,7 @@ import {
   downloadCiBlockerLogs,
   findRunForHead,
   inferGitHubRepo,
+  inferEvidenceType,
   matchesHeadSha,
   parseArgs,
   REQUIRED_STAGE7_CI_JOBS,
@@ -411,7 +412,7 @@ describe('Stage 7 release candidate summary', () => {
     expect(() => parseArgs(['--require-evidence-type', '--json'])).toThrow('--require-evidence-type requires a value.')
     expect(() => parseArgs(['--require-evidence-type='])).toThrow('--require-evidence-type requires a value.')
     expect(() => parseArgs(['--require-evidence-type', 'browser-smoke'])).toThrow(
-      '--require-evidence-type must be one of: feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke, public-browser-smoke.',
+      '--require-evidence-type must be one of: feather-fall, multiplayer-load, postdeploy-healthcheck, local-http-smoke, public-browser-smoke, stage7.5-launch-smoke.',
     )
     expect(() => parseArgs(['--require-postdeploy-health-url', '--json'])).toThrow(
       '--require-postdeploy-health-url requires a value.',
@@ -745,6 +746,19 @@ describe('Stage 7 release candidate summary', () => {
     })
     expect(verifyEvidenceFiles([badEvidence])).toMatchObject({
       ok: false,
+    })
+  })
+
+  it('classifies Stage 7.5 launch-experience evidence for final handoff summaries', () => {
+    expect(inferEvidenceType({
+      mode: 'stage7.5-launch-experience-smoke',
+    })).toBe('stage7.5-launch-smoke')
+
+    expect(parseArgs([
+      '--require-evidence-type',
+      'stage7.5-launch-smoke',
+    ])).toMatchObject({
+      requiredEvidenceTypes: ['stage7.5-launch-smoke'],
     })
   })
 
