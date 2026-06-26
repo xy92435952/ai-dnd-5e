@@ -301,8 +301,8 @@ If the deployed nginx config was created before Stage 8, update to the latest
 `main` and rerun `update_server.sh`; the update script now backs up the detected
 nginx app config and inserts the `/api/ws/` WebSocket proxy when it is missing.
 
-If a deterministic multiplayer combat path is available on the deployed target,
-attempt the combat-sync assertion:
+For full no-blocker public evidence, attempt the deterministic combat-sync
+assertion:
 
 ```powershell
 node scripts\stage8_public_evidence_smoke.mjs --frontend-origin https://www.ai5edm.top --username test --password 123456 --module-id <parsed-module-id> --output artifacts\stage8-public-evidence-YYYYMMDD-COMMIT.json --attempt-combat-sync

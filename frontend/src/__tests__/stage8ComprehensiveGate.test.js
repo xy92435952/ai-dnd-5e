@@ -447,6 +447,7 @@ describe('Stage 8 comprehensive gate', () => {
     expect(args.frontendOrigin).toBe('https://www.ai5edm.top')
     expect(args.apiOrigin).toBe('https://www.ai5edm.top/api')
     expect(args.wsApiBase).toBe('https://www.ai5edm.top/api')
+    expect(args.combatActionText).toBe('Stage 8 public combat sync: start the deterministic training fight.')
     expect(args.output).toContain('stage8-public-evidence-20260625-test.json')
     expect(args.allowCombatSyncBlocker).toBe(true)
   })

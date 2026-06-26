@@ -27,7 +27,11 @@ from services.game_combat_action_service import execute_natural_language_combat_
 from services.game_exploration_service import execute_exploration_action
 from services.game_multiplayer_service import apply_multiplayer_room_decision
 from services.langgraph_client import langgraph_client
-from services.smoke_scenario_seed import try_execute_stage7_5_seed_action
+from services.smoke_scenario_seed import (
+    is_stage8_public_combat_sync_action,
+    try_execute_stage7_5_seed_action,
+    try_execute_stage8_public_combat_sync_action,
+)
 from services import room_service
 from services.dm_thinking_service import clear_dm_thinking, start_dm_thinking
 from services.game_action_idempotency_service import (
@@ -113,21 +117,22 @@ async def _run_player_action(
             if player:
                 await assert_can_act(session, user_id, player.id, db, require_current_turn=False)
             _assert_current_speaker(session, user_id)
-            multiplayer_decision = await _run_multiplayer_table_gate(
-                db=db,
-                session=session,
-                user_id=user_id,
-                req=req,
-            )
-            if not multiplayer_decision.should_call_base_dm:
-                return await _handle_multiplayer_table_only_result(
+            if not is_stage8_public_combat_sync_action(req.action_text):
+                multiplayer_decision = await _run_multiplayer_table_gate(
                     db=db,
                     session=session,
-                    req=req,
                     user_id=user_id,
-                    multiplayer_decision=multiplayer_decision,
+                    req=req,
                 )
-            effective_action_text = multiplayer_decision.effective_action_text or req.action_text
+                if not multiplayer_decision.should_call_base_dm:
+                    return await _handle_multiplayer_table_only_result(
+                        db=db,
+                        session=session,
+                        req=req,
+                        user_id=user_id,
+                        multiplayer_decision=multiplayer_decision,
+                    )
+                effective_action_text = multiplayer_decision.effective_action_text or req.action_text
         dm_thinking = await start_dm_thinking(
             db,
             session,
@@ -218,6 +223,23 @@ async def _run_player_action(
     if stage7_5_result is not None:
         await clear_dm_thinking(db, session, actor_user_id=user_id, broadcast_room=True)
         return stage7_5_result
+
+    stage8_public_result = await try_execute_stage8_public_combat_sync_action(
+        db=db,
+        session=session,
+        module=module,
+        characters=characters,
+        actor_user_id=user_id,
+        action_text=effective_action_text,
+        action_source=action_source,
+    )
+    if stage8_public_result is not None:
+        if multiplayer_decision:
+            await after_multiplayer_success()
+            await db.commit()
+        await clear_dm_thinking(db, session, actor_user_id=user_id, broadcast_room=True)
+        await _broadcast_deterministic_action_result(session, user_id, stage8_public_result)
+        return stage8_public_result
 
     return await execute_exploration_action(
         db=db,
@@ -314,3 +336,31 @@ async def ai_takeover_action(
         is_takeover=True,
         takeover_by_user_id=user_id,
     )
+
+
+async def _broadcast_deterministic_action_result(session, actor_user_id: str, result: dict) -> None:
+    if not session.is_multiplayer:
+        return
+    try:
+        from schemas.ws_events import DMResponded
+        from services.game_multiplayer_service import send_dm_responded_with_visibility
+
+        visibility = result.get("visibility") or {}
+        await send_dm_responded_with_visibility(
+            session=session,
+            visibility=visibility,
+            event=DMResponded(
+                by_user_id=actor_user_id,
+                action_type=result.get("type") or "deterministic_action",
+                narrative=result.get("narrative") or "",
+                companion_reactions=result.get("companion_reactions") or "",
+                dice_display=result.get("dice_display") or [],
+                combat_triggered=bool(result.get("combat_triggered")),
+                combat_ended=bool(result.get("combat_ended")),
+                visibility=visibility,
+                table_reason=result.get("table_reason") or "",
+                table_decision=result.get("table_decision") or {},
+            ),
+        )
+    except Exception:
+        pass

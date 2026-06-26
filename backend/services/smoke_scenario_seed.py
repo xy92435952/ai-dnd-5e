@@ -29,6 +29,7 @@ STAGE7_5_COMBAT_CHOICE_TEXT = "Secure the gate and start the Stage 7.5 training 
 STAGE7_5_SECONDARY_CHOICE_TEXT = "Review the map, journal, and loot before the training fight."
 STAGE7_5_GOLD_LOOT_ID = "loot_gold_1"
 STAGE7_5_TOKEN_LOOT_ID = "loot_gear_gate_token_0"
+STAGE8_PUBLIC_COMBAT_SYNC_ACTION_TEXT = "Stage 8 public combat sync: start the deterministic training fight."
 
 
 @dataclass(frozen=True)
@@ -553,6 +554,41 @@ def stage7_5_training_enemies() -> list[dict[str, Any]]:
     return enemies
 
 
+def stage8_public_combat_sync_enemies() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "enemy_stage8_public_sentry",
+            "name": "Stage 8 Public Sentry",
+            "hp": 9,
+            "hp_current": 9,
+            "hp_max": 9,
+            "ac": 13,
+            "attack_bonus": 3,
+            "damage_dice": "1d6+1",
+            "damage_type": "piercing",
+            "speed": 30,
+            "cr": "1/4",
+            "xp": 50,
+            "tactics": "Hold the training line and make one basic spear attack.",
+            "actions": [
+                {
+                    "name": "Training Spear",
+                    "type": "melee_attack",
+                    "attack_bonus": 3,
+                    "damage_dice": "1d6+1",
+                    "damage_type": "piercing",
+                }
+            ],
+            "ability_scores": {"str": 12, "dex": 12, "con": 10, "int": 6, "wis": 10, "cha": 6},
+        }
+    ]
+
+
+def is_stage8_public_combat_sync_action(action_text: str) -> bool:
+    normalized = " ".join(str(action_text or "").split()).lower()
+    return normalized == STAGE8_PUBLIC_COMBAT_SYNC_ACTION_TEXT.lower()
+
+
 def _ensure_stage7_5_loot_state(game_state: dict[str, Any]) -> dict[str, Any]:
     loot_pool = game_state.get("loot_pool")
     if not isinstance(loot_pool, dict):
@@ -599,6 +635,85 @@ def _ensure_stage7_5_loot_state(game_state: dict[str, Any]) -> dict[str, Any]:
     loot_pool["items"] = list(items_by_id.values())
     game_state["loot_pool"] = loot_pool
     return game_state
+
+
+async def try_execute_stage8_public_combat_sync_action(
+    *,
+    db: AsyncSession,
+    session: Session,
+    module: Module | None,
+    characters: list[Character],
+    actor_user_id: str,
+    action_text: str,
+    action_source: str,
+) -> dict[str, Any] | None:
+    """Deterministic multiplayer combat handoff for Stage 8 public API/WS evidence."""
+    if not session.is_multiplayer:
+        return None
+    if not is_stage8_public_combat_sync_action(action_text):
+        return None
+
+    from models import GameLog
+    from services.game_combat_setup_service import init_combat
+
+    state = dict(session.game_state or {})
+    state.update({
+        "stage8_public_combat_sync": {
+            "triggered": True,
+            "triggered_by_user_id": actor_user_id,
+            "source": action_source,
+        },
+        "last_turn": {
+            "player_choices": [],
+            "needs_check": None,
+            "last_actor_user_id": actor_user_id,
+            "action_type": "stage8_public_combat_sync",
+            "source": action_source,
+        },
+    })
+    session.game_state = state
+    flag_modified(session, "game_state")
+    session.current_scene = (
+        "The Stage 8 public smoke drill locks the room into a deterministic "
+        "multiplayer combat sync encounter."
+    )
+    await init_combat(
+        session=session,
+        initial_enemies=stage8_public_combat_sync_enemies(),
+        characters=characters,
+        module=module,
+        db=db,
+    )
+    db.add(GameLog(
+        session_id=session.id,
+        role="dm",
+        content=(
+            "Stage 8 public smoke: deterministic multiplayer combat sync "
+            "encounter started."
+        ),
+        log_type="narrative",
+    ))
+    await db.commit()
+    return {
+        "type": "stage8_public_combat_sync",
+        "narrative": (
+            "The public sync drill starts. A clockwork sentry steps onto the "
+            "grid so both connected players can verify the same combat state."
+        ),
+        "companion_reactions": "",
+        "dice_display": [],
+        "player_choices": [],
+        "needs_check": {"required": False},
+        "combat_triggered": True,
+        "combat_ended": False,
+        "combat_end_result": None,
+        "combat_update": None,
+        "visibility": {},
+        "table_reason": "",
+        "table_decision": {},
+        "exploration_reaction_prompt": None,
+        "errors": [],
+    }
 
 
 async def try_execute_stage7_5_seed_action(

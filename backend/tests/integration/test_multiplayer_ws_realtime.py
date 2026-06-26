@@ -1954,6 +1954,94 @@ async def test_http_multiplayer_combat_trigger_notifies_room_websocket_clients(
         ws_manager.ws_meta.clear()
 
 
+async def test_stage8_public_combat_sync_action_triggers_combat_without_agents(
+    client,
+    db_session,
+    engine,
+    sample_module,
+    monkeypatch,
+):
+    """Stage 8 public smoke can verify combat sync without LLM variance."""
+    import api.ws as ws_api
+    import services.graphs.multiplayer_dm_agent as mp_agent
+    import services.langgraph_client as lc
+    from services.smoke_scenario_seed import STAGE8_PUBLIC_COMBAT_SYNC_ACTION_TEXT
+    from services.ws_manager import ws_manager
+
+    ws_manager.rooms.clear()
+    ws_manager.user_ws.clear()
+    ws_manager.ws_meta.clear()
+    monkeypatch.setattr(
+        ws_api,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, expire_on_commit=False),
+    )
+
+    async def fail_call_dm_agent(*args, **kwargs):
+        raise AssertionError("Stage 8 public combat sync should not call the base DM agent")
+
+    async def fail_multiplayer_dm_agent(*args, **kwargs):
+        raise AssertionError("Stage 8 public combat sync should not call the multiplayer table agent")
+
+    monkeypatch.setattr(lc.langgraph_client, "call_dm_agent", fail_call_dm_agent)
+    monkeypatch.setattr(mp_agent, "run_multiplayer_dm_agent", fail_multiplayer_dm_agent)
+
+    room_data = await _create_multiplayer_combat_room(
+        client,
+        db_session,
+        sample_module,
+        name_prefix="stage8_public_sync",
+    )
+    host = room_data["host"]
+    guest = room_data["guest"]
+    sid = room_data["session_id"]
+    host_char = room_data["host_char"]
+    guest_char = room_data["guest_char"]
+
+    host_ws = QueueWebSocket()
+    guest_ws = QueueWebSocket()
+    host_task = asyncio.create_task(ws_api.ws_endpoint(host_ws, sid, token=host["token"]))
+    guest_task = asyncio.create_task(ws_api.ws_endpoint(guest_ws, sid, token=guest["token"]))
+
+    try:
+        await asyncio.wait_for(host_ws.accepted.wait(), timeout=1)
+        await asyncio.wait_for(guest_ws.accepted.wait(), timeout=1)
+        await _wait_for_event(host_ws, "member_online")
+
+        response = await client.post("/game/action", headers=_h(host["token"]), json={
+            "session_id": sid,
+            "action_text": STAGE8_PUBLIC_COMBAT_SYNC_ACTION_TEXT,
+            "idempotency_key": "stage8-public-combat-sync-test",
+        })
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["type"] == "stage8_public_combat_sync"
+        assert body["combat_triggered"] is True
+
+        dm_response = await _wait_for_event(guest_ws, "dm_responded", timeout=2)
+        assert dm_response["by_user_id"] == host["user_id"]
+        assert dm_response["action_type"] == "stage8_public_combat_sync"
+        assert dm_response["combat_triggered"] is True
+
+        host_combat = (await client.get(f"/game/combat/{sid}", headers=_h(host["token"]))).json()
+        guest_combat = (await client.get(f"/game/combat/{sid}", headers=_h(guest["token"]))).json()
+        assert host_combat["entities"].keys() == guest_combat["entities"].keys()
+        assert host_char.id in host_combat["entities"]
+        assert guest_char.id in host_combat["entities"]
+        assert any(
+            entity["name"] == "Stage 8 Public Sentry" and entity["is_enemy"] is True
+            for entity in host_combat["entities"].values()
+        )
+    finally:
+        await host_ws.disconnect()
+        await guest_ws.disconnect()
+        await asyncio.gather(host_task, guest_task, return_exceptions=True)
+        ws_manager.rooms.clear()
+        ws_manager.user_ws.clear()
+        ws_manager.ws_meta.clear()
+
+
 async def test_multiplayer_damage_roll_broadcasts_combat_update(
     client,
     db_session,

@@ -12,7 +12,7 @@ const root = path.resolve(scriptDir, '..');
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MODULE_POLL_MS = 180_000;
 const DEFAULT_SHOP_SETUP_GOLD = 100;
-const DEFAULT_COMBAT_ACTION_TEXT = 'We enter the training yard together and engage the sentries in combat.';
+const DEFAULT_COMBAT_ACTION_TEXT = 'Stage 8 public combat sync: start the deterministic training fight.';
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const SMOKE_MODULE_TEXT = `Stage 8 Public Evidence Module
 
@@ -348,7 +348,7 @@ export function usage() {
     '  --module-id <id>                   Reuse a parsed module. Otherwise the script picks the newest parsed module or uploads a tiny txt module.',
     '  --guest-username <user>            Optional reusable guest account. Omitted means a short disposable account is registered.',
     '  --guest-password <pass>            Guest password. Defaults to stage8pass.',
-    '  --attempt-combat-sync              Try a real multiplayer combat trigger through /game/action.',
+    '  --attempt-combat-sync              Try the deterministic multiplayer combat sync trigger through /game/action.',
     '  --allow-combat-sync-blocker        Let the artifact finish with a documented combat-sync blocker when no deterministic public combat sync is available.',
   ].join('\n');
 }
